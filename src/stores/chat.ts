@@ -1,0 +1,67 @@
+import { defineStore } from 'pinia'
+import { computed, ref } from 'vue'
+
+import { appBridge } from '@/bridge/app'
+import type { Session } from '@shared/types/chat'
+
+export const useChatStore = defineStore('chat', () => {
+  const sessions = ref<Session[]>([])
+  const activeSessionId = ref<string>()
+  const draft = ref('')
+  const streamingText = ref('')
+  const isStreaming = ref(false)
+
+  const activeSession = computed(() =>
+    sessions.value.find((session) => session.id === activeSessionId.value),
+  )
+
+  async function loadSessions(): Promise<void> {
+    sessions.value = await appBridge.chat.listSessions()
+    activeSessionId.value ??= sessions.value[0]?.id
+  }
+
+  async function createSession(): Promise<void> {
+    const session = await appBridge.chat.createSession()
+    sessions.value.unshift(session)
+    activeSessionId.value = session.id
+  }
+
+  async function sendDraft(): Promise<void> {
+    const content = draft.value.trim()
+
+    if (!content || !activeSessionId.value || isStreaming.value) {
+      return
+    }
+
+    draft.value = ''
+    streamingText.value = ''
+    isStreaming.value = true
+
+    await appBridge.chat.sendMessage({
+      sessionId: activeSessionId.value,
+      content,
+    })
+  }
+
+  function appendToken(token: string): void {
+    streamingText.value += token
+  }
+
+  function finishStream(): void {
+    isStreaming.value = false
+  }
+
+  return {
+    sessions,
+    activeSessionId,
+    activeSession,
+    draft,
+    streamingText,
+    isStreaming,
+    loadSessions,
+    createSession,
+    sendDraft,
+    appendToken,
+    finishStream,
+  }
+})

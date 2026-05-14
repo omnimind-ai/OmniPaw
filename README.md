@@ -1,6 +1,6 @@
 # OpenOmniClaw Electron
 
-OpenOmniClaw desktop client built with Electron.
+OpenOmniClaw desktop client built with Electron, electron-vite, Vue 3, and TypeScript.
 
 ## Requirements
 
@@ -12,21 +12,27 @@ OpenOmniClaw desktop client built with Electron.
 ```bash
 pnpm install
 pnpm dev
+pnpm build
 pnpm lint
 pnpm run pack
 pnpm dist
 ```
 
+`pnpm dev` starts the electron-vite development server.
+`pnpm build` runs Vue/TypeScript type checks and builds Electron main, preload, and renderer bundles.
 `pnpm run pack` creates an unpacked app under `release/win-unpacked`.
 `pnpm dist` creates a distributable installer under `release`.
 
 ## Project Structure
 
 ```text
-src/
-  main/       Electron main process
-  preload/    Safe bridge between renderer and main process
-  renderer/   Browser UI
+electron/
+  main.ts      Electron main process, window lifecycle, IPC registration
+  preload.ts   Safe bridge between renderer and main process
+core/          Business logic that runs from the main process
+shared/        Shared constants and TypeScript contracts
+src/           Vue renderer application
+resources/     Packaged static resources
 ```
 
 The renderer runs with `contextIsolation` enabled and Node integration disabled.

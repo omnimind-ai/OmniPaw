@@ -1,19 +1,20 @@
 // @ts-check
 import { test, expect } from '@playwright/test';
 
-test('has title', async ({ page }) => {
-  await page.goto('https://playwright.dev/');
+test('renders the desktop app shell', async ({ page }) => {
+  await page.goto('/');
 
-  // Expect a title "to contain" a substring.
-  await expect(page).toHaveTitle(/Playwright/);
+  await expect(page).toHaveTitle(/OpenOmniClaw/);
+  await expect(page.getByRole('heading', { name: 'OpenOmniClaw' })).toBeVisible();
+  await expect(page.getByRole('link', { name: '对话' })).toBeVisible();
 });
 
-test('get started link', async ({ page }) => {
-  await page.goto('https://playwright.dev/');
+test('can navigate to skeleton feature pages', async ({ page }) => {
+  await page.goto('/');
 
-  // Click the get started link.
-  await page.getByRole('link', { name: 'Get started' }).click();
+  await page.getByRole('link', { name: 'Skills' }).click();
+  await expect(page.getByRole('heading', { name: 'Skill 管理' })).toBeVisible();
 
-  // Expects page to have a heading with the name of Installation.
-  await expect(page.getByRole('heading', { name: 'Installation' })).toBeVisible();
+  await page.getByRole('link', { name: '定时' }).click();
+  await expect(page.getByRole('heading', { name: '定时任务' })).toBeVisible();
 });

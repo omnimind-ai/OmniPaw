@@ -2,24 +2,37 @@
   "name": "openomniclaw-electron",
   "version": "1.0.0",
   "description": "OpenOmniClaw desktop client built with Electron.",
-  "main": "src/main/main.js",
+  "type": "module",
+  "main": "out/main/main.cjs",
   "scripts": {
-    "start": "electron .",
-    "dev": "electron .",
-    "pack": "electron-builder --dir",
-    "dist": "electron-builder",
-    "lint": "node --check src/main/main.js && node --check src/main/cat-manager.js && node --check src/preload/preload.js && node --check src/renderer/app.js && node --check src/renderer/cat-window.js && node --check src/renderer/cat-panel.js"
+    "dev": "electron-vite dev",
+    "start": "electron-vite preview",
+    "build": "vue-tsc --noEmit && electron-vite build",
+    "typecheck": "vue-tsc --noEmit",
+    "pack": "pnpm build && electron-builder --dir",
+    "dist": "pnpm build && electron-builder",
+    "lint": "vue-tsc --noEmit"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "packageManager": "pnpm@10.32.0",
+  "dependencies": {
+    "@vitejs/plugin-vue": "^6.0.3",
+    "electron-vite": "^5.0.0",
+    "vue": "^3.5.26",
+    "vue-router": "^4.6.3",
+    "pinia": "^3.0.4"
+  },
   "devDependencies": {
     "@playwright/test": "^1.60.0",
     "@types/node": "^25.7.0",
     "electron": "^42.0.1",
     "electron-builder": "^26.8.1",
-    "playwright": "^1.60.0"
+    "playwright": "^1.60.0",
+    "typescript": "^5.9.3",
+    "vite": "^7.3.3",
+    "vue-tsc": "^3.1.8"
   },
   "build": {
     "appId": "com.openomniclaw.desktop",
@@ -28,7 +41,8 @@
       "output": "release"
     },
     "files": [
-      "src/**/*",
+      "out/**/*",
+      "resources/**/*",
       "package.json"
     ],
     "win": {
