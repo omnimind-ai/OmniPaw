@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'"
+    />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>OpenOmniClaw</title>
+    <link rel="stylesheet" href="./styles.css" />
+    <script src="./app.js" defer></script>
+  </head>
+  <body>
+    <main class="shell">
+      <section class="panel intro-panel" aria-labelledby="app-title">
+        <p class="eyebrow">Desktop Control Surface</p>
+        <h1 id="app-title">OpenOmniClaw</h1>
+        <p class="lede">
+          一个已经完成基础安全配置的 Electron 桌面客户端骨架，可以继续接入设备控制、任务编排和本地配置能力。
+        </p>
+        <div class="actions" aria-label="Primary actions">
+          <button class="primary-action" type="button">开始连接</button>
+          <button class="secondary-action" type="button">打开配置</button>
+        </div>
+      </section>
+
+      <section class="panel status-panel" aria-labelledby="status-title">
+        <div class="section-heading">
+          <p class="eyebrow">Runtime</p>
+          <h2 id="status-title">应用状态</h2>
+        </div>
+
+        <dl class="status-grid">
+          <div>
+            <dt>Electron App</dt>
+            <dd id="app-version">读取中</dd>
+          </div>
+          <div>
+            <dt>Renderer</dt>
+            <dd>Ready</dd>
+          </div>
+          <div>
+            <dt>Security</dt>
+            <dd>Isolated</dd>
+          </div>
+        </dl>
+      </section>
+    </main>
+  </body>
+</html>
