@@ -70,6 +70,12 @@ button {
   outline-offset: 3px;
 }
 
+.cat-stage:hover {
+  background:
+    radial-gradient(circle at 45% 58%, rgb(255 255 255 / 0.84), transparent 39%),
+    radial-gradient(circle at 50% 55%, rgb(217 63 47 / 0.2), transparent 58%);
+}
+
 .cat-stage img {
   display: block;
   width: 76px;

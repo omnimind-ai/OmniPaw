@@ -42,8 +42,18 @@ contextBridge.exposeInMainWorld('openOmniClaw', {
       return createUnsubscriber('cat:state-changed', callback)
     },
     reportState: (state) => ipcRenderer.send('cat:renderer-state', state),
+    togglePanel: () => ipcRenderer.invoke('cat:toggle-panel'),
     dragStart: () => ipcRenderer.invoke('cat:drag-start'),
     dragMove: (payload) => ipcRenderer.invoke('cat:drag-move', payload),
     dragEnd: () => ipcRenderer.invoke('cat:drag-end'),
+  },
+  catPanel: {
+    onPlacement: (callback) => {
+      if (typeof callback !== 'function') {
+        return () => {}
+      }
+
+      return createUnsubscriber('cat-panel:placement', callback)
+    },
   },
 })

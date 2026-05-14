@@ -8,7 +8,7 @@
     "dev": "electron .",
     "pack": "electron-builder --dir",
     "dist": "electron-builder",
-    "lint": "node --check src/main/main.js && node --check src/preload/preload.js && node --check src/renderer/app.js && node --check src/renderer/cat-window.js"
+    "lint": "node --check src/main/main.js && node --check src/preload/preload.js && node --check src/renderer/app.js && node --check src/renderer/cat-window.js && node --check src/renderer/cat-panel.js"
   },
   "keywords": [],
   "author": "",

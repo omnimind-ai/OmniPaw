@@ -18,9 +18,15 @@ const catWindowSize = {
   width: 148,
   height: 132,
 }
+const catPanelSize = {
+  width: 280,
+  height: 280,
+}
+const catPanelGap = 10
 
 let mainWindow = null
 let catWindow = null
+let catPanelWindow = null
 let catSnapTimer = null
 let catState = 'hidden'
 let catVisible = false
@@ -164,6 +170,8 @@ function hideCatWindow() {
     catWindow.hide()
   }
 
+  closeCatPanelWindow()
+
   catVisible = false
   catState = 'hidden'
   broadcastCatStatus({ source: 'hide' })
@@ -242,6 +250,118 @@ function getSnapTargetBounds() {
   })
 }
 
+function closeCatPanelWindow() {
+  if (catPanelWindow && !catPanelWindow.isDestroyed()) {
+    catPanelWindow.close()
+  }
+}
+
+function getCatPanelPlacement(catBounds) {
+  const display = getCatDisplay(catBounds)
+  const workArea = display.workArea
+  const leftSpace = catBounds.x - workArea.x - catPanelGap
+  const rightSpace = workArea.x + workArea.width - (catBounds.x + catBounds.width) - catPanelGap
+  const side = rightSpace >= catPanelSize.width || rightSpace >= leftSpace ? 'right' : 'left'
+  const preferredX =
+    side === 'right'
+      ? catBounds.x + catBounds.width + catPanelGap
+      : catBounds.x - catPanelSize.width - catPanelGap
+  const centeredY = catBounds.y + Math.round((catBounds.height - catPanelSize.height) / 2)
+
+  return {
+    side,
+    bounds: {
+      width: catPanelSize.width,
+      height: catPanelSize.height,
+      x: clamp(preferredX, workArea.x + 8, workArea.x + workArea.width - catPanelSize.width - 8),
+      y: clamp(centeredY, workArea.y + 8, workArea.y + workArea.height - catPanelSize.height - 8),
+    },
+  }
+}
+
+function createCatPanelWindow(placement) {
+  if (catPanelWindow && !catPanelWindow.isDestroyed()) {
+    return catPanelWindow
+  }
+
+  catPanelWindow = new BrowserWindow({
+    ...placement.bounds,
+    title: 'OpenOmniClaw Cat Panel',
+    frame: false,
+    transparent: true,
+    resizable: false,
+    maximizable: false,
+    minimizable: false,
+    fullscreenable: false,
+    skipTaskbar: true,
+    alwaysOnTop: true,
+    hasShadow: false,
+    show: false,
+    backgroundColor: '#00000000',
+    webPreferences: {
+      preload: path.join(__dirname, '../preload/preload.js'),
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
+    },
+  })
+
+  catPanelWindow.setAlwaysOnTop(true, 'floating')
+  catPanelWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
+  catPanelWindow.loadFile(path.join(__dirname, '../renderer/cat-panel.html'))
+
+  catPanelWindow.on('closed', () => {
+    catPanelWindow = null
+    broadcastCatStatus({ panelVisible: false, source: 'cat-panel' })
+  })
+
+  return catPanelWindow
+}
+
+function toggleCatPanelWindow() {
+  if (!catWindow || catWindow.isDestroyed() || !catWindow.isVisible()) {
+    return {
+      ok: false,
+      error: 'Cat window is not visible',
+    }
+  }
+
+  if (catPanelWindow && !catPanelWindow.isDestroyed() && catPanelWindow.isVisible()) {
+    closeCatPanelWindow()
+
+    return {
+      ok: true,
+      visible: false,
+    }
+  }
+
+  const placement = getCatPanelPlacement(catWindow.getBounds())
+  const panelWindow = createCatPanelWindow(placement)
+  panelWindow.setBounds(placement.bounds)
+
+  const sendPlacement = () => {
+    if (catPanelWindow && !catPanelWindow.isDestroyed()) {
+      catPanelWindow.webContents.send('cat-panel:placement', placement)
+    }
+  }
+
+  if (panelWindow.webContents.isLoading()) {
+    panelWindow.webContents.once('did-finish-load', sendPlacement)
+  } else {
+    sendPlacement()
+  }
+
+  panelWindow.showInactive()
+  broadcastCatStatus({ panelVisible: true, panelSide: placement.side, source: 'cat-panel' })
+
+  return {
+    ok: true,
+    visible: true,
+    side: placement.side,
+    bounds: placement.bounds,
+  }
+}
+
 function createMainWindow() {
   mainWindow = new BrowserWindow({
     width: 1180,
@@ -280,6 +400,8 @@ function createMainWindow() {
     if (!isMac && catWindow && !catWindow.isDestroyed()) {
       catWindow.close()
     }
+
+    closeCatPanelWindow()
   })
 }
 
@@ -287,6 +409,7 @@ app.whenReady().then(() => {
   ipcMain.handle('app:get-version', () => app.getVersion())
   ipcMain.handle('cat:show', () => showCatWindow())
   ipcMain.handle('cat:hide', () => hideCatWindow())
+  ipcMain.handle('cat:toggle-panel', () => toggleCatPanelWindow())
   ipcMain.handle('cat:set-state', (_event, state) => {
     if (!allowedPanelStates.has(state)) {
       return {
@@ -309,6 +432,7 @@ app.whenReady().then(() => {
   })
   ipcMain.handle('cat:drag-start', () => {
     cancelCatSnapAnimation()
+    closeCatPanelWindow()
 
     if (!catWindow || catWindow.isDestroyed()) {
       return null

@@ -253,5 +253,10 @@ stage.addEventListener('pointercancel', async (event) => {
   }
 })
 
+stage.addEventListener('contextmenu', async (event) => {
+  event.preventDefault()
+  await catApi?.togglePanel?.()
+})
+
 catApi?.onCommand?.(handleCommand)
 enterState(states.HIDDEN)
