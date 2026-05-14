@@ -1,15 +1,21 @@
 :root {
   color-scheme: light;
-  --paper: #f4f1e8;
-  --ink: #211f1a;
-  --muted: #6d665c;
-  --line: #d9d1bf;
-  --panel: #fffaf0;
-  --accent: #c5362c;
-  --accent-ink: #fff7ef;
-  --green: #1f7a4d;
+  --paper: #f5f2ea;
+  --ink: #1e211f;
+  --muted: #66706b;
+  --line: #cbd3cf;
+  --panel: #fbfcf8;
+  --panel-strong: #1e211f;
+  --accent: #d93f2f;
+  --accent-ink: #fff8ef;
+  --green: #167a55;
+  --blue: #315f92;
   font-family:
-    ui-serif, Georgia, Cambria, "Times New Roman", Times, serif;
+    "Trebuchet MS",
+    "Gill Sans",
+    ui-sans-serif,
+    system-ui,
+    sans-serif;
 }
 
 * {
@@ -22,8 +28,10 @@ body {
   margin: 0;
   color: var(--ink);
   background:
-    linear-gradient(135deg, rgb(33 31 26 / 0.08) 0 1px, transparent 1px 18px),
-    radial-gradient(circle at 85% 14%, rgb(197 54 44 / 0.16), transparent 28rem),
+    linear-gradient(90deg, rgb(30 33 31 / 0.08) 0 1px, transparent 1px 32px),
+    linear-gradient(0deg, rgb(30 33 31 / 0.06) 0 1px, transparent 1px 32px),
+    radial-gradient(circle at 88% 18%, rgb(217 63 47 / 0.16), transparent 26rem),
+    radial-gradient(circle at 10% 88%, rgb(49 95 146 / 0.14), transparent 24rem),
     var(--paper);
 }
 
@@ -46,25 +54,25 @@ button {
 .panel {
   border: 1px solid var(--line);
   border-radius: 8px;
-  background: rgb(255 250 240 / 0.88);
-  box-shadow: 0 24px 70px rgb(71 53 31 / 0.12);
+  background: rgb(251 252 248 / 0.92);
+  box-shadow: 0 24px 70px rgb(35 42 36 / 0.12);
 }
 
-.intro-panel {
+.control-panel {
   display: flex;
   min-height: 560px;
   padding: 56px;
   flex-direction: column;
-  justify-content: flex-end;
+  justify-content: space-between;
   position: relative;
   overflow: hidden;
 }
 
-.intro-panel::before {
+.control-panel::before {
   content: "";
   position: absolute;
   inset: 28px;
-  border: 1px solid rgb(33 31 26 / 0.12);
+  border: 1px solid rgb(30 33 31 / 0.12);
   pointer-events: none;
 }
 
@@ -75,7 +83,7 @@ button {
     ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   font-size: 0.75rem;
   font-weight: 800;
-  letter-spacing: 0.08em;
+  letter-spacing: 0;
   text-transform: uppercase;
 }
 
@@ -88,8 +96,8 @@ p {
 
 h1 {
   max-width: 680px;
-  font-size: clamp(4rem, 10vw, 8.5rem);
-  line-height: 0.86;
+  font-size: clamp(3.5rem, 9vw, 7.8rem);
+  line-height: 0.9;
   letter-spacing: 0;
 }
 
@@ -102,14 +110,14 @@ h2 {
   max-width: 620px;
   margin-top: 28px;
   color: var(--muted);
-  font-size: 1.2rem;
-  line-height: 1.75;
+  font-size: 1.08rem;
+  line-height: 1.7;
 }
 
-.actions {
+.control-cluster {
   display: flex;
   gap: 12px;
-  margin-top: 38px;
+  margin-top: 34px;
   flex-wrap: wrap;
 }
 
@@ -134,7 +142,7 @@ h2 {
 .secondary-action {
   border: 1px solid var(--line);
   color: var(--ink);
-  background: transparent;
+  background: rgb(255 255 255 / 0.58);
 }
 
 .primary-action:hover,
@@ -147,6 +155,49 @@ h2 {
   padding: 28px;
   flex-direction: column;
   justify-content: space-between;
+}
+
+.state-board {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 42px;
+}
+
+.state-board button {
+  display: grid;
+  min-height: 88px;
+  padding: 14px;
+  align-content: space-between;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--ink);
+  background: #fff;
+  cursor: pointer;
+  text-align: left;
+  transition:
+    border-color 140ms ease,
+    transform 140ms ease,
+    box-shadow 140ms ease;
+}
+
+.state-board button:hover {
+  border-color: rgb(217 63 47 / 0.6);
+  box-shadow: 0 12px 24px rgb(30 33 31 / 0.1);
+  transform: translateY(-1px);
+}
+
+.state-board span {
+  font-size: 1.12rem;
+  font-weight: 800;
+}
+
+.state-board small {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-transform: uppercase;
 }
 
 .section-heading {
@@ -181,8 +232,9 @@ dt {
 dd {
   margin: 0;
   color: var(--green);
-  font-size: 1.25rem;
+  font-size: 1.08rem;
   font-weight: 700;
+  word-break: break-word;
 }
 
 @media (max-width: 860px) {
@@ -192,19 +244,23 @@ dd {
     padding: 28px 0;
   }
 
-  .intro-panel {
+  .control-panel {
     min-height: 480px;
     padding: 36px;
+  }
+
+  .state-board {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
 @media (max-width: 520px) {
-  .intro-panel {
+  .control-panel {
     min-height: 430px;
     padding: 28px;
   }
 
-  .intro-panel::before {
+  .control-panel::before {
     inset: 16px;
   }
 
@@ -214,5 +270,9 @@ dd {
 
   .lede {
     font-size: 1rem;
+  }
+
+  .state-board {
+    grid-template-columns: 1fr;
   }
 }

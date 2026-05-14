@@ -13,15 +13,35 @@
   </head>
   <body>
     <main class="shell">
-      <section class="panel intro-panel" aria-labelledby="app-title">
-        <p class="eyebrow">Desktop Control Surface</p>
+      <section class="panel control-panel" aria-labelledby="app-title">
+        <p class="eyebrow">Floating Window Demo</p>
         <h1 id="app-title">OpenOmniClaw</h1>
         <p class="lede">
-          一个已经完成基础安全配置的 Electron 桌面客户端骨架，可以继续接入设备控制、任务编排和本地配置能力。
+          小猫悬浮窗状态机演示。主面板只发出任务状态事件，悬浮窗负责动画、拖拽和贴边。
         </p>
-        <div class="actions" aria-label="Primary actions">
-          <button class="primary-action" type="button">开始连接</button>
-          <button class="secondary-action" type="button">打开配置</button>
+
+        <div class="control-cluster" aria-label="小猫悬浮窗控制">
+          <button class="primary-action" type="button" data-cat-action="show">显示小猫</button>
+          <button class="secondary-action" type="button" data-cat-action="hide">隐藏小猫</button>
+        </div>
+
+        <div class="state-board" aria-label="任务状态切换">
+          <button type="button" data-cat-state="preparing">
+            <span>准备</span>
+            <small>ready task</small>
+          </button>
+          <button type="button" data-cat-state="running">
+            <span>执行中</span>
+            <small>doing task</small>
+          </button>
+          <button type="button" data-cat-state="completed">
+            <span>完成</span>
+            <small>finish</small>
+          </button>
+          <button type="button" data-cat-state="idle">
+            <span>空闲</span>
+            <small>idle</small>
+          </button>
         </div>
       </section>
 
@@ -37,12 +57,16 @@
             <dd id="app-version">读取中</dd>
           </div>
           <div>
-            <dt>Renderer</dt>
-            <dd>Ready</dd>
+            <dt>Cat Window</dt>
+            <dd id="cat-visible">Hidden</dd>
           </div>
           <div>
-            <dt>Security</dt>
-            <dd>Isolated</dd>
+            <dt>Cat State</dt>
+            <dd id="cat-state">hidden</dd>
+          </div>
+          <div>
+            <dt>Bounds</dt>
+            <dd id="cat-bounds">--</dd>
           </div>
         </dl>
       </section>

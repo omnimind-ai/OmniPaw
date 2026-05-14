@@ -21,3 +21,13 @@ Thumbs.db
 .codex
 .github/prompts
 .github/skills
+
+# Playwright
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
+/playwright/.auth/
+
+OmniBot-example/
+openspec
