@@ -5,8 +5,8 @@
   "type": "module",
   "main": "out/main/main.cjs",
   "scripts": {
-    "dev": "env -u ELECTRON_RUN_AS_NODE electron-vite dev",
-    "start": "env -u ELECTRON_RUN_AS_NODE electron-vite preview",
+    "dev": "node scripts/electron-vite.mjs",
+    "start": "node scripts/electron-vite.mjs preview",
     "build": "vue-tsc --noEmit && electron-vite build",
     "typecheck": "vue-tsc --noEmit",
     "pack": "pnpm build && electron-builder --dir",
