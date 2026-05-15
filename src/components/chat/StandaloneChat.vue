@@ -325,7 +325,7 @@ async function sendCurrentMessage() {
     transport: transportMode.value,
     enableStreaming: enableStreaming.value,
     selectedProvider: selection?.providerId || "",
-    selectedModel: selection?.modelName || "",
+    selectedModel: selection?.modelId || "",
     botRecord,
   });
 }

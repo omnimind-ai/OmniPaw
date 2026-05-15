@@ -975,7 +975,7 @@ async function sendCurrentMessage() {
       transport: transportMode.value,
       enableStreaming: enableStreaming.value,
       selectedProvider: selection?.providerId || "",
-      selectedModel: selection?.modelName || "",
+      selectedModel: selection?.modelId || "",
       userRecord,
       botRecord,
     });
@@ -1075,7 +1075,7 @@ async function saveMessageEdit() {
         sourceRecord: target,
         enableStreaming: enableStreaming.value,
         selectedProvider: selection?.providerId || "",
-        selectedModel: selection?.modelName || "",
+        selectedModel: selection?.modelId || "",
       });
       scrollToBottom();
     } else if (result.needsRegenerate) {
@@ -1106,7 +1106,7 @@ async function handleRegenerateMessage(
     currSessionId.value,
     message,
     selection?.providerId || "",
-    selection?.modelName || "",
+    selection?.modelId || "",
   );
 }
 

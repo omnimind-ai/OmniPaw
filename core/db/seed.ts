@@ -48,7 +48,6 @@ export function defaultOpenAICompatibleProvider(now = Date.now()): ProviderConfi
     api: 'openai-chat-completions',
     baseUrl: 'https://api.openai.com/v1',
     enabled: false,
-    authHeader: 'Authorization',
     defaultModelId: 'gpt-4o-mini',
     capabilities: {
       listModels: true,

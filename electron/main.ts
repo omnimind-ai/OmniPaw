@@ -15,6 +15,7 @@ import {
   DbProviderRepository,
   DbSessionProviderOverrideRepository,
 } from '@core/provider/db-adapters'
+import { encryptCredentialValue } from '@core/provider/credentials'
 import { ProviderManager } from '@core/provider/manager'
 import { SkillManager } from '@core/skill/skill-manager'
 import { APP_NAME, IPC_CHANNELS } from '@shared/constants'
@@ -47,7 +48,7 @@ function createMainWindow(): void {
     backgroundColor: '#f7f4ed',
     show: false,
     webPreferences: {
-      preload: join(__dirname, '../preload/preload.js'),
+      preload: join(__dirname, '../preload/preload.cjs'),
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: false,
@@ -115,14 +116,36 @@ function registerIpcHandlers(): void {
 
   ipcMain.handle(IPC_CHANNELS.provider.list, () => providerManager.list())
   ipcMain.handle(IPC_CHANNELS.provider.upsert, async (_event, request: SaveProviderRequest) => {
+    const now = Date.now()
+    const credential = request.credential
+    const credentialId =
+      credential && (credential.value || credential.envVar)
+        ? request.provider.credentialRef ?? `${request.provider.id}:default`
+        : request.provider.credentialRef
     const provider = {
       ...request.provider,
       models: request.provider.models ?? [],
-      updatedAt: Date.now(),
-      createdAt: request.provider.createdAt ?? Date.now(),
+      credentialRef: credentialId,
+      enabled: request.provider.enabled !== false,
+      updatedAt: now,
+      createdAt: request.provider.createdAt ?? now,
     }
     providerRepo.save(provider)
-    return providerRepo.get(provider.id)
+
+    if (credential && credentialId && (credential.value || credential.envVar)) {
+      providerRepo.saveCredential({
+        id: credentialId,
+        providerId: provider.id,
+        type: credential.type,
+        label: credential.label || 'Default',
+        encryptedValue: credential.value ? encryptCredentialValue(credential.value) : undefined,
+        envVar: credential.envVar,
+        createdAt: now,
+        updatedAt: now,
+      })
+    }
+
+    return providerManager.get(provider.id)
   })
   ipcMain.handle(IPC_CHANNELS.provider.delete, async (_event, request: DeleteProviderRequest | string) => {
     providerRepo.delete(typeof request === 'string' ? request : request.providerId)

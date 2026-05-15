@@ -5,14 +5,16 @@
   "type": "module",
   "main": "out/main/main.cjs",
   "scripts": {
+    "rebuild:electron": "electron-builder install-app-deps",
+    "predev": "pnpm rebuild:electron",
     "dev": "node scripts/electron-vite.mjs",
     "start": "node scripts/electron-vite.mjs preview",
     "build": "vue-tsc --noEmit && electron-vite build",
     "typecheck": "vue-tsc --noEmit",
     "db:smoke": "tsx scripts/db-smoke.ts",
     "chat-core:smoke": "tsx scripts/chat-core-smoke.ts",
-    "pack": "pnpm build && electron-builder --dir",
-    "dist": "pnpm build && electron-builder",
+    "pack": "pnpm rebuild:electron && pnpm build && electron-builder --dir",
+    "dist": "pnpm rebuild:electron && pnpm build && electron-builder",
     "lint": "vue-tsc --noEmit"
   },
   "keywords": [],

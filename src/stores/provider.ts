@@ -1,14 +1,86 @@
 import { defineStore } from 'pinia'
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 
-import { appBridge, type BridgeProviderConfig } from '@/bridge/app'
-import type { ProviderConfig } from '@shared/types/provider'
+import {
+  appBridge,
+  ensureElectronBridge,
+  isFallbackBridge,
+  type BridgeProviderConfig,
+} from '@/bridge/app'
+import type {
+  DeleteProviderRequest,
+  ProviderConfig,
+  ProviderModel,
+  ProviderOperationResult,
+  SaveProviderRequest,
+  SetSessionModelRequest,
+} from '@shared/types/provider'
+
+export interface ProviderModelOption {
+  key: string
+  providerId: string
+  providerName: string
+  providerApi?: ProviderConfig['api']
+  providerType?: ProviderConfig['type']
+  baseUrl: string
+  modelId: string
+  modelName: string
+  remoteId?: string
+  enabled: boolean
+  input: Array<'text' | 'image' | 'audio' | 'file'>
+  supportsStreaming: boolean
+  supportsTools: boolean
+  supportsReasoning: boolean
+  contextWindow?: number
+  maxOutputTokens?: number
+}
 
 export const useProviderStore = defineStore('provider', () => {
   const providers = ref<ProviderConfig[]>([])
   const rawProviders = ref<BridgeProviderConfig[]>([])
   const loading = ref(false)
   const testing = ref<Record<string, boolean>>({})
+  const saving = ref(false)
+  const persistenceAvailable = computed(() => !isFallbackBridge)
+
+  const modelOptions = computed<ProviderModelOption[]>(() =>
+    rawProviders.value.flatMap((provider) => {
+      const models = provider.models?.length
+        ? provider.models
+        : provider.defaultModelId
+          ? [{ id: provider.defaultModelId, name: provider.defaultModelId }]
+          : []
+
+      return models.map((model) => {
+        const input = modelInputModalities(model) as Array<'text' | 'image' | 'audio' | 'file'>
+        const supportsTools = Boolean(model.supportsTools || model.capabilities?.tools || model.capabilities?.toolCall)
+        const supportsReasoning = Boolean(model.supportsReasoning || model.capabilities?.reasoning)
+
+        return {
+          key: `${provider.id}:${model.id}`,
+          providerId: provider.id,
+          providerName: provider.name,
+          providerApi: provider.api,
+          providerType: mapProviderType(provider.type || provider.api),
+          baseUrl: provider.baseUrl || '',
+          modelId: model.id,
+          modelName: model.displayName || model.name || model.id,
+          remoteId: model.remoteId || model.id,
+          enabled: provider.enabled !== false && model.enabled !== false,
+          input,
+          supportsStreaming: model.supportsStreaming !== false,
+          supportsTools,
+          supportsReasoning,
+          contextWindow: model.contextWindow,
+          maxOutputTokens: model.maxOutputTokens,
+        }
+      })
+    }),
+  )
+
+  const enabledModelOptions = computed(() =>
+    modelOptions.value.filter((option) => option.enabled),
+  )
 
   async function loadProviders(): Promise<void> {
     loading.value = true
@@ -20,15 +92,70 @@ export const useProviderStore = defineStore('provider', () => {
     }
   }
 
-  async function refreshModels(providerId: string): Promise<void> {
-    await appBridge.provider.refreshModels?.(providerId)
+  async function refreshModels(providerId: string): Promise<ProviderModel[]> {
+    ensureElectronBridge('刷新模型')
+    if (!appBridge.provider.refreshModels) {
+      throw new Error('当前 Electron bridge 缺少 provider.refreshModels，无法刷新模型。')
+    }
+
+    const models = await appBridge.provider.refreshModels(providerId)
     await loadProviders()
+    return models
+  }
+
+  async function saveProvider(request: SaveProviderRequest): Promise<ProviderConfig | undefined> {
+    saving.value = true
+    try {
+      ensureElectronBridge('保存 Provider')
+      if (!appBridge.provider.upsert) {
+        throw new Error('当前 Electron bridge 缺少 provider.upsert，无法保存 Provider。')
+      }
+
+      const saved = await appBridge.provider.upsert(request)
+      if (!saved) {
+        throw new Error('Provider 保存后没有返回有效结果。')
+      }
+
+      await loadProviders()
+      return saved
+    } finally {
+      saving.value = false
+    }
+  }
+
+  async function deleteProvider(request: DeleteProviderRequest | string): Promise<ProviderOperationResult | undefined> {
+    ensureElectronBridge('删除 Provider')
+    if (!appBridge.provider.delete) {
+      throw new Error('当前 Electron bridge 缺少 provider.delete，无法删除 Provider。')
+    }
+
+    const result = await appBridge.provider.delete(request)
+    await loadProviders()
+    return result
+  }
+
+  async function listModels(providerId: string): Promise<ProviderModel[]> {
+    return await appBridge.provider.listModels?.(providerId) ?? []
+  }
+
+  async function setSessionModel(request: SetSessionModelRequest) {
+    ensureElectronBridge('设置会话模型')
+    if (!appBridge.provider.setSessionModel) {
+      throw new Error('当前 Electron bridge 缺少 provider.setSessionModel，无法设置会话模型。')
+    }
+
+    return await appBridge.provider.setSessionModel(request)
   }
 
   async function testProvider(providerId: string, modelId?: string) {
     testing.value = { ...testing.value, [providerId]: true }
     try {
-      return await appBridge.provider.test?.(providerId, modelId)
+      ensureElectronBridge('测试 Provider')
+      if (!appBridge.provider.test) {
+        throw new Error('当前 Electron bridge 缺少 provider.test，无法测试 Provider。')
+      }
+
+      return await appBridge.provider.test(providerId, modelId)
     } finally {
       testing.value = { ...testing.value, [providerId]: false }
     }
@@ -37,10 +164,18 @@ export const useProviderStore = defineStore('provider', () => {
   return {
     providers,
     rawProviders,
+    modelOptions,
+    enabledModelOptions,
     loading,
+    saving,
     testing,
+    persistenceAvailable,
     loadProviders,
     refreshModels,
+    saveProvider,
+    deleteProvider,
+    listModels,
+    setSessionModel,
     testProvider,
   }
 })
@@ -68,7 +203,12 @@ function mapBridgeProvider(provider: BridgeProviderConfig): ProviderConfig[] {
     ]
   }
 
-  return models.map((model) => ({
+  return models.map((model) => {
+    const input = modelInputModalities(model) as Array<'text' | 'image' | 'audio' | 'file'>
+    const supportsTools = Boolean(model.supportsTools || model.capabilities?.tools || model.capabilities?.toolCall)
+    const supportsReasoning = Boolean(model.supportsReasoning || model.capabilities?.reasoning)
+
+    return {
     id: provider.id,
     name: provider.name,
     api: provider.api,
@@ -82,22 +222,26 @@ function mapBridgeProvider(provider: BridgeProviderConfig): ProviderConfig[] {
         name: model.displayName || model.name || model.id,
         remoteId: model.remoteId || model.id,
         enabled: model.enabled !== false,
-        input: model.input || (modelInputModalities(model) as Array<'text' | 'image' | 'audio' | 'file'>),
+        input,
         supportsStreaming: model.supportsStreaming !== false,
-        supportsTools: Boolean(model.supportsTools || model.capabilities?.tools || model.capabilities?.toolCall),
+        supportsTools,
+        supportsReasoning,
         contextWindow: model.contextWindow,
+        maxOutputTokens: model.maxOutputTokens,
+        compat: model.compat,
       },
     ],
     model: model.id,
     enable: provider.enabled !== false && model.enabled !== false,
     model_metadata: {
       modalities: {
-        input: modelInputModalities(model),
+        input,
       },
-      tool_call: Boolean(model.capabilities?.tools || model.capabilities?.toolCall),
-      reasoning: Boolean(model.capabilities?.reasoning),
+      tool_call: supportsTools,
+      reasoning: supportsReasoning,
     },
-  } as ProviderConfig))
+  } as ProviderConfig
+  })
 }
 
 function mapProviderType(type?: string): ProviderConfig['type'] {

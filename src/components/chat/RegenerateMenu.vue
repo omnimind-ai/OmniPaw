@@ -71,10 +71,10 @@
             @click="retryWithModel(provider)"
           >
             <v-list-item-title class="text-body-2">
-              {{ provider.id }}
+              {{ provider.modelName }}
             </v-list-item-title>
             <v-list-item-subtitle class="regenerate-model-subtitle">
-              <span class="regenerate-model-name">{{ provider.model }}</span>
+              <span class="regenerate-model-name">{{ provider.providerName }}</span>
               <span class="regenerate-model-icons">
                 <v-icon v-if="supportsImageInput(provider)" size="12">
                   mdi-eye-outline
@@ -103,25 +103,14 @@
 
 <script setup lang="ts">
 import { ref } from "vue";
-import axios from "axios";
+import { storeToRefs } from "pinia";
 import StyledMenu from "@/components/shared/StyledMenu.vue";
 import { useModuleI18n } from "@/i18n/composables";
-
-interface ModelMetadata {
-  modalities?: { input?: string[] };
-  tool_call?: boolean;
-  reasoning?: boolean;
-}
-
-interface ProviderConfig {
-  id: string;
-  model: string;
-  model_metadata?: ModelMetadata;
-  enable?: boolean;
-}
+import { useProviderStore, type ProviderModelOption } from "@/stores/provider";
 
 export interface RegenerateModelSelection {
   providerId: string;
+  modelId: string;
   modelName: string;
 }
 
@@ -131,27 +120,17 @@ const emit = defineEmits<{
 }>();
 
 const { tm } = useModuleI18n("features/chat");
-const providerConfigs = ref<ProviderConfig[]>([]);
-const loadingProviders = ref(false);
+const providerStore = useProviderStore();
+const { enabledModelOptions: providerConfigs, loading: loadingProviders } = storeToRefs(providerStore);
 const providersLoaded = ref(false);
 
 async function loadProviderConfigs(force = false) {
   if (loadingProviders.value || (providersLoaded.value && !force)) return;
-  loadingProviders.value = true;
   try {
-    const response = await axios.get("/api/config/provider/list", {
-      params: { provider_type: "chat_completion" },
-    });
-    if (response.data.status === "ok") {
-      providerConfigs.value = (response.data.data || []).filter(
-        (provider: ProviderConfig) => provider.enable !== false,
-      );
-      providersLoaded.value = true;
-    }
+    await providerStore.loadProviders();
+    providersLoaded.value = true;
   } catch (error) {
     console.error("Failed to load provider list:", error);
-  } finally {
-    loadingProviders.value = false;
   }
 }
 
@@ -167,27 +146,28 @@ function handleModelMenuToggle(isOpen: boolean) {
   }
 }
 
-function retryWithModel(provider: ProviderConfig) {
+function retryWithModel(provider: ProviderModelOption) {
   emit("retryWithModel", {
-    providerId: provider.id,
-    modelName: provider.model,
+    providerId: provider.providerId,
+    modelId: provider.modelId,
+    modelName: provider.modelName,
   });
 }
 
-function supportsImageInput(provider: ProviderConfig): boolean {
-  return Boolean(provider.model_metadata?.modalities?.input?.includes("image"));
+function supportsImageInput(provider: ProviderModelOption): boolean {
+  return provider.input.includes("image");
 }
 
-function supportsAudioInput(provider: ProviderConfig): boolean {
-  return Boolean(provider.model_metadata?.modalities?.input?.includes("audio"));
+function supportsAudioInput(provider: ProviderModelOption): boolean {
+  return provider.input.includes("audio");
 }
 
-function supportsToolCall(provider: ProviderConfig): boolean {
-  return Boolean(provider.model_metadata?.tool_call);
+function supportsToolCall(provider: ProviderModelOption): boolean {
+  return provider.supportsTools;
 }
 
-function supportsReasoning(provider: ProviderConfig): boolean {
-  return Boolean(provider.model_metadata?.reasoning);
+function supportsReasoning(provider: ProviderModelOption): boolean {
+  return provider.supportsReasoning;
 }
 </script>
 

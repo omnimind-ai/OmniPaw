@@ -110,6 +110,7 @@ export interface BridgeProviderModel {
   contextWindow?: number
   maxOutputTokens?: number
   capabilities?: Record<string, unknown>
+  compat?: Record<string, unknown>
   compatibility?: Record<string, unknown>
 }
 
@@ -162,8 +163,12 @@ export interface RendererOpenOmniClawBridge {
   }
   provider: {
     list: () => Promise<BridgeProviderConfig[]>
+    upsert?: (request: unknown) => Promise<BridgeProviderConfig>
+    delete?: (request: string | { providerId: string }) => Promise<{ ok?: boolean; error?: unknown }>
+    listModels?: (providerId: string) => Promise<BridgeProviderModel[]>
     refreshModels?: (providerId: string) => Promise<BridgeProviderModel[]>
     test?: (providerId: string, modelId?: string) => Promise<{ ok: boolean; error?: unknown }>
+    setSessionModel?: (request: { sessionId: string; providerId: string; modelId: string }) => Promise<BridgeChatSession>
   }
   skill: {
     list: () => Promise<Array<{ name: string; description?: string; enabled?: boolean; parameters?: unknown }>>
@@ -171,6 +176,15 @@ export interface RendererOpenOmniClawBridge {
   cron: {
     list: () => Promise<unknown[]>
   }
+}
+
+export type BridgeRuntime = 'electron' | 'fallback'
+
+export const fallbackBridgePersistenceMessage =
+  '当前未连接 Electron 主进程，Provider 配置不会写入数据库。请在 Electron 窗口中操作。'
+
+function rejectFallbackPersistence<T>(operation: string): Promise<T> {
+  return Promise.reject(new Error(`${fallbackBridgePersistenceMessage} (${operation})`))
 }
 
 const fallbackBridge: RendererOpenOmniClawBridge = {
@@ -273,6 +287,12 @@ const fallbackBridge: RendererOpenOmniClawBridge = {
         ],
       },
     ],
+    upsert: () => rejectFallbackPersistence<BridgeProviderConfig>('provider.upsert'),
+    delete: () => rejectFallbackPersistence<{ ok?: boolean; error?: unknown }>('provider.delete'),
+    listModels: async () => [],
+    refreshModels: () => rejectFallbackPersistence<BridgeProviderModel[]>('provider.refreshModels'),
+    test: () => rejectFallbackPersistence<{ ok: boolean; error?: unknown }>('provider.test'),
+    setSessionModel: () => rejectFallbackPersistence<BridgeChatSession>('provider.setSessionModel'),
   },
   skill: {
     list: async () => [
@@ -292,6 +312,17 @@ const fallbackBridge: RendererOpenOmniClawBridge = {
   },
 }
 
-const exposedBridge = window.openOmniClaw as RendererOpenOmniClawBridge | undefined
+const exposedBridge =
+  typeof window === 'undefined'
+    ? undefined
+    : window.openOmniClaw as RendererOpenOmniClawBridge | undefined
 
+export const bridgeRuntime: BridgeRuntime = exposedBridge ? 'electron' : 'fallback'
+export const isFallbackBridge = bridgeRuntime === 'fallback'
 export const appBridge = exposedBridge ?? fallbackBridge
+
+export function ensureElectronBridge(operation = '该操作'): void {
+  if (isFallbackBridge) {
+    throw new Error(`${fallbackBridgePersistenceMessage} (${operation})`)
+  }
+}
