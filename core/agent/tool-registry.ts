@@ -10,6 +10,7 @@ import { allowedToolNamesForProfile, type ToolPolicy } from './tool-policy'
 export interface ToolRegistryOptions {
   messages: ChatMessageRepo
   attachments: AttachmentService
+  disabledToolNames?: () => Iterable<string>
 }
 
 export interface ToolResolutionInput {
@@ -25,13 +26,14 @@ export class ToolRegistry {
       return []
     }
 
+    const disabledNames = new Set(this.options.disabledToolNames?.() ?? [])
     const tools = createBuiltinTools({
       messages: this.options.messages,
       attachments: this.options.attachments,
       sessionId: input.sessionId,
     })
     const profileNames = new Set(allowedToolNamesForProfile(input.policy.profile as ToolProfile))
-    return tools.filter((tool) => profileNames.has(tool.name))
+    return tools.filter((tool) => !disabledNames.has(tool.name) && profileNames.has(tool.name))
   }
 }
 

@@ -39,6 +39,7 @@ export interface ChatServiceOptions {
   providers: ProviderManager
   contextBuilder: ContextBuilder
   runManager: RunManager
+  disabledToolNames?: () => Iterable<string>
   agentRunner?: AgentRunner
 }
 
@@ -55,6 +56,7 @@ export class ChatService {
       toolRegistry: new ToolRegistry({
         messages: options.messages,
         attachments: options.attachments,
+        disabledToolNames: options.disabledToolNames,
       }),
       onComplete: (sessionId) => this.updateSessionSummary(sessionId),
     })

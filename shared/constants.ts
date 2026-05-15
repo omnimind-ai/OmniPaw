@@ -36,4 +36,8 @@ export const IPC_CHANNELS = {
   cron: {
     list: 'cron:list',
   },
+  tools: {
+    list: 'tools:list',
+    setEnabled: 'tools:set-enabled',
+  },
 } as const

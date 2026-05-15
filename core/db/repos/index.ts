@@ -1,4 +1,5 @@
 export { AttachmentRepo } from './attachment-repo'
+export { AppSettingsRepo } from './app-settings-repo'
 export { ChatMessageRepo } from './message-repo'
 export { ProviderRepo } from './provider-repo'
 export { ChatRunRepo } from './run-repo'

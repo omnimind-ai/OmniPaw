@@ -2,6 +2,7 @@ import { createRouter, createWebHashHistory } from 'vue-router'
 
 import ChatView from '@/views/ChatView.vue'
 import CronView from '@/views/CronView.vue'
+import GlobalToolsView from '@/views/GlobalToolsView.vue'
 import SettingsView from '@/views/SettingsView.vue'
 import SkillsView from '@/views/SkillsView.vue'
 
@@ -36,6 +37,11 @@ export const router = createRouter({
       path: '/settings',
       name: 'settings',
       component: SettingsView,
+    },
+    {
+      path: '/settings/tools',
+      name: 'settings-tools',
+      component: GlobalToolsView,
     },
   ],
 })

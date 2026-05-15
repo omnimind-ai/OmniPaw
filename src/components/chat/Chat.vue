@@ -380,6 +380,17 @@
               </template>
             </v-list-item>
 
+            <v-list-item rounded="lg" @click="openGlobalToolsSettings">
+              <template #prepend>
+                <v-icon size="20">mdi-tools</v-icon>
+              </template>
+              <v-list-item-title>全局函数工具</v-list-item-title>
+              <v-list-item-subtitle>管理工具启用状态，新请求会按这里的设置暴露工具。</v-list-item-subtitle>
+              <template #append>
+                <v-icon size="18">mdi-chevron-right</v-icon>
+              </template>
+            </v-list-item>
+
             <v-list-item rounded="lg">
               <template #prepend>
                 <v-icon size="20">mdi-tune</v-icon>
@@ -660,6 +671,11 @@ const currentTransportLabel = computed(() =>
 watch(transportMode, (mode) => {
   localStorage.setItem("chat.transportMode", mode);
 });
+
+async function openGlobalToolsSettings(): Promise<void> {
+  settingsDialogOpen.value = false;
+  await router.push("/settings/tools");
+}
 
 const isDark = computed(() => customizer.uiTheme === "PurpleThemeDark");
 const canSend = computed(

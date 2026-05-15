@@ -32,6 +32,7 @@ import type {
   TestProviderRequest,
 } from './provider'
 import type { SkillDefinition } from './skill'
+import type { ManagedToolInfo, SetToolEnabledRequest, SetToolEnabledResponse } from './tool'
 
 export type Unsubscribe = () => void
 
@@ -94,5 +95,9 @@ export interface OpenOmniClawBridge {
   }
   cron: {
     list: () => Promise<CronTask[]>
+  }
+  tools: {
+    list: () => Promise<ManagedToolInfo[]>
+    setEnabled: (request: SetToolEnabledRequest) => Promise<SetToolEnabledResponse>
   }
 }

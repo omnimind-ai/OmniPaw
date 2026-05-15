@@ -204,6 +204,18 @@ export interface BridgeProviderConfig {
   [key: string]: unknown
 }
 
+export interface BridgeManagedToolInfo {
+  name: string
+  label?: string
+  description: string
+  parameters: Record<string, unknown>
+  risk: string
+  profiles: string[]
+  source: string
+  enabled: boolean
+  readonly?: boolean
+}
+
 export interface RendererOpenOmniClawBridge {
   app: {
     getInfo: () => Promise<{ name: string; version: string; platform: string }>
@@ -250,6 +262,10 @@ export interface RendererOpenOmniClawBridge {
   }
   cron: {
     list: () => Promise<unknown[]>
+  }
+  tools?: {
+    list: () => Promise<BridgeManagedToolInfo[]>
+    setEnabled: (request: { name: string; enabled: boolean }) => Promise<{ tool: BridgeManagedToolInfo; tools: BridgeManagedToolInfo[] }>
   }
 }
 
@@ -384,6 +400,25 @@ const fallbackBridge: RendererOpenOmniClawBridge = {
   },
   cron: {
     list: async () => [],
+  },
+  tools: {
+    list: async () => [
+      {
+        name: 'system_time',
+        label: 'System time',
+        description: 'Get the current local time, timezone, and UTC offset.',
+        parameters: {
+          type: 'object',
+          properties: {},
+          additionalProperties: false,
+        },
+        risk: 'safe',
+        profiles: ['minimal', 'assistant', 'power'],
+        source: 'builtin',
+        enabled: true,
+      },
+    ],
+    setEnabled: () => rejectFallbackPersistence<{ tool: BridgeManagedToolInfo; tools: BridgeManagedToolInfo[] }>('tools.setEnabled'),
   },
 }
 

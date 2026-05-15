@@ -168,4 +168,16 @@ export const migrations: Migration[] = [
         WHERE idempotency_key IS NOT NULL;
     `,
   },
+  {
+    id: 2,
+    name: 'create_app_settings_table',
+    sql: `
+      CREATE TABLE IF NOT EXISTS app_settings (
+        key TEXT PRIMARY KEY,
+        value_json TEXT NOT NULL,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
+      );
+    `,
+  },
 ]

@@ -249,6 +249,7 @@ export interface ProviderRequestSnapshot {
   model: string
   mode?: ChatRunMode
   toolProfile?: ToolProfile
+  availableTools?: string[]
   maxSteps?: number
   fallbackReason?: string
   messageCount: number

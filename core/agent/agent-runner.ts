@@ -57,15 +57,6 @@ export class AgentRunner {
         provider: input.provider,
         model: input.model,
       })
-      const snapshot = {
-        ...context.snapshot,
-        mode,
-        toolProfile: input.toolProfile ?? 'minimal',
-        maxSteps,
-        fallbackReason,
-      }
-      this.options.runs.save({ ...input.run, requestSnapshot: snapshot, updatedAt: Date.now() })
-
       const client = await this.options.providers.createProviderClient(input.provider.id)
       const messages = [...context.messages]
       const policy = defaultToolPolicy(input.toolProfile ?? 'minimal')
@@ -73,6 +64,15 @@ export class AgentRunner {
         ? this.options.toolRegistry.resolve({ sessionId: input.session.id, policy })
         : []
       const providerTools = providerToolsFromAgentTools(agentTools)
+      const snapshot = {
+        ...context.snapshot,
+        mode,
+        toolProfile: input.toolProfile ?? 'minimal',
+        availableTools: agentTools.map((tool) => tool.name),
+        maxSteps,
+        fallbackReason,
+      }
+      this.options.runs.save({ ...input.run, requestSnapshot: snapshot, updatedAt: Date.now() })
 
       for (let step = 1; step <= maxSteps; step += 1) {
         throwIfAborted(input.signal)

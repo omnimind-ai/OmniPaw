@@ -7,8 +7,9 @@ import { ContextBuilder } from '@core/chat/context-manager'
 import { RunManager } from '@core/chat/run-manager'
 import { CronManager } from '@core/cron/cron-manager'
 import { DatabaseClient } from '@core/db/client'
-import { AttachmentRepo, ChatMessageRepo, ChatRunRepo, ChatSessionRepo, ProviderRepo } from '@core/db/repos'
+import { AttachmentRepo, AppSettingsRepo, ChatMessageRepo, ChatRunRepo, ChatSessionRepo, ProviderRepo } from '@core/db/repos'
 import { seedDefaultChatData } from '@core/db/seed'
+import { ToolManagementService } from '@core/agent/tool-management-service'
 import {
   DbProviderCredentialRepository,
   DbProviderModelRepository,
@@ -26,6 +27,7 @@ import type {
   SetSessionModelRequest,
   TestProviderRequest,
 } from '@shared/types/provider'
+import type { SetToolEnabledRequest } from '@shared/types/tool'
 
 const isMac = process.platform === 'darwin'
 
@@ -37,6 +39,7 @@ let chatService: ChatService
 let providerManager: ProviderManager
 let sessionRepo: ChatSessionRepo
 let providerRepo: ProviderRepo
+let toolManagementService: ToolManagementService
 
 function createMainWindow(): void {
   mainWindow = new BrowserWindow({
@@ -169,6 +172,10 @@ function registerIpcHandlers(): void {
   )
   ipcMain.handle(IPC_CHANNELS.skill.list, () => skillManager.list())
   ipcMain.handle(IPC_CHANNELS.cron.list, () => cronManager.list())
+  ipcMain.handle(IPC_CHANNELS.tools.list, () => toolManagementService.list())
+  ipcMain.handle(IPC_CHANNELS.tools.setEnabled, (_event, request: SetToolEnabledRequest) =>
+    toolManagementService.setEnabled(request.name, request.enabled),
+  )
 }
 
 app.whenReady().then(() => {
@@ -194,6 +201,8 @@ function initializeCore(): void {
   const attachmentRepo = new AttachmentRepo(db)
   providerRepo = new ProviderRepo(db)
   const runRepo = new ChatRunRepo(db)
+  const appSettingsRepo = new AppSettingsRepo(db)
+  toolManagementService = new ToolManagementService(appSettingsRepo)
 
   providerManager = new ProviderManager({
     providers: new DbProviderRepository(providerRepo),
@@ -213,6 +222,7 @@ function initializeCore(): void {
     providers: providerManager,
     contextBuilder,
     runManager,
+    disabledToolNames: () => toolManagementService.getDisabledToolNames(),
   })
 }
 

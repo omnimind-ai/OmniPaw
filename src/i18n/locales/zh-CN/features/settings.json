@@ -1,4 +1,15 @@
 {
+  "page": {
+    "title": "设置"
+  },
+  "local": {
+    "maxRecentMessages": "最近消息保留数",
+    "compactSkillDescriptions": "使用小模型友好的精简 Skill 描述"
+  },
+  "globalTools": {
+    "title": "全局函数工具",
+    "subtitle": "查看工具来源、风险、配置档和参数 Schema，并切换启用状态。"
+  },
   "network": {
     "title": "网络",
     "githubProxy": {

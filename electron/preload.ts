@@ -101,6 +101,10 @@ const bridge: OpenOmniClawBridge = {
   cron: {
     list: () => ipcRenderer.invoke(IPC_CHANNELS.cron.list),
   },
+  tools: {
+    list: () => ipcRenderer.invoke(IPC_CHANNELS.tools.list),
+    setEnabled: (request) => ipcRenderer.invoke(IPC_CHANNELS.tools.setEnabled, request),
+  },
 }
 
 contextBridge.exposeInMainWorld('openOmniClaw', bridge)

@@ -1,4 +1,15 @@
 {
+  "page": {
+    "title": "Settings"
+  },
+  "local": {
+    "maxRecentMessages": "Recent messages to keep",
+    "compactSkillDescriptions": "Use compact skill descriptions for smaller models"
+  },
+  "globalTools": {
+    "title": "Global Function Tools",
+    "subtitle": "Review source, risk, profiles, parameter schema, and enabled state."
+  },
   "network": {
     "title": "Network",
     "githubProxy": {

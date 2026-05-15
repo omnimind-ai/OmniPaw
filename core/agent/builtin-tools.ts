@@ -1,6 +1,16 @@
 import type { AttachmentService } from '@core/chat/attachment-service'
 import type { ChatMessageRepo } from '@core/db/repos'
 import type { AgentTool } from './tool'
+import type { ToolProfile, ToolRisk } from './tool'
+
+export interface BuiltinToolDefinition {
+  name: string
+  label: string
+  description: string
+  risk: ToolRisk
+  profiles: ToolProfile[]
+  parameters: Record<string, unknown>
+}
 
 export interface BuiltinToolOptions {
   messages: ChatMessageRepo
@@ -11,25 +21,99 @@ export interface BuiltinToolOptions {
 
 export function createBuiltinTools(options: BuiltinToolOptions): AgentTool[] {
   return [
-    createSystemTimeTool(),
-    createCalculatorTool(),
-    createAttachmentTextReadTool(options),
-    createAttachmentTextSearchTool(options),
+    { ...BUILTIN_TOOL_DEFINITIONS.system_time, execute: createSystemTimeExecutor() },
+    { ...BUILTIN_TOOL_DEFINITIONS.calculator, execute: createCalculatorExecutor() },
+    { ...BUILTIN_TOOL_DEFINITIONS.attachment_text_read, execute: createAttachmentTextReadExecutor(options) },
+    { ...BUILTIN_TOOL_DEFINITIONS.attachment_text_search, execute: createAttachmentTextSearchExecutor(options) },
   ]
 }
 
-function createSystemTimeTool(): AgentTool<Record<string, never>> {
-  return {
+export function listBuiltinToolDefinitions(): BuiltinToolDefinition[] {
+  return [
+    BUILTIN_TOOL_DEFINITIONS.system_time,
+    BUILTIN_TOOL_DEFINITIONS.calculator,
+    BUILTIN_TOOL_DEFINITIONS.attachment_text_read,
+    BUILTIN_TOOL_DEFINITIONS.attachment_text_search,
+  ].map((definition) => ({ ...definition }))
+}
+
+const MINIMAL_PROFILES: ToolProfile[] = ['minimal', 'assistant', 'power']
+
+const BUILTIN_TOOL_DEFINITIONS = {
+  system_time: {
     name: 'system_time',
     label: 'System time',
     description: 'Get the current local time, timezone, and UTC offset.',
     risk: 'safe',
+    profiles: MINIMAL_PROFILES,
     parameters: {
       type: 'object',
       properties: {},
       additionalProperties: false,
     },
-    execute: async () => {
+  },
+  calculator: {
+    name: 'calculator',
+    label: 'Calculator',
+    description: 'Evaluate basic arithmetic. Use expression for +, -, *, /, %, ^ and parentheses, or operation with numeric operands.',
+    risk: 'safe',
+    profiles: MINIMAL_PROFILES,
+    parameters: {
+      type: 'object',
+      properties: {
+        expression: {
+          type: 'string',
+          description: 'Arithmetic expression using numbers, +, -, *, /, %, ^, and parentheses.',
+        },
+        operation: {
+          type: 'string',
+          enum: ['add', 'subtract', 'multiply', 'divide', 'power'],
+        },
+        operands: {
+          type: 'array',
+          items: { type: 'number' },
+        },
+      },
+      additionalProperties: false,
+    },
+  },
+  attachment_text_read: {
+    name: 'attachment_text_read',
+    label: 'Read attachment text',
+    description: 'Read extracted text from attachments uploaded in the current chat session.',
+    risk: 'read',
+    profiles: MINIMAL_PROFILES,
+    parameters: {
+      type: 'object',
+      properties: {
+        attachmentId: { type: 'string' },
+        attachmentIds: { type: 'array', items: { type: 'string' } },
+        maxChars: { type: 'number' },
+      },
+      additionalProperties: false,
+    },
+  },
+  attachment_text_search: {
+    name: 'attachment_text_search',
+    label: 'Search attachment text',
+    description: 'Search extracted text from attachments uploaded in the current chat session.',
+    risk: 'read',
+    profiles: MINIMAL_PROFILES,
+    parameters: {
+      type: 'object',
+      required: ['query'],
+      properties: {
+        query: { type: 'string' },
+        maxResults: { type: 'number' },
+        contextChars: { type: 'number' },
+      },
+      additionalProperties: false,
+    },
+  },
+} satisfies Record<string, BuiltinToolDefinition>
+
+function createSystemTimeExecutor(): AgentTool<Record<string, never>>['execute'] {
+  return async () => {
       const now = new Date()
       const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone
       const offsetMinutes = -now.getTimezoneOffset()
@@ -49,7 +133,6 @@ function createSystemTimeTool(): AgentTool<Record<string, never>> {
           },
         ],
       }
-    },
   }
 }
 
@@ -59,36 +142,12 @@ interface CalculatorArgs {
   operands?: number[]
 }
 
-function createCalculatorTool(): AgentTool<CalculatorArgs> {
-  return {
-    name: 'calculator',
-    label: 'Calculator',
-    description: 'Evaluate basic arithmetic. Use expression for +, -, *, /, %, ^ and parentheses, or operation with numeric operands.',
-    risk: 'safe',
-    parameters: {
-      type: 'object',
-      properties: {
-        expression: {
-          type: 'string',
-          description: 'Arithmetic expression using numbers, +, -, *, /, %, ^, and parentheses.',
-        },
-        operation: {
-          type: 'string',
-          enum: ['add', 'subtract', 'multiply', 'divide', 'power'],
-        },
-        operands: {
-          type: 'array',
-          items: { type: 'number' },
-        },
-      },
-      additionalProperties: false,
-    },
-    execute: async (_toolCallId, args) => {
+function createCalculatorExecutor(): AgentTool<CalculatorArgs>['execute'] {
+  return async (_toolCallId, args) => {
       const value = calculate(args)
       return {
         content: [{ type: 'text', text: JSON.stringify({ result: value }) }],
       }
-    },
   }
 }
 
@@ -98,22 +157,8 @@ interface AttachmentReadArgs {
   maxChars?: number
 }
 
-function createAttachmentTextReadTool(options: BuiltinToolOptions): AgentTool<AttachmentReadArgs> {
-  return {
-    name: 'attachment_text_read',
-    label: 'Read attachment text',
-    description: 'Read extracted text from attachments uploaded in the current chat session.',
-    risk: 'read',
-    parameters: {
-      type: 'object',
-      properties: {
-        attachmentId: { type: 'string' },
-        attachmentIds: { type: 'array', items: { type: 'string' } },
-        maxChars: { type: 'number' },
-      },
-      additionalProperties: false,
-    },
-    execute: async (_toolCallId, args, signal) => {
+function createAttachmentTextReadExecutor(options: BuiltinToolOptions): AgentTool<AttachmentReadArgs>['execute'] {
+  return async (_toolCallId, args, signal) => {
       throwIfAborted(signal)
       const ids = [...new Set([args.attachmentId, ...(args.attachmentIds ?? [])].filter(isNonEmptyString))]
       if (!ids.length) {
@@ -137,7 +182,6 @@ function createAttachmentTextReadTool(options: BuiltinToolOptions): AgentTool<At
         blocks.push(formatAttachmentBlock(attachment.originalName, truncateText(attachment.extractedText, maxChars)))
       }
       return { content: [{ type: 'text', text: blocks.join('\n\n') }] }
-    },
   }
 }
 
@@ -147,23 +191,8 @@ interface AttachmentSearchArgs {
   contextChars?: number
 }
 
-function createAttachmentTextSearchTool(options: BuiltinToolOptions): AgentTool<AttachmentSearchArgs> {
-  return {
-    name: 'attachment_text_search',
-    label: 'Search attachment text',
-    description: 'Search extracted text from attachments uploaded in the current chat session.',
-    risk: 'read',
-    parameters: {
-      type: 'object',
-      required: ['query'],
-      properties: {
-        query: { type: 'string' },
-        maxResults: { type: 'number' },
-        contextChars: { type: 'number' },
-      },
-      additionalProperties: false,
-    },
-    execute: async (_toolCallId, args, signal) => {
+function createAttachmentTextSearchExecutor(options: BuiltinToolOptions): AgentTool<AttachmentSearchArgs>['execute'] {
+  return async (_toolCallId, args, signal) => {
       throwIfAborted(signal)
       const query = args.query?.trim()
       if (!query) {
@@ -211,7 +240,6 @@ function createAttachmentTextSearchTool(options: BuiltinToolOptions): AgentTool<
           },
         ],
       }
-    },
   }
 }
 
