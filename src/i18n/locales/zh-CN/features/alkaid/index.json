@@ -4,7 +4,7 @@
   "comingSoon": "前面的世界，以后再来探索吧！",
   "page": {
     "title": "The Alkaid Project.",
-    "subtitle": "AstrBot Alpha 项目",
+    "subtitle": "OmniClaw Alpha 项目",
     "navigation": {
       "knowledgeBase": "知识库 (插件)",
       "longTermMemory": "长期记忆层",
@@ -24,7 +24,7 @@
     "deprecated": "已弃用"
   },
   "sigma": {
-    "subtitle": "AstrBot 实验性项目",
+    "subtitle": "OmniClaw 实验性项目",
     "visualization": "可视化",
     "filterUserId": "筛选用户 ID",
     "filter": "筛选",

@@ -4,7 +4,7 @@
   "comingSoon": "The world ahead, let's explore it later!",
   "page": {
     "title": "The Alkaid Project.",
-    "subtitle": "AstrBot Alpha Project",
+    "subtitle": "OmniClaw Alpha Project",
     "navigation": {
       "knowledgeBase": "Knowledge Base (Plugin)",
       "longTermMemory": "Long-term Memory",
@@ -24,7 +24,7 @@
     "deprecated": "Deprecated"
   },
   "sigma": {
-    "subtitle": "AstrBot Experimental Project",
+    "subtitle": "OmniClaw Experimental Project",
     "visualization": "Visualization",
     "filterUserId": "Filter User ID",
     "filter": "Filter",

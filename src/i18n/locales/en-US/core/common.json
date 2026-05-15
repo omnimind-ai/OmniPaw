@@ -45,7 +45,7 @@
     "cancelButton": "Cancel"
   },
   "restart": {
-    "waiting": "Waiting for AstrBot to restart...",
+    "waiting": "Waiting for OmniClaw to restart...",
     "maxRetriesReached": "Maximum retry attempts reached, please check manually."
   },
   "readme": {

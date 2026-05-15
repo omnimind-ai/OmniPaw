@@ -75,13 +75,13 @@ const displayToolName = computed(() => props.toolCall.name || "tool");
 
 const toolCallIcon = computed(() => {
   const name = String(props.toolCall.name || "");
-  if (name === "astrbot_execute_ipython" || name === "astrbot_execute_python") {
+  if (name === "omniclaw_execute_ipython" || name === "omniclaw_execute_python") {
     return "mdi-code-json";
   }
   if (name.includes("web_search") || name.includes("tavily")) {
     return "mdi-web";
   }
-  if (name === "astrbot_execute_shell") {
+  if (name === "omniclaw_execute_shell") {
     return "mdi-console-line";
   }
   return "mdi-wrench";

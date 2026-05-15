@@ -101,7 +101,7 @@
     },
     "messages": {
         "pluginNotAvailable": "Плагин не установлен или недоступен",
-        "pluginNotActivated": "Плагин astrbot_plugin_knowledge_base не включен. Пожалуйста, активируйте его в разделе плагинов и перезапустите AstrBot.",
+        "pluginNotActivated": "Плагин omniclaw_plugin_knowledge_base не включен. Пожалуйста, активируйте его в разделе плагинов и перезапустите OmniClaw.",
         "checkPluginFailed": "Не удалось проверить плагин",
         "installFailed": "Ошибка установки",
         "installPluginFailed": "Не удалось установить плагин",
@@ -149,7 +149,7 @@
         "importSuccess": "Импортировано успешно",
         "importFailed": "Ошибка импорта",
         "uploadingChunks": "Текст извлечен, загрузка фрагментов...",
-        "preRequisite": "Примечание: сначала установите плагин astrbot_plugin_url_2_knowledge_base и выполните установку playwright согласно документации.",
+        "preRequisite": "Примечание: сначала установите плагин omniclaw_plugin_url_2_knowledge_base и выполните установку playwright согласно документации.",
         "allChunksUploaded": "Все фрагменты успешно загружены"
     }
 }

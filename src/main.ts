@@ -1,7 +1,7 @@
 import { createPinia } from 'pinia'
 import { createApp } from 'vue'
 
-import '@/api/astrbotMock'
+import '@/api/omniclawMock'
 import App from './App.vue'
 import { setupI18n } from './i18n/composables'
 import { useCustomizerStore } from './stores/customizer'

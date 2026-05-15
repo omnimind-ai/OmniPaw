@@ -88,12 +88,12 @@ export function useI18n() {
       loadTranslations(newLocale);
 
       // 保存到localStorage
-      localStorage.setItem('astrbot-locale', newLocale);
+      localStorage.setItem('omniclaw-locale', newLocale);
 
       // 触发自定义事件，通知相关页面重新加载配置数据
       // 这是因为插件适配器的 i18n 数据是通过后端 API 注入的，
       // 需要根据 Accept-Language 头重新获取
-      window.dispatchEvent(new CustomEvent('astrbot-locale-changed', {
+      window.dispatchEvent(new CustomEvent('omniclaw-locale-changed', {
         detail: { locale: newLocale }
       }));
     }
@@ -220,7 +220,7 @@ function deepMerge(target: Record<string, any>, source: Record<string, any>) {
 // 初始化函数（在应用启动时调用）
 export async function setupI18n() {
   // 从localStorage获取保存的语言设置
-  const savedLocale = localStorage.getItem('astrbot-locale') as Locale;
+  const savedLocale = localStorage.getItem('omniclaw-locale') as Locale;
   const initialLocale = savedLocale && ['zh-CN', 'en-US', 'ru-RU'].includes(savedLocale)
     ? savedLocale
     : 'zh-CN';

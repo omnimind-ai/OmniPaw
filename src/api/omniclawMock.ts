@@ -53,7 +53,7 @@ function ensureInitialData() {
           {
             type: 'plain',
             text:
-              '欢迎使用 OpenOmniClaw。这个页面正在复刻 AstrBot 的聊天界面：左侧是聊天历史，中间是消息流，底部是输入框。',
+              '欢迎使用 OpenOmniClaw。这个页面正在复刻 OmniClaw 的聊天界面：左侧是聊天历史，中间是消息流，底部是输入框。',
           },
         ],
       },
@@ -123,7 +123,7 @@ function installFetchMock() {
       const botId = crypto.randomUUID()
       const timestamp = now()
       const userText = textFromParts(parts)
-      const reply = `已收到：${userText || '空消息'}\n\n当前是 AstrBot 聊天界面的 Electron 复刻占位流式响应。`
+      const reply = `已收到：${userText || '空消息'}\n\n当前是 OmniClaw 聊天界面的 Electron 复刻占位流式响应。`
 
       const userRecord: ChatRecord = {
         id: userId,

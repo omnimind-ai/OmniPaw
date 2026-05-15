@@ -1,7 +1,7 @@
 {
-  "logoTitle": "AstrBot Dashboard",
+  "logoTitle": "OmniClaw Dashboard",
   "version": {
-    "hasNewVersion": "AstrBot has a new version!",
+    "hasNewVersion": "OmniClaw has a new version!",
     "dashboardHasNewVersion": "WebUI has a new version!"
   },
   "buttons": {
@@ -13,7 +13,7 @@
     }
   },
   "updateDialog": {
-    "title": "Update AstrBot",
+    "title": "Update OmniClaw",
     "currentVersion": "Current Version",
     "status": {
       "checking": "Checking for updates...",
@@ -56,24 +56,24 @@
       "core": "Download project code",
       "dependencies": "Updating dependencies...",
       "restart": "Preparing restart...",
-      "restarting": "Restarting AstrBot",
+      "restarting": "Restarting OmniClaw",
       "completed": "Update complete",
       "failed": "Update failed"
     },
     "redirectConfirm": {
-      "title": "Leaving AstrBot",
+      "title": "Leaving OmniClaw",
       "message": "You are about to open the GitHub Releases page. Continue?",
       "latestLabel": "Latest",
       "targetVersion": "Target version: ",
       "currentVersion": "Current version: ",
       "guideTitle": "Recommended after opening:",
       "guideStep1": "Download the installer that matches your OS and architecture.",
-      "guideStep2": "Install it and restart AstrBot.",
+      "guideStep2": "Install it and restart OmniClaw.",
       "guideStep3": "If you use Docker, prefer the image update path."
     },
     "desktopApp": {
       "title": "Update Desktop App",
-      "message": "Check and upgrade the AstrBot desktop application.",
+      "message": "Check and upgrade the OmniClaw desktop application.",
       "currentVersion": "Current version: ",
       "latestVersion": "Latest version: ",
       "checking": "Checking desktop app updates...",
@@ -95,7 +95,7 @@
   "accountDialog": {
     "title": "Modify Account",
     "securityWarning": "Security Reminder: Please change your password to secure your account",
-    "securityWarningLegacy": "The new AstrBot version has improved security. Please change your password.",
+    "securityWarningLegacy": "The new OmniClaw version has improved security. Please change your password.",
     "securityWarningUpgrade": "Legacy password storage detected. Please change your password to complete the security upgrade.",
     "form": {
       "currentPassword": "Current Password",
@@ -105,7 +105,7 @@
       "passwordHint": "At least 8 characters, including uppercase, lowercase letters, and digits",
       "confirmPasswordHint": "Please enter new password again to confirm",
       "usernameHint": "Leave blank to keep current username",
-      "defaultCredentials": "The default username is astrbot. An initial password is generated on first startup and shown in the console."
+      "defaultCredentials": "The default username is omniclaw. An initial password is generated on first startup and shown in the console."
     },
     "validation": {
       "passwordRequired": "Please enter password",

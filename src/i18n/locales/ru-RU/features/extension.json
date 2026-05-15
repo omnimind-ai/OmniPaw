@@ -2,14 +2,14 @@
     "title": "Плагины",
     "subtitle": "Управление и настройка расширений системы",
     "tabs": {
-        "installedPlugins": "Плагины AstrBot",
+        "installedPlugins": "Плагины OmniClaw",
         "market": "Магазин плагинов",
         "installedMcpServers": "MCP",
         "skills": "Навыки",
         "handlersOperation": "Управление поведением"
     },
     "titles": {
-        "installedAstrBotPlugins": "Установленные плагины AstrBot"
+        "installedOmniClawPlugins": "Установленные плагины OmniClaw"
     },
     "failedPlugins": {
         "title": "Ошибка загрузки ({count})",
@@ -125,7 +125,7 @@
             "category": "Категория",
             "stars": "Звезды",
             "tags": "Теги",
-            "astrbotVersion": "Требуемая версия AstrBot",
+            "omniclawVersion": "Требуемая версия OmniClaw",
             "supportPlatforms": "Поддерживаемые платформы",
             "authorWebsite": "Сайт автора",
             "repository": "Репозиторий"
@@ -212,7 +212,7 @@
             "supportPlatformsCount": "Поддерживает платформ: {count}",
             "sectionTitle": "Установка",
             "downloadSource": "Пакет плагина будет установлен из:",
-            "githubSecurityWarning": "AstrBot не может гарантировать безопасность плагинов, загруженных с GitHub. Устанавливайте только если доверяете источнику плагина."
+            "githubSecurityWarning": "OmniClaw не может гарантировать безопасность плагинов, загруженных с GitHub. Устанавливайте только если доверяете источнику плагина."
         },
         "update": {
             "title": "Обновление плагина",
@@ -228,7 +228,7 @@
         },
         "versionCompatibility": {
             "title": "Предупреждение о версии",
-            "message": "Требуемая плагином версия AstrBot не совпадает с вашей текущей версией. Вы можете продолжить установку на свой страх и риск.",
+            "message": "Требуемая плагином версия OmniClaw не совпадает с вашей текущей версией. Вы можете продолжить установку на свой страх и риск.",
             "confirm": "Игнорировать и установить",
             "cancel": "Отмена"
         },
@@ -402,7 +402,7 @@
             "handlersCount": "действий",
             "supportPlatform": "Платформы",
             "supportPlatformsCount": "Платформ: {count}",
-            "astrbotVersion": "Требуемая версия AstrBot"
+            "omniclawVersion": "Требуемая версия OmniClaw"
         },
         "alt": {
             "logo": "логотип",

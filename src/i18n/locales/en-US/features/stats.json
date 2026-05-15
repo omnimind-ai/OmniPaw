@@ -30,7 +30,7 @@
     },
     "cpu": {
       "label": "CPU",
-      "note": "AstrBot CPU usage"
+      "note": "OmniClaw CPU usage"
     },
     "memory": {
       "label": "Process Memory",

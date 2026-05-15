@@ -101,7 +101,7 @@
   },
   "messages": {
     "pluginNotAvailable": "Plugin not installed or unavailable",
-    "pluginNotActivated": "astrbot_plugin_knowledge_base plugin not activated, please activate it in the plugin management page and restart AstrBot",
+    "pluginNotActivated": "omniclaw_plugin_knowledge_base plugin not activated, please activate it in the plugin management page and restart OmniClaw",
     "checkPluginFailed": "Failed to check plugin",
     "installFailed": "Installation failed",
     "installPluginFailed": "Failed to install plugin",
@@ -149,7 +149,7 @@
     "importSuccess": "Import Successful",
     "importFailed": "Import Failed",
     "uploadingChunks": "Content extracted successfully, uploading chunks...",
-    "preRequisite": "Hint: Please go to the plugin market to install astrbot_plugin_url_2_knowledge_base and follow the instructions in the plugin documentation to complete the playwright installation before using this feature.",
+    "preRequisite": "Hint: Please go to the plugin market to install omniclaw_plugin_url_2_knowledge_base and follow the instructions in the plugin documentation to complete the playwright installation before using this feature.",
     "allChunksUploaded": "All chunks uploaded successfully"
   }
 }

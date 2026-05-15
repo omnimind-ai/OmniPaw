@@ -2,14 +2,14 @@
   "title": "插件管理",
   "subtitle": "管理和配置系统插件",
   "tabs": {
-    "installedPlugins": "AstrBot 插件",
-    "market": "AstrBot 插件市场",
+    "installedPlugins": "OmniClaw 插件",
+    "market": "OmniClaw 插件市场",
     "installedMcpServers": "MCP",
     "skills": "Skills",
     "handlersOperation": "管理行为"
   },
   "titles": {
-    "installedAstrBotPlugins": "已安装的 AstrBot 插件"
+    "installedOmniClawPlugins": "已安装的 OmniClaw 插件"
   },
   "failedPlugins": {
     "title": "加载失败插件（{count}）",
@@ -125,7 +125,7 @@
       "category": "类别",
       "stars": "Star数",
       "tags": "标签",
-      "astrbotVersion": "AstrBot 版本要求",
+      "omniclawVersion": "OmniClaw 版本要求",
       "supportPlatforms": "支持平台",
       "authorWebsite": "作者网站",
       "repository": "仓库"
@@ -213,7 +213,7 @@
       "supportPlatformsCount": "支持 {count} 个平台",
       "sectionTitle": "安装",
       "downloadSource": "将从以下位置安装插件包体：",
-      "githubSecurityWarning": "AstrBot 不能保证从 GitHub 上下载的插件的安全性。请确认你信任该插件来源后再安装。"
+      "githubSecurityWarning": "OmniClaw 不能保证从 GitHub 上下载的插件的安全性。请确认你信任该插件来源后再安装。"
     },
     "update": {
       "title": "更新插件",
@@ -229,7 +229,7 @@
     },
     "versionCompatibility": {
       "title": "版本兼容性警告",
-      "message": "该插件声明的 AstrBot 版本范围与当前版本不匹配。你可以无视警告继续安装，但可能无法正常运行。",
+      "message": "该插件声明的 OmniClaw 版本范围与当前版本不匹配。你可以无视警告继续安装，但可能无法正常运行。",
       "confirm": "无视警告，继续安装",
       "cancel": "取消安装"
     },
@@ -371,7 +371,7 @@
     "neoPayloadTitle": "Neo Payload 详情",
     "neoPayloadFailed": "读取 Payload 失败",
     "runtimeNoneWarning": "Computer Use 运行环境为无，Skills 可能无法正确被 Agent 运行，因为没有启用运行环境。",
-    "runtimeHint": "需要在配置的 “使用电脑能力” 中将运行环境设置为 “local” 或 “sandbox” 才能让 AstrBot 正常使用你提供的 Skills。",
+    "runtimeHint": "需要在配置的 “使用电脑能力” 中将运行环境设置为 “local” 或 “sandbox” 才能让 OmniClaw 正常使用你提供的 Skills。",
     "neoRuntimeRequired": "Neo Skills 仅在运行环境为 sandbox 且沙箱驱动为 shipyard_neo 时可用。",
     "sourceLocalOnly": "本地 Skill",
     "sourceSandboxOnly": "Sandbox 预置 Skill",
@@ -407,7 +407,7 @@
       "handlersCount": "个行为",
       "supportPlatform": "支持平台",
       "supportPlatformsCount": "支持 {count} 个平台",
-      "astrbotVersion": "AstrBot 版本要求"
+      "omniclawVersion": "OmniClaw 版本要求"
     },
     "alt": {
       "logo": "logo",

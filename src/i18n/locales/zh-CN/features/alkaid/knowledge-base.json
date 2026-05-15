@@ -101,7 +101,7 @@
   },
   "messages": {
     "pluginNotAvailable": "插件未安装或不可用",
-    "pluginNotActivated": "astrbot_plugin_knowledge_base 插件未启用，请前往插件管理页面启用，然后重启 AstrBot。",
+    "pluginNotActivated": "omniclaw_plugin_knowledge_base 插件未启用，请前往插件管理页面启用，然后重启 OmniClaw。",
     "checkPluginFailed": "检查插件失败",
     "installFailed": "安装失败",
     "installPluginFailed": "安装插件失败",
@@ -149,7 +149,7 @@
     "importSuccess": "导入成功",
     "importFailed": "导入失败",
     "uploadingChunks": "内容提取成功，正在上传分片...",
-    "preRequisite": "提示：请先前往插件市场安装 astrbot_plugin_url_2_knowledge_base 并根据插件文档内的指示完成 playwright 安装后才可使用本功能",
+    "preRequisite": "提示：请先前往插件市场安装 omniclaw_plugin_url_2_knowledge_base 并根据插件文档内的指示完成 playwright 安装后才可使用本功能",
     "allChunksUploaded": "所有分片上传成功"
   }
 }

@@ -1,8 +1,8 @@
 {
   "greeting": {
-    "morning": "Good morning, welcome to AstrBot",
-    "afternoon": "Good afternoon, welcome to AstrBot",
-    "evening": "Good evening, welcome to AstrBot",
+    "morning": "Good morning, welcome to OmniClaw",
+    "afternoon": "Good afternoon, welcome to OmniClaw",
+    "evening": "Good evening, welcome to OmniClaw",
     "newYear": "Happy New Year!"
   },
   "subtitle": "You can complete the basic onboarding first. Platform and chat provider setup can both be skipped.",
@@ -13,14 +13,14 @@
     "title": "Quick Onboarding",
     "subtitle": "Complete initialization directly on the welcome page.",
     "step1Title": "Configure AI Model",
-    "step1Desc": "Configure AI models for AstrBot.",
+    "step1Desc": "Configure AI models for OmniClaw.",
     "step2Title": "Configure Platform Bot",
-    "step2Desc": "Connect AstrBot to IM platforms like QQ, Lark, Slack, Telegram, etc.",
+    "step2Desc": "Connect OmniClaw to IM platforms like QQ, Lark, Slack, Telegram, etc.",
     "step3Title": "Allow Agent to Use the Computer",
     "step3Desc": "Set whether the Agent can access and use this computer.",
     "step3HelpTitle": "Access Details",
     "step3HelpItem1": "The Agent can access and use the workspace directory, which is isolated for each user, as well as Skills to handle more complex tasks.",
-    "step3HelpItem2": "For AstrBot administrators, the Agent is additionally allowed to execute shell commands, run Python code, and access all local directories on this machine.",
+    "step3HelpItem2": "For OmniClaw administrators, the Agent is additionally allowed to execute shell commands, run Python code, and access all local directories on this machine.",
     "step3HelpClose": "Close",
     "step3SelectLabel": "Computer Access",
     "step3Allow": "Allow",
@@ -44,8 +44,8 @@
     "title": "Resources",
     "githubDesc": "Give us a Star!",
     "docsTitle": "Documentation",
-    "docsDesc": "Read the official AstrBot documentation.",
+    "docsDesc": "Read the official OmniClaw documentation.",
     "afdianTitle": "Afdian",
-    "afdianDesc": "Support the AstrBot team on Afdian."
+    "afdianDesc": "Support the OmniClaw team on Afdian."
   }
 }

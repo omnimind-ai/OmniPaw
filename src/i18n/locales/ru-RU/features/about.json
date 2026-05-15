@@ -1,6 +1,6 @@
 ﻿{
     "hero": {
-        "title": "AstrBot",
+        "title": "OmniClaw",
         "subtitle": "Проект, рожденный из интереса и любви ❤️",
         "starButton": "Star этот проект! 🌟",
         "issueButton": "Сообщить об ошибке"
@@ -12,6 +12,6 @@
     },
     "stats": {
         "title": "Глобальное развертывание",
-        "license": "AstrBot распространяется по лицензии AGPL v3"
+        "license": "OmniClaw распространяется по лицензии AGPL v3"
     }
 }

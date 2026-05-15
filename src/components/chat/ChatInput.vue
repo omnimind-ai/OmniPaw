@@ -117,7 +117,7 @@
         @compositioncancel="handleCompositionEnd"
         @blur="clearCompositionState()"
         :disabled="disabled"
-        placeholder="Ask AstrBot..."
+        placeholder="Ask OmniClaw..."
         class="chat-textarea"
         autocomplete="off"
         autocorrect="off"
