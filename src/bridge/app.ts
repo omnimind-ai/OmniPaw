@@ -29,6 +29,53 @@ export interface BridgeChatMessagePart {
   filename?: string
   toolCalls?: unknown[]
   tool_calls?: unknown[]
+  toolCall?: unknown
+  tool_call?: unknown
+  [key: string]: unknown
+}
+
+export type BridgeChatRunMode = 'assistant' | 'fast_chat' | string
+export type BridgeToolProfile = 'minimal' | 'assistant' | 'power' | string
+export type BridgeToolCallStatus =
+  | 'pending'
+  | 'running'
+  | 'complete'
+  | 'error'
+  | 'denied'
+  | 'aborted'
+  | string
+
+export interface BridgeToolCall {
+  id?: string
+  index?: number
+  toolCallId?: string
+  tool_call_id?: string
+  name?: string
+  toolName?: string
+  tool_name?: string
+  args?: unknown
+  arguments?: unknown
+  argumentsDelta?: string
+  arguments_delta?: string
+  result?: unknown
+  error?: unknown
+  status?: BridgeToolCallStatus
+  state?: BridgeToolCallStatus
+  toolStatus?: BridgeToolCallStatus
+  tool_status?: BridgeToolCallStatus
+  startedAt?: number
+  started_at?: number
+  startTime?: number
+  start_time?: number
+  ts?: number
+  finishedAt?: number
+  finished_at?: number
+  finishedTs?: number
+  finished_ts?: number
+  endTime?: number
+  end_time?: number
+  durationMs?: number
+  duration_ms?: number
   [key: string]: unknown
 }
 
@@ -53,9 +100,15 @@ export interface BridgeSendMessageRequest {
   content?: string
   providerId?: string
   modelId?: string
+  mode?: BridgeChatRunMode
+  toolProfile?: BridgeToolProfile
+  tool_profile?: BridgeToolProfile
+  maxSteps?: number
+  max_steps?: number
   enableStreaming?: boolean
   idempotencyKey?: string
   checkpointId?: string | null
+  metadata?: Record<string, unknown>
 }
 
 export interface BridgeSendMessageResponse {
@@ -77,9 +130,31 @@ export interface BridgeStreamEvent {
   channel?: 'content' | 'reasoning' | 'tool_call' | string
   delta?: string
   text?: string
+  part?: BridgeChatMessagePart
+  toolCall?: BridgeToolCall
+  tool_call?: BridgeToolCall
+  toolCalls?: BridgeToolCall[]
+  tool_calls?: BridgeToolCall[]
+  toolCallId?: string
+  tool_call_id?: string
+  name?: string
+  toolName?: string
+  tool_name?: string
+  args?: unknown
+  arguments?: unknown
+  argumentsDelta?: string
+  arguments_delta?: string
+  index?: number
+  result?: unknown
+  status?: BridgeToolCallStatus
+  state?: BridgeToolCallStatus
+  step?: number
+  maxSteps?: number
+  max_steps?: number
   message?: BridgeChatMessage
-  error?: { message?: string; code?: string }
+  error?: { message?: string; code?: string } | unknown
   usage?: Record<string, unknown>
+  [key: string]: unknown
 }
 
 export interface BridgeAttachment {

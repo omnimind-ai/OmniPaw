@@ -1,6 +1,6 @@
 import type { AttachmentService } from './attachment-service'
 import { attachmentIdFromPart } from './attachment-service'
-import type { ChatMessage, ChatMessagePart, ChatSession, ProviderRequestSnapshot } from '@shared/types/chat'
+import type { ChatMessage, ChatMessagePart, ChatSession, ProviderRequestSnapshot, ToolCallDisplay } from '@shared/types/chat'
 import type { ProviderConfig, ProviderMessage, ProviderModel } from '@shared/types/provider'
 
 export interface BuildContextInput {
@@ -38,6 +38,23 @@ export class ContextBuilder {
     let attachmentCount = 0
     for (const message of selected) {
       const isCurrent = message.id === input.currentUserMessageId
+      if (message.role === 'assistant') {
+        const compiledToolMessages = compileToolCallMessages(message.parts)
+        if (compiledToolMessages.length) {
+          const textContent = await this.partsToProviderContent(
+            message.parts.filter((part) => part.type !== 'tool_call'),
+            input.model,
+            isCurrent || policy.includeAttachments === 'recent',
+            policy.includeAttachments === 'never',
+          )
+          if (textContent && !(Array.isArray(textContent) && textContent.length === 0)) {
+            providerMessages.push({ role: 'assistant', content: textContent })
+          }
+          providerMessages.push(...compiledToolMessages)
+          attachmentCount += countAttachmentParts(message.parts)
+          continue
+        }
+      }
       const content = await this.partsToProviderContent(
         message.parts,
         input.model,
@@ -167,4 +184,79 @@ function escapeAttribute(value: string): string {
     '<': '&lt;',
     '>': '&gt;',
   })[char] ?? char)
+}
+
+function compileToolCallMessages(parts: ChatMessagePart[]): ProviderMessage[] {
+  const messages: ProviderMessage[] = []
+  for (const toolCall of completedToolCalls(parts)) {
+    const args = serializeToolArguments(toolCall.arguments ?? toolCall.args)
+    const result = serializeToolResult(toolCall.result ?? toolCall.error)
+    if (!toolCall.id || !toolCall.name || args === undefined || result === undefined) {
+      continue
+    }
+    messages.push({
+      role: 'assistant',
+      content: '',
+      toolCalls: [
+        {
+          id: toolCall.id,
+          type: 'function',
+          function: {
+            name: toolCall.name,
+            arguments: args,
+          },
+        },
+      ],
+    })
+    messages.push({
+      role: 'tool',
+      toolCallId: toolCall.id,
+      content: result,
+    })
+  }
+  return messages
+}
+
+function completedToolCalls(parts: ChatMessagePart[]): ToolCallDisplay[] {
+  const calls: ToolCallDisplay[] = []
+  for (const part of parts) {
+    if (part.type !== 'tool_call') {
+      continue
+    }
+    const toolCalls = part.tool_calls ?? part.toolCalls ?? []
+    for (const toolCall of toolCalls) {
+      if (toolCall.status === 'complete' || toolCall.status === 'denied' || toolCall.status === 'error') {
+        calls.push(toolCall)
+      }
+    }
+  }
+  return calls
+}
+
+function serializeToolArguments(value: unknown): string | undefined {
+  if (value === undefined) {
+    return '{}'
+  }
+  if (typeof value === 'string') {
+    return value
+  }
+  try {
+    return JSON.stringify(value)
+  } catch {
+    return undefined
+  }
+}
+
+function serializeToolResult(value: unknown): string | undefined {
+  if (value === undefined || value === null) {
+    return undefined
+  }
+  if (typeof value === 'string') {
+    return value
+  }
+  try {
+    return JSON.stringify(value)
+  } catch {
+    return String(value)
+  }
 }

@@ -1,7 +1,8 @@
 import type { WebContents } from 'electron'
 
-import { normalizeProviderError } from '@core/provider/errors'
 import type { ProviderManager } from '@core/provider/manager'
+import { AgentRunner } from '@core/agent/agent-runner'
+import { ToolRegistry } from '@core/agent/tool-registry'
 import type {
   AttachmentRepo,
   ChatMessageRepo,
@@ -38,10 +39,26 @@ export interface ChatServiceOptions {
   providers: ProviderManager
   contextBuilder: ContextBuilder
   runManager: RunManager
+  agentRunner?: AgentRunner
 }
 
 export class ChatService {
-  constructor(private readonly options: ChatServiceOptions) {}
+  private readonly agentRunner: AgentRunner
+
+  constructor(private readonly options: ChatServiceOptions) {
+    this.agentRunner = options.agentRunner ?? new AgentRunner({
+      messages: options.messages,
+      runs: options.runs,
+      providers: options.providers,
+      contextBuilder: options.contextBuilder,
+      runManager: options.runManager,
+      toolRegistry: new ToolRegistry({
+        messages: options.messages,
+        attachments: options.attachments,
+      }),
+      onComplete: (sessionId) => this.updateSessionSummary(sessionId),
+    })
+  }
 
   listSessions(): ChatSession[] {
     return this.options.sessions.list()
@@ -165,7 +182,16 @@ export class ChatService {
       seq: this.options.runManager.nextSeq(run.id),
     })
 
-    void this.executeRun(run, session, provider, model, signal)
+    void this.agentRunner.run({
+      run,
+      session,
+      provider,
+      model,
+      signal,
+      mode: request.mode,
+      toolProfile: request.toolProfile,
+      maxSteps: request.maxSteps,
+    })
 
     return responseFromRun(run)
   }
@@ -235,99 +261,6 @@ export class ChatService {
     )
   }
 
-  private async executeRun(
-    run: ChatRun,
-    session: ChatSession,
-    provider: ProviderConfig,
-    model: ProviderModel,
-    signal: AbortSignal,
-  ): Promise<void> {
-    const assistantParts: ChatMessagePart[] = []
-    try {
-      const allMessages = this.options.messages.listBySession(session.id)
-      const context = await this.options.contextBuilder.build({
-        session,
-        messages: allMessages,
-        currentUserMessageId: run.userMessageId,
-        provider,
-        model,
-      })
-      this.options.runs.save({ ...run, requestSnapshot: context.snapshot, updatedAt: Date.now() })
-      const client = await this.options.providers.createProviderClient(provider.id)
-
-      for await (const chunk of client.streamChat({
-        modelId: model.remoteId || model.id,
-        messages: context.messages,
-        maxOutputTokens: model.maxOutputTokens,
-        abortSignal: signal,
-      })) {
-        if (chunk.type === 'delta' && (chunk.content || chunk.reasoning)) {
-          const text = chunk.content ?? chunk.reasoning ?? ''
-          if (chunk.content) {
-            appendText(assistantParts, text)
-          }
-          if (chunk.reasoning) {
-            assistantParts.push({ type: 'think', think: text })
-          }
-          this.options.messages.updateParts(run.assistantMessageId, assistantParts, { status: 'streaming' })
-          this.options.runManager.emit({
-            type: 'delta',
-            runId: run.id,
-            sessionId: run.sessionId,
-            assistantMessageId: run.assistantMessageId,
-            seq: this.options.runManager.nextSeq(run.id),
-            text,
-            channel: chunk.reasoning ? 'reasoning' : 'content',
-          })
-        }
-
-        if (chunk.type === 'final') {
-          this.options.messages.updateParts(run.assistantMessageId, assistantParts, {
-            status: 'complete',
-            usage: chunk.usage,
-          })
-          this.options.runs.updateStatus(run.id, 'complete', {
-            finishedAt: Date.now(),
-            usage: chunk.usage,
-          })
-          const finalMessage = this.options.messages.get(run.assistantMessageId)
-          if (finalMessage) {
-            this.options.runManager.emit({
-              type: 'final',
-              runId: run.id,
-              sessionId: run.sessionId,
-              assistantMessageId: run.assistantMessageId,
-              seq: this.options.runManager.nextSeq(run.id),
-              message: finalMessage,
-            })
-          }
-          this.updateSessionSummary(run.sessionId)
-        }
-      }
-    } catch (error) {
-      const chatError = normalizeProviderError(error)
-      const status = chatError.code === 'aborted' ? 'aborted' : 'error'
-      this.options.messages.updateParts(run.assistantMessageId, assistantParts, {
-        status,
-        error: chatError,
-      })
-      this.options.runs.updateStatus(run.id, status, {
-        finishedAt: Date.now(),
-        error: chatError,
-      })
-      this.options.runManager.emit({
-        type: 'error',
-        runId: run.id,
-        sessionId: run.sessionId,
-        assistantMessageId: run.assistantMessageId,
-        seq: this.options.runManager.nextSeq(run.id),
-        error: chatError,
-      })
-    } finally {
-      this.options.runManager.finish(run.id)
-    }
-  }
-
   private requireSession(sessionId: string): ChatSession {
     const session = this.options.sessions.get(sessionId)
     if (!session || session.status === 'deleted') {
@@ -386,15 +319,6 @@ function responseFromRun(run: ChatRun): SendMessageResponse {
     messageId: run.assistantMessageId,
     accepted: true,
   }
-}
-
-function appendText(parts: ChatMessagePart[], text: string): void {
-  const last = parts[parts.length - 1] as { type?: string; text?: string } | undefined
-  if (last?.type === 'plain') {
-    last.text = `${last.text ?? ''}${text}`
-    return
-  }
-  parts.push({ type: 'plain', text })
 }
 
 function previewMessage(message: ChatMessage): string {

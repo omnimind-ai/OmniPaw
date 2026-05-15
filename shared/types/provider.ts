@@ -167,6 +167,18 @@ export type ProviderStreamChunk =
       channel?: 'content' | 'reasoning'
     }
   | {
+      type: 'tool_call_delta'
+      index: number
+      id?: string
+      toolCallType?: ProviderToolCall['type']
+      name?: string
+      argumentsDelta?: string
+    }
+  | {
+      type: 'tool_call_final'
+      toolCalls: ProviderToolCall[]
+    }
+  | {
       type: 'usage'
       usage: TokenUsage
     }

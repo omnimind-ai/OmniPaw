@@ -53,15 +53,43 @@ export interface ProviderTool {
   }
 }
 
-export interface ChatCompletionChunk {
-  type: 'delta' | 'final'
-  content?: string
-  reasoning?: string
-  done: boolean
-  finishReason?: string
-  usage?: TokenUsage
-  raw?: unknown
-}
+export type ChatCompletionChunk =
+  | {
+      type: 'delta'
+      content?: string
+      reasoning?: string
+      done: false
+      finishReason?: string
+      usage?: TokenUsage
+      raw?: unknown
+    }
+  | {
+      type: 'tool_call_delta'
+      index: number
+      id?: string
+      toolCallType?: ProviderToolCall['type']
+      name?: string
+      argumentsDelta?: string
+      done: false
+      finishReason?: string
+      usage?: TokenUsage
+      raw?: unknown
+    }
+  | {
+      type: 'tool_call_final'
+      toolCalls: ProviderToolCall[]
+      done: false
+      finishReason?: string
+      usage?: TokenUsage
+      raw?: unknown
+    }
+  | {
+      type: 'final'
+      done: true
+      finishReason?: string
+      usage?: TokenUsage
+      raw?: unknown
+    }
 
 export interface ChatCompletionRequest {
   modelId: string

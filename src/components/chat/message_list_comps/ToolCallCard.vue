@@ -5,6 +5,12 @@
       <span class="tool-call-title">
         {{ tm("actions.toolCallUsed", { name: displayToolName }) }}
       </span>
+      <span
+        class="tool-call-status"
+        :class="`status-${displayStatus}`"
+      >
+        {{ statusText }}
+      </span>
       <span class="tool-call-duration">{{ toolCallDuration }}</span>
       <v-icon
         size="22"
@@ -16,24 +22,31 @@
     </button>
 
     <div v-if="isExpanded" class="tool-call-details">
-      <div v-if="toolCall.id" class="tool-call-detail-row">
+      <div v-if="normalizedToolCall.id" class="tool-call-detail-row">
         <span class="detail-label">ID:</span>
         <code class="detail-value">
-          {{ toolCall.id }}
+          {{ normalizedToolCall.id }}
         </code>
       </div>
 
       <div class="tool-call-detail-row">
-        <span class="detail-label">Args:</span>
+        <span class="detail-label">Arguments:</span>
         <pre class="detail-value detail-json">{{
-          JSON.stringify(toolCall.args, null, 2)
+          formattedArgs
         }}</pre>
       </div>
 
-      <div v-if="toolCall.result" class="tool-call-detail-row">
+      <div v-if="hasResult" class="tool-call-detail-row">
         <span class="detail-label">Result:</span>
         <pre class="detail-value detail-json detail-result">{{
           formattedResult
+        }}</pre>
+      </div>
+
+      <div v-if="hasError" class="tool-call-detail-row">
+        <span class="detail-label">Error:</span>
+        <pre class="detail-value detail-json detail-error">{{
+          formattedError
         }}</pre>
       </div>
     </div>
@@ -64,17 +77,19 @@ const isExpanded = ref(props.initialExpanded);
 const currentTime = ref(Date.now() / 1000);
 let timer = null;
 
+const normalizedToolCall = computed(() => normalizeToolCall(props.toolCall));
+
 const elapsedTime = computed(() => {
-  if (props.toolCall.finished_ts) return "";
-  const startTime = Number(props.toolCall.ts);
+  if (normalizedToolCall.value.finished_ts) return "";
+  const startTime = Number(normalizedToolCall.value.ts);
   if (!Number.isFinite(startTime) || startTime <= 0) return "";
   return formatDuration(currentTime.value - startTime);
 });
 
-const displayToolName = computed(() => props.toolCall.name || "tool");
+const displayToolName = computed(() => normalizedToolCall.value.name || "tool");
 
 const toolCallIcon = computed(() => {
-  const name = String(props.toolCall.name || "");
+  const name = String(normalizedToolCall.value.name || "");
   if (name === "omniclaw_execute_ipython" || name === "omniclaw_execute_python") {
     return "mdi-code-json";
   }
@@ -88,23 +103,119 @@ const toolCallIcon = computed(() => {
 });
 
 const toolCallDuration = computed(() => {
-  const startTime = Number(props.toolCall.ts);
+  const durationMs = Number(normalizedToolCall.value.durationMs);
+  if (Number.isFinite(durationMs) && durationMs >= 0) {
+    return formatDuration(durationMs / 1000);
+  }
+
+  const startTime = Number(normalizedToolCall.value.ts);
   if (!Number.isFinite(startTime) || startTime <= 0) return "";
-  if (props.toolCall.finished_ts) {
-    return formatDuration(Number(props.toolCall.finished_ts) - startTime);
+  if (normalizedToolCall.value.finished_ts) {
+    return formatDuration(Number(normalizedToolCall.value.finished_ts) - startTime);
   }
   return elapsedTime.value;
 });
 
-const formattedResult = computed(() => {
-  if (!props.toolCall.result) return "";
-  try {
-    const parsed = JSON.parse(props.toolCall.result);
-    return JSON.stringify(parsed, null, 2);
-  } catch {
-    return props.toolCall.result;
-  }
+const displayStatus = computed(() => normalizedToolCall.value.status);
+
+const statusText = computed(() => {
+  const status = displayStatus.value;
+  return status.charAt(0).toUpperCase() + status.slice(1);
 });
+
+const formattedArgs = computed(() => formatPayload(normalizedToolCall.value.args ?? {}));
+
+const hasResult = computed(() => normalizedToolCall.value.result !== undefined);
+
+const formattedResult = computed(() => {
+  if (!hasResult.value) return "";
+  return formatPayload(normalizedToolCall.value.result);
+});
+
+const hasError = computed(() => normalizedToolCall.value.error !== undefined);
+
+const formattedError = computed(() => {
+  if (!hasError.value) return "";
+  return formatPayload(normalizedToolCall.value.error);
+});
+
+const normalizeToolCall = (toolCall) => {
+  const args = parsePayload(toolCall.args ?? toolCall.arguments ?? {});
+  const result =
+    toolCall.result !== undefined
+      ? parsePayload(toolCall.result)
+      : undefined;
+  const error =
+    toolCall.error !== undefined
+      ? parsePayload(toolCall.error)
+      : undefined;
+  const ts = normalizeTimestamp(
+    toolCall.ts ?? toolCall.startedAt ?? toolCall.started_at ?? toolCall.startTime ?? toolCall.start_time,
+  );
+  const finishedTs = normalizeTimestamp(
+    toolCall.finished_ts ??
+      toolCall.finishedTs ??
+      toolCall.finishedAt ??
+      toolCall.finished_at ??
+      toolCall.endTime ??
+      toolCall.end_time,
+  );
+
+  return {
+    ...toolCall,
+    id: toolCall.id ?? toolCall.toolCallId ?? toolCall.tool_call_id,
+    name: toolCall.name ?? toolCall.toolName ?? toolCall.tool_name,
+    args,
+    result,
+    error,
+    ts,
+    finished_ts: finishedTs,
+    durationMs: toolCall.durationMs ?? toolCall.duration_ms,
+    status: normalizeStatus(toolCall.status ?? toolCall.state ?? toolCall.toolStatus ?? toolCall.tool_status, {
+      error,
+      result,
+      finishedTs,
+    }),
+  };
+};
+
+const normalizeStatus = (value, context) => {
+  const status = String(value || "").toLowerCase();
+  if (["pending", "running", "complete", "error", "denied", "aborted"].includes(status)) {
+    return status;
+  }
+  if (["success", "succeeded", "done", "finished"].includes(status)) return "complete";
+  if (["failed", "failure"].includes(status)) return "error";
+  if (["rejected", "blocked", "refused"].includes(status)) return "denied";
+  if (["cancelled", "canceled"].includes(status)) return "aborted";
+  if (context.error !== undefined) return "error";
+  if (context.result !== undefined || context.finishedTs !== undefined) return "complete";
+  return "running";
+};
+
+const normalizeTimestamp = (value) => {
+  const numeric = Number(value);
+  if (!Number.isFinite(numeric) || numeric <= 0) return undefined;
+  return numeric > 10000000000 ? numeric / 1000 : numeric;
+};
+
+const parsePayload = (value) => {
+  if (typeof value !== "string") return value;
+  try {
+    return JSON.parse(value);
+  } catch {
+    return value;
+  }
+};
+
+const formatPayload = (value) => {
+  if (typeof value === "string") return value;
+  try {
+    return JSON.stringify(value, null, 2);
+  } catch {
+    return String(value ?? "");
+  }
+};
 
 const formatDuration = (seconds) => {
   if (!Number.isFinite(seconds) || seconds < 0) return "";
@@ -128,7 +239,7 @@ const updateTime = () => {
 };
 
 onMounted(() => {
-  if (!props.toolCall.finished_ts) {
+  if (!normalizedToolCall.value.finished_ts) {
     timer = setInterval(updateTime, 100);
   }
 });
@@ -199,6 +310,23 @@ onUnmounted(() => {
   color: rgba(var(--v-theme-on-surface), 0.48);
 }
 
+.tool-call-status {
+  flex-shrink: 0;
+  color: rgba(var(--v-theme-on-surface), 0.5);
+  font-size: 12px;
+  line-height: 1;
+}
+
+.tool-call-status.status-error,
+.tool-call-status.status-denied,
+.tool-call-status.status-aborted {
+  color: rgb(var(--v-theme-error));
+}
+
+.tool-call-status.status-complete {
+  color: rgba(var(--v-theme-on-surface), 0.58);
+}
+
 .tool-call-details {
   margin-top: 8px;
   padding-left: 26px;
@@ -243,6 +371,11 @@ onUnmounted(() => {
 .detail-result {
   max-height: 300px;
   background-color: transparent;
+}
+
+.detail-error {
+  max-height: 300px;
+  color: rgb(var(--v-theme-error));
 }
 
 .animate-fade-in {

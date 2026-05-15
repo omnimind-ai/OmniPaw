@@ -19,6 +19,14 @@ export type ChatSessionStatus = 'active' | 'archived' | 'deleted'
 
 export type ChatRunStatus = 'queued' | 'running' | 'complete' | 'error' | 'aborted'
 
+export type ChatRunMode = 'assistant' | 'fast_chat'
+
+export type ToolProfile = 'minimal' | 'assistant' | 'power'
+
+export type ToolRisk = 'safe' | 'read' | 'write' | 'network' | 'exec'
+
+export type ToolCallStatus = 'pending' | 'running' | 'complete' | 'error' | 'denied' | 'aborted'
+
 export interface TextPart {
   type: 'plain'
   text: string
@@ -88,13 +96,15 @@ export interface ToolCallPart {
 export interface ToolCallDisplay {
   id: string
   name?: string
+  args?: unknown
   arguments?: unknown
   result?: unknown
+  error?: unknown
   startedAt?: UnixMs
   finishedAt?: UnixMs
   ts?: UnixMs
   finished_ts?: UnixMs
-  status?: 'pending' | 'running' | 'complete' | 'error'
+  status?: ToolCallStatus
 }
 
 export interface RefPart {
@@ -237,6 +247,10 @@ export interface ProviderRequestSnapshot {
   api: string
   baseUrlHost?: string
   model: string
+  mode?: ChatRunMode
+  toolProfile?: ToolProfile
+  maxSteps?: number
+  fallbackReason?: string
   messageCount: number
   attachmentCount: number
   estimatedInputTokens?: number
@@ -267,6 +281,9 @@ export interface SendMessageRequest {
   content?: string
   providerId?: ID
   modelId?: string
+  mode?: ChatRunMode
+  toolProfile?: ToolProfile
+  maxSteps?: number
   idempotencyKey?: string
 }
 
@@ -379,6 +396,37 @@ export interface ChatRunPartEvent {
   part: ChatMessagePart
 }
 
+export interface ChatRunAgentStepEvent {
+  type: 'agent_step'
+  runId: ID
+  sessionId: ID
+  assistantMessageId: ID
+  seq: number
+  step: number
+  maxSteps: number
+  status: 'started' | 'tool_calling' | 'tool_complete' | 'complete' | 'max_steps'
+}
+
+export interface ChatRunToolCallEvent {
+  type: 'tool_call'
+  runId: ID
+  sessionId: ID
+  assistantMessageId: ID
+  seq: number
+  step: number
+  toolCall: ToolCallDisplay
+}
+
+export interface ChatRunToolResultEvent {
+  type: 'tool_result'
+  runId: ID
+  sessionId: ID
+  assistantMessageId: ID
+  seq: number
+  step: number
+  toolCall: ToolCallDisplay
+}
+
 export interface ChatRunFinalEvent {
   type: 'final'
   runId: ID
@@ -401,6 +449,9 @@ export type ChatStreamEvent =
   | ChatRunStartedEvent
   | ChatRunDeltaEvent
   | ChatRunPartEvent
+  | ChatRunAgentStepEvent
+  | ChatRunToolCallEvent
+  | ChatRunToolResultEvent
   | ChatRunFinalEvent
   | ChatRunErrorEvent
 

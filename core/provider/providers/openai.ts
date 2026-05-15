@@ -35,6 +35,21 @@ interface OpenAIStreamChunk {
   usage?: unknown
 }
 
+interface PendingToolCall {
+  id?: string
+  type?: ProviderToolCall['type']
+  name: string
+  arguments: string
+}
+
+interface ParsedToolCallDelta {
+  index: number
+  id?: string
+  toolCallType?: ProviderToolCall['type']
+  name?: string
+  argumentsDelta?: string
+}
+
 export class OpenAICompatibleProvider implements BaseProvider {
   readonly id: string
 
@@ -83,6 +98,8 @@ export class OpenAICompatibleProvider implements BaseProvider {
 
       let finalUsage: TokenUsage | undefined
       let finishReason: string | undefined
+      const toolCallsByIndex = new Map<number, PendingToolCall>()
+      let yieldedToolCallFinal = false
 
       for await (const event of parseSseStream(response.body)) {
         if (event === '[DONE]') {
@@ -99,6 +116,7 @@ export class OpenAICompatibleProvider implements BaseProvider {
         const choice = chunk.choices?.[0]
         const content = choice?.delta?.content ?? undefined
         const reasoning = choice?.delta?.reasoning_content ?? undefined
+        const toolCallDeltas = parseToolCallDeltas(choice?.delta?.tool_calls, toolCallsByIndex)
 
         finishReason = choice?.finish_reason ?? finishReason
         finalUsage = parseUsage(chunk.usage) ?? finalUsage
@@ -108,6 +126,29 @@ export class OpenAICompatibleProvider implements BaseProvider {
             type: 'delta',
             content,
             reasoning,
+            done: false,
+            finishReason,
+            usage: finalUsage,
+            raw: chunk,
+          }
+        }
+
+        for (const toolCallDelta of toolCallDeltas) {
+          yield {
+            type: 'tool_call_delta',
+            ...toolCallDelta,
+            done: false,
+            finishReason,
+            usage: finalUsage,
+            raw: chunk,
+          }
+        }
+
+        if (choice?.finish_reason === 'tool_calls' && !yieldedToolCallFinal) {
+          yieldedToolCallFinal = true
+          yield {
+            type: 'tool_call_final',
+            toolCalls: buildFinalToolCalls(toolCallsByIndex),
             done: false,
             finishReason,
             usage: finalUsage,
@@ -330,6 +371,154 @@ function parseChunk(event: string): OpenAIStreamChunk {
       providerBodyPreview: event.slice(0, 1000),
     }, error)
   }
+}
+
+function parseToolCallDeltas(value: unknown, toolCallsByIndex: Map<number, PendingToolCall>): ParsedToolCallDelta[] {
+  if (value === undefined || value === null) {
+    return []
+  }
+
+  if (!Array.isArray(value)) {
+    throwMalformedToolCallDelta('Provider returned malformed tool call delta: tool_calls must be an array.')
+  }
+
+  const deltas: ParsedToolCallDelta[] = []
+
+  for (const item of value) {
+    if (!isRecord(item)) {
+      throwMalformedToolCallDelta('Provider returned malformed tool call delta: each tool call must be an object.')
+    }
+
+    const index = parseToolCallIndex(item.index)
+    const pending = getPendingToolCall(toolCallsByIndex, index)
+    const id = optionalStringField(item, 'id', 'tool call id')
+    const toolCallType = parseToolCallType(optionalStringField(item, 'type', 'tool call type'))
+    const functionDelta = item.function
+    let nameDelta: string | undefined
+    let argumentsDelta: string | undefined
+
+    if (functionDelta !== undefined && functionDelta !== null) {
+      if (!isRecord(functionDelta)) {
+        throwMalformedToolCallDelta('Provider returned malformed tool call delta: function must be an object.')
+      }
+      nameDelta = optionalStringField(functionDelta, 'name', 'tool call function name')
+      argumentsDelta = optionalStringField(functionDelta, 'arguments', 'tool call function arguments')
+    }
+
+    if (id !== undefined) {
+      pending.id = id
+    }
+    if (toolCallType !== undefined) {
+      pending.type = toolCallType
+    }
+    if (nameDelta !== undefined) {
+      pending.name += nameDelta
+    }
+    if (argumentsDelta !== undefined) {
+      pending.arguments += argumentsDelta
+    }
+
+    if (isUsefulToolCallDelta(id, toolCallType, nameDelta, argumentsDelta)) {
+      deltas.push({
+        index,
+        id,
+        toolCallType,
+        name: nameDelta,
+        argumentsDelta,
+      })
+    }
+  }
+
+  return deltas
+}
+
+function buildFinalToolCalls(toolCallsByIndex: Map<number, PendingToolCall>): ProviderToolCall[] {
+  const entries = [...toolCallsByIndex.entries()].sort(([left], [right]) => left - right)
+  if (!entries.length) {
+    throwMalformedToolCallDelta('Provider finished with tool_calls but did not stream any tool calls.')
+  }
+
+  return entries.map(([index, toolCall]) => {
+    if (!toolCall.id) {
+      throwMalformedToolCallDelta(`Provider finished with incomplete tool call at index ${index}: missing id.`)
+    }
+    if (!toolCall.name) {
+      throwMalformedToolCallDelta(`Provider finished with incomplete tool call at index ${index}: missing function name.`)
+    }
+
+    return {
+      id: toolCall.id,
+      type: toolCall.type ?? 'function',
+      function: {
+        name: toolCall.name,
+        arguments: toolCall.arguments,
+      },
+    }
+  })
+}
+
+function getPendingToolCall(toolCallsByIndex: Map<number, PendingToolCall>, index: number): PendingToolCall {
+  const existing = toolCallsByIndex.get(index)
+  if (existing) {
+    return existing
+  }
+
+  const pending: PendingToolCall = {
+    name: '',
+    arguments: '',
+  }
+  toolCallsByIndex.set(index, pending)
+  return pending
+}
+
+function parseToolCallIndex(value: unknown): number {
+  if (typeof value !== 'number' || !Number.isInteger(value) || value < 0) {
+    throwMalformedToolCallDelta('Provider returned malformed tool call delta: index must be a non-negative integer.')
+  }
+  return value
+}
+
+function parseToolCallType(value: string | undefined): ProviderToolCall['type'] | undefined {
+  if (value === undefined) {
+    return undefined
+  }
+  if (value !== 'function') {
+    throwMalformedToolCallDelta(`Provider returned unsupported tool call type: ${value}.`)
+  }
+  return value
+}
+
+function optionalStringField(record: Record<string, unknown>, key: string, label: string): string | undefined {
+  const value = record[key]
+  if (value === undefined || value === null) {
+    return undefined
+  }
+  if (typeof value !== 'string') {
+    throwMalformedToolCallDelta(`Provider returned malformed tool call delta: ${label} must be a string.`)
+  }
+  return value
+}
+
+function isUsefulToolCallDelta(
+  id: string | undefined,
+  toolCallType: ProviderToolCall['type'] | undefined,
+  nameDelta: string | undefined,
+  argumentsDelta: string | undefined,
+): boolean {
+  return Boolean(
+    id ||
+      toolCallType ||
+      nameDelta ||
+      argumentsDelta,
+  )
+}
+
+function throwMalformedToolCallDelta(message: string): never {
+  throwProviderError({
+    code: 'provider_bad_request',
+    message,
+    retryable: false,
+  })
 }
 
 function toOpenAIMessage(message: ProviderMessage): Record<string, unknown> {

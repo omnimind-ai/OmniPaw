@@ -17,13 +17,46 @@ export interface MessagePart {
   [key: string]: unknown;
 }
 
+export type ToolCallStatus =
+  | "pending"
+  | "running"
+  | "complete"
+  | "error"
+  | "denied"
+  | "aborted"
+  | string;
+
 export interface ToolCall {
   id?: string;
+  index?: number;
+  toolCallId?: string;
+  tool_call_id?: string;
   name?: string;
+  toolName?: string;
+  tool_name?: string;
+  args?: unknown;
   arguments?: unknown;
+  argumentsDelta?: string;
+  arguments_delta?: string;
   result?: unknown;
+  error?: unknown;
+  status?: ToolCallStatus;
+  state?: ToolCallStatus;
+  toolStatus?: ToolCallStatus;
+  tool_status?: ToolCallStatus;
+  startedAt?: number;
+  started_at?: number;
+  startTime?: number;
+  start_time?: number;
   ts?: number;
+  finishedAt?: number;
+  finished_at?: number;
+  finishedTs?: number;
   finished_ts?: number;
+  endTime?: number;
+  end_time?: number;
+  durationMs?: number;
+  duration_ms?: number;
   [key: string]: unknown;
 }
 
@@ -83,6 +116,9 @@ interface SendMessageStreamOptions {
   enableStreaming?: boolean;
   selectedProvider?: string;
   selectedModel?: string;
+  mode?: string;
+  toolProfile?: string;
+  maxSteps?: number;
   userRecord?: ChatRecord;
   botRecord: ChatRecord;
   skipUserHistory?: boolean;
@@ -95,6 +131,9 @@ interface ContinueEditedMessageOptions {
   enableStreaming?: boolean;
   selectedProvider?: string;
   selectedModel?: string;
+  mode?: string;
+  toolProfile?: string;
+  maxSteps?: number;
 }
 
 interface CreateLocalExchangeOptions {
@@ -255,6 +294,9 @@ export function useMessages(options: UseMessagesOptions) {
     enableStreaming = true,
     selectedProvider = "",
     selectedModel = "",
+    mode,
+    toolProfile,
+    maxSteps,
     botRecord,
     userRecord,
     skipUserHistory = false,
@@ -269,6 +311,9 @@ export function useMessages(options: UseMessagesOptions) {
       enableStreaming,
       selectedProvider,
       selectedModel,
+      mode,
+      toolProfile,
+      maxSteps,
       skipUserHistory,
       llmCheckpointId,
     );
@@ -316,6 +361,9 @@ export function useMessages(options: UseMessagesOptions) {
     enableStreaming = true,
     selectedProvider = "",
     selectedModel = "",
+    mode,
+    toolProfile,
+    maxSteps,
   }: ContinueEditedMessageOptions) {
     if (!sessionId) return;
     const parts = messageParts(sourceRecord).map(stripUploadOnlyFields);
@@ -343,6 +391,9 @@ export function useMessages(options: UseMessagesOptions) {
       enableStreaming,
       selectedProvider,
       selectedModel,
+      mode,
+      toolProfile,
+      maxSteps,
       true,
       sourceRecord.llm_checkpoint_id || null,
     );
@@ -424,6 +475,9 @@ export function useMessages(options: UseMessagesOptions) {
     enableStreaming: boolean,
     selectedProvider: string,
     selectedModel: string,
+    mode?: string,
+    toolProfile?: string,
+    maxSteps?: number,
     skipUserHistory = false,
     llmCheckpointId: string | null = null,
   ) {
@@ -458,10 +512,13 @@ export function useMessages(options: UseMessagesOptions) {
         enableStreaming,
         providerId: selectedProvider || undefined,
         modelId: selectedModel || undefined,
+        mode: mode || undefined,
+        toolProfile: toolProfile || undefined,
+        maxSteps,
         idempotencyKey: messageId,
         checkpointId: llmCheckpointId,
         ...(skipUserHistory ? { metadata: { skipUserHistory: true } } : {}),
-      } as any);
+      });
 
       runId = response.runId;
       activeConnections[sessionId].runId = runId;
@@ -491,6 +548,10 @@ export function useMessages(options: UseMessagesOptions) {
       return;
     }
     if (event.type === "delta") {
+      if (event.channel === "tool_call") {
+        mergeToolEvent(botRecord, event);
+        return;
+      }
       markMessageStarted(botRecord);
       const text = event.delta ?? event.text ?? "";
       if (event.channel === "reasoning") {
@@ -500,6 +561,9 @@ export function useMessages(options: UseMessagesOptions) {
       }
       return;
     }
+    if (mergeToolEvent(botRecord, event)) {
+      return;
+    }
     if (event.type === "final" && event.message) {
       Object.assign(botRecord, mapBridgeMessageToRecord(event.message));
       markMessageStarted(botRecord);
@@ -507,7 +571,7 @@ export function useMessages(options: UseMessagesOptions) {
     }
     if (event.type === "error" || event.type === "aborted") {
       markMessageStarted(botRecord);
-      const message = event.error?.message || (event.type === "aborted" ? "Request aborted." : "Request failed.");
+      const message = errorMessage(event.error) || (event.type === "aborted" ? "Request aborted." : "Request failed.");
       appendPlain(botRecord, `\n\n${message}`);
     }
   }
@@ -701,6 +765,12 @@ function normalizePartsInternal(parts: unknown): MessagePart[] {
     if (Array.isArray(normalized.toolCalls) && !normalized.tool_calls) {
       normalized.tool_calls = normalized.toolCalls;
     }
+    if (normalized.type === "tool_call") {
+      normalized.tool_calls = normalizeToolCalls(
+        normalized.tool_calls ?? normalized.toolCalls ?? normalized.toolCall ?? normalized.tool_call,
+      );
+      normalized.toolCalls = normalized.tool_calls;
+    }
     return normalized;
   });
 }
@@ -737,46 +807,362 @@ export function appendReasoningPart(record: ChatRecord, text: string) {
   content.reasoning = extractReasoningText(content.message);
 }
 
+function mergeToolEvent(record: ChatRecord, event: BridgeStreamEvent) {
+  const eventRecord = event as Record<string, unknown>;
+
+  if (event.type === "part") {
+    const part = normalizeToolPart(event.part);
+    if (!part) return false;
+    mergeToolPart(record, part);
+    return true;
+  }
+
+  if (event.type === "tool_call" || event.type === "tool_result") {
+    const calls = toolCallsFromEvent(event);
+    if (!calls.length) return false;
+    for (const call of calls) {
+      upsertToolCall(record, call);
+    }
+    return true;
+  }
+
+  if (event.channel === "tool_call") {
+    const calls = toolCallsFromEvent(event);
+    if (!calls.length) return false;
+    for (const call of calls) {
+      upsertToolCall(record, call);
+    }
+    return true;
+  }
+
+  if (event.type === "tool_call_started") {
+    const call = normalizeToolCall({
+      ...(objectRecord(eventRecord.toolCall ?? eventRecord.tool_call) || {}),
+      id: eventRecord.toolCallId ?? eventRecord.tool_call_id,
+      index: eventRecord.index,
+      name: eventRecord.name ?? eventRecord.toolName ?? eventRecord.tool_name,
+      args: eventRecord.args,
+      arguments: eventRecord.arguments,
+      argumentsDelta: eventRecord.argumentsDelta ?? eventRecord.arguments_delta,
+      status: "running",
+    });
+    upsertToolCall(record, call);
+    return true;
+  }
+
+  if (event.type === "tool_call_delta") {
+    const call = normalizeToolCall({
+      ...(objectRecord(eventRecord.toolCall ?? eventRecord.tool_call) || {}),
+      id: eventRecord.toolCallId ?? eventRecord.tool_call_id,
+      index: eventRecord.index,
+      name: eventRecord.name ?? eventRecord.toolName ?? eventRecord.tool_name,
+      args: eventRecord.args,
+      arguments: eventRecord.arguments,
+      argumentsDelta: eventRecord.argumentsDelta ?? eventRecord.arguments_delta,
+      status: "running",
+    });
+    upsertToolCall(record, call);
+    return true;
+  }
+
+  if (event.type === "tool_call_finished") {
+    const call = normalizeToolCall({
+      ...(objectRecord(eventRecord.toolCall ?? eventRecord.tool_call) || {}),
+      id: eventRecord.toolCallId ?? eventRecord.tool_call_id,
+      index: eventRecord.index,
+      result: eventRecord.result,
+      status: eventRecord.status ?? "complete",
+      finishedAt: eventRecord.finishedAt ?? eventRecord.finished_at ?? Date.now(),
+      finished_ts: eventRecord.finished_ts ?? eventRecord.ts,
+    });
+    upsertToolCall(record, call);
+    return true;
+  }
+
+  return false;
+}
+
+function toolCallsFromEvent(event: BridgeStreamEvent): ToolCall[] {
+  const eventRecord = event as Record<string, unknown>;
+  const direct =
+    eventRecord.toolCall ??
+    eventRecord.tool_call ??
+    eventRecord.toolCalls ??
+    eventRecord.tool_calls;
+  const directCalls = normalizeToolCalls(direct);
+  if (directCalls.length) return directCalls;
+
+  if (hasToolEventPayload(eventRecord)) {
+    return [normalizeToolCall(eventRecord)];
+  }
+
+  return [];
+}
+
+function hasToolEventPayload(event: Record<string, unknown>) {
+  return [
+    "id",
+    "index",
+    "toolCallId",
+    "tool_call_id",
+    "name",
+    "toolName",
+    "tool_name",
+    "args",
+    "arguments",
+    "argumentsDelta",
+    "arguments_delta",
+    "result",
+    "error",
+    "status",
+    "state",
+  ].some((key) => event[key] != null);
+}
+
+function normalizeToolPart(part: unknown): MessagePart | null {
+  if (!part || typeof part !== "object") return null;
+  const normalized = normalizePartsInternal([part])[0];
+  if (normalized?.type === "tool_call") return normalized;
+  return null;
+}
+
+function mergeToolPart(record: ChatRecord, part: MessagePart) {
+  markMessageStarted(record);
+  if (!Array.isArray(part.tool_calls) || !part.tool_calls.length) return;
+  for (const toolCall of part.tool_calls) {
+    upsertToolCall(record, toolCall);
+  }
+}
+
 export function upsertToolCall(record: ChatRecord, toolCall: any) {
   markMessageStarted(record);
   if (!toolCall || typeof toolCall !== "object") return;
-  const targetId = toolCall.id;
-  if (targetId != null) {
-    for (const part of record.content.message) {
-      if (part.type !== "tool_call" || !Array.isArray(part.tool_calls)) continue;
-      const matched = part.tool_calls.find((item) => item.id === targetId);
-      if (matched) {
-        Object.assign(matched, toolCall);
-        return;
-      }
-    }
-  }
-  record.content.message.push({ type: "tool_call", tool_calls: [{ ...toolCall }] });
-}
-
-export function finishToolCall(record: ChatRecord, result: any) {
-  markMessageStarted(record);
-  if (!result || typeof result !== "object") return;
-  const targetId = result.id;
+  const normalized = normalizeToolCall(toolCall);
   for (const part of record.content.message) {
     if (part.type !== "tool_call" || !Array.isArray(part.tool_calls)) continue;
-    const tool = part.tool_calls.find((item) => item.id === targetId);
-    if (tool) {
-      tool.result = result.result;
-      tool.finished_ts = result.ts || Date.now() / 1000;
+    const matched = part.tool_calls.find((item) => isSameToolCall(item, normalized));
+    if (matched) {
+      Object.assign(matched, mergeToolCallValues(matched, normalized));
       return;
     }
   }
   record.content.message.push({
     type: "tool_call",
-    tool_calls: [
-      {
-        id: targetId,
-        result: result.result,
-        finished_ts: result.ts || Date.now() / 1000,
-      },
-    ],
+    tool_calls: [normalized],
+    toolCalls: [normalized],
   });
+}
+
+export function finishToolCall(record: ChatRecord, result: any) {
+  markMessageStarted(record);
+  if (!result || typeof result !== "object") return;
+  upsertToolCall(record, {
+    ...result,
+    id: result.id ?? result.toolCallId ?? result.tool_call_id,
+    result: result.result,
+    status: result.status ?? "complete",
+    finished_ts: result.finished_ts ?? result.ts ?? Date.now() / 1000,
+  });
+}
+
+function normalizeToolCalls(value: unknown): ToolCall[] {
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => normalizeToolCall(item))
+      .filter((item) => hasToolCallIdentity(item));
+  }
+  if (value && typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    if (Array.isArray(record.tool_calls) || Array.isArray(record.toolCalls)) {
+      return normalizeToolCalls(record.tool_calls ?? record.toolCalls);
+    }
+    return [normalizeToolCall(record)].filter((item) => hasToolCallIdentity(item));
+  }
+  return [];
+}
+
+function normalizeToolCall(value: unknown): ToolCall {
+  const source = objectRecord(value) || {};
+  const index = normalizeIndex(readFirst(source, ["index"]));
+  const id = readFirst(source, ["id", "toolCallId", "tool_call_id", "callId", "call_id"]);
+  const name = readFirst(source, ["name", "toolName", "tool_name"]);
+  const args = readFirst(source, ["args", "arguments", "input"]);
+  const argumentsDelta = readFirst(source, ["argumentsDelta", "arguments_delta"]);
+  const result = readFirst(source, ["result", "output", "content"]);
+  const error = normalizeToolError(readFirst(source, ["error", "failure"]));
+  const started = normalizeTimestamp(
+    readFirst(source, ["ts", "startedAt", "started_at", "startTime", "start_time"]),
+  );
+  const finished = normalizeTimestamp(
+    readFirst(source, [
+      "finished_ts",
+      "finishedTs",
+      "finishedAt",
+      "finished_at",
+      "endTime",
+      "end_time",
+    ]),
+  );
+  const durationMs = normalizeDurationMs(readFirst(source, ["durationMs", "duration_ms"]));
+  const status = normalizeToolStatus(
+    readFirst(source, ["status", "state", "toolStatus", "tool_status"]),
+    { error, result, finished },
+  );
+
+  return removeUndefined({
+    ...source,
+    index,
+    id: id == null ? undefined : String(id),
+    name: name == null ? undefined : String(name),
+    args: parseJsonSafe(args ?? argumentsDelta ?? {}),
+    arguments: parseJsonSafe(args ?? argumentsDelta ?? {}),
+    argumentsDelta,
+    arguments_delta: argumentsDelta,
+    result: parseJsonSafe(result),
+    error,
+    status,
+    ts: started,
+    startedAt: started == null ? undefined : timestampSecondsToMs(started),
+    finished_ts: finished,
+    finishedAt: finished == null ? undefined : timestampSecondsToMs(finished),
+    durationMs,
+  }) as ToolCall;
+}
+
+function isSameToolCall(existing: ToolCall, incoming: ToolCall) {
+  if (existing.id != null && incoming.id != null) {
+    return String(existing.id) === String(incoming.id);
+  }
+  if (existing.index != null && incoming.index != null) {
+    return Number(existing.index) === Number(incoming.index);
+  }
+  if (existing.name && incoming.name && existing.status === "running") {
+    return existing.name === incoming.name;
+  }
+  return false;
+}
+
+function mergeToolCallValues(existing: ToolCall, incoming: ToolCall): ToolCall {
+  const merged = { ...existing };
+  const argumentsDelta = incoming.argumentsDelta ?? incoming.arguments_delta;
+  const shouldAppendArguments =
+    typeof argumentsDelta === "string" &&
+    incoming.args === argumentsDelta &&
+    incoming.arguments === argumentsDelta;
+  for (const [key, value] of Object.entries(incoming)) {
+    if (value !== undefined) {
+      (merged as Record<string, unknown>)[key] = value;
+    }
+  }
+  if (shouldAppendArguments) {
+    const previousArgs =
+      typeof existing.arguments === "string"
+        ? existing.arguments
+        : typeof existing.args === "string"
+          ? existing.args
+          : "";
+    const nextArgs = `${previousArgs}${argumentsDelta}`;
+    merged.args = nextArgs;
+    merged.arguments = nextArgs;
+    delete merged.argumentsDelta;
+    delete merged.arguments_delta;
+    return merged;
+  }
+  if (incoming.args !== undefined || incoming.arguments !== undefined) {
+    const args = incoming.args ?? incoming.arguments;
+    merged.args = args;
+    merged.arguments = args;
+  }
+  if (incoming.result !== undefined) {
+    merged.result = incoming.result;
+  }
+  if (incoming.error !== undefined) {
+    merged.error = incoming.error;
+  }
+  merged.status = incoming.status ?? existing.status ?? normalizeToolStatus(undefined, merged);
+  return merged;
+}
+
+function normalizeToolStatus(
+  value: unknown,
+  context: { error?: unknown; result?: unknown; finished?: number } = {},
+): ToolCallStatus {
+  const status = String(value || "").toLowerCase();
+  if (["running", "pending", "complete", "error", "denied", "aborted"].includes(status)) {
+    return status;
+  }
+  if (["success", "succeeded", "done", "finished"].includes(status)) return "complete";
+  if (["failed", "failure"].includes(status)) return "error";
+  if (["rejected", "blocked", "refused"].includes(status)) return "denied";
+  if (["cancelled", "canceled"].includes(status)) return "aborted";
+  if (context.error) return "error";
+  if (context.result !== undefined || context.finished !== undefined) return "complete";
+  return "running";
+}
+
+function normalizeToolError(value: unknown) {
+  if (value == null) return undefined;
+  if (typeof value === "string") return value;
+  if (typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    const message = record.message ?? record.reason ?? record.error;
+    if (typeof message === "string") return { ...record, message };
+  }
+  return value;
+}
+
+function normalizeTimestamp(value: unknown): number | undefined {
+  const numberValue = Number(value);
+  if (!Number.isFinite(numberValue) || numberValue <= 0) return undefined;
+  return numberValue > 10_000_000_000 ? numberValue / 1000 : numberValue;
+}
+
+function timestampSecondsToMs(value: number) {
+  return value > 10_000_000_000 ? value : value * 1000;
+}
+
+function normalizeDurationMs(value: unknown): number | undefined {
+  const numberValue = Number(value);
+  return Number.isFinite(numberValue) && numberValue >= 0 ? numberValue : undefined;
+}
+
+function normalizeIndex(value: unknown): number | undefined {
+  const numberValue = Number(value);
+  return Number.isInteger(numberValue) && numberValue >= 0 ? numberValue : undefined;
+}
+
+function readFirst(source: Record<string, unknown>, keys: string[]) {
+  for (const key of keys) {
+    if (source[key] !== undefined && source[key] !== null) {
+      return source[key];
+    }
+  }
+  return undefined;
+}
+
+function objectRecord(value: unknown): Record<string, unknown> | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  return value as Record<string, unknown>;
+}
+
+function hasToolCallIdentity(toolCall: ToolCall) {
+  return Boolean(
+    toolCall.id ||
+      toolCall.name ||
+      toolCall.index != null ||
+      toolCall.args !== undefined ||
+      toolCall.result !== undefined ||
+      toolCall.error !== undefined,
+  );
+}
+
+function removeUndefined(value: Record<string, unknown>) {
+  for (const key of Object.keys(value)) {
+    if (value[key] === undefined) {
+      delete value[key];
+    }
+  }
+  return value;
 }
 
 export function markMessageStarted(record: ChatRecord) {
@@ -800,6 +1186,15 @@ export function payloadText(value: unknown) {
     if (typeof payload.message === "string") return payload.message;
   }
   return String(value);
+}
+
+function errorMessage(value: unknown) {
+  if (typeof value === "string") return value;
+  if (!value || typeof value !== "object") return "";
+  const record = value as Record<string, unknown>;
+  if (typeof record.message === "string") return record.message;
+  if (typeof record.error === "string") return record.error;
+  return "";
 }
 
 export function parseJsonSafe(value: unknown) {
