@@ -1,7 +1,7 @@
 {
   "compilerOptions": {
     "composite": true,
-    "ignoreDeprecations": "6.0",
+    "ignoreDeprecations": "5.0",
     "target": "ES2022",
     "useDefineForClassFields": true,
     "module": "ESNext",
@@ -20,5 +20,6 @@
       "@shared/*": ["shared/*"]
     }
   },
-  "include": ["src/**/*.ts", "src/**/*.vue", "shared/**/*.ts", "env.d.ts"]
+  "include": ["src/**/*.ts", "src/**/*.vue", "shared/**/*.ts", "env.d.ts"],
+  "exclude": ["src/api/omniclawMock.ts"]
 }

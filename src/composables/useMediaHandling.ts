@@ -1,5 +1,5 @@
 import { ref, computed } from 'vue';
-import axios from 'axios';
+import { appBridge } from '@/bridge/app';
 
 export interface StagedFileInfo {
     attachment_id: string;
@@ -42,14 +42,10 @@ export function useMediaHandling() {
         }
 
         try {
-            const response = await axios.get('/api/chat/get_file', {
-                params: { filename },
-                responseType: 'blob'
-            });
-
-            const blobUrl = URL.createObjectURL(response.data);
-            mediaCache.value[filename] = blobUrl;
-            return blobUrl;
+            const preview = await appBridge.attachment?.getPreviewUrl(filename);
+            const url = typeof preview === 'string' ? preview : preview?.url || '';
+            mediaCache.value[filename] = url;
+            return url;
         } catch (error) {
             console.error('Error fetching media file:', error);
             return '';
@@ -61,23 +57,26 @@ export function useMediaHandling() {
         if (isDuplicateFile(signature)) return;
 
         pendingFileSignatures.add(signature);
-        const formData = new FormData();
-        formData.append('file', file);
 
         try {
-            const response = await axios.post('/api/chat/post_file', formData, {
-                headers: {
-                    'Content-Type': 'multipart/form-data'
-                }
+            const attachment = await appBridge.attachment?.upload({
+                name: file.name,
+                type: file.type || 'application/octet-stream',
+                size: file.size,
+                bytes: await file.arrayBuffer(),
             });
+            if (!attachment) {
+                throw new Error('Attachment upload is not available.');
+            }
 
-            const { attachment_id, filename, type } = response.data.data;
+            const attachmentId = attachment.id;
+            const filename = attachment.originalName || attachment.filename || file.name;
             stagedFiles.value.push({
-                attachment_id,
+                attachment_id: attachmentId,
                 filename,
                 original_name: file.name,
-                url: URL.createObjectURL(file),
-                type,
+                url: attachment.previewUrl || attachment.url || URL.createObjectURL(file),
+                type: mapAttachmentKind(attachment.kind, attachment.mimeType || file.type),
                 signature
             });
         } catch (err) {
@@ -197,4 +196,13 @@ export function useMediaHandling() {
         clearStaged,
         cleanupMediaCache
     };
+}
+
+function mapAttachmentKind(kind?: string, mimeType?: string) {
+    if (kind === 'audio') return 'record';
+    if (kind === 'image' || kind === 'video' || kind === 'file') return kind;
+    if (mimeType?.startsWith('image/')) return 'image';
+    if (mimeType?.startsWith('audio/')) return 'record';
+    if (mimeType?.startsWith('video/')) return 'video';
+    return 'file';
 }

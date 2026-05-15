@@ -35,6 +35,12 @@ const attrs = useAttrs();
 const forwardedBindings = computed(() => ({
   ...attrs,
   ...props,
+  node: props.node as {
+    type: "code_block";
+    language: string;
+    code: string;
+    raw: string;
+  },
   isDark: effectiveIsDark.value,
 }));
 const themeRenderKey = computed(() => (effectiveIsDark.value ? "dark" : "light"));

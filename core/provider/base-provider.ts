@@ -1,16 +1,98 @@
-import type { Message } from '@shared/types/chat'
+export interface ChatError {
+  code:
+    | 'provider_auth'
+    | 'provider_rate_limit'
+    | 'provider_context_length'
+    | 'provider_bad_request'
+    | 'network'
+    | 'aborted'
+    | 'unknown'
+  message: string
+  retryable?: boolean
+  providerStatus?: number
+  providerBodyPreview?: string
+}
+
+export interface TokenUsage {
+  input?: number
+  output?: number
+  cachedInput?: number
+  reasoning?: number
+  total?: number
+}
+
+export type ProviderMessageRole = 'system' | 'user' | 'assistant' | 'tool'
+
+export type ProviderContentPart =
+  | { type: 'text'; text: string }
+  | { type: 'image_url'; image_url: { url: string } }
+  | { type: 'input_audio'; input_audio: { data: string; format: string } }
+
+export interface ProviderToolCall {
+  id: string
+  type: 'function'
+  function: {
+    name: string
+    arguments: string
+  }
+}
+
+export interface ProviderMessage {
+  role: ProviderMessageRole
+  content: string | ProviderContentPart[]
+  toolCalls?: ProviderToolCall[]
+  toolCallId?: string
+}
+
+export interface ProviderTool {
+  type: 'function'
+  function: {
+    name: string
+    description?: string
+    parameters: Record<string, unknown>
+  }
+}
 
 export interface ChatCompletionChunk {
-  content: string
+  type: 'delta' | 'final'
+  content?: string
+  reasoning?: string
   done: boolean
+  finishReason?: string
+  usage?: TokenUsage
+  raw?: unknown
 }
 
 export interface ChatCompletionRequest {
   modelId: string
-  messages: Message[]
+  messages: ProviderMessage[]
+  temperature?: number
+  topP?: number
+  maxOutputTokens?: number
+  tools?: ProviderTool[]
+  abortSignal?: AbortSignal
 }
 
 export interface BaseProvider {
   id: string
   streamChat: (request: ChatCompletionRequest) => AsyncIterable<ChatCompletionChunk>
+  test?: (modelId?: string, signal?: AbortSignal) => Promise<void>
+  listModels?: (signal?: AbortSignal) => Promise<ProviderModelCandidate[]>
+}
+
+export interface ProviderModelCandidate {
+  id: string
+  name?: string
+  contextWindow?: number
+}
+
+export class ProviderError extends Error {
+  readonly chatError: ChatError
+
+  constructor(chatError: ChatError, cause?: unknown) {
+    super(chatError.message)
+    this.name = 'ProviderError'
+    this.chatError = chatError
+    this.cause = cause
+  }
 }

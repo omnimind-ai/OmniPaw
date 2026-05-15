@@ -23,7 +23,47 @@ const bridge: OpenOmniClawBridge = {
   chat: {
     listSessions: () => ipcRenderer.invoke(IPC_CHANNELS.chat.listSessions),
     createSession: () => ipcRenderer.invoke(IPC_CHANNELS.chat.createSession),
+    getSession: (sessionId) => ipcRenderer.invoke(IPC_CHANNELS.chat.getSession, sessionId),
+    updateSession: (...args) => {
+      const request =
+        args.length === 2 && typeof args[0] === 'string'
+          ? { sessionId: args[0], ...(args[1] as object) }
+          : args[0]
+      return ipcRenderer.invoke(IPC_CHANNELS.chat.updateSession, request)
+    },
+    deleteSession: (request) => ipcRenderer.invoke(IPC_CHANNELS.chat.deleteSession, request),
+    listMessages: (request) => ipcRenderer.invoke(IPC_CHANNELS.chat.listMessages, request),
     sendMessage: (request) => ipcRenderer.invoke(IPC_CHANNELS.chat.sendMessage, request),
+    abortRun: (...args) => {
+      const request =
+        args.length >= 2 && typeof args[0] === 'string'
+          ? { runId: args[0], reason: args[1] as string | undefined }
+          : args[0]
+      return ipcRenderer.invoke(IPC_CHANNELS.chat.abortRun, request)
+    },
+    editMessage: (...args) => {
+      const request =
+        args.length >= 3 && typeof args[0] === 'string'
+          ? { sessionId: args[0], messageId: args[1] as string, parts: args[2] }
+          : args[0]
+      return ipcRenderer.invoke(IPC_CHANNELS.chat.editMessage, request)
+    },
+    regenerateMessage: (...args) => {
+      const request =
+        args.length >= 2 && typeof args[0] === 'string'
+          ? {
+              sessionId: args[0],
+              messageId: args[1] as string,
+              providerId: args[2] as string | undefined,
+              modelId: args[3] as string | undefined,
+            }
+          : args[0]
+      return ipcRenderer.invoke(IPC_CHANNELS.chat.regenerateMessage, request)
+    },
+    uploadAttachment: (request) => ipcRenderer.invoke(IPC_CHANNELS.chat.uploadAttachment, request),
+    getAttachmentPreview: (request) =>
+      ipcRenderer.invoke(IPC_CHANNELS.chat.getAttachmentPreview, request),
+    onStreamEvent: (callback) => createUnsubscriber(IPC_CHANNELS.chat.streamEvent, callback),
     onToken: (callback) => createUnsubscriber<string>(IPC_CHANNELS.chat.streamToken, callback),
     onDone: (callback) => {
       const listener = () => callback()
@@ -34,8 +74,26 @@ const bridge: OpenOmniClawBridge = {
       }
     },
   },
+  attachment: {
+    upload: (request) =>
+      ipcRenderer
+        .invoke(IPC_CHANNELS.chat.uploadAttachment, request)
+        .then((response) => response?.attachment ?? response),
+    getPreviewUrl: (request) =>
+      ipcRenderer.invoke(IPC_CHANNELS.chat.getAttachmentPreview, request).then((response) => response),
+  },
   provider: {
     list: () => ipcRenderer.invoke(IPC_CHANNELS.provider.list),
+    upsert: (request) => ipcRenderer.invoke(IPC_CHANNELS.provider.upsert, request),
+    delete: (request) => ipcRenderer.invoke(IPC_CHANNELS.provider.delete, request),
+    test: (...args) => {
+      const request =
+        typeof args[0] === 'string' ? { providerId: args[0], modelId: args[1] as string | undefined } : args[0]
+      return ipcRenderer.invoke(IPC_CHANNELS.provider.test, request)
+    },
+    listModels: (providerId) => ipcRenderer.invoke(IPC_CHANNELS.provider.listModels, providerId),
+    refreshModels: (request) => ipcRenderer.invoke(IPC_CHANNELS.provider.refreshModels, request),
+    setSessionModel: (request) => ipcRenderer.invoke(IPC_CHANNELS.provider.setSessionModel, request),
   },
   skill: {
     list: () => ipcRenderer.invoke(IPC_CHANNELS.skill.list),

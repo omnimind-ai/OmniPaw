@@ -7,7 +7,7 @@ import type { SkillDefinition } from '@shared/types/skill'
 const skills = ref<SkillDefinition[]>([])
 
 onMounted(async () => {
-  skills.value = await appBridge.skill.list()
+  skills.value = (await appBridge.skill.list()) as SkillDefinition[]
 })
 </script>
 

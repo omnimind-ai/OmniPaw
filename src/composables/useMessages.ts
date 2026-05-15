@@ -1,5 +1,5 @@
 import { computed, onBeforeUnmount, reactive, ref, type Ref } from "vue";
-import axios from "axios";
+import { appBridge, type BridgeChatMessage, type BridgeChatMessagePart, type BridgeStreamEvent } from "@/bridge/app";
 
 export type TransportMode = "sse" | "websocket";
 
@@ -71,8 +71,8 @@ interface ActiveConnection {
   sessionId: string;
   messageId: string;
   transport: TransportMode;
-  abort?: AbortController;
-  ws?: WebSocket;
+  runId?: string;
+  unsubscribe?: () => void;
 }
 
 interface SendMessageStreamOptions {
@@ -165,29 +165,17 @@ export function useMessages(options: UseMessagesOptions) {
 
   async function resolvePartMedia(part: MessagePart): Promise<void> {
     if (part.embedded_url) return;
-    let url: string;
-    let cacheKey: string;
     if (part.attachment_id) {
-      cacheKey = `att:${part.attachment_id}`;
-      url = `/api/chat/get_attachment?attachment_id=${encodeURIComponent(part.attachment_id)}`;
-    } else if (part.filename) {
-      cacheKey = `file:${part.filename}`;
-      url = `/api/chat/get_file?filename=${encodeURIComponent(part.filename)}`;
-    } else {
-      return;
-    }
-    let promise = attachmentBlobCache.get(cacheKey);
-    if (!promise) {
-      promise = axios
-        .get(url, { responseType: "blob" })
-        .then((resp) => URL.createObjectURL(resp.data));
+      const cacheKey = `att:${part.attachment_id}`;
+      const promise = attachmentBlobCache.get(cacheKey) || resolveAttachmentPreview(part.attachment_id);
       attachmentBlobCache.set(cacheKey, promise);
-    }
-    try {
-      part.embedded_url = await promise;
-    } catch (e) {
-      attachmentBlobCache.delete(cacheKey);
-      console.error("Failed to resolve media:", cacheKey, e);
+      try {
+        part.embedded_url = await promise;
+      } catch (e) {
+        attachmentBlobCache.delete(cacheKey);
+        console.error("Failed to resolve media:", cacheKey, e);
+      }
+      return;
     }
   }
 
@@ -208,16 +196,11 @@ export function useMessages(options: UseMessagesOptions) {
     if (!sessionId) return;
     loadingMessages.value = true;
     try {
-      const response = await axios.get("/api/chat/get_session", {
-        params: { session_id: sessionId },
-      });
-      const payload = response.data?.data || {};
-      const history = payload.history || [];
-      const records = history.map(normalizeHistoryRecord);
-      attachThreads(records, payload.threads || []);
+      const history = await appBridge.chat.listMessages?.(sessionId);
+      const records = (history || []).map(mapBridgeMessageToRecord);
       await resolveRecordMedia(records);
       messagesBySession[sessionId] = records;
-      sessionProjects[sessionId] = normalizeSessionProject(payload.project);
+      sessionProjects[sessionId] = null;
       loadedSessions[sessionId] = true;
     } catch (error) {
       console.error("Failed to load session messages:", error);
@@ -264,11 +247,11 @@ export function useMessages(options: UseMessagesOptions) {
     };
   }
 
-  function sendMessageStream({
+  async function sendMessageStream({
     sessionId,
     messageId,
     parts,
-    transport,
+    transport: _transport,
     enableStreaming = true,
     selectedProvider = "",
     selectedModel = "",
@@ -277,20 +260,7 @@ export function useMessages(options: UseMessagesOptions) {
     skipUserHistory = false,
     llmCheckpointId = null,
   }: SendMessageStreamOptions) {
-    if (transport === "websocket") {
-      startWebSocketStream(
-        sessionId,
-        messageId,
-        parts,
-        botRecord,
-        userRecord,
-        enableStreaming,
-        selectedProvider,
-        selectedModel,
-      );
-      return;
-    }
-    startSseStream(
+    await startBridgeStream(
       sessionId,
       messageId,
       parts,
@@ -311,23 +281,22 @@ export function useMessages(options: UseMessagesOptions) {
   ) {
     if (!sessionId || record.id == null) return { needsRegenerate: false };
     const content = cloneContentWithEditedText(record, editedText);
-    const response = await axios.post("/api/chat/message/edit", {
-      session_id: sessionId,
-      message_id: record.id,
-      content,
-    });
-    const payload = response.data?.data || {};
-    const updated = payload.message ? normalizeHistoryRecord(payload.message) : null;
+    const payload = await appBridge.chat.editMessage?.(
+      sessionId,
+      String(record.id),
+      content.message.map(partToBridgePart),
+    );
+    const updated = payload?.message ? mapBridgeMessageToRecord(payload.message) : null;
     if (updated) {
       Object.assign(record, updated);
       await resolveRecordMedia([record]);
     }
-    if (payload.truncated_after_message) {
+    if (payload?.truncatedAfterMessage) {
       truncateMessagesAfter(sessionId, record);
     }
     return {
-      needsRegenerate: Boolean(payload.needs_regenerate),
-      truncatedAfterMessage: Boolean(payload.truncated_after_message),
+      needsRegenerate: Boolean(payload?.needsRegenerate),
+      truncatedAfterMessage: Boolean(payload?.truncatedAfterMessage),
     };
   }
 
@@ -341,7 +310,7 @@ export function useMessages(options: UseMessagesOptions) {
     messagesBySession[sessionId] = records.slice(0, index + 1);
   }
 
-  function continueEditedMessage({
+  async function continueEditedMessage({
     sessionId,
     sourceRecord,
     enableStreaming = true,
@@ -365,7 +334,7 @@ export function useMessages(options: UseMessagesOptions) {
     };
     messagesBySession[sessionId].push(botRecord);
 
-    startSseStream(
+    await startBridgeStream(
       sessionId,
       messageId,
       parts,
@@ -397,99 +366,56 @@ export function useMessages(options: UseMessagesOptions) {
       isLoading: true,
     };
 
-    const abort = new AbortController();
-    activeConnections[sessionId] = {
-      sessionId,
-      messageId: String(botRecord.id),
-      transport: "sse",
-      abort,
-    };
-
     try {
-      const response = await fetch("/api/chat/message/regenerate", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${localStorage.getItem("token") || ""}`,
-        },
-        body: JSON.stringify({
-          session_id: sessionId,
-          message_id: targetMessageId,
-          selected_provider: selectedProvider,
-          selected_model: selectedModel,
-        }),
-        signal: abort.signal,
-      });
-      if (!response.ok || !response.body) {
-        throw new Error(`Regenerate failed: ${response.status}`);
-      }
-      const contentType = response.headers.get("content-type") || "";
-      if (!contentType.includes("text/event-stream")) {
-        const payload = await response.json().catch(() => null);
-        throw new Error(payload?.message || "Regenerate failed.");
-      }
-      await readSseStream(response.body, (payload) => {
-        processStreamPayload(botRecord, payload);
+      const response = await appBridge.chat.regenerateMessage?.(
+        sessionId,
+        String(targetMessageId),
+        selectedProvider || undefined,
+        selectedModel || undefined,
+      );
+      if (!response) throw new Error("Regenerate is not available.");
+      botRecord.id = response.assistantMessageId || response.messageId || botRecord.id;
+      const unsubscribe = appBridge.chat.onStreamEvent?.((event) => {
+        if (event.sessionId !== sessionId || event.runId !== response.runId) return;
+        processBridgeStreamEvent(botRecord, event);
         options.onStreamUpdate?.(sessionId);
+        if (event.type === "final" || event.type === "error" || event.type === "aborted") {
+          activeConnections[sessionId]?.unsubscribe?.();
+          delete activeConnections[sessionId];
+          options.onSessionsChanged?.();
+        }
       });
+      activeConnections[sessionId] = {
+        sessionId,
+        messageId: String(botRecord.id),
+        runId: response.runId,
+        transport: "sse",
+        unsubscribe,
+      };
     } catch (error) {
-      if (!abort.signal.aborted) {
-        appendPlain(botRecord, `\n\n${String((error as Error)?.message || error)}`);
-        console.error("Regenerate failed:", error);
-      }
-    } finally {
       delete activeConnections[sessionId];
+      appendPlain(botRecord, `\n\n${String((error as Error)?.message || error)}`);
+      console.error("Regenerate failed:", error);
+    } finally {
       await options.onSessionsChanged?.();
     }
   }
 
   async function stopSession(sessionId: string) {
     if (!sessionId) return;
-    await axios.post("/api/chat/stop", { session_id: sessionId });
+    const runId = activeConnections[sessionId]?.runId;
+    if (runId) {
+      await appBridge.chat.abortRun?.(runId, "user");
+    }
   }
 
   function cleanupConnections() {
     Object.values(activeConnections).forEach((connection) => {
-      connection.abort?.abort();
-      connection.ws?.close();
+      connection.unsubscribe?.();
     });
   }
 
-  function normalizeHistoryRecord(record: any): ChatRecord {
-    const content = record.content || {};
-    const normalizedMessage = normalizeMessageParts(
-      content.message || [],
-      content.reasoning || "",
-    );
-    const normalizedContent: ChatContent = {
-      type: content.type || (record.sender_id === "bot" ? "bot" : "user"),
-      message: normalizedMessage,
-      reasoning: extractReasoningText(normalizedMessage, content.reasoning || ""),
-      agentStats: content.agentStats || content.agent_stats,
-      refs: content.refs,
-    };
-
-    return {
-      ...record,
-      content: normalizedContent,
-    };
-  }
-
-  function attachThreads(records: ChatRecord[], threads: ChatThread[]) {
-    const threadsByMessage = new Map<string, ChatThread[]>();
-    for (const thread of threads) {
-      const key = String(thread.parent_message_id);
-      const list = threadsByMessage.get(key) || [];
-      list.push(thread);
-      threadsByMessage.set(key, list);
-    }
-    for (const record of records) {
-      const key = record.id == null ? "" : String(record.id);
-      record.threads = threadsByMessage.get(key) || [];
-    }
-  }
-
-  function startSseStream(
+  async function startBridgeStream(
     sessionId: string,
     messageId: string,
     parts: MessagePart[],
@@ -501,200 +427,88 @@ export function useMessages(options: UseMessagesOptions) {
     skipUserHistory = false,
     llmCheckpointId: string | null = null,
   ) {
-    const abort = new AbortController();
+    let runId: string | undefined;
+    const unsubscribe = appBridge.chat.onStreamEvent?.((event) => {
+      if (event.sessionId !== sessionId) return;
+      if (runId && event.runId !== runId) return;
+      if (event.assistantMessageId !== String(botRecord.id) && event.runId !== runId) return;
+      processBridgeStreamEvent(botRecord, event);
+      options.onStreamUpdate?.(sessionId);
+      if (event.type === "final" || event.type === "error" || event.type === "aborted") {
+        const active = activeConnections[sessionId];
+        if (active?.runId === event.runId) {
+          active.unsubscribe?.();
+          delete activeConnections[sessionId];
+          options.onSessionsChanged?.();
+        }
+      }
+    });
+
     activeConnections[sessionId] = {
       sessionId,
       messageId,
       transport: "sse",
-      abort,
+      unsubscribe,
     };
 
-    fetch("/api/chat/send", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${localStorage.getItem("token") || ""}`,
-      },
-      body: JSON.stringify({
-        session_id: sessionId,
-        message: parts.map(partToPayload),
-        enable_streaming: enableStreaming,
-        selected_provider: selectedProvider,
-        selected_model: selectedModel,
-        _skip_user_history: skipUserHistory,
-        _llm_checkpoint_id: llmCheckpointId || undefined,
-      }),
-      signal: abort.signal,
-    })
-      .then(async (response) => {
-        if (!response.ok || !response.body) {
-          throw new Error(`SSE connection failed: ${response.status}`);
-        }
-        await readSseStream(response.body, (payload) => {
-          processStreamPayload(botRecord, payload, userRecord);
-          options.onStreamUpdate?.(sessionId);
-        });
-      })
-      .catch((error) => {
-        if (abort.signal.aborted) return;
-        appendPlain(botRecord, `\n\n${String(error?.message || error)}`);
-        console.error("SSE chat failed:", error);
-      })
-      .finally(async () => {
-        delete activeConnections[sessionId];
-        await options.onSessionsChanged?.();
-      });
-  }
+    try {
+      const response = await appBridge.chat.sendMessage({
+        sessionId,
+        parts: parts.map(partToBridgePart),
+        enableStreaming,
+        providerId: selectedProvider || undefined,
+        modelId: selectedModel || undefined,
+        idempotencyKey: messageId,
+        checkpointId: llmCheckpointId,
+        ...(skipUserHistory ? { metadata: { skipUserHistory: true } } : {}),
+      } as any);
 
-  function startWebSocketStream(
-    sessionId: string,
-    messageId: string,
-    parts: MessagePart[],
-    botRecord: ChatRecord,
-    userRecord: ChatRecord | undefined,
-    enableStreaming: boolean,
-    selectedProvider: string,
-    selectedModel: string,
-  ) {
-    const token = encodeURIComponent(localStorage.getItem("token") || "");
-    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    const ws = new WebSocket(
-      `${protocol}//${window.location.host}/api/unified_chat/ws?token=${token}`,
-    );
-
-    activeConnections[sessionId] = {
-      sessionId,
-      messageId,
-      transport: "websocket",
-      ws,
-    };
-
-    ws.onopen = () => {
-      ws.send(
-        JSON.stringify({
-          ct: "chat",
-          t: "send",
-          session_id: sessionId,
-          message_id: messageId,
-          message: parts.map(partToPayload),
-          enable_streaming: enableStreaming,
-          selected_provider: selectedProvider,
-          selected_model: selectedModel,
-        }),
-      );
-    };
-    ws.onmessage = (event) => {
-      try {
-        const payload = JSON.parse(event.data);
-        processStreamPayload(botRecord, payload, userRecord);
-        options.onStreamUpdate?.(sessionId);
-        if (payload.type === "end" || payload.t === "end") {
-          ws.close();
-        }
-      } catch (error) {
-        console.error("Failed to parse WebSocket payload:", error);
+      runId = response.runId;
+      activeConnections[sessionId].runId = runId;
+      botRecord.id = response.assistantMessageId || response.messageId || botRecord.id;
+      if (userRecord && response.userMessageId) {
+        userRecord.id = response.userMessageId;
       }
-    };
-    ws.onerror = () => {
-      appendPlain(botRecord, "\n\nWebSocket connection failed.");
-    };
-    ws.onclose = async () => {
+      if (response.userMessage && userRecord) {
+        Object.assign(userRecord, mapBridgeMessageToRecord(response.userMessage));
+      }
+      if (response.assistantMessage) {
+        Object.assign(botRecord, mapBridgeMessageToRecord(response.assistantMessage));
+      }
+    } catch (error) {
+      unsubscribe?.();
       delete activeConnections[sessionId];
+      appendPlain(botRecord, `\n\n${String((error as Error)?.message || error)}`);
+      console.error("Bridge chat failed:", error);
       await options.onSessionsChanged?.();
-    };
+    }
   }
 
-  function processStreamPayload(
-    botRecord: ChatRecord,
-    payload: any,
-    userRecord?: ChatRecord,
-  ) {
-    const normalized =
-      payload?.ct === "chat"
-        ? { ...payload, type: payload.type || payload.t }
-        : payload;
-    const msgType = normalized?.type || normalized?.t;
-    const chainType = normalized?.chain_type;
-    const data = normalized?.data ?? "";
-
-    if (msgType === "session_id" || msgType === "session_bound") return;
-    if (msgType === "user_message_saved") {
-      if (userRecord) {
-        userRecord.id = data?.id || userRecord.id;
-        userRecord.created_at = data?.created_at || userRecord.created_at;
-        userRecord.llm_checkpoint_id =
-          data?.llm_checkpoint_id || userRecord.llm_checkpoint_id;
-      }
+  function processBridgeStreamEvent(botRecord: ChatRecord, event: BridgeStreamEvent) {
+    if (event.type === "started") {
+      markMessageStarted(botRecord);
+      botRecord.id = event.assistantMessageId || botRecord.id;
       return;
     }
-    if (msgType === "message_saved") {
+    if (event.type === "delta") {
       markMessageStarted(botRecord);
-      botRecord.id = data?.id || botRecord.id;
-      botRecord.created_at = data?.created_at || botRecord.created_at;
-      botRecord.llm_checkpoint_id =
-        data?.llm_checkpoint_id || botRecord.llm_checkpoint_id;
-      if (data?.refs) {
-        messageContent(botRecord).refs = data.refs;
-      }
-      return;
-    }
-    if (msgType === "agent_stats" || chainType === "agent_stats") {
-      markMessageStarted(botRecord);
-      messageContent(botRecord).agentStats = data;
-      return;
-    }
-    if (msgType === "error") {
-      markMessageStarted(botRecord);
-      appendPlain(botRecord, `\n\n${String(data)}`);
-      return;
-    }
-    if (msgType === "complete" || msgType === "break") {
-      markMessageStarted(botRecord);
-      const finalText = payloadText(data);
-      if (finalText && !hasPlainText(botRecord)) {
-        appendPlain(botRecord, finalText, false);
-      }
-      return;
-    }
-    if (msgType === "end") {
-      markMessageStarted(botRecord);
-      return;
-    }
-
-    if (msgType === "plain") {
-      markMessageStarted(botRecord);
-      if (chainType === "reasoning") {
-        appendReasoningPart(botRecord, payloadText(data));
-        return;
-      }
-      if (chainType === "tool_call") {
-        upsertToolCall(botRecord, parseJsonSafe(data));
-        return;
-      }
-      if (chainType === "tool_call_result") {
-        finishToolCall(botRecord, parseJsonSafe(data));
-        return;
-      }
-      appendPlain(botRecord, payloadText(data), normalized.streaming !== false);
-      return;
-    }
-
-    if (["image", "record", "file", "video"].includes(msgType)) {
-      markMessageStarted(botRecord);
-      const filename = String(data)
-        .replace("[IMAGE]", "")
-        .replace("[RECORD]", "")
-        .replace("[FILE]", "")
-        .replace("[VIDEO]", "")
-        .split("|", 1)[0];
-      const mediaPart: MessagePart = { type: msgType, filename };
-      if (msgType !== "file") {
-        resolvePartMedia(mediaPart).then(() => {
-          messageContent(botRecord).message.push(mediaPart);
-        });
+      const text = event.delta ?? event.text ?? "";
+      if (event.channel === "reasoning") {
+        appendReasoningPart(botRecord, text);
       } else {
-        messageContent(botRecord).message.push(mediaPart);
+        appendPlain(botRecord, text);
       }
+      return;
+    }
+    if (event.type === "final" && event.message) {
+      Object.assign(botRecord, mapBridgeMessageToRecord(event.message));
+      markMessageStarted(botRecord);
+      return;
+    }
+    if (event.type === "error" || event.type === "aborted") {
+      markMessageStarted(botRecord);
+      const message = event.error?.message || (event.type === "aborted" ? "Request aborted." : "Request failed.");
+      appendPlain(botRecord, `\n\n${message}`);
     }
   }
 
@@ -750,23 +564,6 @@ function stripUploadOnlyFields(part: MessagePart): MessagePart {
   const copied = { ...part };
   delete copied.path;
   return copied;
-}
-
-function normalizeSessionProject(value: unknown): ChatSessionProject | null {
-  if (!value || typeof value !== "object") return null;
-  const project = value as Record<string, unknown>;
-  if (
-    typeof project.project_id !== "string" ||
-    typeof project.title !== "string"
-  ) {
-    return null;
-  }
-
-  return {
-    project_id: project.project_id,
-    title: project.title,
-    emoji: typeof project.emoji === "string" ? project.emoji : undefined,
-  };
 }
 
 export function normalizeMessageParts(
@@ -854,51 +651,25 @@ export function messageBlocks(content: ChatContent): MessageDisplayBlock[] {
   return blocks;
 }
 
-function partToPayload(part: MessagePart) {
+function partToBridgePart(part: MessagePart): BridgeChatMessagePart {
   if (part.type === "plain") return { type: "plain", text: part.text || "" };
+  if (part.type === "think") return { type: "think", think: part.think || "" };
   if (part.type === "reply") {
     return {
       type: "reply",
+      messageId: part.message_id,
       message_id: part.message_id,
+      selectedText: part.selected_text || "",
       selected_text: part.selected_text || "",
     };
   }
   return {
+    ...part,
     type: part.type,
+    attachmentId: part.attachment_id,
     attachment_id: part.attachment_id,
     filename: part.filename,
   };
-}
-
-async function readSseStream(
-  body: ReadableStream<Uint8Array>,
-  onPayload: (payload: any) => void,
-) {
-  const reader = body.getReader();
-  const decoder = new TextDecoder();
-  let buffer = "";
-
-  while (true) {
-    const { value, done } = await reader.read();
-    if (done) break;
-    buffer += decoder.decode(value, { stream: true });
-    const events = buffer.split("\n\n");
-    buffer = events.pop() || "";
-
-    for (const event of events) {
-      const data = event
-        .split("\n")
-        .filter((line) => line.startsWith("data:"))
-        .map((line) => line.slice(5).trimStart())
-        .join("\n");
-      if (!data) continue;
-      try {
-        onPayload(JSON.parse(data));
-      } catch (error) {
-        console.error("Failed to parse SSE payload:", error, data);
-      }
-    }
-  }
 }
 
 function normalizePartsInternal(parts: unknown): MessagePart[] {
@@ -917,7 +688,20 @@ function normalizePartsInternal(parts: unknown): MessagePart[] {
         think: String(part.think ?? part.text ?? ""),
       };
     }
-    return { ...part };
+    const normalized = { ...part };
+    if (typeof normalized.attachmentId === "string" && !normalized.attachment_id) {
+      normalized.attachment_id = normalized.attachmentId;
+    }
+    if (normalized.messageId != null && normalized.message_id == null) {
+      normalized.message_id = normalized.messageId;
+    }
+    if (typeof normalized.selectedText === "string" && !normalized.selected_text) {
+      normalized.selected_text = normalized.selectedText;
+    }
+    if (Array.isArray(normalized.toolCalls) && !normalized.tool_calls) {
+      normalized.tool_calls = normalized.toolCalls;
+    }
+    return normalized;
   });
 }
 
@@ -927,10 +711,6 @@ function isEmptyPlainPart(part: MessagePart) {
 
 function isThinkingPart(part: MessagePart) {
   return part.type === "think" || part.type === "tool_call";
-}
-
-function firstNonEmptyPartIndex(parts: MessagePart[]) {
-  return parts.findIndex((part) => !isEmptyPlainPart(part));
 }
 
 export function appendPlain(record: ChatRecord, text: string, append = true) {
@@ -1029,4 +809,34 @@ export function parseJsonSafe(value: unknown) {
   } catch {
     return value;
   }
+}
+
+function mapBridgeMessageToRecord(message: BridgeChatMessage): ChatRecord {
+  const parts = normalizeMessageParts(message.parts || []);
+  const roleType = message.role === "user" ? "user" : "bot";
+  const metadata = message.metadata || {};
+
+  return {
+    id: message.id,
+    created_at: new Date(message.createdAt || Date.now()).toISOString(),
+    sender_id: roleType === "bot" ? "bot" : "user",
+    sender_name: roleType === "bot" ? "Assistant" : "User",
+    llm_checkpoint_id: message.checkpointId || null,
+    content: {
+      type: roleType,
+      message: parts,
+      reasoning: extractReasoningText(parts),
+      isLoading: message.status === "pending" || message.status === "streaming",
+      agentStats: metadata.agentStats || metadata.agent_stats,
+      refs: metadata.refs,
+    },
+    threads: [],
+  };
+}
+
+async function resolveAttachmentPreview(attachmentId: string): Promise<string> {
+  const preview = await appBridge.attachment?.getPreviewUrl(attachmentId);
+  if (!preview) return "";
+  if (typeof preview === "string") return preview;
+  return preview.url;
 }

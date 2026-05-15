@@ -7,7 +7,7 @@ import type { CronTask } from '@shared/types/cron'
 const tasks = ref<CronTask[]>([])
 
 onMounted(async () => {
-  tasks.value = await appBridge.cron.list()
+  tasks.value = (await appBridge.cron.list()) as CronTask[]
 })
 </script>
 

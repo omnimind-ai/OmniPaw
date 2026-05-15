@@ -1,6 +1,6 @@
 import { ref, computed } from 'vue';
-import axios from 'axios';
 import { useRouter } from 'vue-router';
+import { appBridge, type BridgeChatSession } from '@/bridge/app';
 import { buildWebchatUmoDetails, getStoredSelectedChatConfigId } from '@/utils/chatConfigBinding';
 
 export interface Session {
@@ -11,6 +11,18 @@ export interface Session {
     creator: string;
     is_group: number;
     created_at: string;
+}
+
+export interface BatchDeleteFailedItem {
+    session_id: string;
+    reason: string;
+}
+
+export interface BatchDeleteResult {
+    deleted_count: number;
+    failed_count: number;
+    failed_items: BatchDeleteFailedItem[];
+    currentSessionDeleted: boolean;
 }
 
 export function useSessions(chatboxMode: boolean = false) {
@@ -33,16 +45,9 @@ export function useSessions(chatboxMode: boolean = false) {
 
     async function getSessions() {
         try {
-            const response = await axios.get('/api/chat/sessions');
-            sessions.value = response.data.data;
-
-
-
-    
+            const bridgeSessions = await appBridge.chat.listSessions();
+            sessions.value = bridgeSessions.map(mapBridgeSession);
         } catch (err: any) {
-            if (err.response?.status === 401) {
-                router.push('/auth/login?redirect=/chatbox');
-            }
             console.error(err);
         }
     }
@@ -50,19 +55,21 @@ export function useSessions(chatboxMode: boolean = false) {
     async function newSession() {
         try {
             const selectedConfigId = getStoredSelectedChatConfigId();
-            const response = await axios.get('/api/chat/new_session');
-            const sessionId = response.data.data.session_id;
-            const platformId = response.data.data.platform_id;
+            const session = await appBridge.chat.createSession();
+            const sessionId = session.id;
+            const platformId = 'webchat';
 
             currSessionId.value = sessionId;
 
             if (selectedConfigId && selectedConfigId !== 'default' && platformId === 'webchat') {
                 try {
                     const umoDetails = buildWebchatUmoDetails(sessionId, false);
-                    await axios.post('/api/config/umo_abconf_route/update', {
-                        umo: umoDetails.umo,
-                        conf_id: selectedConfigId
-                    });
+                    await appBridge.chat.updateSession?.(sessionId, {
+                        metadata: {
+                            umo: umoDetails.umo,
+                            configId: selectedConfigId,
+                        },
+                    } as Partial<BridgeChatSession>);
                 } catch (err) {
                     console.error('Failed to bind config to session', err);
                 }
@@ -86,7 +93,7 @@ export function useSessions(chatboxMode: boolean = false) {
 
     async function deleteSession(sessionId: string) {
         try {
-            await axios.get('/api/chat/delete_session?session_id=' + sessionId);
+            await appBridge.chat.deleteSession?.(sessionId);
             await getSessions();
             currSessionId.value = '';
             selectedSessions.value = [];
@@ -95,48 +102,22 @@ export function useSessions(chatboxMode: boolean = false) {
         }
     }
 
-    interface BatchDeleteFailedItem {
-        session_id: string;
-        reason: string;
-    }
-
-    interface BatchDeleteResult {
-        deleted_count: number;
-        failed_count: number;
-        failed_items: BatchDeleteFailedItem[];
-        currentSessionDeleted: boolean;
-    }
-
-    function isBatchDeleteResponseData(data: unknown): data is {
-        deleted_count: number;
-        failed_count: number;
-        failed_items: BatchDeleteFailedItem[];
-    } {
-        if (!data || typeof data !== 'object') {
-            return false;
-        }
-        const payload = data as Record<string, unknown>;
-        return (
-            typeof payload.deleted_count === 'number' &&
-            typeof payload.failed_count === 'number' &&
-            Array.isArray(payload.failed_items)
-        );
-    }
-
     async function batchDeleteSessions(sessionIds: string[]): Promise<BatchDeleteResult> {
         try {
             const currentSessionId = currSessionId.value;
-            const response = await axios.post('/api/chat/batch_delete_sessions', { session_ids: sessionIds });
-            if (response.data?.status !== 'ok') {
-                throw new Error(response.data?.message || 'Failed to batch delete sessions');
+            const failedItems: BatchDeleteFailedItem[] = [];
+
+            for (const sessionId of sessionIds) {
+                try {
+                    await appBridge.chat.deleteSession?.(sessionId);
+                } catch (err) {
+                    failedItems.push({
+                        session_id: sessionId,
+                        reason: err instanceof Error ? err.message : String(err),
+                    });
+                }
             }
 
-            const data = response.data?.data;
-            if (!isBatchDeleteResponseData(data)) {
-                throw new Error('Invalid batch delete response payload');
-            }
-
-            const failedItems = data.failed_items;
             const failedSessionIds = new Set(failedItems.map(item => item.session_id));
             const currentSessionDeleted = Boolean(
                 currentSessionId &&
@@ -151,8 +132,8 @@ export function useSessions(chatboxMode: boolean = false) {
             await getSessions();
 
             return {
-                deleted_count: data.deleted_count,
-                failed_count: data.failed_count,
+                deleted_count: sessionIds.length - failedItems.length,
+                failed_count: failedItems.length,
                 failed_items: failedItems,
                 currentSessionDeleted,
             };
@@ -173,15 +154,20 @@ export function useSessions(chatboxMode: boolean = false) {
 
         const trimmedTitle = editingTitle.value.trim();
         try {
-            await axios.post('/api/chat/update_session_display_name', {
-                session_id: editingSessionId.value,
-                display_name: trimmedTitle
-            });
+            const updated = appBridge.chat.updateSessionTitle
+                ? await appBridge.chat.updateSessionTitle(editingSessionId.value, trimmedTitle)
+                : await appBridge.chat.updateSession?.(editingSessionId.value, { title: trimmedTitle });
 
             // 更新本地会话标题
             const session = sessions.value.find(s => s.session_id === editingSessionId.value);
             if (session) {
-                session.display_name = trimmedTitle;
+                Object.assign(session, mapBridgeSession(updated || {
+                    id: editingSessionId.value,
+                    title: trimmedTitle,
+                    status: 'active',
+                    createdAt: Date.now(),
+                    updatedAt: Date.now(),
+                }));
             }
             editTitleDialog.value = false;
         } catch (err) {
@@ -225,5 +211,20 @@ export function useSessions(chatboxMode: boolean = false) {
         saveTitle,
         updateSessionTitle,
         newChat
+    };
+}
+
+function mapBridgeSession(session: BridgeChatSession): Session {
+    const createdAt = new Date(session.createdAt || Date.now()).toISOString();
+    const updatedAt = new Date(session.updatedAt || session.lastMessageAt || Date.now()).toISOString();
+
+    return {
+        session_id: session.id,
+        display_name: session.title || null,
+        updated_at: updatedAt,
+        platform_id: 'webchat',
+        creator: 'user',
+        is_group: 0,
+        created_at: createdAt,
     };
 }

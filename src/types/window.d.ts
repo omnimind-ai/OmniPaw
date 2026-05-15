@@ -1,8 +1,8 @@
-import type { OpenOmniClawBridge } from '@shared/types/bridge'
+import type { RendererOpenOmniClawBridge } from '@/bridge/app'
 
 declare global {
   interface Window {
-    openOmniClaw: OpenOmniClawBridge
+    openOmniClaw?: RendererOpenOmniClawBridge
   }
 }
 

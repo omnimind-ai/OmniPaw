@@ -1,7 +1,36 @@
 import type { AppInfo } from './app'
 import type { CronTask } from './cron'
-import type { SendMessageRequest, SendMessageResponse, Session } from './chat'
-import type { ProviderConfig } from './provider'
+import type {
+  AbortRunRequest,
+  AbortRunResponse,
+  AttachmentPreviewRequest,
+  AttachmentPreviewResponse,
+  ChatMessagePart,
+  ChatMessage,
+  ChatSession,
+  ChatStreamEvent,
+  DeleteSessionRequest,
+  EditMessageRequest,
+  EditMessageResponse,
+  ListMessagesRequest,
+  RegenerateMessageRequest,
+  SendMessageRequest,
+  SendMessageResponse,
+  UpdateSessionRequest,
+  UploadAttachmentRequest,
+  UploadAttachmentResponse,
+} from './chat'
+import type {
+  DeleteProviderRequest,
+  ProviderConfig,
+  ProviderModel,
+  ProviderOperationResult,
+  ProviderTestResult,
+  RefreshProviderModelsRequest,
+  SaveProviderRequest,
+  SetSessionModelRequest,
+  TestProviderRequest,
+} from './provider'
 import type { SkillDefinition } from './skill'
 
 export type Unsubscribe = () => void
@@ -11,14 +40,54 @@ export interface OpenOmniClawBridge {
     getInfo: () => Promise<AppInfo>
   }
   chat: {
-    listSessions: () => Promise<Session[]>
-    createSession: () => Promise<Session>
+    listSessions: () => Promise<ChatSession[]>
+    createSession: () => Promise<ChatSession>
+    getSession: (sessionId: string) => Promise<ChatSession | null>
+    updateSession: (
+      ...args: [request: UpdateSessionRequest] | [sessionId: string, patch: Partial<ChatSession>]
+    ) => Promise<ChatSession>
+    deleteSession: (request: DeleteSessionRequest | string) => Promise<{ deleted: boolean }>
+    listMessages: (request: ListMessagesRequest | string) => Promise<ChatMessage[]>
     sendMessage: (request: SendMessageRequest) => Promise<SendMessageResponse>
+    abortRun: (
+      ...args: [request: AbortRunRequest | string] | [runId: string, reason?: string]
+    ) => Promise<AbortRunResponse>
+    editMessage: (
+      ...args:
+        | [request: EditMessageRequest]
+        | [sessionId: string, messageId: string, parts: ChatMessagePart[]]
+    ) => Promise<EditMessageResponse>
+    regenerateMessage: (
+      ...args:
+        | [request: RegenerateMessageRequest]
+        | [sessionId: string, messageId: string, providerId?: string, modelId?: string]
+    ) => Promise<SendMessageResponse>
+    uploadAttachment: (request: UploadAttachmentRequest) => Promise<UploadAttachmentResponse>
+    getAttachmentPreview: (
+      request: AttachmentPreviewRequest | string,
+    ) => Promise<AttachmentPreviewResponse>
+    onStreamEvent: (callback: (event: ChatStreamEvent) => void) => Unsubscribe
+
+    /** Legacy global stream subscriptions kept for transitional UI code. */
     onToken: (callback: (token: string) => void) => Unsubscribe
     onDone: (callback: () => void) => Unsubscribe
   }
+  attachment: {
+    upload: (request: UploadAttachmentRequest & { type?: string; size?: number }) => Promise<UploadAttachmentResponse['attachment']>
+    getPreviewUrl: (
+      request: AttachmentPreviewRequest | string,
+    ) => Promise<AttachmentPreviewResponse | string>
+  }
   provider: {
     list: () => Promise<ProviderConfig[]>
+    upsert: (request: SaveProviderRequest) => Promise<ProviderConfig>
+    delete: (request: DeleteProviderRequest | string) => Promise<ProviderOperationResult>
+    test: (
+      ...args: [request: TestProviderRequest] | [providerId: string, modelId?: string]
+    ) => Promise<ProviderTestResult>
+    listModels: (providerId: string) => Promise<ProviderModel[]>
+    refreshModels: (request: RefreshProviderModelsRequest | string) => Promise<ProviderModel[]>
+    setSessionModel: (request: SetSessionModelRequest) => Promise<ChatSession>
   }
   skill: {
     list: () => Promise<SkillDefinition[]>

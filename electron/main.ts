@@ -1,23 +1,41 @@
 import { join } from 'node:path'
 
 import { app, BrowserWindow, ipcMain, shell } from 'electron'
-import { SessionManager } from '@core/chat/session-manager'
-import { StreamHandler } from '@core/chat/stream-handler'
+import { AttachmentService } from '@core/chat/attachment-service'
+import { ChatService } from '@core/chat/chat-service'
+import { ContextBuilder } from '@core/chat/context-manager'
+import { RunManager } from '@core/chat/run-manager'
 import { CronManager } from '@core/cron/cron-manager'
+import { DatabaseClient } from '@core/db/client'
+import { AttachmentRepo, ChatMessageRepo, ChatRunRepo, ChatSessionRepo, ProviderRepo } from '@core/db/repos'
+import { seedDefaultChatData } from '@core/db/seed'
+import {
+  DbProviderCredentialRepository,
+  DbProviderModelRepository,
+  DbProviderRepository,
+  DbSessionProviderOverrideRepository,
+} from '@core/provider/db-adapters'
 import { ProviderManager } from '@core/provider/manager'
 import { SkillManager } from '@core/skill/skill-manager'
 import { APP_NAME, IPC_CHANNELS } from '@shared/constants'
-import type { SendMessageRequest } from '@shared/types/chat'
+import type {
+  DeleteProviderRequest,
+  RefreshProviderModelsRequest,
+  SaveProviderRequest,
+  SetSessionModelRequest,
+  TestProviderRequest,
+} from '@shared/types/provider'
 
 const isMac = process.platform === 'darwin'
 
-const sessionManager = new SessionManager()
-const providerManager = new ProviderManager()
 const skillManager = new SkillManager()
 const cronManager = new CronManager()
-const streamHandler = new StreamHandler()
 
 let mainWindow: BrowserWindow | null = null
+let chatService: ChatService
+let providerManager: ProviderManager
+let sessionRepo: ChatSessionRepo
+let providerRepo: ProviderRepo
 
 function createMainWindow(): void {
   mainWindow = new BrowserWindow({
@@ -63,31 +81,75 @@ function registerIpcHandlers(): void {
     platform: process.platform,
   }))
 
-  ipcMain.handle(IPC_CHANNELS.chat.listSessions, () => sessionManager.list())
-  ipcMain.handle(IPC_CHANNELS.chat.createSession, () => sessionManager.create())
+  ipcMain.handle(IPC_CHANNELS.chat.listSessions, () => chatService.listSessions())
+  ipcMain.handle(IPC_CHANNELS.chat.createSession, () => chatService.createSession())
+  ipcMain.handle(IPC_CHANNELS.chat.getSession, (_event, sessionId: string) =>
+    chatService.getSession(sessionId),
+  )
+  ipcMain.handle(IPC_CHANNELS.chat.updateSession, (_event, request) =>
+    chatService.updateSession(normalizeUpdateSessionRequest(request)),
+  )
+  ipcMain.handle(IPC_CHANNELS.chat.deleteSession, (_event, request) =>
+    chatService.deleteSession(request),
+  )
+  ipcMain.handle(IPC_CHANNELS.chat.listMessages, (_event, request) =>
+    chatService.listMessages(request),
+  )
+  ipcMain.handle(IPC_CHANNELS.chat.sendMessage, (event, request) =>
+    chatService.sendMessage(request, event.sender),
+  )
+  ipcMain.handle(IPC_CHANNELS.chat.abortRun, (_event, request) => chatService.abortRun(request))
+  ipcMain.handle(IPC_CHANNELS.chat.editMessage, (_event, request) =>
+    chatService.editMessage(normalizeEditMessageRequest(request)),
+  )
+  ipcMain.handle(IPC_CHANNELS.chat.regenerateMessage, (event, request) =>
+    chatService.regenerateMessage(normalizeRegenerateRequest(request), event.sender),
+  )
+  ipcMain.handle(IPC_CHANNELS.chat.uploadAttachment, (_event, request) =>
+    attachmentService.upload(normalizeUploadRequest(request)),
+  )
+  ipcMain.handle(IPC_CHANNELS.chat.getAttachmentPreview, (_event, request) => {
+    const attachmentId = typeof request === 'string' ? request : request.attachmentId
+    return attachmentService.getPreview(attachmentId)
+  })
+
   ipcMain.handle(IPC_CHANNELS.provider.list, () => providerManager.list())
+  ipcMain.handle(IPC_CHANNELS.provider.upsert, async (_event, request: SaveProviderRequest) => {
+    const provider = {
+      ...request.provider,
+      models: request.provider.models ?? [],
+      updatedAt: Date.now(),
+      createdAt: request.provider.createdAt ?? Date.now(),
+    }
+    providerRepo.save(provider)
+    return providerRepo.get(provider.id)
+  })
+  ipcMain.handle(IPC_CHANNELS.provider.delete, async (_event, request: DeleteProviderRequest | string) => {
+    providerRepo.delete(typeof request === 'string' ? request : request.providerId)
+    return { ok: true }
+  })
+  ipcMain.handle(IPC_CHANNELS.provider.test, (_event, request: TestProviderRequest | string, modelId?: string) =>
+    providerManager.test(typeof request === 'string' ? request : request.providerId ?? request.provider?.id ?? '', typeof request === 'string' ? modelId : request.modelId),
+  )
+  ipcMain.handle(IPC_CHANNELS.provider.listModels, (_event, providerId: string) =>
+    providerRepo.listModels(providerId),
+  )
+  ipcMain.handle(IPC_CHANNELS.provider.refreshModels, async (_event, request: RefreshProviderModelsRequest | string) =>
+    providerManager.refreshModels(typeof request === 'string' ? request : request.providerId),
+  )
+  ipcMain.handle(IPC_CHANNELS.provider.setSessionModel, (_event, request: SetSessionModelRequest) =>
+    chatService.updateSession({
+      sessionId: request.sessionId,
+      defaultProviderId: request.providerId,
+      defaultModelId: request.modelId,
+    }),
+  )
   ipcMain.handle(IPC_CHANNELS.skill.list, () => skillManager.list())
   ipcMain.handle(IPC_CHANNELS.cron.list, () => cronManager.list())
-
-  ipcMain.handle(IPC_CHANNELS.chat.sendMessage, async (event, request: SendMessageRequest) => {
-    const messageId = crypto.randomUUID()
-    const reply = `已收到：${request.content}`
-
-    for (const token of reply) {
-      streamHandler.pushToken(event.sender, token)
-      await new Promise((resolve) => setTimeout(resolve, 8))
-    }
-
-    streamHandler.pushDone(event.sender)
-
-    return {
-      messageId,
-      accepted: true,
-    }
-  })
 }
 
 app.whenReady().then(() => {
+  initializeCore()
   registerIpcHandlers()
   createMainWindow()
 
@@ -97,6 +159,78 @@ app.whenReady().then(() => {
     }
   })
 })
+
+let attachmentService: AttachmentService
+
+function initializeCore(): void {
+  const db = new DatabaseClient().connect()
+  seedDefaultChatData(db)
+
+  sessionRepo = new ChatSessionRepo(db)
+  const messageRepo = new ChatMessageRepo(db)
+  const attachmentRepo = new AttachmentRepo(db)
+  providerRepo = new ProviderRepo(db)
+  const runRepo = new ChatRunRepo(db)
+
+  providerManager = new ProviderManager({
+    providers: new DbProviderRepository(providerRepo),
+    models: new DbProviderModelRepository(providerRepo),
+    credentials: new DbProviderCredentialRepository(providerRepo),
+    sessions: new DbSessionProviderOverrideRepository(sessionRepo),
+  })
+  attachmentService = new AttachmentService({ repo: attachmentRepo })
+  const contextBuilder = new ContextBuilder(attachmentService)
+  const runManager = new RunManager(runRepo)
+  chatService = new ChatService({
+    sessions: sessionRepo,
+    messages: messageRepo,
+    runs: runRepo,
+    attachments: attachmentService,
+    attachmentRepo,
+    providers: providerManager,
+    contextBuilder,
+    runManager,
+  })
+}
+
+function normalizeUpdateSessionRequest(request: unknown) {
+  if (typeof request === 'string') {
+    return { sessionId: request }
+  }
+  return request as Parameters<ChatService['updateSession']>[0]
+}
+
+function normalizeEditMessageRequest(request: unknown) {
+  if (Array.isArray(request)) {
+    return {
+      sessionId: String(request[0]),
+      messageId: String(request[1]),
+      parts: request[2] ?? [],
+    }
+  }
+  return request as Parameters<ChatService['editMessage']>[0]
+}
+
+function normalizeRegenerateRequest(request: unknown) {
+  if (Array.isArray(request)) {
+    return {
+      sessionId: String(request[0]),
+      messageId: String(request[1]),
+      providerId: typeof request[2] === 'string' ? request[2] : undefined,
+      modelId: typeof request[3] === 'string' ? request[3] : undefined,
+    }
+  }
+  return request as Parameters<ChatService['regenerateMessage']>[0]
+}
+
+function normalizeUploadRequest(request: unknown) {
+  const payload = request as { name: string; mimeType?: string; type?: string; bytes: ArrayBuffer }
+  return {
+    name: payload.name,
+    mimeType: payload.mimeType ?? payload.type,
+    bytes: payload.bytes,
+  }
+}
 
 app.on('window-all-closed', () => {
   if (!isMac) {
