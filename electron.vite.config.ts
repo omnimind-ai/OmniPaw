@@ -1,6 +1,7 @@
 import { resolve } from 'node:path'
 
 import vue from '@vitejs/plugin-vue'
+import vuetify from 'vite-plugin-vuetify'
 import { defineConfig, externalizeDepsPlugin } from 'electron-vite'
 
 export default defineConfig({
@@ -45,7 +46,7 @@ export default defineConfig({
   },
   renderer: {
     root: '.',
-    plugins: [vue()],
+    plugins: [vue(), vuetify({ autoImport: true })],
     build: {
       rollupOptions: {
         input: {
