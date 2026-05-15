@@ -8,16 +8,16 @@
       v-model="chatSidebarDrawer"
       class="chat-sidebar"
       :class="{ collapsed: isSidebarCollapsed }"
-      :permanent="lgAndUp"
-      :temporary="!lgAndUp"
-      :rail="lgAndUp && sidebarCollapsed"
+      :permanent="desktopAndUp"
+      :temporary="!desktopAndUp"
+      :rail="desktopAndUp && sidebarCollapsed"
       :width="280"
       :rail-width="68"
       location="left"
       floating
     >
       <div class="sidebar-top">
-        <div v-if="lgAndUp" class="brand-row">
+        <div v-if="desktopAndUp" class="brand-row">
           <v-btn
             icon
             size="small"
@@ -494,7 +494,7 @@ const props = withDefaults(defineProps<{ chatboxMode?: boolean; active?: boolean
 
 const route = useRoute();
 const router = useRouter();
-const { lgAndUp } = useDisplay();
+const { mdAndUp: desktopAndUp } = useDisplay();
 const theme = useTheme();
 const customizer = useCustomizerStore();
 const { t } = useI18n();
@@ -587,15 +587,15 @@ const enableStreaming = ref(true);
 const isRecording = ref(false);
 const sendShortcut = ref<"enter" | "shift_enter">("enter");
 const chatSidebarDrawer = computed({
-  get: () => lgAndUp.value || customizer.chatSidebarOpen,
+  get: () => desktopAndUp.value || customizer.chatSidebarOpen,
   set: (value: boolean) => {
-    if (!lgAndUp.value) {
+    if (!desktopAndUp.value) {
       customizer.SET_CHAT_SIDEBAR(value);
     }
   },
 });
 const isSidebarCollapsed = computed(() =>
-  lgAndUp.value ? sidebarCollapsed.value : !customizer.chatSidebarOpen,
+  desktopAndUp.value ? sidebarCollapsed.value : !customizer.chatSidebarOpen,
 );
 const isProviderWorkspace = computed(
   () => activeWorkspace.value === "providers",
@@ -753,7 +753,7 @@ function basePath() {
 }
 
 function closeMobileSidebar() {
-  if (!lgAndUp.value) {
+  if (!desktopAndUp.value) {
     customizer.SET_CHAT_SIDEBAR(false);
   }
 }
@@ -1546,6 +1546,7 @@ function toggleTheme() {
   display: flex;
   flex-direction: column;
   position: relative;
+  transition: margin-left 0.2s ease;
 }
 
 .chat-main.empty-chat {
@@ -1706,6 +1707,16 @@ kbd {
   .composer-shell,
   .project-composer-shell {
     padding: 0;
+  }
+}
+
+@media (min-width: 960px) {
+  .chat-main {
+    margin-left: 280px;
+  }
+
+  .chat-ui.sidebar-collapsed .chat-main {
+    margin-left: 68px;
   }
 }
 </style>
