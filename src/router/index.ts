@@ -10,7 +10,16 @@ export const router = createRouter({
   routes: [
     {
       path: '/',
+      redirect: '/chat',
+    },
+    {
+      path: '/chat/:conversationId?',
       name: 'chat',
+      component: ChatView,
+    },
+    {
+      path: '/chatbox/:conversationId?',
+      name: 'chatbox',
       component: ChatView,
     },
     {

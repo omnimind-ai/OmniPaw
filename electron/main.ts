@@ -1,6 +1,6 @@
-import { createRequire } from 'node:module'
 import { join } from 'node:path'
 
+import { app, BrowserWindow, ipcMain, shell } from 'electron'
 import { SessionManager } from '@core/chat/session-manager'
 import { StreamHandler } from '@core/chat/stream-handler'
 import { CronManager } from '@core/cron/cron-manager'
@@ -9,8 +9,6 @@ import { SkillManager } from '@core/skill/skill-manager'
 import { APP_NAME, IPC_CHANNELS } from '@shared/constants'
 import type { SendMessageRequest } from '@shared/types/chat'
 
-const require = createRequire(import.meta.url)
-const { app, BrowserWindow, ipcMain, shell } = require('electron') as typeof import('electron')
 const isMac = process.platform === 'darwin'
 
 const sessionManager = new SessionManager()
