@@ -1,4 +1,6 @@
-import type { ProviderConfig, ModelConfig, ProviderType } from '@shared/types/provider'
+import type { DesktopSettingsConfig } from '@shared/types/settings'
+import type { ConfigStore } from '@core/config/store'
+import type { ProviderConfig, ModelConfig, ProviderType, SaveProviderRequest } from '@shared/types/provider'
 import type { BaseProvider, ProviderModelCandidate } from './base-provider'
 import { normalizeProviderError } from './errors'
 import type { ProviderCredentialRecord } from './credentials'
@@ -61,32 +63,14 @@ export interface ProviderRecord {
   updatedAt?: number
 }
 
-export interface ProviderRepository {
-  list(): Promise<ProviderRecord[]>
-  get(id: string): Promise<ProviderRecord | undefined>
-  save(provider: ProviderRecord): Promise<void>
-  delete?(id: string): Promise<void>
-}
-
-export interface ProviderModelRepository {
-  listByProvider(providerId: string): Promise<ProviderModelRecord[]>
-  save(model: ProviderModelRecord): Promise<void>
-  deleteRemoteModels?(providerId: string, remoteIdsToKeep: string[]): Promise<void>
-}
-
-export interface ProviderCredentialRepository {
-  listByProvider(providerId: string): Promise<ProviderCredentialRecord[]>
-}
-
 export interface SessionProviderOverrideRepository {
   getProviderOverride(sessionId: string): Promise<{ providerId?: string; modelId?: string } | undefined>
 }
 
 export interface ProviderManagerOptions {
-  providers?: ProviderRepository
-  models?: ProviderModelRepository
-  credentials?: ProviderCredentialRepository
   sessions?: SessionProviderOverrideRepository
+  configStore: ConfigStore
+  onConfigSaved?: (config: DesktopSettingsConfig) => void
 }
 
 export interface ProviderTestResult {
@@ -94,54 +78,15 @@ export interface ProviderTestResult {
   error?: ReturnType<typeof normalizeProviderError>
 }
 
-const DEFAULT_PROVIDERS: ProviderRecord[] = [
-  {
-    id: 'omniinfer-local',
-    name: 'OmniInfer Local',
-    type: 'omniinfer',
-    api: 'omniinfer',
-    baseUrl: 'http://localhost:11434/v1',
-    enabled: true,
-    defaultModelId: 'local-small-model',
-    models: [
-      {
-        id: 'local-small-model',
-        providerId: 'omniinfer-local',
-        name: 'Local Small Model',
-        remoteId: 'local-small-model',
-        enabled: true,
-        manual: true,
-        contextWindow: 8192,
-      },
-    ],
-  },
-  {
-    id: 'openai-compatible',
-    name: 'OpenAI Compatible',
-    type: 'openai-compatible',
-    api: 'openai-chat-completions',
-    baseUrl: 'https://api.openai.com/v1',
-    enabled: false,
-    models: [],
-    capabilities: {
-      listModels: true,
-      streaming: true,
-    },
-  },
-]
-
 export class ProviderManager {
-  private readonly providers?: ProviderRepository
-  private readonly models?: ProviderModelRepository
-  private readonly credentials?: ProviderCredentialRepository
   private readonly sessions?: SessionProviderOverrideRepository
-  private readonly memoryProviders = new Map(DEFAULT_PROVIDERS.map((provider) => [provider.id, cloneRequiredProvider(provider)]))
+  private readonly configStore: ConfigStore
+  private readonly onConfigSaved?: (config: DesktopSettingsConfig) => void
 
-  constructor(options: ProviderManagerOptions = {}) {
-    this.providers = options.providers
-    this.models = options.models
-    this.credentials = options.credentials
+  constructor(options: ProviderManagerOptions) {
     this.sessions = options.sessions
+    this.configStore = options.configStore
+    this.onConfigSaved = options.onConfigSaved
   }
 
   async list(): Promise<ProviderConfig[]> {
@@ -161,20 +106,13 @@ export class ProviderManager {
   }
 
   async save(provider: ProviderRecord): Promise<void> {
-    if (this.providers) {
-      await this.providers.save(provider)
-      return
-    }
-
-    this.memoryProviders.set(provider.id, cloneRequiredProvider(provider))
+    const config = this.configStore.get()
+    upsertProviderInConfig(config, provider)
+    this.saveConfig(config)
   }
 
   async listModels(providerId: string): Promise<ProviderModelRecord[]> {
-    if (this.models) {
-      return this.models.listByProvider(providerId)
-    }
-
-    return cloneProvider(this.memoryProviders.get(providerId))?.models ?? []
+    return cloneProvider(await this.getRecord(providerId))?.models ?? []
   }
 
   async resolveDefaultProvider(sessionId?: string): Promise<{ provider: ProviderRecord; modelId: string }> {
@@ -222,20 +160,54 @@ export class ProviderManager {
       await this.saveModel(model)
     }
 
-    if (this.models?.deleteRemoteModels) {
-      await this.models.deleteRemoteModels(providerId, merged.map((model) => model.remoteId ?? model.id))
-    }
-
     return merged
+  }
+
+  async upsert(request: SaveProviderRequest): Promise<ProviderConfig | undefined> {
+    const now = Date.now()
+    const credential = request.credential
+    const credentialRef =
+      credential && (credential.value || credential.envVar)
+        ? request.provider.credentialRef ?? `${request.provider.id}:default`
+        : request.provider.credentialRef
+
+    await this.save({
+      ...request.provider,
+      models: request.provider.models?.map((model) => ({
+        ...model,
+        providerId: model.providerId ?? request.provider.id,
+        enabled: model.enabled !== false,
+      })) ?? [],
+      credentialRef,
+      apiKey: credential?.value,
+      envVar: credential?.envVar,
+      enabled: request.provider.enabled !== false,
+      createdAt: request.provider.createdAt ?? now,
+      updatedAt: now,
+    })
+
+    return this.get(request.provider.id)
+  }
+
+  async delete(providerId: string): Promise<void> {
+    const config = this.configStore.get()
+    config.providers.sources = config.providers.sources.filter((source) => source.id !== providerId)
+    config.providers.models = config.providers.models.filter((model) => model.providerSourceId !== providerId)
+    if (!config.providers.models.some((model) => model.id === config.providers.settings.defaultModelId && model.enabled !== false)) {
+      config.providers.settings.defaultModelId = config.providers.models.find((model) => model.enabled !== false)?.id ?? ''
+    }
+    config.providers.settings.fallbackModelIds = config.providers.settings.fallbackModelIds.filter((modelId) =>
+      config.providers.models.some((model) => model.id === modelId && model.enabled !== false),
+    )
+    this.saveConfig(config)
   }
 
   async createProviderClient(providerId: string): Promise<BaseProvider> {
     const provider = await this.requireRecord(providerId)
-    const credentials = await this.credentials?.listByProvider(provider.id)
     const credential = resolveCredential({
       providerId: provider.id,
       credentialRef: provider.credentialRef,
-      credentials,
+      credentials: providerToCredentials(provider),
       envVar: provider.envVar,
       apiKey: provider.apiKey,
     })
@@ -256,11 +228,7 @@ export class ProviderManager {
   }
 
   private async listRecords(): Promise<ProviderRecord[]> {
-    if (this.providers) {
-      return this.providers.list()
-    }
-
-    return Array.from(this.memoryProviders.values()).map(cloneRequiredProvider)
+    return configToProviderRecords(this.configStore.get())
   }
 
   private async getRecord(providerId: string): Promise<ProviderRecord | undefined> {
@@ -268,11 +236,7 @@ export class ProviderManager {
       return undefined
     }
 
-    if (this.providers) {
-      return this.providers.get(providerId)
-    }
-
-    return cloneProvider(this.memoryProviders.get(providerId))
+    return configToProviderRecords(this.configStore.get()).find((provider) => provider.id === providerId)
   }
 
   private async requireRecord(providerId: string): Promise<ProviderRecord> {
@@ -290,21 +254,9 @@ export class ProviderManager {
   }
 
   private async saveModel(model: ProviderModelRecord): Promise<void> {
-    if (this.models) {
-      await this.models.save(model)
-      return
-    }
-
-    const provider = await this.requireRecord(model.providerId)
-    const models = provider.models ?? []
-    const index = models.findIndex((existing) => existing.id === model.id)
-    if (index >= 0) {
-      models[index] = model
-    } else {
-      models.push(model)
-    }
-    provider.models = models
-    this.memoryProviders.set(provider.id, cloneRequiredProvider(provider))
+    const config = this.configStore.get()
+    upsertModelInConfig(config, model)
+    this.saveConfig(config)
   }
 
   private async modelsForProviders(providers: ProviderRecord[]): Promise<Map<string, ProviderModelRecord[]>> {
@@ -314,6 +266,70 @@ export class ProviderManager {
     }))
     return result
   }
+
+  private saveConfig(config: DesktopSettingsConfig): DesktopSettingsConfig {
+    const saved = this.configStore.save(config)
+    this.onConfigSaved?.(saved)
+    return saved
+  }
+}
+
+export function configToProviderRecords(config: DesktopSettingsConfig): ProviderRecord[] {
+  return config.providers.sources.map((source) => ({
+    id: source.id,
+    name: source.name,
+    type: source.type,
+    api: source.api,
+    baseUrl: source.baseUrl,
+    enabled: source.enabled,
+    credentialRef: source.credentialRef,
+    authHeader: source.authHeader,
+    envVar: source.credentialEnvVar,
+    apiKey: source.apiKey,
+    headers: source.headers,
+    extraBody: source.extraBody,
+    defaultModelId: source.defaultModelId,
+    capabilities: source.capabilities,
+    compat: source.compat,
+    models: config.providers.models
+      .filter((model) => model.providerSourceId === source.id)
+      .map((model) => ({
+        id: model.id,
+        providerId: source.id,
+        name: model.name,
+        remoteId: model.remoteId ?? model.id,
+        enabled: model.enabled,
+        input: model.input,
+        supportsStreaming: model.supportsStreaming,
+        supportsTools: model.supportsTools,
+        supportsReasoning: model.supportsReasoning,
+        contextWindow: model.contextWindow,
+        maxOutputTokens: model.maxOutputTokens,
+        compat: model.compat,
+        createdAt: model.createdAt,
+        updatedAt: model.updatedAt,
+      })),
+    createdAt: source.createdAt,
+    updatedAt: source.updatedAt,
+  }))
+}
+
+function providerToCredentials(provider: ProviderRecord): ProviderCredentialRecord[] {
+  if (!provider.apiKey && !provider.envVar) {
+    return []
+  }
+
+  return [
+    {
+      id: provider.credentialRef ?? `${provider.id}:default`,
+      providerId: provider.id,
+      type: provider.envVar ? 'env' : 'api-key',
+      value: provider.apiKey,
+      envVar: provider.envVar,
+      createdAt: provider.createdAt,
+      updatedAt: provider.updatedAt,
+    },
+  ]
 }
 
 function sanitizeProvider(provider: ProviderRecord, models: ProviderModelRecord[]): ProviderConfig {
@@ -399,6 +415,88 @@ function mergeModels(
   return [...manualRecords, ...remoteRecords]
 }
 
+function upsertProviderInConfig(config: DesktopSettingsConfig, provider: ProviderRecord): void {
+  const now = Date.now()
+  const existingIndex = config.providers.sources.findIndex((source) => source.id === provider.id)
+  const existing = existingIndex >= 0 ? config.providers.sources[existingIndex] : undefined
+  const source = {
+    id: provider.id,
+    type: provider.type ?? legacyTypeFromApi(provider.api),
+    api: provider.api ?? apiFromLegacyType(provider.type),
+    name: provider.name,
+    baseUrl: provider.baseUrl,
+    enabled: provider.enabled,
+    credentialRef: provider.credentialRef,
+    authHeader: provider.authHeader,
+    apiKey: provider.apiKey ?? existing?.apiKey,
+    credentialEnvVar: provider.envVar ?? existing?.credentialEnvVar,
+    headers: provider.headers ?? {},
+    extraBody: provider.extraBody ?? {},
+    defaultModelId: provider.defaultModelId,
+    capabilities: provider.capabilities ?? {},
+    compat: provider.compat,
+    createdAt: provider.createdAt ?? existing?.createdAt ?? now,
+    updatedAt: provider.updatedAt ?? now,
+  }
+
+  if (existingIndex >= 0) {
+    config.providers.sources[existingIndex] = source
+  } else {
+    config.providers.sources.push(source)
+  }
+
+  for (const model of provider.models ?? []) {
+    upsertModelInConfig(config, {
+      ...model,
+      providerId: provider.id,
+    })
+  }
+
+  if (source.defaultModelId && !config.providers.models.some((model) => model.id === source.defaultModelId)) {
+    source.defaultModelId = undefined
+  }
+  if (config.providers.settings.defaultModelId && !config.providers.models.some((model) => model.id === config.providers.settings.defaultModelId && model.enabled !== false)) {
+    config.providers.settings.defaultModelId = config.providers.models.find((model) => model.enabled !== false)?.id ?? ''
+  }
+}
+
+function upsertModelInConfig(config: DesktopSettingsConfig, model: ProviderModelRecord): void {
+  const now = Date.now()
+  const existingIndex = config.providers.models.findIndex((item) => item.id === model.id)
+  const existing = existingIndex >= 0 ? config.providers.models[existingIndex] : undefined
+  const next = {
+    id: model.id,
+    name: model.name,
+    providerSourceId: model.providerId,
+    remoteId: model.remoteId ?? model.id,
+    enabled: model.enabled,
+    input: model.input ?? ['text'],
+    supportsStreaming: model.supportsStreaming ?? true,
+    supportsTools: model.supportsTools ?? false,
+    supportsReasoning: model.supportsReasoning ?? false,
+    contextWindow: model.contextWindow,
+    maxOutputTokens: model.maxOutputTokens,
+    capabilities: existing?.capabilities ?? {},
+    compat: model.compat,
+    createdAt: model.createdAt ?? existing?.createdAt ?? now,
+    updatedAt: model.updatedAt ?? now,
+  }
+
+  if (existingIndex >= 0) {
+    config.providers.models[existingIndex] = next
+  } else {
+    config.providers.models.push(next)
+  }
+
+  const source = config.providers.sources.find((item) => item.id === model.providerId)
+  if (source && !source.defaultModelId) {
+    source.defaultModelId = model.id
+  }
+  if (!config.providers.settings.defaultModelId && model.enabled !== false) {
+    config.providers.settings.defaultModelId = model.id
+  }
+}
+
 function cloneProvider(provider: ProviderRecord | undefined): ProviderRecord | undefined {
   if (!provider) {
     return undefined
@@ -412,8 +510,4 @@ function cloneProvider(provider: ProviderRecord | undefined): ProviderRecord | u
     compat: provider.compat ? { ...provider.compat } : undefined,
     models: provider.models?.map((model) => ({ ...model, input: model.input ? [...model.input] : undefined })),
   }
-}
-
-function cloneRequiredProvider(provider: ProviderRecord): ProviderRecord {
-  return cloneProvider(provider) ?? provider
 }

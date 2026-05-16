@@ -90,57 +90,6 @@ export const migrations: Migration[] = [
       CREATE INDEX IF NOT EXISTS idx_message_attachments_attachment
         ON message_attachments(attachment_id);
 
-      CREATE TABLE IF NOT EXISTS providers (
-        id TEXT PRIMARY KEY,
-        name TEXT NOT NULL,
-        api TEXT NOT NULL,
-        base_url TEXT NOT NULL,
-        enabled INTEGER NOT NULL DEFAULT 1,
-        credential_ref TEXT,
-        auth_header TEXT,
-        headers_json TEXT,
-        extra_body_json TEXT,
-        default_model_id TEXT,
-        capabilities_json TEXT,
-        created_at INTEGER NOT NULL,
-        updated_at INTEGER NOT NULL
-      );
-
-      CREATE TABLE IF NOT EXISTS provider_models (
-        provider_id TEXT NOT NULL,
-        id TEXT NOT NULL,
-        name TEXT NOT NULL,
-        remote_id TEXT NOT NULL,
-        enabled INTEGER NOT NULL DEFAULT 1,
-        input_json TEXT NOT NULL,
-        supports_streaming INTEGER NOT NULL DEFAULT 1,
-        supports_tools INTEGER NOT NULL DEFAULT 0,
-        supports_reasoning INTEGER NOT NULL DEFAULT 0,
-        context_window INTEGER,
-        max_output_tokens INTEGER,
-        pricing_json TEXT,
-        compat_json TEXT,
-        created_at INTEGER NOT NULL,
-        updated_at INTEGER NOT NULL,
-        PRIMARY KEY(provider_id, id),
-        FOREIGN KEY(provider_id) REFERENCES providers(id) ON DELETE CASCADE
-      );
-
-      CREATE TABLE IF NOT EXISTS provider_credentials (
-        id TEXT PRIMARY KEY,
-        provider_id TEXT NOT NULL,
-        type TEXT NOT NULL,
-        label TEXT NOT NULL,
-        encrypted_value TEXT,
-        env_var TEXT,
-        created_at INTEGER NOT NULL,
-        updated_at INTEGER NOT NULL,
-        FOREIGN KEY(provider_id) REFERENCES providers(id) ON DELETE CASCADE
-      );
-
-      CREATE INDEX IF NOT EXISTS idx_provider_credentials_provider
-        ON provider_credentials(provider_id);
-
       CREATE TABLE IF NOT EXISTS chat_runs (
         id TEXT PRIMARY KEY,
         session_id TEXT NOT NULL,
@@ -169,15 +118,13 @@ export const migrations: Migration[] = [
     `,
   },
   {
-    id: 2,
-    name: 'create_app_settings_table',
+    id: 3,
+    name: 'drop_config_backed_provider_and_settings_tables',
     sql: `
-      CREATE TABLE IF NOT EXISTS app_settings (
-        key TEXT PRIMARY KEY,
-        value_json TEXT NOT NULL,
-        created_at INTEGER NOT NULL,
-        updated_at INTEGER NOT NULL
-      );
+      DROP TABLE IF EXISTS provider_credentials;
+      DROP TABLE IF EXISTS provider_models;
+      DROP TABLE IF EXISTS providers;
+      DROP TABLE IF EXISTS app_settings;
     `,
   },
 ]

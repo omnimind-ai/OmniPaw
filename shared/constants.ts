@@ -4,6 +4,13 @@ export const IPC_CHANNELS = {
   app: {
     getInfo: 'app:get-info',
   },
+  settings: {
+    load: 'settings:load',
+    save: 'settings:save',
+    reset: 'settings:reset',
+    status: 'settings:status',
+    changed: 'settings:changed',
+  },
   chat: {
     listSessions: 'chat:list-sessions',
     createSession: 'chat:create-session',

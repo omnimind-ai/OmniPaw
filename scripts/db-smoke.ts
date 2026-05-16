@@ -4,9 +4,9 @@ import { join } from 'node:path'
 import assert from 'node:assert/strict'
 
 import { DatabaseClient } from '../core/db/client'
-import { AttachmentRepo, ChatMessageRepo, ChatRunRepo, ChatSessionRepo, ProviderRepo } from '../core/db/repos'
+import { AttachmentRepo, ChatMessageRepo, ChatRunRepo, ChatSessionRepo } from '../core/db/repos'
 import { seedDefaultChatData } from '../core/db/seed'
-import type { ChatMessage, ChatRun, ChatSession, InternalAttachmentRecord, ProviderCredential } from '../core/db/types'
+import type { ChatMessage, ChatRun, ChatSession, InternalAttachmentRecord } from '../core/db/types'
 
 const tempDir = mkdtempSync(join(tmpdir(), 'openomniclaw-db-smoke-'))
 const client = new DatabaseClient({ path: join(tempDir, 'smoke.sqlite3') })
@@ -18,11 +18,9 @@ try {
   const sessions = new ChatSessionRepo(db)
   const messages = new ChatMessageRepo(db)
   const attachments = new AttachmentRepo(db)
-  const providers = new ProviderRepo(db)
   const runs = new ChatRunRepo(db)
 
   assert.equal(sessions.list().length, 1)
-  assert.equal(providers.list()[0]?.models?.length, 1)
 
   const session: ChatSession = {
     id: 'session-smoke',
@@ -90,18 +88,6 @@ try {
   assert.equal(messages.listBySession(session.id).length, 2)
   assert.equal(messages.listAttachmentLinks(userMessage.id)[0]?.attachmentId, attachment.id)
   assert.equal(messages.updateParts(assistantMessage.id, [{ type: 'plain', text: 'hi' }], { status: 'complete' }, 2005), true)
-
-  const credential: ProviderCredential = {
-    id: 'credential-smoke',
-    providerId: 'openai-compatible',
-    type: 'env',
-    label: 'OpenAI env',
-    envVar: 'OPENAI_API_KEY',
-    createdAt: 2006,
-    updatedAt: 2006,
-  }
-  providers.saveCredential(credential)
-  assert.equal(providers.listCredentials('openai-compatible')[0]?.envVar, 'OPENAI_API_KEY')
 
   const run: ChatRun = {
     id: 'run-smoke',

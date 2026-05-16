@@ -5,21 +5,24 @@ import { AttachmentService } from '@core/chat/attachment-service'
 import { ChatService } from '@core/chat/chat-service'
 import { ContextBuilder } from '@core/chat/context-manager'
 import { RunManager } from '@core/chat/run-manager'
+import { ConfigStore } from '@core/config/store'
+import { ConfigToolSettingsStore } from '@core/config/tool-settings-store'
+import { configError, ConfigValidationError } from '@core/config/schema'
 import { CronManager } from '@core/cron/cron-manager'
 import { DatabaseClient } from '@core/db/client'
-import { AttachmentRepo, AppSettingsRepo, ChatMessageRepo, ChatRunRepo, ChatSessionRepo, ProviderRepo } from '@core/db/repos'
+import { AttachmentRepo, ChatMessageRepo, ChatRunRepo, ChatSessionRepo } from '@core/db/repos'
 import { seedDefaultChatData } from '@core/db/seed'
 import { ToolManagementService } from '@core/agent/tool-management-service'
-import {
-  DbProviderCredentialRepository,
-  DbProviderModelRepository,
-  DbProviderRepository,
-  DbSessionProviderOverrideRepository,
-} from '@core/provider/db-adapters'
-import { encryptCredentialValue } from '@core/provider/credentials'
 import { ProviderManager } from '@core/provider/manager'
 import { SkillManager } from '@core/skill/skill-manager'
 import { APP_NAME, IPC_CHANNELS } from '@shared/constants'
+import type {
+  DesktopSettingsConfig,
+  DesktopSettingsChangedEvent,
+  SettingsChangeReason,
+  SaveDesktopSettingsRequest,
+  SettingsOperationError,
+} from '@shared/types/settings'
 import type {
   DeleteProviderRequest,
   RefreshProviderModelsRequest,
@@ -38,8 +41,8 @@ let mainWindow: BrowserWindow | null = null
 let chatService: ChatService
 let providerManager: ProviderManager
 let sessionRepo: ChatSessionRepo
-let providerRepo: ProviderRepo
 let toolManagementService: ToolManagementService
+let configStore: ConfigStore
 
 function createMainWindow(): void {
   mainWindow = new BrowserWindow({
@@ -85,6 +88,24 @@ function registerIpcHandlers(): void {
     platform: process.platform,
   }))
 
+  ipcMain.handle(IPC_CHANNELS.settings.load, () => settingsResult(() => configStore.get()))
+  ipcMain.handle(IPC_CHANNELS.settings.save, (_event, request: SaveDesktopSettingsRequest | DesktopSettingsConfig) =>
+    settingsResult(() => {
+      const config = isSaveSettingsRequest(request) ? request.config : request
+      const saved = configStore.save(config)
+      broadcastSettingsChanged('save', saved)
+      return saved
+    }),
+  )
+  ipcMain.handle(IPC_CHANNELS.settings.reset, () =>
+    settingsResult(() => {
+      const saved = configStore.reset()
+      broadcastSettingsChanged('reset', saved)
+      return saved
+    }),
+  )
+  ipcMain.handle(IPC_CHANNELS.settings.status, () => settingsResult(() => configStore.status()))
+
   ipcMain.handle(IPC_CHANNELS.chat.listSessions, () => chatService.listSessions())
   ipcMain.handle(IPC_CHANNELS.chat.createSession, () => chatService.createSession())
   ipcMain.handle(IPC_CHANNELS.chat.getSession, (_event, sessionId: string) =>
@@ -118,47 +139,18 @@ function registerIpcHandlers(): void {
   })
 
   ipcMain.handle(IPC_CHANNELS.provider.list, () => providerManager.list())
-  ipcMain.handle(IPC_CHANNELS.provider.upsert, async (_event, request: SaveProviderRequest) => {
-    const now = Date.now()
-    const credential = request.credential
-    const credentialId =
-      credential && (credential.value || credential.envVar)
-        ? request.provider.credentialRef ?? `${request.provider.id}:default`
-        : request.provider.credentialRef
-    const provider = {
-      ...request.provider,
-      models: request.provider.models ?? [],
-      credentialRef: credentialId,
-      enabled: request.provider.enabled !== false,
-      updatedAt: now,
-      createdAt: request.provider.createdAt ?? now,
-    }
-    providerRepo.save(provider)
-
-    if (credential && credentialId && (credential.value || credential.envVar)) {
-      providerRepo.saveCredential({
-        id: credentialId,
-        providerId: provider.id,
-        type: credential.type,
-        label: credential.label || 'Default',
-        encryptedValue: credential.value ? encryptCredentialValue(credential.value) : undefined,
-        envVar: credential.envVar,
-        createdAt: now,
-        updatedAt: now,
-      })
-    }
-
-    return providerManager.get(provider.id)
-  })
+  ipcMain.handle(IPC_CHANNELS.provider.upsert, (_event, request: SaveProviderRequest) =>
+    providerManager.upsert(request),
+  )
   ipcMain.handle(IPC_CHANNELS.provider.delete, async (_event, request: DeleteProviderRequest | string) => {
-    providerRepo.delete(typeof request === 'string' ? request : request.providerId)
+    await providerManager.delete(typeof request === 'string' ? request : request.providerId)
     return { ok: true }
   })
   ipcMain.handle(IPC_CHANNELS.provider.test, (_event, request: TestProviderRequest | string, modelId?: string) =>
     providerManager.test(typeof request === 'string' ? request : request.providerId ?? request.provider?.id ?? '', typeof request === 'string' ? modelId : request.modelId),
   )
   ipcMain.handle(IPC_CHANNELS.provider.listModels, (_event, providerId: string) =>
-    providerRepo.listModels(providerId),
+    providerManager.listModels(providerId),
   )
   ipcMain.handle(IPC_CHANNELS.provider.refreshModels, async (_event, request: RefreshProviderModelsRequest | string) =>
     providerManager.refreshModels(typeof request === 'string' ? request : request.providerId),
@@ -199,16 +191,27 @@ function initializeCore(): void {
   sessionRepo = new ChatSessionRepo(db)
   const messageRepo = new ChatMessageRepo(db)
   const attachmentRepo = new AttachmentRepo(db)
-  providerRepo = new ProviderRepo(db)
   const runRepo = new ChatRunRepo(db)
-  const appSettingsRepo = new AppSettingsRepo(db)
-  toolManagementService = new ToolManagementService(appSettingsRepo)
+  configStore = new ConfigStore({ appDataPath: app.getPath('appData'), appName: APP_NAME })
+  loadStartupConfig()
+  toolManagementService = new ToolManagementService(new ConfigToolSettingsStore(configStore, (saved) => {
+    broadcastSettingsChanged('save', saved)
+  }))
 
   providerManager = new ProviderManager({
-    providers: new DbProviderRepository(providerRepo),
-    models: new DbProviderModelRepository(providerRepo),
-    credentials: new DbProviderCredentialRepository(providerRepo),
-    sessions: new DbSessionProviderOverrideRepository(sessionRepo),
+    configStore,
+    onConfigSaved: (saved) => broadcastSettingsChanged('save', saved),
+    sessions: {
+      async getProviderOverride(sessionId: string) {
+        const session = sessionRepo.get(sessionId)
+        return session
+          ? {
+              providerId: session.defaultProviderId,
+              modelId: session.defaultModelId,
+            }
+          : undefined
+      },
+    },
   })
   attachmentService = new AttachmentService({ repo: attachmentRepo })
   const contextBuilder = new ContextBuilder(attachmentService)
@@ -224,6 +227,60 @@ function initializeCore(): void {
     runManager,
     disabledToolNames: () => toolManagementService.getDisabledToolNames(),
   })
+}
+
+function broadcastSettingsChanged(reason: SettingsChangeReason, config: DesktopSettingsConfig): void {
+  const event: DesktopSettingsChangedEvent = {
+    reason,
+    config,
+    status: configStore.status(),
+  }
+
+  for (const window of BrowserWindow.getAllWindows()) {
+    window.webContents.send(IPC_CHANNELS.settings.changed, event)
+  }
+}
+
+type SettingsIpcResult<T> =
+  | { ok: true; value: T }
+  | { ok: false; error: SettingsOperationError }
+
+function settingsResult<T>(operation: () => T): SettingsIpcResult<T> {
+  try {
+    return {
+      ok: true,
+      value: operation(),
+    }
+  } catch (error) {
+    if (error instanceof ConfigValidationError) {
+      return {
+        ok: false,
+        error: error.details,
+      }
+    }
+    return {
+      ok: false,
+      error: configError('config_io_error', error instanceof Error ? error.message : 'Settings operation failed.', {
+        path: configStore.status().path,
+        recoverable: configStore.status().recoverable,
+      }),
+    }
+  }
+}
+
+function isSaveSettingsRequest(value: SaveDesktopSettingsRequest | DesktopSettingsConfig): value is SaveDesktopSettingsRequest {
+  return Boolean(value && typeof value === 'object' && 'config' in value)
+}
+
+function loadStartupConfig(): DesktopSettingsConfig | undefined {
+  try {
+    return configStore.load()
+  } catch (error) {
+    if (error instanceof ConfigValidationError) {
+      return undefined
+    }
+    throw error
+  }
 }
 
 function normalizeUpdateSessionRequest(request: unknown) {

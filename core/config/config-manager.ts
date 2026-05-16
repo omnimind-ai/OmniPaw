@@ -1,18 +1,19 @@
-import { defaultConfig, type AppConfig } from './schema'
+import type { DesktopSettingsConfig } from '@shared/types/settings'
+import { cloneConfig, cloneDefaultConfig, normalizeConfig } from './schema'
 
 export class ConfigManager {
-  private config: AppConfig = defaultConfig
+  private config: DesktopSettingsConfig = cloneDefaultConfig()
 
-  get(): AppConfig {
-    return this.config
+  get(): DesktopSettingsConfig {
+    return cloneConfig(this.config)
   }
 
-  update(nextConfig: Partial<AppConfig>): AppConfig {
-    this.config = {
+  update(nextConfig: Partial<DesktopSettingsConfig>): DesktopSettingsConfig {
+    const { config } = normalizeConfig({
       ...this.config,
       ...nextConfig,
-    }
-
-    return this.config
+    })
+    this.config = config
+    return this.get()
   }
 }

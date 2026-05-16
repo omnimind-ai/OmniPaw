@@ -1,5 +1,66 @@
 export type BridgeUnsubscribe = () => void
 
+export type BridgeAppTheme = 'system' | 'light' | 'dark'
+export type BridgeAppLanguage = 'system' | 'zh-CN' | 'en-US'
+
+export interface BridgeDesktopSettingsConfig {
+  version: 1
+  app: {
+    language: BridgeAppLanguage
+    theme: BridgeAppTheme
+    minimizeToTrayOnStartup: boolean
+    zoom: {
+      factor: number
+      min: number
+      max: number
+    }
+    maxRecentMessages: number
+    compactSkillDescriptions: boolean
+    dataDir?: string
+  }
+  providers: {
+    sources: Array<Record<string, unknown> & { id: string; name: string; baseUrl: string; enabled: boolean }>
+    models: Array<Record<string, unknown> & { id: string; name: string; providerSourceId: string; enabled: boolean }>
+    settings: {
+      defaultModelId: string
+      fallbackModelIds: string[]
+      streaming: boolean
+    }
+  }
+  tools: {
+    enabledByName: Record<string, boolean>
+  }
+  scheduledTasks: {
+    enabled: boolean
+    tasks: unknown[]
+  }
+}
+
+export interface BridgeSettingsOperationError {
+  code: string
+  message: string
+  path?: string
+  recoverable: boolean
+  issues?: Array<{ path: string; message: string; code?: string }>
+}
+
+export interface BridgeDesktopSettingsStatus {
+  path: string
+  backupPath: string
+  exists: boolean
+  backupExists: boolean
+  loaded: boolean
+  version?: 1
+  recoverable: boolean
+  error?: BridgeSettingsOperationError
+}
+
+export interface BridgeDesktopSettingsChangedEvent {
+  reason: 'load' | 'save' | 'reset'
+  config: BridgeDesktopSettingsConfig
+  status: BridgeDesktopSettingsStatus
+}
+
 export interface BridgeChatSession {
   id: string
   title: string
@@ -220,6 +281,13 @@ export interface RendererOpenOmniClawBridge {
   app: {
     getInfo: () => Promise<{ name: string; version: string; platform: string }>
   }
+  settings?: {
+    load: () => Promise<BridgeDesktopSettingsConfig>
+    save: (request: { config: BridgeDesktopSettingsConfig } | BridgeDesktopSettingsConfig) => Promise<BridgeDesktopSettingsConfig>
+    reset: () => Promise<BridgeDesktopSettingsConfig>
+    status: () => Promise<BridgeDesktopSettingsStatus>
+    onChanged: (callback: (event: BridgeDesktopSettingsChangedEvent) => void) => BridgeUnsubscribe
+  }
   chat: {
     listSessions: () => Promise<BridgeChatSession[]>
     createSession: (request?: Partial<BridgeChatSession>) => Promise<BridgeChatSession>
@@ -285,6 +353,21 @@ const fallbackBridge: RendererOpenOmniClawBridge = {
       version: 'dev',
       platform: 'win32',
     }),
+  },
+  settings: {
+    load: async () => fallbackSettingsConfig(),
+    save: () => rejectFallbackPersistence<BridgeDesktopSettingsConfig>('settings.save'),
+    reset: () => rejectFallbackPersistence<BridgeDesktopSettingsConfig>('settings.reset'),
+    status: async () => ({
+      path: '',
+      backupPath: '',
+      exists: false,
+      backupExists: false,
+      loaded: true,
+      version: 1,
+      recoverable: false,
+    }),
+    onChanged: () => () => {},
   },
   chat: {
     listSessions: async () => [
@@ -420,6 +503,68 @@ const fallbackBridge: RendererOpenOmniClawBridge = {
     ],
     setEnabled: () => rejectFallbackPersistence<{ tool: BridgeManagedToolInfo; tools: BridgeManagedToolInfo[] }>('tools.setEnabled'),
   },
+}
+
+function fallbackSettingsConfig(): BridgeDesktopSettingsConfig {
+  return {
+    version: 1,
+    app: {
+      language: 'system',
+      theme: 'system',
+      minimizeToTrayOnStartup: false,
+      zoom: {
+        factor: 1,
+        min: 0.75,
+        max: 1.5,
+      },
+      maxRecentMessages: 20,
+      compactSkillDescriptions: true,
+    },
+    providers: {
+      sources: [
+        {
+          id: 'omniinfer-local',
+          type: 'omniinfer',
+          api: 'omniinfer',
+          name: 'OmniInfer Local',
+          baseUrl: 'http://localhost:11434/v1',
+          enabled: true,
+          headers: {},
+          extraBody: {},
+          capabilities: {
+            streaming: true,
+          },
+          createdAt: 0,
+          updatedAt: 0,
+        },
+      ],
+      models: [
+        {
+          id: 'local-small-model',
+          name: 'Local Small Model',
+          providerSourceId: 'omniinfer-local',
+          enabled: true,
+          input: ['text'],
+          capabilities: {},
+          contextWindow: 8192,
+          createdAt: 0,
+          updatedAt: 0,
+        },
+      ],
+      settings: {
+        defaultModelId: 'local-small-model',
+        fallbackModelIds: [],
+        streaming: true,
+      },
+    },
+    tools: {
+      enabledByName: {},
+    },
+    scheduledTasks: {
+      enabled: false,
+      tasks: [],
+    },
+  }
 }
 
 const exposedBridge =

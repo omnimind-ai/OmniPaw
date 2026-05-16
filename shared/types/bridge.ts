@@ -1,6 +1,12 @@
 import type { AppInfo } from './app'
 import type { CronTask } from './cron'
 import type {
+  DesktopSettingsChangedEvent,
+  DesktopSettingsConfig,
+  DesktopSettingsStatus,
+  SaveDesktopSettingsRequest,
+} from './settings'
+import type {
   AbortRunRequest,
   AbortRunResponse,
   AttachmentPreviewRequest,
@@ -39,6 +45,13 @@ export type Unsubscribe = () => void
 export interface OpenOmniClawBridge {
   app: {
     getInfo: () => Promise<AppInfo>
+  }
+  settings: {
+    load: () => Promise<DesktopSettingsConfig>
+    save: (request: SaveDesktopSettingsRequest | DesktopSettingsConfig) => Promise<DesktopSettingsConfig>
+    reset: () => Promise<DesktopSettingsConfig>
+    status: () => Promise<DesktopSettingsStatus>
+    onChanged: (callback: (event: DesktopSettingsChangedEvent) => void) => Unsubscribe
   }
   chat: {
     listSessions: () => Promise<ChatSession[]>

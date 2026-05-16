@@ -17,12 +17,3 @@ export type {
   TokenUsage,
   UnixMs,
 } from '@shared/types/chat'
-
-export type {
-  ProviderApi,
-  ProviderCapabilities,
-  ProviderCompat,
-  ProviderConfig,
-  ProviderCredential,
-  ProviderModel,
-} from '@shared/types/provider'

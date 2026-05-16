@@ -1,4 +1,4 @@
-import { safeStorage } from 'electron'
+import { createRequire } from 'node:module'
 
 export interface ProviderCredentialRecord {
   id: string
@@ -27,6 +27,7 @@ export interface ResolvedCredential {
 }
 
 export function encryptCredentialValue(value: string): string {
+  const safeStorage = getSafeStorage()
   if (safeStorage.isEncryptionAvailable()) {
     return safeStorage.encryptString(value).toString('base64')
   }
@@ -39,11 +40,38 @@ export function decryptCredentialValue(encryptedValue: string): string | undefin
     return Buffer.from(encryptedValue.slice('plain:'.length), 'base64').toString('utf8')
   }
 
+  const safeStorage = getSafeStorage()
   if (!safeStorage.isEncryptionAvailable()) {
     return undefined
   }
 
   return safeStorage.decryptString(Buffer.from(encryptedValue, 'base64'))
+}
+
+interface SafeStorageLike {
+  isEncryptionAvailable(): boolean
+  encryptString(value: string): Buffer
+  decryptString(value: Buffer): string
+}
+
+const fallbackSafeStorage: SafeStorageLike = {
+  isEncryptionAvailable: () => false,
+  encryptString: (value) => Buffer.from(value, 'utf8'),
+  decryptString: (value) => value.toString('utf8'),
+}
+
+function getSafeStorage(): SafeStorageLike {
+  if (!process.versions.electron || process.env.ELECTRON_RUN_AS_NODE === '1') {
+    return fallbackSafeStorage
+  }
+
+  try {
+    const require = createRequire(import.meta.url)
+    const electron = require('electron') as { safeStorage?: SafeStorageLike }
+    return electron.safeStorage ?? fallbackSafeStorage
+  } catch {
+    return fallbackSafeStorage
+  }
 }
 
 export function resolveCredential(input: CredentialResolutionInput): ResolvedCredential | undefined {

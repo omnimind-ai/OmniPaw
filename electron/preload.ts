@@ -16,9 +16,33 @@ function createUnsubscriber<T>(channel: string, callback: (payload: T) => void):
   }
 }
 
+async function invokeSettings<T>(channel: string, payload?: unknown): Promise<T> {
+  const response = arguments.length >= 2
+    ? await ipcRenderer.invoke(channel, payload)
+    : await ipcRenderer.invoke(channel)
+
+  if (response?.ok === false) {
+    const error = new Error(response.error?.message || 'Settings operation failed.') as Error & {
+      details?: unknown
+    }
+    error.name = 'SettingsOperationError'
+    error.details = response.error
+    throw error
+  }
+
+  return response?.ok === true ? response.value as T : response as T
+}
+
 const bridge: OpenOmniClawBridge = {
   app: {
     getInfo: () => ipcRenderer.invoke(IPC_CHANNELS.app.getInfo),
+  },
+  settings: {
+    load: () => invokeSettings(IPC_CHANNELS.settings.load),
+    save: (request) => invokeSettings(IPC_CHANNELS.settings.save, request),
+    reset: () => invokeSettings(IPC_CHANNELS.settings.reset),
+    status: () => invokeSettings(IPC_CHANNELS.settings.status),
+    onChanged: (callback) => createUnsubscriber(IPC_CHANNELS.settings.changed, callback),
   },
   chat: {
     listSessions: () => ipcRenderer.invoke(IPC_CHANNELS.chat.listSessions),

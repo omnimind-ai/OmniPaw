@@ -1,4 +1,5 @@
 import type { ManagedToolInfo, SetToolEnabledResponse } from '@shared/types/tool'
+import type { DesktopSettingsConfig } from '@shared/types/settings'
 import { listBuiltinToolDefinitions } from './builtin-tools'
 
 const DISABLED_TOOLS_KEY = 'agent.disabledTools'
@@ -9,7 +10,7 @@ export interface ToolSettingsStore {
 }
 
 export class ToolManagementService {
-  constructor(private readonly settings: ToolSettingsStore) {}
+  constructor(private readonly settings: ToolSettingsStore | DesktopToolSettingsStore) {}
 
   list(): ManagedToolInfo[] {
     const disabled = this.getDisabledToolNames()
@@ -44,7 +45,7 @@ export class ToolManagementService {
 
   getDisabledToolNames(): Set<string> {
     const registeredNames = new Set(listBuiltinToolDefinitions().map((tool) => tool.name))
-    const stored = this.settings.getJson<string[]>(DISABLED_TOOLS_KEY, [])
+    const stored = this.getStoredDisabledToolNames()
     if (!Array.isArray(stored)) {
       return new Set()
     }
@@ -56,6 +57,34 @@ export class ToolManagementService {
   private saveDisabledToolNames(disabled: Set<string>): void {
     const registeredNames = new Set(listBuiltinToolDefinitions().map((tool) => tool.name))
     const names = [...disabled].filter((name) => registeredNames.has(name)).sort()
+    if (isDesktopToolSettingsStore(this.settings)) {
+      const enabledByName = Object.fromEntries(
+        listBuiltinToolDefinitions().map((tool) => [tool.name, !names.includes(tool.name)]),
+      )
+      this.settings.updateToolsEnabledByName(enabledByName)
+      return
+    }
+
     this.settings.setJson(DISABLED_TOOLS_KEY, names)
   }
+
+  private getStoredDisabledToolNames(): string[] {
+    if (isDesktopToolSettingsStore(this.settings)) {
+      const enabledByName = this.settings.getToolsEnabledByName()
+      return listBuiltinToolDefinitions()
+        .filter((tool) => enabledByName[tool.name] === false)
+        .map((tool) => tool.name)
+    }
+
+    return this.settings.getJson<string[]>(DISABLED_TOOLS_KEY, [])
+  }
+}
+
+export interface DesktopToolSettingsStore {
+  getToolsEnabledByName(): DesktopSettingsConfig['tools']['enabledByName']
+  updateToolsEnabledByName(enabledByName: DesktopSettingsConfig['tools']['enabledByName']): void
+}
+
+function isDesktopToolSettingsStore(settings: ToolSettingsStore | DesktopToolSettingsStore): settings is DesktopToolSettingsStore {
+  return 'getToolsEnabledByName' in settings && 'updateToolsEnabledByName' in settings
 }

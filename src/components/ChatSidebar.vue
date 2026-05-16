@@ -90,7 +90,7 @@ function sessionTitle(session: Session) {
         <SidebarMenuItem class="flex justify-end">
           <SidebarMenuButton
             class="w-auto"
-            size="icon"
+            size="default"
             tooltip="设置"
             aria-label="设置"
             @click="emit('openSettings')"
