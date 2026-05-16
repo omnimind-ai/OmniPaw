@@ -23,6 +23,7 @@
   "packageManager": "pnpm@10.32.0",
   "dependencies": {
     "@vitejs/plugin-vue": "^6.0.3",
+    "@vueuse/core": "^14.3.0",
     "axios": "^1.16.1",
     "axios-mock-adapter": "^2.1.0",
     "better-sqlite3": "^12.10.0",

@@ -1,5 +1,6 @@
 import { createRouter, createWebHashHistory } from 'vue-router'
 
+import ChatHomeView from '@/views/ChatHomeView.vue'
 import RewritePlaceholderView from '@/views/RewritePlaceholderView.vue'
 
 export const router = createRouter({
@@ -7,16 +8,13 @@ export const router = createRouter({
   routes: [
     {
       path: '/',
-      redirect: '/chat',
+      name: 'home',
+      component: ChatHomeView,
     },
     {
       path: '/chat/:conversationId?',
       name: 'chat',
-      component: RewritePlaceholderView,
-      meta: {
-        rewriteTitle: 'Chat workspace',
-        rewriteDescription: 'The legacy AstrBot chat UI has been removed. Rebuild the chat shell, sidebar, message list, and composer against the retained core bridge/composables.',
-      },
+      component: ChatHomeView,
     },
     {
       path: '/chatbox/:conversationId?',
