@@ -30,6 +30,8 @@ export const IPC_CHANNELS = {
   },
   provider: {
     list: 'provider:list',
+    listPresets: 'provider:list-presets',
+    createFromPreset: 'provider:create-from-preset',
     upsert: 'provider:upsert',
     delete: 'provider:delete',
     test: 'provider:test',

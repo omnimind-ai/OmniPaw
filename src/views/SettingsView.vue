@@ -48,6 +48,11 @@ let autosavePromise: Promise<void> | undefined
 let saveQueued = false
 
 const hasChanges = computed(() => JSON.stringify(draft.value) !== JSON.stringify(config.value))
+const contentClass = computed(() =>
+  activeTab.value === 'providers'
+    ? 'mx-auto flex min-h-full w-full max-w-none flex-1 flex-col gap-4 px-4 pb-6 pt-14 md:px-6 md:py-6'
+    : 'mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 pb-6 pt-14 md:px-6 md:py-6',
+)
 const errorMessage = computed(() => {
   if (!error.value) return ''
   if (error.value instanceof Error) return error.value.message
@@ -192,7 +197,7 @@ async function autosave() {
       <main class="flex min-h-0 flex-1 flex-col bg-muted/40">
         <SidebarTrigger class="fixed left-3 top-3 md:hidden" />
         <ScrollArea class="min-h-0 flex-1">
-          <div class="mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 pb-6 pt-14 md:px-6 md:py-6">
+          <div :class="contentClass">
             <div
               v-if="loading && !draft"
               class="flex flex-col gap-4"

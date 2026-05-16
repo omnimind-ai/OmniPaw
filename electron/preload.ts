@@ -108,6 +108,8 @@ const bridge: OpenOmniClawBridge = {
   },
   provider: {
     list: () => ipcRenderer.invoke(IPC_CHANNELS.provider.list),
+    listPresets: () => ipcRenderer.invoke(IPC_CHANNELS.provider.listPresets),
+    createFromPreset: (request) => ipcRenderer.invoke(IPC_CHANNELS.provider.createFromPreset, request),
     upsert: (request) => ipcRenderer.invoke(IPC_CHANNELS.provider.upsert, request),
     delete: (request) => ipcRenderer.invoke(IPC_CHANNELS.provider.delete, request),
     test: (...args) => {

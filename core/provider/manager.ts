@@ -1,6 +1,6 @@
 import type { DesktopSettingsConfig } from '@shared/types/settings'
 import type { ConfigStore } from '@core/config/store'
-import type { ProviderConfig, ModelConfig, ProviderType, SaveProviderRequest } from '@shared/types/provider'
+import type { ProviderConfig, ModelConfig, ProviderPreset, ProviderType, SaveProviderRequest } from '@shared/types/provider'
 import type { BaseProvider, ProviderModelCandidate } from './base-provider'
 import { normalizeProviderError } from './errors'
 import type { ProviderCredentialRecord } from './credentials'
@@ -78,6 +78,104 @@ export interface ProviderTestResult {
   error?: ReturnType<typeof normalizeProviderError>
 }
 
+const providerPresets: ProviderPreset[] = [
+  {
+    id: 'openai-compatible',
+    name: 'OpenAI Compatible',
+    type: 'openai-compatible',
+    api: 'openai-chat-completions',
+    baseUrl: 'https://api.openai.com/v1',
+    enabled: true,
+    credentialRef: 'openai-compatible:default',
+    authHeader: 'Authorization',
+    description: 'OpenAI API and compatible services.',
+    defaultModelId: 'gpt-4o-mini',
+    capabilities: {
+      listModels: true,
+      streaming: true,
+      tools: true,
+      vision: true,
+    },
+    compat: {
+      maxTokensField: 'max_tokens',
+      supportsSystemRole: true,
+      supportsJsonMode: true,
+      reasoningFormat: 'none',
+    },
+    models: [
+      {
+        id: 'gpt-4o-mini',
+        name: 'GPT-4o mini',
+        remoteId: 'gpt-4o-mini',
+        enabled: true,
+        input: ['text', 'image'],
+        supportsStreaming: true,
+        supportsTools: true,
+        supportsReasoning: false,
+        contextWindow: 128000,
+        maxOutputTokens: 16384,
+        compat: {
+          maxTokensField: 'max_tokens',
+          supportsSystemRole: true,
+          supportsJsonMode: true,
+          reasoningFormat: 'none',
+        },
+      },
+    ],
+  },
+  {
+    id: 'ollama',
+    name: 'Ollama',
+    type: 'ollama',
+    api: 'ollama',
+    baseUrl: 'http://localhost:11434/v1',
+    enabled: true,
+    description: 'Local Ollama OpenAI-compatible endpoint.',
+    capabilities: {
+      listModels: true,
+      streaming: true,
+      tools: false,
+      vision: false,
+    },
+    compat: {
+      maxTokensField: 'max_tokens',
+      supportsSystemRole: true,
+      supportsJsonMode: false,
+      reasoningFormat: 'none',
+    },
+    models: [],
+  },
+  {
+    id: 'omniinfer-local',
+    name: 'OmniInfer Local',
+    type: 'omniinfer',
+    api: 'omniinfer',
+    baseUrl: 'http://localhost:11434/v1',
+    enabled: true,
+    description: 'Local OmniInfer-compatible model service.',
+    defaultModelId: 'local-small-model',
+    capabilities: {
+      listModels: false,
+      streaming: true,
+      tools: false,
+      vision: false,
+    },
+    models: [
+      {
+        id: 'local-small-model',
+        name: 'Local Small Model',
+        remoteId: 'local-small-model',
+        enabled: true,
+        input: ['text'],
+        supportsStreaming: true,
+        supportsTools: false,
+        supportsReasoning: false,
+        contextWindow: 8192,
+      },
+    ],
+  },
+]
+
 export class ProviderManager {
   private readonly sessions?: SessionProviderOverrideRepository
   private readonly configStore: ConfigStore
@@ -94,6 +192,61 @@ export class ProviderManager {
     const modelsByProvider = await this.modelsForProviders(providers)
 
     return providers.map((provider) => sanitizeProvider(provider, modelsByProvider.get(provider.id) ?? provider.models ?? []))
+  }
+
+  async listPresets(): Promise<ProviderPreset[]> {
+    return providerPresets.map(cloneProviderPreset)
+  }
+
+  async createFromPreset(presetId: string): Promise<ProviderConfig> {
+    const preset = providerPresets.find((item) => item.id === presetId)
+    if (!preset) {
+      throw new Error(`Provider preset not found: ${presetId}`)
+    }
+
+    const now = Date.now()
+    const existingProviders = await this.listRecords()
+    const existingModelIds = new Set(existingProviders.flatMap((provider) => provider.models?.map((model) => model.id) ?? []))
+    const providerId = uniqueProviderId(preset.id, existingProviders)
+    const providerName = providerId === preset.id ? preset.name : `${preset.name}_${providerIdSuffix(providerId, preset.id)}`
+    const modelIds = new Map<string, string>()
+    const models = preset.models?.map((model) => {
+      const modelId = uniqueModelId(model.id, providerId, existingModelIds)
+      modelIds.set(model.id, modelId)
+      existingModelIds.add(modelId)
+
+      return {
+        ...model,
+        id: modelId,
+        providerId,
+        enabled: model.enabled !== false,
+      }
+    }) ?? []
+
+    await this.save({
+      id: providerId,
+      name: providerName,
+      type: preset.type,
+      api: preset.api,
+      baseUrl: preset.baseUrl,
+      enabled: preset.enabled !== false,
+      credentialRef: preset.credentialRef ? `${providerId}:default` : undefined,
+      authHeader: preset.authHeader,
+      headers: preset.headers ? { ...preset.headers } : {},
+      extraBody: preset.extraBody ? { ...preset.extraBody } : {},
+      defaultModelId: preset.defaultModelId ? modelIds.get(preset.defaultModelId) : undefined,
+      capabilities: preset.capabilities ? { ...preset.capabilities } : {},
+      compat: preset.compat ? { ...preset.compat } : undefined,
+      models,
+      updatedAt: now,
+    })
+
+    const saved = await this.get(providerId)
+    if (!saved) {
+      throw new Error(`Provider preset was not saved: ${presetId}`)
+    }
+
+    return saved
   }
 
   async get(providerId: string): Promise<ProviderConfig | undefined> {
@@ -510,4 +663,50 @@ function cloneProvider(provider: ProviderRecord | undefined): ProviderRecord | u
     compat: provider.compat ? { ...provider.compat } : undefined,
     models: provider.models?.map((model) => ({ ...model, input: model.input ? [...model.input] : undefined })),
   }
+}
+
+function cloneProviderPreset(preset: ProviderPreset): ProviderPreset {
+  return {
+    ...preset,
+    headers: preset.headers ? { ...preset.headers } : undefined,
+    extraBody: preset.extraBody ? { ...preset.extraBody } : undefined,
+    capabilities: preset.capabilities ? { ...preset.capabilities } : undefined,
+    compat: preset.compat ? { ...preset.compat } : undefined,
+    models: preset.models?.map((model) => ({
+      ...model,
+      input: model.input ? [...model.input] : undefined,
+      pricing: model.pricing ? { ...model.pricing } : undefined,
+      compat: model.compat ? { ...model.compat } : undefined,
+      capabilities: model.capabilities ? { ...model.capabilities } : undefined,
+    })),
+  }
+}
+
+function uniqueProviderId(baseId: string, providers: ProviderRecord[]): string {
+  const existingIds = new Set(providers.map((provider) => provider.id))
+  return uniqueSuffixedId(baseId, existingIds)
+}
+
+function uniqueModelId(baseId: string, providerId: string, existingIds: Set<string>): string {
+  if (!existingIds.has(baseId) && providerId === providerPresets.find((preset) => preset.models?.some((model) => model.id === baseId))?.id) {
+    return baseId
+  }
+
+  return uniqueSuffixedId(`${providerId}:${baseId}`, existingIds)
+}
+
+function uniqueSuffixedId(baseId: string, existingIds: Set<string>): string {
+  if (!existingIds.has(baseId)) {
+    return baseId
+  }
+
+  let index = 1
+  while (existingIds.has(`${baseId}_${index}`)) {
+    index += 1
+  }
+  return `${baseId}_${index}`
+}
+
+function providerIdSuffix(providerId: string, baseId: string): string {
+  return providerId.startsWith(`${baseId}_`) ? providerId.slice(baseId.length + 1) : providerId
 }

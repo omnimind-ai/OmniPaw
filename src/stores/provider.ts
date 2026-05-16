@@ -6,9 +6,11 @@ import {
   ensureElectronBridge,
   isFallbackBridge,
   type BridgeProviderConfig,
+  type BridgeProviderPreset,
 } from '@/bridge/app'
 import type {
   DeleteProviderRequest,
+  CreateProviderFromPresetRequest,
   ProviderConfig,
   ProviderModel,
   ProviderOperationResult,
@@ -38,7 +40,9 @@ export interface ProviderModelOption {
 export const useProviderStore = defineStore('provider', () => {
   const providers = ref<ProviderConfig[]>([])
   const rawProviders = ref<BridgeProviderConfig[]>([])
+  const providerPresets = ref<BridgeProviderPreset[]>([])
   const loading = ref(false)
+  const presetsLoading = ref(false)
   const testing = ref<Record<string, boolean>>({})
   const saving = ref(false)
   const persistenceAvailable = computed(() => !isFallbackBridge)
@@ -92,6 +96,37 @@ export const useProviderStore = defineStore('provider', () => {
     }
   }
 
+  async function loadProviderPresets(): Promise<void> {
+    presetsLoading.value = true
+    try {
+      providerPresets.value = await appBridge.provider.listPresets?.() ?? []
+    } finally {
+      presetsLoading.value = false
+    }
+  }
+
+  async function createProviderFromPreset(request: CreateProviderFromPresetRequest | string): Promise<ProviderConfig | undefined> {
+    saving.value = true
+    try {
+      ensureElectronBridge('添加 Provider')
+      if (!appBridge.provider.createFromPreset) {
+        throw new Error('当前 Electron bridge 缺少 provider.createFromPreset，无法从预设添加 Provider。')
+      }
+
+      const saved = await appBridge.provider.createFromPreset(
+        typeof request === 'string' ? request : { presetId: request.presetId },
+      )
+      if (!saved) {
+        throw new Error('Provider 预设保存后没有返回有效结果。')
+      }
+
+      await loadProviders()
+      return saved
+    } finally {
+      saving.value = false
+    }
+  }
+
   async function refreshModels(providerId: string): Promise<ProviderModel[]> {
     ensureElectronBridge('刷新模型')
     if (!appBridge.provider.refreshModels) {
@@ -111,7 +146,7 @@ export const useProviderStore = defineStore('provider', () => {
         throw new Error('当前 Electron bridge 缺少 provider.upsert，无法保存 Provider。')
       }
 
-      const saved = await appBridge.provider.upsert(request)
+      const saved = await appBridge.provider.upsert(toIpcPayload(request))
       if (!saved) {
         throw new Error('Provider 保存后没有返回有效结果。')
       }
@@ -164,13 +199,17 @@ export const useProviderStore = defineStore('provider', () => {
   return {
     providers,
     rawProviders,
+    providerPresets,
     modelOptions,
     enabledModelOptions,
     loading,
+    presetsLoading,
     saving,
     testing,
     persistenceAvailable,
     loadProviders,
+    loadProviderPresets,
+    createProviderFromPreset,
     refreshModels,
     saveProvider,
     deleteProvider,
@@ -248,6 +287,10 @@ function mapProviderType(type?: string): ProviderConfig['type'] {
   if (type === 'ollama') return 'ollama'
   if (type === 'omniinfer') return 'omniinfer'
   return 'openai-compatible'
+}
+
+function toIpcPayload<T>(value: T): T {
+  return JSON.parse(JSON.stringify(value)) as T
 }
 
 function modelInputModalities(model: { capabilities?: Record<string, unknown>; input?: unknown }) {

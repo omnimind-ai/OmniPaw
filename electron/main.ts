@@ -25,6 +25,7 @@ import type {
 } from '@shared/types/settings'
 import type {
   DeleteProviderRequest,
+  CreateProviderFromPresetRequest,
   RefreshProviderModelsRequest,
   SaveProviderRequest,
   SetSessionModelRequest,
@@ -139,6 +140,10 @@ function registerIpcHandlers(): void {
   })
 
   ipcMain.handle(IPC_CHANNELS.provider.list, () => providerManager.list())
+  ipcMain.handle(IPC_CHANNELS.provider.listPresets, () => providerManager.listPresets())
+  ipcMain.handle(IPC_CHANNELS.provider.createFromPreset, (_event, request: CreateProviderFromPresetRequest | string) =>
+    providerManager.createFromPreset(typeof request === 'string' ? request : request.presetId),
+  )
   ipcMain.handle(IPC_CHANNELS.provider.upsert, (_event, request: SaveProviderRequest) =>
     providerManager.upsert(request),
   )

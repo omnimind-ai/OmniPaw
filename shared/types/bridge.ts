@@ -28,9 +28,11 @@ import type {
 } from './chat'
 import type {
   DeleteProviderRequest,
+  CreateProviderFromPresetRequest,
   ProviderConfig,
   ProviderModel,
   ProviderOperationResult,
+  ProviderPreset,
   ProviderTestResult,
   RefreshProviderModelsRequest,
   SaveProviderRequest,
@@ -94,6 +96,8 @@ export interface OpenOmniClawBridge {
   }
   provider: {
     list: () => Promise<ProviderConfig[]>
+    listPresets: () => Promise<ProviderPreset[]>
+    createFromPreset: (request: CreateProviderFromPresetRequest | string) => Promise<ProviderConfig>
     upsert: (request: SaveProviderRequest) => Promise<ProviderConfig>
     delete: (request: DeleteProviderRequest | string) => Promise<ProviderOperationResult>
     test: (

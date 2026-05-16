@@ -104,6 +104,13 @@ try {
   assert.equal(provider?.enabled, true)
   assert.equal(provider?.models[0]?.id, 'custom-model')
   assert.equal(provider?.apiKey, undefined)
+  const firstPreset = await providers.createFromPreset('omniinfer-local')
+  const secondPreset = await providers.createFromPreset('omniinfer-local')
+  assert.equal(firstPreset.id, 'omniinfer-local')
+  assert.equal(secondPreset.id, 'omniinfer-local_1')
+  assert.equal(secondPreset.name, 'OmniInfer Local_1')
+  assert.equal(secondPreset.models[0]?.providerId, 'omniinfer-local_1')
+  assert.equal(secondPreset.models[0]?.id, 'omniinfer-local_1:local-small-model')
 
   const toolSettings = new ConfigToolSettingsStore(store)
   const tools = new ToolManagementService(toolSettings)

@@ -265,6 +265,24 @@ export interface BridgeProviderConfig {
   [key: string]: unknown
 }
 
+export interface BridgeProviderPreset {
+  id: string
+  name: string
+  type: 'openai-compatible' | 'ollama' | 'omniinfer'
+  api: 'openai-chat-completions' | 'openai-responses' | 'ollama' | 'omniinfer'
+  baseUrl: string
+  description?: string
+  enabled?: boolean
+  credentialRef?: string
+  authHeader?: string
+  headers?: Record<string, string>
+  extraBody?: Record<string, unknown>
+  defaultModelId?: string
+  models?: BridgeProviderModel[]
+  capabilities?: Record<string, unknown>
+  compat?: Record<string, unknown>
+}
+
 export interface BridgeManagedToolInfo {
   name: string
   label?: string
@@ -318,6 +336,8 @@ export interface RendererOpenOmniClawBridge {
   }
   provider: {
     list: () => Promise<BridgeProviderConfig[]>
+    listPresets?: () => Promise<BridgeProviderPreset[]>
+    createFromPreset?: (request: string | { presetId: string }) => Promise<BridgeProviderConfig>
     upsert?: (request: unknown) => Promise<BridgeProviderConfig>
     delete?: (request: string | { providerId: string }) => Promise<{ ok?: boolean; error?: unknown }>
     listModels?: (providerId: string) => Promise<BridgeProviderModel[]>
@@ -461,6 +481,33 @@ const fallbackBridge: RendererOpenOmniClawBridge = {
         ],
       },
     ],
+    listPresets: async () => [
+      {
+        id: 'openai-compatible',
+        name: 'OpenAI Compatible',
+        type: 'openai-compatible',
+        api: 'openai-chat-completions',
+        baseUrl: 'https://api.openai.com/v1',
+        description: 'OpenAI API and compatible services.',
+      },
+      {
+        id: 'ollama',
+        name: 'Ollama',
+        type: 'ollama',
+        api: 'ollama',
+        baseUrl: 'http://localhost:11434/v1',
+        description: 'Local Ollama OpenAI-compatible endpoint.',
+      },
+      {
+        id: 'omniinfer-local',
+        name: 'OmniInfer Local',
+        type: 'omniinfer',
+        api: 'omniinfer',
+        baseUrl: 'http://localhost:11434/v1',
+        description: 'Local OmniInfer-compatible model service.',
+      },
+    ],
+    createFromPreset: () => rejectFallbackPersistence<BridgeProviderConfig>('provider.createFromPreset'),
     upsert: () => rejectFallbackPersistence<BridgeProviderConfig>('provider.upsert'),
     delete: () => rejectFallbackPersistence<{ ok?: boolean; error?: unknown }>('provider.delete'),
     listModels: async () => [],

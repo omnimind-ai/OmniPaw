@@ -65,6 +65,24 @@ export interface ProviderConfig {
   model_metadata?: Record<string, unknown>
 }
 
+export interface ProviderPreset {
+  id: ID
+  name: string
+  type: ProviderType
+  api: ProviderApi
+  baseUrl: string
+  description?: string
+  enabled?: boolean
+  credentialRef?: ID
+  authHeader?: string
+  headers?: Record<string, string>
+  extraBody?: Record<string, unknown>
+  defaultModelId?: string
+  models?: ProviderModel[]
+  capabilities?: ProviderCapabilities
+  compat?: ProviderCompat
+}
+
 export interface ProviderCredential {
   id: ID
   providerId: ID
@@ -100,6 +118,10 @@ export interface SetSessionModelRequest {
   sessionId: ID
   providerId: ID
   modelId: string
+}
+
+export interface CreateProviderFromPresetRequest {
+  presetId: ID
 }
 
 export interface TestProviderRequest {

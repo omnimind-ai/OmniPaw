@@ -1,13 +1,12 @@
 <script setup lang="ts">
 import { storeToRefs } from 'pinia'
 import {
-  CheckCircle2Icon,
   CloudIcon,
   PlusIcon,
-  RefreshCwIcon,
+  SearchIcon,
   Trash2Icon,
 } from 'lucide-vue-next'
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
 import SettingsSection from '@/components/settings/SettingsSection.vue'
 import { Badge } from '@/components/ui/badge'
@@ -21,6 +20,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import {
   Field,
   FieldContent,
@@ -57,6 +63,7 @@ import { cn } from '@/lib/utils'
 import type {
   BridgeProviderConfig,
   BridgeProviderModel,
+  BridgeProviderPreset,
 } from '@/bridge/app'
 import { useProviderStore } from '@/stores/provider'
 import type {
@@ -105,12 +112,22 @@ interface ProviderModelDraft {
   compat?: ProviderCompat
 }
 
+interface ProviderSidebarItem {
+  id: string
+  name: string
+  baseUrl: string
+  type?: string
+  enabled?: boolean
+  unsaved?: boolean
+}
+
 const providerStore = useProviderStore()
 const {
   rawProviders,
   loading,
   saving,
-  testing,
+  providerPresets,
+  presetsLoading,
   persistenceAvailable,
 } = storeToRefs(providerStore)
 
@@ -120,21 +137,62 @@ const providerDraft = ref<ProviderDraft>(createEmptyProviderDraft())
 const providerTab = ref<ProviderDraftTab>('basic')
 const credentialMode = ref<CredentialMode>('api-key')
 const credentialValue = ref('')
+const providerSearchQuery = ref('')
 const deleteDialogOpen = ref(false)
 const errorMessage = ref('')
 const successMessage = ref('')
-const testMessage = ref('')
+const loadingDraft = ref(false)
+let autosaveTimer: ReturnType<typeof window.setTimeout> | undefined
+let autosavePromise: Promise<boolean> | undefined
+let autosaveQueued = false
+let suppressDraftReload = false
 
 const currentProvider = computed(() =>
   rawProviders.value.find((provider) => provider.id === originalProviderId.value),
 )
 const isExistingProvider = computed(() => Boolean(currentProvider.value))
-const selectedProviderTesting = computed(() => Boolean(testing.value[providerDraft.value.id]))
 const enabledModels = computed(() =>
   providerDraft.value.models.filter((model) => model.enabled !== false),
 )
-const canUseRemoteActions = computed(() => isExistingProvider.value && persistenceAvailable.value)
 const providerList = computed(() => rawProviders.value)
+const providerSidebarList = computed<ProviderSidebarItem[]>(() => {
+  const query = providerSearchQuery.value.trim().toLowerCase()
+  const providers = providerList.value.filter((provider) => {
+    if (!query) return true
+    return [
+      provider.name,
+      provider.id,
+      provider.baseUrl,
+      provider.type,
+    ].some((value) => String(value || '').toLowerCase().includes(query))
+  })
+
+  if (!isExistingProvider.value && activeProviderId.value) {
+    const draft = providerDraft.value
+    const matchesDraft = !query || [
+      draft.name,
+      draft.id,
+      draft.baseUrl,
+      draft.type,
+    ].some((value) => String(value || '').toLowerCase().includes(query))
+
+    if (matchesDraft) {
+      return [
+        {
+          id: draft.id,
+          name: draft.name,
+          baseUrl: draft.baseUrl,
+          type: draft.type,
+          enabled: draft.enabled,
+          unsaved: true,
+        },
+        ...providers,
+      ]
+    }
+  }
+
+  return providers
+})
 
 watch(
   rawProviders,
@@ -146,8 +204,8 @@ watch(
 
     const activeStillExists = providers.some((provider) => provider.id === activeProviderId.value)
     if (!activeProviderId.value || (!activeStillExists && isExistingProvider.value)) {
-      selectProvider(providers[0].id)
-    } else if (activeStillExists) {
+      void selectProvider(providers[0].id)
+    } else if (activeStillExists && !suppressDraftReload) {
       loadProviderDraft(activeProviderId.value)
     }
   },
@@ -163,31 +221,85 @@ watch(
   },
 )
 
+watch(
+  providerDraft,
+  () => {
+    if (loadingDraft.value || !isExistingProvider.value || !persistenceAvailable.value) {
+      return
+    }
+
+    if (saving.value) {
+      autosaveQueued = true
+      return
+    }
+
+    scheduleAutosave()
+  },
+  { deep: true },
+)
+
 onMounted(async () => {
   if (!rawProviders.value.length) {
     await providerStore.loadProviders()
   }
+  await providerStore.loadProviderPresets()
 })
 
-function selectProvider(providerId: string) {
+onBeforeUnmount(() => {
+  void flushAutosave()
+})
+
+async function selectProvider(providerId: string) {
+  if (providerId === activeProviderId.value) return
+  const saved = await flushAutosave()
+  if (!saved) return
+
   activeProviderId.value = providerId
   loadProviderDraft(providerId)
+}
+
+async function selectProviderSidebarItem(provider: ProviderSidebarItem) {
+  if (provider.unsaved) return
+  await selectProvider(provider.id)
+}
+
+async function createProviderFromPreset(preset: BridgeProviderPreset) {
+  clearMessages()
+  const savedCurrent = await flushAutosave()
+  if (!savedCurrent) return
+
+  try {
+    const saved = await providerStore.createProviderFromPreset({ presetId: preset.id })
+    if (saved?.id) {
+      activeProviderId.value = saved.id
+      originalProviderId.value = saved.id
+      loadProviderDraft(saved.id)
+    }
+    successMessage.value = `${saved?.name || preset.name} 已添加。`
+  } catch (error) {
+    errorMessage.value = errorToText(error)
+  }
 }
 
 function loadProviderDraft(providerId: string) {
   const provider = rawProviders.value.find((item) => item.id === providerId)
   if (!provider) return
 
+  loadingDraft.value = true
   providerDraft.value = draftFromProvider(provider)
   originalProviderId.value = provider.id
   credentialMode.value = 'api-key'
   credentialValue.value = ''
   providerTab.value = 'basic'
   clearMessages()
+  void nextTick(() => {
+    loadingDraft.value = false
+  })
 }
 
 function startNewProvider() {
   const draft = createEmptyProviderDraft()
+  loadingDraft.value = true
   providerDraft.value = draft
   activeProviderId.value = draft.id
   originalProviderId.value = ''
@@ -195,27 +307,35 @@ function startNewProvider() {
   credentialValue.value = ''
   providerTab.value = 'basic'
   clearMessages()
+  void nextTick(() => {
+    loadingDraft.value = false
+  })
 }
 
-async function handleSaveProvider() {
-  clearMessages()
+async function handleSaveProvider(options: { silent?: boolean } = {}): Promise<boolean> {
+  clearAutosaveTimer()
+  if (!options.silent) {
+    clearMessages()
+  } else {
+    errorMessage.value = ''
+  }
 
   const validation = validateDraft()
   if (validation) {
     errorMessage.value = validation
-    return
+    return false
   }
 
   const parsedHeaders = parseStringRecord(providerDraft.value.headersText, 'Headers')
   if (!parsedHeaders.ok) {
     errorMessage.value = parsedHeaders.message
-    return
+    return false
   }
 
   const parsedExtraBody = parseObject(providerDraft.value.extraBodyText, 'Extra Body')
   if (!parsedExtraBody.ok) {
     errorMessage.value = parsedExtraBody.message
-    return
+    return false
   }
 
   const request: SaveProviderRequest = {
@@ -253,57 +373,79 @@ async function handleSaveProvider() {
   }
 
   try {
+    suppressDraftReload = Boolean(options.silent)
     const saved = await providerStore.saveProvider(request)
     if (saved?.id) {
       activeProviderId.value = saved.id
       originalProviderId.value = saved.id
-      loadProviderDraft(saved.id)
+      if (!options.silent) {
+        loadProviderDraft(saved.id)
+      }
     }
-    successMessage.value = 'Provider 已保存。'
+    if (!options.silent) {
+      successMessage.value = 'Provider 已保存。'
+    }
+    return true
   } catch (error) {
     errorMessage.value = errorToText(error)
+    return false
+  } finally {
+    suppressDraftReload = false
+    if (autosaveQueued) {
+      autosaveQueued = false
+      scheduleAutosave()
+    }
   }
+}
+
+function scheduleAutosave() {
+  clearAutosaveTimer()
+
+  autosaveTimer = window.setTimeout(() => {
+    autosaveTimer = undefined
+    autosavePromise = handleSaveProvider({ silent: true }).finally(() => {
+      autosavePromise = undefined
+    })
+  }, 500)
+}
+
+function clearAutosaveTimer() {
+  if (!autosaveTimer) return
+  window.clearTimeout(autosaveTimer)
+  autosaveTimer = undefined
+}
+
+async function flushAutosave(): Promise<boolean> {
+  clearAutosaveTimer()
+
+  if (autosavePromise) {
+    const saved = await autosavePromise
+    clearAutosaveTimer()
+    if (!saved) return false
+  }
+
+  if (!isExistingProvider.value || !persistenceAvailable.value || loadingDraft.value) {
+    return true
+  }
+
+  return handleSaveProvider({ silent: true })
 }
 
 async function handleDeleteProvider() {
   if (!isExistingProvider.value) return
 
+  clearAutosaveTimer()
   clearMessages()
   try {
     await providerStore.deleteProvider({ providerId: originalProviderId.value })
     deleteDialogOpen.value = false
     const nextProvider = rawProviders.value.find((provider) => provider.id !== originalProviderId.value)
     if (nextProvider) {
-      selectProvider(nextProvider.id)
+      await selectProvider(nextProvider.id)
     } else {
       startNewProvider()
     }
     successMessage.value = 'Provider 已删除。'
-  } catch (error) {
-    errorMessage.value = errorToText(error)
-  }
-}
-
-async function handleRefreshModels() {
-  if (!canUseRemoteActions.value) return
-
-  clearMessages()
-  try {
-    await providerStore.refreshModels(originalProviderId.value)
-    loadProviderDraft(originalProviderId.value)
-    successMessage.value = '模型列表已刷新。'
-  } catch (error) {
-    errorMessage.value = errorToText(error)
-  }
-}
-
-async function handleTestProvider() {
-  if (!canUseRemoteActions.value) return
-
-  clearMessages()
-  try {
-    const result = await providerStore.testProvider(originalProviderId.value, providerDraft.value.defaultModelId)
-    testMessage.value = result?.ok ? '连接测试通过。' : `连接测试失败：${errorToText(result?.error)}`
   } catch (error) {
     errorMessage.value = errorToText(error)
   }
@@ -369,7 +511,6 @@ function setOptionalNumber(model: ProviderModelDraft, key: 'contextWindow' | 'ma
 function clearMessages() {
   errorMessage.value = ''
   successMessage.value = ''
-  testMessage.value = ''
 }
 
 function createEmptyProviderDraft(): ProviderDraft {
@@ -450,13 +591,13 @@ function toProviderModel(model: ProviderModelDraft): ProviderModel {
     name: model.name.trim() || model.id.trim(),
     remoteId: model.remoteId.trim() || model.id.trim(),
     enabled: model.enabled,
-    input: model.input,
+    input: [...model.input],
     supportsStreaming: model.supportsStreaming,
     supportsTools: model.supportsTools,
     supportsReasoning: model.supportsReasoning,
     contextWindow: model.contextWindow,
     maxOutputTokens: model.maxOutputTokens,
-    compat: model.compat,
+    compat: model.compat ? { ...model.compat } : undefined,
   }
 }
 
@@ -601,19 +742,68 @@ function errorToText(error: unknown) {
 </script>
 
 <template>
-  <div class="grid min-h-0 grid-cols-1 gap-4 xl:grid-cols-[18rem_minmax(0,1fr)]">
-    <SettingsSection title="Provider">
-      <div class="flex flex-col gap-3 p-3">
-        <Button
-          variant="outline"
-          class="w-full justify-start"
-          :disabled="saving"
-          @click="startNewProvider"
-        >
-          <PlusIcon data-icon="inline-start" />
-          添加 Provider
-        </Button>
+  <div class="flex min-h-0 w-full flex-1 flex-col gap-4 lg:flex-row">
+    <aside class="flex min-h-0 w-full shrink-0 flex-col rounded-md border bg-sidebar text-sidebar-foreground lg:sticky lg:top-6 lg:h-[calc(100svh-3rem)] lg:w-80">
+      <div class="flex items-center gap-2 border-b p-3">
+        <InputGroup class="min-w-0 flex-1">
+          <InputGroupAddon>
+            <SearchIcon />
+          </InputGroupAddon>
+          <InputGroupInput
+            v-model="providerSearchQuery"
+            aria-label="搜索 Provider"
+            placeholder="搜索模型平台..."
+          />
+        </InputGroup>
 
+        <DropdownMenu>
+          <DropdownMenuTrigger as-child>
+            <Button
+              variant="outline"
+              size="icon"
+              aria-label="添加 Provider"
+              :disabled="saving || presetsLoading"
+            >
+              <PlusIcon />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent
+            align="end"
+            class="w-64"
+          >
+            <DropdownMenuGroup>
+              <DropdownMenuItem
+                v-if="presetsLoading"
+                disabled
+              >
+                正在加载...
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                v-else-if="!providerPresets.length"
+                disabled
+              >
+                暂无 Provider 预设。
+              </DropdownMenuItem>
+              <template v-else>
+                <DropdownMenuItem
+                  v-for="preset in providerPresets"
+                  :key="preset.id"
+                  class="items-start gap-2"
+                  @select="createProviderFromPreset(preset)"
+                >
+                  <CloudIcon class="mt-0.5" />
+                  <span class="min-w-0 flex-1">
+                    <span class="block truncate font-medium">{{ preset.name }}</span>
+                    <span class="block truncate text-xs text-muted-foreground">{{ preset.baseUrl }}</span>
+                  </span>
+                </DropdownMenuItem>
+              </template>
+            </DropdownMenuGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+
+      <div class="min-h-0 flex-1 overflow-y-auto p-2">
         <div
           v-if="loading"
           class="rounded-lg border px-3 py-2 text-sm text-muted-foreground"
@@ -622,100 +812,55 @@ function errorToText(error: unknown) {
         </div>
 
         <div
-          v-else-if="!providerList.length"
+          v-else-if="!providerSidebarList.length"
           class="rounded-lg border px-3 py-2 text-sm text-muted-foreground"
         >
-          暂无 Provider。
+          暂无匹配 Provider。
         </div>
 
         <div
           v-else
-          class="flex flex-col gap-2"
+          class="flex flex-col gap-1"
         >
           <button
-            v-for="provider in providerList"
-            :key="provider.id"
+            v-for="provider in providerSidebarList"
+            :key="provider.unsaved ? `draft-${provider.id}` : provider.id"
             type="button"
             :class="cn(
-              'flex w-full items-start gap-2 rounded-lg border px-3 py-2 text-left text-sm transition-colors',
-              provider.id === originalProviderId
-                ? 'border-primary bg-accent text-accent-foreground'
-                : 'hover:bg-muted',
+              'flex h-11 w-full items-center gap-3 rounded-lg px-3 text-left text-sm transition-colors',
+              provider.id === activeProviderId
+                ? 'bg-sidebar-accent text-sidebar-accent-foreground'
+                : 'hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
             )"
-            @click="selectProvider(provider.id)"
+            @click="selectProviderSidebarItem(provider)"
           >
-            <CloudIcon class="mt-0.5" />
-            <span class="min-w-0 flex-1">
-              <span class="block truncate font-medium">{{ provider.name }}</span>
-              <span class="block truncate text-xs text-muted-foreground">{{ provider.baseUrl }}</span>
+            <CloudIcon />
+            <span class="min-w-0 flex-1 truncate font-medium">
+              {{ provider.name }}
             </span>
             <Badge
-              v-if="provider.enabled !== false"
+              v-if="provider.unsaved"
               variant="secondary"
             >
-              启用
+              新增
+            </Badge>
+            <Badge
+              v-else-if="provider.enabled === false"
+              variant="outline"
+            >
+              禁用
             </Badge>
           </button>
         </div>
       </div>
-    </SettingsSection>
+
+    </aside>
 
     <SettingsSection
       title="模型服务"
-      :description="isExistingProvider ? '编辑当前 Provider 和模型配置。' : '新增 Provider，保存后可测试连接和刷新模型。'"
+      class="min-w-0 flex-1 self-stretch"
     >
       <div class="flex flex-col gap-4 p-4">
-        <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
-          <div class="min-w-0">
-            <div class="flex items-center gap-2">
-              <h2 class="truncate text-base font-medium">
-                {{ providerDraft.name }}
-              </h2>
-              <Badge variant="outline">{{ providerDraft.type }}</Badge>
-              <Badge
-                v-if="!isExistingProvider"
-                variant="secondary"
-              >
-                未保存
-              </Badge>
-            </div>
-            <p class="mt-1 truncate text-sm text-muted-foreground">
-              {{ providerDraft.baseUrl }}
-            </p>
-          </div>
-
-          <div class="flex flex-wrap gap-2">
-            <Button
-              variant="outline"
-              :disabled="!canUseRemoteActions || saving || selectedProviderTesting"
-              @click="handleTestProvider"
-            >
-              <CheckCircle2Icon data-icon="inline-start" />
-              测试
-            </Button>
-            <Button
-              variant="outline"
-              :disabled="!canUseRemoteActions || saving"
-              @click="handleRefreshModels"
-            >
-              <RefreshCwIcon data-icon="inline-start" />
-              刷新模型
-            </Button>
-            <Button
-              :disabled="saving || !persistenceAvailable"
-              @click="handleSaveProvider"
-            >
-              保存 Provider
-            </Button>
-          </div>
-        </div>
-
-        <div
-          v-if="!persistenceAvailable"
-          class="rounded-lg border px-3 py-2 text-sm text-muted-foreground"
-        >
-          当前未连接 Electron 主进程，无法持久化 Provider。
-        </div>
         <div
           v-if="errorMessage"
           class="rounded-lg border border-destructive/40 px-3 py-2 text-sm text-destructive"
@@ -723,10 +868,10 @@ function errorToText(error: unknown) {
           {{ errorMessage }}
         </div>
         <div
-          v-if="successMessage || testMessage"
+          v-if="successMessage"
           class="rounded-lg border px-3 py-2 text-sm text-muted-foreground"
         >
-          {{ successMessage || testMessage }}
+          {{ successMessage }}
         </div>
 
         <Tabs
@@ -761,7 +906,6 @@ function errorToText(error: unknown) {
                     v-model="providerDraft.id"
                     :disabled="isExistingProvider"
                   />
-                  <FieldDescription>保存后 ID 不再编辑。</FieldDescription>
                 </Field>
               </div>
 
@@ -1187,7 +1331,7 @@ function errorToText(error: unknown) {
 
         <Separator />
 
-        <div class="flex justify-between gap-2">
+        <div class="flex justify-start">
           <Button
             variant="destructive"
             :disabled="!isExistingProvider || saving || !persistenceAvailable"
@@ -1195,12 +1339,6 @@ function errorToText(error: unknown) {
           >
             <Trash2Icon data-icon="inline-start" />
             删除 Provider
-          </Button>
-          <Button
-            :disabled="saving || !persistenceAvailable"
-            @click="handleSaveProvider"
-          >
-            保存 Provider
           </Button>
         </div>
       </div>
