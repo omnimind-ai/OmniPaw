@@ -1222,7 +1222,6 @@ function mapBridgeMessageToRecord(message: BridgeChatMessage): ChatRecord {
       agentStats: metadata.agentStats || metadata.agent_stats,
       refs: metadata.refs,
     },
-    threads: [],
   };
 }
 

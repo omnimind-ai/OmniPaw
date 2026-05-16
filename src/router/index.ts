@@ -2,6 +2,7 @@ import { createRouter, createWebHashHistory } from 'vue-router'
 
 import ChatHomeView from '@/views/ChatHomeView.vue'
 import RewritePlaceholderView from '@/views/RewritePlaceholderView.vue'
+import SettingsView from '@/views/SettingsView.vue'
 
 export const router = createRouter({
   history: createWebHashHistory(),
@@ -26,15 +27,6 @@ export const router = createRouter({
       },
     },
     {
-      path: '/skills',
-      name: 'skills',
-      component: RewritePlaceholderView,
-      meta: {
-        rewriteTitle: 'Skills',
-        rewriteDescription: 'The legacy skills page has been removed. Rebuild this page on top of appBridge.skill.list().',
-      },
-    },
-    {
       path: '/cron',
       name: 'cron',
       component: RewritePlaceholderView,
@@ -46,20 +38,7 @@ export const router = createRouter({
     {
       path: '/settings',
       name: 'settings',
-      component: RewritePlaceholderView,
-      meta: {
-        rewriteTitle: 'Settings',
-        rewriteDescription: 'The legacy settings page has been removed. Rebuild local settings on top of useSettingsStore and link out to provider/tools settings.',
-      },
-    },
-    {
-      path: '/settings/tools',
-      name: 'settings-tools',
-      component: RewritePlaceholderView,
-      meta: {
-        rewriteTitle: 'Global tools',
-        rewriteDescription: 'The legacy global tools page has been removed. Rebuild this page on top of appBridge.tools.list() and appBridge.tools.setEnabled().',
-      },
+      component: SettingsView,
     },
   ],
 })

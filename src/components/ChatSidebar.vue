@@ -39,9 +39,6 @@ function sessionTitle(session: Session) {
     <SidebarHeader>
       <div class="flex items-center gap-2">
         <SidebarTrigger />
-        <span class="truncate text-sm font-medium group-data-[collapsible=icon]:hidden">
-          OpenOmniClaw
-        </span>
       </div>
 
       <SidebarMenu>

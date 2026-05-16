@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { computed, ref } from 'vue'
+import { computed, ref, toRaw } from 'vue'
 
 import {
   appBridge,
@@ -20,6 +20,7 @@ export const useSettingsStore = defineStore('settings', () => {
   const error = ref<unknown>(null)
   const persistenceAvailable = computed(() => !isFallbackBridge)
   let unsubscribe: BridgeUnsubscribe | undefined
+  let activeSaveSnapshot: BridgeDesktopSettingsConfig | undefined
 
   const compactSkillDescriptions = computed({
     get: () => draft.value?.app.compactSkillDescriptions ?? true,
@@ -84,17 +85,22 @@ export const useSettingsStore = defineStore('settings', () => {
 
   async function save(): Promise<BridgeDesktopSettingsConfig> {
     ensureElectronBridge('保存设置')
+    const snapshot = cloneConfig(ensureDraft())
+    activeSaveSnapshot = snapshot
     saving.value = true
     error.value = null
     try {
-      const saved = await requireSettingsBridge().save({ config: ensureDraft() })
-      reconcileConfig(saved)
+      const saved = await requireSettingsBridge().save({ config: snapshot })
+      reconcilePersistedConfig(saved, snapshot)
       await refreshStatus()
       return saved
     } catch (err) {
       error.value = normalizeSettingsError(err)
       throw err
     } finally {
+      if (activeSaveSnapshot && configsEqual(activeSaveSnapshot, snapshot)) {
+        activeSaveSnapshot = undefined
+      }
       saving.value = false
     }
   }
@@ -126,7 +132,11 @@ export const useSettingsStore = defineStore('settings', () => {
     }
 
     unsubscribe = appBridge.settings.onChanged((event: BridgeDesktopSettingsChangedEvent) => {
-      reconcileConfig(event.config)
+      if (event.reason === 'reset' || event.reason === 'load') {
+        reconcileConfig(event.config)
+      } else {
+        reconcilePersistedConfig(event.config)
+      }
       status.value = event.status
     })
   }
@@ -139,6 +149,28 @@ export const useSettingsStore = defineStore('settings', () => {
   function reconcileConfig(nextConfig: BridgeDesktopSettingsConfig): void {
     config.value = cloneConfig(nextConfig)
     draft.value = cloneConfig(nextConfig)
+  }
+
+  function reconcilePersistedConfig(
+    nextConfig: BridgeDesktopSettingsConfig,
+    saveSnapshot = activeSaveSnapshot,
+  ): void {
+    if (saveSnapshot) {
+      if (!draft.value || configsEqual(draft.value, saveSnapshot)) {
+        reconcileConfig(nextConfig)
+      } else {
+        config.value = cloneConfig(nextConfig)
+      }
+      return
+    }
+
+    const hasLocalDraftChanges = Boolean(
+      draft.value && config.value && !configsEqual(draft.value, config.value),
+    )
+    config.value = cloneConfig(nextConfig)
+    if (!hasLocalDraftChanges) {
+      draft.value = cloneConfig(nextConfig)
+    }
   }
 
   function ensureDraft(): BridgeDesktopSettingsConfig {
@@ -185,7 +217,14 @@ function requireSettingsBridge() {
 }
 
 function cloneConfig(config: BridgeDesktopSettingsConfig): BridgeDesktopSettingsConfig {
-  return structuredClone(config)
+  return JSON.parse(JSON.stringify(toRaw(config))) as BridgeDesktopSettingsConfig
+}
+
+function configsEqual(
+  first: BridgeDesktopSettingsConfig | null | undefined,
+  second: BridgeDesktopSettingsConfig | null | undefined,
+): boolean {
+  return JSON.stringify(first) === JSON.stringify(second)
 }
 
 function normalizeSettingsError(error: unknown): unknown {
