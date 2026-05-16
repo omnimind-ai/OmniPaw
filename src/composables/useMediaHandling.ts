@@ -2,7 +2,8 @@ import { ref, computed } from 'vue';
 import { appBridge } from '@/bridge/app';
 
 export interface StagedFileInfo {
-    attachment_id: string;
+    attachmentId: string;
+    attachment_id?: string;
     filename: string;
     original_name: string;
     url: string;  // blob URL for preview
@@ -72,6 +73,7 @@ export function useMediaHandling() {
             const attachmentId = attachment.id;
             const filename = attachment.originalName || attachment.filename || file.name;
             stagedFiles.value.push({
+                attachmentId,
                 attachment_id: attachmentId,
                 filename,
                 original_name: file.name,

@@ -2,15 +2,17 @@ import { ref, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { appBridge, type BridgeChatSession } from '@/bridge/app';
 import { buildWebchatUmoDetails, getStoredSelectedChatConfigId } from '@/utils/chatConfigBinding';
+import type { ChatSession } from '@shared/types/chat';
 
-export interface Session {
-    session_id: string;
-    display_name: string | null;
-    updated_at: string;
-    platform_id: string;
-    creator: string;
-    is_group: number;
-    created_at: string;
+export interface Session extends ChatSession {
+    /** Compatibility aliases for legacy callers during renderer migration. */
+    session_id?: string;
+    display_name?: string | null;
+    updated_at?: string;
+    platform_id?: string;
+    creator?: string;
+    is_group?: number;
+    created_at?: string;
 }
 
 export interface BatchDeleteFailedItem {
@@ -38,7 +40,7 @@ export function useSessions(chatboxMode: boolean = false) {
 
     const getCurrentSession = computed(() => {
         if (!currSessionId.value) return null;
-        return sessions.value.find(s => s.session_id === currSessionId.value);
+        return sessions.value.find(s => s.id === currSessionId.value);
     });
 
     
@@ -159,7 +161,7 @@ export function useSessions(chatboxMode: boolean = false) {
                 : await appBridge.chat.updateSession?.(editingSessionId.value, { title: trimmedTitle });
 
             // 更新本地会话标题
-            const session = sessions.value.find(s => s.session_id === editingSessionId.value);
+            const session = sessions.value.find(s => s.id === editingSessionId.value);
             if (session) {
                 Object.assign(session, mapBridgeSession(updated || {
                     id: editingSessionId.value,
@@ -175,10 +177,27 @@ export function useSessions(chatboxMode: boolean = false) {
         }
     }
 
-    function updateSessionTitle(sessionId: string, title: string) {
-        const session = sessions.value.find(s => s.session_id === sessionId);
+    function applySessionTitle(sessionId: string, title: string) {
+        const session = sessions.value.find(s => s.id === sessionId);
         if (session) {
+            session.title = title;
             session.display_name = title;
+        }
+    }
+
+    async function updateSessionTitle(sessionId: string, title: string) {
+        const trimmedTitle = title.trim();
+        const updated = appBridge.chat.updateSessionTitle
+            ? await appBridge.chat.updateSessionTitle(sessionId, trimmedTitle)
+            : await appBridge.chat.updateSession?.(sessionId, { title: trimmedTitle });
+
+        if (updated) {
+            const session = sessions.value.find(s => s.id === sessionId);
+            if (session) {
+                Object.assign(session, mapBridgeSession(updated));
+            }
+        } else {
+            applySessionTitle(sessionId, trimmedTitle);
         }
     }
 
@@ -209,6 +228,7 @@ export function useSessions(chatboxMode: boolean = false) {
         batchDeleteSessions,
         showEditTitleDialog,
         saveTitle,
+        applySessionTitle,
         updateSessionTitle,
         newChat
     };
@@ -219,6 +239,12 @@ function mapBridgeSession(session: BridgeChatSession): Session {
     const updatedAt = new Date(session.updatedAt || session.lastMessageAt || Date.now()).toISOString();
 
     return {
+        ...session,
+        id: session.id,
+        title: session.title || '',
+        status: session.status || 'active',
+        createdAt: session.createdAt || Date.now(),
+        updatedAt: session.updatedAt || session.lastMessageAt || Date.now(),
         session_id: session.id,
         display_name: session.title || null,
         updated_at: updatedAt,

@@ -2,7 +2,6 @@ import { resolve } from 'node:path'
 
 import tailwindcss from '@tailwindcss/vite'
 import vue from '@vitejs/plugin-vue'
-import vuetify from 'vite-plugin-vuetify'
 import { defineConfig, externalizeDepsPlugin } from 'electron-vite'
 
 export default defineConfig({
@@ -47,7 +46,7 @@ export default defineConfig({
   },
   renderer: {
     root: '.',
-    plugins: [vue(), tailwindcss(), vuetify({ autoImport: true })],
+    plugins: [vue(), tailwindcss()],
     build: {
       rollupOptions: {
         input: {

@@ -7,10 +7,13 @@ export interface MessagePart {
   type: string;
   text?: string;
   think?: string;
+  messageId?: string | number;
   message_id?: string | number;
+  selectedText?: string;
   selected_text?: string;
   embedded_url?: string;
-  embedded_file?: { url?: string; filename?: string; attachment_id?: string };
+  embedded_file?: { url?: string; filename?: string; attachmentId?: string; attachment_id?: string };
+  attachmentId?: string;
   attachment_id?: string;
   filename?: string;
   tool_calls?: ToolCall[];
@@ -80,24 +83,8 @@ export interface ChatRecord {
   created_at?: string;
   sender_id?: string;
   sender_name?: string;
+  checkpointId?: string | null;
   llm_checkpoint_id?: string | null;
-  threads?: ChatThread[];
-}
-
-export interface ChatThread {
-  thread_id: string;
-  parent_session_id: string;
-  parent_message_id: number;
-  base_checkpoint_id: string;
-  selected_text: string;
-  created_at?: string;
-  updated_at?: string;
-}
-
-export interface ChatSessionProject {
-  project_id: string;
-  title: string;
-  emoji?: string;
 }
 
 interface ActiveConnection {
@@ -155,10 +142,6 @@ export function useMessages(options: UseMessagesOptions) {
   const loadedSessions = reactive<Record<string, boolean>>({});
   const activeConnections = reactive<Record<string, ActiveConnection>>({});
   const attachmentBlobCache = new Map<string, Promise<string>>();
-  const sessionProjects = reactive<Record<string, ChatSessionProject | null>>(
-    {},
-  );
-
   const activeMessages = computed(() =>
     options.currentSessionId.value
       ? messagesBySession[options.currentSessionId.value] || []
@@ -204,9 +187,10 @@ export function useMessages(options: UseMessagesOptions) {
 
   async function resolvePartMedia(part: MessagePart): Promise<void> {
     if (part.embedded_url) return;
-    if (part.attachment_id) {
-      const cacheKey = `att:${part.attachment_id}`;
-      const promise = attachmentBlobCache.get(cacheKey) || resolveAttachmentPreview(part.attachment_id);
+    const attachmentId = partAttachmentId(part);
+    if (attachmentId) {
+      const cacheKey = `att:${attachmentId}`;
+      const promise = attachmentBlobCache.get(cacheKey) || resolveAttachmentPreview(attachmentId);
       attachmentBlobCache.set(cacheKey, promise);
       try {
         part.embedded_url = await promise;
@@ -223,7 +207,7 @@ export function useMessages(options: UseMessagesOptions) {
     const tasks: Promise<void>[] = [];
     for (const record of records) {
       for (const part of record.content?.message || []) {
-        if (mediaTypes.includes(part.type) && !part.embedded_url && (part.attachment_id || part.filename)) {
+        if (mediaTypes.includes(part.type) && !part.embedded_url && (partAttachmentId(part) || part.filename)) {
           tasks.push(resolvePartMedia(part));
         }
       }
@@ -239,7 +223,6 @@ export function useMessages(options: UseMessagesOptions) {
       const records = (history || []).map(mapBridgeMessageToRecord);
       await resolveRecordMedia(records);
       messagesBySession[sessionId] = records;
-      sessionProjects[sessionId] = null;
       loadedSessions[sessionId] = true;
     } catch (error) {
       console.error("Failed to load session messages:", error);
@@ -395,7 +378,7 @@ export function useMessages(options: UseMessagesOptions) {
       toolProfile,
       maxSteps,
       true,
-      sourceRecord.llm_checkpoint_id || null,
+      sourceRecord.checkpointId || sourceRecord.llm_checkpoint_id || null,
     );
   }
 
@@ -581,7 +564,6 @@ export function useMessages(options: UseMessagesOptions) {
     sending,
     messagesBySession,
     loadedSessions,
-    sessionProjects,
     activeMessages,
     isSessionRunning,
     isUserMessage,
@@ -721,19 +703,24 @@ function partToBridgePart(part: MessagePart): BridgeChatMessagePart {
   if (part.type === "reply") {
     return {
       type: "reply",
-      messageId: part.message_id,
-      message_id: part.message_id,
-      selectedText: part.selected_text || "",
-      selected_text: part.selected_text || "",
+      messageId: part.messageId ?? part.message_id,
+      message_id: part.messageId ?? part.message_id,
+      selectedText: part.selectedText ?? part.selected_text ?? "",
+      selected_text: part.selectedText ?? part.selected_text ?? "",
     };
   }
+  const attachmentId = partAttachmentId(part);
   return {
     ...part,
     type: part.type,
-    attachmentId: part.attachment_id,
-    attachment_id: part.attachment_id,
+    attachmentId,
+    attachment_id: attachmentId,
     filename: part.filename,
   };
+}
+
+function partAttachmentId(part: MessagePart): string {
+  return part.attachmentId || part.attachment_id || "";
 }
 
 function normalizePartsInternal(parts: unknown): MessagePart[] {
@@ -756,11 +743,20 @@ function normalizePartsInternal(parts: unknown): MessagePart[] {
     if (typeof normalized.attachmentId === "string" && !normalized.attachment_id) {
       normalized.attachment_id = normalized.attachmentId;
     }
+    if (typeof normalized.attachment_id === "string" && !normalized.attachmentId) {
+      normalized.attachmentId = normalized.attachment_id;
+    }
     if (normalized.messageId != null && normalized.message_id == null) {
       normalized.message_id = normalized.messageId;
     }
+    if (normalized.message_id != null && normalized.messageId == null) {
+      normalized.messageId = normalized.message_id;
+    }
     if (typeof normalized.selectedText === "string" && !normalized.selected_text) {
       normalized.selected_text = normalized.selectedText;
+    }
+    if (typeof normalized.selected_text === "string" && !normalized.selectedText) {
+      normalized.selectedText = normalized.selected_text;
     }
     if (Array.isArray(normalized.toolCalls) && !normalized.tool_calls) {
       normalized.tool_calls = normalized.toolCalls;
@@ -1216,6 +1212,7 @@ function mapBridgeMessageToRecord(message: BridgeChatMessage): ChatRecord {
     created_at: new Date(message.createdAt || Date.now()).toISOString(),
     sender_id: roleType === "bot" ? "bot" : "user",
     sender_name: roleType === "bot" ? "Assistant" : "User",
+    checkpointId: message.checkpointId || null,
     llm_checkpoint_id: message.checkpointId || null,
     content: {
       type: roleType,
