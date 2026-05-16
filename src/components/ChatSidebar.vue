@@ -85,15 +85,17 @@ function sessionTitle(session: Session) {
 
     <SidebarSeparator />
 
-    <SidebarFooter>
+    <SidebarFooter class="items-end">
       <SidebarMenu>
-        <SidebarMenuItem>
+        <SidebarMenuItem class="flex justify-end">
           <SidebarMenuButton
+            class="w-auto"
+            size="icon"
             tooltip="设置"
+            aria-label="设置"
             @click="emit('openSettings')"
           >
             <SettingsIcon />
-            <span>设置</span>
           </SidebarMenuButton>
         </SidebarMenuItem>
       </SidebarMenu>
