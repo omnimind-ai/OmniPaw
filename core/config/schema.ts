@@ -137,7 +137,7 @@ export function validateConfig(input: unknown): DesktopSettingsConfig {
     throwValidationError([{ path: '', message: 'Config must be an object.', code: 'invalid_type' }])
   }
 
-  const config = input as DesktopSettingsConfig
+  const config = input as unknown as DesktopSettingsConfig
   if (config.version !== CURRENT_SETTINGS_VERSION) {
     issues.push({
       path: 'version',

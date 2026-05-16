@@ -298,7 +298,7 @@ export function configToProviderRecords(config: DesktopSettingsConfig): Provider
         providerId: source.id,
         name: model.name,
         remoteId: model.remoteId ?? model.id,
-        enabled: model.enabled,
+        enabled: model.enabled !== false,
         input: model.input,
         supportsStreaming: model.supportsStreaming,
         supportsTools: model.supportsTools,
