@@ -21,6 +21,7 @@ export const useSettingsStore = defineStore('settings', () => {
   const persistenceAvailable = computed(() => !isFallbackBridge)
   let unsubscribe: BridgeUnsubscribe | undefined
   let activeSaveSnapshot: BridgeDesktopSettingsConfig | undefined
+  let loadPromise: Promise<BridgeDesktopSettingsConfig> | undefined
 
   const compactSkillDescriptions = computed({
     get: () => draft.value?.app.compactSkillDescriptions ?? true,
@@ -32,18 +33,27 @@ export const useSettingsStore = defineStore('settings', () => {
   })
 
   async function load(): Promise<BridgeDesktopSettingsConfig> {
+    if (loadPromise) {
+      return loadPromise
+    }
+
     loading.value = true
     error.value = null
-    try {
+    loadPromise = (async () => {
       const loaded = await requireSettingsBridge().load()
       reconcileConfig(loaded)
       await refreshStatus()
       subscribeToChanges()
       return loaded
+    })()
+
+    try {
+      return await loadPromise
     } catch (err) {
       error.value = normalizeSettingsError(err)
       throw err
     } finally {
+      loadPromise = undefined
       loading.value = false
     }
   }
