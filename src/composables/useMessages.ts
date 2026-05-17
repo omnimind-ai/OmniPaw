@@ -1,5 +1,6 @@
 import { computed, onBeforeUnmount, reactive, ref, type Ref } from "vue";
 import { appBridge, type BridgeChatMessage, type BridgeChatMessagePart, type BridgeStreamEvent } from "@/bridge/app";
+import { useToast } from "@/utils/toast";
 
 export type TransportMode = "sse" | "websocket";
 
@@ -136,6 +137,7 @@ interface UseMessagesOptions {
 }
 
 export function useMessages(options: UseMessagesOptions) {
+  const toast = useToast();
   const loadingMessages = ref(false);
   const sending = ref(false);
   const messagesBySession = reactive<Record<string, ChatRecord[]>>({});
@@ -197,6 +199,7 @@ export function useMessages(options: UseMessagesOptions) {
       } catch (e) {
         attachmentBlobCache.delete(cacheKey);
         console.error("Failed to resolve media:", cacheKey, e);
+        toast.error(e, { description: "媒体预览加载失败" });
       }
       return;
     }
@@ -226,6 +229,7 @@ export function useMessages(options: UseMessagesOptions) {
       loadedSessions[sessionId] = true;
     } catch (error) {
       console.error("Failed to load session messages:", error);
+      toast.error(error, { description: "会话消息加载失败" });
       messagesBySession[sessionId] = messagesBySession[sessionId] || [];
     } finally {
       loadingMessages.value = false;
@@ -430,6 +434,7 @@ export function useMessages(options: UseMessagesOptions) {
       delete activeConnections[sessionId];
       appendPlain(botRecord, `\n\n${String((error as Error)?.message || error)}`);
       console.error("Regenerate failed:", error);
+      toast.error(error, { description: "重新生成失败" });
     } finally {
       await options.onSessionsChanged?.();
     }
@@ -520,6 +525,7 @@ export function useMessages(options: UseMessagesOptions) {
       delete activeConnections[sessionId];
       appendPlain(botRecord, `\n\n${String((error as Error)?.message || error)}`);
       console.error("Bridge chat failed:", error);
+      toast.error(error, { description: "消息发送失败" });
       await options.onSessionsChanged?.();
     }
   }

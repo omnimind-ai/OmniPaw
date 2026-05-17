@@ -36,6 +36,7 @@ import type {
   BridgeProviderPreset,
 } from '@/bridge/app'
 import { useProviderStore } from '@/stores/provider'
+import { useToast } from '@/utils/toast'
 import type {
   ProviderApi,
   ProviderCapabilities,
@@ -46,6 +47,7 @@ import type {
 } from '@shared/types/provider'
 
 const providerStore = useProviderStore()
+const toast = useToast()
 const {
   rawProviders,
   loading,
@@ -64,8 +66,6 @@ const credentialValue = ref('')
 const providerSearchQuery = ref('')
 const deleteDialogOpen = ref(false)
 const deleteProviderTarget = ref<ProviderSidebarItem | undefined>()
-const errorMessage = ref('')
-const successMessage = ref('')
 const loadingDraft = ref(false)
 const refreshingModels = ref(false)
 let autosaveTimer: ReturnType<typeof window.setTimeout> | undefined
@@ -204,9 +204,9 @@ async function createProviderFromPreset(preset: BridgeProviderPreset) {
       originalProviderId.value = saved.id
       loadProviderDraft(saved.id)
     }
-    successMessage.value = `${saved?.name || preset.name} 已添加。`
+    toast.success(`${saved?.name || preset.name} 已添加。`)
   } catch (error) {
-    errorMessage.value = errorToText(error)
+    toast.error(error)
   }
 }
 
@@ -245,25 +245,23 @@ async function handleSaveProvider(options: { silent?: boolean } = {}): Promise<b
   clearAutosaveTimer()
   if (!options.silent) {
     clearMessages()
-  } else {
-    errorMessage.value = ''
   }
 
   const validation = validateDraft()
   if (validation) {
-    errorMessage.value = validation
+    if (!options.silent) toast.error(validation)
     return false
   }
 
   const parsedHeaders = parseStringRecord(providerDraft.value.headersText, 'Headers')
   if (!parsedHeaders.ok) {
-    errorMessage.value = parsedHeaders.message
+    if (!options.silent) toast.error(parsedHeaders.message)
     return false
   }
 
   const parsedExtraBody = parseObject(providerDraft.value.extraBodyText, 'Extra Body')
   if (!parsedExtraBody.ok) {
-    errorMessage.value = parsedExtraBody.message
+    if (!options.silent) toast.error(parsedExtraBody.message)
     return false
   }
 
@@ -312,11 +310,13 @@ async function handleSaveProvider(options: { silent?: boolean } = {}): Promise<b
       }
     }
     if (!options.silent) {
-      successMessage.value = 'Provider 已保存。'
+      toast.success('Provider 已保存。')
     }
     return true
   } catch (error) {
-    errorMessage.value = errorToText(error)
+    toast.error(error, options.silent
+      ? { id: 'provider-autosave-error', description: 'Provider 自动保存失败' }
+      : undefined)
     return false
   } finally {
     suppressDraftReload = false
@@ -385,9 +385,9 @@ async function handleDeleteProvider() {
         startNewProvider()
       }
     }
-    successMessage.value = 'Provider 已删除。'
+    toast.success('Provider 已删除。')
   } catch (error) {
-    errorMessage.value = errorToText(error)
+    toast.error(error)
   }
 }
 
@@ -416,9 +416,9 @@ async function refreshProviderModels() {
     }
     await nextTick()
     loadingDraft.value = false
-    successMessage.value = wasExistingProvider ? '模型列表已更新。' : 'Provider 已保存，模型列表已更新。'
+    toast.success(wasExistingProvider ? '模型列表已更新。' : 'Provider 已保存，模型列表已更新。')
   } catch (error) {
-    errorMessage.value = errorToText(error)
+    toast.error(error)
   } finally {
     refreshingModels.value = false
     loadingDraft.value = false
@@ -479,8 +479,6 @@ function setOptionalNumber(model: ProviderModelDraft, key: 'contextWindow' | 'ma
 }
 
 function clearMessages() {
-  errorMessage.value = ''
-  successMessage.value = ''
 }
 
 function createEmptyProviderDraft(): ProviderDraft {
@@ -703,12 +701,6 @@ function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
 }
 
-function errorToText(error: unknown) {
-  if (!error) return '未知错误'
-  if (error instanceof Error) return error.message
-  if (isRecord(error) && typeof error.message === 'string') return error.message
-  return String(error)
-}
 </script>
 
 <template>
@@ -732,19 +724,6 @@ function errorToText(error: unknown) {
       class="min-w-0 flex-1 self-stretch"
     >
       <div class="flex flex-col gap-4 p-4">
-        <div
-          v-if="errorMessage"
-          class="rounded-lg border border-destructive/40 px-3 py-2 text-sm text-destructive"
-        >
-          {{ errorMessage }}
-        </div>
-        <div
-          v-if="successMessage"
-          class="rounded-lg border px-3 py-2 text-sm text-muted-foreground"
-        >
-          {{ successMessage }}
-        </div>
-
         <Tabs
           v-model="providerTab"
           activation-mode="manual"

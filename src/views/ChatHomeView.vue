@@ -21,11 +21,13 @@ import {
 import { useSessions } from '@/composables/useSessions'
 import { useChatStore } from '@/stores/chat'
 import { useProviderStore, type ProviderModelOption } from '@/stores/provider'
+import { useToast } from '@/utils/toast'
 
 const router = useRouter()
 const route = useRoute()
 const chatStore = useChatStore()
 const providerStore = useProviderStore()
+const toast = useToast()
 const { enabledModelOptions, loading: providersLoading } = storeToRefs(providerStore)
 
 const {
@@ -127,11 +129,16 @@ watch(
 )
 
 onMounted(async () => {
-  await Promise.allSettled([
+  const results = await Promise.allSettled([
     getSessions(),
     providerStore.loadProviders(),
     chatStore.loadSessions(),
   ])
+  results.forEach((result) => {
+    if (result.status === 'rejected') {
+      toast.error(result.reason, { description: '聊天数据加载失败' })
+    }
+  })
   syncSelectedModel()
 })
 
@@ -268,6 +275,7 @@ async function selectModel(option: ProviderModelOption) {
     }
   } catch (error) {
     console.warn('Failed to persist selected model:', error)
+    toast.error(error, { description: '会话模型保存失败' })
   }
 }
 

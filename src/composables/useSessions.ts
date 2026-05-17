@@ -2,6 +2,7 @@ import { ref, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { appBridge, type BridgeChatSession } from '@/bridge/app';
 import { buildWebchatUmoDetails, getStoredSelectedChatConfigId } from '@/utils/chatConfigBinding';
+import { useToast } from '@/utils/toast';
 import type { ChatSession } from '@shared/types/chat';
 
 export interface Session extends ChatSession {
@@ -29,6 +30,7 @@ export interface BatchDeleteResult {
 
 export function useSessions(chatboxMode: boolean = false) {
     const router = useRouter();
+    const toast = useToast();
     const sessions = ref<Session[]>([]);
     const selectedSessions = ref<string[]>([]);
     const currSessionId = ref('');
@@ -51,6 +53,7 @@ export function useSessions(chatboxMode: boolean = false) {
             sessions.value = bridgeSessions.map(mapBridgeSession);
         } catch (err: any) {
             console.error(err);
+            toast.error(err, { description: '会话列表加载失败' });
         }
     }
 
@@ -74,6 +77,7 @@ export function useSessions(chatboxMode: boolean = false) {
                     } as Partial<BridgeChatSession>);
                 } catch (err) {
                     console.error('Failed to bind config to session', err);
+                    toast.error(err, { description: '会话配置绑定失败' });
                 }
             }
 
@@ -89,6 +93,7 @@ export function useSessions(chatboxMode: boolean = false) {
             return sessionId;
         } catch (err) {
             console.error(err);
+            toast.error(err, { description: '新建会话失败' });
             throw err;
         }
     }
@@ -101,6 +106,7 @@ export function useSessions(chatboxMode: boolean = false) {
             selectedSessions.value = [];
         } catch (err) {
             console.error(err);
+            toast.error(err, { description: '删除会话失败' });
         }
     }
 
@@ -141,6 +147,7 @@ export function useSessions(chatboxMode: boolean = false) {
             };
         } catch (err) {
             console.error(err);
+            toast.error(err, { description: '批量删除会话失败' });
             throw err;
         }
     }
@@ -174,6 +181,7 @@ export function useSessions(chatboxMode: boolean = false) {
             editTitleDialog.value = false;
         } catch (err) {
             console.error('重命名会话失败:', err);
+            toast.error(err, { description: '重命名会话失败' });
         }
     }
 

@@ -1,5 +1,6 @@
 import { ref, computed } from 'vue';
 import { appBridge } from '@/bridge/app';
+import { useToast } from '@/utils/toast';
 
 export interface StagedFileInfo {
     attachmentId: string;
@@ -12,6 +13,7 @@ export interface StagedFileInfo {
 }
 
 export function useMediaHandling() {
+    const toast = useToast();
     const stagedAudioUrl = ref<string>('');
     const stagedFiles = ref<StagedFileInfo[]>([]);
     const mediaCache = ref<Record<string, string>>({});
@@ -49,6 +51,7 @@ export function useMediaHandling() {
             return url;
         } catch (error) {
             console.error('Error fetching media file:', error);
+            toast.error(error, { description: '媒体预览加载失败' });
             return '';
         }
     }
@@ -83,6 +86,7 @@ export function useMediaHandling() {
             });
         } catch (err) {
             console.error('Error uploading file:', err);
+            toast.error(err, { description: '附件上传失败' });
         } finally {
             pendingFileSignatures.delete(signature);
         }

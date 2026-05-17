@@ -24,10 +24,12 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Switch } from '@/components/ui/switch'
 import { useProviderStore } from '@/stores/provider'
 import { useSettingsStore } from '@/stores/settings'
+import { errorToText, useToast } from '@/utils/toast'
 
 const router = useRouter()
 const settingsStore = useSettingsStore()
 const providerStore = useProviderStore()
+const toast = useToast()
 
 const {
   draft,
@@ -53,22 +55,27 @@ const contentClass = computed(() =>
     ? 'mx-auto flex min-h-full w-full max-w-none flex-1 flex-col gap-4 px-4 pb-6 pt-14 md:px-6 md:py-6'
     : 'mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 pb-6 pt-14 md:px-6 md:py-6',
 )
-const errorMessage = computed(() => {
-  if (!error.value) return ''
-  if (error.value instanceof Error) return error.value.message
-  if (typeof error.value === 'string') return error.value
-  if (typeof error.value === 'object' && error.value && 'message' in error.value) {
-    return String((error.value as { message?: unknown }).message)
-  }
-  return '设置操作失败。'
-})
 
 onMounted(async () => {
-  await Promise.allSettled([
+  const results = await Promise.allSettled([
     settingsStore.load(),
     providerStore.loadProviders(),
   ])
+  results.forEach((result, index) => {
+    if (result.status === 'rejected' && index === 1) {
+      toast.error(result.reason, { description: '设置加载失败' })
+    }
+  })
 })
+
+watch(
+  error,
+  (value) => {
+    if (value) {
+      toast.error(errorToText(value, '设置操作失败。'))
+    }
+  },
+)
 
 onBeforeUnmount(() => {
   void flushAutosave()
@@ -172,7 +179,8 @@ async function autosave() {
   try {
     await settingsStore.save()
     await providerStore.loadProviders()
-  } catch {
+  } catch (err) {
+    toast.error(err, { description: '设置保存失败' })
     return
   } finally {
     if (saveQueued || hasChanges.value) {
@@ -215,13 +223,6 @@ async function autosave() {
             </div>
 
             <template v-else>
-              <div
-                v-if="errorMessage"
-                class="rounded-lg border bg-card px-3 py-2 text-sm text-muted-foreground"
-              >
-                {{ errorMessage }}
-              </div>
-
               <ProviderSettingsForm v-if="activeTab === 'providers'" />
 
               <DefaultModelSettingsForm
