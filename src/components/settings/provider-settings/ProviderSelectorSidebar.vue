@@ -3,6 +3,7 @@ import {
   CloudIcon,
   PlusIcon,
   SearchIcon,
+  Trash2Icon,
 } from 'lucide-vue-next'
 import { computed } from 'vue'
 
@@ -27,6 +28,7 @@ import type { ProviderSidebarItem } from './types'
 const props = defineProps<{
   activeProviderId: string
   loading: boolean
+  persistenceAvailable: boolean
   saving: boolean
   presetsLoading: boolean
   providerPresets: BridgeProviderPreset[]
@@ -37,6 +39,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   'update:searchQuery': [value: string]
   'create-from-preset': [preset: BridgeProviderPreset]
+  'delete-provider': [provider: ProviderSidebarItem]
   'select-provider': [provider: ProviderSidebarItem]
 }>()
 
@@ -126,35 +129,52 @@ const localSearchQuery = computed({
         v-else
         class="flex flex-col gap-1"
       >
-        <button
+        <div
           v-for="provider in providerSidebarList"
           :key="provider.unsaved ? `draft-${provider.id}` : provider.id"
-          type="button"
           :class="cn(
-            'flex h-11 w-full items-center gap-3 rounded-lg px-3 text-left text-sm transition-colors',
+            'group flex h-11 w-full items-center gap-1 rounded-lg text-sm transition-colors',
             provider.id === activeProviderId
               ? 'bg-sidebar-accent text-sidebar-accent-foreground'
               : 'hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
           )"
-          @click="emit('select-provider', provider)"
         >
-          <CloudIcon />
-          <span class="min-w-0 flex-1 truncate font-medium">
-            {{ provider.name }}
-          </span>
-          <Badge
-            v-if="provider.unsaved"
-            variant="secondary"
+          <button
+            type="button"
+            class="flex min-w-0 flex-1 items-center gap-3 self-stretch rounded-l-lg px-3 text-left"
+            @click="emit('select-provider', provider)"
           >
-            新增
-          </Badge>
-          <Badge
-            v-else-if="provider.enabled === false"
-            variant="outline"
+            <CloudIcon />
+            <span class="min-w-0 flex-1 truncate font-medium">
+              {{ provider.name }}
+            </span>
+            <Badge
+              v-if="provider.unsaved"
+              variant="secondary"
+            >
+              新增
+            </Badge>
+            <Badge
+              v-else-if="provider.enabled === false"
+              variant="outline"
+            >
+              禁用
+            </Badge>
+          </button>
+
+          <Button
+            v-if="!provider.unsaved"
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            class="mr-2 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
+            :aria-label="`删除 ${provider.name}`"
+            :disabled="saving || !persistenceAvailable"
+            @click.stop="emit('delete-provider', provider)"
           >
-            禁用
-          </Badge>
-        </button>
+            <Trash2Icon />
+          </Button>
+        </div>
       </div>
     </div>
   </aside>

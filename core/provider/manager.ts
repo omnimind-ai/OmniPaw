@@ -306,12 +306,8 @@ export class ProviderManager {
 
     const client = await this.createProviderClient(providerId)
     const remoteModels = await client.listModels?.(signal) ?? []
-    const existing = await this.listModels(providerId)
-    const merged = mergeModels(providerId, existing, remoteModels)
-
-    for (const model of merged) {
-      await this.saveModel(model)
-    }
+    const merged = mergeModels(providerId, await this.listModels(providerId), remoteModels)
+    this.replaceProviderModels(providerId, merged)
 
     return merged
   }
@@ -406,9 +402,13 @@ export class ProviderManager {
     return provider.defaultModelId ?? (await this.listModels(providerId)).find((model) => model.enabled)?.id
   }
 
-  private async saveModel(model: ProviderModelRecord): Promise<void> {
+  private replaceProviderModels(providerId: string, models: ProviderModelRecord[]): void {
     const config = this.configStore.get()
-    upsertModelInConfig(config, model)
+    config.providers.models = config.providers.models.filter((model) => model.providerSourceId !== providerId)
+    for (const model of models) {
+      upsertModelInConfig(config, model)
+    }
+    pruneProviderModelReferences(config, providerId)
     this.saveConfig(config)
   }
 
@@ -564,8 +564,14 @@ function mergeModels(
     } satisfies ProviderModelRecord
   })
 
-  const manualRecords = existing.filter((model) => model.manual && !remoteRecords.some((remote) => remote.id === model.id))
-  return [...manualRecords, ...remoteRecords]
+  const localRecords = existing
+    .filter((model) => !remoteRecords.some((remote) => remote.id === model.id))
+    .map((model) => ({
+      ...model,
+      manual: model.manual ?? true,
+    }))
+
+  return [...localRecords, ...remoteRecords]
 }
 
 function upsertProviderInConfig(config: DesktopSettingsConfig, provider: ProviderRecord): void {
@@ -648,6 +654,21 @@ function upsertModelInConfig(config: DesktopSettingsConfig, model: ProviderModel
   if (!config.providers.settings.defaultModelId && model.enabled !== false) {
     config.providers.settings.defaultModelId = model.id
   }
+}
+
+function pruneProviderModelReferences(config: DesktopSettingsConfig, providerId: string): void {
+  const source = config.providers.sources.find((item) => item.id === providerId)
+  if (source?.defaultModelId && !config.providers.models.some((model) => model.id === source.defaultModelId)) {
+    source.defaultModelId = config.providers.models.find((model) => model.providerSourceId === providerId && model.enabled !== false)?.id
+  }
+
+  if (config.providers.settings.defaultModelId && !config.providers.models.some((model) => model.id === config.providers.settings.defaultModelId && model.enabled !== false)) {
+    config.providers.settings.defaultModelId = config.providers.models.find((model) => model.enabled !== false)?.id ?? ''
+  }
+
+  config.providers.settings.fallbackModelIds = config.providers.settings.fallbackModelIds.filter((modelId) =>
+    config.providers.models.some((model) => model.id === modelId && model.enabled !== false),
+  )
 }
 
 function cloneProvider(provider: ProviderRecord | undefined): ProviderRecord | undefined {

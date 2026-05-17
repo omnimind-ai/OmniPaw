@@ -236,68 +236,6 @@ async function autosave() {
               />
 
               <SettingsSection
-                v-else-if="activeTab === 'display'"
-                title="显示设置"
-                description="当前版本先接入主题和缩放配置。"
-              >
-                <FieldGroup class="gap-0">
-                  <Field
-                    orientation="responsive"
-                    class="border-b px-4 py-3"
-                  >
-                    <FieldContent>
-                      <FieldLabel>当前主题</FieldLabel>
-                      <FieldDescription>{{ draft.app.theme }}</FieldDescription>
-                    </FieldContent>
-                    <Badge variant="secondary">{{ draft.app.theme }}</Badge>
-                  </Field>
-                  <Field
-                    orientation="responsive"
-                    class="px-4 py-3"
-                  >
-                    <FieldContent>
-                      <FieldLabel>缩放比例</FieldLabel>
-                      <FieldDescription>显示缩放会在后续接入窗口级应用。</FieldDescription>
-                    </FieldContent>
-                    <Input
-                      :model-value="draft.app.zoom.factor"
-                      class="w-full md:w-48"
-                      disabled
-                    />
-                  </Field>
-                </FieldGroup>
-              </SettingsSection>
-
-              <SettingsSection
-                v-else-if="activeTab === 'data'"
-                title="数据设置"
-                description="查看当前配置文件状态。"
-              >
-                <FieldGroup class="gap-0">
-                  <Field class="border-b px-4 py-3">
-                    <FieldLabel>配置文件</FieldLabel>
-                    <FieldDescription class="break-all">{{ status?.path || '未连接' }}</FieldDescription>
-                  </Field>
-                  <Field class="border-b px-4 py-3">
-                    <FieldLabel>备份文件</FieldLabel>
-                    <FieldDescription class="break-all">{{ status?.backupPath || '未连接' }}</FieldDescription>
-                  </Field>
-                  <Field
-                    orientation="responsive"
-                    class="px-4 py-3"
-                  >
-                    <FieldContent>
-                      <FieldLabel>配置已加载</FieldLabel>
-                      <FieldDescription>{{ status?.loaded ? '是' : '否' }}</FieldDescription>
-                    </FieldContent>
-                    <Badge variant="secondary">
-                      {{ status?.exists ? '已存在' : '未写入' }}
-                    </Badge>
-                  </Field>
-                </FieldGroup>
-              </SettingsSection>
-
-              <SettingsSection
                 v-else-if="activeTab === 'tools'"
                 title="工具设置"
                 description="管理工具启用状态。"

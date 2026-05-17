@@ -18,8 +18,8 @@ const props = defineProps<{
 </script>
 
 <template>
-  <Card :class="cn('rounded-md', props.class)">
-    <CardHeader class="border-b">
+  <Card :class="cn('gap-0 rounded-md py-0', props.class)">
+    <CardHeader class="border-b py-3">
       <CardTitle>{{ title }}</CardTitle>
       <CardDescription v-if="description">
         {{ description }}

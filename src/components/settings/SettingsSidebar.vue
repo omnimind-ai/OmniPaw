@@ -4,7 +4,6 @@ import {
   ArrowLeftIcon,
   BotIcon,
   CalendarClockIcon,
-  DatabaseIcon,
   InfoIcon,
   KeyboardIcon,
   MonitorIcon,
@@ -53,8 +52,7 @@ const primaryItems: SettingsNavItem[] = [
 ]
 
 const settingsItems: SettingsNavItem[] = [
-  { value: 'general', label: '常规设置', icon: SlidersHorizontalIcon },
-  { value: 'display', label: '显示设置', icon: MonitorIcon },
+  { value: 'general', label: '常规设置', icon: SlidersHorizontalIcon }
 ]
 
 const capabilityItems: SettingsNavItem[] = [
@@ -100,7 +98,7 @@ const placeholderItems = [
         <SidebarGroupContent>
           <SidebarMenu>
             <SidebarMenuItem
-              v-for="item in primaryItems"
+              v-for="item in settingsItems"
               :key="item.value"
             >
               <SidebarMenuButton
@@ -122,7 +120,7 @@ const placeholderItems = [
         <SidebarGroupContent>
           <SidebarMenu>
             <SidebarMenuItem
-              v-for="item in settingsItems"
+              v-for="item in primaryItems"
               :key="item.value"
             >
               <SidebarMenuButton

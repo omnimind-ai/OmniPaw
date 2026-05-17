@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { storeToRefs } from 'pinia'
-import { Trash2Icon } from 'lucide-vue-next'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
 import ProviderAdvancedTab from '@/components/settings/provider-settings/ProviderAdvancedTab.vue'
@@ -25,7 +24,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import { Separator } from '@/components/ui/separator'
 import {
   Tabs,
   TabsContent,
@@ -65,9 +63,11 @@ const credentialMode = ref<CredentialMode>('api-key')
 const credentialValue = ref('')
 const providerSearchQuery = ref('')
 const deleteDialogOpen = ref(false)
+const deleteProviderTarget = ref<ProviderSidebarItem | undefined>()
 const errorMessage = ref('')
 const successMessage = ref('')
 const loadingDraft = ref(false)
+const refreshingModels = ref(false)
 let autosaveTimer: ReturnType<typeof window.setTimeout> | undefined
 let autosavePromise: Promise<boolean> | undefined
 let autosaveQueued = false
@@ -77,6 +77,9 @@ const currentProvider = computed(() =>
   rawProviders.value.find((provider) => provider.id === originalProviderId.value),
 )
 const isExistingProvider = computed(() => Boolean(currentProvider.value))
+const canRefreshModels = computed(() =>
+  Boolean(persistenceAvailable.value && providerDraft.value.capabilities.listModels),
+)
 const enabledModels = computed(() =>
   providerDraft.value.models.filter((model) => model.enabled !== false),
 )
@@ -358,22 +361,67 @@ async function flushAutosave(): Promise<boolean> {
 }
 
 async function handleDeleteProvider() {
-  if (!isExistingProvider.value) return
+  const target = deleteProviderTarget.value
+  if (!target || target.unsaved || !persistenceAvailable.value) return
 
-  clearAutosaveTimer()
   clearMessages()
+  if (target.id !== originalProviderId.value) {
+    const savedCurrent = await flushAutosave()
+    if (!savedCurrent) return
+  } else {
+    clearAutosaveTimer()
+  }
+
   try {
-    await providerStore.deleteProvider({ providerId: originalProviderId.value })
+    await providerStore.deleteProvider({ providerId: target.id })
     deleteDialogOpen.value = false
-    const nextProvider = rawProviders.value.find((provider) => provider.id !== originalProviderId.value)
-    if (nextProvider) {
-      await selectProvider(nextProvider.id)
-    } else {
-      startNewProvider()
+    deleteProviderTarget.value = undefined
+
+    if (target.id === originalProviderId.value) {
+      const nextProvider = rawProviders.value.find((provider) => provider.id !== target.id)
+      if (nextProvider) {
+        await selectProvider(nextProvider.id)
+      } else {
+        startNewProvider()
+      }
     }
     successMessage.value = 'Provider 已删除。'
   } catch (error) {
     errorMessage.value = errorToText(error)
+  }
+}
+
+function requestDeleteProvider(provider: ProviderSidebarItem) {
+  if (provider.unsaved || saving.value || !persistenceAvailable.value) return
+  deleteProviderTarget.value = provider
+  deleteDialogOpen.value = true
+}
+
+async function refreshProviderModels() {
+  if (refreshingModels.value || !canRefreshModels.value) return
+
+  clearMessages()
+  refreshingModels.value = true
+  const wasExistingProvider = isExistingProvider.value
+
+  try {
+    const saved = await handleSaveProvider({ silent: true })
+    if (!saved) return
+
+    const models = await providerStore.refreshModels(originalProviderId.value)
+    loadingDraft.value = true
+    providerDraft.value.models = models.map(draftFromModel)
+    if (!providerDraft.value.models.some((model) => model.id === providerDraft.value.defaultModelId)) {
+      providerDraft.value.defaultModelId = providerDraft.value.models[0]?.id || ''
+    }
+    await nextTick()
+    loadingDraft.value = false
+    successMessage.value = wasExistingProvider ? '模型列表已更新。' : 'Provider 已保存，模型列表已更新。'
+  } catch (error) {
+    errorMessage.value = errorToText(error)
+  } finally {
+    refreshingModels.value = false
+    loadingDraft.value = false
   }
 }
 
@@ -490,7 +538,7 @@ function draftFromProvider(provider: BridgeProviderConfig): ProviderDraft {
   }
 }
 
-function draftFromModel(model: BridgeProviderModel): ProviderModelDraft {
+function draftFromModel(model: BridgeProviderModel | ProviderModel): ProviderModelDraft {
   const capabilities = isRecord(model.capabilities) ? model.capabilities : {}
   return {
     id: model.id,
@@ -669,11 +717,13 @@ function errorToText(error: unknown) {
       v-model:search-query="providerSearchQuery"
       :active-provider-id="activeProviderId"
       :loading="loading"
+      :persistence-available="persistenceAvailable"
       :saving="saving"
       :presets-loading="presetsLoading"
       :provider-presets="providerPresets"
       :provider-sidebar-list="providerSidebarList"
       @create-from-preset="createProviderFromPreset"
+      @delete-provider="requestDeleteProvider"
       @select-provider="selectProviderSidebarItem"
     />
 
@@ -724,9 +774,12 @@ function errorToText(error: unknown) {
             class="mt-0"
           >
             <ProviderModelsTab
+              :can-refresh-models="canRefreshModels"
               :draft="providerDraft"
               :enabled-models="enabledModels"
+              :refreshing-models="refreshingModels"
               @add-model="addModel"
+              @refresh-models="refreshProviderModels"
               @remove-model="removeModel"
               @set-optional-number="setOptionalNumber"
               @update-model-input="updateModelInput"
@@ -740,19 +793,6 @@ function errorToText(error: unknown) {
             <ProviderAdvancedTab :draft="providerDraft" />
           </TabsContent>
         </Tabs>
-
-        <Separator />
-
-        <div class="flex justify-start">
-          <Button
-            variant="destructive"
-            :disabled="!isExistingProvider || saving || !persistenceAvailable"
-            @click="deleteDialogOpen = true"
-          >
-            <Trash2Icon data-icon="inline-start" />
-            删除 Provider
-          </Button>
-        </div>
       </div>
     </SettingsSection>
 
@@ -761,7 +801,7 @@ function errorToText(error: unknown) {
         <DialogHeader>
           <DialogTitle>删除 Provider</DialogTitle>
           <DialogDescription>
-            删除后该 Provider 下的模型也会从配置中移除。
+            删除 {{ deleteProviderTarget?.name || '该 Provider' }} 后，其下模型也会从配置中移除。
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>
