@@ -55,6 +55,7 @@ export interface ProviderConfig {
   defaultModelId?: string
   models: ProviderModel[]
   capabilities?: ProviderCapabilities
+  compat?: ProviderCompat
   createdAt?: number
   updatedAt?: number
 

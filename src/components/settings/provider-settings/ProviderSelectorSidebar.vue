@@ -1,0 +1,161 @@
+<script setup lang="ts">
+import {
+  CloudIcon,
+  PlusIcon,
+  SearchIcon,
+} from 'lucide-vue-next'
+import { computed } from 'vue'
+
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupInput,
+} from '@/components/ui/input-group'
+import { cn } from '@/lib/utils'
+import type { BridgeProviderPreset } from '@/bridge/app'
+import type { ProviderSidebarItem } from './types'
+
+const props = defineProps<{
+  activeProviderId: string
+  loading: boolean
+  saving: boolean
+  presetsLoading: boolean
+  providerPresets: BridgeProviderPreset[]
+  providerSidebarList: ProviderSidebarItem[]
+  searchQuery: string
+}>()
+
+const emit = defineEmits<{
+  'update:searchQuery': [value: string]
+  'create-from-preset': [preset: BridgeProviderPreset]
+  'select-provider': [provider: ProviderSidebarItem]
+}>()
+
+const localSearchQuery = computed({
+  get: () => props.searchQuery,
+  set: (value: string) => emit('update:searchQuery', value),
+})
+</script>
+
+<template>
+  <aside class="flex min-h-0 w-full shrink-0 flex-col rounded-md border bg-sidebar text-sidebar-foreground lg:sticky lg:top-6 lg:h-[calc(100svh-3rem)] lg:w-80">
+    <div class="flex items-center gap-2 border-b p-3">
+      <InputGroup class="min-w-0 flex-1">
+        <InputGroupAddon>
+          <SearchIcon />
+        </InputGroupAddon>
+        <InputGroupInput
+          v-model="localSearchQuery"
+          aria-label="搜索 Provider"
+          placeholder="搜索模型平台..."
+        />
+      </InputGroup>
+
+      <DropdownMenu>
+        <DropdownMenuTrigger as-child>
+          <Button
+            variant="outline"
+            size="icon"
+            aria-label="添加 Provider"
+            :disabled="saving || presetsLoading"
+          >
+            <PlusIcon />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent
+          align="end"
+          class="w-64"
+        >
+          <DropdownMenuGroup>
+            <DropdownMenuItem
+              v-if="presetsLoading"
+              disabled
+            >
+              正在加载...
+            </DropdownMenuItem>
+            <DropdownMenuItem
+              v-else-if="!providerPresets.length"
+              disabled
+            >
+              暂无 Provider 预设。
+            </DropdownMenuItem>
+            <template v-else>
+              <DropdownMenuItem
+                v-for="preset in providerPresets"
+                :key="preset.id"
+                class="items-start gap-2"
+                @select="emit('create-from-preset', preset)"
+              >
+                <CloudIcon class="mt-0.5" />
+                <span class="min-w-0 flex-1">
+                  <span class="block truncate font-medium">{{ preset.name }}</span>
+                  <span class="block truncate text-xs text-muted-foreground">{{ preset.baseUrl }}</span>
+                </span>
+              </DropdownMenuItem>
+            </template>
+          </DropdownMenuGroup>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
+
+    <div class="min-h-0 flex-1 overflow-y-auto p-2">
+      <div
+        v-if="loading"
+        class="rounded-lg border px-3 py-2 text-sm text-muted-foreground"
+      >
+        正在加载...
+      </div>
+
+      <div
+        v-else-if="!providerSidebarList.length"
+        class="rounded-lg border px-3 py-2 text-sm text-muted-foreground"
+      >
+        暂无匹配 Provider。
+      </div>
+
+      <div
+        v-else
+        class="flex flex-col gap-1"
+      >
+        <button
+          v-for="provider in providerSidebarList"
+          :key="provider.unsaved ? `draft-${provider.id}` : provider.id"
+          type="button"
+          :class="cn(
+            'flex h-11 w-full items-center gap-3 rounded-lg px-3 text-left text-sm transition-colors',
+            provider.id === activeProviderId
+              ? 'bg-sidebar-accent text-sidebar-accent-foreground'
+              : 'hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
+          )"
+          @click="emit('select-provider', provider)"
+        >
+          <CloudIcon />
+          <span class="min-w-0 flex-1 truncate font-medium">
+            {{ provider.name }}
+          </span>
+          <Badge
+            v-if="provider.unsaved"
+            variant="secondary"
+          >
+            新增
+          </Badge>
+          <Badge
+            v-else-if="provider.enabled === false"
+            variant="outline"
+          >
+            禁用
+          </Badge>
+        </button>
+      </div>
+    </div>
+  </aside>
+</template>

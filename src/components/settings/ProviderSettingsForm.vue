@@ -1,17 +1,22 @@
 <script setup lang="ts">
 import { storeToRefs } from 'pinia'
-import {
-  CloudIcon,
-  PlusIcon,
-  SearchIcon,
-  Trash2Icon,
-} from 'lucide-vue-next'
+import { Trash2Icon } from 'lucide-vue-next'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
+import ProviderAdvancedTab from '@/components/settings/provider-settings/ProviderAdvancedTab.vue'
+import ProviderBasicTab from '@/components/settings/provider-settings/ProviderBasicTab.vue'
+import ProviderModelsTab from '@/components/settings/provider-settings/ProviderModelsTab.vue'
+import ProviderSelectorSidebar from '@/components/settings/provider-settings/ProviderSelectorSidebar.vue'
+import type {
+  CredentialMode,
+  ModelInput,
+  ProviderDraft,
+  ProviderDraftTab,
+  ProviderModelDraft,
+  ProviderSidebarItem,
+} from '@/components/settings/provider-settings/types'
 import SettingsSection from '@/components/settings/SettingsSection.vue'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Checkbox } from '@/components/ui/checkbox'
 import {
   Dialog,
   DialogContent,
@@ -20,46 +25,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuGroup,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
-import {
-  Field,
-  FieldContent,
-  FieldDescription,
-  FieldGroup,
-  FieldLabel,
-  FieldLegend,
-  FieldSet,
-} from '@/components/ui/field'
-import { Input } from '@/components/ui/input'
-import {
-  InputGroup,
-  InputGroupAddon,
-  InputGroupInput,
-} from '@/components/ui/input-group'
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import { Separator } from '@/components/ui/separator'
-import { Switch } from '@/components/ui/switch'
 import {
   Tabs,
   TabsContent,
   TabsList,
   TabsTrigger,
 } from '@/components/ui/tabs'
-import { Textarea } from '@/components/ui/textarea'
-import { cn } from '@/lib/utils'
 import type {
   BridgeProviderConfig,
   BridgeProviderModel,
@@ -74,52 +46,6 @@ import type {
   ProviderType,
   SaveProviderRequest,
 } from '@shared/types/provider'
-
-type ProviderDraftTab = 'basic' | 'models' | 'advanced'
-type CredentialMode = 'api-key' | 'env' | 'none'
-type ModelInput = 'text' | 'image' | 'audio' | 'file'
-
-interface ProviderDraft {
-  id: string
-  name: string
-  type: ProviderType
-  api: ProviderApi
-  baseUrl: string
-  enabled: boolean
-  credentialRef?: string
-  authHeader: string
-  headersText: string
-  extraBodyText: string
-  defaultModelId: string
-  capabilities: Required<ProviderCapabilities>
-  compat: Required<ProviderCompat>
-  models: ProviderModelDraft[]
-  createdAt?: number
-  updatedAt?: number
-}
-
-interface ProviderModelDraft {
-  id: string
-  name: string
-  remoteId: string
-  enabled: boolean
-  input: ModelInput[]
-  supportsStreaming: boolean
-  supportsTools: boolean
-  supportsReasoning: boolean
-  contextWindow?: number
-  maxOutputTokens?: number
-  compat?: ProviderCompat
-}
-
-interface ProviderSidebarItem {
-  id: string
-  name: string
-  baseUrl: string
-  type?: string
-  enabled?: boolean
-  unsaved?: boolean
-}
 
 const providerStore = useProviderStore()
 const {
@@ -493,10 +419,6 @@ function updateModelInput(model: ProviderModelDraft, input: ModelInput, checked:
   model.input = [...next]
 }
 
-function isModelInputChecked(model: ProviderModelDraft, input: ModelInput) {
-  return model.input.includes(input)
-}
-
 function setOptionalNumber(model: ProviderModelDraft, key: 'contextWindow' | 'maxOutputTokens', value: string | number) {
   const text = String(value).trim()
   if (!text) {
@@ -743,118 +665,17 @@ function errorToText(error: unknown) {
 
 <template>
   <div class="flex min-h-0 w-full flex-1 flex-col gap-4 lg:flex-row">
-    <aside class="flex min-h-0 w-full shrink-0 flex-col rounded-md border bg-sidebar text-sidebar-foreground lg:sticky lg:top-6 lg:h-[calc(100svh-3rem)] lg:w-80">
-      <div class="flex items-center gap-2 border-b p-3">
-        <InputGroup class="min-w-0 flex-1">
-          <InputGroupAddon>
-            <SearchIcon />
-          </InputGroupAddon>
-          <InputGroupInput
-            v-model="providerSearchQuery"
-            aria-label="搜索 Provider"
-            placeholder="搜索模型平台..."
-          />
-        </InputGroup>
-
-        <DropdownMenu>
-          <DropdownMenuTrigger as-child>
-            <Button
-              variant="outline"
-              size="icon"
-              aria-label="添加 Provider"
-              :disabled="saving || presetsLoading"
-            >
-              <PlusIcon />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent
-            align="end"
-            class="w-64"
-          >
-            <DropdownMenuGroup>
-              <DropdownMenuItem
-                v-if="presetsLoading"
-                disabled
-              >
-                正在加载...
-              </DropdownMenuItem>
-              <DropdownMenuItem
-                v-else-if="!providerPresets.length"
-                disabled
-              >
-                暂无 Provider 预设。
-              </DropdownMenuItem>
-              <template v-else>
-                <DropdownMenuItem
-                  v-for="preset in providerPresets"
-                  :key="preset.id"
-                  class="items-start gap-2"
-                  @select="createProviderFromPreset(preset)"
-                >
-                  <CloudIcon class="mt-0.5" />
-                  <span class="min-w-0 flex-1">
-                    <span class="block truncate font-medium">{{ preset.name }}</span>
-                    <span class="block truncate text-xs text-muted-foreground">{{ preset.baseUrl }}</span>
-                  </span>
-                </DropdownMenuItem>
-              </template>
-            </DropdownMenuGroup>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
-
-      <div class="min-h-0 flex-1 overflow-y-auto p-2">
-        <div
-          v-if="loading"
-          class="rounded-lg border px-3 py-2 text-sm text-muted-foreground"
-        >
-          正在加载...
-        </div>
-
-        <div
-          v-else-if="!providerSidebarList.length"
-          class="rounded-lg border px-3 py-2 text-sm text-muted-foreground"
-        >
-          暂无匹配 Provider。
-        </div>
-
-        <div
-          v-else
-          class="flex flex-col gap-1"
-        >
-          <button
-            v-for="provider in providerSidebarList"
-            :key="provider.unsaved ? `draft-${provider.id}` : provider.id"
-            type="button"
-            :class="cn(
-              'flex h-11 w-full items-center gap-3 rounded-lg px-3 text-left text-sm transition-colors',
-              provider.id === activeProviderId
-                ? 'bg-sidebar-accent text-sidebar-accent-foreground'
-                : 'hover:bg-sidebar-accent hover:text-sidebar-accent-foreground',
-            )"
-            @click="selectProviderSidebarItem(provider)"
-          >
-            <CloudIcon />
-            <span class="min-w-0 flex-1 truncate font-medium">
-              {{ provider.name }}
-            </span>
-            <Badge
-              v-if="provider.unsaved"
-              variant="secondary"
-            >
-              新增
-            </Badge>
-            <Badge
-              v-else-if="provider.enabled === false"
-              variant="outline"
-            >
-              禁用
-            </Badge>
-          </button>
-        </div>
-      </div>
-
-    </aside>
+    <ProviderSelectorSidebar
+      v-model:search-query="providerSearchQuery"
+      :active-provider-id="activeProviderId"
+      :loading="loading"
+      :saving="saving"
+      :presets-loading="presetsLoading"
+      :provider-presets="providerPresets"
+      :provider-sidebar-list="providerSidebarList"
+      @create-from-preset="createProviderFromPreset"
+      @select-provider="selectProviderSidebarItem"
+    />
 
     <SettingsSection
       title="模型服务"
@@ -889,443 +710,34 @@ function errorToText(error: unknown) {
             value="basic"
             class="mt-0"
           >
-            <FieldGroup>
-              <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
-                <Field>
-                  <FieldLabel for="provider-name">名称</FieldLabel>
-                  <Input
-                    id="provider-name"
-                    v-model="providerDraft.name"
-                  />
-                </Field>
-
-                <Field>
-                  <FieldLabel for="provider-id">Provider ID</FieldLabel>
-                  <Input
-                    id="provider-id"
-                    v-model="providerDraft.id"
-                    :disabled="isExistingProvider"
-                  />
-                </Field>
-              </div>
-
-              <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
-                <Field>
-                  <FieldLabel for="provider-type">类型</FieldLabel>
-                  <Select
-                    :model-value="providerDraft.type"
-                    @update:model-value="updateProviderType($event as ProviderType)"
-                  >
-                    <SelectTrigger
-                      id="provider-type"
-                      class="w-full"
-                    >
-                      <SelectValue placeholder="选择类型" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectGroup>
-                        <SelectItem value="openai-compatible">OpenAI Compatible</SelectItem>
-                        <SelectItem value="ollama">Ollama</SelectItem>
-                        <SelectItem value="omniinfer">OmniInfer</SelectItem>
-                      </SelectGroup>
-                    </SelectContent>
-                  </Select>
-                </Field>
-
-                <Field>
-                  <FieldLabel for="provider-api">API</FieldLabel>
-                  <Select v-model="providerDraft.api">
-                    <SelectTrigger
-                      id="provider-api"
-                      class="w-full"
-                    >
-                      <SelectValue placeholder="选择 API" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectGroup>
-                        <SelectItem value="openai-chat-completions">OpenAI Chat Completions</SelectItem>
-                        <SelectItem value="openai-responses">OpenAI Responses</SelectItem>
-                        <SelectItem value="ollama">Ollama</SelectItem>
-                        <SelectItem value="omniinfer">OmniInfer</SelectItem>
-                      </SelectGroup>
-                    </SelectContent>
-                  </Select>
-                </Field>
-              </div>
-
-              <Field>
-                <FieldLabel for="provider-base-url">Base URL</FieldLabel>
-                <InputGroup>
-                  <InputGroupAddon>
-                    <CloudIcon />
-                  </InputGroupAddon>
-                  <InputGroupInput
-                    id="provider-base-url"
-                    v-model="providerDraft.baseUrl"
-                    placeholder="https://api.openai.com/v1"
-                  />
-                </InputGroup>
-              </Field>
-
-              <Field
-                orientation="horizontal"
-                class="items-center rounded-lg border px-3 py-2"
-              >
-                <Switch
-                  id="provider-enabled"
-                  v-model="providerDraft.enabled"
-                  aria-label="启用 Provider"
-                />
-                <FieldContent>
-                  <FieldLabel for="provider-enabled">启用 Provider</FieldLabel>
-                  <FieldDescription>禁用后该 Provider 下模型不会出现在可选列表中。</FieldDescription>
-                </FieldContent>
-              </Field>
-
-              <Separator />
-
-              <FieldSet>
-                <FieldLegend>凭证</FieldLegend>
-                <FieldDescription>留空会保留已有凭证。</FieldDescription>
-
-                <div class="grid grid-cols-1 gap-4 lg:grid-cols-[12rem_minmax(0,1fr)]">
-                  <Field>
-                    <FieldLabel for="credential-mode">凭证类型</FieldLabel>
-                    <Select v-model="credentialMode">
-                      <SelectTrigger
-                        id="credential-mode"
-                        class="w-full"
-                      >
-                        <SelectValue placeholder="选择凭证类型" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectGroup>
-                          <SelectItem value="api-key">API Key</SelectItem>
-                          <SelectItem value="env">环境变量</SelectItem>
-                          <SelectItem value="none">不更新</SelectItem>
-                        </SelectGroup>
-                      </SelectContent>
-                    </Select>
-                  </Field>
-
-                  <Field :data-disabled="credentialMode === 'none'">
-                    <FieldLabel for="credential-value">
-                      {{ credentialMode === 'env' ? '环境变量名' : 'API Key' }}
-                    </FieldLabel>
-                    <Input
-                      id="credential-value"
-                      v-model="credentialValue"
-                      :disabled="credentialMode === 'none'"
-                      :type="credentialMode === 'api-key' ? 'password' : 'text'"
-                      placeholder="留空保留已有值"
-                    />
-                  </Field>
-                </div>
-              </FieldSet>
-            </FieldGroup>
+            <ProviderBasicTab
+              v-model:credential-mode="credentialMode"
+              v-model:credential-value="credentialValue"
+              :draft="providerDraft"
+              :is-existing-provider="isExistingProvider"
+              @update-provider-type="updateProviderType"
+            />
           </TabsContent>
 
           <TabsContent
             value="models"
             class="mt-0"
           >
-            <div class="flex flex-col gap-4">
-              <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                <Field class="md:max-w-sm">
-                  <FieldLabel for="provider-default-model">当前 Provider 默认模型</FieldLabel>
-                  <Select
-                    v-model="providerDraft.defaultModelId"
-                    :disabled="!enabledModels.length"
-                  >
-                    <SelectTrigger
-                      id="provider-default-model"
-                      class="w-full"
-                    >
-                      <SelectValue placeholder="选择模型" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectGroup>
-                        <SelectItem
-                          v-for="model in enabledModels"
-                          :key="model.id"
-                          :value="model.id"
-                        >
-                          {{ model.name || model.id }}
-                        </SelectItem>
-                      </SelectGroup>
-                    </SelectContent>
-                  </Select>
-                </Field>
-
-                <Button
-                  variant="outline"
-                  @click="addModel"
-                >
-                  <PlusIcon data-icon="inline-start" />
-                  添加模型
-                </Button>
-              </div>
-
-              <div
-                v-if="!providerDraft.models.length"
-                class="rounded-lg border px-3 py-4 text-sm text-muted-foreground"
-              >
-                还没有模型，先添加一个模型或刷新远程模型列表。
-              </div>
-
-              <div
-                v-for="(model, index) in providerDraft.models"
-                :key="`${model.id}-${index}`"
-                class="flex flex-col gap-4 rounded-lg border p-4"
-              >
-                <div class="flex items-start justify-between gap-3">
-                  <div class="min-w-0">
-                    <div class="flex items-center gap-2">
-                      <h3 class="truncate text-sm font-medium">
-                        {{ model.name || model.id || '未命名模型' }}
-                      </h3>
-                      <Badge
-                        v-if="model.id === providerDraft.defaultModelId"
-                        variant="secondary"
-                      >
-                        默认
-                      </Badge>
-                    </div>
-                    <p class="mt-1 truncate text-xs text-muted-foreground">
-                      {{ model.remoteId || model.id }}
-                    </p>
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="icon-sm"
-                    aria-label="删除模型"
-                    @click="removeModel(index)"
-                  >
-                    <Trash2Icon />
-                  </Button>
-                </div>
-
-                <div class="grid grid-cols-1 gap-4 lg:grid-cols-3">
-                  <Field>
-                    <FieldLabel :for="`model-id-${index}`">模型 ID</FieldLabel>
-                    <Input
-                      :id="`model-id-${index}`"
-                      v-model="model.id"
-                    />
-                  </Field>
-                  <Field>
-                    <FieldLabel :for="`model-name-${index}`">显示名称</FieldLabel>
-                    <Input
-                      :id="`model-name-${index}`"
-                      v-model="model.name"
-                    />
-                  </Field>
-                  <Field>
-                    <FieldLabel :for="`model-remote-${index}`">Remote ID</FieldLabel>
-                    <Input
-                      :id="`model-remote-${index}`"
-                      v-model="model.remoteId"
-                    />
-                  </Field>
-                </div>
-
-                <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
-                  <Field>
-                    <FieldLabel :for="`model-context-${index}`">上下文窗口</FieldLabel>
-                    <Input
-                      :id="`model-context-${index}`"
-                      type="number"
-                      min="0"
-                      :model-value="model.contextWindow ?? ''"
-                      @update:model-value="setOptionalNumber(model, 'contextWindow', $event)"
-                    />
-                  </Field>
-                  <Field>
-                    <FieldLabel :for="`model-output-${index}`">最大输出 Token</FieldLabel>
-                    <Input
-                      :id="`model-output-${index}`"
-                      type="number"
-                      min="0"
-                      :model-value="model.maxOutputTokens ?? ''"
-                      @update:model-value="setOptionalNumber(model, 'maxOutputTokens', $event)"
-                    />
-                  </Field>
-                </div>
-
-                <FieldSet>
-                  <FieldLegend variant="label">输入能力</FieldLegend>
-                  <FieldGroup
-                    data-slot="checkbox-group"
-                    class="grid grid-cols-2 gap-3 md:grid-cols-4"
-                  >
-                    <Field
-                      v-for="input in ['text', 'image', 'audio', 'file'] as ModelInput[]"
-                      :key="input"
-                      orientation="horizontal"
-                      class="items-center"
-                    >
-                      <Checkbox
-                        :id="`model-${index}-${input}`"
-                        :model-value="isModelInputChecked(model, input)"
-                        @update:model-value="updateModelInput(model, input, $event)"
-                      />
-                      <FieldLabel :for="`model-${index}-${input}`">
-                        {{ input }}
-                      </FieldLabel>
-                    </Field>
-                  </FieldGroup>
-                </FieldSet>
-
-                <div class="grid grid-cols-1 gap-3 md:grid-cols-4">
-                  <Field
-                    orientation="horizontal"
-                    class="items-center"
-                  >
-                    <Switch
-                      :id="`model-enabled-${index}`"
-                      v-model="model.enabled"
-                      aria-label="启用模型"
-                    />
-                    <FieldLabel :for="`model-enabled-${index}`">启用</FieldLabel>
-                  </Field>
-                  <Field
-                    orientation="horizontal"
-                    class="items-center"
-                  >
-                    <Switch
-                      :id="`model-streaming-${index}`"
-                      v-model="model.supportsStreaming"
-                      aria-label="支持流式输出"
-                    />
-                    <FieldLabel :for="`model-streaming-${index}`">流式</FieldLabel>
-                  </Field>
-                  <Field
-                    orientation="horizontal"
-                    class="items-center"
-                  >
-                    <Switch
-                      :id="`model-tools-${index}`"
-                      v-model="model.supportsTools"
-                      aria-label="支持工具"
-                    />
-                    <FieldLabel :for="`model-tools-${index}`">工具</FieldLabel>
-                  </Field>
-                  <Field
-                    orientation="horizontal"
-                    class="items-center"
-                  >
-                    <Switch
-                      :id="`model-reasoning-${index}`"
-                      v-model="model.supportsReasoning"
-                      aria-label="支持推理"
-                    />
-                    <FieldLabel :for="`model-reasoning-${index}`">推理</FieldLabel>
-                  </Field>
-                </div>
-              </div>
-            </div>
+            <ProviderModelsTab
+              :draft="providerDraft"
+              :enabled-models="enabledModels"
+              @add-model="addModel"
+              @remove-model="removeModel"
+              @set-optional-number="setOptionalNumber"
+              @update-model-input="updateModelInput"
+            />
           </TabsContent>
 
           <TabsContent
             value="advanced"
             class="mt-0"
           >
-            <FieldGroup>
-              <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
-                <Field>
-                  <FieldLabel for="provider-auth-header">认证 Header</FieldLabel>
-                  <Input
-                    id="provider-auth-header"
-                    v-model="providerDraft.authHeader"
-                  />
-                </Field>
-
-                <Field>
-                  <FieldLabel for="provider-max-token-field">Max Tokens 字段</FieldLabel>
-                  <Select v-model="providerDraft.compat.maxTokensField">
-                    <SelectTrigger
-                      id="provider-max-token-field"
-                      class="w-full"
-                    >
-                      <SelectValue placeholder="选择字段" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectGroup>
-                        <SelectItem value="max_tokens">max_tokens</SelectItem>
-                        <SelectItem value="max_completion_tokens">max_completion_tokens</SelectItem>
-                      </SelectGroup>
-                    </SelectContent>
-                  </Select>
-                </Field>
-              </div>
-
-              <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
-                <Field
-                  orientation="horizontal"
-                  class="items-center rounded-lg border px-3 py-2"
-                >
-                  <Switch
-                    id="provider-list-models"
-                    v-model="providerDraft.capabilities.listModels"
-                    aria-label="支持列出模型"
-                  />
-                  <FieldLabel for="provider-list-models">支持列出模型</FieldLabel>
-                </Field>
-                <Field
-                  orientation="horizontal"
-                  class="items-center rounded-lg border px-3 py-2"
-                >
-                  <Switch
-                    id="provider-tools"
-                    v-model="providerDraft.capabilities.tools"
-                    aria-label="默认支持工具"
-                  />
-                  <FieldLabel for="provider-tools">默认支持工具</FieldLabel>
-                </Field>
-                <Field
-                  orientation="horizontal"
-                  class="items-center rounded-lg border px-3 py-2"
-                >
-                  <Switch
-                    id="provider-system-role"
-                    v-model="providerDraft.compat.supportsSystemRole"
-                    aria-label="支持 system role"
-                  />
-                  <FieldLabel for="provider-system-role">System role</FieldLabel>
-                </Field>
-                <Field
-                  orientation="horizontal"
-                  class="items-center rounded-lg border px-3 py-2"
-                >
-                  <Switch
-                    id="provider-json-mode"
-                    v-model="providerDraft.compat.supportsJsonMode"
-                    aria-label="支持 JSON mode"
-                  />
-                  <FieldLabel for="provider-json-mode">JSON mode</FieldLabel>
-                </Field>
-              </div>
-
-              <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
-                <Field>
-                  <FieldLabel for="provider-headers">Headers JSON</FieldLabel>
-                  <Textarea
-                    id="provider-headers"
-                    v-model="providerDraft.headersText"
-                    class="min-h-40 font-mono text-xs"
-                  />
-                </Field>
-
-                <Field>
-                  <FieldLabel for="provider-extra-body">Extra Body JSON</FieldLabel>
-                  <Textarea
-                    id="provider-extra-body"
-                    v-model="providerDraft.extraBodyText"
-                    class="min-h-40 font-mono text-xs"
-                  />
-                </Field>
-              </div>
-            </FieldGroup>
+            <ProviderAdvancedTab :draft="providerDraft" />
           </TabsContent>
         </Tabs>
 
