@@ -4,9 +4,23 @@ import { computed, ref } from 'vue'
 import { appBridge } from '@/bridge/app'
 import type { Session } from '@shared/types/chat'
 
+export interface PendingInitialMessagePart {
+  type: string
+  [key: string]: unknown
+}
+
+export interface PendingInitialMessage {
+  sessionId: string
+  messageId: string
+  parts: PendingInitialMessagePart[]
+  selectedProvider: string
+  selectedModel: string
+}
+
 export const useChatStore = defineStore('chat', () => {
   const sessions = ref<Session[]>([])
   const activeSessionId = ref<string>()
+  const pendingInitialMessage = ref<PendingInitialMessage | null>(null)
   const draft = ref('')
   const streamingText = ref('')
   const isStreaming = ref(false)
@@ -51,9 +65,24 @@ export const useChatStore = defineStore('chat', () => {
     isStreaming.value = false
   }
 
+  function setPendingInitialMessage(message: PendingInitialMessage): void {
+    pendingInitialMessage.value = message
+  }
+
+  function consumePendingInitialMessage(sessionId: string): PendingInitialMessage | null {
+    if (pendingInitialMessage.value?.sessionId !== sessionId) {
+      return null
+    }
+
+    const message = pendingInitialMessage.value
+    pendingInitialMessage.value = null
+    return message
+  }
+
   return {
     sessions,
     activeSessionId,
+    pendingInitialMessage,
     activeSession,
     draft,
     streamingText,
@@ -63,5 +92,7 @@ export const useChatStore = defineStore('chat', () => {
     sendDraft,
     appendToken,
     finishStream,
+    setPendingInitialMessage,
+    consumePendingInitialMessage,
   }
 })

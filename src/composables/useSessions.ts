@@ -28,6 +28,10 @@ export interface BatchDeleteResult {
     currentSessionDeleted: boolean;
 }
 
+export interface NewSessionOptions {
+    navigate?: boolean;
+}
+
 export function useSessions(chatboxMode: boolean = false) {
     const router = useRouter();
     const toast = useToast();
@@ -57,8 +61,9 @@ export function useSessions(chatboxMode: boolean = false) {
         }
     }
 
-    async function newSession() {
+    async function newSession(options: NewSessionOptions = {}) {
         try {
+            const { navigate = true } = options;
             const selectedConfigId = getStoredSelectedChatConfigId();
             const session = await appBridge.chat.createSession();
             const sessionId = session.id;
@@ -81,9 +86,10 @@ export function useSessions(chatboxMode: boolean = false) {
                 }
             }
 
-            // 更新 URL
-            const basePath = chatboxMode ? '/chatbox' : '/chat';
-            router.push(`${basePath}/${sessionId}`);
+            if (navigate) {
+                const basePath = chatboxMode ? '/chatbox' : '/chat';
+                await router.push(`${basePath}/${sessionId}`);
+            }
             
             await getSessions();
             
@@ -100,13 +106,18 @@ export function useSessions(chatboxMode: boolean = false) {
 
     async function deleteSession(sessionId: string) {
         try {
+            const wasCurrent = sessionId === currSessionId.value;
             await appBridge.chat.deleteSession?.(sessionId);
             await getSessions();
-            currSessionId.value = '';
-            selectedSessions.value = [];
+            if (wasCurrent) {
+                currSessionId.value = '';
+                selectedSessions.value = [];
+            }
+            return true;
         } catch (err) {
             console.error(err);
             toast.error(err, { description: '删除会话失败' });
+            return false;
         }
     }
 
@@ -213,7 +224,7 @@ export function useSessions(chatboxMode: boolean = false) {
         currSessionId.value = '';
         selectedSessions.value = [];
         
-        const basePath = chatboxMode ? '/chatbox' : '/chat';
+        const basePath = chatboxMode ? '/chatbox' : '/';
         router.push(basePath);
         
         if (closeMobileSidebar) {

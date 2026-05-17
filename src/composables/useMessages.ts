@@ -82,6 +82,7 @@ export interface ChatRecord {
   id?: string | number;
   content: ChatContent;
   created_at?: string;
+  updated_at?: string;
   sender_id?: string;
   sender_name?: string;
   status?: string;
@@ -249,9 +250,13 @@ export function useMessages(options: UseMessagesOptions) {
     loadedSessions[sessionId] = true;
     messagesBySession[sessionId] = messagesBySession[sessionId] || [];
 
+    const userCreatedAt = new Date().toISOString();
+    const botCreatedAt = new Date().toISOString();
+
     const userRecord: ChatRecord = {
       id: `local-user-${messageId}`,
-      created_at: new Date().toISOString(),
+      created_at: userCreatedAt,
+      updated_at: userCreatedAt,
       content: {
         type: "user",
         message: parts.map(stripUploadOnlyFields),
@@ -260,7 +265,8 @@ export function useMessages(options: UseMessagesOptions) {
 
     const botRecord: ChatRecord = {
       id: `local-bot-${messageId}`,
-      created_at: new Date().toISOString(),
+      created_at: botCreatedAt,
+      updated_at: botCreatedAt,
       content: {
         type: "bot",
         message: [],
@@ -362,9 +368,11 @@ export function useMessages(options: UseMessagesOptions) {
     const messageId = crypto.randomUUID?.() || `${Date.now()}-${Math.random()}`;
     messagesBySession[sessionId] = messagesBySession[sessionId] || [];
 
+    const botCreatedAt = new Date().toISOString();
     const botRecord: ChatRecord = {
       id: `local-edited-bot-${messageId}`,
-      created_at: new Date().toISOString(),
+      created_at: botCreatedAt,
+      updated_at: botCreatedAt,
       content: {
         type: "bot",
         message: [],
@@ -402,6 +410,7 @@ export function useMessages(options: UseMessagesOptions) {
 
     botRecord.id = `local-regenerate-${Date.now()}`;
     botRecord.created_at = new Date().toISOString();
+    botRecord.updated_at = botRecord.created_at;
     botRecord.content = {
       type: "bot",
       message: [],
@@ -568,6 +577,7 @@ export function useMessages(options: UseMessagesOptions) {
     if (event.type === "error" || event.type === "aborted") {
       markMessageStarted(botRecord);
       botRecord.status = event.type;
+      botRecord.updated_at = new Date().toISOString();
       botRecord.error = event.error;
       const message = errorMessage(event.error) || (event.type === "aborted" ? "Request aborted." : "Request failed.");
       appendPlain(botRecord, `\n\n${message}`);
@@ -1226,6 +1236,7 @@ function mapBridgeMessageToRecord(message: BridgeChatMessage): ChatRecord {
   return {
     id: message.id,
     created_at: new Date(message.createdAt || Date.now()).toISOString(),
+    updated_at: new Date(message.updatedAt || message.createdAt || Date.now()).toISOString(),
     sender_id: roleType === "bot" ? "bot" : "user",
     sender_name: roleType === "bot" ? "Assistant" : "User",
     checkpointId: message.checkpointId || null,

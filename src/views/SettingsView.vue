@@ -92,7 +92,7 @@ function handleSidebarOpenUpdate(open: boolean) {
 
 async function backToChat() {
   await flushAutosave()
-  await router.push('/chat')
+  await router.push('/')
 }
 
 function setScheduledTasksEnabled(value: boolean) {

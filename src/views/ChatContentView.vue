@@ -3,5 +3,5 @@ import ChatWorkspace from '@/components/chat/ChatWorkspace.vue'
 </script>
 
 <template>
-  <ChatWorkspace mode="home" />
+  <ChatWorkspace mode="content" />
 </template>

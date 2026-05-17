@@ -1,8 +1,6 @@
 <script setup lang="ts">
-import { CheckIcon, CopyIcon, Edit3Icon, GitBranchIcon, RefreshCwIcon, TextQuoteIcon } from 'lucide-vue-next'
 import { computed, ref } from 'vue'
 
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Textarea } from '@/components/ui/textarea'
@@ -11,6 +9,7 @@ import type { ChatContent, ChatRecord, MessageDisplayBlock } from '@/composables
 import { contentText, formatTime, isRecordAborted, isRecordErrored, recordId } from './chat-display'
 import type { RefItem } from './chat-display'
 import MessagePartRenderer from './parts/MessagePartRenderer.vue'
+import MessageToolbar from './parts/MessageToolbar.vue'
 import ReasoningBlock from './parts/ReasoningBlock.vue'
 import RefsPanel from './RefsPanel.vue'
 
@@ -44,6 +43,25 @@ const hasMessages = computed(() => props.messages.length > 0)
 
 function blocks(record: ChatRecord) {
   return props.messageBlocks(props.messageContent(record))
+}
+
+function thinkingBlocks(record: ChatRecord) {
+  return blocks(record).filter((block) => block.kind === 'thinking')
+}
+
+function contentBlocks(record: ChatRecord) {
+  return blocks(record).filter((block) => block.kind === 'content')
+}
+
+function hasDisplayBlocks(record: ChatRecord) {
+  return blocks(record).length > 0
+}
+
+function messageDisplayTime(record: ChatRecord) {
+  const timeValue = props.isUserMessage(record)
+    ? record.created_at || record.updated_at
+    : record.updated_at || record.created_at
+  return formatTime(timeValue)
 }
 
 function beginEdit(record: ChatRecord) {
@@ -82,19 +100,39 @@ function openRefs(refs: RefItem[]) {
 function messageClass(record: ChatRecord, index: number) {
   const user = props.isUserMessage(record)
   return cn(
-    'group/message flex w-full scroll-mt-6 gap-3',
+    'group/message flex w-full scroll-mt-6',
     user ? 'justify-end' : 'justify-start',
-    props.highlightedMessageId && props.highlightedMessageId === recordId(record) && 'rounded-lg ring-2 ring-ring/50',
+    props.highlightedMessageId && props.highlightedMessageId === recordId(record) && 'rounded-xl ring-2 ring-ring/50 ring-offset-4 ring-offset-background',
     props.isMessageStreaming(record, index) && 'opacity-95',
   )
 }
 
-function bubbleClass(record: ChatRecord) {
+function messageShellClass(record: ChatRecord) {
   const user = props.isUserMessage(record)
   return cn(
-    'flex max-w-[min(46rem,88%)] flex-col gap-3 rounded-lg px-3 py-2 text-sm leading-6 shadow-sm',
-    user ? 'bg-primary text-primary-foreground' : 'border bg-card text-card-foreground',
-    isRecordErrored(record) && 'border-destructive/50',
+    'flex min-w-0 flex-col gap-2',
+    user
+      ? 'w-fit max-w-[min(34rem,86%)] items-end'
+      : 'w-full max-w-[min(52rem,92%)] items-stretch',
+  )
+}
+
+function messageContentClass(record: ChatRecord) {
+  const user = props.isUserMessage(record)
+  return cn(
+    'flex min-w-0 flex-col text-sm',
+    user
+      ? 'gap-1 rounded-[1.75rem] bg-muted px-5 py-2.5 leading-[1.25] text-foreground shadow-sm'
+      : 'gap-4 text-foreground leading-6',
+    isRecordErrored(record) && user && 'ring-1 ring-destructive/50',
+  )
+}
+
+function messageContentStackClass(record: ChatRecord) {
+  return cn(
+    'flex min-w-0 flex-col',
+    props.isUserMessage(record) ? 'items-start' : 'items-stretch',
+    props.isUserMessage(record) ? 'gap-1' : 'gap-3',
   )
 }
 </script>
@@ -114,159 +152,92 @@ function bubbleClass(record: ChatRecord) {
       :key="recordId(record) || `record-${recordIndex}`"
       :class="messageClass(record, recordIndex)"
     >
-      <div :class="bubbleClass(record)">
-        <div class="flex items-center justify-between gap-2">
-          <div class="flex min-w-0 items-center gap-2">
-            <Badge
-              v-if="isMessageStreaming(record, recordIndex)"
-              variant="outline"
-            >
-              生成中
-            </Badge>
-            <Badge
-              v-else-if="isRecordAborted(record)"
-              variant="secondary"
-            >
-              已停止
-            </Badge>
-            <Badge
-              v-else-if="isRecordErrored(record)"
-              variant="destructive"
-            >
-              错误
-            </Badge>
-            <Badge
-              v-if="record.checkpointId"
-              variant="outline"
-            >
-              <GitBranchIcon data-icon="inline-start" />
-              checkpoint
-            </Badge>
-          </div>
-          <span
-            v-if="formatTime(record.created_at)"
-            class="shrink-0 text-xs opacity-70"
+      <div :class="messageShellClass(record)">
+        <div :class="messageContentClass(record)">
+          <div
+            v-if="editingRecordId === recordId(record)"
+            class="flex flex-col gap-2"
           >
-            {{ formatTime(record.created_at) }}
-          </span>
-        </div>
-
-        <div
-          v-if="editingRecordId === recordId(record)"
-          class="flex flex-col gap-2"
-        >
-          <Textarea
-            v-model="editingText"
-            rows="4"
-            aria-label="编辑消息"
-          />
-          <div class="flex justify-end gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              @click="cancelEdit"
-            >
-              取消
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              @click="confirmEdit(record)"
-            >
-              保存
-            </Button>
-          </div>
-        </div>
-
-        <template v-else>
-          <template
-            v-for="(block, blockIndex) in blocks(record)"
-            :key="`${recordId(record)}-${block.kind}-${blockIndex}`"
-          >
-            <ReasoningBlock
-              v-if="block.kind === 'thinking'"
-              :parts="block.parts"
-              :streaming="isMessageStreaming(record, recordIndex)"
+            <Textarea
+              v-model="editingText"
+              rows="4"
+              aria-label="编辑消息"
             />
-            <template v-else>
-              <MessagePartRenderer
-                v-for="(part, partIndex) in block.parts"
-                :key="`${recordId(record)}-${blockIndex}-${part.type}-${partIndex}`"
-                :part="part"
-                :user="isUserMessage(record)"
-                @jump-message="emit('jumpMessage', $event)"
-                @open-refs="openRefs"
-                @copy-code="emit('copyCode', $event)"
+            <div class="flex justify-end gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                @click="cancelEdit"
+              >
+                取消
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                @click="confirmEdit(record)"
+              >
+                保存
+              </Button>
+            </div>
+          </div>
+
+          <template v-else>
+            <div
+              v-if="thinkingBlocks(record).length"
+              class="flex min-w-0 flex-col gap-2"
+            >
+              <ReasoningBlock
+                v-for="(block, blockIndex) in thinkingBlocks(record)"
+                :key="`${recordId(record)}-thinking-${blockIndex}`"
+                :parts="block.parts"
+                :streaming="isMessageStreaming(record, recordIndex)"
               />
-            </template>
+            </div>
+
+            <div
+              v-if="contentBlocks(record).length"
+              :class="messageContentStackClass(record)"
+            >
+              <template
+                v-for="(block, blockIndex) in contentBlocks(record)"
+                :key="`${recordId(record)}-content-${blockIndex}`"
+              >
+                <MessagePartRenderer
+                  v-for="(part, partIndex) in block.parts"
+                  :key="`${recordId(record)}-${blockIndex}-${part.type}-${partIndex}`"
+                  :part="part"
+                  :user="isUserMessage(record)"
+                  @jump-message="emit('jumpMessage', $event)"
+                  @open-refs="openRefs"
+                  @copy-code="emit('copyCode', $event)"
+                />
+              </template>
+            </div>
+
+            <span
+              v-if="!hasDisplayBlocks(record)"
+              class="text-muted-foreground"
+            >
+              正在思考...
+            </span>
           </template>
-
-          <span
-            v-if="!blocks(record).length"
-            class="text-muted-foreground"
-          >
-            正在思考...
-          </span>
-        </template>
-
-        <div class="flex flex-wrap items-center justify-end gap-1 opacity-100 md:opacity-0 md:transition-opacity md:group-hover/message:opacity-100 md:group-focus-within/message:opacity-100">
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-sm"
-            aria-label="复制消息"
-            @click="copyRecord(record)"
-          >
-            <CheckIcon
-              v-if="copiedRecordId === recordId(record)"
-              data-icon="inline-start"
-            />
-            <CopyIcon
-              v-else
-              data-icon="inline-start"
-            />
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-sm"
-            aria-label="引用消息"
-            @click="quoteRecord(record)"
-          >
-            <TextQuoteIcon data-icon="inline-start" />
-          </Button>
-          <Button
-            v-if="isUserMessage(record)"
-            type="button"
-            variant="ghost"
-            size="icon-sm"
-            aria-label="编辑消息"
-            @click="beginEdit(record)"
-          >
-            <Edit3Icon data-icon="inline-start" />
-          </Button>
-          <Button
-            v-if="isUserMessage(record)"
-            type="button"
-            variant="ghost"
-            size="icon-sm"
-            aria-label="继续生成"
-            @click="emit('continueMessage', record)"
-          >
-            <RefreshCwIcon data-icon="inline-start" />
-          </Button>
-          <Button
-            v-if="!isUserMessage(record)"
-            type="button"
-            variant="ghost"
-            size="icon-sm"
-            aria-label="重新生成"
-            @click="emit('regenerateMessage', record)"
-          >
-            <RefreshCwIcon data-icon="inline-start" />
-          </Button>
         </div>
+
+        <MessageToolbar
+          :time="messageDisplayTime(record)"
+          :streaming="isMessageStreaming(record, recordIndex)"
+          :aborted="isRecordAborted(record)"
+          :errored="isRecordErrored(record)"
+          :checkpoint-id="record.checkpointId"
+          :user="isUserMessage(record)"
+          :copied="copiedRecordId === recordId(record)"
+          @copy="copyRecord(record)"
+          @quote="quoteRecord(record)"
+          @edit="beginEdit(record)"
+          @continue-message="emit('continueMessage', record)"
+          @regenerate="emit('regenerateMessage', record)"
+        />
       </div>
     </article>
 

@@ -49,8 +49,15 @@ const markdown = new MarkdownIt({
 })
 
 const rootClasses = computed(() => cn(
-  'chat-markdown max-w-none overflow-hidden text-sm leading-6',
-  props.user && 'text-primary-foreground',
+  'chat-markdown max-w-none overflow-hidden text-sm',
+  props.user ? 'leading-[1.25] text-foreground' : 'leading-6',
+))
+
+const contentClasses = computed(() => cn(
+  '[&_a]:break-words [&_a]:underline [&_blockquote]:border-l-2 [&_blockquote]:pl-3 [&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_code]:py-0.5 [&_li]:my-1 [&_ol]:ml-5 [&_ol]:list-decimal [&_pre]:my-3 [&_pre]:max-w-full [&_pre]:overflow-x-auto [&_pre]:rounded-md [&_pre]:border [&_pre]:bg-muted [&_pre]:p-3 [&_table]:my-3 [&_table]:block [&_table]:max-w-full [&_table]:overflow-x-auto [&_td]:border [&_td]:px-2 [&_td]:py-1 [&_th]:border [&_th]:px-2 [&_th]:py-1 [&_ul]:ml-5 [&_ul]:list-disc',
+  props.user
+    ? '[&_p]:my-0 [&_p+p]:mt-2'
+    : '[&_p]:my-2',
 ))
 
 watch(
@@ -111,7 +118,7 @@ function escapeHtml(value: string) {
     :class="rootClasses"
   >
     <div
-      class="[&_a]:break-words [&_a]:underline [&_blockquote]:border-l-2 [&_blockquote]:pl-3 [&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_code]:py-0.5 [&_li]:my-1 [&_ol]:ml-5 [&_ol]:list-decimal [&_p]:my-2 [&_pre]:my-3 [&_pre]:max-w-full [&_pre]:overflow-x-auto [&_pre]:rounded-md [&_pre]:border [&_pre]:bg-muted [&_pre]:p-3 [&_table]:my-3 [&_table]:block [&_table]:max-w-full [&_table]:overflow-x-auto [&_td]:border [&_td]:px-2 [&_td]:py-1 [&_th]:border [&_th]:px-2 [&_th]:py-1 [&_ul]:ml-5 [&_ul]:list-disc"
+      :class="contentClasses"
       v-html="renderedHtml"
     />
 

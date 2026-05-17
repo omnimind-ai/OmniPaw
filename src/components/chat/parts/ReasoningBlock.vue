@@ -37,14 +37,14 @@ watch(
   <Collapsible
     v-if="text"
     v-model:open="open"
-    class="rounded-md border bg-muted/40"
+    class="border-l pl-3"
   >
     <CollapsibleTrigger as-child>
       <Button
         type="button"
         variant="ghost"
         size="sm"
-        class="w-full justify-between rounded-md"
+        class="w-full justify-between px-0 text-muted-foreground hover:bg-transparent hover:text-foreground"
       >
         <span class="flex min-w-0 items-center gap-2">
           <BrainIcon data-icon="inline-start" />
@@ -58,7 +58,7 @@ watch(
     </CollapsibleTrigger>
 
     <CollapsibleContent>
-      <div class="border-t px-3 py-2 text-xs leading-5 text-muted-foreground">
+      <div class="py-2 text-xs leading-5 text-muted-foreground">
         <p class="whitespace-pre-wrap break-words">
           {{ text }}
         </p>
