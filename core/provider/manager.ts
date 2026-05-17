@@ -89,7 +89,6 @@ const providerPresets: ProviderPreset[] = [
     credentialRef: 'openai-compatible:default',
     authHeader: 'Authorization',
     description: 'OpenAI API and compatible services.',
-    defaultModelId: 'gpt-4o-mini',
     capabilities: {
       listModels: true,
       streaming: true,
@@ -102,26 +101,7 @@ const providerPresets: ProviderPreset[] = [
       supportsJsonMode: true,
       reasoningFormat: 'none',
     },
-    models: [
-      {
-        id: 'gpt-4o-mini',
-        name: 'GPT-4o mini',
-        remoteId: 'gpt-4o-mini',
-        enabled: true,
-        input: ['text', 'image'],
-        supportsStreaming: true,
-        supportsTools: true,
-        supportsReasoning: false,
-        contextWindow: 128000,
-        maxOutputTokens: 16384,
-        compat: {
-          maxTokensField: 'max_tokens',
-          supportsSystemRole: true,
-          supportsJsonMode: true,
-          reasoningFormat: 'none',
-        },
-      },
-    ],
+    models: [],
   },
   {
     id: 'ollama',
@@ -578,6 +558,7 @@ function upsertProviderInConfig(config: DesktopSettingsConfig, provider: Provide
   const now = Date.now()
   const existingIndex = config.providers.sources.findIndex((source) => source.id === provider.id)
   const existing = existingIndex >= 0 ? config.providers.sources[existingIndex] : undefined
+  const nextModelIds = new Set((provider.models ?? []).map((model) => model.id))
   const source = {
     id: provider.id,
     type: provider.type ?? legacyTypeFromApi(provider.api),
@@ -610,6 +591,10 @@ function upsertProviderInConfig(config: DesktopSettingsConfig, provider: Provide
       providerId: provider.id,
     })
   }
+
+  config.providers.models = config.providers.models.filter((model) =>
+    model.providerSourceId !== provider.id || nextModelIds.has(model.id),
+  )
 
   if (source.defaultModelId && !config.providers.models.some((model) => model.id === source.defaultModelId)) {
     source.defaultModelId = undefined

@@ -7,6 +7,7 @@ import type { ChatCompletionChunk, ChatCompletionRequest } from '../core/provide
 await testToolCallAggregation()
 await testTextDeltaAndUsageFinal()
 await testMalformedStreamJson()
+await testListModelsUsesConfiguredAuthHeader()
 
 console.log('Provider stream smoke check passed')
 
@@ -217,6 +218,26 @@ async function testTextDeltaAndUsageFinal(): Promise<void> {
     cachedInput: undefined,
     reasoning: undefined,
   })
+}
+
+async function testListModelsUsesConfiguredAuthHeader(): Promise<void> {
+  let requestHeaders: Headers
+  const provider = new OpenAICompatibleProvider({
+    id: 'test',
+    baseUrl: 'https://example.test/v1',
+    apiKey: 'test-key',
+    authHeader: 'X-API-Key',
+    fetch: (async (_input, init) => {
+      requestHeaders = new Headers(init?.headers)
+      return Response.json({ data: [{ id: 'model-a' }] }, { status: 200 })
+    }) as typeof fetch,
+  })
+
+  const models = await provider.listModels()
+
+  assert.equal(requestHeaders!.get('X-API-Key'), 'test-key')
+  assert.equal(requestHeaders!.has('Authorization'), false)
+  assert.deepEqual(models, [{ id: 'model-a', name: 'model-a' }])
 }
 
 async function collect(stream: AsyncIterable<ChatCompletionChunk>): Promise<ChatCompletionChunk[]> {

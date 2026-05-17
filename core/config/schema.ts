@@ -9,6 +9,20 @@ import type {
 export const CURRENT_SETTINGS_VERSION = 1
 
 const now = 0
+const defaultProviderModel: DesktopProviderModel = {
+  id: '',
+  name: '',
+  providerSourceId: '',
+  remoteId: '',
+  enabled: true,
+  input: ['text'],
+  supportsStreaming: true,
+  supportsTools: false,
+  supportsReasoning: false,
+  capabilities: {},
+  createdAt: now,
+  updatedAt: now,
+}
 
 export const defaultConfig: DesktopSettingsConfig = {
   version: CURRENT_SETTINGS_VERSION,
@@ -37,7 +51,6 @@ export const defaultConfig: DesktopSettingsConfig = {
         authHeader: 'Authorization',
         headers: {},
         extraBody: {},
-        defaultModelId: 'gpt-4o-mini',
         capabilities: {
           listModels: true,
           streaming: true,
@@ -54,35 +67,9 @@ export const defaultConfig: DesktopSettingsConfig = {
         updatedAt: now,
       },
     ],
-    models: [
-      {
-        id: 'gpt-4o-mini',
-        name: 'GPT-4o mini',
-        providerSourceId: 'openai-compatible',
-        remoteId: 'gpt-4o-mini',
-        enabled: true,
-        input: ['text', 'image'],
-        supportsStreaming: true,
-        supportsTools: true,
-        supportsReasoning: false,
-        contextWindow: 128000,
-        maxOutputTokens: 16384,
-        capabilities: {
-          text: true,
-          image: true,
-        },
-        compat: {
-          maxTokensField: 'max_tokens',
-          supportsSystemRole: true,
-          supportsJsonMode: true,
-          reasoningFormat: 'none',
-        },
-        createdAt: now,
-        updatedAt: now,
-      },
-    ],
+    models: [],
     settings: {
-      defaultModelId: 'gpt-4o-mini',
+      defaultModelId: '',
       fallbackModelIds: [],
       streaming: true,
     },
@@ -297,7 +284,7 @@ function normalizeProviderSource(item: unknown): DesktopProviderSource {
 }
 
 function normalizeProviderModel(item: unknown): DesktopProviderModel {
-  const defaults = defaultConfig.providers.models[0]
+  const defaults = defaultProviderModel
   if (!isPlainObject(item)) {
     throwValidationError([{ path: 'providers.models', message: 'Provider model must be an object.', code: 'invalid_type' }])
   }

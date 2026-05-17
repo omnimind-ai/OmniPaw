@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ArrowUpIcon, FileIcon, ImageIcon, PlusIcon, SparklesIcon, XIcon } from 'lucide-vue-next'
+import { AlertCircleIcon, ArrowUpIcon, FileIcon, ImageIcon, Loader2Icon, MicIcon, PlusIcon, ReplyIcon, SparklesIcon, SquareIcon, VideoIcon, XIcon } from 'lucide-vue-next'
 import { computed, ref } from 'vue'
 
 import { Badge } from '@/components/ui/badge'
@@ -19,18 +19,25 @@ import {
   InputGroupButton,
   InputGroupTextarea,
 } from '@/components/ui/input-group'
-import type { StagedFileInfo } from '@/composables/useMediaHandling'
+import { ATTACHMENT_LIMITS, formatBytes, type StagedFileInfo, type StagedUploadItem } from '@/composables/useMediaHandling'
+import { cn } from '@/lib/utils'
 import type { ProviderModelOption } from '@/stores/provider'
 
 const props = defineProps<{
   modelValue: string
   stagedFiles: StagedFileInfo[]
+  stagedUploadItems?: StagedUploadItem[]
   modelOptions: ProviderModelOption[]
   selectedModelKey: string
   selectedModelLabel: string
   selectedModelMeta?: string
+  replyPreview?: string
+  running?: boolean
+  uploadPending?: boolean
+  attachmentWarning?: string
   disabled?: boolean
   canSend?: boolean
+  canStop?: boolean
 }>()
 
 const emit = defineEmits<{
@@ -38,16 +45,28 @@ const emit = defineEmits<{
   'selectModel': [key: string]
   'addAttachment': []
   'removeAttachment': [index: number]
+  'removeUploadItem': [index: number]
+  'filesDropped': [files: File[]]
+  'clearReply': []
   'paste': [event: ClipboardEvent]
   'submit': []
+  'stop': []
 }>()
 
 const compositionActive = ref(false)
 const lastCompositionEndAt = ref<number | null>(null)
+const dragging = ref(false)
 const textareaValue = computed({
   get: () => props.modelValue,
   set: (value) => emit('update:modelValue', String(value)),
 })
+const uploadItems = computed(() => props.stagedUploadItems || [])
+const attachmentCount = computed(() => uploadItems.value.filter((item) => item.status !== 'failed').length || props.stagedFiles.length)
+const limitsText = computed(() =>
+  `${attachmentCount.value}/${ATTACHMENT_LIMITS.maxFilesPerMessage} · ${formatBytes(ATTACHMENT_LIMITS.maxFileBytes)} / 文件`,
+)
+const primaryActionLabel = computed(() => props.running ? '停止生成' : '发送')
+const canUsePrimaryAction = computed(() => props.running ? props.canStop !== false : props.canSend)
 
 function handleCompositionStart() {
   compositionActive.value = true
@@ -74,23 +93,63 @@ function handleKeydown(event: KeyboardEvent) {
   emit('submit')
 }
 
-function attachmentIcon(file: StagedFileInfo) {
-  return file.type === 'image' ? ImageIcon : FileIcon
+function attachmentIcon(file: StagedFileInfo | StagedUploadItem) {
+  if (file.type === 'image') return ImageIcon
+  if (file.type === 'record') return MicIcon
+  if (file.type === 'video') return VideoIcon
+  return FileIcon
 }
 
-function attachmentLabel(file: StagedFileInfo) {
+function attachmentLabel(file: StagedFileInfo | StagedUploadItem) {
   if (file.filename) return file.filename
   if (file.type === 'image') return '图片'
   if (file.type === 'video') return '视频'
   if (file.type === 'record') return '音频'
   return '附件'
 }
+
+function attachmentMeta(file: StagedFileInfo | StagedUploadItem) {
+  const details = []
+  if ('size' in file && file.size) details.push(formatBytes(file.size))
+  if ('mimeType' in file && file.mimeType) details.push(file.mimeType)
+  return details.join(' · ')
+}
+
+function handlePrimaryAction() {
+  if (props.running) {
+    emit('stop')
+    return
+  }
+  emit('submit')
+}
+
+function handleDragOver() {
+  if (props.disabled) return
+  dragging.value = true
+}
+
+function handleDragLeave(event: DragEvent) {
+  const current = event.currentTarget as HTMLElement | null
+  const related = event.relatedTarget as Node | null
+  if (current && related && current.contains(related)) return
+  dragging.value = false
+}
+
+function handleDrop(event: DragEvent) {
+  dragging.value = false
+  if (props.disabled) return
+  const files = Array.from(event.dataTransfer?.files || [])
+  if (files.length) emit('filesDropped', files)
+}
 </script>
 
 <template>
   <form
-    class="w-full"
+    :class="cn('w-full rounded-xl transition-colors', dragging && 'bg-accent/40')"
     @submit.prevent="emit('submit')"
+    @dragover.prevent="handleDragOver"
+    @dragleave.prevent="handleDragLeave"
+    @drop.prevent="handleDrop"
   >
     <FieldGroup>
       <Field>
@@ -101,14 +160,14 @@ function attachmentLabel(file: StagedFileInfo) {
           输入消息
         </FieldLabel>
 
-        <InputGroup class="min-h-36 shadow-sm">
+        <InputGroup :class="cn('min-h-36 shadow-sm', dragging && 'border-ring ring-3 ring-ring/30')">
           <InputGroupTextarea
             id="chat-composer"
             v-model="textareaValue"
             rows="3"
-            placeholder="Ask OmniClaw..."
+            :placeholder="dragging ? '松开以上传附件' : 'Ask OmniClaw...'"
             class="min-h-24"
-            :disabled="disabled"
+            :disabled="disabled && !running"
             @keydown="handleKeydown"
             @paste="emit('paste', $event)"
             @compositionstart="handleCompositionStart"
@@ -120,7 +179,79 @@ function attachmentLabel(file: StagedFileInfo) {
             class="flex-col gap-2"
           >
             <div
-              v-if="stagedFiles.length"
+              v-if="replyPreview"
+              class="flex w-full items-center justify-between gap-2 rounded-md border bg-muted/60 px-3 py-2 text-sm"
+            >
+              <div class="flex min-w-0 items-center gap-2">
+                <ReplyIcon data-icon="inline-start" />
+                <span class="truncate">{{ replyPreview }}</span>
+              </div>
+              <InputGroupButton
+                size="icon-xs"
+                aria-label="取消引用"
+                @click="emit('clearReply')"
+              >
+                <XIcon data-icon="inline-start" />
+              </InputGroupButton>
+            </div>
+
+            <div
+              v-if="uploadItems.length"
+              class="grid w-full gap-2 sm:grid-cols-2"
+            >
+              <div
+                v-for="(file, fileIndex) in uploadItems"
+                :key="`${file.id}-${fileIndex}`"
+                :class="cn(
+                  'flex min-w-0 items-center gap-2 rounded-md border bg-background p-2 text-sm',
+                  file.status === 'failed' && 'border-destructive/50',
+                )"
+              >
+                <div class="flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-md bg-muted">
+                  <img
+                    v-if="file.type === 'image' && file.url"
+                    :src="file.url"
+                    :alt="attachmentLabel(file)"
+                    class="size-full object-cover"
+                  >
+                  <component
+                    :is="attachmentIcon(file)"
+                    v-else
+                    aria-hidden="true"
+                  />
+                </div>
+
+                <div class="min-w-0 flex-1">
+                  <div class="flex items-center gap-2">
+                    <span class="truncate font-medium">{{ attachmentLabel(file) }}</span>
+                    <Loader2Icon
+                      v-if="file.status === 'pending'"
+                      class="animate-spin"
+                      aria-hidden="true"
+                    />
+                    <AlertCircleIcon
+                      v-if="file.status === 'failed'"
+                      class="text-destructive"
+                      aria-hidden="true"
+                    />
+                  </div>
+                  <p class="truncate text-xs text-muted-foreground">
+                    {{ file.error || attachmentMeta(file) || file.status }}
+                  </p>
+                </div>
+
+                <InputGroupButton
+                  size="icon-xs"
+                  aria-label="移除附件"
+                  @click="emit('removeUploadItem', fileIndex)"
+                >
+                  <XIcon data-icon="inline-start" />
+                </InputGroupButton>
+              </div>
+            </div>
+
+            <div
+              v-else-if="stagedFiles.length"
               class="flex w-full flex-wrap items-center gap-2"
             >
               <Badge
@@ -141,11 +272,22 @@ function attachmentLabel(file: StagedFileInfo) {
               </Badge>
             </div>
 
+            <div
+              v-if="attachmentWarning || uploadPending || attachmentCount"
+              class="flex w-full flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground"
+            >
+              <span :class="cn(attachmentWarning && 'text-destructive')">
+                {{ attachmentWarning || limitsText }}
+              </span>
+              <span v-if="uploadPending">附件上传中</span>
+            </div>
+
             <div class="flex w-full items-center justify-between gap-2">
               <div class="flex min-w-0 items-center gap-2">
                 <InputGroupButton
                   size="icon-sm"
                   aria-label="添加附件"
+                  :disabled="disabled && !running"
                   @click="emit('addAttachment')"
                 >
                   <PlusIcon data-icon="inline-start" />
@@ -201,11 +343,18 @@ function attachmentLabel(file: StagedFileInfo) {
                 <InputGroupButton
                   size="icon-sm"
                   variant="default"
-                  aria-label="发送"
-                  :disabled="!canSend"
-                  @click="emit('submit')"
+                  :aria-label="primaryActionLabel"
+                  :disabled="!canUsePrimaryAction"
+                  @click="handlePrimaryAction"
                 >
-                  <ArrowUpIcon data-icon="inline-start" />
+                  <SquareIcon
+                    v-if="running"
+                    data-icon="inline-start"
+                  />
+                  <ArrowUpIcon
+                    v-else
+                    data-icon="inline-start"
+                  />
                 </InputGroupButton>
               </div>
             </div>

@@ -261,10 +261,11 @@ export class OpenAICompatibleProvider implements BaseProvider {
       headers['Content-Type'] = 'application/json'
     }
 
-    if (this.authHeader) {
-      headers.Authorization = this.authHeader
-    } else if (this.apiKey) {
-      headers.Authorization = `Bearer ${this.apiKey}`
+    if (this.apiKey) {
+      const authHeaderName = this.authHeader?.trim() || 'Authorization'
+      headers[authHeaderName] = authHeaderName.toLowerCase() === 'authorization'
+        ? `Bearer ${this.apiKey}`
+        : this.apiKey
     }
 
     return headers

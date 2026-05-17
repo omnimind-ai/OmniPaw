@@ -104,6 +104,9 @@ try {
   assert.equal(provider?.enabled, true)
   assert.equal(provider?.models[0]?.id, 'custom-model')
   assert.equal(provider?.apiKey, undefined)
+  const openAiPreset = await providers.createFromPreset('openai-compatible')
+  assert.equal(openAiPreset.models.length, 0)
+  assert.equal(openAiPreset.defaultModelId, undefined)
   const firstPreset = await providers.createFromPreset('omniinfer-local')
   const secondPreset = await providers.createFromPreset('omniinfer-local')
   assert.equal(firstPreset.id, 'omniinfer-local')
@@ -111,6 +114,30 @@ try {
   assert.equal(secondPreset.name, 'OmniInfer Local_1')
   assert.equal(secondPreset.models[0]?.providerId, 'omniinfer-local_1')
   assert.equal(secondPreset.models[0]?.id, 'omniinfer-local_1:local-small-model')
+  const savedProvider = await providers.upsert({
+    provider: {
+      id: 'custom-openai',
+      name: 'Custom OpenAI',
+      type: 'openai-compatible',
+      api: 'openai-chat-completions',
+      baseUrl: 'https://example.test/v1',
+      enabled: true,
+      credentialRef: 'custom-openai:default',
+      authHeader: 'Authorization',
+      headers: {},
+      extraBody: {},
+      capabilities: {},
+      models: [],
+    },
+    credential: {
+      type: 'api-key',
+      label: 'Default API Key',
+      value: 'sk-updated-secret',
+    },
+  })
+  assert.equal(savedProvider?.apiKey, undefined)
+  assert.equal(providerStore.get().providers.sources.find((source) => source.id === 'custom-openai')?.apiKey, 'sk-updated-secret')
+  assert.equal((await providers.get('custom-openai'))?.models.length, 0)
 
   const toolSettings = new ConfigToolSettingsStore(store)
   const tools = new ToolManagementService(toolSettings)

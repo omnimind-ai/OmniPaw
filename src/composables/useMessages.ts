@@ -84,8 +84,12 @@ export interface ChatRecord {
   created_at?: string;
   sender_id?: string;
   sender_name?: string;
+  status?: string;
   checkpointId?: string | null;
   llm_checkpoint_id?: string | null;
+  error?: unknown;
+  usage?: Record<string, unknown>;
+  runId?: string;
 }
 
 interface ActiveConnection {
@@ -149,6 +153,7 @@ export function useMessages(options: UseMessagesOptions) {
       ? messagesBySession[options.currentSessionId.value] || []
       : [],
   );
+  const runningSessionIds = computed(() => Object.keys(activeConnections));
 
   onBeforeUnmount(() => {
     cleanupConnections();
@@ -534,6 +539,8 @@ export function useMessages(options: UseMessagesOptions) {
     if (event.type === "started") {
       markMessageStarted(botRecord);
       botRecord.id = event.assistantMessageId || botRecord.id;
+      botRecord.status = "streaming";
+      botRecord.runId = event.runId;
       return;
     }
     if (event.type === "delta") {
@@ -560,6 +567,8 @@ export function useMessages(options: UseMessagesOptions) {
     }
     if (event.type === "error" || event.type === "aborted") {
       markMessageStarted(botRecord);
+      botRecord.status = event.type;
+      botRecord.error = event.error;
       const message = errorMessage(event.error) || (event.type === "aborted" ? "Request aborted." : "Request failed.");
       appendPlain(botRecord, `\n\n${message}`);
     }
@@ -571,6 +580,7 @@ export function useMessages(options: UseMessagesOptions) {
     messagesBySession,
     loadedSessions,
     activeMessages,
+    runningSessionIds,
     isSessionRunning,
     isUserMessage,
     isMessageStreaming,
@@ -782,7 +792,7 @@ function isEmptyPlainPart(part: MessagePart) {
 }
 
 function isThinkingPart(part: MessagePart) {
-  return part.type === "think" || part.type === "tool_call";
+  return part.type === "think";
 }
 
 export function appendPlain(record: ChatRecord, text: string, append = true) {
@@ -1220,6 +1230,10 @@ function mapBridgeMessageToRecord(message: BridgeChatMessage): ChatRecord {
     sender_name: roleType === "bot" ? "Assistant" : "User",
     checkpointId: message.checkpointId || null,
     llm_checkpoint_id: message.checkpointId || null,
+    status: message.status,
+    error: message.error,
+    usage: message.usage,
+    runId: message.runId,
     content: {
       type: roleType,
       message: parts,
