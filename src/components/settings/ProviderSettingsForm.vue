@@ -36,7 +36,7 @@ import type {
   BridgeProviderPreset,
 } from '@/bridge/app'
 import { useProviderStore } from '@/stores/provider'
-import { useToast } from '@/utils/toast'
+import { errorToText, useToast } from '@/utils/toast'
 import type {
   ProviderApi,
   ProviderCapabilities,

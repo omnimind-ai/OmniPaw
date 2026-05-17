@@ -1,0 +1,145 @@
+# Core 规范
+
+## 建议阅读顺序
+
+按需展开，不要把本页当成必须逐字读完的手册：
+
+1. 只改 main/core 依赖关系：先读 `Core 边界`、`依赖注入与初始化`
+2. 涉及配置文件、Provider 配置、工具开关：再读 `配置`
+3. 涉及 SQLite、repo、migration：再读 `数据库`
+4. 涉及聊天、Provider、Agent、工具：再读 [chat-provider-agent.md](chat-provider-agent.md)
+
+---
+
+## Core 边界
+
+- MUST：`core/` 是主进程业务核心，只能由 main/preload 之外的 Node 环境调用。
+- MUST NOT：renderer 直接导入 `@core/*`。
+- MUST：跨层类型来自 `shared/types/*`，不要在 core 内定义另一套对外契约。
+- MUST：DB、文件、Provider 网络请求、附件读写只在 main/core 侧发生。
+- MUST：对用户数据路径使用 Electron `app.getPath('userData')` 或已有路径解析函数，不散落硬编码路径。
+- SHOULD：让 core 代码可被 smoke script 在 Electron Node 环境中运行。
+
+## 依赖注入与初始化
+
+- MUST：在 `electron/main.ts` 统一初始化 core 依赖，再通过 IPC handler 暴露能力。
+- MUST：保持 service / manager / repo 分层；service/manager 承担业务流程，repo 只处理持久化映射。
+- MUST：通过构造函数注入依赖，不在业务方法中临时 new 另一个跨域 service。
+- SHOULD：保持 `electron/main.ts` 的 handler 薄，参数归一化后交给 core。
+- SHOULD：让 manager 负责跨配置和运行时状态协调，repo 不处理业务决策。
+- SHOULD：避免循环依赖；需要共享能力时抽出更小 service 或纯函数。
+
+## 错误与秘密信息
+
+- MUST：Provider 错误使用 `normalizeProviderError` 归一化。
+- MUST：配置错误返回结构化 `SettingsOperationError`。
+- MUST：对秘密信息做脱敏处理，不在错误、日志、IPC payload 中泄露 API key。
+- SHOULD：对可恢复错误保留 retryable 或 recoverable 信息。
+
+---
+
+## 配置
+
+配置主落点是 `core/config/`，renderer 侧草稿与表单约束见 [frontend.md](frontend.md)。
+
+### 配置对象
+
+- MUST：以 `DesktopSettingsConfig` 作为桌面配置的唯一完整对象。
+- MUST：保存完整配置对象，不写散落的局部配置文件。
+- MUST：通过 `ConfigStore` 读写配置，保持备份、原子写入、错误状态和 clone 语义。
+- MUST：配置版本由 `CURRENT_SETTINGS_VERSION` 管理；不允许静默接受未来版本。
+- SHOULD：新增字段提供向后兼容 normalize 行为，让旧配置自动补齐默认值。
+
+### 配置字段变更
+
+新增或修改配置字段时：
+
+- MUST：同步更新 `shared/types/settings.ts`。
+- MUST：同步更新 `core/config/schema.ts` 的默认值、normalize、validate、serialize 兼容逻辑。
+- MUST：同步更新 `src/bridge/app.ts` 的 bridge 配置类型。
+- MUST：同步更新 `src/stores/settings.ts` 和相关设置 UI。
+- SHOULD：检查 `settings-config-design.md` 是否仍代表当前设计。
+
+### Provider 配置
+
+- MUST：Provider 配置来源于桌面配置中的 `providers` 结构，不重新引入数据库 Provider 表。
+- MUST：保存 Provider 时处理 credential，不把 API key 回显到 renderer 的 provider 列表。
+- MUST：认清 Provider 配置与 Provider 执行实现不是一回事；新增 preset 不代表该 Provider 已可执行。
+- SHOULD：Provider 模型、能力、compat 字段保持 config、shared type、UI 三侧命名一致。
+
+### 工具开关配置
+
+- MUST：工具开关通过 `tools.enabledByName` 管理。
+- MUST：保持 `ToolManagementService` 与 `ConfigToolSettingsStore` 的同步。
+- SHOULD：工具开关保存后广播 settings changed 事件，保证 renderer 状态可刷新。
+
+---
+
+## 数据库
+
+数据库主落点是 `core/db/`。当前使用 SQLite + better-sqlite3。
+
+### 连接
+
+- MUST：使用 `DatabaseClient` 统一连接数据库。
+- MUST：保持 `foreign_keys = ON`、`journal_mode = WAL`、`busy_timeout = 5000` 初始化行为。
+- MUST：Electron 环境数据库路径保持在 `userData/openomniclaw.sqlite3`。
+
+### Schema 与 Migration
+
+任何 schema 变更都必须通过 migration 管理。
+
+变更 Playbook：
+
+1. 在 `core/db/migrations.ts` 追加 migration。
+2. migration id 单调递增，不复用旧 id。
+3. migration SQL 必须幂等，空库和已有库都能跑通。
+4. 新表、新列、新索引同步 repo 映射和 shared 类型。
+5. 运行 `pnpm db:smoke` 和 typecheck。
+
+约束：
+
+- MUST：migration 由 `runMigrations` 在事务中应用。
+- MUST NOT：修改已发布 migration 的语义。
+- MUST NOT：重新引入已迁出到配置文件的 Provider/app settings 数据库表。
+- SHOULD：对高频查询补索引，并在 migration 中创建。
+- SHOULD：对回填 migration 明确重复执行时的行为。
+
+### Repo
+
+- MUST：repo 负责表字段和 domain 类型之间的映射，不把 SQL 散落到 service 或 renderer。
+- MUST：repo 返回 shared/domain 类型，不返回裸 row。
+- MUST：JSON 字段通过 `core/db/json.ts` 的 encode/decode 语义处理。
+- MUST：时间字段继续使用 Unix ms number，保持 shared 类型一致。
+- MUST：用户删除会话时遵守当前软删除语义，除非用户明确要求物理删除。
+- SHOULD：repo 方法使用 prepared statement 和命名参数。
+- SHOULD：多步写操作使用 better-sqlite3 transaction。
+- SHOULD：保持 DB 类型由 `core/db/types.ts` 转发 shared 类型，避免 core/db 独立分叉。
+
+---
+
+## 常见落点
+
+| 职责 | 路径 |
+|------|------|
+| 初始化和依赖装配 | `electron/main.ts` |
+| 聊天业务 | `core/chat/` |
+| Agent 和工具 | `core/agent/` |
+| Provider | `core/provider/` |
+| 配置 schema | `core/config/schema.ts` |
+| 配置读写 | `core/config/store.ts` |
+| 工具配置适配 | `core/config/tool-settings-store.ts` |
+| 数据库连接 | `core/db/client.ts` |
+| Migration | `core/db/migrations.ts` |
+| Repo | `core/db/repos/` |
+| 共享类型 | `shared/types/` |
+
+## 自检清单
+
+- [ ] renderer 没有导入 core。
+- [ ] 业务逻辑没有堆进 preload。
+- [ ] 新能力通过 shared 类型跨层。
+- [ ] 依赖从 main 初始化链路进入。
+- [ ] 配置字段变更同步了 shared type、默认值、normalize、validate、UI/store。
+- [ ] schema 变更有新 migration，repo 映射和 shared 类型已同步。
+- [ ] smoke script 可覆盖的路径已运行或说明未运行原因。
