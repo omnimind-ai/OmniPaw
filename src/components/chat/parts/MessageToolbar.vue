@@ -51,24 +51,28 @@ const hoverRevealClasses = 'opacity-100 md:opacity-0 md:transition-opacity md:gr
       </span>
       <Badge
         v-if="streaming"
+        :class="hoverRevealClasses"
         variant="outline"
       >
         生成中
       </Badge>
       <Badge
         v-else-if="aborted"
+        :class="hoverRevealClasses"
         variant="secondary"
       >
         已停止
       </Badge>
       <Badge
         v-else-if="errored"
+        :class="hoverRevealClasses"
         variant="destructive"
       >
         错误
       </Badge>
       <Badge
         v-if="checkpointId"
+        :class="hoverRevealClasses"
         variant="outline"
       >
         <GitBranchIcon data-icon="inline-start" />

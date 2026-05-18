@@ -25,6 +25,17 @@ export function isRecordErrored(record: ChatRecord) {
   return recordStatus(record) === 'error'
 }
 
+export function recordErrorText(record: ChatRecord) {
+  const value = record.error
+  if (typeof value === 'string') return value
+  if (!value || typeof value !== 'object') return ''
+  const payload = value as Record<string, unknown>
+  if (typeof payload.message === 'string') return payload.message
+  if (typeof payload.error === 'string') return payload.error
+  if (typeof payload.reason === 'string') return payload.reason
+  return ''
+}
+
 export function contentText(content: ChatContent) {
   const parts = Array.isArray(content.message) ? content.message : []
   return parts.map(partText).filter(Boolean).join('\n\n')

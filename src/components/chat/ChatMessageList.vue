@@ -6,7 +6,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Textarea } from '@/components/ui/textarea'
 import { cn } from '@/lib/utils'
 import type { ChatContent, ChatRecord, MessageDisplayBlock } from '@/composables/useMessages'
-import { contentText, formatTime, isRecordAborted, isRecordErrored, recordId } from './chat-display'
+import { contentText, formatTime, isRecordAborted, isRecordErrored, recordErrorText, recordId } from './chat-display'
 import type { RefItem } from './chat-display'
 import MessagePartRenderer from './parts/MessagePartRenderer.vue'
 import MessageToolbar from './parts/MessageToolbar.vue'
@@ -55,6 +55,16 @@ function contentBlocks(record: ChatRecord) {
 
 function hasDisplayBlocks(record: ChatRecord) {
   return blocks(record).length > 0
+}
+
+function errorText(record: ChatRecord) {
+  return recordErrorText(record)
+}
+
+function showThinkingFallback(record: ChatRecord, index: number) {
+  return !hasDisplayBlocks(record)
+    && !isRecordErrored(record)
+    && props.isMessageStreaming(record, index)
 }
 
 function messageDisplayTime(record: ChatRecord) {
@@ -215,8 +225,20 @@ function messageContentStackClass(record: ChatRecord) {
               </template>
             </div>
 
+            <div
+              v-if="isRecordErrored(record) && errorText(record)"
+              class="mt-1 px-1 py-1 text-sm text-destructive"
+            >
+              <p class="font-medium">
+                生成失败
+              </p>
+              <p class="mt-1 whitespace-pre-wrap break-words leading-6">
+                {{ errorText(record) }}
+              </p>
+            </div>
+
             <span
-              v-if="!hasDisplayBlocks(record)"
+              v-else-if="showThinkingFallback(record, recordIndex)"
               class="text-muted-foreground"
             >
               正在思考...
