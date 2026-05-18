@@ -1,5 +1,6 @@
 import type { AttachmentService } from '@core/chat/attachment-service'
 import type { ChatMessageRepo } from '@core/db/repos'
+import type { SkillManager } from '@core/skill/skill-manager'
 import type { ProviderTool } from '@core/provider/base-provider'
 import type { ToolProfile } from '@shared/types/chat'
 import { createBuiltinTools } from './builtin-tools'
@@ -10,6 +11,7 @@ import { allowedToolNamesForProfile, type ToolPolicy } from './tool-policy'
 export interface ToolRegistryOptions {
   messages: ChatMessageRepo
   attachments: AttachmentService
+  skills?: SkillManager
   disabledToolNames?: () => Iterable<string>
   mcpTools?: (input: ToolResolutionInput) => AgentTool[] | Promise<AgentTool[]>
 }
@@ -32,6 +34,7 @@ export class ToolRegistry {
       messages: this.options.messages,
       attachments: this.options.attachments,
       sessionId: input.sessionId,
+      skills: this.options.skills,
     })
     const profileNames = new Set(allowedToolNamesForProfile(input.policy.profile as ToolProfile))
     const builtins = builtinTools.filter((tool) => !disabledNames.has(tool.name) && profileNames.has(tool.name))

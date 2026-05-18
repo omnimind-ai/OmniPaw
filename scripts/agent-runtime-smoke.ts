@@ -13,6 +13,7 @@ async function runSmoke(): Promise<void> {
   await testAgentRunnerToolLoop()
   await testAgentRunnerToolLoopPreservesReasoningContent()
   await testAgentRunnerMcpToolLoop()
+  await testAgentRunnerSkillPromptAndRead()
   await testAgentRunnerMaxSteps()
   await testToolExecutorSuccess()
   await testToolExecutorMcpApprovalDenied()
@@ -141,6 +142,53 @@ async function testAgentRunnerMcpToolLoop(): Promise<void> {
   assert.equal(toolPart?.tool_calls?.[0]?.status, 'complete')
   assert.equal(toolPart?.tool_calls?.[0]?.name, 'mcp_server_echo')
   assert.match(JSON.stringify(toolPart?.tool_calls?.[0]?.result), /mcp:hello/)
+}
+
+async function testAgentRunnerSkillPromptAndRead(): Promise<void> {
+  const skillTool: AgentTool<{ skillId?: string }> = {
+    name: 'skill_read',
+    label: 'Read local skill',
+    description: 'Read local skill instructions.',
+    parameters: {
+      type: 'object',
+      required: ['skillId'],
+      properties: { skillId: { type: 'string' } },
+    },
+    risk: 'read',
+    source: 'builtin',
+    profiles: ['minimal', 'assistant', 'power'],
+    execute: async (_id, args) => ({
+      content: [{ type: 'text', text: `skill:${args.skillId ?? ''}` }],
+    }),
+  }
+  const harness = createRunnerHarness([
+    [
+      {
+        type: 'tool_call_final',
+        done: false,
+        toolCalls: [toolCall('call_skill', 'skill_read', { skillId: 'writer' })],
+        finishReason: 'tool_calls',
+      },
+      { type: 'final', done: true, finishReason: 'tool_calls' },
+    ],
+    [
+      { type: 'delta', content: 'skill applied', done: false },
+      { type: 'final', done: true, finishReason: 'stop' },
+    ],
+  ], { tools: [skillTool], skills: fakeSkillManager() })
+
+  await harness.runner.run(harness.input({ toolProfile: 'assistant' }))
+
+  assert.equal(harness.providerRequests[0]?.tools?.some((tool) => tool.function.name === 'skill_read'), true)
+  assert.match(String(harness.providerRequests[0]?.messages[0]?.content), /writer/)
+  const snapshot = harness.runRepo.get('run-1')?.requestSnapshot
+  assert.equal(snapshot?.skills?.injected, true)
+  assert.deepEqual(snapshot?.skills?.enabledSkillIds, ['writer'])
+  assert.deepEqual(snapshot?.skills?.readSkillIds, ['writer'])
+  const assistant = harness.messageRepo.get('assistant-1')
+  const toolPart = assistant?.parts.find((part) => part.type === 'tool_call')
+  assert.equal(toolPart?.tool_calls?.[0]?.status, 'complete')
+  assert.match(JSON.stringify(toolPart?.tool_calls?.[0]?.result), /skill:writer/)
 }
 
 async function testAgentRunnerMaxSteps(): Promise<void> {
@@ -287,7 +335,7 @@ function toolCall(id: string, name: string, args: unknown): ProviderToolCall {
 
 function createRunnerHarness(
   scriptedResponses: ChatCompletionChunk[][],
-  options: { tools?: AgentTool[] } = {},
+  options: { tools?: AgentTool[]; skills?: unknown } = {},
 ) {
   const session: ChatSession = {
     id: 'session-1',
@@ -359,13 +407,23 @@ function createRunnerHarness(
       }),
     } as never,
     contextBuilder: {
-      build: async () => ({
-        messages: [{ role: 'user', content: 'hello' }],
+      build: async (input: { skillPrompt?: { injected?: boolean; content?: string; enabledSkillIds?: string[]; omittedReason?: string } }) => ({
+        messages: [
+          ...(input.skillPrompt?.injected ? [{ role: 'system' as const, content: input.skillPrompt.content ?? '' }] : []),
+          { role: 'user' as const, content: 'hello' },
+        ],
         snapshot: {
           api: 'openai-chat-completions',
           model: model.id,
-          messageCount: 1,
+          messageCount: input.skillPrompt?.injected ? 2 : 1,
           attachmentCount: 0,
+          skills: input.skillPrompt
+            ? {
+                enabledSkillIds: input.skillPrompt.enabledSkillIds ?? [],
+                injected: Boolean(input.skillPrompt.injected),
+                omittedReason: input.skillPrompt.omittedReason,
+              }
+            : undefined,
         },
       }),
     } as never,
@@ -382,6 +440,8 @@ function createRunnerHarness(
         } satisfies AgentTool,
       ],
     } as never,
+    skills: options.skills as never,
+    compactSkillDescriptions: () => true,
   })
 
   return {
@@ -398,6 +458,22 @@ function createRunnerHarness(
       signal: new AbortController().signal,
       ...overrides,
     }),
+  }
+}
+
+function fakeSkillManager() {
+  let drained = false
+  return {
+    buildPromptInventory: () => ({
+      enabledSkillIds: ['writer'],
+      injected: true,
+      content: 'Available local skills:\n- writer: Draft concise text. Use skill_read first.',
+    }),
+    drainReadSkillIds: () => {
+      if (drained) return []
+      drained = true
+      return ['writer']
+    },
   }
 }
 

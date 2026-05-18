@@ -10,6 +10,7 @@ import McpServerSettingsForm from '@/components/settings/McpServerSettingsForm.v
 import ProviderSettingsForm from '@/components/settings/ProviderSettingsForm.vue'
 import SettingsSection from '@/components/settings/SettingsSection.vue'
 import SettingsSidebar, { type SettingsTab } from '@/components/settings/SettingsSidebar.vue'
+import SkillSettingsForm from '@/components/settings/SkillSettingsForm.vue'
 import {
   Field,
   FieldContent,
@@ -228,6 +229,8 @@ async function autosave() {
               />
 
               <McpServerSettingsForm v-else-if="activeTab === 'tools'" />
+
+              <SkillSettingsForm v-else-if="activeTab === 'skills'" />
 
               <SettingsSection
                 v-else-if="activeTab === 'schedule'"

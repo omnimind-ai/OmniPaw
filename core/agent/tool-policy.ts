@@ -15,9 +15,9 @@ export interface ToolPolicyDecision {
 }
 
 const PROFILE_TOOLS: Record<ToolProfile, string[]> = {
-  minimal: ['system_time', 'calculator', 'attachment_text_read', 'attachment_text_search'],
-  assistant: ['system_time', 'calculator', 'attachment_text_read', 'attachment_text_search'],
-  power: ['system_time', 'calculator', 'attachment_text_read', 'attachment_text_search'],
+  minimal: ['system_time', 'calculator', 'attachment_text_read', 'attachment_text_search', 'skill_read'],
+  assistant: ['system_time', 'calculator', 'attachment_text_read', 'attachment_text_search', 'skill_read'],
+  power: ['system_time', 'calculator', 'attachment_text_read', 'attachment_text_search', 'skill_read'],
 }
 
 export function defaultToolPolicy(profile: ToolProfile = 'minimal'): ToolPolicy {

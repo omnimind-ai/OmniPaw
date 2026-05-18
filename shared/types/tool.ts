@@ -1,6 +1,6 @@
 import type { ToolProfile, ToolRisk } from './chat'
 
-export type ToolSource = 'builtin' | 'mcp'
+export type ToolSource = 'builtin' | 'mcp' | 'skill'
 
 export interface ManagedToolInfo {
   name: string

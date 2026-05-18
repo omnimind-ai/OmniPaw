@@ -407,6 +407,54 @@ export interface BridgeMcpChangedEvent {
   status: BridgeMcpRegistryStatus
 }
 
+export type BridgeSkillStatus = 'available' | 'invalid' | 'missing'
+
+export interface BridgeSkillOperationError {
+  code: string
+  message: string
+  path?: string
+  recoverable: boolean
+  issues?: Array<{ path: string; message: string; code?: string }>
+}
+
+export interface BridgeSkillStateStatus {
+  path: string
+  backupPath: string
+  exists: boolean
+  backupExists: boolean
+  loaded: boolean
+  version?: 1
+  recoverable: boolean
+  error?: BridgeSkillOperationError
+}
+
+export interface BridgeLocalSkillSummary {
+  id: string
+  name: string
+  description: string
+  source: 'local'
+  status: BridgeSkillStatus
+  enabled: boolean
+  rootName: string
+  relativePath: string
+  metadata: Record<string, string | undefined>
+  compatibility?: string
+  error?: string
+  updatedAt?: number
+}
+
+export interface BridgeSkillListResponse {
+  skills: BridgeLocalSkillSummary[]
+  status: BridgeSkillStateStatus
+  rootPath?: string
+}
+
+export interface BridgeSkillChangedEvent {
+  reason: 'load' | 'refresh' | 'enable'
+  skills: BridgeLocalSkillSummary[]
+  status: BridgeSkillStateStatus
+}
+
 export interface RendererOpenOmniClawBridge {
   app: {
     getInfo: () => Promise<{ name: string; version: string; platform: string }>
@@ -458,7 +506,10 @@ export interface RendererOpenOmniClawBridge {
     setSessionModel?: (request: { sessionId: string; providerId: string; modelId: string }) => Promise<BridgeChatSession>
   }
   skill: {
-    list: () => Promise<Array<{ name: string; description?: string; enabled?: boolean; parameters?: unknown }>>
+    list: () => Promise<BridgeSkillListResponse>
+    refresh?: () => Promise<BridgeSkillListResponse>
+    setEnabled?: (request: { skillId: string; enabled: boolean }) => Promise<BridgeLocalSkillSummary>
+    onChanged?: (callback: (event: BridgeSkillChangedEvent) => void) => BridgeUnsubscribe
   }
   cron: {
     list: () => Promise<unknown[]>
@@ -637,17 +688,21 @@ const fallbackBridge: RendererOpenOmniClawBridge = {
     setSessionModel: () => rejectFallbackPersistence<BridgeChatSession>('provider.setSessionModel'),
   },
   skill: {
-    list: async () => [
-      {
-        name: 'system_time',
-        description: '查询当前系统时间',
-        enabled: true,
-        parameters: {
-          type: 'object',
-          properties: {},
-        },
+    list: async () => ({
+      skills: [],
+      status: {
+        path: '',
+        backupPath: '',
+        exists: false,
+        backupExists: false,
+        loaded: true,
+        version: 1,
+        recoverable: false,
       },
-    ],
+    }),
+    refresh: () => rejectFallbackPersistence<BridgeSkillListResponse>('skill.refresh'),
+    setEnabled: () => rejectFallbackPersistence<BridgeLocalSkillSummary>('skill.setEnabled'),
+    onChanged: () => () => {},
   },
   cron: {
     list: async () => [],

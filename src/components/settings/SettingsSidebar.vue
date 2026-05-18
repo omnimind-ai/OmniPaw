@@ -4,6 +4,7 @@ import {
   ArrowLeftIcon,
   BotIcon,
   CalendarClockIcon,
+  BookOpenIcon,
   InfoIcon,
   KeyboardIcon,
   MonitorIcon,
@@ -29,7 +30,7 @@ import {
   SidebarTrigger,
 } from '@/components/ui/sidebar'
 
-export type SettingsTab = 'providers' | 'defaults' | 'general' | 'display' | 'data' | 'tools' | 'schedule' | 'about'
+export type SettingsTab = 'providers' | 'defaults' | 'general' | 'display' | 'data' | 'tools' | 'skills' | 'schedule' | 'about'
 
 interface SettingsNavItem {
   value: SettingsTab
@@ -57,6 +58,7 @@ const settingsItems: SettingsNavItem[] = [
 
 const capabilityItems: SettingsNavItem[] = [
   { value: 'tools', label: '工具设置', icon: WrenchIcon },
+  { value: 'skills', label: '技能', icon: BookOpenIcon },
   { value: 'schedule', label: '计划任务', icon: CalendarClockIcon },
 ]
 

@@ -3,6 +3,7 @@ import type { ToolCallDisplay, ToolCallStatus, ToolProfile, ToolRisk } from '@sh
 import type { ToolSource } from '@shared/types/tool'
 
 export type { ToolCallStatus, ToolProfile, ToolRisk }
+export type { ToolSource }
 
 export interface AgentToolContext {
   sessionId: string

@@ -252,9 +252,15 @@ export interface ProviderRequestSnapshot {
   availableTools?: string[]
   toolSources?: Array<{
     name: string
-    source: 'builtin' | 'mcp'
+    source: 'builtin' | 'mcp' | 'skill'
     serverId?: string
   }>
+  skills?: {
+    enabledSkillIds: string[]
+    injected: boolean
+    omittedReason?: string
+    readSkillIds?: string[]
+  }
   maxSteps?: number
   fallbackReason?: string
   messageCount: number

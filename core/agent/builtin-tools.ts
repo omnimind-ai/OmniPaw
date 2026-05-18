@@ -1,5 +1,6 @@
 import type { AttachmentService } from '@core/chat/attachment-service'
 import type { ChatMessageRepo } from '@core/db/repos'
+import type { SkillManager } from '@core/skill/skill-manager'
 import type { AgentTool } from './tool'
 import type { ToolProfile, ToolRisk } from './tool'
 
@@ -18,16 +19,21 @@ export interface BuiltinToolOptions {
   messages: ChatMessageRepo
   attachments: AttachmentService
   sessionId: string
+  skills?: SkillManager
   maxResultChars?: number
 }
 
 export function createBuiltinTools(options: BuiltinToolOptions): AgentTool[] {
-  return [
+  const tools: AgentTool[] = [
     { ...BUILTIN_TOOL_DEFINITIONS.system_time, execute: createSystemTimeExecutor() },
     { ...BUILTIN_TOOL_DEFINITIONS.calculator, execute: createCalculatorExecutor() },
     { ...BUILTIN_TOOL_DEFINITIONS.attachment_text_read, execute: createAttachmentTextReadExecutor(options) },
     { ...BUILTIN_TOOL_DEFINITIONS.attachment_text_search, execute: createAttachmentTextSearchExecutor(options) },
   ]
+  if (options.skills?.getActiveSkills().length) {
+    tools.push({ ...BUILTIN_TOOL_DEFINITIONS.skill_read, execute: createSkillReadExecutor(options.skills) })
+  }
+  return tools
 }
 
 export function listBuiltinToolDefinitions(): BuiltinToolDefinition[] {
@@ -36,6 +42,7 @@ export function listBuiltinToolDefinitions(): BuiltinToolDefinition[] {
     BUILTIN_TOOL_DEFINITIONS.calculator,
     BUILTIN_TOOL_DEFINITIONS.attachment_text_read,
     BUILTIN_TOOL_DEFINITIONS.attachment_text_search,
+    BUILTIN_TOOL_DEFINITIONS.skill_read,
   ].map((definition) => ({ ...definition }))
 }
 
@@ -112,6 +119,25 @@ const BUILTIN_TOOL_DEFINITIONS = {
         query: { type: 'string' },
         maxResults: { type: 'number' },
         contextChars: { type: 'number' },
+      },
+      additionalProperties: false,
+    },
+  },
+  skill_read: {
+    name: 'skill_read',
+    label: 'Read local skill',
+    description: 'Read the SKILL.md instructions for an enabled local skill before applying it.',
+    risk: 'read',
+    source: 'builtin',
+    profiles: MINIMAL_PROFILES,
+    parameters: {
+      type: 'object',
+      required: ['skillId'],
+      properties: {
+        skillId: {
+          type: 'string',
+          description: 'The local skill id from the available skills inventory.',
+        },
       },
       additionalProperties: false,
     },
@@ -246,6 +272,27 @@ function createAttachmentTextSearchExecutor(options: BuiltinToolOptions): AgentT
           },
         ],
       }
+  }
+}
+
+interface SkillReadArgs {
+  skillId?: string
+}
+
+function createSkillReadExecutor(skills: SkillManager): AgentTool<SkillReadArgs>['execute'] {
+  return async (_toolCallId, args, signal) => {
+    throwIfAborted(signal)
+    const skillId = args.skillId?.trim()
+    if (!skillId) {
+      throw new Error('skill_read requires skillId.')
+    }
+    const result = skills.readEnabledSkillContent(skillId)
+    return {
+      content: [{
+        type: 'text',
+        text: `<skill id="${escapeXml(result.skillId)}" name="${escapeXml(result.name)}">\n${result.content}\n</skill>`,
+      }],
+    }
   }
 }
 
@@ -412,6 +459,15 @@ function makeSnippet(text: string, index: number, length: number, contextChars: 
   const start = Math.max(0, index - contextChars)
   const end = Math.min(text.length, index + length + contextChars)
   return `${start > 0 ? '...' : ''}${text.slice(start, end)}${end < text.length ? '...' : ''}`
+}
+
+function escapeXml(value: string): string {
+  return value.replace(/[&<>"]/g, (char) => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+  })[char] ?? char)
 }
 
 function isNonEmptyString(value: unknown): value is string {

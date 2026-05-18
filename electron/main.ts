@@ -16,7 +16,7 @@ import { McpRegistryStore, McpServerManager, McpValidationError, mcpError } from
 import { listBuiltinToolDefinitions } from '@core/agent/builtin-tools'
 import { ToolManagementService } from '@core/agent/tool-management-service'
 import { ProviderManager } from '@core/provider/manager'
-import { SkillManager } from '@core/skill/skill-manager'
+import { SkillManager, SkillValidationError, skillError } from '@core/skill'
 import { APP_NAME, IPC_CHANNELS } from '@shared/constants'
 import type {
   DesktopSettingsConfig,
@@ -41,10 +41,10 @@ import type {
   SaveMcpServerRequest,
   SetMcpServerEnabledRequest,
 } from '@shared/types/mcp'
+import type { SetSkillEnabledRequest, SkillOperationError } from '@shared/types/skill'
 
 const isMac = process.platform === 'darwin'
 
-const skillManager = new SkillManager()
 const cronManager = new CronManager()
 
 let mainWindow: BrowserWindow | null = null
@@ -54,6 +54,7 @@ let sessionRepo: ChatSessionRepo
 let toolManagementService: ToolManagementService
 let configStore: ConfigStore
 let mcpServerManager: McpServerManager
+let skillManager: SkillManager
 
 function createMainWindow(): void {
   mainWindow = new BrowserWindow({
@@ -177,7 +178,11 @@ function registerIpcHandlers(): void {
       defaultModelId: request.modelId,
     }),
   )
-  ipcMain.handle(IPC_CHANNELS.skill.list, () => skillManager.list())
+  ipcMain.handle(IPC_CHANNELS.skill.list, () => skillResult(() => skillManager.list()))
+  ipcMain.handle(IPC_CHANNELS.skill.refresh, () => skillResult(() => skillManager.refresh()))
+  ipcMain.handle(IPC_CHANNELS.skill.setEnabled, (_event, request: SetSkillEnabledRequest) =>
+    skillResult(() => skillManager.setEnabled(request)),
+  )
   ipcMain.handle(IPC_CHANNELS.cron.list, () => cronManager.list())
   ipcMain.handle(IPC_CHANNELS.tools.list, () => toolManagementService.list())
   ipcMain.handle(IPC_CHANNELS.tools.setEnabled, (_event, request: SetToolEnabledRequest) =>
@@ -229,6 +234,11 @@ function initializeCore(): void {
     onChanged: broadcastMcpChanged,
   })
   loadStartupMcp()
+  skillManager = new SkillManager({
+    userDataPath: app.getPath('userData'),
+    onChanged: broadcastSkillChanged,
+  })
+  loadStartupSkills()
   toolManagementService = new ToolManagementService(new ConfigToolSettingsStore(configStore, (saved) => {
     broadcastSettingsChanged('save', saved)
   }), () => mcpServerManager.listTools().tools.map((tool) => ({
@@ -274,6 +284,8 @@ function initializeCore(): void {
     providers: providerManager,
     contextBuilder,
     runManager,
+    skills: skillManager,
+    compactSkillDescriptions: () => configStore.get().app.compactSkillDescriptions,
     disabledToolNames: () => toolManagementService.getDisabledToolNames(),
     mcpTools: () => mcpServerManager.getAgentTools(),
   })
@@ -294,6 +306,12 @@ function broadcastSettingsChanged(reason: SettingsChangeReason, config: DesktopS
 function broadcastMcpChanged(event: Parameters<NonNullable<ConstructorParameters<typeof McpServerManager>[0]['onChanged']>>[0]): void {
   for (const window of BrowserWindow.getAllWindows()) {
     window.webContents.send(IPC_CHANNELS.mcp.changed, event)
+  }
+}
+
+function broadcastSkillChanged(event: Parameters<NonNullable<ConstructorParameters<typeof SkillManager>[0]['onChanged']>>[0]): void {
+  for (const window of BrowserWindow.getAllWindows()) {
+    window.webContents.send(IPC_CHANNELS.skill.changed, event)
   }
 }
 
@@ -350,6 +368,32 @@ async function mcpResult<T>(operation: () => T | Promise<T>): Promise<McpIpcResu
   }
 }
 
+type SkillIpcResult<T> =
+  | { ok: true; value: T }
+  | { ok: false; error: SkillOperationError }
+
+function skillResult<T>(operation: () => T): SkillIpcResult<T> {
+  try {
+    return {
+      ok: true,
+      value: operation(),
+    }
+  } catch (error) {
+    if (error instanceof SkillValidationError) {
+      return {
+        ok: false,
+        error: error.details,
+      }
+    }
+    return {
+      ok: false,
+      error: skillError('skill_io_error', error instanceof Error ? error.message : 'Skill operation failed.', {
+        recoverable: true,
+      }),
+    }
+  }
+}
+
 function isSaveSettingsRequest(value: SaveDesktopSettingsRequest | DesktopSettingsConfig): value is SaveDesktopSettingsRequest {
   return Boolean(value && typeof value === 'object' && 'config' in value)
 }
@@ -371,6 +415,17 @@ function loadStartupMcp(): void {
     mcpServerManager.startBackgroundRefresh()
   } catch (error) {
     if (error instanceof McpValidationError) {
+      return
+    }
+    throw error
+  }
+}
+
+function loadStartupSkills(): void {
+  try {
+    skillManager.load()
+  } catch (error) {
+    if (error instanceof SkillValidationError) {
       return
     }
     throw error

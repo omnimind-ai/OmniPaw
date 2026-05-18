@@ -5,6 +5,7 @@ import { AgentRunner } from '@core/agent/agent-runner'
 import type { AgentTool } from '@core/agent/tool'
 import { ToolRegistry } from '@core/agent/tool-registry'
 import type { ToolResolutionInput } from '@core/agent/tool-registry'
+import type { SkillManager } from '@core/skill/skill-manager'
 import type {
   AttachmentRepo,
   ChatMessageRepo,
@@ -43,6 +44,8 @@ export interface ChatServiceOptions {
   runManager: RunManager
   disabledToolNames?: () => Iterable<string>
   mcpTools?: (input: ToolResolutionInput) => AgentTool[] | Promise<AgentTool[]>
+  skills?: SkillManager
+  compactSkillDescriptions?: () => boolean
   agentRunner?: AgentRunner
 }
 
@@ -56,9 +59,12 @@ export class ChatService {
       providers: options.providers,
       contextBuilder: options.contextBuilder,
       runManager: options.runManager,
+      skills: options.skills,
+      compactSkillDescriptions: options.compactSkillDescriptions,
       toolRegistry: new ToolRegistry({
         messages: options.messages,
         attachments: options.attachments,
+        skills: options.skills,
         disabledToolNames: options.disabledToolNames,
         mcpTools: options.mcpTools,
       }),

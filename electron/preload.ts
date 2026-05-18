@@ -50,6 +50,23 @@ async function invokeMcp<T>(channel: string, payload?: unknown): Promise<T> {
   return response?.ok === true ? response.value as T : response as T
 }
 
+async function invokeSkill<T>(channel: string, payload?: unknown): Promise<T> {
+  const response = arguments.length >= 2
+    ? await ipcRenderer.invoke(channel, payload)
+    : await ipcRenderer.invoke(channel)
+
+  if (response?.ok === false) {
+    const error = new Error(response.error?.message || 'Skill operation failed.') as Error & {
+      details?: unknown
+    }
+    error.name = 'SkillOperationError'
+    error.details = response.error
+    throw error
+  }
+
+  return response?.ok === true ? response.value as T : response as T
+}
+
 const bridge: OpenOmniClawBridge = {
   app: {
     getInfo: () => ipcRenderer.invoke(IPC_CHANNELS.app.getInfo),
@@ -139,7 +156,10 @@ const bridge: OpenOmniClawBridge = {
     setSessionModel: (request) => ipcRenderer.invoke(IPC_CHANNELS.provider.setSessionModel, request),
   },
   skill: {
-    list: () => ipcRenderer.invoke(IPC_CHANNELS.skill.list),
+    list: () => invokeSkill(IPC_CHANNELS.skill.list),
+    refresh: () => invokeSkill(IPC_CHANNELS.skill.refresh),
+    setEnabled: (request) => invokeSkill(IPC_CHANNELS.skill.setEnabled, request),
+    onChanged: (callback) => createUnsubscriber(IPC_CHANNELS.skill.changed, callback),
   },
   cron: {
     list: () => ipcRenderer.invoke(IPC_CHANNELS.cron.list),

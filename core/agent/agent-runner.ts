@@ -2,10 +2,11 @@ import type { ChatMessageRepo, ChatRunRepo } from '@core/db/repos'
 import { normalizeProviderError } from '@core/provider/errors'
 import type { ProviderManager } from '@core/provider/manager'
 import type { ProviderToolCall } from '@core/provider/base-provider'
-import type { ChatMessagePart, ChatRun, ChatRunMode, ChatSession, ToolProfile } from '@shared/types/chat'
+import type { ChatMessagePart, ChatRun, ChatRunMode, ChatSession, ProviderRequestSnapshot, ToolProfile } from '@shared/types/chat'
 import type { ProviderConfig, ProviderModel } from '@shared/types/provider'
 import type { ContextBuilder } from '@core/chat/context-manager'
 import type { RunManager } from '@core/chat/run-manager'
+import type { SkillManager } from '@core/skill/skill-manager'
 import { createAgentStepEvent, createToolCallEvent, createToolResultEvent, toolCallPart, upsertToolCallPart } from './agent-events'
 import { ToolExecutor } from './tool-executor'
 import { providerToolsFromAgentTools, ToolRegistry } from './tool-registry'
@@ -18,6 +19,8 @@ export interface AgentRunnerOptions {
   contextBuilder: ContextBuilder
   runManager: RunManager
   toolRegistry: ToolRegistry
+  skills?: SkillManager
+  compactSkillDescriptions?: () => boolean
   toolExecutor?: ToolExecutor
   onComplete?: (sessionId: string) => void
 }
@@ -50,12 +53,17 @@ export class AgentRunner {
 
     try {
       const allMessages = this.options.messages.listBySession(input.session.id)
+      const skillPrompt = this.options.skills?.buildPromptInventory({
+        compact: this.options.compactSkillDescriptions?.() ?? true,
+        supportsSystemRole: input.model.compat?.supportsSystemRole !== false,
+      })
       const context = await this.options.contextBuilder.build({
         session: input.session,
         messages: allMessages,
         currentUserMessageId: input.run.userMessageId,
         provider: input.provider,
         model: input.model,
+        skillPrompt,
       })
       const client = await this.options.providers.createProviderClient(input.provider.id)
       const messages = [...context.messages]
@@ -64,7 +72,7 @@ export class AgentRunner {
         ? await this.options.toolRegistry.resolve({ sessionId: input.session.id, policy })
         : []
       const providerTools = providerToolsFromAgentTools(agentTools)
-      const snapshot = {
+      const snapshot: ProviderRequestSnapshot = {
         ...context.snapshot,
         mode,
         toolProfile: input.toolProfile ?? 'minimal',
@@ -74,6 +82,13 @@ export class AgentRunner {
           source: tool.source,
           serverId: tool.serverId,
         })),
+        skills: skillPrompt
+          ? {
+              enabledSkillIds: skillPrompt.enabledSkillIds,
+              injected: skillPrompt.injected,
+              omittedReason: skillPrompt.omittedReason,
+            }
+          : undefined,
         maxSteps,
         fallbackReason,
       }
@@ -186,6 +201,29 @@ export class AgentRunner {
             policy,
             signal: input.signal,
           })
+          if (toolCall.function.name === 'skill_read') {
+            const readSkillIds = this.options.skills?.drainReadSkillIds() ?? []
+            if (readSkillIds.length) {
+              const currentRun = this.options.runs.get(input.run.id) ?? input.run
+              const currentSnapshot = currentRun.requestSnapshot ?? snapshot
+              this.options.runs.save({
+                ...currentRun,
+                requestSnapshot: {
+                  ...currentSnapshot,
+                  skills: {
+                    enabledSkillIds: currentSnapshot.skills?.enabledSkillIds ?? skillPrompt?.enabledSkillIds ?? [],
+                    injected: currentSnapshot.skills?.injected ?? skillPrompt?.injected ?? false,
+                    omittedReason: currentSnapshot.skills?.omittedReason ?? skillPrompt?.omittedReason,
+                    readSkillIds: [...new Set([
+                      ...(currentSnapshot.skills?.readSkillIds ?? []),
+                      ...readSkillIds,
+                    ])].sort(),
+                  },
+                },
+                updatedAt: Date.now(),
+              })
+            }
+          }
 
           this.upsertAndEmitTool(input.run, assistantParts, execution.display, step, 'result')
 

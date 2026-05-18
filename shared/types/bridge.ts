@@ -39,7 +39,12 @@ import type {
   SetSessionModelRequest,
   TestProviderRequest,
 } from './provider'
-import type { SkillDefinition } from './skill'
+import type {
+  LocalSkillSummary,
+  SetSkillEnabledRequest,
+  SkillChangedEvent,
+  SkillListResponse,
+} from './skill'
 import type { ManagedToolInfo, SetToolEnabledRequest, SetToolEnabledResponse } from './tool'
 import type {
   DeleteMcpServerRequest,
@@ -118,7 +123,10 @@ export interface OpenOmniClawBridge {
     setSessionModel: (request: SetSessionModelRequest) => Promise<ChatSession>
   }
   skill: {
-    list: () => Promise<SkillDefinition[]>
+    list: () => Promise<SkillListResponse>
+    refresh: () => Promise<SkillListResponse>
+    setEnabled: (request: SetSkillEnabledRequest) => Promise<LocalSkillSummary>
+    onChanged: (callback: (event: SkillChangedEvent) => void) => Unsubscribe
   }
   cron: {
     list: () => Promise<CronTask[]>

@@ -2,6 +2,7 @@ import type { AttachmentService } from './attachment-service'
 import { attachmentIdFromPart } from './attachment-service'
 import type { ChatMessage, ChatMessagePart, ChatSession, ProviderRequestSnapshot, ToolCallDisplay } from '@shared/types/chat'
 import type { ProviderConfig, ProviderMessage, ProviderModel } from '@shared/types/provider'
+import type { SkillPromptContext } from '@shared/types/skill'
 
 export interface BuildContextInput {
   session: ChatSession
@@ -9,6 +10,7 @@ export interface BuildContextInput {
   currentUserMessageId: string
   provider: ProviderConfig
   model: ProviderModel
+  skillPrompt?: SkillPromptContext
 }
 
 export interface BuildContextResult {
@@ -31,8 +33,12 @@ export class ContextBuilder {
     const selected = eligible.slice(-(policy.maxMessages ?? 40))
     const providerMessages: ProviderMessage[] = []
 
-    if (input.session.systemPrompt && input.model.compat?.supportsSystemRole !== false) {
-      providerMessages.push({ role: 'system', content: input.session.systemPrompt })
+    if (input.model.compat?.supportsSystemRole !== false) {
+      const systemParts = [input.session.systemPrompt, input.skillPrompt?.injected ? input.skillPrompt.content : undefined]
+        .filter((value): value is string => Boolean(value && value.trim()))
+      if (systemParts.length) {
+        providerMessages.push({ role: 'system', content: systemParts.join('\n\n') })
+      }
     }
 
     let attachmentCount = 0
@@ -82,6 +88,13 @@ export class ContextBuilder {
         messageCount: providerMessages.length,
         attachmentCount,
         estimatedInputTokens: estimateTokens(providerMessages),
+        skills: input.skillPrompt
+          ? {
+              enabledSkillIds: input.skillPrompt.enabledSkillIds,
+              injected: input.skillPrompt.injected,
+              omittedReason: input.skillPrompt.omittedReason,
+            }
+          : undefined,
       },
     }
   }
