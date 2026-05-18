@@ -1,10 +1,8 @@
-import { createRequire } from 'node:module'
-
+import { contextBridge, ipcRenderer } from 'electron'
 import { IPC_CHANNELS } from '@shared/constants'
 import type { OpenOmniClawBridge, Unsubscribe } from '@shared/types/bridge'
 
-const require = createRequire(import.meta.url)
-const { contextBridge, ipcRenderer } = require('electron') as typeof import('electron')
+const allowedTaskStates = new Set(['idle', 'preparing', 'running', 'completed'])
 
 function createUnsubscriber<T>(channel: string, callback: (payload: T) => void): Unsubscribe {
   const listener = (_event: Electron.IpcRendererEvent, payload: T) => callback(payload)
@@ -73,6 +71,31 @@ async function invokeSkill<T>(channel: string, payload?: unknown): Promise<T> {
 const bridge: OpenOmniClawBridge = {
   app: {
     getInfo: () => ipcRenderer.invoke(IPC_CHANNELS.app.getInfo),
+  },
+  cat: {
+    show: () => ipcRenderer.invoke(IPC_CHANNELS.cat.show),
+    hide: () => ipcRenderer.invoke(IPC_CHANNELS.cat.hide),
+    toggleVisibility: () => ipcRenderer.invoke(IPC_CHANNELS.cat.toggleVisibility),
+    setState: (state) => {
+      if (!allowedTaskStates.has(state)) {
+        return Promise.resolve({
+          state: 'idle',
+          visible: false,
+          bounds: null,
+        })
+      }
+
+      return ipcRenderer.invoke(IPC_CHANNELS.cat.setState, state)
+    },
+    reportState: (state) => ipcRenderer.send(IPC_CHANNELS.cat.reportState, state),
+    onCommand: (callback) => createUnsubscriber(IPC_CHANNELS.cat.commandState, callback),
+    togglePanel: () => ipcRenderer.invoke(IPC_CHANNELS.cat.togglePanel),
+    dragStart: () => ipcRenderer.invoke(IPC_CHANNELS.cat.dragStart),
+    dragMove: (payload) => ipcRenderer.invoke(IPC_CHANNELS.cat.dragMove, payload),
+    dragEnd: () => ipcRenderer.invoke(IPC_CHANNELS.cat.dragEnd),
+  },
+  catPanel: {
+    onPlacement: (callback) => createUnsubscriber(IPC_CHANNELS.catPanel.placement, callback),
   },
   settings: {
     load: () => invokeSettings(IPC_CHANNELS.settings.load),

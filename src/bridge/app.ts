@@ -1,3 +1,14 @@
+import type {
+  CatBounds,
+  CatCommandEvent,
+  CatPanelPlacement,
+  CatPanelToggleResult,
+  CatStatus,
+  CatTaskState,
+  CatWindowState,
+  CatDragPayload,
+} from '@shared/types/cat'
+
 export type BridgeUnsubscribe = () => void
 
 export type BridgeAppTheme = 'system' | 'light' | 'dark'
@@ -483,6 +494,21 @@ export interface RendererOpenOmniClawBridge {
   app: {
     getInfo: () => Promise<{ name: string; version: string; platform: string }>
   }
+  cat: {
+    show: () => Promise<CatStatus>
+    hide: () => Promise<CatStatus>
+    toggleVisibility: () => Promise<CatStatus>
+    setState: (state: CatTaskState) => Promise<CatStatus>
+    reportState: (state: CatWindowState) => void
+    onCommand: (callback: (event: CatCommandEvent) => void) => BridgeUnsubscribe
+    togglePanel: () => Promise<CatPanelToggleResult>
+    dragStart: () => Promise<CatBounds | null>
+    dragMove: (payload: CatDragPayload) => Promise<CatBounds | null>
+    dragEnd: () => Promise<CatBounds | null>
+  }
+  catPanel: {
+    onPlacement: (callback: (event: CatPanelPlacement) => void) => BridgeUnsubscribe
+  }
   settings?: {
     load: () => Promise<BridgeDesktopSettingsConfig>
     save: (
@@ -594,6 +620,22 @@ function rejectFallbackPersistence<T>(operation: string): Promise<T> {
   return Promise.reject(new Error(`${fallbackBridgePersistenceMessage} (${operation})`))
 }
 
+let fallbackCatVisible = false
+let fallbackCatState: CatWindowState = 'hidden'
+let fallbackCatPanelVisible = false
+let fallbackCatPanelSide: CatPanelPlacement['side'] | null = null
+
+function fallbackCatStatus(extra: Partial<CatStatus> = {}): CatStatus {
+  return {
+    state: fallbackCatState,
+    visible: fallbackCatVisible,
+    bounds: null,
+    panelVisible: fallbackCatPanelVisible,
+    panelSide: fallbackCatPanelSide,
+    ...extra,
+  }
+}
+
 const fallbackBridge: RendererOpenOmniClawBridge = {
   app: {
     getInfo: async () => ({
@@ -601,6 +643,61 @@ const fallbackBridge: RendererOpenOmniClawBridge = {
       version: 'dev',
       platform: 'win32',
     }),
+  },
+  cat: {
+    show: async () => {
+      fallbackCatVisible = true
+      if (fallbackCatState === 'hidden') {
+        fallbackCatState = 'idle'
+      }
+      return fallbackCatStatus()
+    },
+    hide: async () => {
+      fallbackCatVisible = false
+      fallbackCatState = 'hidden'
+      fallbackCatPanelVisible = false
+      fallbackCatPanelSide = null
+      return fallbackCatStatus()
+    },
+    toggleVisibility: async () => {
+      if (fallbackCatVisible) {
+        fallbackCatVisible = false
+        fallbackCatState = 'hidden'
+        fallbackCatPanelVisible = false
+        fallbackCatPanelSide = null
+        return fallbackCatStatus()
+      }
+
+      fallbackCatVisible = true
+      if (fallbackCatState === 'hidden') {
+        fallbackCatState = 'idle'
+      }
+      return fallbackCatStatus()
+    },
+    setState: async (state) => {
+      fallbackCatVisible = true
+      fallbackCatState = state
+      return fallbackCatStatus()
+    },
+    reportState: (state) => {
+      fallbackCatState = state
+      fallbackCatVisible = state !== 'hidden'
+    },
+    onCommand: () => () => {},
+    togglePanel: async () => {
+      fallbackCatPanelVisible = !fallbackCatPanelVisible
+      fallbackCatPanelSide = fallbackCatPanelVisible ? 'right' : null
+      return {
+        visible: fallbackCatPanelVisible,
+        side: fallbackCatPanelSide || undefined,
+      }
+    },
+    dragStart: async () => null,
+    dragMove: async () => null,
+    dragEnd: async () => null,
+  },
+  catPanel: {
+    onPlacement: () => () => {},
   },
   settings: {
     load: async () => fallbackSettingsConfig(),

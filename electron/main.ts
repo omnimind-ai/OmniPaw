@@ -46,6 +46,11 @@ import type {
   SetSkillEnabledRequest,
   SkillOperationError,
 } from '@shared/types/skill'
+import {
+  closeCatPanelWindow,
+  registerCatWindowIpcHandlers,
+  showCatWindow,
+} from './cat-window'
 
 const isMac = process.platform === 'darwin'
 
@@ -94,6 +99,7 @@ function createMainWindow(): void {
 
   mainWindow.on('closed', () => {
     mainWindow = null
+    closeCatPanelWindow()
   })
 }
 
@@ -237,8 +243,10 @@ function registerIpcHandlers(): void {
 
 app.whenReady().then(() => {
   initializeCore()
+  registerCatWindowIpcHandlers()
   registerIpcHandlers()
   createMainWindow()
+  showCatWindow()
 
   app.on('activate', () => {
     if (!mainWindow) {

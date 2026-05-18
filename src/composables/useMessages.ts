@@ -413,6 +413,7 @@ export function useMessages(options: UseMessagesOptions) {
     }
 
     try {
+      await appBridge.cat.setState('preparing').catch(() => {})
       const response = await appBridge.chat.regenerateMessage?.(
         sessionId,
         String(targetMessageId),
@@ -442,6 +443,9 @@ export function useMessages(options: UseMessagesOptions) {
       delete activeConnections[sessionId]
       markRecordErrored(botRecord, error)
       console.error('Regenerate failed:', error)
+      if (!runningSessionIds.value.length) {
+        void appBridge.cat.setState('idle').catch(() => {})
+      }
       toast.error(error, { description: '重新生成失败' })
     } finally {
       await options.onSessionsChanged?.()
@@ -478,6 +482,7 @@ export function useMessages(options: UseMessagesOptions) {
     llmCheckpointId: string | null = null
   ) {
     let runId: string | undefined
+    await appBridge.cat.setState('preparing').catch(() => {})
     const unsubscribe = appBridge.chat.onStreamEvent?.((event) => {
       if (event.sessionId !== sessionId) return
       if (runId && event.runId !== runId) return
@@ -533,6 +538,9 @@ export function useMessages(options: UseMessagesOptions) {
       delete activeConnections[sessionId]
       markRecordErrored(botRecord, error)
       console.error('Bridge chat failed:', error)
+      if (!runningSessionIds.value.length) {
+        void appBridge.cat.setState('idle').catch(() => {})
+      }
       toast.error(error, { description: '消息发送失败' })
       await options.onSessionsChanged?.()
     }

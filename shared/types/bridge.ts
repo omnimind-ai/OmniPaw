@@ -1,4 +1,14 @@
 import type { AppInfo } from './app'
+import type {
+  CatBounds,
+  CatCommandEvent,
+  CatPanelPlacement,
+  CatPanelToggleResult,
+  CatStatus,
+  CatTaskState,
+  CatWindowState,
+  CatDragPayload,
+} from './cat'
 import type { CronTask } from './cron'
 import type {
   DesktopSettingsChangedEvent,
@@ -64,6 +74,21 @@ export type Unsubscribe = () => void
 export interface OpenOmniClawBridge {
   app: {
     getInfo: () => Promise<AppInfo>
+  }
+  cat: {
+    show: () => Promise<CatStatus>
+    hide: () => Promise<CatStatus>
+    toggleVisibility: () => Promise<CatStatus>
+    setState: (state: CatTaskState) => Promise<CatStatus>
+    reportState: (state: CatWindowState) => void
+    onCommand: (callback: (event: CatCommandEvent) => void) => Unsubscribe
+    togglePanel: () => Promise<CatPanelToggleResult>
+    dragStart: () => Promise<CatBounds | null>
+    dragMove: (payload: CatDragPayload) => Promise<CatBounds | null>
+    dragEnd: () => Promise<CatBounds | null>
+  }
+  catPanel: {
+    onPlacement: (callback: (placement: CatPanelPlacement) => void) => Unsubscribe
   }
   settings: {
     load: () => Promise<DesktopSettingsConfig>

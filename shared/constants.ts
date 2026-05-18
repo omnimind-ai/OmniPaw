@@ -4,6 +4,21 @@ export const IPC_CHANNELS = {
   app: {
     getInfo: 'app:get-info',
   },
+  cat: {
+    show: 'cat:show',
+    hide: 'cat:hide',
+    toggleVisibility: 'cat:toggle-visibility',
+    setState: 'cat:set-state',
+    togglePanel: 'cat:toggle-panel',
+    dragStart: 'cat:drag-start',
+    dragMove: 'cat:drag-move',
+    dragEnd: 'cat:drag-end',
+    reportState: 'cat:renderer-state',
+    commandState: 'cat:state-changed',
+  },
+  catPanel: {
+    placement: 'cat-panel:placement',
+  },
   settings: {
     load: 'settings:load',
     save: 'settings:save',

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import {
+  CatIcon,
   MessageSquareIcon,
   MoreHorizontalIcon,
   PencilIcon,
@@ -69,6 +70,7 @@ const emit = defineEmits<{
   newChat: []
   selectSession: [sessionId: string]
   openSettings: []
+  toggleCat: []
   renameSession: [sessionId: string, title: string]
   deleteSession: [sessionId: string]
 }>()
@@ -342,7 +344,17 @@ function clearSearch() {
 
     <SidebarFooter class="items-end">
       <SidebarMenu>
-        <SidebarMenuItem class="flex justify-end">
+        <SidebarMenuItem class="flex justify-end gap-2">
+          <SidebarMenuButton
+            class="w-auto"
+            size="default"
+            tooltip="小猫悬浮球"
+            aria-label="小猫悬浮球"
+            @click="emit('toggleCat')"
+          >
+            <CatIcon />
+          </SidebarMenuButton>
+
           <SidebarMenuButton
             class="w-auto"
             size="default"

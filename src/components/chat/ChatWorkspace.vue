@@ -3,6 +3,7 @@ import { storeToRefs } from 'pinia'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
+import { appBridge } from '@/bridge/app'
 import ChatComposer from '@/components/ChatComposer.vue'
 import ChatMessageList from '@/components/chat/ChatMessageList.vue'
 import { contentText } from '@/components/chat/chat-display'
@@ -278,6 +279,14 @@ async function handleSelectSession(sessionId: string) {
 
 async function openSettings() {
   await router.push('/settings')
+}
+
+async function toggleCatVisibility() {
+  try {
+    await appBridge.cat.toggleVisibility()
+  } catch (error) {
+    toast.error(error, { description: '切换小猫失败' })
+  }
 }
 
 function openFilePicker() {
@@ -614,6 +623,7 @@ function attachmentTypeLabel(type: string) {
       @new-chat="handleNewChat"
       @select-session="handleSelectSession"
       @open-settings="openSettings"
+      @toggle-cat="toggleCatVisibility"
       @rename-session="handleRenameSession"
       @delete-session="handleDeleteSession"
     />

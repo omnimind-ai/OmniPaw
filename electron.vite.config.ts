@@ -51,6 +51,8 @@ export default defineConfig({
       rollupOptions: {
         input: {
           index: resolve(__dirname, 'index.html'),
+          'cat-window': resolve(__dirname, 'cat-window.html'),
+          'cat-panel': resolve(__dirname, 'cat-panel.html'),
         },
       },
     },
