@@ -95,6 +95,14 @@ function setModelOpen(model: ProviderModelDraft, open: boolean) {
   }
   openModelIds.value = [...next]
 }
+
+function modelCapabilityBadges(model: ProviderModelDraft) {
+  return [
+    model.supportsStreaming && '流式',
+    model.supportsTools && '工具',
+    model.supportsReasoning && '推理',
+  ].filter((value): value is string => Boolean(value))
+}
 </script>
 
 <template>
@@ -162,18 +170,18 @@ function setModelOpen(model: ProviderModelDraft, open: boolean) {
       class="rounded-lg border"
       @update:open="setModelOpen(model, $event)"
     >
-      <div class="flex items-center gap-2 p-3">
+      <div class="flex items-start gap-3 p-3">
         <CollapsibleTrigger as-child>
           <button
             type="button"
-            class="group flex min-w-0 flex-1 items-center gap-3 text-left"
+            class="group flex min-w-0 flex-1 items-start gap-3 text-left"
           >
             <ChevronDownIcon
-              class="shrink-0 transition-transform group-data-[state=closed]:-rotate-90"
+              class="mt-0.5 shrink-0 transition-transform group-data-[state=closed]:-rotate-90"
               aria-hidden="true"
             />
-            <span class="min-w-0 flex-1">
-              <span class="flex min-w-0 items-center gap-2">
+            <span class="min-w-0 flex-1 overflow-hidden">
+              <span class="flex min-w-0 flex-wrap items-center gap-2">
                 <span class="truncate text-sm font-medium">
                   {{ model.name || model.id || '未命名模型' }}
                 </span>
@@ -190,22 +198,50 @@ function setModelOpen(model: ProviderModelDraft, open: boolean) {
                   禁用
                 </Badge>
               </span>
-              <span class="mt-1 block truncate text-xs text-muted-foreground">
+              <span class="mt-1 block min-w-0 truncate text-xs text-muted-foreground">
                 {{ model.remoteId || model.id }}
               </span>
+              <div
+                v-if="modelCapabilityBadges(model).length"
+                class="mt-2 flex flex-wrap items-center gap-2"
+              >
+                <Badge
+                  v-for="badge in modelCapabilityBadges(model)"
+                  :key="badge"
+                  variant="outline"
+                  class="text-[11px]"
+                >
+                  {{ badge }}
+                </Badge>
+              </div>
             </span>
           </button>
         </CollapsibleTrigger>
 
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-sm"
-          aria-label="删除模型"
-          @click="emit('remove-model', index)"
-        >
-          <Trash2Icon />
-        </Button>
+        <div class="flex shrink-0 items-center gap-2 pt-0.5">
+          <Switch
+            :id="`model-enabled-${index}`"
+            v-model="model.enabled"
+            aria-label="启用模型"
+            @click.stop
+          />
+          <FieldLabel
+            :for="`model-enabled-${index}`"
+            class="sr-only"
+          >
+            启用
+          </FieldLabel>
+
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            aria-label="删除模型"
+            @click="emit('remove-model', index)"
+          >
+            <Trash2Icon />
+          </Button>
+        </div>
       </div>
 
       <CollapsibleContent>
@@ -281,52 +317,6 @@ function setModelOpen(model: ProviderModelDraft, open: boolean) {
             </FieldGroup>
           </FieldSet>
 
-          <div class="grid grid-cols-1 gap-3 md:grid-cols-4">
-            <Field
-              orientation="horizontal"
-              class="items-center"
-            >
-              <Switch
-                :id="`model-enabled-${index}`"
-                v-model="model.enabled"
-                aria-label="启用模型"
-              />
-              <FieldLabel :for="`model-enabled-${index}`">启用</FieldLabel>
-            </Field>
-            <Field
-              orientation="horizontal"
-              class="items-center"
-            >
-              <Switch
-                :id="`model-streaming-${index}`"
-                v-model="model.supportsStreaming"
-                aria-label="支持流式输出"
-              />
-              <FieldLabel :for="`model-streaming-${index}`">流式</FieldLabel>
-            </Field>
-            <Field
-              orientation="horizontal"
-              class="items-center"
-            >
-              <Switch
-                :id="`model-tools-${index}`"
-                v-model="model.supportsTools"
-                aria-label="支持工具"
-              />
-              <FieldLabel :for="`model-tools-${index}`">工具</FieldLabel>
-            </Field>
-            <Field
-              orientation="horizontal"
-              class="items-center"
-            >
-              <Switch
-                :id="`model-reasoning-${index}`"
-                v-model="model.supportsReasoning"
-                aria-label="支持推理"
-              />
-              <FieldLabel :for="`model-reasoning-${index}`">推理</FieldLabel>
-            </Field>
-          </div>
         </div>
       </CollapsibleContent>
     </Collapsible>
