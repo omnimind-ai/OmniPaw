@@ -47,8 +47,11 @@ export class ContextBuilder {
             isCurrent || policy.includeAttachments === 'recent',
             policy.includeAttachments === 'never',
           )
+          const reasoningContent = partsReasoningText(message.parts)
           if (textContent && !(Array.isArray(textContent) && textContent.length === 0)) {
-            providerMessages.push({ role: 'assistant', content: textContent })
+            providerMessages.push({ role: 'assistant', content: textContent, reasoningContent })
+          } else if (reasoningContent) {
+            providerMessages.push({ role: 'assistant', content: '', reasoningContent })
           }
           providerMessages.push(...compiledToolMessages)
           attachmentCount += countAttachmentParts(message.parts)
@@ -68,6 +71,7 @@ export class ContextBuilder {
       providerMessages.push({
         role: message.role === 'assistant' ? 'assistant' : message.role === 'system' ? 'system' : 'user',
         content,
+        reasoningContent: message.role === 'assistant' ? partsReasoningText(message.parts) : undefined,
       })
     }
 
@@ -223,7 +227,7 @@ function completedToolCalls(parts: ChatMessagePart[]): ToolCallDisplay[] {
     if (part.type !== 'tool_call') {
       continue
     }
-    const toolCalls = part.tool_calls ?? part.toolCalls ?? []
+    const toolCalls = (part.tool_calls ?? part.toolCalls ?? []) as ToolCallDisplay[]
     for (const toolCall of toolCalls) {
       if (toolCall.status === 'complete' || toolCall.status === 'denied' || toolCall.status === 'error') {
         calls.push(toolCall)
@@ -259,4 +263,13 @@ function serializeToolResult(value: unknown): string | undefined {
   } catch {
     return String(value)
   }
+}
+
+function partsReasoningText(parts: ChatMessagePart[]): string | undefined {
+  const text = parts
+    .filter((part): part is Extract<ChatMessagePart, { type: 'think' }> => part.type === 'think')
+    .map((part) => part.think)
+    .join('')
+    .trim()
+  return text || undefined
 }

@@ -156,6 +156,7 @@ export interface ProviderChatRequest {
 export interface ProviderMessage {
   role: 'system' | 'user' | 'assistant' | 'tool'
   content: string | ProviderContentPart[]
+  reasoningContent?: string
   toolCalls?: ProviderToolCall[]
   toolCallId?: string
 }

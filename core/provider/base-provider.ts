@@ -40,6 +40,7 @@ export interface ProviderToolCall {
 export interface ProviderMessage {
   role: ProviderMessageRole
   content: string | ProviderContentPart[]
+  reasoningContent?: string
   toolCalls?: ProviderToolCall[]
   toolCallId?: string
 }

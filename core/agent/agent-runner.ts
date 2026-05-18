@@ -161,6 +161,7 @@ export class AgentRunner {
         messages.push({
           role: 'assistant',
           content: '',
+          reasoningContent: collectReasoningContent(assistantParts),
           toolCalls: stepToolCalls,
         })
 
@@ -338,4 +339,13 @@ function throwIfAborted(signal: AbortSignal): void {
   if (signal.aborted) {
     throw new DOMException('Run aborted.', 'AbortError')
   }
+}
+
+function collectReasoningContent(parts: ChatMessagePart[]): string | undefined {
+  const text = parts
+    .filter((part): part is Extract<ChatMessagePart, { type: 'think' }> => part.type === 'think')
+    .map((part) => part.think)
+    .join('')
+    .trim()
+  return text || undefined
 }

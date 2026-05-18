@@ -528,6 +528,10 @@ function toOpenAIMessage(message: ProviderMessage): Record<string, unknown> {
     content: Array.isArray(message.content) ? message.content.map(toOpenAIContentPart) : message.content,
   }
 
+  if (message.reasoningContent) {
+    result.reasoning_content = message.reasoningContent
+  }
+
   if (message.toolCalls?.length) {
     result.tool_calls = message.toolCalls.map(toOpenAIToolCall)
   }
