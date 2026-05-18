@@ -16,7 +16,9 @@
     "chat-core:smoke": "node scripts/run-electron-node.mjs scripts/chat-core-smoke.ts",
     "pack": "pnpm rebuild:electron && pnpm build && electron-builder --dir",
     "dist": "pnpm rebuild:electron && pnpm build && electron-builder",
-    "lint": "vue-tsc --noEmit"
+    "lint": "pnpm typecheck && biome lint .",
+    "check": "pnpm lint",
+    "format": "biome format --write ."
   },
   "keywords": [],
   "author": "",
@@ -49,6 +51,7 @@
     "vue-sonner": "^2.0.9"
   },
   "devDependencies": {
+    "@biomejs/biome": "^2.4.15",
     "@playwright/test": "^1.60.0",
     "@tailwindcss/vite": "^4.3.0",
     "@types/better-sqlite3": "^7.6.13",

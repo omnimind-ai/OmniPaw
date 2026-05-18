@@ -14,6 +14,7 @@ import {
   type BridgeLocalSkillSummary,
   type BridgeSkillChangedEvent,
   type BridgeSkillListResponse,
+  type BridgeSkillStatus,
   type BridgeUnsubscribe,
 } from '@/bridge/app'
 import SettingsSection from '@/components/settings/SettingsSection.vue'
@@ -196,7 +197,7 @@ function normalizeLegacySkills(items: LegacySkillSummary[]): BridgeLocalSkillSum
     compatibility: item.compatibility,
     error: typeof item.error === 'string' ? item.error : item.error?.message,
     enabled: Boolean(item.enabled),
-    status: item.status === 'valid' ? 'available' : item.status === 'error' ? 'invalid' : item.status || 'available',
+    status: (item.status === 'valid' ? 'available' : item.status === 'error' ? 'invalid' : item.status || 'available') as BridgeSkillStatus,
   }))
 }
 
