@@ -81,6 +81,7 @@ export class AgentRunner {
 
       for (let step = 1; step <= maxSteps; step += 1) {
         throwIfAborted(input.signal)
+        const stepParts: ChatMessagePart[] = []
         this.options.runManager.emit(createAgentStepEvent({
           runId: input.run.id,
           sessionId: input.run.sessionId,
@@ -106,9 +107,11 @@ export class AgentRunner {
             const text = chunk.content ?? chunk.reasoning ?? ''
             if (chunk.content) {
               appendText(assistantParts, text)
+              appendText(stepParts, text)
             }
             if (chunk.reasoning) {
               assistantParts.push({ type: 'think', think: text })
+              stepParts.push({ type: 'think', think: text })
             }
             this.options.messages.updateParts(input.run.assistantMessageId, assistantParts, { status: 'streaming' })
             this.options.runManager.emit({
@@ -160,8 +163,8 @@ export class AgentRunner {
 
         messages.push({
           role: 'assistant',
-          content: '',
-          reasoningContent: collectReasoningContent(assistantParts),
+          content: collectPlainContent(stepParts) ?? '',
+          reasoningContent: collectReasoningContent(stepParts),
           toolCalls: stepToolCalls,
         })
 
@@ -345,6 +348,15 @@ function collectReasoningContent(parts: ChatMessagePart[]): string | undefined {
   const text = parts
     .filter((part): part is Extract<ChatMessagePart, { type: 'think' }> => part.type === 'think')
     .map((part) => part.think)
+    .join('')
+    .trim()
+  return text || undefined
+}
+
+function collectPlainContent(parts: ChatMessagePart[]): string | undefined {
+  const text = parts
+    .filter((part): part is Extract<ChatMessagePart, { type: 'plain' }> => part.type === 'plain')
+    .map((part) => part.text)
     .join('')
     .trim()
   return text || undefined

@@ -11,6 +11,7 @@ import type { ProviderConfig, ProviderModel } from '../shared/types/provider'
 async function runSmoke(): Promise<void> {
   await testAgentRunnerPlainReply()
   await testAgentRunnerToolLoop()
+  await testAgentRunnerToolLoopPreservesReasoningContent()
   await testAgentRunnerMcpToolLoop()
   await testAgentRunnerMaxSteps()
   await testToolExecutorSuccess()
@@ -64,6 +65,33 @@ async function testAgentRunnerToolLoop(): Promise<void> {
   assert.equal(toolPart?.tool_calls?.[0]?.name, 'system_time')
   assert.match(JSON.stringify(toolPart?.tool_calls?.[0]?.result), /now/)
   assert.equal(assistant?.parts.some((part) => part.type === 'plain' && String(part.text).includes('time checked')), true)
+}
+
+async function testAgentRunnerToolLoopPreservesReasoningContent(): Promise<void> {
+  const harness = createRunnerHarness([
+    [
+      { type: 'delta', reasoning: 'Need current time before answering.', done: false },
+      { type: 'delta', content: 'Checking the clock.', done: false },
+      {
+        type: 'tool_call_final',
+        done: false,
+        toolCalls: [toolCall('call_time', 'system_time', {})],
+        finishReason: 'tool_calls',
+      },
+      { type: 'final', done: true, finishReason: 'tool_calls' },
+    ],
+    [
+      { type: 'delta', content: 'time checked', done: false },
+      { type: 'final', done: true, finishReason: 'stop' },
+    ],
+  ])
+
+  await harness.runner.run(harness.input())
+
+  const followupToolMessage = harness.providerRequests[1]?.messages.find((message) => message.role === 'assistant' && message.toolCalls?.length)
+  assert.equal(followupToolMessage?.reasoningContent, 'Need current time before answering.')
+  assert.equal(followupToolMessage?.content, 'Checking the clock.')
+  assert.equal(followupToolMessage?.toolCalls?.[0]?.id, 'call_time')
 }
 
 async function testAgentRunnerMcpToolLoop(): Promise<void> {
