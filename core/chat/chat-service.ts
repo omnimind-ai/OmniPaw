@@ -70,14 +70,15 @@ export class ChatService {
     return this.options.sessions.list()
   }
 
-  createSession(): ChatSession {
+  async createSession(): Promise<ChatSession> {
     const now = Date.now()
+    const { provider, modelId } = await this.options.providers.resolveDefaultProvider()
     const session: ChatSession = {
       id: crypto.randomUUID(),
       title: '新会话',
       status: 'active',
-      defaultProviderId: 'openai-compatible',
-      defaultModelId: 'gpt-4o-mini',
+      defaultProviderId: provider.id,
+      defaultModelId: modelId,
       messageCount: 0,
       contextPolicy: {
         mode: 'recent-turns',

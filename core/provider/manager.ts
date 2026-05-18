@@ -250,13 +250,31 @@ export class ProviderManager {
 
   async resolveDefaultProvider(sessionId?: string): Promise<{ provider: ProviderRecord; modelId: string }> {
     const override = sessionId ? await this.sessions?.getProviderOverride(sessionId) : undefined
-    const provider = await this.getRecord(override?.providerId ?? '') ?? (await this.listRecords()).find((item) => item.enabled)
+    const records = await this.listRecords()
+    const globalDefaultModelId = !override?.providerId && !override?.modelId
+      ? this.configStore.get().providers.settings.defaultModelId
+      : undefined
+    const providerFromGlobalDefault = globalDefaultModelId
+      ? records.find((item) =>
+          item.enabled && (item.models ?? []).some((model) => model.id === globalDefaultModelId && model.enabled !== false),
+        )
+      : undefined
+    const provider =
+      await this.getRecord(override?.providerId ?? '')
+      ?? providerFromGlobalDefault
+      ?? records.find((item) => item.enabled)
 
     if (!provider) {
       throw new Error('No enabled provider is configured.')
     }
 
-    const modelId = override?.modelId ?? provider.defaultModelId ?? (await this.listModels(provider.id)).find((model) => model.enabled)?.id
+    const modelId =
+      override?.modelId
+      ?? (globalDefaultModelId && (provider.models ?? []).some((model) => model.id === globalDefaultModelId && model.enabled !== false)
+        ? globalDefaultModelId
+        : undefined)
+      ?? provider.defaultModelId
+      ?? (await this.listModels(provider.id)).find((model) => model.enabled)?.id
     if (!modelId) {
       throw new Error(`No default model is configured for provider ${provider.id}.`)
     }

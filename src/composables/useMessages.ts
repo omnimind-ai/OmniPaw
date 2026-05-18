@@ -446,7 +446,7 @@ export function useMessages(options: UseMessagesOptions) {
       };
     } catch (error) {
       delete activeConnections[sessionId];
-      appendPlain(botRecord, `\n\n${String((error as Error)?.message || error)}`);
+      markRecordErrored(botRecord, error);
       console.error("Regenerate failed:", error);
       toast.error(error, { description: "重新生成失败" });
     } finally {
@@ -537,7 +537,7 @@ export function useMessages(options: UseMessagesOptions) {
     } catch (error) {
       unsubscribe?.();
       delete activeConnections[sessionId];
-      appendPlain(botRecord, `\n\n${String((error as Error)?.message || error)}`);
+      markRecordErrored(botRecord, error);
       console.error("Bridge chat failed:", error);
       toast.error(error, { description: "消息发送失败" });
       await options.onSessionsChanged?.();
@@ -579,8 +579,6 @@ export function useMessages(options: UseMessagesOptions) {
       botRecord.status = event.type;
       botRecord.updated_at = new Date().toISOString();
       botRecord.error = event.error;
-      const message = errorMessage(event.error) || (event.type === "aborted" ? "Request aborted." : "Request failed.");
-      appendPlain(botRecord, `\n\n${message}`);
     }
   }
 
@@ -1217,6 +1215,24 @@ function errorMessage(value: unknown) {
   if (typeof record.message === "string") return record.message;
   if (typeof record.error === "string") return record.error;
   return "";
+}
+
+function markRecordErrored(record: ChatRecord, error: unknown) {
+  markMessageStarted(record);
+  record.status = "error";
+  record.updated_at = new Date().toISOString();
+  record.error = normalizeRecordError(error);
+}
+
+function normalizeRecordError(error: unknown) {
+  const message = errorMessage(error) || String((error as Error)?.message || error || "Request failed.");
+  if (error && typeof error === "object") {
+    return {
+      ...(error as Record<string, unknown>),
+      message,
+    };
+  }
+  return { message };
 }
 
 export function parseJsonSafe(value: unknown) {

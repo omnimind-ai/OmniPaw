@@ -21,6 +21,7 @@ import {
 import { useSessions } from '@/composables/useSessions'
 import { useChatStore } from '@/stores/chat'
 import { useProviderStore, type ProviderModelOption } from '@/stores/provider'
+import { useSettingsStore } from '@/stores/settings'
 import { copyToClipboard } from '@/utils/clipboard'
 import { useToast } from '@/utils/toast'
 
@@ -34,8 +35,10 @@ const router = useRouter()
 const route = useRoute()
 const chatStore = useChatStore()
 const providerStore = useProviderStore()
+const settingsStore = useSettingsStore()
 const toast = useToast()
 const { enabledModelOptions, loading: providersLoading } = storeToRefs(providerStore)
+const { config: settingsConfig } = storeToRefs(settingsStore)
 
 const {
   sessions,
@@ -97,9 +100,21 @@ const showMessageList = computed(() => !isHomeMode.value && (hasMessages.value |
 const currentSessionRunning = computed(() =>
   currSessionId.value ? isSessionRunning(currSessionId.value) : false,
 )
+const defaultModelOption = computed(() => {
+  const options = enabledModelOptions.value
+  if (!options.length) return undefined
+
+  const defaultModelId = settingsConfig.value?.providers.settings.defaultModelId || ''
+  if (defaultModelId) {
+    const matched = options.find((option) => option.modelId === defaultModelId)
+    if (matched) return matched
+  }
+
+  return options[0]
+})
 const selectedModel = computed(() =>
   enabledModelOptions.value.find((option) => option.key === selectedModelKey.value)
-  ?? enabledModelOptions.value[0],
+  ?? defaultModelOption.value,
 )
 const selectedModelLabel = computed(() => {
   if (providersLoading.value) return '加载模型中'
@@ -152,7 +167,7 @@ watch(
 )
 
 watch(
-  [enabledModelOptions, () => currSessionId.value, () => sessions.value],
+  [enabledModelOptions, () => currSessionId.value, () => sessions.value, settingsConfig],
   () => syncSelectedModel(),
   { deep: true, immediate: true },
 )
@@ -173,6 +188,7 @@ onMounted(async () => {
   const results = await Promise.allSettled([
     getSessions(),
     providerStore.loadProviders(),
+    settingsStore.load(),
   ])
   results.forEach((result) => {
     if (result.status === 'rejected') {
@@ -203,22 +219,29 @@ function syncSelectedModel() {
 
   const currentKeyIsValid = options.some((option) => option.key === selectedModelKey.value)
   const session = getCurrentSession.value
-  const shouldPreferSession = currSessionId.value && syncedModelSessionId.value !== currSessionId.value
 
-  if (session && shouldPreferSession) {
+  if (!currSessionId.value) {
+    syncedModelSessionId.value = null
+    if (!currentKeyIsValid || !selectedModelKey.value) {
+      selectedModelKey.value = defaultModelOption.value?.key || ''
+    }
+    return
+  }
+
+  if (session) {
     const providerId = session.providerId || session.defaultProviderId
     const modelId = session.modelId || session.defaultModelId
     const sessionOption = options.find(
       (option) => option.providerId === providerId && option.modelId === modelId,
     )
 
-    selectedModelKey.value = sessionOption?.key || (currentKeyIsValid ? selectedModelKey.value : options[0].key)
+    selectedModelKey.value = sessionOption?.key || defaultModelOption.value?.key || options[0].key
     syncedModelSessionId.value = currSessionId.value
     return
   }
 
   if (!currentKeyIsValid) {
-    selectedModelKey.value = options[0].key
+    selectedModelKey.value = defaultModelOption.value?.key || options[0].key
   }
 }
 
@@ -226,10 +249,12 @@ async function handleNewChat() {
   currSessionId.value = ''
   selectedSessions.value = []
   chatStore.activeSessionId = undefined
+  syncedModelSessionId.value = null
   draft.value = ''
   chatStore.draft = ''
   replyTarget.value = null
   clearStaged()
+  syncSelectedModel()
   await router.push('/')
 }
 
@@ -238,6 +263,7 @@ async function handleSelectSession(sessionId: string) {
   currSessionId.value = sessionId
   selectedSessions.value = [sessionId]
   chatStore.activeSessionId = sessionId
+  syncedModelSessionId.value = null
   await router.push(`/chat/${sessionId}`)
 }
 
@@ -333,6 +359,10 @@ async function handleSubmit() {
     currSessionId.value = sessionId
     selectedSessions.value = [sessionId]
     chatStore.activeSessionId = sessionId
+
+    if (selectedModel.value) {
+      await selectModel(selectedModel.value)
+    }
 
     if (isHomeMode.value) {
       chatStore.setPendingInitialMessage({
