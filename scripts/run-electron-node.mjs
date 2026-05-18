@@ -1,4 +1,4 @@
-import { spawnSync } from 'node:child_process'
+import { spawnPnpmSync } from './spawn-pnpm.mjs'
 
 const script = process.argv[2]
 
@@ -7,9 +7,7 @@ if (!script) {
   process.exit(1)
 }
 
-const pnpm = process.platform === 'win32' ? 'pnpm.cmd' : 'pnpm'
-const result = spawnSync(
-  pnpm,
+const result = spawnPnpmSync(
   ['exec', 'electron', '--import', 'tsx', script, ...process.argv.slice(3)],
   {
     env: {
