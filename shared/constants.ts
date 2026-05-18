@@ -43,6 +43,7 @@ export const IPC_CHANNELS = {
     list: 'skill:list',
     refresh: 'skill:refresh',
     setEnabled: 'skill:set-enabled',
+    importSkill: 'skill:import',
     changed: 'skill:changed',
   },
   cron: {

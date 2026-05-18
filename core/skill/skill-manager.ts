@@ -1,6 +1,8 @@
 import { join } from 'node:path'
 
 import type {
+  ImportSkillRequest,
+  ImportSkillResponse,
   LocalSkillSummary,
   SetSkillEnabledRequest,
   SkillChangedEvent,
@@ -17,6 +19,7 @@ import {
   SkillValidationError,
   truncateText,
 } from './schema'
+import { importSkillPackage } from './importer'
 import { SkillLoader, type LoadedLocalSkill, type SkillRoot } from './loader'
 import { SkillStateStore } from './store'
 
@@ -75,6 +78,26 @@ export class SkillManager {
     const response = this.list()
     this.emitChanged('refresh')
     return response
+  }
+
+  importSkill(request: ImportSkillRequest): ImportSkillResponse {
+    const root = this.primaryRoot()
+    const result = importSkillPackage(request, root.path)
+    const state = this.store.get()
+    for (const skillId of result.installedIds) {
+      state.enabledById[skillId] = true
+    }
+    this.store.save(state)
+    this.discovered = this.loader.loadFromRoots(this.roots)
+    this.loaded = true
+    const response = this.list()
+    const imported = response.skills.filter((skill) => result.installedIds.includes(skill.id))
+    this.emitChanged('import')
+    return {
+      imported,
+      skills: response.skills,
+      status: response.status,
+    }
   }
 
   setEnabled(request: SetSkillEnabledRequest | string, enabled?: boolean): LocalSkillSummary {
@@ -189,6 +212,16 @@ export class SkillManager {
   private findDiscoveredSkill(skillId: string): LoadedLocalSkill | undefined {
     this.ensureLoaded()
     return this.discovered.find((skill) => skill.id === skillId)
+  }
+
+  private primaryRoot(): SkillRoot {
+    const root = this.roots[0]
+    if (!root) {
+      throw new SkillValidationError(skillError('import_failed', 'No local skill root is configured.', {
+        recoverable: false,
+      }))
+    }
+    return root
   }
 
   private toSummary(skill: LoadedLocalSkill): LocalSkillSummary {

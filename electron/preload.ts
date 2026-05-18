@@ -159,6 +159,7 @@ const bridge: OpenOmniClawBridge = {
     list: () => invokeSkill(IPC_CHANNELS.skill.list),
     refresh: () => invokeSkill(IPC_CHANNELS.skill.refresh),
     setEnabled: (request) => invokeSkill(IPC_CHANNELS.skill.setEnabled, request),
+    importSkill: (request) => invokeSkill(IPC_CHANNELS.skill.importSkill, request),
     onChanged: (callback) => createUnsubscriber(IPC_CHANNELS.skill.changed, callback),
   },
   cron: {

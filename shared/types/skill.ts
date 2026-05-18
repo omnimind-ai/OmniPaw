@@ -1,6 +1,6 @@
 export type SkillSource = 'local'
 export type SkillStatus = 'available' | 'invalid' | 'missing'
-export type SkillChangeReason = 'load' | 'refresh' | 'enable'
+export type SkillChangeReason = 'load' | 'refresh' | 'enable' | 'import'
 export type SkillStateVersion = 1
 
 export interface SkillMetadata {
@@ -46,6 +46,7 @@ export type SkillErrorCode =
   | 'not_found'
   | 'validation_failed'
   | 'read_failed'
+  | 'import_failed'
 
 export interface SkillOperationError {
   code: SkillErrorCode
@@ -75,6 +76,19 @@ export interface SkillListResponse {
 export interface SetSkillEnabledRequest {
   skillId: string
   enabled: boolean
+}
+
+export interface ImportSkillRequest {
+  fileName: string
+  bytes: ArrayBuffer | Uint8Array
+  overwrite?: boolean
+  skillNameHint?: string
+}
+
+export interface ImportSkillResponse {
+  imported: LocalSkillSummary[]
+  skills: LocalSkillSummary[]
+  status: SkillStateStatus
 }
 
 export interface SkillChangedEvent {

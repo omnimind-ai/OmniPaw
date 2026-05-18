@@ -449,8 +449,21 @@ export interface BridgeSkillListResponse {
   rootPath?: string
 }
 
+export interface BridgeImportSkillRequest {
+  fileName: string
+  bytes: ArrayBuffer | Uint8Array
+  overwrite?: boolean
+  skillNameHint?: string
+}
+
+export interface BridgeImportSkillResponse {
+  imported: BridgeLocalSkillSummary[]
+  skills: BridgeLocalSkillSummary[]
+  status: BridgeSkillStateStatus
+}
+
 export interface BridgeSkillChangedEvent {
-  reason: 'load' | 'refresh' | 'enable'
+  reason: 'load' | 'refresh' | 'enable' | 'import'
   skills: BridgeLocalSkillSummary[]
   status: BridgeSkillStateStatus
 }
@@ -509,6 +522,7 @@ export interface RendererOpenOmniClawBridge {
     list: () => Promise<BridgeSkillListResponse>
     refresh?: () => Promise<BridgeSkillListResponse>
     setEnabled?: (request: { skillId: string; enabled: boolean }) => Promise<BridgeLocalSkillSummary>
+    importSkill?: (request: BridgeImportSkillRequest) => Promise<BridgeImportSkillResponse>
     onChanged?: (callback: (event: BridgeSkillChangedEvent) => void) => BridgeUnsubscribe
   }
   cron: {
@@ -702,6 +716,7 @@ const fallbackBridge: RendererOpenOmniClawBridge = {
     }),
     refresh: () => rejectFallbackPersistence<BridgeSkillListResponse>('skill.refresh'),
     setEnabled: () => rejectFallbackPersistence<BridgeLocalSkillSummary>('skill.setEnabled'),
+    importSkill: () => rejectFallbackPersistence<BridgeImportSkillResponse>('skill.importSkill'),
     onChanged: () => () => {},
   },
   cron: {

@@ -3,12 +3,14 @@ import {
   AlertCircleIcon,
   BookOpenIcon,
   RefreshCwIcon,
+  UploadIcon,
 } from 'lucide-vue-next'
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 
 import {
   appBridge,
   isFallbackBridge,
+  type BridgeImportSkillResponse,
   type BridgeLocalSkillSummary,
   type BridgeSkillChangedEvent,
   type BridgeSkillListResponse,
@@ -54,6 +56,7 @@ const loading = ref(false)
 const operationError = ref('')
 const pendingKeys = ref<Set<string>>(new Set())
 const readOnly = ref(false)
+const fileInput = ref<HTMLInputElement>()
 let unsubscribeSkills: BridgeUnsubscribe | undefined
 
 const skillUnavailable = computed(() => !skillBridge)
@@ -61,6 +64,7 @@ const enabledCount = computed(() => skills.value.filter((skill) => skill.enabled
 const invalidCount = computed(() => skills.value.filter((skill) => isInvalidSkill(skill)).length)
 const anyPending = computed(() => pendingKeys.value.size > 0)
 const persistenceUnavailable = computed(() => skillUnavailable.value || isFallbackBridge || !skillBridge?.setEnabled)
+const importUnavailable = computed(() => persistenceUnavailable.value || !skillBridge?.importSkill)
 
 onMounted(async () => {
   unsubscribeSkills = skillBridge.onChanged?.((event: BridgeSkillChangedEvent) => {
@@ -102,6 +106,43 @@ async function refreshSkills() {
   })
 }
 
+function openImportPicker() {
+  if (importUnavailable.value || anyPending.value) {
+    return
+  }
+  fileInput.value?.click()
+}
+
+async function importSkillFile(event: Event) {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  input.value = ''
+  if (!file) {
+    return
+  }
+  if (!skillBridge.importSkill) {
+    showOperationError(new Error('当前运行时不支持导入技能。'), '技能导入失败。')
+    return
+  }
+
+  await withPending('import:file', async () => {
+    try {
+      const response = await skillBridge.importSkill?.({
+        fileName: file.name,
+        bytes: await file.arrayBuffer(),
+        overwrite: true,
+      })
+      if (response) {
+        applyImportResponse(response)
+        const names = response.imported.map((skill) => skill.name).join('、')
+        toast.success(names ? `已导入 ${names}。` : '技能已导入。')
+      }
+    } catch (error) {
+      showOperationError(error, '技能导入失败。')
+    }
+  })
+}
+
 async function setSkillEnabled(skill: LocalSkillSummary, enabled: boolean) {
   if (!skillBridge.setEnabled) {
     showOperationError(new Error('当前运行时不支持保存技能启用状态。'), '技能状态更新失败。')
@@ -126,6 +167,15 @@ function applyListResponse(response: SkillListResponse | BridgeSkillChangedEvent
     return
   }
 
+  skills.value = normalizeLegacySkills(response.skills || [])
+  readOnly.value = false
+  const responseError = response.status?.error
+  if (responseError?.message) {
+    operationError.value = responseError.message
+  }
+}
+
+function applyImportResponse(response: BridgeImportSkillResponse) {
   skills.value = normalizeLegacySkills(response.skills || [])
   readOnly.value = false
   const responseError = response.status?.error
@@ -265,18 +315,36 @@ function normalizeMetadata(value: unknown): Record<string, string | undefined> {
           </p>
         </div>
 
-        <Button
-          variant="outline"
-          size="sm"
-          :disabled="loading || anyPending || skillUnavailable"
-          @click="refreshSkills"
-        >
-          <RefreshCwIcon
-            data-icon="inline-start"
-            :class="cn(isPending('refresh:all') && 'animate-spin')"
-          />
-          刷新
-        </Button>
+        <div class="flex flex-wrap gap-2">
+          <input
+            ref="fileInput"
+            type="file"
+            accept=".md,.zip"
+            class="hidden"
+            @change="importSkillFile"
+          >
+          <Button
+            variant="outline"
+            size="sm"
+            :disabled="loading || anyPending || importUnavailable"
+            @click="openImportPicker"
+          >
+            <UploadIcon data-icon="inline-start" />
+            导入
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            :disabled="loading || anyPending || skillUnavailable"
+            @click="refreshSkills"
+          >
+            <RefreshCwIcon
+              data-icon="inline-start"
+              :class="cn(isPending('refresh:all') && 'animate-spin')"
+            />
+            刷新
+          </Button>
+        </div>
       </div>
 
       <div
@@ -290,7 +358,7 @@ function normalizeMetadata(value: unknown): Record<string, string | undefined> {
         v-if="isFallbackBridge || readOnly"
         class="border-b px-4 py-3 text-sm text-muted-foreground"
       >
-        当前是预览或只读运行时，可以查看技能列表，但启用状态不会写入本地技能状态。
+        当前是预览或只读运行时，可以查看技能列表，但导入和启用状态不会写入本地技能状态。
       </div>
 
       <div
@@ -322,18 +390,29 @@ function normalizeMetadata(value: unknown): Record<string, string | undefined> {
         <p class="max-w-2xl text-sm text-muted-foreground">
           本地技能根目录中发现包含 SKILL.md 的技能包后，会显示在这里。
         </p>
-        <Button
-          variant="outline"
-          size="sm"
-          :disabled="skillUnavailable || anyPending"
-          @click="refreshSkills"
-        >
-          <RefreshCwIcon
-            data-icon="inline-start"
-            :class="cn(isPending('refresh:all') && 'animate-spin')"
-          />
-          刷新
-        </Button>
+        <div class="flex flex-wrap gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            :disabled="anyPending || importUnavailable"
+            @click="openImportPicker"
+          >
+            <UploadIcon data-icon="inline-start" />
+            导入
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            :disabled="skillUnavailable || anyPending"
+            @click="refreshSkills"
+          >
+            <RefreshCwIcon
+              data-icon="inline-start"
+              :class="cn(isPending('refresh:all') && 'animate-spin')"
+            />
+            刷新
+          </Button>
+        </div>
       </div>
 
       <ul

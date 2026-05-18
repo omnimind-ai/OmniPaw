@@ -40,6 +40,8 @@ import type {
   TestProviderRequest,
 } from './provider'
 import type {
+  ImportSkillRequest,
+  ImportSkillResponse,
   LocalSkillSummary,
   SetSkillEnabledRequest,
   SkillChangedEvent,
@@ -126,6 +128,7 @@ export interface OpenOmniClawBridge {
     list: () => Promise<SkillListResponse>
     refresh: () => Promise<SkillListResponse>
     setEnabled: (request: SetSkillEnabledRequest) => Promise<LocalSkillSummary>
+    importSkill: (request: ImportSkillRequest) => Promise<ImportSkillResponse>
     onChanged: (callback: (event: SkillChangedEvent) => void) => Unsubscribe
   }
   cron: {

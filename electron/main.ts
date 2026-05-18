@@ -41,7 +41,7 @@ import type {
   SaveMcpServerRequest,
   SetMcpServerEnabledRequest,
 } from '@shared/types/mcp'
-import type { SetSkillEnabledRequest, SkillOperationError } from '@shared/types/skill'
+import type { ImportSkillRequest, SetSkillEnabledRequest, SkillOperationError } from '@shared/types/skill'
 
 const isMac = process.platform === 'darwin'
 
@@ -182,6 +182,9 @@ function registerIpcHandlers(): void {
   ipcMain.handle(IPC_CHANNELS.skill.refresh, () => skillResult(() => skillManager.refresh()))
   ipcMain.handle(IPC_CHANNELS.skill.setEnabled, (_event, request: SetSkillEnabledRequest) =>
     skillResult(() => skillManager.setEnabled(request)),
+  )
+  ipcMain.handle(IPC_CHANNELS.skill.importSkill, (_event, request: ImportSkillRequest) =>
+    skillResult(() => skillManager.importSkill(request)),
   )
   ipcMain.handle(IPC_CHANNELS.cron.list, () => cronManager.list())
   ipcMain.handle(IPC_CHANNELS.tools.list, () => toolManagementService.list())
