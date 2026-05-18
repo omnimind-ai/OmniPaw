@@ -1,5 +1,6 @@
 import type { ProviderTool, ProviderToolCall } from '@core/provider/base-provider'
 import type { ToolCallDisplay, ToolCallStatus, ToolProfile, ToolRisk } from '@shared/types/chat'
+import type { ToolSource } from '@shared/types/tool'
 
 export type { ToolCallStatus, ToolProfile, ToolRisk }
 
@@ -9,10 +10,14 @@ export interface AgentToolContext {
 
 export interface AgentTool<TArgs = unknown, TDetails = unknown> {
   name: string
+  providerName?: string
   label?: string
   description: string
   parameters: Record<string, unknown>
   risk: ToolRisk
+  source: ToolSource
+  serverId?: string
+  serverName?: string
   profiles?: ToolProfile[]
   timeoutMs?: number
   execute: (
@@ -52,7 +57,7 @@ export function toProviderTool(tool: AgentTool): ProviderTool {
   return {
     type: 'function',
     function: {
-      name: tool.name,
+      name: tool.providerName ?? tool.name,
       description: tool.description,
       parameters: tool.parameters,
     },

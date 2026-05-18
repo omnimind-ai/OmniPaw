@@ -5,9 +5,11 @@ import type { ToolProfile, ToolRisk } from './tool'
 
 export interface BuiltinToolDefinition {
   name: string
+  providerName?: string
   label: string
   description: string
   risk: ToolRisk
+  source: 'builtin'
   profiles: ToolProfile[]
   parameters: Record<string, unknown>
 }
@@ -45,6 +47,7 @@ const BUILTIN_TOOL_DEFINITIONS = {
     label: 'System time',
     description: 'Get the current local time, timezone, and UTC offset.',
     risk: 'safe',
+    source: 'builtin',
     profiles: MINIMAL_PROFILES,
     parameters: {
       type: 'object',
@@ -57,6 +60,7 @@ const BUILTIN_TOOL_DEFINITIONS = {
     label: 'Calculator',
     description: 'Evaluate basic arithmetic. Use expression for +, -, *, /, %, ^ and parentheses, or operation with numeric operands.',
     risk: 'safe',
+    source: 'builtin',
     profiles: MINIMAL_PROFILES,
     parameters: {
       type: 'object',
@@ -82,6 +86,7 @@ const BUILTIN_TOOL_DEFINITIONS = {
     label: 'Read attachment text',
     description: 'Read extracted text from attachments uploaded in the current chat session.',
     risk: 'read',
+    source: 'builtin',
     profiles: MINIMAL_PROFILES,
     parameters: {
       type: 'object',
@@ -98,6 +103,7 @@ const BUILTIN_TOOL_DEFINITIONS = {
     label: 'Search attachment text',
     description: 'Search extracted text from attachments uploaded in the current chat session.',
     risk: 'read',
+    source: 'builtin',
     profiles: MINIMAL_PROFILES,
     parameters: {
       type: 'object',

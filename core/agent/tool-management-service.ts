@@ -10,15 +10,20 @@ export interface ToolSettingsStore {
 }
 
 export class ToolManagementService {
-  constructor(private readonly settings: ToolSettingsStore | DesktopToolSettingsStore) {}
+  constructor(
+    private readonly settings: ToolSettingsStore | DesktopToolSettingsStore,
+    private readonly extraTools?: () => ManagedToolInfo[],
+  ) {}
 
   list(): ManagedToolInfo[] {
     const disabled = this.getDisabledToolNames()
-    return listBuiltinToolDefinitions().map((tool) => ({
+    const builtins = listBuiltinToolDefinitions().map((tool) => ({
       ...tool,
       source: 'builtin',
       enabled: !disabled.has(tool.name),
-    }))
+      readonly: true,
+    } satisfies ManagedToolInfo))
+    return [...builtins, ...(this.extraTools?.() ?? [])]
   }
 
   setEnabled(name: string, enabled: boolean): SetToolEnabledResponse {

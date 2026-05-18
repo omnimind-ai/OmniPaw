@@ -285,14 +285,126 @@ export interface BridgeProviderPreset {
 
 export interface BridgeManagedToolInfo {
   name: string
+  providerName?: string
   label?: string
   description: string
   parameters: Record<string, unknown>
   risk: string
   profiles: string[]
   source: string
+  serverId?: string
+  serverName?: string
+  discoveryStatus?: string
+  error?: string
   enabled: boolean
   readonly?: boolean
+}
+
+export type BridgeMcpServerTransportType = 'stdio' | 'http'
+export type BridgeMcpDiscoveryStatus = 'idle' | 'refreshing' | 'available' | 'error' | 'disabled'
+
+export interface BridgeMcpStdioTransportConfig {
+  type: 'stdio'
+  command: string
+  args: string[]
+  cwd?: string
+  env: Record<string, string>
+}
+
+export interface BridgeMcpHttpTransportConfig {
+  type: 'http'
+  url: string
+  headers: Record<string, string>
+}
+
+export type BridgeMcpServerTransportConfig = BridgeMcpStdioTransportConfig | BridgeMcpHttpTransportConfig
+
+export interface BridgeMcpSafeStdioTransport {
+  type: 'stdio'
+  command: string
+  args: string[]
+  cwd?: string
+  envKeys: string[]
+}
+
+export interface BridgeMcpSafeHttpTransport {
+  type: 'http'
+  url: string
+  headerKeys: string[]
+}
+
+export type BridgeMcpSafeTransport = BridgeMcpSafeStdioTransport | BridgeMcpSafeHttpTransport
+
+export interface BridgeMcpDiscoveredToolSummary {
+  name: string
+  providerName: string
+  label?: string
+  description: string
+  parameters: Record<string, unknown>
+  risk: string
+  profiles: string[]
+  source: 'mcp'
+  serverId: string
+  serverName: string
+  enabled: boolean
+}
+
+export interface BridgeMcpServerSummary {
+  id: string
+  name: string
+  enabled: boolean
+  transport: BridgeMcpSafeTransport
+  timeoutMs: number
+  toolTimeoutMs: number
+  status: BridgeMcpDiscoveryStatus
+  error?: string
+  tools: BridgeMcpDiscoveredToolSummary[]
+  createdAt: number
+  updatedAt: number
+}
+
+export interface BridgeMcpRegistryStatus {
+  path: string
+  backupPath: string
+  exists: boolean
+  backupExists: boolean
+  loaded: boolean
+  version?: 1
+  recoverable: boolean
+  error?: {
+    code: string
+    message: string
+    path?: string
+    recoverable: boolean
+    issues?: Array<{ path: string; message: string; code?: string }>
+  }
+}
+
+export interface BridgeSaveMcpServerRequest {
+  server: {
+    id?: string
+    name: string
+    enabled?: boolean
+    transport: BridgeMcpServerTransportConfig
+    timeoutMs?: number
+    toolTimeoutMs?: number
+  }
+}
+
+export interface BridgeMcpServerListResponse {
+  servers: BridgeMcpServerSummary[]
+  status: BridgeMcpRegistryStatus
+}
+
+export interface BridgeMcpToolInventoryResponse {
+  tools: BridgeMcpDiscoveredToolSummary[]
+  servers: BridgeMcpServerSummary[]
+}
+
+export interface BridgeMcpChangedEvent {
+  reason: 'load' | 'save' | 'delete' | 'enable' | 'refresh'
+  servers: BridgeMcpServerSummary[]
+  status: BridgeMcpRegistryStatus
 }
 
 export interface RendererOpenOmniClawBridge {
@@ -354,6 +466,15 @@ export interface RendererOpenOmniClawBridge {
   tools?: {
     list: () => Promise<BridgeManagedToolInfo[]>
     setEnabled: (request: { name: string; enabled: boolean }) => Promise<{ tool: BridgeManagedToolInfo; tools: BridgeManagedToolInfo[] }>
+  }
+  mcp?: {
+    listServers: () => Promise<BridgeMcpServerListResponse>
+    saveServer: (request: BridgeSaveMcpServerRequest) => Promise<BridgeMcpServerSummary>
+    deleteServer: (request: string | { serverId: string }) => Promise<BridgeMcpServerListResponse>
+    setServerEnabled: (request: { serverId: string; enabled: boolean }) => Promise<BridgeMcpServerSummary>
+    refreshServer: (request?: string | { serverId?: string }) => Promise<BridgeMcpServerListResponse>
+    listTools: () => Promise<BridgeMcpToolInventoryResponse>
+    onChanged: (callback: (event: BridgeMcpChangedEvent) => void) => BridgeUnsubscribe
   }
 }
 
@@ -549,6 +670,26 @@ const fallbackBridge: RendererOpenOmniClawBridge = {
       },
     ],
     setEnabled: () => rejectFallbackPersistence<{ tool: BridgeManagedToolInfo; tools: BridgeManagedToolInfo[] }>('tools.setEnabled'),
+  },
+  mcp: {
+    listServers: async () => ({
+      servers: [],
+      status: {
+        path: '',
+        backupPath: '',
+        exists: false,
+        backupExists: false,
+        loaded: true,
+        version: 1,
+        recoverable: false,
+      },
+    }),
+    saveServer: () => rejectFallbackPersistence<BridgeMcpServerSummary>('mcp.saveServer'),
+    deleteServer: () => rejectFallbackPersistence<BridgeMcpServerListResponse>('mcp.deleteServer'),
+    setServerEnabled: () => rejectFallbackPersistence<BridgeMcpServerSummary>('mcp.setServerEnabled'),
+    refreshServer: () => rejectFallbackPersistence<BridgeMcpServerListResponse>('mcp.refreshServer'),
+    listTools: async () => ({ tools: [], servers: [] }),
+    onChanged: () => () => {},
   },
 }
 

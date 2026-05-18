@@ -61,14 +61,19 @@ export class AgentRunner {
       const messages = [...context.messages]
       const policy = defaultToolPolicy(input.toolProfile ?? 'minimal')
       const agentTools = mode === 'assistant'
-        ? this.options.toolRegistry.resolve({ sessionId: input.session.id, policy })
+        ? await this.options.toolRegistry.resolve({ sessionId: input.session.id, policy })
         : []
       const providerTools = providerToolsFromAgentTools(agentTools)
       const snapshot = {
         ...context.snapshot,
         mode,
         toolProfile: input.toolProfile ?? 'minimal',
-        availableTools: agentTools.map((tool) => tool.name),
+        availableTools: agentTools.map((tool) => tool.providerName ?? tool.name),
+        toolSources: agentTools.map((tool) => ({
+          name: tool.providerName ?? tool.name,
+          source: tool.source,
+          serverId: tool.serverId,
+        })),
         maxSteps,
         fallbackReason,
       }

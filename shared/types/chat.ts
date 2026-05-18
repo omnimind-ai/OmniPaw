@@ -250,6 +250,11 @@ export interface ProviderRequestSnapshot {
   mode?: ChatRunMode
   toolProfile?: ToolProfile
   availableTools?: string[]
+  toolSources?: Array<{
+    name: string
+    source: 'builtin' | 'mcp'
+    serverId?: string
+  }>
   maxSteps?: number
   fallbackReason?: string
   messageCount: number

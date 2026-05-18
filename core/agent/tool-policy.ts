@@ -42,7 +42,7 @@ export function decideToolUse(tool: AgentTool | undefined, policy: ToolPolicy): 
   }
 
   const profileAllowed = PROFILE_TOOLS[policy.profile] ?? []
-  if (!profileAllowed.includes(tool.name)) {
+  if (tool.source === 'builtin' && !profileAllowed.includes(tool.name)) {
     return { allowed: false, reason: `Tool "${tool.name}" is not available in ${policy.profile} profile.` }
   }
 

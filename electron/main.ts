@@ -12,6 +12,8 @@ import { CronManager } from '@core/cron/cron-manager'
 import { DatabaseClient } from '@core/db/client'
 import { AttachmentRepo, ChatMessageRepo, ChatRunRepo, ChatSessionRepo } from '@core/db/repos'
 import { seedDefaultChatData } from '@core/db/seed'
+import { McpRegistryStore, McpServerManager, McpValidationError, mcpError } from '@core/mcp'
+import { listBuiltinToolDefinitions } from '@core/agent/builtin-tools'
 import { ToolManagementService } from '@core/agent/tool-management-service'
 import { ProviderManager } from '@core/provider/manager'
 import { SkillManager } from '@core/skill/skill-manager'
@@ -32,6 +34,13 @@ import type {
   TestProviderRequest,
 } from '@shared/types/provider'
 import type { SetToolEnabledRequest } from '@shared/types/tool'
+import type {
+  DeleteMcpServerRequest,
+  McpOperationError,
+  RefreshMcpServerRequest,
+  SaveMcpServerRequest,
+  SetMcpServerEnabledRequest,
+} from '@shared/types/mcp'
 
 const isMac = process.platform === 'darwin'
 
@@ -44,6 +53,7 @@ let providerManager: ProviderManager
 let sessionRepo: ChatSessionRepo
 let toolManagementService: ToolManagementService
 let configStore: ConfigStore
+let mcpServerManager: McpServerManager
 
 function createMainWindow(): void {
   mainWindow = new BrowserWindow({
@@ -173,6 +183,20 @@ function registerIpcHandlers(): void {
   ipcMain.handle(IPC_CHANNELS.tools.setEnabled, (_event, request: SetToolEnabledRequest) =>
     toolManagementService.setEnabled(request.name, request.enabled),
   )
+  ipcMain.handle(IPC_CHANNELS.mcp.listServers, () => mcpResult(() => mcpServerManager.listServers()))
+  ipcMain.handle(IPC_CHANNELS.mcp.saveServer, (_event, request: SaveMcpServerRequest) =>
+    mcpResult(() => mcpServerManager.saveServer(request)),
+  )
+  ipcMain.handle(IPC_CHANNELS.mcp.deleteServer, (_event, request: DeleteMcpServerRequest | string) =>
+    mcpResult(() => mcpServerManager.deleteServer(typeof request === 'string' ? request : request.serverId)),
+  )
+  ipcMain.handle(IPC_CHANNELS.mcp.setServerEnabled, (_event, request: SetMcpServerEnabledRequest) =>
+    mcpResult(() => mcpServerManager.setServerEnabled(request.serverId, request.enabled)),
+  )
+  ipcMain.handle(IPC_CHANNELS.mcp.refreshServer, (_event, request?: RefreshMcpServerRequest | string) =>
+    mcpResult(() => mcpServerManager.refreshServer(typeof request === 'string' ? request : request?.serverId)),
+  )
+  ipcMain.handle(IPC_CHANNELS.mcp.listTools, () => mcpResult(() => mcpServerManager.listTools()))
 }
 
 app.whenReady().then(() => {
@@ -199,9 +223,29 @@ function initializeCore(): void {
   const runRepo = new ChatRunRepo(db)
   configStore = new ConfigStore({ appDataPath: app.getPath('appData'), appName: APP_NAME })
   loadStartupConfig()
+  mcpServerManager = new McpServerManager({
+    store: new McpRegistryStore({ userDataPath: app.getPath('userData') }),
+    reservedToolNames: listBuiltinToolDefinitions().map((tool) => tool.name),
+    onChanged: broadcastMcpChanged,
+  })
+  loadStartupMcp()
   toolManagementService = new ToolManagementService(new ConfigToolSettingsStore(configStore, (saved) => {
     broadcastSettingsChanged('save', saved)
-  }))
+  }), () => mcpServerManager.listTools().tools.map((tool) => ({
+    name: tool.name,
+    providerName: tool.providerName,
+    label: tool.label,
+    description: tool.description,
+    parameters: tool.parameters,
+    risk: tool.risk,
+    profiles: tool.profiles,
+    source: 'mcp' as const,
+    serverId: tool.serverId,
+    serverName: tool.serverName,
+    discoveryStatus: 'available',
+    enabled: tool.enabled,
+    readonly: true,
+  })))
 
   providerManager = new ProviderManager({
     configStore,
@@ -231,6 +275,7 @@ function initializeCore(): void {
     contextBuilder,
     runManager,
     disabledToolNames: () => toolManagementService.getDisabledToolNames(),
+    mcpTools: () => mcpServerManager.getAgentTools(),
   })
 }
 
@@ -243,6 +288,12 @@ function broadcastSettingsChanged(reason: SettingsChangeReason, config: DesktopS
 
   for (const window of BrowserWindow.getAllWindows()) {
     window.webContents.send(IPC_CHANNELS.settings.changed, event)
+  }
+}
+
+function broadcastMcpChanged(event: Parameters<NonNullable<ConstructorParameters<typeof McpServerManager>[0]['onChanged']>>[0]): void {
+  for (const window of BrowserWindow.getAllWindows()) {
+    window.webContents.send(IPC_CHANNELS.mcp.changed, event)
   }
 }
 
@@ -273,6 +324,32 @@ function settingsResult<T>(operation: () => T): SettingsIpcResult<T> {
   }
 }
 
+type McpIpcResult<T> =
+  | { ok: true; value: T }
+  | { ok: false; error: McpOperationError }
+
+async function mcpResult<T>(operation: () => T | Promise<T>): Promise<McpIpcResult<T>> {
+  try {
+    return {
+      ok: true,
+      value: await operation(),
+    }
+  } catch (error) {
+    if (error instanceof McpValidationError) {
+      return {
+        ok: false,
+        error: error.details,
+      }
+    }
+    return {
+      ok: false,
+      error: mcpError('mcp_io_error', error instanceof Error ? error.message : 'MCP operation failed.', {
+        recoverable: true,
+      }),
+    }
+  }
+}
+
 function isSaveSettingsRequest(value: SaveDesktopSettingsRequest | DesktopSettingsConfig): value is SaveDesktopSettingsRequest {
   return Boolean(value && typeof value === 'object' && 'config' in value)
 }
@@ -283,6 +360,18 @@ function loadStartupConfig(): DesktopSettingsConfig | undefined {
   } catch (error) {
     if (error instanceof ConfigValidationError) {
       return undefined
+    }
+    throw error
+  }
+}
+
+function loadStartupMcp(): void {
+  try {
+    mcpServerManager.load()
+    mcpServerManager.startBackgroundRefresh()
+  } catch (error) {
+    if (error instanceof McpValidationError) {
+      return
     }
     throw error
   }

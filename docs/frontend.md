@@ -86,6 +86,7 @@
 - MUST：设置表单使用 `FieldGroup`、`Field`、`FieldLabel`、`FieldDescription`、`FieldContent` 等现有 primitives。
 - MUST：通过语义 token 和 shadcn-vue 变量表达颜色，不在组件里硬编码临时色板。
 - MUST：用 `cn()` 组合条件 class。
+- MUST：弹窗类 UI（`Dialog`、`AlertDialog`、`Sheet`、`Drawer` 等）必须单独抽成 `*Modal.vue` 组件，页面/表单父组件只负责 open 状态、业务数据和事件编排。
 - MUST NOT：为局部组件在 `src/styles/main.css` 添加大段私有样式；该文件只承载全局样式、Tailwind v4 token 和确实全局的规则。
 - SHOULD：使用 `Badge`、`Skeleton`、`Separator`、`Dialog`、`Sheet`、`Tabs`、`Select` 等现有组件，不用自定义 `div` 伪造基础控件。
 - SHOULD：新增可复用基础 UI 时先检查 shadcn-vue registry 和 `src/components/ui/`。

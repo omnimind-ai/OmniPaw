@@ -6,10 +6,10 @@ import { useRouter } from 'vue-router'
 
 import DefaultModelSettingsForm from '@/components/settings/DefaultModelSettingsForm.vue'
 import GeneralSettingsForm from '@/components/settings/GeneralSettingsForm.vue'
+import McpServerSettingsForm from '@/components/settings/McpServerSettingsForm.vue'
 import ProviderSettingsForm from '@/components/settings/ProviderSettingsForm.vue'
 import SettingsSection from '@/components/settings/SettingsSection.vue'
 import SettingsSidebar, { type SettingsTab } from '@/components/settings/SettingsSidebar.vue'
-import { Badge } from '@/components/ui/badge'
 import {
   Field,
   FieldContent,
@@ -17,7 +17,6 @@ import {
   FieldGroup,
   FieldLabel,
 } from '@/components/ui/field'
-import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { SidebarInset, SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -98,14 +97,6 @@ async function backToChat() {
 function setScheduledTasksEnabled(value: boolean) {
   if (!draft.value) return
   draft.value.scheduledTasks.enabled = value
-}
-
-function setToolValue(name: string, value: boolean) {
-  if (!draft.value) return
-  draft.value.tools.enabledByName = {
-    ...draft.value.tools.enabledByName,
-    [name]: value,
-  }
 }
 
 watch(
@@ -236,39 +227,7 @@ async function autosave() {
                 :draft="draft"
               />
 
-              <SettingsSection
-                v-else-if="activeTab === 'tools'"
-                title="工具设置"
-                description="管理工具启用状态。"
-              >
-                <FieldGroup class="gap-0">
-                  <Field
-                    v-if="!Object.keys(draft.tools.enabledByName).length"
-                    class="px-4 py-4"
-                  >
-                    <FieldLabel>暂无工具覆盖项</FieldLabel>
-                    <FieldDescription>工具列表接入后会在这里展示每个工具的开关。</FieldDescription>
-                  </Field>
-
-                  <Field
-                    v-for="(enabled, name) in draft.tools.enabledByName"
-                    :key="name"
-                    orientation="responsive"
-                    class="border-b px-4 py-3 last:border-b-0"
-                  >
-                    <FieldContent>
-                      <FieldLabel :for="`tool-${name}`">{{ name }}</FieldLabel>
-                      <FieldDescription>本地配置覆盖。</FieldDescription>
-                    </FieldContent>
-                    <Switch
-                      :id="`tool-${name}`"
-                      :model-value="enabled"
-                      :aria-label="`启用 ${name}`"
-                      @update:model-value="setToolValue(String(name), $event)"
-                    />
-                  </Field>
-                </FieldGroup>
-              </SettingsSection>
+              <McpServerSettingsForm v-else-if="activeTab === 'tools'" />
 
               <SettingsSection
                 v-else-if="activeTab === 'schedule'"

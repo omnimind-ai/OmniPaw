@@ -41,6 +41,16 @@ import type {
 } from './provider'
 import type { SkillDefinition } from './skill'
 import type { ManagedToolInfo, SetToolEnabledRequest, SetToolEnabledResponse } from './tool'
+import type {
+  DeleteMcpServerRequest,
+  McpServerChangedEvent,
+  McpServerListResponse,
+  McpServerSummary,
+  McpToolInventoryResponse,
+  RefreshMcpServerRequest,
+  SaveMcpServerRequest,
+  SetMcpServerEnabledRequest,
+} from './mcp'
 
 export type Unsubscribe = () => void
 
@@ -116,5 +126,14 @@ export interface OpenOmniClawBridge {
   tools: {
     list: () => Promise<ManagedToolInfo[]>
     setEnabled: (request: SetToolEnabledRequest) => Promise<SetToolEnabledResponse>
+  }
+  mcp: {
+    listServers: () => Promise<McpServerListResponse>
+    saveServer: (request: SaveMcpServerRequest) => Promise<McpServerSummary>
+    deleteServer: (request: DeleteMcpServerRequest | string) => Promise<McpServerListResponse>
+    setServerEnabled: (request: SetMcpServerEnabledRequest) => Promise<McpServerSummary>
+    refreshServer: (request?: RefreshMcpServerRequest | string) => Promise<McpServerListResponse>
+    listTools: () => Promise<McpToolInventoryResponse>
+    onChanged: (callback: (event: McpServerChangedEvent) => void) => Unsubscribe
   }
 }

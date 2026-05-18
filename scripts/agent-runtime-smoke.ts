@@ -4,15 +4,17 @@ import { AgentRunner } from '../core/agent/agent-runner'
 import { ToolExecutor } from '../core/agent/tool-executor'
 import { defaultToolPolicy } from '../core/agent/tool-policy'
 import type { AgentTool } from '../core/agent/tool'
-import type { ChatCompletionChunk, ProviderToolCall } from '../core/provider/base-provider'
+import type { ChatCompletionChunk, ChatCompletionRequest, ProviderToolCall } from '../core/provider/base-provider'
 import type { ChatMessage, ChatMessagePart, ChatRun, ChatSession } from '../shared/types/chat'
 import type { ProviderConfig, ProviderModel } from '../shared/types/provider'
 
 async function runSmoke(): Promise<void> {
   await testAgentRunnerPlainReply()
   await testAgentRunnerToolLoop()
+  await testAgentRunnerMcpToolLoop()
   await testAgentRunnerMaxSteps()
   await testToolExecutorSuccess()
+  await testToolExecutorMcpApprovalDenied()
   await testToolExecutorDenied()
   await testToolExecutorInvalidArguments()
   await testToolExecutorTimeout()
@@ -64,6 +66,55 @@ async function testAgentRunnerToolLoop(): Promise<void> {
   assert.equal(assistant?.parts.some((part) => part.type === 'plain' && String(part.text).includes('time checked')), true)
 }
 
+async function testAgentRunnerMcpToolLoop(): Promise<void> {
+  const mcpTool: AgentTool<{ text?: string }> = {
+    name: 'mcp_server_echo',
+    providerName: 'mcp_server_echo',
+    label: 'Echo',
+    description: 'Echo text through an MCP tool.',
+    parameters: {
+      type: 'object',
+      properties: {
+        text: { type: 'string' },
+      },
+    },
+    risk: 'read',
+    source: 'mcp',
+    serverId: 'server-1',
+    serverName: 'Server One',
+    profiles: ['assistant', 'power'],
+    execute: async (_id, args) => ({
+      content: [{ type: 'text', text: `mcp:${args.text ?? ''}` }],
+    }),
+  }
+  const harness = createRunnerHarness([
+    [
+      {
+        type: 'tool_call_final',
+        done: false,
+        toolCalls: [toolCall('call_echo', 'mcp_server_echo', { text: 'hello' })],
+        finishReason: 'tool_calls',
+      },
+      { type: 'final', done: true, finishReason: 'tool_calls' },
+    ],
+    [
+      { type: 'delta', content: 'mcp checked', done: false },
+      { type: 'final', done: true, finishReason: 'stop' },
+    ],
+  ], { tools: [mcpTool] })
+
+  await harness.runner.run(harness.input({ toolProfile: 'assistant' }))
+
+  assert.equal(harness.providerRequests[0]?.tools?.some((tool) => tool.function.name === 'mcp_server_echo'), true)
+  const snapshot = harness.runRepo.get('run-1')?.requestSnapshot
+  assert.equal(snapshot?.toolSources?.some((tool) => tool.name === 'mcp_server_echo' && tool.source === 'mcp'), true)
+  const assistant = harness.messageRepo.get('assistant-1')
+  const toolPart = assistant?.parts.find((part) => part.type === 'tool_call')
+  assert.equal(toolPart?.tool_calls?.[0]?.status, 'complete')
+  assert.equal(toolPart?.tool_calls?.[0]?.name, 'mcp_server_echo')
+  assert.match(JSON.stringify(toolPart?.tool_calls?.[0]?.result), /mcp:hello/)
+}
+
 async function testAgentRunnerMaxSteps(): Promise<void> {
   const harness = createRunnerHarness([
     [
@@ -91,6 +142,7 @@ async function testToolExecutorSuccess(): Promise<void> {
     description: 'test calculator',
     parameters: { type: 'object' },
     risk: 'safe',
+    source: 'builtin',
     execute: async (_id, args) => ({
       content: [{ type: 'text', text: String(args.value * 2) }],
     }),
@@ -105,6 +157,31 @@ async function testToolExecutorSuccess(): Promise<void> {
   assert.equal(output.result.status, 'complete')
   assert.equal(output.result.resultText, '42')
   assert.equal(output.display.status, 'complete')
+}
+
+async function testToolExecutorMcpApprovalDenied(): Promise<void> {
+  const executor = new ToolExecutor()
+  const tool: AgentTool = {
+    name: 'mcp_network_lookup',
+    providerName: 'mcp_network_lookup',
+    description: 'network MCP lookup',
+    parameters: { type: 'object' },
+    risk: 'network',
+    source: 'mcp',
+    serverId: 'server-1',
+    profiles: ['assistant', 'power'],
+    execute: async () => ({ content: [{ type: 'text', text: 'never' }] }),
+  }
+
+  const output = await executor.execute({
+    toolCall: toolCall('call_mcp', 'mcp_network_lookup', {}),
+    tools: [tool],
+    policy: defaultToolPolicy('assistant'),
+  })
+
+  assert.equal(output.result.status, 'denied')
+  assert.equal(output.result.error?.code, 'approval_required')
+  assert.match(output.result.resultText, /requires approval/i)
 }
 
 async function testToolExecutorDenied(): Promise<void> {
@@ -127,6 +204,7 @@ async function testToolExecutorInvalidArguments(): Promise<void> {
     description: 'test calculator',
     parameters: { type: 'object' },
     risk: 'safe',
+    source: 'builtin',
     execute: async () => ({ content: [{ type: 'text', text: 'never' }] }),
   }
 
@@ -151,6 +229,7 @@ async function testToolExecutorTimeout(): Promise<void> {
     description: 'slow calculator',
     parameters: { type: 'object' },
     risk: 'safe',
+    source: 'builtin',
     timeoutMs: 5,
     execute: async () => new Promise((resolve) => {
       setTimeout(() => resolve({ content: [{ type: 'text', text: 'late' }] }), 50)
@@ -178,7 +257,10 @@ function toolCall(id: string, name: string, args: unknown): ProviderToolCall {
   }
 }
 
-function createRunnerHarness(scriptedResponses: ChatCompletionChunk[][]) {
+function createRunnerHarness(
+  scriptedResponses: ChatCompletionChunk[][],
+  options: { tools?: AgentTool[] } = {},
+) {
   const session: ChatSession = {
     id: 'session-1',
     title: 'Smoke',
@@ -231,6 +313,7 @@ function createRunnerHarness(scriptedResponses: ChatCompletionChunk[][]) {
   const messageRepo = new MemoryMessageRepo([user, assistant])
   const runRepo = new MemoryRunRepo(run)
   const runManager = new MemoryRunManager()
+  const providerRequests: ChatCompletionRequest[] = []
   let callIndex = 0
   const runner = new AgentRunner({
     messages: messageRepo as never,
@@ -238,7 +321,8 @@ function createRunnerHarness(scriptedResponses: ChatCompletionChunk[][]) {
     providers: {
       createProviderClient: async () => ({
         id: 'fake',
-        streamChat: async function* () {
+        streamChat: async function* (request: ChatCompletionRequest) {
+          providerRequests.push(structuredClone(request))
           const chunks = scriptedResponses[callIndex++] ?? []
           for (const chunk of chunks) {
             yield chunk
@@ -259,12 +343,13 @@ function createRunnerHarness(scriptedResponses: ChatCompletionChunk[][]) {
     } as never,
     runManager: runManager as never,
     toolRegistry: {
-      resolve: () => [
+      resolve: () => options.tools ?? [
         {
           name: 'system_time',
           description: 'time',
           parameters: { type: 'object' },
           risk: 'safe',
+          source: 'builtin',
           execute: async () => ({ content: [{ type: 'text', text: '{"now":"2026-05-15"}' }] }),
         } satisfies AgentTool,
       ],
@@ -275,6 +360,7 @@ function createRunnerHarness(scriptedResponses: ChatCompletionChunk[][]) {
     runner,
     messageRepo,
     runRepo,
+    providerRequests,
     finishedRuns: runManager.finishedRuns,
     input: (overrides: Partial<Parameters<AgentRunner['run']>[0]> = {}) => ({
       run,

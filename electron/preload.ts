@@ -33,6 +33,23 @@ async function invokeSettings<T>(channel: string, payload?: unknown): Promise<T>
   return response?.ok === true ? response.value as T : response as T
 }
 
+async function invokeMcp<T>(channel: string, payload?: unknown): Promise<T> {
+  const response = arguments.length >= 2
+    ? await ipcRenderer.invoke(channel, payload)
+    : await ipcRenderer.invoke(channel)
+
+  if (response?.ok === false) {
+    const error = new Error(response.error?.message || 'MCP operation failed.') as Error & {
+      details?: unknown
+    }
+    error.name = 'McpOperationError'
+    error.details = response.error
+    throw error
+  }
+
+  return response?.ok === true ? response.value as T : response as T
+}
+
 const bridge: OpenOmniClawBridge = {
   app: {
     getInfo: () => ipcRenderer.invoke(IPC_CHANNELS.app.getInfo),
@@ -130,6 +147,15 @@ const bridge: OpenOmniClawBridge = {
   tools: {
     list: () => ipcRenderer.invoke(IPC_CHANNELS.tools.list),
     setEnabled: (request) => ipcRenderer.invoke(IPC_CHANNELS.tools.setEnabled, request),
+  },
+  mcp: {
+    listServers: () => invokeMcp(IPC_CHANNELS.mcp.listServers),
+    saveServer: (request) => invokeMcp(IPC_CHANNELS.mcp.saveServer, request),
+    deleteServer: (request) => invokeMcp(IPC_CHANNELS.mcp.deleteServer, request),
+    setServerEnabled: (request) => invokeMcp(IPC_CHANNELS.mcp.setServerEnabled, request),
+    refreshServer: (request) => invokeMcp(IPC_CHANNELS.mcp.refreshServer, request),
+    listTools: () => invokeMcp(IPC_CHANNELS.mcp.listTools),
+    onChanged: (callback) => createUnsubscriber(IPC_CHANNELS.mcp.changed, callback),
   },
 }
 

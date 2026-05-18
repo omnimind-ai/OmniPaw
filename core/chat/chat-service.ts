@@ -2,7 +2,9 @@ import type { WebContents } from 'electron'
 
 import type { ProviderManager } from '@core/provider/manager'
 import { AgentRunner } from '@core/agent/agent-runner'
+import type { AgentTool } from '@core/agent/tool'
 import { ToolRegistry } from '@core/agent/tool-registry'
+import type { ToolResolutionInput } from '@core/agent/tool-registry'
 import type {
   AttachmentRepo,
   ChatMessageRepo,
@@ -40,6 +42,7 @@ export interface ChatServiceOptions {
   contextBuilder: ContextBuilder
   runManager: RunManager
   disabledToolNames?: () => Iterable<string>
+  mcpTools?: (input: ToolResolutionInput) => AgentTool[] | Promise<AgentTool[]>
   agentRunner?: AgentRunner
 }
 
@@ -57,6 +60,7 @@ export class ChatService {
         messages: options.messages,
         attachments: options.attachments,
         disabledToolNames: options.disabledToolNames,
+        mcpTools: options.mcpTools,
       }),
       onComplete: (sessionId) => this.updateSessionSummary(sessionId),
     })

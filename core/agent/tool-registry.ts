@@ -11,6 +11,7 @@ export interface ToolRegistryOptions {
   messages: ChatMessageRepo
   attachments: AttachmentService
   disabledToolNames?: () => Iterable<string>
+  mcpTools?: (input: ToolResolutionInput) => AgentTool[] | Promise<AgentTool[]>
 }
 
 export interface ToolResolutionInput {
@@ -21,19 +22,21 @@ export interface ToolResolutionInput {
 export class ToolRegistry {
   constructor(private readonly options: ToolRegistryOptions) {}
 
-  resolve(input: ToolResolutionInput): AgentTool[] {
+  async resolve(input: ToolResolutionInput): Promise<AgentTool[]> {
     if (!input.policy.enabled) {
       return []
     }
 
     const disabledNames = new Set(this.options.disabledToolNames?.() ?? [])
-    const tools = createBuiltinTools({
+    const builtinTools = createBuiltinTools({
       messages: this.options.messages,
       attachments: this.options.attachments,
       sessionId: input.sessionId,
     })
     const profileNames = new Set(allowedToolNamesForProfile(input.policy.profile as ToolProfile))
-    return tools.filter((tool) => !disabledNames.has(tool.name) && profileNames.has(tool.name))
+    const builtins = builtinTools.filter((tool) => !disabledNames.has(tool.name) && profileNames.has(tool.name))
+    const mcpTools = await this.options.mcpTools?.(input) ?? []
+    return [...builtins, ...mcpTools.filter((tool) => !disabledNames.has(tool.name))]
   }
 }
 

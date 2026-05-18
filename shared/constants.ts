@@ -49,4 +49,13 @@ export const IPC_CHANNELS = {
     list: 'tools:list',
     setEnabled: 'tools:set-enabled',
   },
+  mcp: {
+    listServers: 'mcp:list-servers',
+    saveServer: 'mcp:save-server',
+    deleteServer: 'mcp:delete-server',
+    setServerEnabled: 'mcp:set-server-enabled',
+    refreshServer: 'mcp:refresh-server',
+    listTools: 'mcp:list-tools',
+    changed: 'mcp:changed',
+  },
 } as const

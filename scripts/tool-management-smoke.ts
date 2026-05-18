@@ -52,7 +52,7 @@ try {
     },
     disabledToolNames: () => service.getDisabledToolNames(),
   })
-  const resolved = registry.resolve({
+  const resolved = await registry.resolve({
     sessionId: 'missing-session',
     policy: {
       enabled: true,
