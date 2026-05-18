@@ -19,7 +19,8 @@
     "lint": "pnpm typecheck && biome check electron --error-on-warnings && biome lint .",
     "lint:electron": "biome check electron --error-on-warnings",
     "check": "pnpm lint",
-    "format": "biome format --write ."
+    "format": "biome format --write .",
+    "prepare": "husky"
   },
   "keywords": [],
   "author": "",
@@ -59,6 +60,7 @@
     "@types/node": "^25.7.0",
     "electron": "^36.8.1",
     "electron-builder": "^26.8.1",
+    "husky": "^9.1.7",
     "playwright": "^1.60.0",
     "tailwindcss": "^4.3.0",
     "tsx": "^4.22.0",
