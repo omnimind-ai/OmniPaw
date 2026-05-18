@@ -15,9 +15,27 @@ export interface ToolPolicyDecision {
 }
 
 const PROFILE_TOOLS: Record<ToolProfile, string[]> = {
-  minimal: ['system_time', 'calculator', 'attachment_text_read', 'attachment_text_search', 'skill_read'],
-  assistant: ['system_time', 'calculator', 'attachment_text_read', 'attachment_text_search', 'skill_read'],
-  power: ['system_time', 'calculator', 'attachment_text_read', 'attachment_text_search', 'skill_read'],
+  minimal: [
+    'system_time',
+    'calculator',
+    'attachment_text_read',
+    'attachment_text_search',
+    'skill_read',
+  ],
+  assistant: [
+    'system_time',
+    'calculator',
+    'attachment_text_read',
+    'attachment_text_search',
+    'skill_read',
+  ],
+  power: [
+    'system_time',
+    'calculator',
+    'attachment_text_read',
+    'attachment_text_search',
+    'skill_read',
+  ],
 }
 
 export function defaultToolPolicy(profile: ToolProfile = 'minimal'): ToolPolicy {
@@ -43,11 +61,17 @@ export function decideToolUse(tool: AgentTool | undefined, policy: ToolPolicy): 
 
   const profileAllowed = PROFILE_TOOLS[policy.profile] ?? []
   if (tool.source === 'builtin' && !profileAllowed.includes(tool.name)) {
-    return { allowed: false, reason: `Tool "${tool.name}" is not available in ${policy.profile} profile.` }
+    return {
+      allowed: false,
+      reason: `Tool "${tool.name}" is not available in ${policy.profile} profile.`,
+    }
   }
 
   if (tool.profiles?.length && !tool.profiles.includes(policy.profile)) {
-    return { allowed: false, reason: `Tool "${tool.name}" does not support ${policy.profile} profile.` }
+    return {
+      allowed: false,
+      reason: `Tool "${tool.name}" does not support ${policy.profile} profile.`,
+    }
   }
 
   if (policy.allow?.length && !policy.allow.includes(tool.name)) {

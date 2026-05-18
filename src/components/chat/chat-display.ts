@@ -1,11 +1,6 @@
 import type { Component } from 'vue'
 
-import {
-  FileIcon,
-  ImageIcon,
-  MicIcon,
-  VideoIcon,
-} from 'lucide-vue-next'
+import { FileIcon, ImageIcon, MicIcon, VideoIcon } from 'lucide-vue-next'
 
 import type { ChatContent, ChatRecord, MessagePart, ToolCall } from '@/composables/useMessages'
 
@@ -47,7 +42,10 @@ export function partText(part: MessagePart) {
   if (part.type === 'reply') return replyPreview(part)
   if (part.type === 'tool_call') return toolCalls(part).map(toolCallLabel).join('\n')
   if (isAttachmentPart(part)) return attachmentLabel(part)
-  if (part.type === 'ref') return refsFromPart(part).map((ref) => ref.title || ref.url || ref.id).join('\n')
+  if (part.type === 'ref')
+    return refsFromPart(part)
+      .map((ref) => ref.title || ref.url || ref.id)
+      .join('\n')
   return ''
 }
 
@@ -120,7 +118,9 @@ export function toolCallLabel(toolCall: ToolCall) {
 }
 
 export function toolCallStatus(toolCall: ToolCall) {
-  return String(toolCall.status || toolCall.state || toolCall.toolStatus || toolCall.tool_status || 'running').toLowerCase()
+  return String(
+    toolCall.status || toolCall.state || toolCall.toolStatus || toolCall.tool_status || 'running'
+  ).toLowerCase()
 }
 
 export function formatJson(value: unknown) {

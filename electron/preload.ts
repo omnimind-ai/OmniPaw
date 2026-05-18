@@ -17,9 +17,10 @@ function createUnsubscriber<T>(channel: string, callback: (payload: T) => void):
 }
 
 async function invokeSettings<T>(channel: string, payload?: unknown): Promise<T> {
-  const response = arguments.length >= 2
-    ? await ipcRenderer.invoke(channel, payload)
-    : await ipcRenderer.invoke(channel)
+  const response =
+    arguments.length >= 2
+      ? await ipcRenderer.invoke(channel, payload)
+      : await ipcRenderer.invoke(channel)
 
   if (response?.ok === false) {
     const error = new Error(response.error?.message || 'Settings operation failed.') as Error & {
@@ -30,13 +31,14 @@ async function invokeSettings<T>(channel: string, payload?: unknown): Promise<T>
     throw error
   }
 
-  return response?.ok === true ? response.value as T : response as T
+  return response?.ok === true ? (response.value as T) : (response as T)
 }
 
 async function invokeMcp<T>(channel: string, payload?: unknown): Promise<T> {
-  const response = arguments.length >= 2
-    ? await ipcRenderer.invoke(channel, payload)
-    : await ipcRenderer.invoke(channel)
+  const response =
+    arguments.length >= 2
+      ? await ipcRenderer.invoke(channel, payload)
+      : await ipcRenderer.invoke(channel)
 
   if (response?.ok === false) {
     const error = new Error(response.error?.message || 'MCP operation failed.') as Error & {
@@ -47,13 +49,14 @@ async function invokeMcp<T>(channel: string, payload?: unknown): Promise<T> {
     throw error
   }
 
-  return response?.ok === true ? response.value as T : response as T
+  return response?.ok === true ? (response.value as T) : (response as T)
 }
 
 async function invokeSkill<T>(channel: string, payload?: unknown): Promise<T> {
-  const response = arguments.length >= 2
-    ? await ipcRenderer.invoke(channel, payload)
-    : await ipcRenderer.invoke(channel)
+  const response =
+    arguments.length >= 2
+      ? await ipcRenderer.invoke(channel, payload)
+      : await ipcRenderer.invoke(channel)
 
   if (response?.ok === false) {
     const error = new Error(response.error?.message || 'Skill operation failed.') as Error & {
@@ -64,7 +67,7 @@ async function invokeSkill<T>(channel: string, payload?: unknown): Promise<T> {
     throw error
   }
 
-  return response?.ok === true ? response.value as T : response as T
+  return response?.ok === true ? (response.value as T) : (response as T)
 }
 
 const bridge: OpenOmniClawBridge = {
@@ -138,22 +141,28 @@ const bridge: OpenOmniClawBridge = {
         .invoke(IPC_CHANNELS.chat.uploadAttachment, request)
         .then((response) => response?.attachment ?? response),
     getPreviewUrl: (request) =>
-      ipcRenderer.invoke(IPC_CHANNELS.chat.getAttachmentPreview, request).then((response) => response),
+      ipcRenderer
+        .invoke(IPC_CHANNELS.chat.getAttachmentPreview, request)
+        .then((response) => response),
   },
   provider: {
     list: () => ipcRenderer.invoke(IPC_CHANNELS.provider.list),
     listPresets: () => ipcRenderer.invoke(IPC_CHANNELS.provider.listPresets),
-    createFromPreset: (request) => ipcRenderer.invoke(IPC_CHANNELS.provider.createFromPreset, request),
+    createFromPreset: (request) =>
+      ipcRenderer.invoke(IPC_CHANNELS.provider.createFromPreset, request),
     upsert: (request) => ipcRenderer.invoke(IPC_CHANNELS.provider.upsert, request),
     delete: (request) => ipcRenderer.invoke(IPC_CHANNELS.provider.delete, request),
     test: (...args) => {
       const request =
-        typeof args[0] === 'string' ? { providerId: args[0], modelId: args[1] as string | undefined } : args[0]
+        typeof args[0] === 'string'
+          ? { providerId: args[0], modelId: args[1] as string | undefined }
+          : args[0]
       return ipcRenderer.invoke(IPC_CHANNELS.provider.test, request)
     },
     listModels: (providerId) => ipcRenderer.invoke(IPC_CHANNELS.provider.listModels, providerId),
     refreshModels: (request) => ipcRenderer.invoke(IPC_CHANNELS.provider.refreshModels, request),
-    setSessionModel: (request) => ipcRenderer.invoke(IPC_CHANNELS.provider.setSessionModel, request),
+    setSessionModel: (request) =>
+      ipcRenderer.invoke(IPC_CHANNELS.provider.setSessionModel, request),
   },
   skill: {
     list: () => invokeSkill(IPC_CHANNELS.skill.list),

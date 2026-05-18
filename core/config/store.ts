@@ -52,10 +52,14 @@ export class ConfigStore {
     try {
       parsed = JSON.parse(readFileSync(this.configPath, 'utf8')) as unknown
     } catch (error) {
-      this.lastError = configError('invalid_json', errorMessage(error, 'Failed to parse settings config.'), {
-        path: this.configPath,
-        recoverable: existsSync(this.backupPath),
-      })
+      this.lastError = configError(
+        'invalid_json',
+        errorMessage(error, 'Failed to parse settings config.'),
+        {
+          path: this.configPath,
+          recoverable: existsSync(this.backupPath),
+        }
+      )
       throw new ConfigValidationError(this.lastError)
     }
 
@@ -115,25 +119,40 @@ export class ConfigStore {
         throw new ConfigValidationError(this.lastError)
       }
 
-      this.lastError = configError('invalid_config', errorMessage(error, 'Failed to normalize settings config.'), {
-        path: this.configPath,
-        recoverable: existsSync(this.backupPath),
-      })
+      this.lastError = configError(
+        'invalid_config',
+        errorMessage(error, 'Failed to normalize settings config.'),
+        {
+          path: this.configPath,
+          recoverable: existsSync(this.backupPath),
+        }
+      )
       throw new ConfigValidationError(this.lastError)
     }
   }
 
-  private writeLoaded(config: DesktopSettingsConfig, backupExisting: boolean): DesktopSettingsConfig {
+  private writeLoaded(
+    config: DesktopSettingsConfig,
+    backupExisting: boolean
+  ): DesktopSettingsConfig {
     try {
-      atomicWriteJson(this.configPath, serializeConfig(config), backupExisting ? this.backupPath : undefined)
+      atomicWriteJson(
+        this.configPath,
+        serializeConfig(config),
+        backupExisting ? this.backupPath : undefined
+      )
       this.loadedConfig = cloneConfig(config)
       this.lastError = undefined
       return this.get()
     } catch (error) {
-      this.lastError = configError('save_failed', errorMessage(error, 'Failed to save settings config.'), {
-        path: this.configPath,
-        recoverable: existsSync(this.backupPath),
-      })
+      this.lastError = configError(
+        'save_failed',
+        errorMessage(error, 'Failed to save settings config.'),
+        {
+          path: this.configPath,
+          recoverable: existsSync(this.backupPath),
+        }
+      )
       throw new ConfigValidationError(this.lastError)
     }
   }

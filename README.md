@@ -14,12 +14,15 @@ pnpm install
 pnpm dev
 pnpm build
 pnpm lint
+pnpm format
 pnpm run pack
 pnpm dist
 ```
 
 `pnpm dev` starts the electron-vite development server.
 `pnpm build` runs Vue/TypeScript type checks and builds Electron main, preload, and renderer bundles.
+`pnpm lint` runs TypeScript checks and Biome linting.
+`pnpm format` formats supported project files with Biome.
 `pnpm run pack` creates an unpacked app under `release/win-unpacked`.
 `pnpm dist` creates a distributable installer under `release`.
 

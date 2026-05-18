@@ -57,7 +57,9 @@ export const useProviderStore = defineStore('provider', () => {
 
       return models.map((model) => {
         const input = modelInputModalities(model) as Array<'text' | 'image' | 'audio' | 'file'>
-        const supportsTools = Boolean(model.supportsTools || model.capabilities?.tools || model.capabilities?.toolCall)
+        const supportsTools = Boolean(
+          model.supportsTools || model.capabilities?.tools || model.capabilities?.toolCall
+        )
         const supportsReasoning = Boolean(model.supportsReasoning || model.capabilities?.reasoning)
 
         return {
@@ -79,12 +81,10 @@ export const useProviderStore = defineStore('provider', () => {
           maxOutputTokens: model.maxOutputTokens,
         }
       })
-    }),
+    })
   )
 
-  const enabledModelOptions = computed(() =>
-    modelOptions.value.filter((option) => option.enabled),
-  )
+  const enabledModelOptions = computed(() => modelOptions.value.filter((option) => option.enabled))
 
   async function loadProviders(): Promise<void> {
     loading.value = true
@@ -99,22 +99,26 @@ export const useProviderStore = defineStore('provider', () => {
   async function loadProviderPresets(): Promise<void> {
     presetsLoading.value = true
     try {
-      providerPresets.value = await appBridge.provider.listPresets?.() ?? []
+      providerPresets.value = (await appBridge.provider.listPresets?.()) ?? []
     } finally {
       presetsLoading.value = false
     }
   }
 
-  async function createProviderFromPreset(request: CreateProviderFromPresetRequest | string): Promise<ProviderConfig | undefined> {
+  async function createProviderFromPreset(
+    request: CreateProviderFromPresetRequest | string
+  ): Promise<ProviderConfig | undefined> {
     saving.value = true
     try {
       ensureElectronBridge('添加 Provider')
       if (!appBridge.provider.createFromPreset) {
-        throw new Error('当前 Electron bridge 缺少 provider.createFromPreset，无法从预设添加 Provider。')
+        throw new Error(
+          '当前 Electron bridge 缺少 provider.createFromPreset，无法从预设添加 Provider。'
+        )
       }
 
       const saved = await appBridge.provider.createFromPreset(
-        typeof request === 'string' ? request : { presetId: request.presetId },
+        typeof request === 'string' ? request : { presetId: request.presetId }
       )
       if (!saved) {
         throw new Error('Provider 预设保存后没有返回有效结果。')
@@ -158,7 +162,9 @@ export const useProviderStore = defineStore('provider', () => {
     }
   }
 
-  async function deleteProvider(request: DeleteProviderRequest | string): Promise<ProviderOperationResult | undefined> {
+  async function deleteProvider(
+    request: DeleteProviderRequest | string
+  ): Promise<ProviderOperationResult | undefined> {
     ensureElectronBridge('删除 Provider')
     if (!appBridge.provider.delete) {
       throw new Error('当前 Electron bridge 缺少 provider.delete，无法删除 Provider。')
@@ -170,7 +176,7 @@ export const useProviderStore = defineStore('provider', () => {
   }
 
   async function listModels(providerId: string): Promise<ProviderModel[]> {
-    return await appBridge.provider.listModels?.(providerId) ?? []
+    return (await appBridge.provider.listModels?.(providerId)) ?? []
   }
 
   async function setSessionModel(request: SetSessionModelRequest) {
@@ -244,42 +250,44 @@ function mapBridgeProvider(provider: BridgeProviderConfig): ProviderConfig[] {
 
   return models.map((model) => {
     const input = modelInputModalities(model) as Array<'text' | 'image' | 'audio' | 'file'>
-    const supportsTools = Boolean(model.supportsTools || model.capabilities?.tools || model.capabilities?.toolCall)
+    const supportsTools = Boolean(
+      model.supportsTools || model.capabilities?.tools || model.capabilities?.toolCall
+    )
     const supportsReasoning = Boolean(model.supportsReasoning || model.capabilities?.reasoning)
 
     return {
-    id: provider.id,
-    name: provider.name,
-    api: provider.api,
-    type: mapProviderType(provider.type || provider.api),
-    baseUrl: provider.baseUrl || '',
-    enabled: provider.enabled !== false && model.enabled !== false,
-    models: [
-      {
-        id: model.id,
-        providerId: provider.id,
-        name: model.displayName || model.name || model.id,
-        remoteId: model.remoteId || model.id,
-        enabled: model.enabled !== false,
-        input,
-        supportsStreaming: model.supportsStreaming !== false,
-        supportsTools,
-        supportsReasoning,
-        contextWindow: model.contextWindow,
-        maxOutputTokens: model.maxOutputTokens,
-        compat: model.compat,
+      id: provider.id,
+      name: provider.name,
+      api: provider.api,
+      type: mapProviderType(provider.type || provider.api),
+      baseUrl: provider.baseUrl || '',
+      enabled: provider.enabled !== false && model.enabled !== false,
+      models: [
+        {
+          id: model.id,
+          providerId: provider.id,
+          name: model.displayName || model.name || model.id,
+          remoteId: model.remoteId || model.id,
+          enabled: model.enabled !== false,
+          input,
+          supportsStreaming: model.supportsStreaming !== false,
+          supportsTools,
+          supportsReasoning,
+          contextWindow: model.contextWindow,
+          maxOutputTokens: model.maxOutputTokens,
+          compat: model.compat,
+        },
+      ],
+      model: model.id,
+      enable: provider.enabled !== false && model.enabled !== false,
+      model_metadata: {
+        modalities: {
+          input,
+        },
+        tool_call: supportsTools,
+        reasoning: supportsReasoning,
       },
-    ],
-    model: model.id,
-    enable: provider.enabled !== false && model.enabled !== false,
-    model_metadata: {
-      modalities: {
-        input,
-      },
-      tool_call: supportsTools,
-      reasoning: supportsReasoning,
-    },
-  } as ProviderConfig
+    } as ProviderConfig
   })
 }
 
@@ -299,7 +307,8 @@ function modelInputModalities(model: { capabilities?: Record<string, unknown>; i
   if (Array.isArray(input)) return input.filter((item): item is string => typeof item === 'string')
 
   const modalities = ['text']
-  if (capabilities.imageInput || capabilities.images || capabilities.vision) modalities.push('image')
+  if (capabilities.imageInput || capabilities.images || capabilities.vision)
+    modalities.push('image')
   if (capabilities.audioInput || capabilities.audio) modalities.push('audio')
   return modalities
 }

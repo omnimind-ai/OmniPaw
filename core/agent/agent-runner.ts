@@ -2,12 +2,25 @@ import type { ChatMessageRepo, ChatRunRepo } from '@core/db/repos'
 import { normalizeProviderError } from '@core/provider/errors'
 import type { ProviderManager } from '@core/provider/manager'
 import type { ProviderToolCall } from '@core/provider/base-provider'
-import type { ChatMessagePart, ChatRun, ChatRunMode, ChatSession, ProviderRequestSnapshot, ToolProfile } from '@shared/types/chat'
+import type {
+  ChatMessagePart,
+  ChatRun,
+  ChatRunMode,
+  ChatSession,
+  ProviderRequestSnapshot,
+  ToolProfile,
+} from '@shared/types/chat'
 import type { ProviderConfig, ProviderModel } from '@shared/types/provider'
 import type { ContextBuilder } from '@core/chat/context-manager'
 import type { RunManager } from '@core/chat/run-manager'
 import type { SkillManager } from '@core/skill/skill-manager'
-import { createAgentStepEvent, createToolCallEvent, createToolResultEvent, toolCallPart, upsertToolCallPart } from './agent-events'
+import {
+  createAgentStepEvent,
+  createToolCallEvent,
+  createToolResultEvent,
+  toolCallPart,
+  upsertToolCallPart,
+} from './agent-events'
 import { ToolExecutor } from './tool-executor'
 import { providerToolsFromAgentTools, ToolRegistry } from './tool-registry'
 import { defaultToolPolicy } from './tool-policy'
@@ -48,8 +61,12 @@ export class AgentRunner {
     const maxSteps = clampMaxSteps(input.maxSteps)
     const requestedMode = input.mode ?? 'assistant'
     const supportsTools = providerSupportsTools(input.provider, input.model)
-    const mode: ChatRunMode = requestedMode === 'fast_chat' || !supportsTools ? 'fast_chat' : 'assistant'
-    const fallbackReason = requestedMode === 'assistant' && !supportsTools ? 'provider_or_model_does_not_support_tools' : undefined
+    const mode: ChatRunMode =
+      requestedMode === 'fast_chat' || !supportsTools ? 'fast_chat' : 'assistant'
+    const fallbackReason =
+      requestedMode === 'assistant' && !supportsTools
+        ? 'provider_or_model_does_not_support_tools'
+        : undefined
 
     try {
       const allMessages = this.options.messages.listBySession(input.session.id)
@@ -68,9 +85,10 @@ export class AgentRunner {
       const client = await this.options.providers.createProviderClient(input.provider.id)
       const messages = [...context.messages]
       const policy = defaultToolPolicy(input.toolProfile ?? 'minimal')
-      const agentTools = mode === 'assistant'
-        ? await this.options.toolRegistry.resolve({ sessionId: input.session.id, policy })
-        : []
+      const agentTools =
+        mode === 'assistant'
+          ? await this.options.toolRegistry.resolve({ sessionId: input.session.id, policy })
+          : []
       const providerTools = providerToolsFromAgentTools(agentTools)
       const snapshot: ProviderRequestSnapshot = {
         ...context.snapshot,
@@ -97,15 +115,17 @@ export class AgentRunner {
       for (let step = 1; step <= maxSteps; step += 1) {
         throwIfAborted(input.signal)
         const stepParts: ChatMessagePart[] = []
-        this.options.runManager.emit(createAgentStepEvent({
-          runId: input.run.id,
-          sessionId: input.run.sessionId,
-          assistantMessageId: input.run.assistantMessageId,
-          seq: this.options.runManager.nextSeq(input.run.id),
-          step,
-          maxSteps,
-          status: 'started',
-        }))
+        this.options.runManager.emit(
+          createAgentStepEvent({
+            runId: input.run.id,
+            sessionId: input.run.sessionId,
+            assistantMessageId: input.run.assistantMessageId,
+            seq: this.options.runManager.nextSeq(input.run.id),
+            step,
+            maxSteps,
+            status: 'started',
+          })
+        )
 
         const stepToolCalls: ProviderToolCall[] = []
         let sawFinal = false
@@ -128,7 +148,9 @@ export class AgentRunner {
               assistantParts.push({ type: 'think', think: text })
               stepParts.push({ type: 'think', think: text })
             }
-            this.options.messages.updateParts(input.run.assistantMessageId, assistantParts, { status: 'streaming' })
+            this.options.messages.updateParts(input.run.assistantMessageId, assistantParts, {
+              status: 'streaming',
+            })
             this.options.runManager.emit({
               type: 'delta',
               runId: input.run.id,
@@ -166,15 +188,17 @@ export class AgentRunner {
           return
         }
 
-        this.options.runManager.emit(createAgentStepEvent({
-          runId: input.run.id,
-          sessionId: input.run.sessionId,
-          assistantMessageId: input.run.assistantMessageId,
-          seq: this.options.runManager.nextSeq(input.run.id),
-          step,
-          maxSteps,
-          status: 'tool_calling',
-        }))
+        this.options.runManager.emit(
+          createAgentStepEvent({
+            runId: input.run.id,
+            sessionId: input.run.sessionId,
+            assistantMessageId: input.run.assistantMessageId,
+            seq: this.options.runManager.nextSeq(input.run.id),
+            step,
+            maxSteps,
+            status: 'tool_calling',
+          })
+        )
 
         messages.push({
           role: 'assistant',
@@ -211,13 +235,17 @@ export class AgentRunner {
                 requestSnapshot: {
                   ...currentSnapshot,
                   skills: {
-                    enabledSkillIds: currentSnapshot.skills?.enabledSkillIds ?? skillPrompt?.enabledSkillIds ?? [],
+                    enabledSkillIds:
+                      currentSnapshot.skills?.enabledSkillIds ?? skillPrompt?.enabledSkillIds ?? [],
                     injected: currentSnapshot.skills?.injected ?? skillPrompt?.injected ?? false,
-                    omittedReason: currentSnapshot.skills?.omittedReason ?? skillPrompt?.omittedReason,
-                    readSkillIds: [...new Set([
-                      ...(currentSnapshot.skills?.readSkillIds ?? []),
-                      ...readSkillIds,
-                    ])].sort(),
+                    omittedReason:
+                      currentSnapshot.skills?.omittedReason ?? skillPrompt?.omittedReason,
+                    readSkillIds: [
+                      ...new Set([
+                        ...(currentSnapshot.skills?.readSkillIds ?? []),
+                        ...readSkillIds,
+                      ]),
+                    ].sort(),
                   },
                 },
                 updatedAt: Date.now(),
@@ -238,20 +266,24 @@ export class AgentRunner {
           })
         }
 
-        this.options.runManager.emit(createAgentStepEvent({
-          runId: input.run.id,
-          sessionId: input.run.sessionId,
-          assistantMessageId: input.run.assistantMessageId,
-          seq: this.options.runManager.nextSeq(input.run.id),
-          step,
-          maxSteps,
-          status: 'tool_complete',
-        }))
+        this.options.runManager.emit(
+          createAgentStepEvent({
+            runId: input.run.id,
+            sessionId: input.run.sessionId,
+            assistantMessageId: input.run.assistantMessageId,
+            seq: this.options.runManager.nextSeq(input.run.id),
+            step,
+            maxSteps,
+            status: 'tool_complete',
+          })
+        )
       }
 
       const message = `Reached maximum agent steps (${maxSteps}) before a final answer.`
       appendText(assistantParts, message)
-      this.options.messages.updateParts(input.run.assistantMessageId, assistantParts, { status: 'complete' })
+      this.options.messages.updateParts(input.run.assistantMessageId, assistantParts, {
+        status: 'complete',
+      })
       this.options.runs.updateStatus(input.run.id, 'complete', { finishedAt: Date.now() })
       this.emitFinal(input.run)
       this.options.onComplete?.(input.run.sessionId)
@@ -312,7 +344,7 @@ export class AgentRunner {
     parts: ChatMessagePart[],
     toolCall: NonNullable<Parameters<typeof upsertToolCallPart>[1]>,
     step: number,
-    kind: 'call' | 'result',
+    kind: 'call' | 'result'
   ): void {
     const updated = upsertToolCallPart(parts, toolCall)
     parts.splice(0, parts.length, ...updated)
@@ -325,23 +357,25 @@ export class AgentRunner {
       seq: this.options.runManager.nextSeq(run.id),
       part: toolCallPart(toolCall),
     })
-    this.options.runManager.emit(kind === 'call'
-      ? createToolCallEvent({
-          runId: run.id,
-          sessionId: run.sessionId,
-          assistantMessageId: run.assistantMessageId,
-          seq: this.options.runManager.nextSeq(run.id),
-          step,
-          toolCall,
-        })
-      : createToolResultEvent({
-          runId: run.id,
-          sessionId: run.sessionId,
-          assistantMessageId: run.assistantMessageId,
-          seq: this.options.runManager.nextSeq(run.id),
-          step,
-          toolCall,
-        }))
+    this.options.runManager.emit(
+      kind === 'call'
+        ? createToolCallEvent({
+            runId: run.id,
+            sessionId: run.sessionId,
+            assistantMessageId: run.assistantMessageId,
+            seq: this.options.runManager.nextSeq(run.id),
+            step,
+            toolCall,
+          })
+        : createToolResultEvent({
+            runId: run.id,
+            sessionId: run.sessionId,
+            assistantMessageId: run.assistantMessageId,
+            seq: this.options.runManager.nextSeq(run.id),
+            step,
+            toolCall,
+          })
+    )
   }
 }
 
@@ -370,7 +404,7 @@ function providerSupportsTools(provider: ProviderConfig, model: ProviderModel): 
 
 function parseArgumentsForDisplay(value: string): unknown {
   try {
-    return value.trim() ? JSON.parse(value) as unknown : {}
+    return value.trim() ? (JSON.parse(value) as unknown) : {}
   } catch {
     return value
   }

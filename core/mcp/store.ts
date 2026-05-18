@@ -12,7 +12,12 @@ import {
 } from 'node:fs'
 import { dirname, join } from 'node:path'
 
-import type { McpOperationError, McpRegistryStatus, McpServerRecord, McpServerRegistry } from '@shared/types/mcp'
+import type {
+  McpOperationError,
+  McpRegistryStatus,
+  McpServerRecord,
+  McpServerRegistry,
+} from '@shared/types/mcp'
 import {
   cloneDefaultMcpRegistry,
   cloneRegistry,
@@ -50,10 +55,14 @@ export class McpRegistryStore {
     try {
       parsed = JSON.parse(readFileSync(this.registryPath, 'utf8')) as unknown
     } catch (error) {
-      this.lastError = mcpError('invalid_json', errorMessage(error, 'Failed to parse MCP server registry.'), {
-        path: this.registryPath,
-        recoverable: existsSync(this.backupPath),
-      })
+      this.lastError = mcpError(
+        'invalid_json',
+        errorMessage(error, 'Failed to parse MCP server registry.'),
+        {
+          path: this.registryPath,
+          recoverable: existsSync(this.backupPath),
+        }
+      )
       throw new McpValidationError(this.lastError)
     }
 
@@ -97,10 +106,12 @@ export class McpRegistryStore {
     const saved = this.save({ ...registry, servers })
     const next = saved.servers.find((item) => item.id === server.id)
     if (!next) {
-      throw new McpValidationError(mcpError('save_failed', `Failed to save MCP server: ${server.id}`, {
-        path: this.registryPath,
-        recoverable: existsSync(this.backupPath),
-      }))
+      throw new McpValidationError(
+        mcpError('save_failed', `Failed to save MCP server: ${server.id}`, {
+          path: this.registryPath,
+          recoverable: existsSync(this.backupPath),
+        })
+      )
     }
     return structuredClone(next)
   }
@@ -119,10 +130,12 @@ export class McpRegistryStore {
     const registry = this.get()
     const server = registry.servers.find((item) => item.id === serverId)
     if (!server) {
-      throw new McpValidationError(mcpError('not_found', `MCP server was not found: ${serverId}`, {
-        path: this.registryPath,
-        recoverable: false,
-      }))
+      throw new McpValidationError(
+        mcpError('not_found', `MCP server was not found: ${serverId}`, {
+          path: this.registryPath,
+          recoverable: false,
+        })
+      )
     }
     return this.upsert({
       ...server,
@@ -159,25 +172,37 @@ export class McpRegistryStore {
         throw new McpValidationError(this.lastError)
       }
 
-      this.lastError = mcpError('invalid_registry', errorMessage(error, 'Failed to normalize MCP server registry.'), {
-        path: this.registryPath,
-        recoverable: existsSync(this.backupPath),
-      })
+      this.lastError = mcpError(
+        'invalid_registry',
+        errorMessage(error, 'Failed to normalize MCP server registry.'),
+        {
+          path: this.registryPath,
+          recoverable: existsSync(this.backupPath),
+        }
+      )
       throw new McpValidationError(this.lastError)
     }
   }
 
   private writeLoaded(registry: McpServerRegistry, backupExisting: boolean): McpServerRegistry {
     try {
-      atomicWriteJson(this.registryPath, serializeMcpRegistry(registry), backupExisting ? this.backupPath : undefined)
+      atomicWriteJson(
+        this.registryPath,
+        serializeMcpRegistry(registry),
+        backupExisting ? this.backupPath : undefined
+      )
       this.loadedRegistry = cloneRegistry(registry)
       this.lastError = undefined
       return this.get()
     } catch (error) {
-      this.lastError = mcpError('save_failed', errorMessage(error, 'Failed to save MCP server registry.'), {
-        path: this.registryPath,
-        recoverable: existsSync(this.backupPath),
-      })
+      this.lastError = mcpError(
+        'save_failed',
+        errorMessage(error, 'Failed to save MCP server registry.'),
+        {
+          path: this.registryPath,
+          recoverable: existsSync(this.backupPath),
+        }
+      )
       throw new McpValidationError(this.lastError)
     }
   }
@@ -187,7 +212,10 @@ export class McpRegistryStore {
   }
 }
 
-export function resolveMcpRegistryPath(userDataPath: string, fileName = MCP_REGISTRY_FILE_NAME): string {
+export function resolveMcpRegistryPath(
+  userDataPath: string,
+  fileName = MCP_REGISTRY_FILE_NAME
+): string {
   return join(userDataPath, fileName)
 }
 

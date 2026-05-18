@@ -41,7 +41,11 @@ import type {
   SaveMcpServerRequest,
   SetMcpServerEnabledRequest,
 } from '@shared/types/mcp'
-import type { ImportSkillRequest, SetSkillEnabledRequest, SkillOperationError } from '@shared/types/skill'
+import type {
+  ImportSkillRequest,
+  SetSkillEnabledRequest,
+  SkillOperationError,
+} from '@shared/types/skill'
 
 const isMac = process.platform === 'darwin'
 
@@ -101,49 +105,51 @@ function registerIpcHandlers(): void {
   }))
 
   ipcMain.handle(IPC_CHANNELS.settings.load, () => settingsResult(() => configStore.get()))
-  ipcMain.handle(IPC_CHANNELS.settings.save, (_event, request: SaveDesktopSettingsRequest | DesktopSettingsConfig) =>
-    settingsResult(() => {
-      const config = isSaveSettingsRequest(request) ? request.config : request
-      const saved = configStore.save(config)
-      broadcastSettingsChanged('save', saved)
-      return saved
-    }),
+  ipcMain.handle(
+    IPC_CHANNELS.settings.save,
+    (_event, request: SaveDesktopSettingsRequest | DesktopSettingsConfig) =>
+      settingsResult(() => {
+        const config = isSaveSettingsRequest(request) ? request.config : request
+        const saved = configStore.save(config)
+        broadcastSettingsChanged('save', saved)
+        return saved
+      })
   )
   ipcMain.handle(IPC_CHANNELS.settings.reset, () =>
     settingsResult(() => {
       const saved = configStore.reset()
       broadcastSettingsChanged('reset', saved)
       return saved
-    }),
+    })
   )
   ipcMain.handle(IPC_CHANNELS.settings.status, () => settingsResult(() => configStore.status()))
 
   ipcMain.handle(IPC_CHANNELS.chat.listSessions, () => chatService.listSessions())
   ipcMain.handle(IPC_CHANNELS.chat.createSession, () => chatService.createSession())
   ipcMain.handle(IPC_CHANNELS.chat.getSession, (_event, sessionId: string) =>
-    chatService.getSession(sessionId),
+    chatService.getSession(sessionId)
   )
   ipcMain.handle(IPC_CHANNELS.chat.updateSession, (_event, request) =>
-    chatService.updateSession(normalizeUpdateSessionRequest(request)),
+    chatService.updateSession(normalizeUpdateSessionRequest(request))
   )
   ipcMain.handle(IPC_CHANNELS.chat.deleteSession, (_event, request) =>
-    chatService.deleteSession(request),
+    chatService.deleteSession(request)
   )
   ipcMain.handle(IPC_CHANNELS.chat.listMessages, (_event, request) =>
-    chatService.listMessages(request),
+    chatService.listMessages(request)
   )
   ipcMain.handle(IPC_CHANNELS.chat.sendMessage, (event, request) =>
-    chatService.sendMessage(request, event.sender),
+    chatService.sendMessage(request, event.sender)
   )
   ipcMain.handle(IPC_CHANNELS.chat.abortRun, (_event, request) => chatService.abortRun(request))
   ipcMain.handle(IPC_CHANNELS.chat.editMessage, (_event, request) =>
-    chatService.editMessage(normalizeEditMessageRequest(request)),
+    chatService.editMessage(normalizeEditMessageRequest(request))
   )
   ipcMain.handle(IPC_CHANNELS.chat.regenerateMessage, (event, request) =>
-    chatService.regenerateMessage(normalizeRegenerateRequest(request), event.sender),
+    chatService.regenerateMessage(normalizeRegenerateRequest(request), event.sender)
   )
   ipcMain.handle(IPC_CHANNELS.chat.uploadAttachment, (_event, request) =>
-    attachmentService.upload(normalizeUploadRequest(request)),
+    attachmentService.upload(normalizeUploadRequest(request))
   )
   ipcMain.handle(IPC_CHANNELS.chat.getAttachmentPreview, (_event, request) => {
     const attachmentId = typeof request === 'string' ? request : request.attachmentId
@@ -152,57 +158,79 @@ function registerIpcHandlers(): void {
 
   ipcMain.handle(IPC_CHANNELS.provider.list, () => providerManager.list())
   ipcMain.handle(IPC_CHANNELS.provider.listPresets, () => providerManager.listPresets())
-  ipcMain.handle(IPC_CHANNELS.provider.createFromPreset, (_event, request: CreateProviderFromPresetRequest | string) =>
-    providerManager.createFromPreset(typeof request === 'string' ? request : request.presetId),
+  ipcMain.handle(
+    IPC_CHANNELS.provider.createFromPreset,
+    (_event, request: CreateProviderFromPresetRequest | string) =>
+      providerManager.createFromPreset(typeof request === 'string' ? request : request.presetId)
   )
   ipcMain.handle(IPC_CHANNELS.provider.upsert, (_event, request: SaveProviderRequest) =>
-    providerManager.upsert(request),
+    providerManager.upsert(request)
   )
-  ipcMain.handle(IPC_CHANNELS.provider.delete, async (_event, request: DeleteProviderRequest | string) => {
-    await providerManager.delete(typeof request === 'string' ? request : request.providerId)
-    return { ok: true }
-  })
-  ipcMain.handle(IPC_CHANNELS.provider.test, (_event, request: TestProviderRequest | string, modelId?: string) =>
-    providerManager.test(typeof request === 'string' ? request : request.providerId ?? request.provider?.id ?? '', typeof request === 'string' ? modelId : request.modelId),
+  ipcMain.handle(
+    IPC_CHANNELS.provider.delete,
+    async (_event, request: DeleteProviderRequest | string) => {
+      await providerManager.delete(typeof request === 'string' ? request : request.providerId)
+      return { ok: true }
+    }
+  )
+  ipcMain.handle(
+    IPC_CHANNELS.provider.test,
+    (_event, request: TestProviderRequest | string, modelId?: string) =>
+      providerManager.test(
+        typeof request === 'string' ? request : (request.providerId ?? request.provider?.id ?? ''),
+        typeof request === 'string' ? modelId : request.modelId
+      )
   )
   ipcMain.handle(IPC_CHANNELS.provider.listModels, (_event, providerId: string) =>
-    providerManager.listModels(providerId),
+    providerManager.listModels(providerId)
   )
-  ipcMain.handle(IPC_CHANNELS.provider.refreshModels, async (_event, request: RefreshProviderModelsRequest | string) =>
-    providerManager.refreshModels(typeof request === 'string' ? request : request.providerId),
+  ipcMain.handle(
+    IPC_CHANNELS.provider.refreshModels,
+    async (_event, request: RefreshProviderModelsRequest | string) =>
+      providerManager.refreshModels(typeof request === 'string' ? request : request.providerId)
   )
   ipcMain.handle(IPC_CHANNELS.provider.setSessionModel, (_event, request: SetSessionModelRequest) =>
     chatService.updateSession({
       sessionId: request.sessionId,
       defaultProviderId: request.providerId,
       defaultModelId: request.modelId,
-    }),
+    })
   )
   ipcMain.handle(IPC_CHANNELS.skill.list, () => skillResult(() => skillManager.list()))
   ipcMain.handle(IPC_CHANNELS.skill.refresh, () => skillResult(() => skillManager.refresh()))
   ipcMain.handle(IPC_CHANNELS.skill.setEnabled, (_event, request: SetSkillEnabledRequest) =>
-    skillResult(() => skillManager.setEnabled(request)),
+    skillResult(() => skillManager.setEnabled(request))
   )
   ipcMain.handle(IPC_CHANNELS.skill.importSkill, (_event, request: ImportSkillRequest) =>
-    skillResult(() => skillManager.importSkill(request)),
+    skillResult(() => skillManager.importSkill(request))
   )
   ipcMain.handle(IPC_CHANNELS.cron.list, () => cronManager.list())
   ipcMain.handle(IPC_CHANNELS.tools.list, () => toolManagementService.list())
   ipcMain.handle(IPC_CHANNELS.tools.setEnabled, (_event, request: SetToolEnabledRequest) =>
-    toolManagementService.setEnabled(request.name, request.enabled),
+    toolManagementService.setEnabled(request.name, request.enabled)
   )
-  ipcMain.handle(IPC_CHANNELS.mcp.listServers, () => mcpResult(() => mcpServerManager.listServers()))
+  ipcMain.handle(IPC_CHANNELS.mcp.listServers, () =>
+    mcpResult(() => mcpServerManager.listServers())
+  )
   ipcMain.handle(IPC_CHANNELS.mcp.saveServer, (_event, request: SaveMcpServerRequest) =>
-    mcpResult(() => mcpServerManager.saveServer(request)),
+    mcpResult(() => mcpServerManager.saveServer(request))
   )
-  ipcMain.handle(IPC_CHANNELS.mcp.deleteServer, (_event, request: DeleteMcpServerRequest | string) =>
-    mcpResult(() => mcpServerManager.deleteServer(typeof request === 'string' ? request : request.serverId)),
+  ipcMain.handle(
+    IPC_CHANNELS.mcp.deleteServer,
+    (_event, request: DeleteMcpServerRequest | string) =>
+      mcpResult(() =>
+        mcpServerManager.deleteServer(typeof request === 'string' ? request : request.serverId)
+      )
   )
   ipcMain.handle(IPC_CHANNELS.mcp.setServerEnabled, (_event, request: SetMcpServerEnabledRequest) =>
-    mcpResult(() => mcpServerManager.setServerEnabled(request.serverId, request.enabled)),
+    mcpResult(() => mcpServerManager.setServerEnabled(request.serverId, request.enabled))
   )
-  ipcMain.handle(IPC_CHANNELS.mcp.refreshServer, (_event, request?: RefreshMcpServerRequest | string) =>
-    mcpResult(() => mcpServerManager.refreshServer(typeof request === 'string' ? request : request?.serverId)),
+  ipcMain.handle(
+    IPC_CHANNELS.mcp.refreshServer,
+    (_event, request?: RefreshMcpServerRequest | string) =>
+      mcpResult(() =>
+        mcpServerManager.refreshServer(typeof request === 'string' ? request : request?.serverId)
+      )
   )
   ipcMain.handle(IPC_CHANNELS.mcp.listTools, () => mcpResult(() => mcpServerManager.listTools()))
 }
@@ -242,23 +270,27 @@ function initializeCore(): void {
     onChanged: broadcastSkillChanged,
   })
   loadStartupSkills()
-  toolManagementService = new ToolManagementService(new ConfigToolSettingsStore(configStore, (saved) => {
-    broadcastSettingsChanged('save', saved)
-  }), () => mcpServerManager.listTools().tools.map((tool) => ({
-    name: tool.name,
-    providerName: tool.providerName,
-    label: tool.label,
-    description: tool.description,
-    parameters: tool.parameters,
-    risk: tool.risk,
-    profiles: tool.profiles,
-    source: 'mcp' as const,
-    serverId: tool.serverId,
-    serverName: tool.serverName,
-    discoveryStatus: 'available',
-    enabled: tool.enabled,
-    readonly: true,
-  })))
+  toolManagementService = new ToolManagementService(
+    new ConfigToolSettingsStore(configStore, (saved) => {
+      broadcastSettingsChanged('save', saved)
+    }),
+    () =>
+      mcpServerManager.listTools().tools.map((tool) => ({
+        name: tool.name,
+        providerName: tool.providerName,
+        label: tool.label,
+        description: tool.description,
+        parameters: tool.parameters,
+        risk: tool.risk,
+        profiles: tool.profiles,
+        source: 'mcp' as const,
+        serverId: tool.serverId,
+        serverName: tool.serverName,
+        discoveryStatus: 'available',
+        enabled: tool.enabled,
+        readonly: true,
+      }))
+  )
 
   providerManager = new ProviderManager({
     configStore,
@@ -294,7 +326,10 @@ function initializeCore(): void {
   })
 }
 
-function broadcastSettingsChanged(reason: SettingsChangeReason, config: DesktopSettingsConfig): void {
+function broadcastSettingsChanged(
+  reason: SettingsChangeReason,
+  config: DesktopSettingsConfig
+): void {
   const event: DesktopSettingsChangedEvent = {
     reason,
     config,
@@ -306,21 +341,23 @@ function broadcastSettingsChanged(reason: SettingsChangeReason, config: DesktopS
   }
 }
 
-function broadcastMcpChanged(event: Parameters<NonNullable<ConstructorParameters<typeof McpServerManager>[0]['onChanged']>>[0]): void {
+function broadcastMcpChanged(
+  event: Parameters<NonNullable<ConstructorParameters<typeof McpServerManager>[0]['onChanged']>>[0]
+): void {
   for (const window of BrowserWindow.getAllWindows()) {
     window.webContents.send(IPC_CHANNELS.mcp.changed, event)
   }
 }
 
-function broadcastSkillChanged(event: Parameters<NonNullable<ConstructorParameters<typeof SkillManager>[0]['onChanged']>>[0]): void {
+function broadcastSkillChanged(
+  event: Parameters<NonNullable<ConstructorParameters<typeof SkillManager>[0]['onChanged']>>[0]
+): void {
   for (const window of BrowserWindow.getAllWindows()) {
     window.webContents.send(IPC_CHANNELS.skill.changed, event)
   }
 }
 
-type SettingsIpcResult<T> =
-  | { ok: true; value: T }
-  | { ok: false; error: SettingsOperationError }
+type SettingsIpcResult<T> = { ok: true; value: T } | { ok: false; error: SettingsOperationError }
 
 function settingsResult<T>(operation: () => T): SettingsIpcResult<T> {
   try {
@@ -337,17 +374,19 @@ function settingsResult<T>(operation: () => T): SettingsIpcResult<T> {
     }
     return {
       ok: false,
-      error: configError('config_io_error', error instanceof Error ? error.message : 'Settings operation failed.', {
-        path: configStore.status().path,
-        recoverable: configStore.status().recoverable,
-      }),
+      error: configError(
+        'config_io_error',
+        error instanceof Error ? error.message : 'Settings operation failed.',
+        {
+          path: configStore.status().path,
+          recoverable: configStore.status().recoverable,
+        }
+      ),
     }
   }
 }
 
-type McpIpcResult<T> =
-  | { ok: true; value: T }
-  | { ok: false; error: McpOperationError }
+type McpIpcResult<T> = { ok: true; value: T } | { ok: false; error: McpOperationError }
 
 async function mcpResult<T>(operation: () => T | Promise<T>): Promise<McpIpcResult<T>> {
   try {
@@ -364,16 +403,18 @@ async function mcpResult<T>(operation: () => T | Promise<T>): Promise<McpIpcResu
     }
     return {
       ok: false,
-      error: mcpError('mcp_io_error', error instanceof Error ? error.message : 'MCP operation failed.', {
-        recoverable: true,
-      }),
+      error: mcpError(
+        'mcp_io_error',
+        error instanceof Error ? error.message : 'MCP operation failed.',
+        {
+          recoverable: true,
+        }
+      ),
     }
   }
 }
 
-type SkillIpcResult<T> =
-  | { ok: true; value: T }
-  | { ok: false; error: SkillOperationError }
+type SkillIpcResult<T> = { ok: true; value: T } | { ok: false; error: SkillOperationError }
 
 function skillResult<T>(operation: () => T): SkillIpcResult<T> {
   try {
@@ -390,14 +431,20 @@ function skillResult<T>(operation: () => T): SkillIpcResult<T> {
     }
     return {
       ok: false,
-      error: skillError('skill_io_error', error instanceof Error ? error.message : 'Skill operation failed.', {
-        recoverable: true,
-      }),
+      error: skillError(
+        'skill_io_error',
+        error instanceof Error ? error.message : 'Skill operation failed.',
+        {
+          recoverable: true,
+        }
+      ),
     }
   }
 }
 
-function isSaveSettingsRequest(value: SaveDesktopSettingsRequest | DesktopSettingsConfig): value is SaveDesktopSettingsRequest {
+function isSaveSettingsRequest(
+  value: SaveDesktopSettingsRequest | DesktopSettingsConfig
+): value is SaveDesktopSettingsRequest {
   return Boolean(value && typeof value === 'object' && 'config' in value)
 }
 

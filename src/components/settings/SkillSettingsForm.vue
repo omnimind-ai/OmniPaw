@@ -1,10 +1,5 @@
 <script setup lang="ts">
-import {
-  AlertCircleIcon,
-  BookOpenIcon,
-  RefreshCwIcon,
-  UploadIcon,
-} from 'lucide-vue-next'
+import { AlertCircleIcon, BookOpenIcon, RefreshCwIcon, UploadIcon } from 'lucide-vue-next'
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 
 import {
@@ -20,12 +15,7 @@ import {
 import SettingsSection from '@/components/settings/SettingsSection.vue'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import {
-  Field,
-  FieldContent,
-  FieldDescription,
-  FieldLabel,
-} from '@/components/ui/field'
+import { Field, FieldContent, FieldDescription, FieldLabel } from '@/components/ui/field'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Switch } from '@/components/ui/switch'
 import { cn } from '@/lib/utils'
@@ -64,7 +54,9 @@ const skillUnavailable = computed(() => !skillBridge)
 const enabledCount = computed(() => skills.value.filter((skill) => skill.enabled).length)
 const invalidCount = computed(() => skills.value.filter((skill) => isInvalidSkill(skill)).length)
 const anyPending = computed(() => pendingKeys.value.size > 0)
-const persistenceUnavailable = computed(() => skillUnavailable.value || isFallbackBridge || !skillBridge?.setEnabled)
+const persistenceUnavailable = computed(
+  () => skillUnavailable.value || isFallbackBridge || !skillBridge?.setEnabled
+)
 const importUnavailable = computed(() => persistenceUnavailable.value || !skillBridge?.importSkill)
 
 onMounted(async () => {
@@ -96,9 +88,7 @@ async function loadSkills() {
 async function refreshSkills() {
   await withPending('refresh:all', async () => {
     try {
-      const response = skillBridge.refresh
-        ? await skillBridge.refresh()
-        : await skillBridge.list()
+      const response = skillBridge.refresh ? await skillBridge.refresh() : await skillBridge.list()
       applyListResponse(response)
       toast.success('技能列表已刷新。')
     } catch (error) {
@@ -161,7 +151,9 @@ async function setSkillEnabled(skill: LocalSkillSummary, enabled: boolean) {
   })
 }
 
-function applyListResponse(response: SkillListResponse | BridgeSkillChangedEvent | LegacySkillSummary[]) {
+function applyListResponse(
+  response: SkillListResponse | BridgeSkillChangedEvent | LegacySkillSummary[]
+) {
   if (Array.isArray(response)) {
     skills.value = normalizeLegacySkills(response)
     readOnly.value = isFallbackBridge
@@ -197,14 +189,18 @@ function normalizeLegacySkills(items: LegacySkillSummary[]): BridgeLocalSkillSum
     compatibility: item.compatibility,
     error: typeof item.error === 'string' ? item.error : item.error?.message,
     enabled: Boolean(item.enabled),
-    status: (item.status === 'valid' ? 'available' : item.status === 'error' ? 'invalid' : item.status || 'available') as BridgeSkillStatus,
+    status: (item.status === 'valid'
+      ? 'available'
+      : item.status === 'error'
+        ? 'invalid'
+        : item.status || 'available') as BridgeSkillStatus,
   }))
 }
 
 function upsertSkill(skill: LocalSkillSummary) {
   const normalized = normalizeLegacySkills([skill])[0]
   if (!normalized) return
-  skills.value = skills.value.map((item) => item.id === normalized.id ? normalized : item)
+  skills.value = skills.value.map((item) => (item.id === normalized.id ? normalized : item))
 }
 
 async function withPending(key: string, operation: () => Promise<void>) {
@@ -283,8 +279,7 @@ function normalizeMetadata(value: unknown): Record<string, string | undefined> {
     return {}
   }
   return Object.fromEntries(
-    Object.entries(value)
-      .filter((entry): entry is [string, string] => typeof entry[1] === 'string'),
+    Object.entries(value).filter((entry): entry is [string, string] => typeof entry[1] === 'string')
   )
 }
 </script>

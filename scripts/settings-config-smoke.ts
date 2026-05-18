@@ -4,11 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
 import { ConfigToolSettingsStore } from '../core/config/tool-settings-store'
-import {
-  ConfigValidationError,
-  cloneDefaultConfig,
-  normalizeConfig,
-} from '../core/config/schema'
+import { ConfigValidationError, cloneDefaultConfig, normalizeConfig } from '../core/config/schema'
 import { ConfigStore } from '../core/config/store'
 import { ToolManagementService } from '../core/agent/tool-management-service'
 import { ProviderManager } from '../core/provider/manager'
@@ -62,28 +58,30 @@ try {
 
   assert.throws(
     () => normalizeConfig({ ...cloneDefaultConfig(), version: 999 }),
-    ConfigValidationError,
+    ConfigValidationError
   )
   assert.throws(
-    () => normalizeConfig({
-      ...cloneDefaultConfig(),
-      providers: {
-        ...cloneDefaultConfig().providers,
-        settings: {
-          defaultModelId: 'missing-model',
-          fallbackModelIds: [],
-          streaming: true,
+    () =>
+      normalizeConfig({
+        ...cloneDefaultConfig(),
+        providers: {
+          ...cloneDefaultConfig().providers,
+          settings: {
+            defaultModelId: 'missing-model',
+            fallbackModelIds: [],
+            streaming: true,
+          },
         },
-      },
-    }),
-    ConfigValidationError,
+      }),
+    ConfigValidationError
   )
   assert.throws(
-    () => normalizeConfig({
-      ...cloneDefaultConfig(),
-      app: 'invalid',
-    }),
-    ConfigValidationError,
+    () =>
+      normalizeConfig({
+        ...cloneDefaultConfig(),
+        app: 'invalid',
+      }),
+    ConfigValidationError
   )
 
   const store = new ConfigStore({ appDataPath: tempDir })
@@ -136,14 +134,21 @@ try {
     },
   })
   assert.equal(savedProvider?.apiKey, undefined)
-  assert.equal(providerStore.get().providers.sources.find((source) => source.id === 'custom-openai')?.apiKey, 'sk-updated-secret')
+  assert.equal(
+    providerStore.get().providers.sources.find((source) => source.id === 'custom-openai')?.apiKey,
+    'sk-updated-secret'
+  )
   assert.equal((await providers.get('custom-openai'))?.models.length, 0)
 
   const toolSettings = new ConfigToolSettingsStore(store)
   const tools = new ToolManagementService(toolSettings)
   assert.equal(tools.list().find((tool) => tool.name === 'calculator')?.enabled, true)
   tools.setEnabled('calculator', false)
-  assert.equal(new ToolManagementService(toolSettings).list().find((tool) => tool.name === 'calculator')?.enabled, false)
+  assert.equal(
+    new ToolManagementService(toolSettings).list().find((tool) => tool.name === 'calculator')
+      ?.enabled,
+    false
+  )
 
   console.log('Settings config smoke check passed')
 } finally {

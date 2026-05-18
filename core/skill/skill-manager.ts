@@ -47,10 +47,12 @@ export class SkillManager {
   constructor(private readonly options: SkillManagerOptions) {
     this.store = options.store ?? new SkillStateStore({ userDataPath: options.userDataPath })
     this.loader = options.loader ?? new SkillLoader()
-    this.roots = options.roots ?? [{
-      name: 'local',
-      path: join(options.userDataPath, SKILL_ROOT_DIRECTORY_NAME),
-    }]
+    this.roots = options.roots ?? [
+      {
+        name: 'local',
+        path: join(options.userDataPath, SKILL_ROOT_DIRECTORY_NAME),
+      },
+    ]
   }
 
   load(): SkillListResponse {
@@ -104,18 +106,24 @@ export class SkillManager {
     const skillId = typeof request === 'string' ? request : request.skillId
     const nextEnabled = typeof request === 'string' ? enabled : request.enabled
     if (typeof nextEnabled !== 'boolean') {
-      throw new SkillValidationError(skillError('validation_failed', 'Enabled state must be boolean.', {
-        issues: [{ path: 'enabled', message: 'Enabled state must be boolean.', code: 'invalid_type' }],
-      }))
+      throw new SkillValidationError(
+        skillError('validation_failed', 'Enabled state must be boolean.', {
+          issues: [
+            { path: 'enabled', message: 'Enabled state must be boolean.', code: 'invalid_type' },
+          ],
+        })
+      )
     }
 
     const id = normalizeSkillId(skillId)
     const skill = this.findDiscoveredSkill(id)
     if (!skill) {
-      throw new SkillValidationError(skillError('not_found', `Skill was not found: ${id}`, {
-        path: this.store.status().path,
-        recoverable: false,
-      }))
+      throw new SkillValidationError(
+        skillError('not_found', `Skill was not found: ${id}`, {
+          path: this.store.status().path,
+          recoverable: false,
+        })
+      )
     }
 
     this.store.setEnabled(id, nextEnabled)
@@ -147,7 +155,10 @@ export class SkillManager {
 
     const maxDescription = options.compact ? MAX_COMPACT_SKILL_DESCRIPTION_CHARS : 240
     const lines = activeSkills.map((skill) => {
-      const description = truncateText(skill.description || 'No description provided.', maxDescription)
+      const description = truncateText(
+        skill.description || 'No description provided.',
+        maxDescription
+      )
       return options.compact
         ? `- ${skill.id}: ${description}`
         : `- ${skill.id} (${skill.name}): ${description}`
@@ -168,20 +179,26 @@ export class SkillManager {
     const id = normalizeSkillId(skillId)
     const skill = this.findDiscoveredSkill(id)
     if (!skill) {
-      throw new SkillValidationError(skillError('not_found', `Skill was not found: ${id}`, {
-        recoverable: false,
-      }))
+      throw new SkillValidationError(
+        skillError('not_found', `Skill was not found: ${id}`, {
+          recoverable: false,
+        })
+      )
     }
     const summary = this.toSummary(skill)
     if (!summary.enabled) {
-      throw new SkillValidationError(skillError('validation_failed', `Skill is disabled: ${id}`, {
-        recoverable: false,
-      }))
+      throw new SkillValidationError(
+        skillError('validation_failed', `Skill is disabled: ${id}`, {
+          recoverable: false,
+        })
+      )
     }
     if (summary.status !== 'available') {
-      throw new SkillValidationError(skillError('read_failed', `Skill is not available: ${id}`, {
-        recoverable: true,
-      }))
+      throw new SkillValidationError(
+        skillError('read_failed', `Skill is not available: ${id}`, {
+          recoverable: true,
+        })
+      )
     }
 
     const { content } = this.loader.readSkillFile(skill)
@@ -217,9 +234,11 @@ export class SkillManager {
   private primaryRoot(): SkillRoot {
     const root = this.roots[0]
     if (!root) {
-      throw new SkillValidationError(skillError('import_failed', 'No local skill root is configured.', {
-        recoverable: false,
-      }))
+      throw new SkillValidationError(
+        skillError('import_failed', 'No local skill root is configured.', {
+          recoverable: false,
+        })
+      )
     }
     return root
   }

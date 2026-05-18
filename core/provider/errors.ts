@@ -41,12 +41,17 @@ export function normalizeProviderError(error: unknown): ChatError {
 
 export async function errorFromResponse(response: Response): Promise<ChatError> {
   const bodyPreview = await response.text().then(previewBody, () => undefined)
-  const message = extractErrorMessage(bodyPreview) ?? response.statusText ?? 'Provider request failed.'
+  const message =
+    extractErrorMessage(bodyPreview) ?? response.statusText ?? 'Provider request failed.'
 
   return {
     code: codeFromStatus(response.status, bodyPreview),
     message,
-    retryable: response.status === 408 || response.status === 409 || response.status === 429 || response.status >= 500,
+    retryable:
+      response.status === 408 ||
+      response.status === 409 ||
+      response.status === 429 ||
+      response.status >= 500,
     providerStatus: response.status,
     providerBodyPreview: bodyPreview,
   }
@@ -125,9 +130,8 @@ function previewBody(body: string): string | undefined {
 
 function isAbortError(error: unknown): boolean {
   return (
-    error instanceof DOMException && error.name === 'AbortError'
-  ) || (
-    error instanceof Error && error.name === 'AbortError'
+    (error instanceof DOMException && error.name === 'AbortError') ||
+    (error instanceof Error && error.name === 'AbortError')
   )
 }
 

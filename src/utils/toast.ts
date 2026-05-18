@@ -13,11 +13,7 @@ export interface ToastApi {
 }
 
 export function useToast(): ToastApi {
-  const notify = (
-    message: ToastMessage,
-    level: ToastLevel = 'info',
-    options?: ToastOptions,
-  ) => {
+  const notify = (message: ToastMessage, level: ToastLevel = 'info', options?: ToastOptions) => {
     const text = errorToText(message)
     if (level === 'success') return sonnerToast.success(text, options)
     if (level === 'error') return sonnerToast.error(text, options)

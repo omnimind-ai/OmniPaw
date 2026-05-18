@@ -55,7 +55,11 @@ export class AttachmentService {
     const kind = inferKind(mimeType, originalName)
     const ext = safeExtension(originalName, mimeType)
     const storedName = `${sha256}${ext}`
-    const bucket = join(this.rootDir, String(new Date(now).getFullYear()), String(new Date(now).getMonth() + 1).padStart(2, '0'))
+    const bucket = join(
+      this.rootDir,
+      String(new Date(now).getFullYear()),
+      String(new Date(now).getMonth() + 1).padStart(2, '0')
+    )
     await mkdir(bucket, { recursive: true })
     const storagePath = join(bucket, storedName)
     await writeFile(storagePath, bytes)
@@ -85,7 +89,9 @@ export class AttachmentService {
     return this.repo.get(id)
   }
 
-  async getPreview(id: string): Promise<{ attachmentId: string; url: string; mimeType: string; filename: string }> {
+  async getPreview(
+    id: string
+  ): Promise<{ attachmentId: string; url: string; mimeType: string; filename: string }> {
     const attachment = this.repo.get(id)
     if (!attachment) {
       throw new Error(`Attachment not found: ${id}`)
@@ -194,7 +200,9 @@ function inferMimeType(name: string): string {
 }
 
 function safeExtension(name: string, mimeType: string): string {
-  const ext = extname(name).toLowerCase().replace(/[^a-z0-9.]/g, '')
+  const ext = extname(name)
+    .toLowerCase()
+    .replace(/[^a-z0-9.]/g, '')
   if (ext) return ext
   if (mimeType === 'image/png') return '.png'
   if (mimeType === 'image/jpeg') return '.jpg'
@@ -202,7 +210,11 @@ function safeExtension(name: string, mimeType: string): string {
   return '.bin'
 }
 
-function extractText(bytes: Buffer, mimeType: string, maxChars: number): {
+function extractText(
+  bytes: Buffer,
+  mimeType: string,
+  maxChars: number
+): {
   status: InternalAttachmentRecord['extractedTextStatus']
   text?: string
   error?: string

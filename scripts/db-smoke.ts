@@ -87,7 +87,15 @@ try {
   ])
   assert.equal(messages.listBySession(session.id).length, 2)
   assert.equal(messages.listAttachmentLinks(userMessage.id)[0]?.attachmentId, attachment.id)
-  assert.equal(messages.updateParts(assistantMessage.id, [{ type: 'plain', text: 'hi' }], { status: 'complete' }, 2005), true)
+  assert.equal(
+    messages.updateParts(
+      assistantMessage.id,
+      [{ type: 'plain', text: 'hi' }],
+      { status: 'complete' },
+      2005
+    ),
+    true
+  )
 
   const run: ChatRun = {
     id: 'run-smoke',
@@ -111,7 +119,10 @@ try {
   }
   assert.equal(runs.save(run).id, run.id)
   assert.equal(runs.save({ ...run, id: 'run-duplicate' }).id, run.id)
-  assert.equal(runs.updateStatus(run.id, 'complete', { finishedAt: 2008, usage: { total: 10 } }, 2008), true)
+  assert.equal(
+    runs.updateStatus(run.id, 'complete', { finishedAt: 2008, usage: { total: 10 } }, 2008),
+    true
+  )
   assert.equal(runs.get(run.id)?.usage?.total, 10)
 
   console.log('DB smoke check passed')

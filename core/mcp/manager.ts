@@ -15,7 +15,12 @@ import type {
   SaveMcpServerRequest,
   SetMcpServerEnabledRequest,
 } from '@shared/types/mcp'
-import { JsonRpcMcpClient, type McpClient, type McpClientTool, normalizeMcpClientError } from './client'
+import {
+  JsonRpcMcpClient,
+  type McpClient,
+  type McpClientTool,
+  normalizeMcpClientError,
+} from './client'
 import {
   createMcpServerSummary,
   DEFAULT_MCP_SERVER_TIMEOUT_MS,
@@ -84,7 +89,9 @@ export class McpServerManager {
     const now = Date.now()
     const registry = this.options.store.get()
     const existing = request.server.id
-      ? registry.servers.find((server) => server.id === normalizeMcpServerId(request.server.id ?? ''))
+      ? registry.servers.find(
+          (server) => server.id === normalizeMcpServerId(request.server.id ?? '')
+        )
       : undefined
     const record = normalizeSaveRequest(request, registry.servers, existing, now)
     const saved = this.options.store.upsert(record)
@@ -103,10 +110,12 @@ export class McpServerManager {
     const serverId = typeof request === 'string' ? request : request.serverId
     const deleted = this.options.store.delete(serverId)
     if (!deleted) {
-      throw new McpValidationError(mcpError('not_found', `MCP server was not found: ${serverId}`, {
-        path: this.options.store.status().path,
-        recoverable: false,
-      }))
+      throw new McpValidationError(
+        mcpError('not_found', `MCP server was not found: ${serverId}`, {
+          path: this.options.store.status().path,
+          recoverable: false,
+        })
+      )
     }
 
     this.discoveries.delete(serverId)
@@ -132,10 +141,12 @@ export class McpServerManager {
 
     if (serverId) {
       if (!servers.some((server) => server.id === serverId)) {
-        throw new McpValidationError(mcpError('not_found', `MCP server was not found: ${serverId}`, {
-          path: this.options.store.status().path,
-          recoverable: false,
-        }))
+        throw new McpValidationError(
+          mcpError('not_found', `MCP server was not found: ${serverId}`, {
+            path: this.options.store.status().path,
+            recoverable: false,
+          })
+        )
       }
       await this.refreshOne(serverId, 'refresh')
       return this.listServers()
@@ -149,9 +160,9 @@ export class McpServerManager {
   listTools(): McpToolInventoryResponse {
     const response = this.listServers()
     return {
-      tools: response.servers.flatMap((server) => (
+      tools: response.servers.flatMap((server) =>
         server.enabled && server.status === 'available' ? server.tools : []
-      )),
+      ),
       servers: response.servers,
     }
   }
@@ -165,20 +176,23 @@ export class McpServerManager {
       }
 
       const providerName = tool.providerName
-      return [{
-        name: providerName,
-        providerName,
-        label: tool.label,
-        description: tool.description,
-        parameters: tool.parameters,
-        risk: tool.risk,
-        source: 'mcp',
-        serverId: server.id,
-        serverName: server.name,
-        profiles: [...tool.profiles],
-        timeoutMs: server.toolTimeoutMs,
-        execute: async (_toolCallId, args, signal) => this.client.callTool(server, tool.name, args, signal),
-      } satisfies AgentTool]
+      return [
+        {
+          name: providerName,
+          providerName,
+          label: tool.label,
+          description: tool.description,
+          parameters: tool.parameters,
+          risk: tool.risk,
+          source: 'mcp',
+          serverId: server.id,
+          serverName: server.name,
+          profiles: [...tool.profiles],
+          timeoutMs: server.toolTimeoutMs,
+          execute: async (_toolCallId, args, signal) =>
+            this.client.callTool(server, tool.name, args, signal),
+        } satisfies AgentTool,
+      ]
     })
   }
 
@@ -186,13 +200,18 @@ export class McpServerManager {
     return this.options.store.status()
   }
 
-  private async refreshOne(serverId: string, reason: McpServerChangedEvent['reason']): Promise<void> {
+  private async refreshOne(
+    serverId: string,
+    reason: McpServerChangedEvent['reason']
+  ): Promise<void> {
     const server = this.options.store.list().find((item) => item.id === serverId)
     if (!server) {
-      throw new McpValidationError(mcpError('not_found', `MCP server was not found: ${serverId}`, {
-        path: this.options.store.status().path,
-        recoverable: false,
-      }))
+      throw new McpValidationError(
+        mcpError('not_found', `MCP server was not found: ${serverId}`, {
+          path: this.options.store.status().path,
+          recoverable: false,
+        })
+      )
     }
 
     await this.refreshServerRecord(server)
@@ -208,10 +227,11 @@ export class McpServerManager {
     this.discoveries.set(server.id, { status: 'refreshing', tools: [] })
     try {
       const tools = await this.client.listTools(server)
-      const normalized = normalizeDiscoveredTools(server, tools, new Set([
-        ...this.reservedToolNames,
-        ...this.allCurrentProviderToolNames(server.id),
-      ]))
+      const normalized = normalizeDiscoveredTools(
+        server,
+        tools,
+        new Set([...this.reservedToolNames, ...this.allCurrentProviderToolNames(server.id)])
+      )
       this.discoveries.set(server.id, {
         status: 'available',
         tools: normalized.tools,
@@ -241,10 +261,12 @@ export class McpServerManager {
   private summaryForId(serverId: string): McpServerSummary {
     const server = this.options.store.list().find((item) => item.id === serverId)
     if (!server) {
-      throw new McpValidationError(mcpError('not_found', `MCP server was not found: ${serverId}`, {
-        path: this.options.store.status().path,
-        recoverable: false,
-      }))
+      throw new McpValidationError(
+        mcpError('not_found', `MCP server was not found: ${serverId}`, {
+          path: this.options.store.status().path,
+          recoverable: false,
+        })
+      )
     }
     return this.summaryFor(server)
   }
@@ -270,7 +292,10 @@ export class McpServerManager {
     }
     for (const server of servers) {
       if (!this.discoveries.has(server.id)) {
-        this.discoveries.set(server.id, server.enabled ? { status: 'idle', tools: [] } : { status: 'disabled', tools: [] })
+        this.discoveries.set(
+          server.id,
+          server.enabled ? { status: 'idle', tools: [] } : { status: 'disabled', tools: [] }
+        )
       } else if (!server.enabled) {
         this.discoveries.set(server.id, { status: 'disabled', tools: [] })
       }
@@ -290,34 +315,40 @@ function normalizeSaveRequest(
   request: SaveMcpServerRequest,
   servers: McpServerRecord[],
   existing: McpServerRecord | undefined,
-  now: number,
+  now: number
 ): McpServerRecord {
   const rawServer = request.server
   const requestedId = typeof rawServer.id === 'string' ? normalizeMcpServerId(rawServer.id) : ''
   const id = requestedId || makeUniqueServerId(rawServer.name, servers)
   const duplicate = servers.find((server) => server.id === id && server.id !== existing?.id)
   if (duplicate) {
-    throw new McpValidationError(mcpError('validation_failed', `MCP server ID already exists: ${id}`, {
-      issues: [{ path: 'server.id', message: 'Server ID must be unique.', code: 'duplicate' }],
-    }))
+    throw new McpValidationError(
+      mcpError('validation_failed', `MCP server ID already exists: ${id}`, {
+        issues: [{ path: 'server.id', message: 'Server ID must be unique.', code: 'duplicate' }],
+      })
+    )
   }
 
-  return normalizeMcpServerRecord({
-    id,
-    name: rawServer.name,
-    enabled: rawServer.enabled ?? existing?.enabled ?? true,
-    transport: rawServer.transport,
-    timeoutMs: rawServer.timeoutMs ?? existing?.timeoutMs ?? DEFAULT_MCP_SERVER_TIMEOUT_MS,
-    toolTimeoutMs: rawServer.toolTimeoutMs ?? existing?.toolTimeoutMs ?? DEFAULT_MCP_TOOL_TIMEOUT_MS,
-    createdAt: existing?.createdAt ?? now,
-    updatedAt: now,
-  }, 'server')
+  return normalizeMcpServerRecord(
+    {
+      id,
+      name: rawServer.name,
+      enabled: rawServer.enabled ?? existing?.enabled ?? true,
+      transport: rawServer.transport,
+      timeoutMs: rawServer.timeoutMs ?? existing?.timeoutMs ?? DEFAULT_MCP_SERVER_TIMEOUT_MS,
+      toolTimeoutMs:
+        rawServer.toolTimeoutMs ?? existing?.toolTimeoutMs ?? DEFAULT_MCP_TOOL_TIMEOUT_MS,
+      createdAt: existing?.createdAt ?? now,
+      updatedAt: now,
+    },
+    'server'
+  )
 }
 
 function normalizeDiscoveredTools(
   server: McpServerRecord,
   tools: McpClientTool[],
-  reservedNames: Set<string>,
+  reservedNames: Set<string>
 ): { tools: McpDiscoveredToolSummary[]; warning?: string } {
   const discovered: McpDiscoveredToolSummary[] = []
   const originalNames = new Set<string>()
@@ -354,11 +385,15 @@ function normalizeDiscoveredTools(
 
   return {
     tools: discovered.sort((left, right) => left.providerName.localeCompare(right.providerName)),
-    warning: excluded.length ? `Excluded duplicate or invalid MCP tools: ${excluded.join(', ')}` : undefined,
+    warning: excluded.length
+      ? `Excluded duplicate or invalid MCP tools: ${excluded.join(', ')}`
+      : undefined,
   }
 }
 
-function normalizeToolParameters(inputSchema: Record<string, unknown> | undefined): Record<string, unknown> {
+function normalizeToolParameters(
+  inputSchema: Record<string, unknown> | undefined
+): Record<string, unknown> {
   if (!inputSchema) {
     return {
       type: 'object',
@@ -368,7 +403,10 @@ function normalizeToolParameters(inputSchema: Record<string, unknown> | undefine
   }
 
   const schema = structuredClone(inputSchema)
-  if (schema.type === undefined && (schema.properties !== undefined || schema.required !== undefined)) {
+  if (
+    schema.type === undefined &&
+    (schema.properties !== undefined || schema.required !== undefined)
+  ) {
     schema.type = 'object'
   }
 
@@ -397,24 +435,44 @@ function inferMcpToolRisk(tool: McpClientTool): ToolRisk {
   return 'network'
 }
 
-function providerSafeMcpToolName(serverId: string, toolName: string, reserved: Set<string>): string {
+function providerSafeMcpToolName(
+  serverId: string,
+  toolName: string,
+  reserved: Set<string>
+): string {
   const serverPart = providerNamePart(serverId) || 'server'
   const toolPart = providerNamePart(toolName) || 'tool'
-  let candidate = trimProviderName(`mcp_${serverPart}_${toolPart}`, shortHash(`${serverId}:${toolName}`))
+  let candidate = trimProviderName(
+    `mcp_${serverPart}_${toolPart}`,
+    shortHash(`${serverId}:${toolName}`)
+  )
   if (!reserved.has(candidate)) {
     return candidate
   }
 
-  candidate = trimProviderName(`mcp_${serverPart}_${toolPart}`, shortHash(`collision:${serverId}:${toolName}`))
+  candidate = trimProviderName(
+    `mcp_${serverPart}_${toolPart}`,
+    shortHash(`collision:${serverId}:${toolName}`)
+  )
   if (!reserved.has(candidate)) {
     return candidate
   }
 
   let index = 2
-  while (reserved.has(trimProviderName(`mcp_${serverPart}_${toolPart}_${index}`, shortHash(`${serverId}:${toolName}:${index}`)))) {
+  while (
+    reserved.has(
+      trimProviderName(
+        `mcp_${serverPart}_${toolPart}_${index}`,
+        shortHash(`${serverId}:${toolName}:${index}`)
+      )
+    )
+  ) {
     index += 1
   }
-  return trimProviderName(`mcp_${serverPart}_${toolPart}_${index}`, shortHash(`${serverId}:${toolName}:${index}`))
+  return trimProviderName(
+    `mcp_${serverPart}_${toolPart}_${index}`,
+    shortHash(`${serverId}:${toolName}:${index}`)
+  )
 }
 
 function providerNamePart(value: string): string {

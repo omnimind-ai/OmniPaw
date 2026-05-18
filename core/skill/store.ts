@@ -51,10 +51,14 @@ export class SkillStateStore {
     try {
       parsed = JSON.parse(readFileSync(this.statePath, 'utf8')) as unknown
     } catch (error) {
-      this.lastError = skillError('invalid_json', errorMessage(error, 'Failed to parse skill state.'), {
-        path: this.statePath,
-        recoverable: existsSync(this.backupPath),
-      })
+      this.lastError = skillError(
+        'invalid_json',
+        errorMessage(error, 'Failed to parse skill state.'),
+        {
+          path: this.statePath,
+          recoverable: existsSync(this.backupPath),
+        }
+      )
       throw new SkillValidationError(this.lastError)
     }
 
@@ -85,9 +89,11 @@ export class SkillStateStore {
   setEnabled(skillId: string, enabled: boolean): SkillState {
     const id = normalizeSkillId(skillId)
     if (!id) {
-      throw new SkillValidationError(skillError('validation_failed', 'Skill id is invalid.', {
-        issues: [{ path: 'skillId', message: 'Skill id is required.', code: 'required' }],
-      }))
+      throw new SkillValidationError(
+        skillError('validation_failed', 'Skill id is invalid.', {
+          issues: [{ path: 'skillId', message: 'Skill id is required.', code: 'required' }],
+        })
+      )
     }
     const state = this.get()
     return this.save({
@@ -127,25 +133,37 @@ export class SkillStateStore {
         throw new SkillValidationError(this.lastError)
       }
 
-      this.lastError = skillError('invalid_state', errorMessage(error, 'Failed to normalize skill state.'), {
-        path: this.statePath,
-        recoverable: existsSync(this.backupPath),
-      })
+      this.lastError = skillError(
+        'invalid_state',
+        errorMessage(error, 'Failed to normalize skill state.'),
+        {
+          path: this.statePath,
+          recoverable: existsSync(this.backupPath),
+        }
+      )
       throw new SkillValidationError(this.lastError)
     }
   }
 
   private writeLoaded(state: SkillState, backupExisting: boolean): SkillState {
     try {
-      atomicWriteJson(this.statePath, serializeSkillState(state), backupExisting ? this.backupPath : undefined)
+      atomicWriteJson(
+        this.statePath,
+        serializeSkillState(state),
+        backupExisting ? this.backupPath : undefined
+      )
       this.loadedState = cloneSkillState(state)
       this.lastError = undefined
       return this.get()
     } catch (error) {
-      this.lastError = skillError('save_failed', errorMessage(error, 'Failed to save skill state.'), {
-        path: this.statePath,
-        recoverable: existsSync(this.backupPath),
-      })
+      this.lastError = skillError(
+        'save_failed',
+        errorMessage(error, 'Failed to save skill state.'),
+        {
+          path: this.statePath,
+          recoverable: existsSync(this.backupPath),
+        }
+      )
       throw new SkillValidationError(this.lastError)
     }
   }
@@ -155,7 +173,10 @@ export class SkillStateStore {
   }
 }
 
-export function resolveSkillStatePath(userDataPath: string, fileName = SKILL_STATE_FILE_NAME): string {
+export function resolveSkillStatePath(
+  userDataPath: string,
+  fileName = SKILL_STATE_FILE_NAME
+): string {
   return join(userDataPath, fileName)
 }
 

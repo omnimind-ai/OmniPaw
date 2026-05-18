@@ -74,7 +74,9 @@ function getSafeStorage(): SafeStorageLike {
   }
 }
 
-export function resolveCredential(input: CredentialResolutionInput): ResolvedCredential | undefined {
+export function resolveCredential(
+  input: CredentialResolutionInput
+): ResolvedCredential | undefined {
   const credential = selectCredential(input)
 
   if (credential?.type === 'env' && credential.envVar) {

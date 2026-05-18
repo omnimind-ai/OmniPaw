@@ -42,7 +42,9 @@ export class ChatSessionRepo {
   }
 
   count(): number {
-    return (this.db.prepare('SELECT COUNT(*) AS count FROM chat_sessions').get() as { count: number }).count
+    return (
+      this.db.prepare('SELECT COUNT(*) AS count FROM chat_sessions').get() as { count: number }
+    ).count
   }
 
   save(session: ChatSession): void {
@@ -71,46 +73,52 @@ export class ChatSessionRepo {
             last_message_at = excluded.last_message_at,
             metadata_json = excluded.metadata_json,
             updated_at = excluded.updated_at
-        `,
+        `
       )
       .run(toSessionParams(session))
   }
 
   updateTitle(id: string, title: string, updatedAt = Date.now()): boolean {
-    return this.db
-      .prepare('UPDATE chat_sessions SET title = ?, updated_at = ? WHERE id = ?')
-      .run(title, updatedAt, id).changes > 0
+    return (
+      this.db
+        .prepare('UPDATE chat_sessions SET title = ?, updated_at = ? WHERE id = ?')
+        .run(title, updatedAt, id).changes > 0
+    )
   }
 
   markDeleted(id: string, updatedAt = Date.now()): boolean {
-    return this.db
-      .prepare("UPDATE chat_sessions SET status = 'deleted', updated_at = ? WHERE id = ?")
-      .run(updatedAt, id).changes > 0
+    return (
+      this.db
+        .prepare("UPDATE chat_sessions SET status = 'deleted', updated_at = ? WHERE id = ?")
+        .run(updatedAt, id).changes > 0
+    )
   }
 
   updateMessageSummary(
     id: string,
     summary: Pick<ChatSession, 'messageCount' | 'lastMessagePreview' | 'lastMessageAt'>,
-    updatedAt = Date.now(),
+    updatedAt = Date.now()
   ): boolean {
-    return this.db
-      .prepare(
-        `
+    return (
+      this.db
+        .prepare(
+          `
           UPDATE chat_sessions
           SET message_count = @messageCount,
               last_message_preview = @lastMessagePreview,
               last_message_at = @lastMessageAt,
               updated_at = @updatedAt
           WHERE id = @id
-        `,
-      )
-      .run({
-        id,
-        messageCount: summary.messageCount ?? 0,
-        lastMessagePreview: summary.lastMessagePreview ?? null,
-        lastMessageAt: summary.lastMessageAt ?? null,
-        updatedAt,
-      }).changes > 0
+        `
+        )
+        .run({
+          id,
+          messageCount: summary.messageCount ?? 0,
+          lastMessagePreview: summary.lastMessagePreview ?? null,
+          lastMessageAt: summary.lastMessageAt ?? null,
+          updatedAt,
+        }).changes > 0
+    )
   }
 }
 

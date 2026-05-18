@@ -30,7 +30,16 @@ import {
   SidebarTrigger,
 } from '@/components/ui/sidebar'
 
-export type SettingsTab = 'providers' | 'defaults' | 'general' | 'display' | 'data' | 'tools' | 'skills' | 'schedule' | 'about'
+export type SettingsTab =
+  | 'providers'
+  | 'defaults'
+  | 'general'
+  | 'display'
+  | 'data'
+  | 'tools'
+  | 'skills'
+  | 'schedule'
+  | 'about'
 
 interface SettingsNavItem {
   value: SettingsTab
@@ -53,7 +62,7 @@ const primaryItems: SettingsNavItem[] = [
 ]
 
 const settingsItems: SettingsNavItem[] = [
-  { value: 'general', label: '常规设置', icon: SlidersHorizontalIcon }
+  { value: 'general', label: '常规设置', icon: SlidersHorizontalIcon },
 ]
 
 const capabilityItems: SettingsNavItem[] = [
@@ -62,9 +71,7 @@ const capabilityItems: SettingsNavItem[] = [
   { value: 'schedule', label: '计划任务', icon: CalendarClockIcon },
 ]
 
-const aboutItems: SettingsNavItem[] = [
-  { value: 'about', label: '关于我们', icon: InfoIcon },
-]
+const aboutItems: SettingsNavItem[] = [{ value: 'about', label: '关于我们', icon: InfoIcon }]
 
 const placeholderItems = [
   { label: '网络搜索', icon: SearchIcon },

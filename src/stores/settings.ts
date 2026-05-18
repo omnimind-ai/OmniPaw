@@ -77,7 +77,7 @@ export const useSettingsStore = defineStore('settings', () => {
 
   function updateAppSetting<K extends keyof BridgeDesktopSettingsConfig['app']>(
     key: K,
-    value: BridgeDesktopSettingsConfig['app'][K],
+    value: BridgeDesktopSettingsConfig['app'][K]
   ): void {
     updateDraft((next) => {
       next.app[key] = value
@@ -163,7 +163,7 @@ export const useSettingsStore = defineStore('settings', () => {
 
   function reconcilePersistedConfig(
     nextConfig: BridgeDesktopSettingsConfig,
-    saveSnapshot = activeSaveSnapshot,
+    saveSnapshot = activeSaveSnapshot
   ): void {
     if (saveSnapshot) {
       if (!draft.value || configsEqual(draft.value, saveSnapshot)) {
@@ -175,7 +175,7 @@ export const useSettingsStore = defineStore('settings', () => {
     }
 
     const hasLocalDraftChanges = Boolean(
-      draft.value && config.value && !configsEqual(draft.value, config.value),
+      draft.value && config.value && !configsEqual(draft.value, config.value)
     )
     config.value = cloneConfig(nextConfig)
     if (!hasLocalDraftChanges) {
@@ -232,7 +232,7 @@ function cloneConfig(config: BridgeDesktopSettingsConfig): BridgeDesktopSettings
 
 function configsEqual(
   first: BridgeDesktopSettingsConfig | null | undefined,
-  second: BridgeDesktopSettingsConfig | null | undefined,
+  second: BridgeDesktopSettingsConfig | null | undefined
 ): boolean {
   return JSON.stringify(first) === JSON.stringify(second)
 }

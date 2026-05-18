@@ -26,7 +26,7 @@ export const useChatStore = defineStore('chat', () => {
   const isStreaming = ref(false)
 
   const activeSession = computed(() =>
-    sessions.value.find((session) => session.id === activeSessionId.value),
+    sessions.value.find((session) => session.id === activeSessionId.value)
   )
 
   async function loadSessions(): Promise<void> {

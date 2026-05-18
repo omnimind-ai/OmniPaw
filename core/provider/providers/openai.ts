@@ -62,7 +62,8 @@ export class OpenAICompatibleProvider implements BaseProvider {
   private readonly fetchImpl: typeof fetch
 
   constructor(options: string | OpenAICompatibleProviderOptions) {
-    const normalized = typeof options === 'string' ? { id: options, baseUrl: 'https://api.openai.com/v1' } : options
+    const normalized =
+      typeof options === 'string' ? { id: options, baseUrl: 'https://api.openai.com/v1' } : options
 
     this.id = normalized.id
     this.baseUrl = normalized.baseUrl.replace(/\/+$/, '')
@@ -263,9 +264,8 @@ export class OpenAICompatibleProvider implements BaseProvider {
 
     if (this.apiKey) {
       const authHeaderName = this.authHeader?.trim() || 'Authorization'
-      headers[authHeaderName] = authHeaderName.toLowerCase() === 'authorization'
-        ? `Bearer ${this.apiKey}`
-        : this.apiKey
+      headers[authHeaderName] =
+        authHeaderName.toLowerCase() === 'authorization' ? `Bearer ${this.apiKey}` : this.apiKey
     }
 
     return headers
@@ -325,8 +325,12 @@ export function parseUsage(value: unknown): TokenUsage | undefined {
   const input = numberValue(value.prompt_tokens)
   const output = numberValue(value.completion_tokens)
   const total = numberValue(value.total_tokens)
-  const promptDetails = isRecord(value.prompt_tokens_details) ? value.prompt_tokens_details : undefined
-  const completionDetails = isRecord(value.completion_tokens_details) ? value.completion_tokens_details : undefined
+  const promptDetails = isRecord(value.prompt_tokens_details)
+    ? value.prompt_tokens_details
+    : undefined
+  const completionDetails = isRecord(value.completion_tokens_details)
+    ? value.completion_tokens_details
+    : undefined
 
   return {
     input,
@@ -339,7 +343,7 @@ export function parseUsage(value: unknown): TokenUsage | undefined {
 
 function readSseLines(
   lines: string[],
-  pendingDataLines: string[],
+  pendingDataLines: string[]
 ): { events: string[]; pendingDataLines: string[] } {
   const events: string[] = []
   let dataLines = pendingDataLines
@@ -365,29 +369,39 @@ function parseChunk(event: string): OpenAIStreamChunk {
   try {
     return JSON.parse(event) as OpenAIStreamChunk
   } catch (error) {
-    throwProviderError({
-      code: 'provider_bad_request',
-      message: 'Provider returned malformed SSE JSON.',
-      retryable: false,
-      providerBodyPreview: event.slice(0, 1000),
-    }, error)
+    throwProviderError(
+      {
+        code: 'provider_bad_request',
+        message: 'Provider returned malformed SSE JSON.',
+        retryable: false,
+        providerBodyPreview: event.slice(0, 1000),
+      },
+      error
+    )
   }
 }
 
-function parseToolCallDeltas(value: unknown, toolCallsByIndex: Map<number, PendingToolCall>): ParsedToolCallDelta[] {
+function parseToolCallDeltas(
+  value: unknown,
+  toolCallsByIndex: Map<number, PendingToolCall>
+): ParsedToolCallDelta[] {
   if (value === undefined || value === null) {
     return []
   }
 
   if (!Array.isArray(value)) {
-    throwMalformedToolCallDelta('Provider returned malformed tool call delta: tool_calls must be an array.')
+    throwMalformedToolCallDelta(
+      'Provider returned malformed tool call delta: tool_calls must be an array.'
+    )
   }
 
   const deltas: ParsedToolCallDelta[] = []
 
   for (const item of value) {
     if (!isRecord(item)) {
-      throwMalformedToolCallDelta('Provider returned malformed tool call delta: each tool call must be an object.')
+      throwMalformedToolCallDelta(
+        'Provider returned malformed tool call delta: each tool call must be an object.'
+      )
     }
 
     const index = parseToolCallIndex(item.index)
@@ -400,10 +414,16 @@ function parseToolCallDeltas(value: unknown, toolCallsByIndex: Map<number, Pendi
 
     if (functionDelta !== undefined && functionDelta !== null) {
       if (!isRecord(functionDelta)) {
-        throwMalformedToolCallDelta('Provider returned malformed tool call delta: function must be an object.')
+        throwMalformedToolCallDelta(
+          'Provider returned malformed tool call delta: function must be an object.'
+        )
       }
       nameDelta = optionalStringField(functionDelta, 'name', 'tool call function name')
-      argumentsDelta = optionalStringField(functionDelta, 'arguments', 'tool call function arguments')
+      argumentsDelta = optionalStringField(
+        functionDelta,
+        'arguments',
+        'tool call function arguments'
+      )
     }
 
     if (id !== undefined) {
@@ -436,15 +456,21 @@ function parseToolCallDeltas(value: unknown, toolCallsByIndex: Map<number, Pendi
 function buildFinalToolCalls(toolCallsByIndex: Map<number, PendingToolCall>): ProviderToolCall[] {
   const entries = [...toolCallsByIndex.entries()].sort(([left], [right]) => left - right)
   if (!entries.length) {
-    throwMalformedToolCallDelta('Provider finished with tool_calls but did not stream any tool calls.')
+    throwMalformedToolCallDelta(
+      'Provider finished with tool_calls but did not stream any tool calls.'
+    )
   }
 
   return entries.map(([index, toolCall]) => {
     if (!toolCall.id) {
-      throwMalformedToolCallDelta(`Provider finished with incomplete tool call at index ${index}: missing id.`)
+      throwMalformedToolCallDelta(
+        `Provider finished with incomplete tool call at index ${index}: missing id.`
+      )
     }
     if (!toolCall.name) {
-      throwMalformedToolCallDelta(`Provider finished with incomplete tool call at index ${index}: missing function name.`)
+      throwMalformedToolCallDelta(
+        `Provider finished with incomplete tool call at index ${index}: missing function name.`
+      )
     }
 
     return {
@@ -458,7 +484,10 @@ function buildFinalToolCalls(toolCallsByIndex: Map<number, PendingToolCall>): Pr
   })
 }
 
-function getPendingToolCall(toolCallsByIndex: Map<number, PendingToolCall>, index: number): PendingToolCall {
+function getPendingToolCall(
+  toolCallsByIndex: Map<number, PendingToolCall>,
+  index: number
+): PendingToolCall {
   const existing = toolCallsByIndex.get(index)
   if (existing) {
     return existing
@@ -474,7 +503,9 @@ function getPendingToolCall(toolCallsByIndex: Map<number, PendingToolCall>, inde
 
 function parseToolCallIndex(value: unknown): number {
   if (typeof value !== 'number' || !Number.isInteger(value) || value < 0) {
-    throwMalformedToolCallDelta('Provider returned malformed tool call delta: index must be a non-negative integer.')
+    throwMalformedToolCallDelta(
+      'Provider returned malformed tool call delta: index must be a non-negative integer.'
+    )
   }
   return value
 }
@@ -489,13 +520,19 @@ function parseToolCallType(value: string | undefined): ProviderToolCall['type'] 
   return value
 }
 
-function optionalStringField(record: Record<string, unknown>, key: string, label: string): string | undefined {
+function optionalStringField(
+  record: Record<string, unknown>,
+  key: string,
+  label: string
+): string | undefined {
   const value = record[key]
   if (value === undefined || value === null) {
     return undefined
   }
   if (typeof value !== 'string') {
-    throwMalformedToolCallDelta(`Provider returned malformed tool call delta: ${label} must be a string.`)
+    throwMalformedToolCallDelta(
+      `Provider returned malformed tool call delta: ${label} must be a string.`
+    )
   }
   return value
 }
@@ -504,14 +541,9 @@ function isUsefulToolCallDelta(
   id: string | undefined,
   toolCallType: ProviderToolCall['type'] | undefined,
   nameDelta: string | undefined,
-  argumentsDelta: string | undefined,
+  argumentsDelta: string | undefined
 ): boolean {
-  return Boolean(
-    id ||
-      toolCallType ||
-      nameDelta ||
-      argumentsDelta,
-  )
+  return Boolean(id || toolCallType || nameDelta || argumentsDelta)
 }
 
 function throwMalformedToolCallDelta(message: string): never {
@@ -525,7 +557,9 @@ function throwMalformedToolCallDelta(message: string): never {
 function toOpenAIMessage(message: ProviderMessage): Record<string, unknown> {
   const result: Record<string, unknown> = {
     role: message.role,
-    content: Array.isArray(message.content) ? message.content.map(toOpenAIContentPart) : message.content,
+    content: Array.isArray(message.content)
+      ? message.content.map(toOpenAIContentPart)
+      : message.content,
   }
 
   if (message.reasoningContent) {

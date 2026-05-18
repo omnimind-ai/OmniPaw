@@ -7,7 +7,7 @@ export function useVADRecording() {
 
   async function startRecording(
     onSpeechStart?: () => void,
-    _onSpeechEnd?: (audio: Float32Array) => void,
+    _onSpeechEnd?: (audio: Float32Array) => void
   ): Promise<void> {
     stream = await navigator.mediaDevices.getUserMedia({ audio: true })
     isSpeaking.value = false

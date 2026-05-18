@@ -4,12 +4,15 @@ import { DialogClose } from 'reka-ui'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 
-const props = withDefaults(defineProps<{
-  class?: HTMLAttributes['class']
-  showCloseButton?: boolean
-}>(), {
-  showCloseButton: false,
-})
+const props = withDefaults(
+  defineProps<{
+    class?: HTMLAttributes['class']
+    showCloseButton?: boolean
+  }>(),
+  {
+    showCloseButton: false,
+  }
+)
 </script>
 
 <template>

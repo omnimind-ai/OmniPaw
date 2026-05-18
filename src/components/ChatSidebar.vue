@@ -27,11 +27,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import {
-  Field,
-  FieldGroup,
-  FieldLabel,
-} from '@/components/ui/field'
+import { Field, FieldGroup, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import {
   InputGroup,
@@ -57,14 +53,17 @@ import {
 import type { Session } from '@/composables/useSessions'
 import { cn } from '@/lib/utils'
 
-const props = withDefaults(defineProps<{
-  sessions: Session[]
-  activeSessionId?: string
-  creating?: boolean
-  runningSessionIds?: string[]
-}>(), {
-  runningSessionIds: () => [],
-})
+const props = withDefaults(
+  defineProps<{
+    sessions: Session[]
+    activeSessionId?: string
+    creating?: boolean
+    runningSessionIds?: string[]
+  }>(),
+  {
+    runningSessionIds: () => [],
+  }
+)
 
 const emit = defineEmits<{
   newChat: []
@@ -98,35 +97,33 @@ const filteredSessions = computed(() => {
 const renameTarget = computed(() =>
   renameSessionId.value
     ? props.sessions.find((session) => session.id === renameSessionId.value) || null
-    : null,
+    : null
 )
 
 const deleteTarget = computed(() =>
   deleteSessionId.value
     ? props.sessions.find((session) => session.id === deleteSessionId.value) || null
-    : null,
+    : null
 )
 
 const deleteTargetTitle = computed(() =>
-  deleteTarget.value ? sessionTitle(deleteTarget.value) : '该会话',
+  deleteTarget.value ? sessionTitle(deleteTarget.value) : '该会话'
 )
 
 const deleteTargetIsActive = computed(() =>
-  Boolean(deleteSessionId.value && deleteSessionId.value === props.activeSessionId),
+  Boolean(deleteSessionId.value && deleteSessionId.value === props.activeSessionId)
 )
 
 const deleteTargetIsRunning = computed(() =>
-  Boolean(deleteSessionId.value && isSessionRunning(deleteSessionId.value)),
+  Boolean(deleteSessionId.value && isSessionRunning(deleteSessionId.value))
 )
 
-const emptyTitle = computed(() =>
-  props.sessions.length === 0 ? '暂无会话' : '未找到会话',
-)
+const emptyTitle = computed(() => (props.sessions.length === 0 ? '暂无会话' : '未找到会话'))
 
 const emptyDescription = computed(() =>
   props.sessions.length === 0
     ? '开始新的对话后，会话会出现在这里。'
-    : '调整搜索关键词，或直接新建对话。',
+    : '调整搜索关键词，或直接新建对话。'
 )
 
 watch(renameDialogOpen, (open) => {

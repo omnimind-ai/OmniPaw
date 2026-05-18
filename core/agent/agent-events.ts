@@ -1,4 +1,10 @@
-import type { ChatMessagePart, ChatRunAgentStepEvent, ChatRunToolCallEvent, ChatRunToolResultEvent, ToolCallDisplay } from '@shared/types/chat'
+import type {
+  ChatMessagePart,
+  ChatRunAgentStepEvent,
+  ChatRunToolCallEvent,
+  ChatRunToolResultEvent,
+  ToolCallDisplay,
+} from '@shared/types/chat'
 
 export interface AgentEventBase {
   runId: string
@@ -8,7 +14,10 @@ export interface AgentEventBase {
   step: number
 }
 
-export function upsertToolCallPart(parts: ChatMessagePart[], toolCall: ToolCallDisplay): ChatMessagePart[] {
+export function upsertToolCallPart(
+  parts: ChatMessagePart[],
+  toolCall: ToolCallDisplay
+): ChatMessagePart[] {
   const next = [...parts]
   for (const part of next) {
     if (part.type !== 'tool_call') {
@@ -37,7 +46,7 @@ export function toolCallPart(toolCall: ToolCallDisplay): ChatMessagePart {
 }
 
 export function createAgentStepEvent(
-  base: AgentEventBase & { maxSteps: number; status: ChatRunAgentStepEvent['status'] },
+  base: AgentEventBase & { maxSteps: number; status: ChatRunAgentStepEvent['status'] }
 ): ChatRunAgentStepEvent {
   return {
     type: 'agent_step',
@@ -51,7 +60,9 @@ export function createAgentStepEvent(
   }
 }
 
-export function createToolCallEvent(base: AgentEventBase & { toolCall: ToolCallDisplay }): ChatRunToolCallEvent {
+export function createToolCallEvent(
+  base: AgentEventBase & { toolCall: ToolCallDisplay }
+): ChatRunToolCallEvent {
   return {
     type: 'tool_call',
     runId: base.runId,
@@ -63,7 +74,9 @@ export function createToolCallEvent(base: AgentEventBase & { toolCall: ToolCallD
   }
 }
 
-export function createToolResultEvent(base: AgentEventBase & { toolCall: ToolCallDisplay }): ChatRunToolResultEvent {
+export function createToolResultEvent(
+  base: AgentEventBase & { toolCall: ToolCallDisplay }
+): ChatRunToolResultEvent {
   return {
     type: 'tool_result',
     runId: base.runId,

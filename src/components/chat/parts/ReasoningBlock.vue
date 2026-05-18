@@ -7,21 +7,24 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { cn } from '@/lib/utils'
 import type { MessagePart } from '@/composables/useMessages'
 
-const props = withDefaults(defineProps<{
-  parts: MessagePart[]
-  streaming?: boolean
-  initialOpen?: boolean
-}>(), {
-  streaming: false,
-  initialOpen: false,
-})
+const props = withDefaults(
+  defineProps<{
+    parts: MessagePart[]
+    streaming?: boolean
+    initialOpen?: boolean
+  }>(),
+  {
+    streaming: false,
+    initialOpen: false,
+  }
+)
 
 const open = ref(props.initialOpen)
 const text = computed(() =>
   props.parts
     .map((part) => String(part.think || part.text || ''))
     .filter(Boolean)
-    .join(''),
+    .join('')
 )
 
 watch(
@@ -29,7 +32,7 @@ watch(
   (streaming) => {
     if (streaming) open.value = true
   },
-  { immediate: true },
+  { immediate: true }
 )
 </script>
 

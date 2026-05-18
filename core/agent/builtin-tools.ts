@@ -27,11 +27,20 @@ export function createBuiltinTools(options: BuiltinToolOptions): AgentTool[] {
   const tools: AgentTool[] = [
     { ...BUILTIN_TOOL_DEFINITIONS.system_time, execute: createSystemTimeExecutor() },
     { ...BUILTIN_TOOL_DEFINITIONS.calculator, execute: createCalculatorExecutor() },
-    { ...BUILTIN_TOOL_DEFINITIONS.attachment_text_read, execute: createAttachmentTextReadExecutor(options) },
-    { ...BUILTIN_TOOL_DEFINITIONS.attachment_text_search, execute: createAttachmentTextSearchExecutor(options) },
+    {
+      ...BUILTIN_TOOL_DEFINITIONS.attachment_text_read,
+      execute: createAttachmentTextReadExecutor(options),
+    },
+    {
+      ...BUILTIN_TOOL_DEFINITIONS.attachment_text_search,
+      execute: createAttachmentTextSearchExecutor(options),
+    },
   ]
   if (options.skills?.getActiveSkills().length) {
-    tools.push({ ...BUILTIN_TOOL_DEFINITIONS.skill_read, execute: createSkillReadExecutor(options.skills) })
+    tools.push({
+      ...BUILTIN_TOOL_DEFINITIONS.skill_read,
+      execute: createSkillReadExecutor(options.skills),
+    })
   }
   return tools
 }
@@ -65,7 +74,8 @@ const BUILTIN_TOOL_DEFINITIONS = {
   calculator: {
     name: 'calculator',
     label: 'Calculator',
-    description: 'Evaluate basic arithmetic. Use expression for +, -, *, /, %, ^ and parentheses, or operation with numeric operands.',
+    description:
+      'Evaluate basic arithmetic. Use expression for +, -, *, /, %, ^ and parentheses, or operation with numeric operands.',
     risk: 'safe',
     source: 'builtin',
     profiles: MINIMAL_PROFILES,
@@ -146,25 +156,25 @@ const BUILTIN_TOOL_DEFINITIONS = {
 
 function createSystemTimeExecutor(): AgentTool<Record<string, never>>['execute'] {
   return async () => {
-      const now = new Date()
-      const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone
-      const offsetMinutes = -now.getTimezoneOffset()
-      const sign = offsetMinutes >= 0 ? '+' : '-'
-      const absolute = Math.abs(offsetMinutes)
-      const offset = `${sign}${String(Math.floor(absolute / 60)).padStart(2, '0')}:${String(absolute % 60).padStart(2, '0')}`
-      return {
-        content: [
-          {
-            type: 'text',
-            text: JSON.stringify({
-              iso: now.toISOString(),
-              local: now.toLocaleString(),
-              timeZone,
-              utcOffset: offset,
-            }),
-          },
-        ],
-      }
+    const now = new Date()
+    const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone
+    const offsetMinutes = -now.getTimezoneOffset()
+    const sign = offsetMinutes >= 0 ? '+' : '-'
+    const absolute = Math.abs(offsetMinutes)
+    const offset = `${sign}${String(Math.floor(absolute / 60)).padStart(2, '0')}:${String(absolute % 60).padStart(2, '0')}`
+    return {
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify({
+            iso: now.toISOString(),
+            local: now.toLocaleString(),
+            timeZone,
+            utcOffset: offset,
+          }),
+        },
+      ],
+    }
   }
 }
 
@@ -176,10 +186,10 @@ interface CalculatorArgs {
 
 function createCalculatorExecutor(): AgentTool<CalculatorArgs>['execute'] {
   return async (_toolCallId, args) => {
-      const value = calculate(args)
-      return {
-        content: [{ type: 'text', text: JSON.stringify({ result: value }) }],
-      }
+    const value = calculate(args)
+    return {
+      content: [{ type: 'text', text: JSON.stringify({ result: value }) }],
+    }
   }
 }
 
@@ -189,31 +199,40 @@ interface AttachmentReadArgs {
   maxChars?: number
 }
 
-function createAttachmentTextReadExecutor(options: BuiltinToolOptions): AgentTool<AttachmentReadArgs>['execute'] {
+function createAttachmentTextReadExecutor(
+  options: BuiltinToolOptions
+): AgentTool<AttachmentReadArgs>['execute'] {
   return async (_toolCallId, args, signal) => {
+    throwIfAborted(signal)
+    const ids = [
+      ...new Set([args.attachmentId, ...(args.attachmentIds ?? [])].filter(isNonEmptyString)),
+    ]
+    if (!ids.length) {
+      throw new Error('attachment_text_read requires attachmentId or attachmentIds.')
+    }
+    const allowed = currentSessionAttachmentIds(options)
+    const maxChars = clampMaxChars(args.maxChars, options.maxResultChars)
+    const blocks: string[] = []
+    for (const id of ids) {
       throwIfAborted(signal)
-      const ids = [...new Set([args.attachmentId, ...(args.attachmentIds ?? [])].filter(isNonEmptyString))]
-      if (!ids.length) {
-        throw new Error('attachment_text_read requires attachmentId or attachmentIds.')
+      if (!allowed.has(id)) {
+        throw new Error(`Attachment is not available in the current session: ${id}`)
       }
-      const allowed = currentSessionAttachmentIds(options)
-      const maxChars = clampMaxChars(args.maxChars, options.maxResultChars)
-      const blocks: string[] = []
-      for (const id of ids) {
-        throwIfAborted(signal)
-        if (!allowed.has(id)) {
-          throw new Error(`Attachment is not available in the current session: ${id}`)
-        }
-        const attachment = options.attachments.get(id)
-        if (!attachment) {
-          throw new Error(`Attachment not found: ${id}`)
-        }
-        if (attachment.extractedTextStatus !== 'complete' || !attachment.extractedText) {
-          throw new Error(`Attachment does not have extracted text: ${attachment.originalName}`)
-        }
-        blocks.push(formatAttachmentBlock(attachment.originalName, truncateText(attachment.extractedText, maxChars)))
+      const attachment = options.attachments.get(id)
+      if (!attachment) {
+        throw new Error(`Attachment not found: ${id}`)
       }
-      return { content: [{ type: 'text', text: blocks.join('\n\n') }] }
+      if (attachment.extractedTextStatus !== 'complete' || !attachment.extractedText) {
+        throw new Error(`Attachment does not have extracted text: ${attachment.originalName}`)
+      }
+      blocks.push(
+        formatAttachmentBlock(
+          attachment.originalName,
+          truncateText(attachment.extractedText, maxChars)
+        )
+      )
+    }
+    return { content: [{ type: 'text', text: blocks.join('\n\n') }] }
   }
 }
 
@@ -223,55 +242,62 @@ interface AttachmentSearchArgs {
   contextChars?: number
 }
 
-function createAttachmentTextSearchExecutor(options: BuiltinToolOptions): AgentTool<AttachmentSearchArgs>['execute'] {
+function createAttachmentTextSearchExecutor(
+  options: BuiltinToolOptions
+): AgentTool<AttachmentSearchArgs>['execute'] {
   return async (_toolCallId, args, signal) => {
+    throwIfAborted(signal)
+    const query = args.query?.trim()
+    if (!query) {
+      throw new Error('attachment_text_search requires query.')
+    }
+    const maxResults = Math.max(1, Math.min(Math.floor(args.maxResults ?? 8), 20))
+    const contextChars = Math.max(20, Math.min(Math.floor(args.contextChars ?? 120), 500))
+    const allowed = currentSessionAttachmentIds(options)
+    const matches: Array<{
+      attachmentId: string
+      filename: string
+      snippet: string
+      index: number
+    }> = []
+    const needle = query.toLowerCase()
+
+    for (const id of allowed) {
       throwIfAborted(signal)
-      const query = args.query?.trim()
-      if (!query) {
-        throw new Error('attachment_text_search requires query.')
+      const attachment = options.attachments.get(id)
+      if (attachment?.extractedTextStatus !== 'complete' || !attachment.extractedText) {
+        continue
       }
-      const maxResults = Math.max(1, Math.min(Math.floor(args.maxResults ?? 8), 20))
-      const contextChars = Math.max(20, Math.min(Math.floor(args.contextChars ?? 120), 500))
-      const allowed = currentSessionAttachmentIds(options)
-      const matches: Array<{ attachmentId: string; filename: string; snippet: string; index: number }> = []
-      const needle = query.toLowerCase()
+      const haystack = attachment.extractedText.toLowerCase()
+      let from = 0
+      while (matches.length < maxResults) {
+        const index = haystack.indexOf(needle, from)
+        if (index === -1) break
+        matches.push({
+          attachmentId: id,
+          filename: attachment.originalName,
+          index,
+          snippet: makeSnippet(attachment.extractedText, index, query.length, contextChars),
+        })
+        from = index + Math.max(needle.length, 1)
+      }
+      if (matches.length >= maxResults) {
+        break
+      }
+    }
 
-      for (const id of allowed) {
-        throwIfAborted(signal)
-        const attachment = options.attachments.get(id)
-        if (attachment?.extractedTextStatus !== 'complete' || !attachment.extractedText) {
-          continue
-        }
-        const haystack = attachment.extractedText.toLowerCase()
-        let from = 0
-        while (matches.length < maxResults) {
-          const index = haystack.indexOf(needle, from)
-          if (index === -1) break
-          matches.push({
-            attachmentId: id,
-            filename: attachment.originalName,
-            index,
-            snippet: makeSnippet(attachment.extractedText, index, query.length, contextChars),
-          })
-          from = index + Math.max(needle.length, 1)
-        }
-        if (matches.length >= maxResults) {
-          break
-        }
-      }
-
-      return {
-        content: [
-          {
-            type: 'text',
-            text: JSON.stringify({
-              query,
-              matchCount: matches.length,
-              matches,
-            }),
-          },
-        ],
-      }
+    return {
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify({
+            query,
+            matchCount: matches.length,
+            matches,
+          }),
+        },
+      ],
+    }
   }
 }
 
@@ -288,10 +314,12 @@ function createSkillReadExecutor(skills: SkillManager): AgentTool<SkillReadArgs>
     }
     const result = skills.readEnabledSkillContent(skillId)
     return {
-      content: [{
-        type: 'text',
-        text: `<skill id="${escapeXml(result.skillId)}" name="${escapeXml(result.name)}">\n${result.content}\n</skill>`,
-      }],
+      content: [
+        {
+          type: 'text',
+          text: `<skill id="${escapeXml(result.skillId)}" name="${escapeXml(result.name)}">\n${result.content}\n</skill>`,
+        },
+      ],
     }
   }
 }
@@ -316,14 +344,21 @@ function calculate(args: CalculatorArgs): number {
   }
 
   const operands = args.operands
-  if (!args.operation || !Array.isArray(operands) || !operands.length || !operands.every(Number.isFinite)) {
+  if (
+    !args.operation ||
+    !Array.isArray(operands) ||
+    !operands.length ||
+    !operands.every(Number.isFinite)
+  ) {
     throw new Error('calculator requires expression or operation with numeric operands.')
   }
 
   if (args.operation === 'add') return operands.reduce((sum, item) => sum + item, 0)
-  if (args.operation === 'subtract') return operands.slice(1).reduce((value, item) => value - item, operands[0] ?? 0)
+  if (args.operation === 'subtract')
+    return operands.slice(1).reduce((value, item) => value - item, operands[0] ?? 0)
   if (args.operation === 'multiply') return operands.reduce((value, item) => value * item, 1)
-  if (args.operation === 'divide') return operands.slice(1).reduce((value, item) => value / item, operands[0] ?? 0)
+  if (args.operation === 'divide')
+    return operands.slice(1).reduce((value, item) => value / item, operands[0] ?? 0)
   if (args.operation === 'power') {
     if (operands.length !== 2) {
       throw new Error('power operation requires exactly two operands.')
@@ -462,12 +497,16 @@ function makeSnippet(text: string, index: number, length: number, contextChars: 
 }
 
 function escapeXml(value: string): string {
-  return value.replace(/[&<>"]/g, (char) => ({
-    '&': '&amp;',
-    '<': '&lt;',
-    '>': '&gt;',
-    '"': '&quot;',
-  })[char] ?? char)
+  return value.replace(
+    /[&<>"]/g,
+    (char) =>
+      ({
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+        '"': '&quot;',
+      })[char] ?? char
+  )
 }
 
 function isNonEmptyString(value: unknown): value is string {
@@ -475,12 +514,16 @@ function isNonEmptyString(value: unknown): value is string {
 }
 
 function escapeAttribute(value: string): string {
-  return value.replace(/["&<>]/g, (char) => ({
-    '"': '&quot;',
-    '&': '&amp;',
-    '<': '&lt;',
-    '>': '&gt;',
-  })[char] ?? char)
+  return value.replace(
+    /["&<>]/g,
+    (char) =>
+      ({
+        '"': '&quot;',
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+      })[char] ?? char
+  )
 }
 
 function throwIfAborted(signal?: AbortSignal): void {

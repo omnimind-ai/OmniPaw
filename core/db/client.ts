@@ -86,7 +86,7 @@ export function runMigrations(db: DatabaseConnection): void {
     db
       .prepare('SELECT id FROM schema_migrations')
       .all()
-      .map((row) => (row as { id: number }).id),
+      .map((row) => (row as { id: number }).id)
   )
 
   const apply = db.transaction(() => {
@@ -99,7 +99,7 @@ export function runMigrations(db: DatabaseConnection): void {
       db.prepare('INSERT INTO schema_migrations (id, name, applied_at) VALUES (?, ?, ?)').run(
         migration.id,
         migration.name,
-        Date.now(),
+        Date.now()
       )
     }
   })

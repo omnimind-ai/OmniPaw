@@ -17,7 +17,7 @@ const result = spawnSync(
       ELECTRON_RUN_AS_NODE: '1',
     },
     stdio: 'inherit',
-  },
+  }
 )
 
 if (result.error) {

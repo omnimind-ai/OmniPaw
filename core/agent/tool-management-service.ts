@@ -12,17 +12,20 @@ export interface ToolSettingsStore {
 export class ToolManagementService {
   constructor(
     private readonly settings: ToolSettingsStore | DesktopToolSettingsStore,
-    private readonly extraTools?: () => ManagedToolInfo[],
+    private readonly extraTools?: () => ManagedToolInfo[]
   ) {}
 
   list(): ManagedToolInfo[] {
     const disabled = this.getDisabledToolNames()
-    const builtins = listBuiltinToolDefinitions().map((tool) => ({
-      ...tool,
-      source: 'builtin',
-      enabled: !disabled.has(tool.name),
-      readonly: true,
-    } satisfies ManagedToolInfo))
+    const builtins = listBuiltinToolDefinitions().map(
+      (tool) =>
+        ({
+          ...tool,
+          source: 'builtin',
+          enabled: !disabled.has(tool.name),
+          readonly: true,
+        }) satisfies ManagedToolInfo
+    )
     return [...builtins, ...(this.extraTools?.() ?? [])]
   }
 
@@ -55,7 +58,7 @@ export class ToolManagementService {
       return new Set()
     }
     return new Set(
-      stored.filter((name): name is string => typeof name === 'string' && registeredNames.has(name)),
+      stored.filter((name): name is string => typeof name === 'string' && registeredNames.has(name))
     )
   }
 
@@ -64,7 +67,7 @@ export class ToolManagementService {
     const names = [...disabled].filter((name) => registeredNames.has(name)).sort()
     if (isDesktopToolSettingsStore(this.settings)) {
       const enabledByName = Object.fromEntries(
-        listBuiltinToolDefinitions().map((tool) => [tool.name, !names.includes(tool.name)]),
+        listBuiltinToolDefinitions().map((tool) => [tool.name, !names.includes(tool.name)])
       )
       this.settings.updateToolsEnabledByName(enabledByName)
       return
@@ -90,6 +93,8 @@ export interface DesktopToolSettingsStore {
   updateToolsEnabledByName(enabledByName: DesktopSettingsConfig['tools']['enabledByName']): void
 }
 
-function isDesktopToolSettingsStore(settings: ToolSettingsStore | DesktopToolSettingsStore): settings is DesktopToolSettingsStore {
+function isDesktopToolSettingsStore(
+  settings: ToolSettingsStore | DesktopToolSettingsStore
+): settings is DesktopToolSettingsStore {
   return 'getToolsEnabledByName' in settings && 'updateToolsEnabledByName' in settings
 }

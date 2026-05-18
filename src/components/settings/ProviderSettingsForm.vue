@@ -22,28 +22,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
-import {
-  Tabs,
-  TabsContent,
-  TabsList,
-  TabsTrigger,
-} from '@/components/ui/tabs'
-import type {
-  BridgeProviderPreset,
-} from '@/bridge/app'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import type { BridgeProviderPreset } from '@/bridge/app'
 import { useProviderStore } from '@/stores/provider'
 import { useToast } from '@/utils/toast'
 
 const providerStore = useProviderStore()
 const toast = useToast()
-const {
-  rawProviders,
-  loading,
-  saving,
-  providerPresets,
-  presetsLoading,
-  persistenceAvailable,
-} = storeToRefs(providerStore)
+const { rawProviders, loading, saving, providerPresets, presetsLoading, persistenceAvailable } =
+  storeToRefs(providerStore)
 
 const activeProviderId = ref('')
 const originalProviderId = ref('')
@@ -71,41 +58,42 @@ const {
 } = useProviderDraft({ rawProviders, originalProviderId })
 
 const currentProvider = computed(() =>
-  rawProviders.value.find((provider) => provider.id === originalProviderId.value),
+  rawProviders.value.find((provider) => provider.id === originalProviderId.value)
 )
 const isExistingProvider = computed(() => Boolean(currentProvider.value))
 const canAutosave = computed(() => Boolean(isExistingProvider.value && persistenceAvailable.value))
 const canRefreshModels = computed(() =>
-  Boolean(persistenceAvailable.value && (
-    providerDraft.value.capabilities.listModels
-    || providerDraft.value.api === 'openai-chat-completions'
-    || providerDraft.value.type === 'openai-compatible'
-  )),
+  Boolean(
+    persistenceAvailable.value &&
+      (providerDraft.value.capabilities.listModels ||
+        providerDraft.value.api === 'openai-chat-completions' ||
+        providerDraft.value.type === 'openai-compatible')
+  )
 )
 const enabledModels = computed(() =>
-  providerDraft.value.models.filter((model) => model.enabled !== false),
+  providerDraft.value.models.filter((model) => model.enabled !== false)
 )
 const providerList = computed(() => rawProviders.value)
 const providerSidebarList = computed<ProviderSidebarItem[]>(() => {
   const query = providerSearchQuery.value.trim().toLowerCase()
   const providers = providerList.value.filter((provider) => {
     if (!query) return true
-    return [
-      provider.name,
-      provider.id,
-      provider.baseUrl,
-      provider.type,
-    ].some((value) => String(value || '').toLowerCase().includes(query))
+    return [provider.name, provider.id, provider.baseUrl, provider.type].some((value) =>
+      String(value || '')
+        .toLowerCase()
+        .includes(query)
+    )
   })
 
   if (!isExistingProvider.value && activeProviderId.value) {
     const draft = providerDraft.value
-    const matchesDraft = !query || [
-      draft.name,
-      draft.id,
-      draft.baseUrl,
-      draft.type,
-    ].some((value) => String(value || '').toLowerCase().includes(query))
+    const matchesDraft =
+      !query ||
+      [draft.name, draft.id, draft.baseUrl, draft.type].some((value) =>
+        String(value || '')
+          .toLowerCase()
+          .includes(query)
+      )
 
     if (matchesDraft) {
       return [
@@ -147,14 +135,14 @@ watch(
       loadProviderDraft(activeProviderId.value)
     }
   },
-  { immediate: true },
+  { immediate: true }
 )
 
 watch(
   () => providerDraft.value.models.map((model) => model.id),
   () => {
     ensureDefaultModelId()
-  },
+  }
 )
 
 watch(
@@ -162,16 +150,13 @@ watch(
   () => {
     autosave.queueAutosave()
   },
-  { deep: true },
+  { deep: true }
 )
 
-watch(
-  [credentialMode, credentialValue],
-  () => {
-    if (credentialMode.value === 'none' || !credentialValue.value.trim()) return
-    autosave.queueAutosave()
-  },
-)
+watch([credentialMode, credentialValue], () => {
+  if (credentialMode.value === 'none' || !credentialValue.value.trim()) return
+  autosave.queueAutosave()
+})
 
 onMounted(async () => {
   if (!rawProviders.value.length) {
@@ -255,9 +240,12 @@ async function handleSaveProvider(options: { silent?: boolean } = {}): Promise<b
     }
     return true
   } catch (error) {
-    toast.error(error, options.silent
-      ? { id: 'provider-autosave-error', description: 'Provider 自动保存失败' }
-      : undefined)
+    toast.error(
+      error,
+      options.silent
+        ? { id: 'provider-autosave-error', description: 'Provider 自动保存失败' }
+        : undefined
+    )
     return false
   } finally {
     suppressDraftReload = false
@@ -324,9 +312,7 @@ async function refreshProviderModels() {
   }
 }
 
-function clearMessages() {
-}
-
+function clearMessages() {}
 </script>
 
 <template>

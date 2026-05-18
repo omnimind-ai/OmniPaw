@@ -28,7 +28,8 @@ export const router = createRouter({
       component: RewritePlaceholderView,
       meta: {
         rewriteTitle: 'Chatbox workspace',
-        rewriteDescription: 'The legacy AstrBot chatbox UI has been removed. Rebuild this route with the same chat core capabilities as the main chat workspace.',
+        rewriteDescription:
+          'The legacy AstrBot chatbox UI has been removed. Rebuild this route with the same chat core capabilities as the main chat workspace.',
       },
     },
     {
@@ -37,7 +38,8 @@ export const router = createRouter({
       component: RewritePlaceholderView,
       meta: {
         rewriteTitle: 'Cron',
-        rewriteDescription: 'The legacy cron page has been removed. Rebuild this page on top of appBridge.cron.list().',
+        rewriteDescription:
+          'The legacy cron page has been removed. Rebuild this page on top of appBridge.cron.list().',
       },
     },
     {

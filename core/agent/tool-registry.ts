@@ -37,8 +37,10 @@ export class ToolRegistry {
       skills: this.options.skills,
     })
     const profileNames = new Set(allowedToolNamesForProfile(input.policy.profile as ToolProfile))
-    const builtins = builtinTools.filter((tool) => !disabledNames.has(tool.name) && profileNames.has(tool.name))
-    const mcpTools = await this.options.mcpTools?.(input) ?? []
+    const builtins = builtinTools.filter(
+      (tool) => !disabledNames.has(tool.name) && profileNames.has(tool.name)
+    )
+    const mcpTools = (await this.options.mcpTools?.(input)) ?? []
     return [...builtins, ...mcpTools.filter((tool) => !disabledNames.has(tool.name))]
   }
 }

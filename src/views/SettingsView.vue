@@ -31,15 +31,8 @@ const settingsStore = useSettingsStore()
 const providerStore = useProviderStore()
 const toast = useToast()
 
-const {
-  draft,
-  config,
-  status,
-  loading,
-  saving,
-  error,
-  persistenceAvailable,
-} = storeToRefs(settingsStore)
+const { draft, config, status, loading, saving, error, persistenceAvailable } =
+  storeToRefs(settingsStore)
 const { modelOptions } = storeToRefs(providerStore)
 
 const activeTab = ref<SettingsTab>('general')
@@ -53,14 +46,11 @@ const hasChanges = computed(() => JSON.stringify(draft.value) !== JSON.stringify
 const contentClass = computed(() =>
   activeTab.value === 'providers'
     ? 'mx-auto flex min-h-full w-full max-w-none flex-1 flex-col gap-4 px-4 pb-6 pt-14 md:px-6 md:py-6'
-    : 'mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 pb-6 pt-14 md:px-6 md:py-6',
+    : 'mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 pb-6 pt-14 md:px-6 md:py-6'
 )
 
 onMounted(async () => {
-  const results = await Promise.allSettled([
-    settingsStore.load(),
-    providerStore.loadProviders(),
-  ])
+  const results = await Promise.allSettled([settingsStore.load(), providerStore.loadProviders()])
   results.forEach((result, index) => {
     if (result.status === 'rejected' && index === 1) {
       toast.error(result.reason, { description: '设置加载失败' })
@@ -68,14 +58,11 @@ onMounted(async () => {
   })
 })
 
-watch(
-  error,
-  (value) => {
-    if (value) {
-      toast.error(errorToText(value, '设置操作失败。'))
-    }
-  },
-)
+watch(error, (value) => {
+  if (value) {
+    toast.error(errorToText(value, '设置操作失败。'))
+  }
+})
 
 onBeforeUnmount(() => {
   void flushAutosave()
@@ -103,13 +90,19 @@ function setScheduledTasksEnabled(value: boolean) {
 watch(
   () => draft.value,
   () => {
-    if (loading.value || !draft.value || !config.value || !hasChanges.value || !persistenceAvailable.value) {
+    if (
+      loading.value ||
+      !draft.value ||
+      !config.value ||
+      !hasChanges.value ||
+      !persistenceAvailable.value
+    ) {
       return
     }
 
     scheduleAutosave()
   },
-  { deep: true },
+  { deep: true }
 )
 
 watch(
@@ -119,7 +112,7 @@ watch(
       sidebarOpen.value = true
     }
   },
-  { immediate: true },
+  { immediate: true }
 )
 
 function scheduleAutosave() {

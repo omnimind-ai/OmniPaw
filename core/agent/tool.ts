@@ -25,7 +25,7 @@ export interface AgentTool<TArgs = unknown, TDetails = unknown> {
     toolCallId: string,
     args: TArgs,
     signal?: AbortSignal,
-    onUpdate?: (update: unknown) => void,
+    onUpdate?: (update: unknown) => void
   ) => Promise<AgentToolResult<TDetails>>
 }
 

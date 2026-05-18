@@ -4,7 +4,7 @@ import type { ConfigStore } from './store'
 export class ConfigToolSettingsStore {
   constructor(
     private readonly configStore: ConfigStore,
-    private readonly onSaved?: (config: DesktopSettingsConfig) => void,
+    private readonly onSaved?: (config: DesktopSettingsConfig) => void
   ) {}
 
   getToolsEnabledByName(): DesktopSettingsConfig['tools']['enabledByName'] {

@@ -1,28 +1,38 @@
 <script setup lang="ts">
-import { CheckIcon, CopyIcon, Edit3Icon, GitBranchIcon, RefreshCwIcon, TextQuoteIcon } from 'lucide-vue-next'
+import {
+  CheckIcon,
+  CopyIcon,
+  Edit3Icon,
+  GitBranchIcon,
+  RefreshCwIcon,
+  TextQuoteIcon,
+} from 'lucide-vue-next'
 import { computed } from 'vue'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 
-const props = withDefaults(defineProps<{
-  time?: string
-  streaming?: boolean
-  aborted?: boolean
-  errored?: boolean
-  checkpointId?: string | null
-  user?: boolean
-  copied?: boolean
-}>(), {
-  time: '',
-  streaming: false,
-  aborted: false,
-  errored: false,
-  checkpointId: null,
-  user: false,
-  copied: false,
-})
+const props = withDefaults(
+  defineProps<{
+    time?: string
+    streaming?: boolean
+    aborted?: boolean
+    errored?: boolean
+    checkpointId?: string | null
+    user?: boolean
+    copied?: boolean
+  }>(),
+  {
+    time: '',
+    streaming: false,
+    aborted: false,
+    errored: false,
+    checkpointId: null,
+    user: false,
+    copied: false,
+  }
+)
 
 const emit = defineEmits<{
   copy: []
@@ -32,12 +42,15 @@ const emit = defineEmits<{
   regenerate: []
 }>()
 
-const toolbarClasses = computed(() => cn(
-  'flex min-h-7 w-full flex-wrap items-center justify-between gap-x-3 gap-y-1 text-xs text-muted-foreground',
-  props.user && 'px-1',
-))
+const toolbarClasses = computed(() =>
+  cn(
+    'flex min-h-7 w-full flex-wrap items-center justify-between gap-x-3 gap-y-1 text-xs text-muted-foreground',
+    props.user && 'px-1'
+  )
+)
 
-const hoverRevealClasses = 'opacity-100 md:opacity-0 md:transition-opacity md:group-hover/message:opacity-100 md:group-focus-within/message:opacity-100'
+const hoverRevealClasses =
+  'opacity-100 md:opacity-0 md:transition-opacity md:group-hover/message:opacity-100 md:group-focus-within/message:opacity-100'
 </script>
 
 <template>

@@ -1,6 +1,12 @@
 import type { AttachmentService } from './attachment-service'
 import { attachmentIdFromPart } from './attachment-service'
-import type { ChatMessage, ChatMessagePart, ChatSession, ProviderRequestSnapshot, ToolCallDisplay } from '@shared/types/chat'
+import type {
+  ChatMessage,
+  ChatMessagePart,
+  ChatSession,
+  ProviderRequestSnapshot,
+  ToolCallDisplay,
+} from '@shared/types/chat'
 import type { ProviderConfig, ProviderMessage, ProviderModel } from '@shared/types/provider'
 import type { SkillPromptContext } from '@shared/types/skill'
 
@@ -29,13 +35,18 @@ export class ContextBuilder {
     }
     const eligible = input.messages
       .filter((message) => ['complete', 'streaming'].includes(message.status))
-      .filter((message) => message.role === 'system' || message.role === 'user' || message.role === 'assistant')
+      .filter(
+        (message) =>
+          message.role === 'system' || message.role === 'user' || message.role === 'assistant'
+      )
     const selected = eligible.slice(-(policy.maxMessages ?? 40))
     const providerMessages: ProviderMessage[] = []
 
     if (input.model.compat?.supportsSystemRole !== false) {
-      const systemParts = [input.session.systemPrompt, input.skillPrompt?.injected ? input.skillPrompt.content : undefined]
-        .filter((value): value is string => Boolean(value && value.trim()))
+      const systemParts = [
+        input.session.systemPrompt,
+        input.skillPrompt?.injected ? input.skillPrompt.content : undefined,
+      ].filter((value): value is string => Boolean(value && value.trim()))
       if (systemParts.length) {
         providerMessages.push({ role: 'system', content: systemParts.join('\n\n') })
       }
@@ -49,7 +60,7 @@ export class ContextBuilder {
           message.parts.filter((part) => part.type !== 'tool_call'),
           input.model,
           isCurrent || policy.includeAttachments === 'recent',
-          policy.includeAttachments === 'never',
+          policy.includeAttachments === 'never'
         )
         const reasoningContent = partsReasoningText(message.parts)
         const compiledToolMessages = compileToolCallMessages(message.parts, {
@@ -66,16 +77,22 @@ export class ContextBuilder {
         message.parts,
         input.model,
         isCurrent || policy.includeAttachments === 'recent',
-        policy.includeAttachments === 'never',
+        policy.includeAttachments === 'never'
       )
       attachmentCount += countAttachmentParts(message.parts)
       if (!content || (Array.isArray(content) && content.length === 0)) {
         continue
       }
       providerMessages.push({
-        role: message.role === 'assistant' ? 'assistant' : message.role === 'system' ? 'system' : 'user',
+        role:
+          message.role === 'assistant'
+            ? 'assistant'
+            : message.role === 'system'
+              ? 'system'
+              : 'user',
         content,
-        reasoningContent: message.role === 'assistant' ? partsReasoningText(message.parts) : undefined,
+        reasoningContent:
+          message.role === 'assistant' ? partsReasoningText(message.parts) : undefined,
       })
     }
 
@@ -103,9 +120,11 @@ export class ContextBuilder {
     parts: ChatMessagePart[],
     model: ProviderModel,
     includeAttachmentPayloads: boolean,
-    neverIncludeAttachments: boolean,
+    neverIncludeAttachments: boolean
   ): Promise<ProviderMessage['content']> {
-    const content: Array<{ type: 'text'; text: string } | { type: 'image_url'; image_url: { url: string } }> = []
+    const content: Array<
+      { type: 'text'; text: string } | { type: 'image_url'; image_url: { url: string } }
+    > = []
 
     for (const part of parts) {
       const record = part as Record<string, unknown>
@@ -193,17 +212,21 @@ function hostFromUrl(value: string): string | undefined {
 }
 
 function escapeAttribute(value: string): string {
-  return value.replace(/["&<>]/g, (char) => ({
-    '"': '&quot;',
-    '&': '&amp;',
-    '<': '&lt;',
-    '>': '&gt;',
-  })[char] ?? char)
+  return value.replace(
+    /["&<>]/g,
+    (char) =>
+      ({
+        '"': '&quot;',
+        '&': '&amp;',
+        '<': '&lt;',
+        '>': '&gt;',
+      })[char] ?? char
+  )
 }
 
 function compileToolCallMessages(
   parts: ChatMessagePart[],
-  assistantContext: Pick<ProviderMessage, 'content' | 'reasoningContent'>,
+  assistantContext: Pick<ProviderMessage, 'content' | 'reasoningContent'>
 ): ProviderMessage[] {
   const compiled = completedToolCalls(parts).flatMap((toolCall) => {
     const args = serializeToolArguments(toolCall.arguments ?? toolCall.args)
@@ -212,17 +235,19 @@ function compileToolCallMessages(
       return []
     }
 
-    return [{
-      toolCall: {
-        id: toolCall.id,
-        type: 'function' as const,
-        function: {
-          name: toolCall.name,
-          arguments: args,
+    return [
+      {
+        toolCall: {
+          id: toolCall.id,
+          type: 'function' as const,
+          function: {
+            name: toolCall.name,
+            arguments: args,
+          },
         },
+        result,
       },
-      result,
-    }]
+    ]
   })
 
   if (!compiled.length) {
@@ -256,7 +281,11 @@ function completedToolCalls(parts: ChatMessagePart[]): ToolCallDisplay[] {
     }
     const toolCalls = (part.tool_calls ?? part.toolCalls ?? []) as ToolCallDisplay[]
     for (const toolCall of toolCalls) {
-      if (toolCall.status === 'complete' || toolCall.status === 'denied' || toolCall.status === 'error') {
+      if (
+        toolCall.status === 'complete' ||
+        toolCall.status === 'denied' ||
+        toolCall.status === 'error'
+      ) {
         calls.push(toolCall)
       }
     }

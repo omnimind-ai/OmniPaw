@@ -28,7 +28,10 @@ interface SkillPackageCandidate {
   files: ArchiveEntry[]
 }
 
-export function importSkillPackage(input: ImportSkillRequest, skillsRoot: string): SkillImportResult {
+export function importSkillPackage(
+  input: ImportSkillRequest,
+  skillsRoot: string
+): SkillImportResult {
   const fileName = sanitizeFileName(input.fileName)
   const bytes = Buffer.from(input.bytes)
   if (!bytes.length) {
@@ -68,7 +71,9 @@ function importMarkdownSkill(input: {
   if (!input.content.trim()) {
     throwImportError('Imported SKILL.md is empty.')
   }
-  const skillId = resolveSkillId(input.skillNameHint || basename(input.fileName, extname(input.fileName)))
+  const skillId = resolveSkillId(
+    input.skillNameHint || basename(input.fileName, extname(input.fileName))
+  )
   const destDir = resolve(input.skillsRoot, skillId)
   ensureDestination(input.skillsRoot, destDir, input.overwrite)
   if (input.overwrite) {
@@ -124,7 +129,10 @@ function importZipSkill(input: {
     seenDestinations.add(destDir)
     ensureDestination(input.skillsRoot, destDir, input.overwrite)
 
-    const tempDir = resolve(input.skillsRoot, `.import-${process.pid}-${Date.now()}-${shortHash(skillId)}`)
+    const tempDir = resolve(
+      input.skillsRoot,
+      `.import-${process.pid}-${Date.now()}-${shortHash(skillId)}`
+    )
     rmSync(tempDir, { recursive: true, force: true })
     mkdirSync(tempDir, { recursive: true })
     try {
@@ -150,16 +158,24 @@ function importZipSkill(input: {
   return { installedIds: installed }
 }
 
-function findSkillCandidates(entries: ArchiveEntry[], fileName: string, skillNameHint?: string): SkillPackageCandidate[] {
-  const rootSkill = entries.find((entry) => isSkillMarkdownName(entry.name) && !entry.name.includes('/'))
+function findSkillCandidates(
+  entries: ArchiveEntry[],
+  fileName: string,
+  skillNameHint?: string
+): SkillPackageCandidate[] {
+  const rootSkill = entries.find(
+    (entry) => isSkillMarkdownName(entry.name) && !entry.name.includes('/')
+  )
   if (rootSkill) {
-    return [{
-      name: skillNameHint || basename(fileName, extname(fileName)),
-      files: entries.map((entry) => ({
-        name: isSkillMarkdownName(entry.name) ? 'SKILL.md' : entry.name,
-        data: entry.data,
-      })),
-    }]
+    return [
+      {
+        name: skillNameHint || basename(fileName, extname(fileName)),
+        files: entries.map((entry) => ({
+          name: isSkillMarkdownName(entry.name) ? 'SKILL.md' : entry.name,
+          data: entry.data,
+        })),
+      },
+    ]
   }
 
   const byTopDir = new Map<string, ArchiveEntry[]>()
@@ -235,7 +251,12 @@ function readZipEntries(bytes: Buffer): ArchiveEntry[] {
 
 function readLocalZipEntry(
   bytes: Buffer,
-  entry: { method: number; compressedSize: number; uncompressedSize: number; localHeaderOffset: number },
+  entry: {
+    method: number
+    compressedSize: number
+    uncompressedSize: number
+    localHeaderOffset: number
+  }
 ): Buffer {
   const offset = entry.localHeaderOffset
   if (bytes.readUInt32LE(offset) !== 0x04034b50) {
@@ -287,9 +308,11 @@ function ensureDestination(skillsRoot: string, destDir: string, overwrite: boole
     throwImportError('Skill destination is outside the configured skill root.')
   }
   if (existsSync(target) && !overwrite) {
-    throw new SkillValidationError(skillError('import_failed', `Skill already exists: ${basename(target)}`, {
-      recoverable: false,
-    }))
+    throw new SkillValidationError(
+      skillError('import_failed', `Skill already exists: ${basename(target)}`, {
+        recoverable: false,
+      })
+    )
   }
   mkdirSync(root, { recursive: true })
 }

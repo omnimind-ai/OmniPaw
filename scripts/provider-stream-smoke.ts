@@ -35,72 +35,75 @@ async function testToolCallAggregation(): Promise<void> {
     apiKey: 'test-key',
     fetch: (async (_input, init) => {
       requestBody = JSON.parse(String(init?.body))
-      return new Response(sseStream([
-        {
-          choices: [
-            {
-              delta: {
-                tool_calls: [
-                  {
-                    index: 0,
-                    id: 'call_weather',
-                    type: 'function',
-                    function: {
-                      name: 'get_',
-                      arguments: '{"city"',
+      return new Response(
+        sseStream([
+          {
+            choices: [
+              {
+                delta: {
+                  tool_calls: [
+                    {
+                      index: 0,
+                      id: 'call_weather',
+                      type: 'function',
+                      function: {
+                        name: 'get_',
+                        arguments: '{"city"',
+                      },
                     },
-                  },
-                ],
+                  ],
+                },
               },
-            },
-          ],
-        },
-        {
-          choices: [
-            {
-              delta: {
-                tool_calls: [
-                  {
-                    index: 0,
-                    function: {
-                      name: 'weather',
-                      arguments: ':"Shanghai"}',
-                    },
-                  },
-                ],
-              },
-              finish_reason: 'tool_calls',
-            },
-          ],
-        },
-        {
-          choices: [],
-          usage: {
-            prompt_tokens: 12,
-            completion_tokens: 8,
-            total_tokens: 20,
-            prompt_tokens_details: { cached_tokens: 3 },
-            completion_tokens_details: { reasoning_tokens: 2 },
+            ],
           },
-        },
-        '[DONE]',
-      ]), { status: 200 })
+          {
+            choices: [
+              {
+                delta: {
+                  tool_calls: [
+                    {
+                      index: 0,
+                      function: {
+                        name: 'weather',
+                        arguments: ':"Shanghai"}',
+                      },
+                    },
+                  ],
+                },
+                finish_reason: 'tool_calls',
+              },
+            ],
+          },
+          {
+            choices: [],
+            usage: {
+              prompt_tokens: 12,
+              completion_tokens: 8,
+              total_tokens: 20,
+              prompt_tokens_details: { cached_tokens: 3 },
+              completion_tokens_details: { reasoning_tokens: 2 },
+            },
+          },
+          '[DONE]',
+        ]),
+        { status: 200 }
+      )
     }) as typeof fetch,
   })
 
-  const chunks = await collect(provider.streamChat({
-    modelId: 'model-a',
-    messages: [{ role: 'user', content: 'weather?' }],
-    tools,
-  }))
+  const chunks = await collect(
+    provider.streamChat({
+      modelId: 'model-a',
+      messages: [{ role: 'user', content: 'weather?' }],
+      tools,
+    })
+  )
 
   assert.deepEqual((requestBody as { tools?: unknown }).tools, tools)
-  assert.deepEqual(chunks.map((chunk) => chunk.type), [
-    'tool_call_delta',
-    'tool_call_delta',
-    'tool_call_final',
-    'final',
-  ])
+  assert.deepEqual(
+    chunks.map((chunk) => chunk.type),
+    ['tool_call_delta', 'tool_call_delta', 'tool_call_final', 'final']
+  )
 
   const firstDelta = chunks[0]
   assert.equal(firstDelta.type, 'tool_call_delta')
@@ -140,21 +143,24 @@ async function testMalformedStreamJson(): Promise<void> {
     id: 'test',
     baseUrl: 'https://example.test/v1',
     apiKey: 'test-key',
-    fetch: (async () => new Response(rawSseStream(['{"choices":[']), { status: 200 })) as typeof fetch,
+    fetch: (async () =>
+      new Response(rawSseStream(['{"choices":[']), { status: 200 })) as typeof fetch,
   })
 
   await assert.rejects(
     async () => {
-      await collect(provider.streamChat({
-        modelId: 'model-a',
-        messages: [{ role: 'user', content: 'hello' }],
-      }))
+      await collect(
+        provider.streamChat({
+          modelId: 'model-a',
+          messages: [{ role: 'user', content: 'hello' }],
+        })
+      )
     },
     (error) => {
       assert.equal(error instanceof ProviderError, true)
       assert.equal((error as ProviderError).chatError.code, 'provider_bad_request')
       return true
-    },
+    }
   )
 }
 
@@ -163,48 +169,57 @@ async function testTextDeltaAndUsageFinal(): Promise<void> {
     id: 'test',
     baseUrl: 'https://example.test/v1',
     apiKey: 'test-key',
-    fetch: (async () => new Response(sseStream([
-      {
-        choices: [
+    fetch: (async () =>
+      new Response(
+        sseStream([
           {
-            delta: {
-              content: 'hello',
+            choices: [
+              {
+                delta: {
+                  content: 'hello',
+                },
+              },
+            ],
+          },
+          {
+            choices: [
+              {
+                delta: {
+                  reasoning_content: 'thinking',
+                },
+              },
+            ],
+          },
+          {
+            choices: [
+              {
+                delta: {},
+                finish_reason: 'stop',
+              },
+            ],
+            usage: {
+              prompt_tokens: 4,
+              completion_tokens: 5,
+              total_tokens: 9,
             },
           },
-        ],
-      },
-      {
-        choices: [
-          {
-            delta: {
-              reasoning_content: 'thinking',
-            },
-          },
-        ],
-      },
-      {
-        choices: [
-          {
-            delta: {},
-            finish_reason: 'stop',
-          },
-        ],
-        usage: {
-          prompt_tokens: 4,
-          completion_tokens: 5,
-          total_tokens: 9,
-        },
-      },
-      '[DONE]',
-    ]), { status: 200 })) as typeof fetch,
+          '[DONE]',
+        ]),
+        { status: 200 }
+      )) as typeof fetch,
   })
 
-  const chunks = await collect(provider.streamChat({
-    modelId: 'model-a',
-    messages: [{ role: 'user', content: 'hello' }],
-  }))
+  const chunks = await collect(
+    provider.streamChat({
+      modelId: 'model-a',
+      messages: [{ role: 'user', content: 'hello' }],
+    })
+  )
 
-  assert.deepEqual(chunks.map((chunk) => chunk.type), ['delta', 'delta', 'final'])
+  assert.deepEqual(
+    chunks.map((chunk) => chunk.type),
+    ['delta', 'delta', 'final']
+  )
   assert.equal(chunks[0].type, 'delta')
   assert.equal(chunks[0].content, 'hello')
   assert.equal(chunks[1].type, 'delta')

@@ -6,7 +6,12 @@ import { join } from 'node:path'
 import type { AgentToolResult } from '../core/agent/tool'
 import { JsonRpcMcpClient, type McpClient, type McpClientTool } from '../core/mcp/client'
 import { McpServerManager } from '../core/mcp/manager'
-import { McpValidationError, maskMcpTransport, normalizeMcpRegistry, serializeMcpRegistry } from '../core/mcp/schema'
+import {
+  McpValidationError,
+  maskMcpTransport,
+  normalizeMcpRegistry,
+  serializeMcpRegistry,
+} from '../core/mcp/schema'
 import { McpRegistryStore } from '../core/mcp/store'
 import type { McpServerRecord } from '../shared/types/mcp'
 
@@ -132,7 +137,11 @@ class FakeMcpClient implements McpClient {
     ]
   }
 
-  async callTool(_server: McpServerRecord, toolName: string, args: unknown): Promise<AgentToolResult> {
+  async callTool(
+    _server: McpServerRecord,
+    toolName: string,
+    args: unknown
+  ): Promise<AgentToolResult> {
     return {
       content: [{ type: 'text', text: JSON.stringify({ toolName, args }) }],
     }
@@ -183,11 +192,14 @@ try {
   assert.equal(JSON.stringify(masked).includes('raw-secret'), false)
   assert.equal(JSON.stringify(masked).includes('raw-arg-secret'), false)
   assert.equal(JSON.stringify(masked).includes('raw-inline-secret'), false)
-  assert.equal(maskMcpTransport({
-    type: 'http',
-    url: 'https://user:pass@example.test/mcp?token=raw-token&safe=1',
-    headers: { Authorization: 'Bearer raw-header-token' },
-  }).url.includes('raw-token'), false)
+  assert.equal(
+    maskMcpTransport({
+      type: 'http',
+      url: 'https://user:pass@example.test/mcp?token=raw-token&safe=1',
+      headers: { Authorization: 'Bearer raw-header-token' },
+    }).url.includes('raw-token'),
+    false
+  )
 
   const serialized = serializeMcpRegistry(normalized)
   assert.match(serialized, /"version": 1/)
@@ -252,10 +264,22 @@ try {
 
   const inventory = manager.listTools()
   assert.equal(fakeClient.calls.includes('disabled'), false)
-  assert.equal(inventory.tools.some((tool) => tool.serverId === 'disabled'), false)
-  assert.equal(inventory.tools.every((tool) => tool.providerName !== 'calculator'), true)
-  assert.equal(inventory.tools.every((tool) => tool.providerName.startsWith('mcp_server_one_')), true)
-  assert.equal(inventory.tools.every((tool) => tool.risk === 'network'), true)
+  assert.equal(
+    inventory.tools.some((tool) => tool.serverId === 'disabled'),
+    false
+  )
+  assert.equal(
+    inventory.tools.every((tool) => tool.providerName !== 'calculator'),
+    true
+  )
+  assert.equal(
+    inventory.tools.every((tool) => tool.providerName.startsWith('mcp_server_one_')),
+    true
+  )
+  assert.equal(
+    inventory.tools.every((tool) => tool.risk === 'network'),
+    true
+  )
 
   const summaries = manager.listServers().servers
   assert.equal(summaries.find((server) => server.id === 'server_one')?.status, 'available')

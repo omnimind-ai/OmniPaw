@@ -6,7 +6,7 @@ const route = useRoute()
 
 const title = computed(() => String(route.meta.rewriteTitle || 'Frontend rewrite'))
 const description = computed(() =>
-  String(route.meta.rewriteDescription || 'This route is waiting for the new UI implementation.'),
+  String(route.meta.rewriteDescription || 'This route is waiting for the new UI implementation.')
 )
 </script>
 

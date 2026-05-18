@@ -19,8 +19,17 @@ export interface BridgeDesktopSettingsConfig {
     dataDir?: string
   }
   providers: {
-    sources: Array<Record<string, unknown> & { id: string; name: string; baseUrl: string; enabled: boolean }>
-    models: Array<Record<string, unknown> & { id: string; name: string; providerSourceId: string; enabled: boolean }>
+    sources: Array<
+      Record<string, unknown> & { id: string; name: string; baseUrl: string; enabled: boolean }
+    >
+    models: Array<
+      Record<string, unknown> & {
+        id: string
+        name: string
+        providerSourceId: string
+        enabled: boolean
+      }
+    >
     settings: {
       defaultModelId: string
       fallbackModelIds: string[]
@@ -317,7 +326,9 @@ export interface BridgeMcpHttpTransportConfig {
   headers: Record<string, string>
 }
 
-export type BridgeMcpServerTransportConfig = BridgeMcpStdioTransportConfig | BridgeMcpHttpTransportConfig
+export type BridgeMcpServerTransportConfig =
+  | BridgeMcpStdioTransportConfig
+  | BridgeMcpHttpTransportConfig
 
 export interface BridgeMcpSafeStdioTransport {
   type: 'stdio'
@@ -474,7 +485,9 @@ export interface RendererOpenOmniClawBridge {
   }
   settings?: {
     load: () => Promise<BridgeDesktopSettingsConfig>
-    save: (request: { config: BridgeDesktopSettingsConfig } | BridgeDesktopSettingsConfig) => Promise<BridgeDesktopSettingsConfig>
+    save: (
+      request: { config: BridgeDesktopSettingsConfig } | BridgeDesktopSettingsConfig
+    ) => Promise<BridgeDesktopSettingsConfig>
     reset: () => Promise<BridgeDesktopSettingsConfig>
     status: () => Promise<BridgeDesktopSettingsStatus>
     onChanged: (callback: (event: BridgeDesktopSettingsChangedEvent) => void) => BridgeUnsubscribe
@@ -482,7 +495,10 @@ export interface RendererOpenOmniClawBridge {
   chat: {
     listSessions: () => Promise<BridgeChatSession[]>
     createSession: (request?: Partial<BridgeChatSession>) => Promise<BridgeChatSession>
-    updateSession?: (sessionId: string, patch: Partial<BridgeChatSession>) => Promise<BridgeChatSession>
+    updateSession?: (
+      sessionId: string,
+      patch: Partial<BridgeChatSession>
+    ) => Promise<BridgeChatSession>
     updateSessionTitle?: (sessionId: string, title: string) => Promise<BridgeChatSession>
     deleteSession?: (sessionId: string) => Promise<void>
     listMessages?: (sessionId: string) => Promise<BridgeChatMessage[]>
@@ -491,20 +507,29 @@ export interface RendererOpenOmniClawBridge {
     editMessage?: (
       sessionId: string,
       messageId: string,
-      parts: BridgeChatMessagePart[],
-    ) => Promise<{ message?: BridgeChatMessage; needsRegenerate?: boolean; truncatedAfterMessage?: boolean }>
+      parts: BridgeChatMessagePart[]
+    ) => Promise<{
+      message?: BridgeChatMessage
+      needsRegenerate?: boolean
+      truncatedAfterMessage?: boolean
+    }>
     regenerateMessage?: (
       sessionId: string,
       messageId: string,
       providerId?: string,
-      modelId?: string,
+      modelId?: string
     ) => Promise<BridgeSendMessageResponse>
     onStreamEvent?: (callback: (event: BridgeStreamEvent) => void) => BridgeUnsubscribe
     onToken?: (callback: (token: string) => void) => BridgeUnsubscribe
     onDone?: (callback: () => void) => BridgeUnsubscribe
   }
   attachment?: {
-    upload: (request: { name: string; type: string; size: number; bytes: ArrayBuffer }) => Promise<BridgeAttachment>
+    upload: (request: {
+      name: string
+      type: string
+      size: number
+      bytes: ArrayBuffer
+    }) => Promise<BridgeAttachment>
     getPreviewUrl: (attachmentId: string) => Promise<string | { url: string; mimeType?: string }>
   }
   provider: {
@@ -512,16 +537,25 @@ export interface RendererOpenOmniClawBridge {
     listPresets?: () => Promise<BridgeProviderPreset[]>
     createFromPreset?: (request: string | { presetId: string }) => Promise<BridgeProviderConfig>
     upsert?: (request: unknown) => Promise<BridgeProviderConfig>
-    delete?: (request: string | { providerId: string }) => Promise<{ ok?: boolean; error?: unknown }>
+    delete?: (
+      request: string | { providerId: string }
+    ) => Promise<{ ok?: boolean; error?: unknown }>
     listModels?: (providerId: string) => Promise<BridgeProviderModel[]>
     refreshModels?: (providerId: string) => Promise<BridgeProviderModel[]>
     test?: (providerId: string, modelId?: string) => Promise<{ ok: boolean; error?: unknown }>
-    setSessionModel?: (request: { sessionId: string; providerId: string; modelId: string }) => Promise<BridgeChatSession>
+    setSessionModel?: (request: {
+      sessionId: string
+      providerId: string
+      modelId: string
+    }) => Promise<BridgeChatSession>
   }
   skill: {
     list: () => Promise<BridgeSkillListResponse>
     refresh?: () => Promise<BridgeSkillListResponse>
-    setEnabled?: (request: { skillId: string; enabled: boolean }) => Promise<BridgeLocalSkillSummary>
+    setEnabled?: (request: {
+      skillId: string
+      enabled: boolean
+    }) => Promise<BridgeLocalSkillSummary>
     importSkill?: (request: BridgeImportSkillRequest) => Promise<BridgeImportSkillResponse>
     onChanged?: (callback: (event: BridgeSkillChangedEvent) => void) => BridgeUnsubscribe
   }
@@ -530,14 +564,22 @@ export interface RendererOpenOmniClawBridge {
   }
   tools?: {
     list: () => Promise<BridgeManagedToolInfo[]>
-    setEnabled: (request: { name: string; enabled: boolean }) => Promise<{ tool: BridgeManagedToolInfo; tools: BridgeManagedToolInfo[] }>
+    setEnabled: (request: {
+      name: string
+      enabled: boolean
+    }) => Promise<{ tool: BridgeManagedToolInfo; tools: BridgeManagedToolInfo[] }>
   }
   mcp?: {
     listServers: () => Promise<BridgeMcpServerListResponse>
     saveServer: (request: BridgeSaveMcpServerRequest) => Promise<BridgeMcpServerSummary>
     deleteServer: (request: string | { serverId: string }) => Promise<BridgeMcpServerListResponse>
-    setServerEnabled: (request: { serverId: string; enabled: boolean }) => Promise<BridgeMcpServerSummary>
-    refreshServer: (request?: string | { serverId?: string }) => Promise<BridgeMcpServerListResponse>
+    setServerEnabled: (request: {
+      serverId: string
+      enabled: boolean
+    }) => Promise<BridgeMcpServerSummary>
+    refreshServer: (
+      request?: string | { serverId?: string }
+    ) => Promise<BridgeMcpServerListResponse>
     listTools: () => Promise<BridgeMcpToolInventoryResponse>
     onChanged: (callback: (event: BridgeMcpChangedEvent) => void) => BridgeUnsubscribe
   }
@@ -639,7 +681,13 @@ const fallbackBridge: RendererOpenOmniClawBridge = {
   attachment: {
     upload: async ({ name, type, size }) => ({
       id: crypto.randomUUID(),
-      kind: type.startsWith('image/') ? 'image' : type.startsWith('audio/') ? 'audio' : type.startsWith('video/') ? 'video' : 'file',
+      kind: type.startsWith('image/')
+        ? 'image'
+        : type.startsWith('audio/')
+          ? 'audio'
+          : type.startsWith('video/')
+            ? 'video'
+            : 'file',
       originalName: name,
       filename: name,
       mimeType: type,
@@ -693,7 +741,8 @@ const fallbackBridge: RendererOpenOmniClawBridge = {
         description: 'Local OmniInfer-compatible model service.',
       },
     ],
-    createFromPreset: () => rejectFallbackPersistence<BridgeProviderConfig>('provider.createFromPreset'),
+    createFromPreset: () =>
+      rejectFallbackPersistence<BridgeProviderConfig>('provider.createFromPreset'),
     upsert: () => rejectFallbackPersistence<BridgeProviderConfig>('provider.upsert'),
     delete: () => rejectFallbackPersistence<{ ok?: boolean; error?: unknown }>('provider.delete'),
     listModels: async () => [],
@@ -739,7 +788,10 @@ const fallbackBridge: RendererOpenOmniClawBridge = {
         enabled: true,
       },
     ],
-    setEnabled: () => rejectFallbackPersistence<{ tool: BridgeManagedToolInfo; tools: BridgeManagedToolInfo[] }>('tools.setEnabled'),
+    setEnabled: () =>
+      rejectFallbackPersistence<{ tool: BridgeManagedToolInfo; tools: BridgeManagedToolInfo[] }>(
+        'tools.setEnabled'
+      ),
   },
   mcp: {
     listServers: async () => ({
@@ -756,8 +808,10 @@ const fallbackBridge: RendererOpenOmniClawBridge = {
     }),
     saveServer: () => rejectFallbackPersistence<BridgeMcpServerSummary>('mcp.saveServer'),
     deleteServer: () => rejectFallbackPersistence<BridgeMcpServerListResponse>('mcp.deleteServer'),
-    setServerEnabled: () => rejectFallbackPersistence<BridgeMcpServerSummary>('mcp.setServerEnabled'),
-    refreshServer: () => rejectFallbackPersistence<BridgeMcpServerListResponse>('mcp.refreshServer'),
+    setServerEnabled: () =>
+      rejectFallbackPersistence<BridgeMcpServerSummary>('mcp.setServerEnabled'),
+    refreshServer: () =>
+      rejectFallbackPersistence<BridgeMcpServerListResponse>('mcp.refreshServer'),
     listTools: async () => ({ tools: [], servers: [] }),
     onChanged: () => () => {},
   },
@@ -828,7 +882,7 @@ function fallbackSettingsConfig(): BridgeDesktopSettingsConfig {
 const exposedBridge =
   typeof window === 'undefined'
     ? undefined
-    : window.openOmniClaw as RendererOpenOmniClawBridge | undefined
+    : (window.openOmniClaw as RendererOpenOmniClawBridge | undefined)
 
 export const bridgeRuntime: BridgeRuntime = exposedBridge ? 'electron' : 'fallback'
 export const isFallbackBridge = bridgeRuntime === 'fallback'

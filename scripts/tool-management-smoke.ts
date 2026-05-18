@@ -7,7 +7,7 @@ class MemorySettingsRepo {
   private readonly values = new Map<string, unknown>()
 
   getJson<T>(key: string, fallback: T): T {
-    return this.values.has(key) ? this.values.get(key) as T : fallback
+    return this.values.has(key) ? (this.values.get(key) as T) : fallback
   }
 
   setJson(key: string, value: unknown): void {
@@ -37,7 +37,10 @@ try {
   settings.setJson('agent.disabledTools', ['calculator', 'stale_tool'])
   const withStaleName = service.list()
   assert.equal(withStaleName.find((tool) => tool.name === 'calculator')?.enabled, false)
-  assert.equal(withStaleName.some((tool) => tool.name === 'stale_tool'), false)
+  assert.equal(
+    withStaleName.some((tool) => tool.name === 'stale_tool'),
+    false
+  )
   assert.deepEqual([...service.getDisabledToolNames()], ['calculator'])
 
   assert.throws(() => service.setEnabled('missing_tool', false), /not registered/)
@@ -61,8 +64,14 @@ try {
     },
   })
 
-  assert.equal(resolved.some((tool) => tool.name === 'calculator'), false)
-  assert.equal(providerToolsFromAgentTools(resolved).some((tool) => tool.function.name === 'calculator'), false)
+  assert.equal(
+    resolved.some((tool) => tool.name === 'calculator'),
+    false
+  )
+  assert.equal(
+    providerToolsFromAgentTools(resolved).some((tool) => tool.function.name === 'calculator'),
+    false
+  )
 
   console.log('Tool management smoke check passed')
 } finally {

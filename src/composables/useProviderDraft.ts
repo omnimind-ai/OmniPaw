@@ -1,9 +1,6 @@
 import { nextTick, ref, type Ref } from 'vue'
 
-import type {
-  BridgeProviderConfig,
-  BridgeProviderModel,
-} from '@/bridge/app'
+import type { BridgeProviderConfig, BridgeProviderModel } from '@/bridge/app'
 import { errorToText } from '@/utils/toast'
 import type {
   ProviderApi,
@@ -20,13 +17,15 @@ import type {
   ProviderModelDraft,
 } from '@/components/settings/provider-settings/types'
 
-export type ProviderSaveDraftResult = {
-  ok: true
-  request: SaveProviderRequest
-} | {
-  ok: false
-  message: string
-}
+export type ProviderSaveDraftResult =
+  | {
+      ok: true
+      request: SaveProviderRequest
+    }
+  | {
+      ok: false
+      message: string
+    }
 
 export function useProviderDraft(options: {
   rawProviders: Ref<BridgeProviderConfig[]>
@@ -60,7 +59,9 @@ export function useProviderDraft(options: {
   }
 
   function ensureDefaultModelId() {
-    if (!providerDraft.value.models.some((model) => model.id === providerDraft.value.defaultModelId)) {
+    if (
+      !providerDraft.value.models.some((model) => model.id === providerDraft.value.defaultModelId)
+    ) {
       providerDraft.value.defaultModelId = providerDraft.value.models[0]?.id || ''
     }
   }
@@ -83,7 +84,8 @@ export function useProviderDraft(options: {
         api: providerDraft.value.api,
         baseUrl: providerDraft.value.baseUrl.trim(),
         enabled: providerDraft.value.enabled,
-        credentialRef: providerDraft.value.credentialRef || `${providerDraft.value.id.trim()}:default`,
+        credentialRef:
+          providerDraft.value.credentialRef || `${providerDraft.value.id.trim()}:default`,
         authHeader: providerDraft.value.authHeader.trim() || 'Authorization',
         headers: parsedHeaders.value,
         extraBody: parsedExtraBody.value,
@@ -95,11 +97,12 @@ export function useProviderDraft(options: {
       },
     }
 
-    if (providerDraft.value.compat.reasoningFormat !== 'none'
-      || providerDraft.value.compat.maxTokensField !== 'max_tokens'
-      || !providerDraft.value.compat.supportsSystemRole
-      || providerDraft.value.compat.supportsDeveloperRole
-      || providerDraft.value.compat.supportsJsonMode
+    if (
+      providerDraft.value.compat.reasoningFormat !== 'none' ||
+      providerDraft.value.compat.maxTokensField !== 'max_tokens' ||
+      !providerDraft.value.compat.supportsSystemRole ||
+      providerDraft.value.compat.supportsDeveloperRole ||
+      providerDraft.value.compat.supportsJsonMode
     ) {
       request.provider.compat = { ...providerDraft.value.compat }
     }
@@ -157,7 +160,11 @@ export function useProviderDraft(options: {
     }
   }
 
-  function updateModelInput(model: ProviderModelDraft, input: ModelInput, checked: boolean | 'indeterminate') {
+  function updateModelInput(
+    model: ProviderModelDraft,
+    input: ModelInput,
+    checked: boolean | 'indeterminate'
+  ) {
     const next = new Set(model.input)
     if (checked === true) {
       next.add(input)
@@ -169,7 +176,11 @@ export function useProviderDraft(options: {
     model.input = [...next]
   }
 
-  function setOptionalNumber(model: ProviderModelDraft, key: 'contextWindow' | 'maxOutputTokens', value: string | number) {
+  function setOptionalNumber(
+    model: ProviderModelDraft,
+    key: 'contextWindow' | 'maxOutputTokens',
+    value: string | number
+  ) {
     const text = String(value).trim()
     if (!text) {
       model[key] = undefined
@@ -213,7 +224,8 @@ export function useProviderDraft(options: {
     for (const model of providerDraft.value.models) {
       if (!model.id.trim()) return '模型 ID 不能为空。'
       if (modelIds.has(model.id.trim())) return `模型 ID 重复：${model.id.trim()}`
-      if (modelIdBelongsToOtherProvider(model.id.trim())) return `模型 ID 已被其他 Provider 使用：${model.id.trim()}`
+      if (modelIdBelongsToOtherProvider(model.id.trim()))
+        return `模型 ID 已被其他 Provider 使用：${model.id.trim()}`
       modelIds.add(model.id.trim())
     }
 
@@ -225,9 +237,10 @@ export function useProviderDraft(options: {
   }
 
   function modelIdBelongsToOtherProvider(modelId: string) {
-    return options.rawProviders.value.some((provider) =>
-      provider.id !== options.originalProviderId.value
-      && provider.models?.some((model) => model.id === modelId),
+    return options.rawProviders.value.some(
+      (provider) =>
+        provider.id !== options.originalProviderId.value &&
+        provider.models?.some((model) => model.id === modelId)
     )
   }
 
@@ -337,9 +350,10 @@ function toProviderModel(model: ProviderModelDraft): ProviderModel {
   }
 }
 
-function parseStringRecord(text: string, label: string):
-  | { ok: true; value: Record<string, string> }
-  | { ok: false; message: string } {
+function parseStringRecord(
+  text: string,
+  label: string
+): { ok: true; value: Record<string, string> } | { ok: false; message: string } {
   const parsed = parseObject(text, label)
   if (!parsed.ok) return parsed
   if (Object.values(parsed.value).some((value) => typeof value !== 'string')) {
@@ -348,9 +362,10 @@ function parseStringRecord(text: string, label: string):
   return { ok: true, value: parsed.value as Record<string, string> }
 }
 
-function parseObject(text: string, label: string):
-  | { ok: true; value: Record<string, unknown> }
-  | { ok: false; message: string } {
+function parseObject(
+  text: string,
+  label: string
+): { ok: true; value: Record<string, unknown> } | { ok: false; message: string } {
   const trimmed = text.trim()
   if (!trimmed) return { ok: true, value: {} }
 
@@ -378,7 +393,8 @@ function normalizeCapabilities(value: unknown): Required<ProviderCapabilities> {
 function normalizeCompat(value: unknown): Required<ProviderCompat> {
   const record = isRecord(value) ? value : {}
   return {
-    maxTokensField: record.maxTokensField === 'max_completion_tokens' ? 'max_completion_tokens' : 'max_tokens',
+    maxTokensField:
+      record.maxTokensField === 'max_completion_tokens' ? 'max_completion_tokens' : 'max_tokens',
     supportsSystemRole: record.supportsSystemRole !== false,
     supportsDeveloperRole: Boolean(record.supportsDeveloperRole),
     supportsJsonMode: record.supportsJsonMode !== false,
@@ -393,8 +409,9 @@ function normalizeReasoningFormat(value: unknown): Required<ProviderCompat>['rea
 
 function normalizeInput(value: unknown): ModelInput[] {
   if (!Array.isArray(value)) return ['text']
-  const input = value.filter((item): item is ModelInput =>
-    item === 'text' || item === 'image' || item === 'audio' || item === 'file',
+  const input = value.filter(
+    (item): item is ModelInput =>
+      item === 'text' || item === 'image' || item === 'audio' || item === 'file'
   )
   return input.length ? input : ['text']
 }

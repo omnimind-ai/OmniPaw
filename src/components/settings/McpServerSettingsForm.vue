@@ -31,10 +31,7 @@ import type {
 import { appBridge, isFallbackBridge } from '@/bridge/app'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import {
-  Field,
-  FieldLabel,
-} from '@/components/ui/field'
+import { Field, FieldLabel } from '@/components/ui/field'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Switch } from '@/components/ui/switch'
 import { cn } from '@/lib/utils'
@@ -64,7 +61,7 @@ let unsubscribeMcp: (() => void) | undefined
 const mcpUnavailable = computed(() => !appBridge.mcp)
 const enabledCount = computed(() => servers.value.filter((server) => server.enabled).length)
 const discoveredToolCount = computed(() =>
-  servers.value.reduce((count, server) => count + server.tools.length, 0),
+  servers.value.reduce((count, server) => count + server.tools.length, 0)
 )
 const anyPending = computed(() => pendingKeys.value.size > 0)
 const registryError = computed(() => registryStatus.value?.error?.message || '')
@@ -75,10 +72,10 @@ const existingSecretKeys = computed(() => {
   return server.transport.headerKeys
 })
 const deletePending = computed(() =>
-  deleteTarget.value ? isPending(`delete:${deleteTarget.value.id}`) : false,
+  deleteTarget.value ? isPending(`delete:${deleteTarget.value.id}`) : false
 )
 const productOwnedTools = computed(() =>
-  productTools.value.filter((tool) => tool.source === 'builtin'),
+  productTools.value.filter((tool) => tool.source === 'builtin')
 )
 
 onMounted(async () => {
@@ -372,7 +369,7 @@ function upsertServer(server: BridgeMcpServerSummary) {
     return
   }
 
-  servers.value = servers.value.map((item) => item.id === server.id ? server : item)
+  servers.value = servers.value.map((item) => (item.id === server.id ? server : item))
 }
 
 async function withPending(key: string, operation: () => Promise<void>) {
@@ -462,9 +459,7 @@ function transportDetails(transport: BridgeMcpSafeTransport) {
     ]
   }
 
-  return [
-    transport.headerKeys.length ? `请求头: ${transport.headerKeys.join(', ')}` : '无请求头',
-  ]
+  return [transport.headerKeys.length ? `请求头: ${transport.headerKeys.join(', ')}` : '无请求头']
 }
 </script>
 

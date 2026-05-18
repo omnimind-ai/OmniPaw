@@ -1,10 +1,5 @@
 <script setup lang="ts">
-import {
-  CloudIcon,
-  PlusIcon,
-  SearchIcon,
-  Trash2Icon,
-} from 'lucide-vue-next'
+import { CloudIcon, PlusIcon, SearchIcon, Trash2Icon } from 'lucide-vue-next'
 import { computed } from 'vue'
 
 import { Badge } from '@/components/ui/badge'
@@ -16,11 +11,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import {
-  InputGroup,
-  InputGroupAddon,
-  InputGroupInput,
-} from '@/components/ui/input-group'
+import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group'
 import { cn } from '@/lib/utils'
 import type { BridgeProviderPreset } from '@/bridge/app'
 import type { ProviderSidebarItem } from './types'

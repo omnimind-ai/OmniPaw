@@ -15,14 +15,23 @@ export interface McpClientTool {
 
 export interface McpClient {
   listTools(server: McpServerRecord, signal?: AbortSignal): Promise<McpClientTool[]>
-  callTool(server: McpServerRecord, toolName: string, args: unknown, signal?: AbortSignal): Promise<AgentToolResult>
+  callTool(
+    server: McpServerRecord,
+    toolName: string,
+    args: unknown,
+    signal?: AbortSignal
+  ): Promise<AgentToolResult>
 }
 
 export class McpClientError extends Error {
   readonly code: McpErrorCode
   readonly recoverable: boolean
 
-  constructor(code: McpErrorCode, message: string, options: { recoverable?: boolean; cause?: unknown } = {}) {
+  constructor(
+    code: McpErrorCode,
+    message: string,
+    options: { recoverable?: boolean; cause?: unknown } = {}
+  ) {
     super(redactSecretText(message), { cause: options.cause })
     this.name = 'McpClientError'
     this.code = code
@@ -45,7 +54,7 @@ export class JsonRpcMcpClient implements McpClient {
           cursor ? { cursor } : {},
           server.timeoutMs,
           signal,
-          'discovery_failed',
+          'discovery_failed'
         )
         const page = normalizeToolsListResult(result)
         tools.push(...page.tools)
@@ -60,7 +69,7 @@ export class JsonRpcMcpClient implements McpClient {
     server: McpServerRecord,
     toolName: string,
     args: unknown,
-    signal?: AbortSignal,
+    signal?: AbortSignal
   ): Promise<AgentToolResult> {
     assertSupportedTransport(server)
 
@@ -71,33 +80,42 @@ export class JsonRpcMcpClient implements McpClient {
         { name: toolName, arguments: args ?? {} },
         server.toolTimeoutMs,
         signal,
-        'mcp_io_error',
+        'mcp_io_error'
       )
       return normalizeToolCallResult(result)
     })
   }
 }
 
-export function normalizeMcpClientError(error: unknown, fallbackCode: McpErrorCode): McpClientError {
+export function normalizeMcpClientError(
+  error: unknown,
+  fallbackCode: McpErrorCode
+): McpClientError {
   if (error instanceof McpClientError) {
     return error
   }
 
   if (isAbortError(error)) {
-    return new McpClientError('mcp_io_error', 'MCP operation was aborted.', { recoverable: true, cause: error })
+    return new McpClientError('mcp_io_error', 'MCP operation was aborted.', {
+      recoverable: true,
+      cause: error,
+    })
   }
 
   if (error instanceof Error) {
     return new McpClientError(fallbackCode, error.message, { recoverable: true, cause: error })
   }
 
-  return new McpClientError(fallbackCode, 'MCP operation failed.', { recoverable: true, cause: error })
+  return new McpClientError(fallbackCode, 'MCP operation failed.', {
+    recoverable: true,
+    cause: error,
+  })
 }
 
 async function withStdioSession<T>(
   server: McpServerRecord,
   signal: AbortSignal | undefined,
-  execute: (session: StdioJsonRpcSession) => Promise<T>,
+  execute: (session: StdioJsonRpcSession) => Promise<T>
 ): Promise<T> {
   const session = new StdioJsonRpcSession(server)
   try {
@@ -111,7 +129,7 @@ async function withStdioSession<T>(
 async function initialize(
   session: StdioJsonRpcSession,
   server: McpServerRecord,
-  signal?: AbortSignal,
+  signal?: AbortSignal
 ): Promise<void> {
   await session.request(
     'initialize',
@@ -125,7 +143,7 @@ async function initialize(
     },
     server.timeoutMs,
     signal,
-    'discovery_failed',
+    'discovery_failed'
   )
   session.notify('notifications/initialized', {})
 }
@@ -142,7 +160,10 @@ class StdioJsonRpcSession {
 
   start(signal?: AbortSignal): void {
     if (this.server.transport.type !== 'stdio') {
-      throw new McpClientError('transport_unsupported', 'Only stdio MCP transport is supported in this build.')
+      throw new McpClientError(
+        'transport_unsupported',
+        'Only stdio MCP transport is supported in this build.'
+      )
     }
 
     const child = spawn(this.server.transport.command, this.server.transport.args, {
@@ -160,21 +181,27 @@ class StdioJsonRpcSession {
     child.stderr.on('data', (chunk: Buffer) => {
       this.stderr = `${this.stderr}${chunk.toString('utf8')}`.slice(-4_000)
     })
-    child.on('error', (error) => this.failAll(new McpClientError(
-      'mcp_io_error',
-      `Failed to start MCP server "${this.server.name}": ${error.message}`,
-      { recoverable: true, cause: error },
-    )))
+    child.on('error', (error) =>
+      this.failAll(
+        new McpClientError(
+          'mcp_io_error',
+          `Failed to start MCP server "${this.server.name}": ${error.message}`,
+          { recoverable: true, cause: error }
+        )
+      )
+    )
     child.on('exit', (code, signalName) => {
       if (this.closing) {
         return
       }
       const suffix = this.stderrPreview()
-      this.failAll(new McpClientError(
-        'mcp_io_error',
-        `MCP server "${this.server.name}" exited before completing the request (${signalName ?? code ?? 'unknown'}).${suffix}`,
-        { recoverable: true },
-      ))
+      this.failAll(
+        new McpClientError(
+          'mcp_io_error',
+          `MCP server "${this.server.name}" exited before completing the request (${signalName ?? code ?? 'unknown'}).${suffix}`,
+          { recoverable: true }
+        )
+      )
     })
 
     if (signal) {
@@ -191,13 +218,15 @@ class StdioJsonRpcSession {
     params: unknown,
     timeoutMs: number,
     signal: AbortSignal | undefined,
-    errorCode: McpErrorCode,
+    errorCode: McpErrorCode
   ): Promise<unknown> {
     const child = this.child
     if (!child || child.killed || !child.stdin.writable) {
-      return Promise.reject(new McpClientError('mcp_io_error', 'MCP server process is not available.', {
-        recoverable: true,
-      }))
+      return Promise.reject(
+        new McpClientError('mcp_io_error', 'MCP server process is not available.', {
+          recoverable: true,
+        })
+      )
     }
 
     const id = this.nextId++
@@ -219,11 +248,13 @@ class StdioJsonRpcSession {
       timeout = setTimeout(() => {
         cleanup()
         this.close()
-        reject(new McpClientError(
-          errorCode,
-          `MCP request "${method}" timed out after ${timeoutMs}ms.${this.stderrPreview()}`,
-          { recoverable: true },
-        ))
+        reject(
+          new McpClientError(
+            errorCode,
+            `MCP request "${method}" timed out after ${timeoutMs}ms.${this.stderrPreview()}`,
+            { recoverable: true }
+          )
+        )
       }, timeoutMs)
 
       if (signal) {
@@ -248,11 +279,13 @@ class StdioJsonRpcSession {
       child.stdin.write(encodeMessage({ jsonrpc: '2.0', id, method, params }), (error) => {
         if (error) {
           const pending = this.pending.get(id)
-          pending?.reject(new McpClientError(
-            'mcp_io_error',
-            `Failed to write MCP request "${method}": ${error.message}`,
-            { recoverable: true, cause: error },
-          ))
+          pending?.reject(
+            new McpClientError(
+              'mcp_io_error',
+              `Failed to write MCP request "${method}": ${error.message}`,
+              { recoverable: true, cause: error }
+            )
+          )
         }
       })
     })
@@ -290,9 +323,11 @@ class StdioJsonRpcSession {
       const headerText = this.buffer.subarray(0, header.index).toString('ascii')
       const lengthMatch = /^Content-Length:\s*(\d+)$/im.exec(headerText)
       if (!lengthMatch) {
-        this.failAll(new McpClientError('mcp_io_error', 'MCP response is missing Content-Length.', {
-          recoverable: false,
-        }))
+        this.failAll(
+          new McpClientError('mcp_io_error', 'MCP response is missing Content-Length.', {
+            recoverable: false,
+          })
+        )
         return
       }
 
@@ -308,11 +343,13 @@ class StdioJsonRpcSession {
       try {
         this.handleMessage(JSON.parse(body) as unknown)
       } catch (error) {
-        this.failAll(new McpClientError(
-          'mcp_io_error',
-          error instanceof Error ? error.message : 'Failed to parse MCP response.',
-          { recoverable: false, cause: error },
-        ))
+        this.failAll(
+          new McpClientError(
+            'mcp_io_error',
+            error instanceof Error ? error.message : 'Failed to parse MCP response.',
+            { recoverable: false, cause: error }
+          )
+        )
         return
       }
     }
@@ -331,11 +368,15 @@ class StdioJsonRpcSession {
       }
 
       if (isRecord(message.error)) {
-        pending.reject(new McpClientError(
-          'mcp_io_error',
-          typeof message.error.message === 'string' ? message.error.message : 'MCP server returned an error.',
-          { recoverable: true },
-        ))
+        pending.reject(
+          new McpClientError(
+            'mcp_io_error',
+            typeof message.error.message === 'string'
+              ? message.error.message
+              : 'MCP server returned an error.',
+            { recoverable: true }
+          )
+        )
         return
       }
 
@@ -377,7 +418,9 @@ interface PendingRequest {
   reject: (error: Error) => void
 }
 
-function assertSupportedTransport(server: McpServerRecord): asserts server is McpServerRecord & { transport: { type: 'stdio' } } {
+function assertSupportedTransport(
+  server: McpServerRecord
+): asserts server is McpServerRecord & { transport: { type: 'stdio' } } {
   if (server.transport.type !== 'stdio') {
     throw new McpClientError('transport_unsupported', 'HTTP MCP transport is not supported yet.', {
       recoverable: false,
@@ -385,7 +428,10 @@ function assertSupportedTransport(server: McpServerRecord): asserts server is Mc
   }
 }
 
-function normalizeToolsListResult(result: unknown): { tools: McpClientTool[]; nextCursor?: string } {
+function normalizeToolsListResult(result: unknown): {
+  tools: McpClientTool[]
+  nextCursor?: string
+} {
   if (!isRecord(result)) {
     throw new McpClientError('discovery_failed', 'MCP tools/list returned an invalid response.')
   }
@@ -416,9 +462,13 @@ function normalizeClientTool(value: unknown): McpClientTool | undefined {
 
 function normalizeToolCallResult(result: unknown): AgentToolResult {
   if (isRecord(result) && result.isError === true) {
-    throw new McpClientError('mcp_io_error', textFromMcpContent(result.content) || 'MCP tool returned an error.', {
-      recoverable: false,
-    })
+    throw new McpClientError(
+      'mcp_io_error',
+      textFromMcpContent(result.content) || 'MCP tool returned an error.',
+      {
+        recoverable: false,
+      }
+    )
   }
 
   if (!isRecord(result)) {
@@ -458,7 +508,11 @@ function textFromMcpContent(content: unknown): string | undefined {
     return undefined
   }
   const text = content
-    .map((part) => isRecord(part) && part.type === 'text' && typeof part.text === 'string' ? part.text : undefined)
+    .map((part) =>
+      isRecord(part) && part.type === 'text' && typeof part.text === 'string'
+        ? part.text
+        : undefined
+    )
     .filter((part): part is string => Boolean(part))
     .join('\n')
     .trim()
@@ -467,10 +521,7 @@ function textFromMcpContent(content: unknown): string | undefined {
 
 function encodeMessage(message: unknown): Buffer {
   const body = Buffer.from(JSON.stringify(message), 'utf8')
-  return Buffer.concat([
-    Buffer.from(`Content-Length: ${body.byteLength}\r\n\r\n`, 'ascii'),
-    body,
-  ])
+  return Buffer.concat([Buffer.from(`Content-Length: ${body.byteLength}\r\n\r\n`, 'ascii'), body])
 }
 
 function findHeaderEnd(buffer: Buffer): { index: number; length: number } | undefined {
@@ -494,9 +545,8 @@ function createAbortError(message: string): Error {
 
 function isAbortError(error: unknown): boolean {
   return (
-    error instanceof DOMException && error.name === 'AbortError'
-  ) || (
-    error instanceof Error && error.name === 'AbortError'
+    (error instanceof DOMException && error.name === 'AbortError') ||
+    (error instanceof Error && error.name === 'AbortError')
   )
 }
 

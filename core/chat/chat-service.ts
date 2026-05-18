@@ -6,12 +6,7 @@ import type { AgentTool } from '@core/agent/tool'
 import { ToolRegistry } from '@core/agent/tool-registry'
 import type { ToolResolutionInput } from '@core/agent/tool-registry'
 import type { SkillManager } from '@core/skill/skill-manager'
-import type {
-  AttachmentRepo,
-  ChatMessageRepo,
-  ChatRunRepo,
-  ChatSessionRepo,
-} from '@core/db/repos'
+import type { AttachmentRepo, ChatMessageRepo, ChatRunRepo, ChatSessionRepo } from '@core/db/repos'
 import type { ChatSession } from '@shared/types/chat'
 import type {
   AbortRunRequest,
@@ -53,23 +48,25 @@ export class ChatService {
   private readonly agentRunner: AgentRunner
 
   constructor(private readonly options: ChatServiceOptions) {
-    this.agentRunner = options.agentRunner ?? new AgentRunner({
-      messages: options.messages,
-      runs: options.runs,
-      providers: options.providers,
-      contextBuilder: options.contextBuilder,
-      runManager: options.runManager,
-      skills: options.skills,
-      compactSkillDescriptions: options.compactSkillDescriptions,
-      toolRegistry: new ToolRegistry({
+    this.agentRunner =
+      options.agentRunner ??
+      new AgentRunner({
         messages: options.messages,
-        attachments: options.attachments,
+        runs: options.runs,
+        providers: options.providers,
+        contextBuilder: options.contextBuilder,
+        runManager: options.runManager,
         skills: options.skills,
-        disabledToolNames: options.disabledToolNames,
-        mcpTools: options.mcpTools,
-      }),
-      onComplete: (sessionId) => this.updateSessionSummary(sessionId),
-    })
+        compactSkillDescriptions: options.compactSkillDescriptions,
+        toolRegistry: new ToolRegistry({
+          messages: options.messages,
+          attachments: options.attachments,
+          skills: options.skills,
+          disabledToolNames: options.disabledToolNames,
+          mcpTools: options.mcpTools,
+        }),
+        onComplete: (sessionId) => this.updateSessionSummary(sessionId),
+      })
   }
 
   listSessions(): ChatSession[] {
@@ -130,14 +127,21 @@ export class ChatService {
     return this.options.messages.listBySession(sessionId, { limit })
   }
 
-  async sendMessage(request: SendMessageRequest, webContents: WebContents): Promise<SendMessageResponse> {
+  async sendMessage(
+    request: SendMessageRequest,
+    webContents: WebContents
+  ): Promise<SendMessageResponse> {
     const existing = this.options.runManager.getExistingIdempotentRun(request.idempotencyKey)
     if (existing) {
       return responseFromRun(existing)
     }
 
     const session = this.requireSession(request.sessionId)
-    const { provider, model } = await this.resolveProviderAndModel(session, request.providerId, request.modelId)
+    const { provider, model } = await this.resolveProviderAndModel(
+      session,
+      request.providerId,
+      request.modelId
+    )
     const parts = normalizeSendParts(request)
     const attachmentLinks = this.options.attachments.validateMessageParts(parts)
     const now = Date.now()
@@ -168,7 +172,7 @@ export class ChatService {
     this.options.messages.save(assistantMessage)
     this.options.messages.replaceAttachmentLinks(
       userMessage.id,
-      attachmentLinks.map((link) => ({ ...link, messageId: userMessage.id })),
+      attachmentLinks.map((link) => ({ ...link, messageId: userMessage.id }))
     )
 
     const run: ChatRun = {
@@ -216,7 +220,11 @@ export class ChatService {
     if (aborted) {
       const run = this.options.runs.get(runId)
       if (run) {
-        const error = { code: 'aborted' as const, message: reason ?? 'Run aborted.', retryable: false }
+        const error = {
+          code: 'aborted' as const,
+          message: reason ?? 'Run aborted.',
+          retryable: false,
+        }
         this.options.runs.updateStatus(runId, 'aborted', {
           finishedAt: Date.now(),
           abortReason: reason,
@@ -249,7 +257,7 @@ export class ChatService {
 
   async regenerateMessage(
     request: RegenerateMessageRequest,
-    webContents: WebContents,
+    webContents: WebContents
   ): Promise<SendMessageResponse> {
     const target = this.options.messages.get(request.messageId)
     if (!target) {
@@ -257,7 +265,9 @@ export class ChatService {
     }
     const messages = this.options.messages.listBySession(request.sessionId)
     const targetIndex = messages.findIndex((message) => message.id === request.messageId)
-    const user = [...messages.slice(0, targetIndex)].reverse().find((message) => message.role === 'user')
+    const user = [...messages.slice(0, targetIndex)]
+      .reverse()
+      .find((message) => message.role === 'user')
     if (!user) {
       throw new Error('No preceding user message found.')
     }
@@ -270,7 +280,7 @@ export class ChatService {
         modelId: request.modelId,
         idempotencyKey: request.idempotencyKey,
       },
-      webContents,
+      webContents
     )
   }
 
@@ -285,18 +295,21 @@ export class ChatService {
   private async resolveProviderAndModel(
     session: ChatSession,
     providerId?: string,
-    modelId?: string,
+    modelId?: string
   ): Promise<{ provider: ProviderConfig; model: ProviderModel }> {
     const provider =
       (providerId ? await this.options.providers.get(providerId) : undefined) ??
-      (session.defaultProviderId ? await this.options.providers.get(session.defaultProviderId) : undefined) ??
+      (session.defaultProviderId
+        ? await this.options.providers.get(session.defaultProviderId)
+        : undefined) ??
       (await this.options.providers.list()).find((item) => item.enabled)
     if (!provider) {
       throw new Error('No provider is configured.')
     }
     const model =
-      provider.models.find((item) => item.id === (modelId ?? session.defaultModelId ?? provider.defaultModelId)) ??
-      provider.models.find((item) => item.enabled)
+      provider.models.find(
+        (item) => item.id === (modelId ?? session.defaultModelId ?? provider.defaultModelId)
+      ) ?? provider.models.find((item) => item.enabled)
     if (!model || model.enabled === false) {
       throw new Error(`No enabled model is configured for provider ${provider.id}.`)
     }

@@ -1,7 +1,13 @@
 import { normalizeProviderError } from '@core/provider/errors'
 import type { ProviderToolCall } from '@core/provider/base-provider'
 import type { ToolCallDisplay } from '@shared/types/chat'
-import { displayArguments, parseToolArguments, toolResultToText, type AgentTool, type NormalizedToolResult } from './tool'
+import {
+  displayArguments,
+  parseToolArguments,
+  toolResultToText,
+  type AgentTool,
+  type NormalizedToolResult,
+} from './tool'
 import { decideToolUse, type ToolPolicy } from './tool-policy'
 
 export interface ExecuteToolInput {
@@ -68,7 +74,7 @@ export class ToolExecutor {
       const result = await withTimeout(
         (signal) => tool.execute(input.toolCall.id, args, signal),
         tool.timeoutMs ?? 30_000,
-        input.signal,
+        input.signal
       )
       const text = toolResultToText(result)
       return {
@@ -118,7 +124,7 @@ export class ToolExecutor {
 function finishDisplay(
   display: ToolCallDisplay,
   status: NonNullable<ToolCallDisplay['status']>,
-  value: unknown,
+  value: unknown
 ): ToolCallDisplay {
   const finishedAt = Date.now()
   return {
@@ -133,7 +139,7 @@ function finishDisplay(
 async function withTimeout<T>(
   execute: (signal: AbortSignal) => Promise<T>,
   timeoutMs: number,
-  parentSignal?: AbortSignal,
+  parentSignal?: AbortSignal
 ): Promise<T> {
   const controller = new AbortController()
   let timeout: NodeJS.Timeout | undefined
@@ -178,8 +184,7 @@ function throwIfAborted(signal?: AbortSignal): void {
 
 function isAbortError(error: unknown): boolean {
   return (
-    error instanceof DOMException && error.name === 'AbortError'
-  ) || (
-    error instanceof Error && error.name === 'AbortError'
+    (error instanceof DOMException && error.name === 'AbortError') ||
+    (error instanceof Error && error.name === 'AbortError')
   )
 }

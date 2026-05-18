@@ -25,14 +25,16 @@ export class ChatRunRepo {
   constructor(private readonly db: DatabaseConnection) {}
 
   get(id: string): ChatRun | undefined {
-    const row = this.db.prepare('SELECT * FROM chat_runs WHERE id = ?').get(id) as RunRow | undefined
+    const row = this.db.prepare('SELECT * FROM chat_runs WHERE id = ?').get(id) as
+      | RunRow
+      | undefined
     return row ? mapRun(row) : undefined
   }
 
   getByIdempotencyKey(idempotencyKey: string): ChatRun | undefined {
-    const row = this.db.prepare('SELECT * FROM chat_runs WHERE idempotency_key = ?').get(idempotencyKey) as
-      | RunRow
-      | undefined
+    const row = this.db
+      .prepare('SELECT * FROM chat_runs WHERE idempotency_key = ?')
+      .get(idempotencyKey) as RunRow | undefined
     return row ? mapRun(row) : undefined
   }
 
@@ -65,7 +67,7 @@ export class ChatRunRepo {
             error_json = excluded.error_json,
             request_snapshot_json = excluded.request_snapshot_json,
             updated_at = excluded.updated_at
-        `,
+        `
       )
       .run(toRunParams(run))
 
@@ -76,11 +78,12 @@ export class ChatRunRepo {
     id: string,
     status: RunStatus,
     fields: Partial<Pick<ChatRun, 'usage' | 'error' | 'abortReason' | 'finishedAt'>> = {},
-    updatedAt = Date.now(),
+    updatedAt = Date.now()
   ): boolean {
-    return this.db
-      .prepare(
-        `
+    return (
+      this.db
+        .prepare(
+          `
           UPDATE chat_runs
           SET status = @status,
               finished_at = @finishedAt,
@@ -89,17 +92,18 @@ export class ChatRunRepo {
               error_json = @errorJson,
               updated_at = @updatedAt
           WHERE id = @id
-        `,
-      )
-      .run({
-        id,
-        status,
-        finishedAt: fields.finishedAt ?? null,
-        abortReason: fields.abortReason ?? null,
-        usageJson: encodeJson(fields.usage),
-        errorJson: encodeJson(fields.error),
-        updatedAt,
-      }).changes > 0
+        `
+        )
+        .run({
+          id,
+          status,
+          finishedAt: fields.finishedAt ?? null,
+          abortReason: fields.abortReason ?? null,
+          usageJson: encodeJson(fields.usage),
+          errorJson: encodeJson(fields.error),
+          updatedAt,
+        }).changes > 0
+    )
   }
 }
 
@@ -120,7 +124,7 @@ function mapRun(row: RunRow): ChatRun {
     error: decodeJson<ChatRun['error'] | undefined>(row.error_json, undefined),
     requestSnapshot: decodeJson<ChatRun['requestSnapshot'] | undefined>(
       row.request_snapshot_json,
-      undefined,
+      undefined
     ),
     createdAt: row.created_at,
     updatedAt: row.updated_at,

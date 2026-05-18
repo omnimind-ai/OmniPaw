@@ -18,8 +18,8 @@ export function useAppTheme() {
     initialValue: 'auto',
   })
 
-  const configuredTheme = computed<BridgeAppTheme>(() =>
-    draft.value?.app.theme ?? config.value?.app.theme ?? 'system',
+  const configuredTheme = computed<BridgeAppTheme>(
+    () => draft.value?.app.theme ?? config.value?.app.theme ?? 'system'
   )
 
   watch(
@@ -27,7 +27,7 @@ export function useAppTheme() {
     (theme) => {
       mode.value = toColorMode(theme)
     },
-    { immediate: true },
+    { immediate: true }
   )
 
   if (!config.value && !settingsStore.loading) {

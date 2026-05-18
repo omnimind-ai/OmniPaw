@@ -12,7 +12,7 @@ declare module '*.mjs' {
   export const isComposingEnter: (
     event: KeyboardEvent,
     compositionActive?: boolean,
-    lastCompositionEndAt?: number | null,
+    lastCompositionEndAt?: number | null
   ) => boolean
   export default value
 }

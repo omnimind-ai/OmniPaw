@@ -59,19 +59,22 @@ export class SkillLoader {
           continue
         }
 
-        const baseId = normalizeSkillId(entry.name) || normalizeSkillId(basename(directoryPath)) || 'skill'
+        const baseId =
+          normalizeSkillId(entry.name) || normalizeSkillId(basename(directoryPath)) || 'skill'
         const collisionCount = seen.get(baseId) ?? 0
         seen.set(baseId, collisionCount + 1)
         const id = collisionCount === 0 ? baseId : `${baseId}_${collisionCount + 1}`
 
-        loaded.push(this.loadSkillFile({
-          id,
-          rootName: root.name,
-          rootPath,
-          directoryPath,
-          skillFilePath,
-          collision: collisionCount > 0,
-        }))
+        loaded.push(
+          this.loadSkillFile({
+            id,
+            rootName: root.name,
+            rootPath,
+            directoryPath,
+            skillFilePath,
+            collision: collisionCount > 0,
+          })
+        )
       }
     }
 
@@ -113,7 +116,9 @@ export class SkillLoader {
       const metadata = parsed.metadata
       const name = metadata.name || humanizeSkillId(input.id)
       const description = truncateText(metadata.description || '', MAX_SKILL_DESCRIPTION_CHARS)
-      const collisionError = input.collision ? 'Skill id collided with another package and was assigned a deterministic suffix.' : undefined
+      const collisionError = input.collision
+        ? 'Skill id collided with another package and was assigned a deterministic suffix.'
+        : undefined
       return {
         id: input.id,
         rootName: input.rootName,
@@ -221,9 +226,11 @@ function normalizeLineEndings(value: string): string {
 }
 
 function humanizeSkillId(id: string): string {
-  return id
-    .split(/[_-]+/)
-    .filter(Boolean)
-    .map((part) => `${part.slice(0, 1).toUpperCase()}${part.slice(1)}`)
-    .join(' ') || 'Local Skill'
+  return (
+    id
+      .split(/[_-]+/)
+      .filter(Boolean)
+      .map((part) => `${part.slice(0, 1).toUpperCase()}${part.slice(1)}`)
+      .join(' ') || 'Local Skill'
+  )
 }

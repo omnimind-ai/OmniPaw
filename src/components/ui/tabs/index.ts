@@ -18,7 +18,7 @@ export const tabsListVariants = cva(
     defaultVariants: {
       variant: 'default',
     },
-  },
+  }
 )
 
 export type TabsListVariants = VariantProps<typeof tabsListVariants>

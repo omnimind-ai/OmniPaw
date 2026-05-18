@@ -6,7 +6,14 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Textarea } from '@/components/ui/textarea'
 import { cn } from '@/lib/utils'
 import type { ChatContent, ChatRecord, MessageDisplayBlock } from '@/composables/useMessages'
-import { contentText, formatTime, isRecordAborted, isRecordErrored, recordErrorText, recordId } from './chat-display'
+import {
+  contentText,
+  formatTime,
+  isRecordAborted,
+  isRecordErrored,
+  recordErrorText,
+  recordId,
+} from './chat-display'
 import type { RefItem } from './chat-display'
 import MessagePartRenderer from './parts/MessagePartRenderer.vue'
 import MessageToolbar from './parts/MessageToolbar.vue'
@@ -62,9 +69,9 @@ function errorText(record: ChatRecord) {
 }
 
 function showThinkingFallback(record: ChatRecord, index: number) {
-  return !hasDisplayBlocks(record)
-    && !isRecordErrored(record)
-    && props.isMessageStreaming(record, index)
+  return (
+    !hasDisplayBlocks(record) && !isRecordErrored(record) && props.isMessageStreaming(record, index)
+  )
 }
 
 function messageDisplayTime(record: ChatRecord) {
@@ -112,8 +119,10 @@ function messageClass(record: ChatRecord, index: number) {
   return cn(
     'group/message flex w-full scroll-mt-6',
     user ? 'justify-end' : 'justify-start',
-    props.highlightedMessageId && props.highlightedMessageId === recordId(record) && 'rounded-xl ring-2 ring-ring/50 ring-offset-4 ring-offset-background',
-    props.isMessageStreaming(record, index) && 'opacity-95',
+    props.highlightedMessageId &&
+      props.highlightedMessageId === recordId(record) &&
+      'rounded-xl ring-2 ring-ring/50 ring-offset-4 ring-offset-background',
+    props.isMessageStreaming(record, index) && 'opacity-95'
   )
 }
 
@@ -121,9 +130,7 @@ function messageShellClass(record: ChatRecord) {
   const user = props.isUserMessage(record)
   return cn(
     'flex min-w-0 flex-col gap-2',
-    user
-      ? 'w-fit max-w-[min(34rem,86%)] items-end'
-      : 'w-full max-w-[min(52rem,92%)] items-stretch',
+    user ? 'w-fit max-w-[min(34rem,86%)] items-end' : 'w-full max-w-[min(52rem,92%)] items-stretch'
   )
 }
 
@@ -134,7 +141,7 @@ function messageContentClass(record: ChatRecord) {
     user
       ? 'gap-1 rounded-[1.75rem] bg-muted px-5 py-2.5 leading-[1.25] text-foreground shadow-sm'
       : 'gap-4 text-foreground leading-6',
-    isRecordErrored(record) && user && 'ring-1 ring-destructive/50',
+    isRecordErrored(record) && user && 'ring-1 ring-destructive/50'
   )
 }
 
@@ -142,7 +149,7 @@ function messageContentStackClass(record: ChatRecord) {
   return cn(
     'flex min-w-0 flex-col',
     props.isUserMessage(record) ? 'items-start' : 'items-stretch',
-    props.isUserMessage(record) ? 'gap-1' : 'gap-3',
+    props.isUserMessage(record) ? 'gap-1' : 'gap-3'
   )
 }
 </script>

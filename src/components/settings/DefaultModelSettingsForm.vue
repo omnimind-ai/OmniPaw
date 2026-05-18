@@ -36,8 +36,8 @@ const defaultModelId = computed({
   get: () => props.draft.providers.settings.defaultModelId,
   set: (value: string) => {
     props.draft.providers.settings.defaultModelId = value
-    props.draft.providers.settings.fallbackModelIds = props.draft.providers.settings.fallbackModelIds
-      .filter((modelId) => modelId !== value)
+    props.draft.providers.settings.fallbackModelIds =
+      props.draft.providers.settings.fallbackModelIds.filter((modelId) => modelId !== value)
   },
 })
 
@@ -64,7 +64,7 @@ function updateFallback(modelId: string, checked: boolean | 'indeterminate') {
 
   current.delete(defaultModelId.value)
   props.draft.providers.settings.fallbackModelIds = [...current].filter((item) =>
-    enabledOptions.value.some((option) => option.modelId === item),
+    enabledOptions.value.some((option) => option.modelId === item)
   )
 }
 </script>

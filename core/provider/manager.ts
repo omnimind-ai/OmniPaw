@@ -1,6 +1,12 @@
 import type { DesktopSettingsConfig } from '@shared/types/settings'
 import type { ConfigStore } from '@core/config/store'
-import type { ProviderConfig, ModelConfig, ProviderPreset, ProviderType, SaveProviderRequest } from '@shared/types/provider'
+import type {
+  ProviderConfig,
+  ModelConfig,
+  ProviderPreset,
+  ProviderType,
+  SaveProviderRequest,
+} from '@shared/types/provider'
 import type { BaseProvider, ProviderModelCandidate } from './base-provider'
 import { normalizeProviderError } from './errors'
 import type { ProviderCredentialRecord } from './credentials'
@@ -64,7 +70,9 @@ export interface ProviderRecord {
 }
 
 export interface SessionProviderOverrideRepository {
-  getProviderOverride(sessionId: string): Promise<{ providerId?: string; modelId?: string } | undefined>
+  getProviderOverride(
+    sessionId: string
+  ): Promise<{ providerId?: string; modelId?: string } | undefined>
 }
 
 export interface ProviderManagerOptions {
@@ -171,7 +179,9 @@ export class ProviderManager {
     const providers = await this.listRecords()
     const modelsByProvider = await this.modelsForProviders(providers)
 
-    return providers.map((provider) => sanitizeProvider(provider, modelsByProvider.get(provider.id) ?? provider.models ?? []))
+    return providers.map((provider) =>
+      sanitizeProvider(provider, modelsByProvider.get(provider.id) ?? provider.models ?? [])
+    )
   }
 
   async listPresets(): Promise<ProviderPreset[]> {
@@ -186,22 +196,28 @@ export class ProviderManager {
 
     const now = Date.now()
     const existingProviders = await this.listRecords()
-    const existingModelIds = new Set(existingProviders.flatMap((provider) => provider.models?.map((model) => model.id) ?? []))
+    const existingModelIds = new Set(
+      existingProviders.flatMap((provider) => provider.models?.map((model) => model.id) ?? [])
+    )
     const providerId = uniqueProviderId(preset.id, existingProviders)
-    const providerName = providerId === preset.id ? preset.name : `${preset.name}_${providerIdSuffix(providerId, preset.id)}`
+    const providerName =
+      providerId === preset.id
+        ? preset.name
+        : `${preset.name}_${providerIdSuffix(providerId, preset.id)}`
     const modelIds = new Map<string, string>()
-    const models = preset.models?.map((model) => {
-      const modelId = uniqueModelId(model.id, providerId, existingModelIds)
-      modelIds.set(model.id, modelId)
-      existingModelIds.add(modelId)
+    const models =
+      preset.models?.map((model) => {
+        const modelId = uniqueModelId(model.id, providerId, existingModelIds)
+        modelIds.set(model.id, modelId)
+        existingModelIds.add(modelId)
 
-      return {
-        ...model,
-        id: modelId,
-        providerId,
-        enabled: model.enabled !== false,
-      }
-    }) ?? []
+        return {
+          ...model,
+          id: modelId,
+          providerId,
+          enabled: model.enabled !== false,
+        }
+      }) ?? []
 
     await this.save({
       id: providerId,
@@ -248,33 +264,43 @@ export class ProviderManager {
     return cloneProvider(await this.getRecord(providerId))?.models ?? []
   }
 
-  async resolveDefaultProvider(sessionId?: string): Promise<{ provider: ProviderRecord; modelId: string }> {
+  async resolveDefaultProvider(
+    sessionId?: string
+  ): Promise<{ provider: ProviderRecord; modelId: string }> {
     const override = sessionId ? await this.sessions?.getProviderOverride(sessionId) : undefined
     const records = await this.listRecords()
-    const globalDefaultModelId = !override?.providerId && !override?.modelId
-      ? this.configStore.get().providers.settings.defaultModelId
-      : undefined
+    const globalDefaultModelId =
+      !override?.providerId && !override?.modelId
+        ? this.configStore.get().providers.settings.defaultModelId
+        : undefined
     const providerFromGlobalDefault = globalDefaultModelId
-      ? records.find((item) =>
-          item.enabled && (item.models ?? []).some((model) => model.id === globalDefaultModelId && model.enabled !== false),
+      ? records.find(
+          (item) =>
+            item.enabled &&
+            (item.models ?? []).some(
+              (model) => model.id === globalDefaultModelId && model.enabled !== false
+            )
         )
       : undefined
     const provider =
-      await this.getRecord(override?.providerId ?? '')
-      ?? providerFromGlobalDefault
-      ?? records.find((item) => item.enabled)
+      (await this.getRecord(override?.providerId ?? '')) ??
+      providerFromGlobalDefault ??
+      records.find((item) => item.enabled)
 
     if (!provider) {
       throw new Error('No enabled provider is configured.')
     }
 
     const modelId =
-      override?.modelId
-      ?? (globalDefaultModelId && (provider.models ?? []).some((model) => model.id === globalDefaultModelId && model.enabled !== false)
+      override?.modelId ??
+      (globalDefaultModelId &&
+      (provider.models ?? []).some(
+        (model) => model.id === globalDefaultModelId && model.enabled !== false
+      )
         ? globalDefaultModelId
-        : undefined)
-      ?? provider.defaultModelId
-      ?? (await this.listModels(provider.id)).find((model) => model.enabled)?.id
+        : undefined) ??
+      provider.defaultModelId ??
+      (await this.listModels(provider.id)).find((model) => model.enabled)?.id
     if (!modelId) {
       throw new Error(`No default model is configured for provider ${provider.id}.`)
     }
@@ -282,10 +308,14 @@ export class ProviderManager {
     return { provider, modelId }
   }
 
-  async test(providerId: string, modelId?: string, signal?: AbortSignal): Promise<ProviderTestResult> {
+  async test(
+    providerId: string,
+    modelId?: string,
+    signal?: AbortSignal
+  ): Promise<ProviderTestResult> {
     try {
       const provider = await this.createProviderClient(providerId)
-      const resolvedModelId = modelId ?? await this.defaultModelId(providerId)
+      const resolvedModelId = modelId ?? (await this.defaultModelId(providerId))
       await provider.test?.(resolvedModelId, signal)
       return { ok: true }
     } catch (error) {
@@ -298,12 +328,16 @@ export class ProviderManager {
 
   async refreshModels(providerId: string, signal?: AbortSignal): Promise<ProviderModelRecord[]> {
     const record = await this.requireRecord(providerId)
-    if (!record.capabilities?.listModels && record.api !== 'openai-chat-completions' && record.type !== 'openai-compatible') {
+    if (
+      !record.capabilities?.listModels &&
+      record.api !== 'openai-chat-completions' &&
+      record.type !== 'openai-compatible'
+    ) {
       return this.listModels(providerId)
     }
 
     const client = await this.createProviderClient(providerId)
-    const remoteModels = await client.listModels?.(signal) ?? []
+    const remoteModels = (await client.listModels?.(signal)) ?? []
     const merged = mergeModels(providerId, await this.listModels(providerId), remoteModels)
     this.replaceProviderModels(providerId, merged)
 
@@ -315,16 +349,17 @@ export class ProviderManager {
     const credential = request.credential
     const credentialRef =
       credential && (credential.value || credential.envVar)
-        ? request.provider.credentialRef ?? `${request.provider.id}:default`
+        ? (request.provider.credentialRef ?? `${request.provider.id}:default`)
         : request.provider.credentialRef
 
     await this.save({
       ...request.provider,
-      models: request.provider.models?.map((model) => ({
-        ...model,
-        providerId: model.providerId ?? request.provider.id,
-        enabled: model.enabled !== false,
-      })) ?? [],
+      models:
+        request.provider.models?.map((model) => ({
+          ...model,
+          providerId: model.providerId ?? request.provider.id,
+          enabled: model.enabled !== false,
+        })) ?? [],
       credentialRef,
       apiKey: credential?.value,
       envVar: credential?.envVar,
@@ -339,12 +374,20 @@ export class ProviderManager {
   async delete(providerId: string): Promise<void> {
     const config = this.configStore.get()
     config.providers.sources = config.providers.sources.filter((source) => source.id !== providerId)
-    config.providers.models = config.providers.models.filter((model) => model.providerSourceId !== providerId)
-    if (!config.providers.models.some((model) => model.id === config.providers.settings.defaultModelId && model.enabled !== false)) {
-      config.providers.settings.defaultModelId = config.providers.models.find((model) => model.enabled !== false)?.id ?? ''
+    config.providers.models = config.providers.models.filter(
+      (model) => model.providerSourceId !== providerId
+    )
+    if (
+      !config.providers.models.some(
+        (model) => model.id === config.providers.settings.defaultModelId && model.enabled !== false
+      )
+    ) {
+      config.providers.settings.defaultModelId =
+        config.providers.models.find((model) => model.enabled !== false)?.id ?? ''
     }
-    config.providers.settings.fallbackModelIds = config.providers.settings.fallbackModelIds.filter((modelId) =>
-      config.providers.models.some((model) => model.id === modelId && model.enabled !== false),
+    config.providers.settings.fallbackModelIds = config.providers.settings.fallbackModelIds.filter(
+      (modelId) =>
+        config.providers.models.some((model) => model.id === modelId && model.enabled !== false)
     )
     this.saveConfig(config)
   }
@@ -371,7 +414,9 @@ export class ProviderManager {
       })
     }
 
-    throw new Error(`Provider transport is not implemented for ${provider.api ?? provider.type ?? provider.id}.`)
+    throw new Error(
+      `Provider transport is not implemented for ${provider.api ?? provider.type ?? provider.id}.`
+    )
   }
 
   private async listRecords(): Promise<ProviderRecord[]> {
@@ -383,7 +428,9 @@ export class ProviderManager {
       return undefined
     }
 
-    return configToProviderRecords(this.configStore.get()).find((provider) => provider.id === providerId)
+    return configToProviderRecords(this.configStore.get()).find(
+      (provider) => provider.id === providerId
+    )
   }
 
   private async requireRecord(providerId: string): Promise<ProviderRecord> {
@@ -397,12 +444,17 @@ export class ProviderManager {
 
   private async defaultModelId(providerId: string): Promise<string | undefined> {
     const provider = await this.requireRecord(providerId)
-    return provider.defaultModelId ?? (await this.listModels(providerId)).find((model) => model.enabled)?.id
+    return (
+      provider.defaultModelId ??
+      (await this.listModels(providerId)).find((model) => model.enabled)?.id
+    )
   }
 
   private replaceProviderModels(providerId: string, models: ProviderModelRecord[]): void {
     const config = this.configStore.get()
-    config.providers.models = config.providers.models.filter((model) => model.providerSourceId !== providerId)
+    config.providers.models = config.providers.models.filter(
+      (model) => model.providerSourceId !== providerId
+    )
     for (const model of models) {
       upsertModelInConfig(config, model)
     }
@@ -410,11 +462,15 @@ export class ProviderManager {
     this.saveConfig(config)
   }
 
-  private async modelsForProviders(providers: ProviderRecord[]): Promise<Map<string, ProviderModelRecord[]>> {
+  private async modelsForProviders(
+    providers: ProviderRecord[]
+  ): Promise<Map<string, ProviderModelRecord[]>> {
     const result = new Map<string, ProviderModelRecord[]>()
-    await Promise.all(providers.map(async (provider) => {
-      result.set(provider.id, await this.listModels(provider.id))
-    }))
+    await Promise.all(
+      providers.map(async (provider) => {
+        result.set(provider.id, await this.listModels(provider.id))
+      })
+    )
     return result
   }
 
@@ -543,7 +599,7 @@ function apiFromLegacyType(type?: ProviderType): ProviderApi {
 function mergeModels(
   providerId: string,
   existing: ProviderModelRecord[],
-  remoteModels: ProviderModelCandidate[],
+  remoteModels: ProviderModelCandidate[]
 ): ProviderModelRecord[] {
   const existingByRemoteId = new Map(existing.map((model) => [model.remoteId ?? model.id, model]))
   const remoteRecords = remoteModels.map((remote) => {
@@ -610,15 +666,24 @@ function upsertProviderInConfig(config: DesktopSettingsConfig, provider: Provide
     })
   }
 
-  config.providers.models = config.providers.models.filter((model) =>
-    model.providerSourceId !== provider.id || nextModelIds.has(model.id),
+  config.providers.models = config.providers.models.filter(
+    (model) => model.providerSourceId !== provider.id || nextModelIds.has(model.id)
   )
 
-  if (source.defaultModelId && !config.providers.models.some((model) => model.id === source.defaultModelId)) {
+  if (
+    source.defaultModelId &&
+    !config.providers.models.some((model) => model.id === source.defaultModelId)
+  ) {
     source.defaultModelId = undefined
   }
-  if (config.providers.settings.defaultModelId && !config.providers.models.some((model) => model.id === config.providers.settings.defaultModelId && model.enabled !== false)) {
-    config.providers.settings.defaultModelId = config.providers.models.find((model) => model.enabled !== false)?.id ?? ''
+  if (
+    config.providers.settings.defaultModelId &&
+    !config.providers.models.some(
+      (model) => model.id === config.providers.settings.defaultModelId && model.enabled !== false
+    )
+  ) {
+    config.providers.settings.defaultModelId =
+      config.providers.models.find((model) => model.enabled !== false)?.id ?? ''
   }
 }
 
@@ -661,16 +726,28 @@ function upsertModelInConfig(config: DesktopSettingsConfig, model: ProviderModel
 
 function pruneProviderModelReferences(config: DesktopSettingsConfig, providerId: string): void {
   const source = config.providers.sources.find((item) => item.id === providerId)
-  if (source?.defaultModelId && !config.providers.models.some((model) => model.id === source.defaultModelId)) {
-    source.defaultModelId = config.providers.models.find((model) => model.providerSourceId === providerId && model.enabled !== false)?.id
+  if (
+    source?.defaultModelId &&
+    !config.providers.models.some((model) => model.id === source.defaultModelId)
+  ) {
+    source.defaultModelId = config.providers.models.find(
+      (model) => model.providerSourceId === providerId && model.enabled !== false
+    )?.id
   }
 
-  if (config.providers.settings.defaultModelId && !config.providers.models.some((model) => model.id === config.providers.settings.defaultModelId && model.enabled !== false)) {
-    config.providers.settings.defaultModelId = config.providers.models.find((model) => model.enabled !== false)?.id ?? ''
+  if (
+    config.providers.settings.defaultModelId &&
+    !config.providers.models.some(
+      (model) => model.id === config.providers.settings.defaultModelId && model.enabled !== false
+    )
+  ) {
+    config.providers.settings.defaultModelId =
+      config.providers.models.find((model) => model.enabled !== false)?.id ?? ''
   }
 
-  config.providers.settings.fallbackModelIds = config.providers.settings.fallbackModelIds.filter((modelId) =>
-    config.providers.models.some((model) => model.id === modelId && model.enabled !== false),
+  config.providers.settings.fallbackModelIds = config.providers.settings.fallbackModelIds.filter(
+    (modelId) =>
+      config.providers.models.some((model) => model.id === modelId && model.enabled !== false)
   )
 }
 
@@ -685,7 +762,10 @@ function cloneProvider(provider: ProviderRecord | undefined): ProviderRecord | u
     extraBody: provider.extraBody ? { ...provider.extraBody } : undefined,
     capabilities: provider.capabilities ? { ...provider.capabilities } : undefined,
     compat: provider.compat ? { ...provider.compat } : undefined,
-    models: provider.models?.map((model) => ({ ...model, input: model.input ? [...model.input] : undefined })),
+    models: provider.models?.map((model) => ({
+      ...model,
+      input: model.input ? [...model.input] : undefined,
+    })),
   }
 }
 
@@ -712,7 +792,11 @@ function uniqueProviderId(baseId: string, providers: ProviderRecord[]): string {
 }
 
 function uniqueModelId(baseId: string, providerId: string, existingIds: Set<string>): string {
-  if (!existingIds.has(baseId) && providerId === providerPresets.find((preset) => preset.models?.some((model) => model.id === baseId))?.id) {
+  if (
+    !existingIds.has(baseId) &&
+    providerId ===
+      providerPresets.find((preset) => preset.models?.some((model) => model.id === baseId))?.id
+  ) {
     return baseId
   }
 

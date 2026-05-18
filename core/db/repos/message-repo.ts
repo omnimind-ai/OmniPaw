@@ -1,6 +1,12 @@
 import type { DatabaseConnection } from '../client'
 import { decodeJson, encodeJson } from '../json'
-import type { ChatMessage, ChatMessagePart, MessageAttachment, MessageStatus, TokenUsage } from '../types'
+import type {
+  ChatMessage,
+  ChatMessagePart,
+  MessageAttachment,
+  MessageStatus,
+  TokenUsage,
+} from '../types'
 
 interface MessageRow {
   id: string
@@ -54,7 +60,7 @@ export class ChatMessageRepo {
           WHERE ${filters.join(' AND ')}
           ORDER BY created_at ASC
           ${limit}
-        `,
+        `
       )
       .all({
         sessionId,
@@ -100,26 +106,29 @@ export class ChatMessageRepo {
             error_json = excluded.error_json,
             metadata_json = excluded.metadata_json,
             updated_at = excluded.updated_at
-        `,
+        `
       )
       .run(toMessageParams(message))
   }
 
   updateStatus(id: string, status: MessageStatus, updatedAt = Date.now()): boolean {
-    return this.db
-      .prepare('UPDATE chat_messages SET status = ?, updated_at = ? WHERE id = ?')
-      .run(status, updatedAt, id).changes > 0
+    return (
+      this.db
+        .prepare('UPDATE chat_messages SET status = ?, updated_at = ? WHERE id = ?')
+        .run(status, updatedAt, id).changes > 0
+    )
   }
 
   updateParts(
     id: string,
     parts: ChatMessagePart[],
     fields: Partial<Pick<ChatMessage, 'status' | 'usage' | 'error' | 'metadata'>> = {},
-    updatedAt = Date.now(),
+    updatedAt = Date.now()
   ): boolean {
-    return this.db
-      .prepare(
-        `
+    return (
+      this.db
+        .prepare(
+          `
           UPDATE chat_messages
           SET parts_json = @partsJson,
               status = COALESCE(@status, status),
@@ -128,17 +137,18 @@ export class ChatMessageRepo {
               metadata_json = @metadataJson,
               updated_at = @updatedAt
           WHERE id = @id
-        `,
-      )
-      .run({
-        id,
-        partsJson: encodeJson(parts),
-        status: fields.status ?? null,
-        usageJson: encodeJson(fields.usage),
-        errorJson: encodeJson(fields.error),
-        metadataJson: encodeJson(fields.metadata),
-        updatedAt,
-      }).changes > 0
+        `
+        )
+        .run({
+          id,
+          partsJson: encodeJson(parts),
+          status: fields.status ?? null,
+          usageJson: encodeJson(fields.usage),
+          errorJson: encodeJson(fields.error),
+          metadataJson: encodeJson(fields.metadata),
+          updatedAt,
+        }).changes > 0
+    )
   }
 
   linkAttachment(link: MessageAttachment): void {
@@ -147,7 +157,7 @@ export class ChatMessageRepo {
         `
           INSERT OR REPLACE INTO message_attachments (message_id, attachment_id, part_index, role)
           VALUES (@messageId, @attachmentId, @partIndex, @role)
-        `,
+        `
       )
       .run(link)
   }
@@ -159,7 +169,7 @@ export class ChatMessageRepo {
         `
           INSERT INTO message_attachments (message_id, attachment_id, part_index, role)
           VALUES (@messageId, @attachmentId, @partIndex, @role)
-        `,
+        `
       )
       for (const link of links) {
         statement.run(link)

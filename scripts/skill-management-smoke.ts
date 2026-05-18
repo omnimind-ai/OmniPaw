@@ -27,30 +27,49 @@ try {
 
   const skillRoot = join(tempDir, 'skills')
   mkdirSync(join(skillRoot, 'writer'), { recursive: true })
-  writeFileSync(join(skillRoot, 'writer', 'SKILL.md'), [
-    '---',
-    'name: Writer',
-    'description: Draft concise text',
-    'license: MIT',
-    'compatibility: local',
-    '---',
-    '',
-    'Use short sentences.',
-  ].join('\n'), 'utf8')
+  writeFileSync(
+    join(skillRoot, 'writer', 'SKILL.md'),
+    [
+      '---',
+      'name: Writer',
+      'description: Draft concise text',
+      'license: MIT',
+      'compatibility: local',
+      '---',
+      '',
+      'Use short sentences.',
+    ].join('\n'),
+    'utf8'
+  )
   mkdirSync(join(skillRoot, 'empty'), { recursive: true })
   mkdirSync(join(skillRoot, 'large'), { recursive: true })
   writeFileSync(join(skillRoot, 'large', 'SKILL.md'), 'x'.repeat(300_000), 'utf8')
 
   const loader = new SkillLoader()
   const loaded = loader.loadFromRoots([{ name: 'local', path: skillRoot }])
-  assert.equal(loaded.some((skill) => skill.id === 'writer' && skill.status === 'available'), true)
-  assert.equal(loaded.some((skill) => skill.id === 'empty'), false)
-  assert.equal(loaded.some((skill) => skill.id === 'large' && skill.status === 'invalid'), true)
+  assert.equal(
+    loaded.some((skill) => skill.id === 'writer' && skill.status === 'available'),
+    true
+  )
+  assert.equal(
+    loaded.some((skill) => skill.id === 'empty'),
+    false
+  )
+  assert.equal(
+    loaded.some((skill) => skill.id === 'large' && skill.status === 'invalid'),
+    true
+  )
 
   const manager = new SkillManager({ userDataPath: tempDir })
   const listed = manager.load()
-  assert.equal(listed.skills.some((skill) => skill.id === 'writer' && skill.enabled), true)
-  assert.equal(listed.skills.some((skill) => skill.id === 'large' && skill.status === 'invalid'), true)
+  assert.equal(
+    listed.skills.some((skill) => skill.id === 'writer' && skill.enabled),
+    true
+  )
+  assert.equal(
+    listed.skills.some((skill) => skill.id === 'large' && skill.status === 'invalid'),
+    true
+  )
 
   const prompt = manager.buildPromptInventory({ compact: true, supportsSystemRole: true })
   assert.equal(prompt.injected, true)
@@ -64,8 +83,14 @@ try {
   assert.deepEqual(manager.drainReadSkillIds(), ['writer'])
 
   manager.setEnabled({ skillId: 'writer', enabled: false })
-  assert.equal(manager.getActiveSkills().some((skill) => skill.id === 'writer'), false)
-  assert.equal(manager.buildPromptInventory({ compact: true, supportsSystemRole: true }).omittedReason, 'no_enabled_skills')
+  assert.equal(
+    manager.getActiveSkills().some((skill) => skill.id === 'writer'),
+    false
+  )
+  assert.equal(
+    manager.buildPromptInventory({ compact: true, supportsSystemRole: true }).omittedReason,
+    'no_enabled_skills'
+  )
   assert.throws(() => manager.readEnabledSkillContent('writer'), /disabled/i)
 
   store.save({
@@ -76,19 +101,24 @@ try {
     },
   })
   const reloaded = new SkillManager({ userDataPath: tempDir }).load()
-  assert.equal(reloaded.skills.some((skill) => skill.id === 'missing_skill'), false)
+  assert.equal(
+    reloaded.skills.some((skill) => skill.id === 'missing_skill'),
+    false
+  )
   assert.equal(reloaded.skills.find((skill) => skill.id === 'writer')?.enabled, true)
 
   const markdownImport = manager.importSkill({
     fileName: 'imported-writer.md',
-    bytes: Buffer.from([
-      '---',
-      'name: Imported Writer',
-      'description: Imported from a markdown file',
-      '---',
-      '',
-      'Prefer active voice.',
-    ].join('\n')),
+    bytes: Buffer.from(
+      [
+        '---',
+        'name: Imported Writer',
+        'description: Imported from a markdown file',
+        '---',
+        '',
+        'Prefer active voice.',
+      ].join('\n')
+    ),
   })
   assert.equal(markdownImport.imported.length, 1)
   assert.equal(markdownImport.imported[0]?.id, 'imported-writer')
@@ -136,18 +166,22 @@ try {
       '__MACOSX/second-skill/._skill.md': 'ignored',
     }),
   })
-  assert.deepEqual(multiZipImport.imported.map((skill) => skill.id).sort(), ['first-skill', 'second-skill'])
+  assert.deepEqual(multiZipImport.imported.map((skill) => skill.id).sort(), [
+    'first-skill',
+    'second-skill',
+  ])
   assert.equal(existsSync(join(skillRoot, 'second-skill', 'SKILL.md')), true)
   assert.equal(existsSync(join(skillRoot, '__MACOSX')), false)
 
   assert.throws(
-    () => manager.importSkill({
-      fileName: 'escape.zip',
-      bytes: createStoredZip({
-        '../escape/SKILL.md': 'nope',
+    () =>
+      manager.importSkill({
+        fileName: 'escape.zip',
+        bytes: createStoredZip({
+          '../escape/SKILL.md': 'nope',
+        }),
       }),
-    }),
-    /invalid relative paths/i,
+    /invalid relative paths/i
   )
 
   console.log('Skill management smoke check passed')

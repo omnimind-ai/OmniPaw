@@ -25,11 +25,14 @@ import { useSettingsStore } from '@/stores/settings'
 import { copyToClipboard } from '@/utils/clipboard'
 import { useToast } from '@/utils/toast'
 
-const props = withDefaults(defineProps<{
-  mode?: 'home' | 'content'
-}>(), {
-  mode: 'home',
-})
+const props = withDefaults(
+  defineProps<{
+    mode?: 'home' | 'content'
+  }>(),
+  {
+    mode: 'home',
+  }
+)
 
 const router = useRouter()
 const route = useRoute()
@@ -96,9 +99,11 @@ const highlightedMessageId = ref('')
 const isHomeMode = computed(() => props.mode === 'home')
 const hasMessages = computed(() => activeMessages.value.length > 0)
 const showWelcome = computed(() => isHomeMode.value && !hasMessages.value && !loadingMessages.value)
-const showMessageList = computed(() => !isHomeMode.value && (hasMessages.value || loadingMessages.value))
+const showMessageList = computed(
+  () => !isHomeMode.value && (hasMessages.value || loadingMessages.value)
+)
 const currentSessionRunning = computed(() =>
-  currSessionId.value ? isSessionRunning(currSessionId.value) : false,
+  currSessionId.value ? isSessionRunning(currSessionId.value) : false
 )
 const defaultModelOption = computed(() => {
   const options = enabledModelOptions.value
@@ -112,9 +117,10 @@ const defaultModelOption = computed(() => {
 
   return options[0]
 })
-const selectedModel = computed(() =>
-  enabledModelOptions.value.find((option) => option.key === selectedModelKey.value)
-  ?? defaultModelOption.value,
+const selectedModel = computed(
+  () =>
+    enabledModelOptions.value.find((option) => option.key === selectedModelKey.value) ??
+    defaultModelOption.value
 )
 const selectedModelLabel = computed(() => {
   if (providersLoading.value) return '加载模型中'
@@ -125,13 +131,14 @@ const selectedModelMeta = computed(() => {
   if (!selectedModel.value) return ''
   return selectedModel.value.providerName
 })
-const canSend = computed(() =>
-  !sending.value
-  && !currentSessionRunning.value
-  && !uploadPending.value
-  && Boolean(selectedModel.value)
-  && !attachmentWarning.value
-  && Boolean(draft.value.trim() || stagedFiles.value.length || replyTarget.value),
+const canSend = computed(
+  () =>
+    !sending.value &&
+    !currentSessionRunning.value &&
+    !uploadPending.value &&
+    Boolean(selectedModel.value) &&
+    !attachmentWarning.value &&
+    Boolean(draft.value.trim() || stagedFiles.value.length || replyTarget.value)
 )
 const replyPreview = computed(() => replyTarget.value?.preview || '')
 const attachmentWarning = computed(() => {
@@ -139,7 +146,9 @@ const attachmentWarning = computed(() => {
   if (stagedFiles.value.length > ATTACHMENT_LIMITS.maxFilesPerMessage) {
     return `每条消息最多添加 ${ATTACHMENT_LIMITS.maxFilesPerMessage} 个附件。`
   }
-  const oversized = stagedFiles.value.find((file) => Number(file.size || 0) > ATTACHMENT_LIMITS.maxFileBytes)
+  const oversized = stagedFiles.value.find(
+    (file) => Number(file.size || 0) > ATTACHMENT_LIMITS.maxFileBytes
+  )
   if (oversized) {
     return `${oversized.filename} 超过 ${formatBytes(ATTACHMENT_LIMITS.maxFileBytes)}。`
   }
@@ -163,13 +172,13 @@ watch(
       await consumePendingInitialMessage(sessionId)
     }
   },
-  { immediate: true },
+  { immediate: true }
 )
 
 watch(
   [enabledModelOptions, () => currSessionId.value, () => sessions.value, settingsConfig],
   () => syncSelectedModel(),
-  { deep: true, immediate: true },
+  { deep: true, immediate: true }
 )
 
 watch(draft, (value) => {
@@ -181,7 +190,7 @@ watch(
   (sessionId) => {
     chatStore.activeSessionId = sessionId || undefined
   },
-  { immediate: true },
+  { immediate: true }
 )
 
 onMounted(async () => {
@@ -232,7 +241,7 @@ function syncSelectedModel() {
     const providerId = session.providerId || session.defaultProviderId
     const modelId = session.modelId || session.defaultModelId
     const sessionOption = options.find(
-      (option) => option.providerId === providerId && option.modelId === modelId,
+      (option) => option.providerId === providerId && option.modelId === modelId
     )
 
     selectedModelKey.value = sessionOption?.key || defaultModelOption.value?.key || options[0].key
@@ -355,7 +364,7 @@ async function handleSubmit() {
   sending.value = true
 
   try {
-    const sessionId = currSessionId.value || await newSession({ navigate: !isHomeMode.value })
+    const sessionId = currSessionId.value || (await newSession({ navigate: !isHomeMode.value }))
     currSessionId.value = sessionId
     selectedSessions.value = [sessionId]
     chatStore.activeSessionId = sessionId
@@ -517,7 +526,7 @@ async function handleRegenerateMessage(record: ChatRecord) {
       currSessionId.value,
       record,
       selectedModel.value.providerId,
-      selectedModel.value.modelId,
+      selectedModel.value.modelId
     )
   } catch (error) {
     toast.error(error, { description: '重新生成失败' })
@@ -579,7 +588,10 @@ async function handleDeleteSession(sessionId: string) {
 function modelSupportsAttachment(type: string) {
   if (type === 'image') return Boolean(selectedModel.value?.input.includes('image'))
   if (type === 'record') return Boolean(selectedModel.value?.input.includes('audio'))
-  if (type === 'file') return Boolean(selectedModel.value?.input.includes('file') || selectedModel.value?.input.includes('text'))
+  if (type === 'file')
+    return Boolean(
+      selectedModel.value?.input.includes('file') || selectedModel.value?.input.includes('text')
+    )
   if (type === 'video') return false
   return true
 }

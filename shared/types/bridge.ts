@@ -67,7 +67,9 @@ export interface OpenOmniClawBridge {
   }
   settings: {
     load: () => Promise<DesktopSettingsConfig>
-    save: (request: SaveDesktopSettingsRequest | DesktopSettingsConfig) => Promise<DesktopSettingsConfig>
+    save: (
+      request: SaveDesktopSettingsRequest | DesktopSettingsConfig
+    ) => Promise<DesktopSettingsConfig>
     reset: () => Promise<DesktopSettingsConfig>
     status: () => Promise<DesktopSettingsStatus>
     onChanged: (callback: (event: DesktopSettingsChangedEvent) => void) => Unsubscribe
@@ -97,7 +99,7 @@ export interface OpenOmniClawBridge {
     ) => Promise<SendMessageResponse>
     uploadAttachment: (request: UploadAttachmentRequest) => Promise<UploadAttachmentResponse>
     getAttachmentPreview: (
-      request: AttachmentPreviewRequest | string,
+      request: AttachmentPreviewRequest | string
     ) => Promise<AttachmentPreviewResponse>
     onStreamEvent: (callback: (event: ChatStreamEvent) => void) => Unsubscribe
 
@@ -106,9 +108,11 @@ export interface OpenOmniClawBridge {
     onDone: (callback: () => void) => Unsubscribe
   }
   attachment: {
-    upload: (request: UploadAttachmentRequest & { type?: string; size?: number }) => Promise<UploadAttachmentResponse['attachment']>
+    upload: (
+      request: UploadAttachmentRequest & { type?: string; size?: number }
+    ) => Promise<UploadAttachmentResponse['attachment']>
     getPreviewUrl: (
-      request: AttachmentPreviewRequest | string,
+      request: AttachmentPreviewRequest | string
     ) => Promise<AttachmentPreviewResponse | string>
   }
   provider: {

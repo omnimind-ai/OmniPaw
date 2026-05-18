@@ -1,5 +1,13 @@
 <script setup lang="ts">
-import { AlertTriangleIcon, CheckCircle2Icon, ChevronDownIcon, CircleDashedIcon, ShieldOffIcon, WrenchIcon, XCircleIcon } from 'lucide-vue-next'
+import {
+  AlertTriangleIcon,
+  CheckCircle2Icon,
+  ChevronDownIcon,
+  CircleDashedIcon,
+  ShieldOffIcon,
+  WrenchIcon,
+  XCircleIcon,
+} from 'lucide-vue-next'
 import { computed, ref } from 'vue'
 
 import { Badge } from '@/components/ui/badge'
@@ -16,11 +24,13 @@ const props = defineProps<{
 const open = ref(false)
 const status = computed(() => toolCallStatus(props.toolCall))
 const label = computed(() => toolCallLabel(props.toolCall))
-const detailRows = computed(() => [
-  ['参数', props.toolCall.args ?? props.toolCall.arguments],
-  ['结果', props.toolCall.result],
-  ['错误', props.toolCall.error],
-].filter(([, value]) => value !== undefined && value !== null && value !== ''))
+const detailRows = computed(() =>
+  [
+    ['参数', props.toolCall.args ?? props.toolCall.arguments],
+    ['结果', props.toolCall.result],
+    ['错误', props.toolCall.error],
+  ].filter(([, value]) => value !== undefined && value !== null && value !== '')
+)
 
 const statusLabel = computed(() => {
   if (status.value === 'complete') return '完成'
@@ -41,7 +51,8 @@ const statusIcon = computed(() => {
 })
 
 const statusVariant = computed(() => {
-  if (status.value === 'error' || status.value === 'denied' || status.value === 'aborted') return 'destructive'
+  if (status.value === 'error' || status.value === 'denied' || status.value === 'aborted')
+    return 'destructive'
   if (status.value === 'complete') return 'secondary'
   return 'outline'
 })

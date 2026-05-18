@@ -4,7 +4,11 @@ import { AgentRunner } from '../core/agent/agent-runner'
 import { ToolExecutor } from '../core/agent/tool-executor'
 import { defaultToolPolicy } from '../core/agent/tool-policy'
 import type { AgentTool } from '../core/agent/tool'
-import type { ChatCompletionChunk, ChatCompletionRequest, ProviderToolCall } from '../core/provider/base-provider'
+import type {
+  ChatCompletionChunk,
+  ChatCompletionRequest,
+  ProviderToolCall,
+} from '../core/provider/base-provider'
 import type { ChatMessage, ChatMessagePart, ChatRun, ChatSession } from '../shared/types/chat'
 import type { ProviderConfig, ProviderModel } from '../shared/types/provider'
 
@@ -65,7 +69,12 @@ async function testAgentRunnerToolLoop(): Promise<void> {
   assert.equal(toolPart?.tool_calls?.[0]?.status, 'complete')
   assert.equal(toolPart?.tool_calls?.[0]?.name, 'system_time')
   assert.match(JSON.stringify(toolPart?.tool_calls?.[0]?.result), /now/)
-  assert.equal(assistant?.parts.some((part) => part.type === 'plain' && String(part.text).includes('time checked')), true)
+  assert.equal(
+    assistant?.parts.some(
+      (part) => part.type === 'plain' && String(part.text).includes('time checked')
+    ),
+    true
+  )
 }
 
 async function testAgentRunnerToolLoopPreservesReasoningContent(): Promise<void> {
@@ -89,7 +98,9 @@ async function testAgentRunnerToolLoopPreservesReasoningContent(): Promise<void>
 
   await harness.runner.run(harness.input())
 
-  const followupToolMessage = harness.providerRequests[1]?.messages.find((message) => message.role === 'assistant' && message.toolCalls?.length)
+  const followupToolMessage = harness.providerRequests[1]?.messages.find(
+    (message) => message.role === 'assistant' && message.toolCalls?.length
+  )
   assert.equal(followupToolMessage?.reasoningContent, 'Need current time before answering.')
   assert.equal(followupToolMessage?.content, 'Checking the clock.')
   assert.equal(followupToolMessage?.toolCalls?.[0]?.id, 'call_time')
@@ -116,27 +127,36 @@ async function testAgentRunnerMcpToolLoop(): Promise<void> {
       content: [{ type: 'text', text: `mcp:${args.text ?? ''}` }],
     }),
   }
-  const harness = createRunnerHarness([
+  const harness = createRunnerHarness(
     [
-      {
-        type: 'tool_call_final',
-        done: false,
-        toolCalls: [toolCall('call_echo', 'mcp_server_echo', { text: 'hello' })],
-        finishReason: 'tool_calls',
-      },
-      { type: 'final', done: true, finishReason: 'tool_calls' },
+      [
+        {
+          type: 'tool_call_final',
+          done: false,
+          toolCalls: [toolCall('call_echo', 'mcp_server_echo', { text: 'hello' })],
+          finishReason: 'tool_calls',
+        },
+        { type: 'final', done: true, finishReason: 'tool_calls' },
+      ],
+      [
+        { type: 'delta', content: 'mcp checked', done: false },
+        { type: 'final', done: true, finishReason: 'stop' },
+      ],
     ],
-    [
-      { type: 'delta', content: 'mcp checked', done: false },
-      { type: 'final', done: true, finishReason: 'stop' },
-    ],
-  ], { tools: [mcpTool] })
+    { tools: [mcpTool] }
+  )
 
   await harness.runner.run(harness.input({ toolProfile: 'assistant' }))
 
-  assert.equal(harness.providerRequests[0]?.tools?.some((tool) => tool.function.name === 'mcp_server_echo'), true)
+  assert.equal(
+    harness.providerRequests[0]?.tools?.some((tool) => tool.function.name === 'mcp_server_echo'),
+    true
+  )
   const snapshot = harness.runRepo.get('run-1')?.requestSnapshot
-  assert.equal(snapshot?.toolSources?.some((tool) => tool.name === 'mcp_server_echo' && tool.source === 'mcp'), true)
+  assert.equal(
+    snapshot?.toolSources?.some((tool) => tool.name === 'mcp_server_echo' && tool.source === 'mcp'),
+    true
+  )
   const assistant = harness.messageRepo.get('assistant-1')
   const toolPart = assistant?.parts.find((part) => part.type === 'tool_call')
   assert.equal(toolPart?.tool_calls?.[0]?.status, 'complete')
@@ -161,25 +181,31 @@ async function testAgentRunnerSkillPromptAndRead(): Promise<void> {
       content: [{ type: 'text', text: `skill:${args.skillId ?? ''}` }],
     }),
   }
-  const harness = createRunnerHarness([
+  const harness = createRunnerHarness(
     [
-      {
-        type: 'tool_call_final',
-        done: false,
-        toolCalls: [toolCall('call_skill', 'skill_read', { skillId: 'writer' })],
-        finishReason: 'tool_calls',
-      },
-      { type: 'final', done: true, finishReason: 'tool_calls' },
+      [
+        {
+          type: 'tool_call_final',
+          done: false,
+          toolCalls: [toolCall('call_skill', 'skill_read', { skillId: 'writer' })],
+          finishReason: 'tool_calls',
+        },
+        { type: 'final', done: true, finishReason: 'tool_calls' },
+      ],
+      [
+        { type: 'delta', content: 'skill applied', done: false },
+        { type: 'final', done: true, finishReason: 'stop' },
+      ],
     ],
-    [
-      { type: 'delta', content: 'skill applied', done: false },
-      { type: 'final', done: true, finishReason: 'stop' },
-    ],
-  ], { tools: [skillTool], skills: fakeSkillManager() })
+    { tools: [skillTool], skills: fakeSkillManager() }
+  )
 
   await harness.runner.run(harness.input({ toolProfile: 'assistant' }))
 
-  assert.equal(harness.providerRequests[0]?.tools?.some((tool) => tool.function.name === 'skill_read'), true)
+  assert.equal(
+    harness.providerRequests[0]?.tools?.some((tool) => tool.function.name === 'skill_read'),
+    true
+  )
   assert.match(String(harness.providerRequests[0]?.messages[0]?.content), /writer/)
   const snapshot = harness.runRepo.get('run-1')?.requestSnapshot
   assert.equal(snapshot?.skills?.injected, true)
@@ -208,7 +234,12 @@ async function testAgentRunnerMaxSteps(): Promise<void> {
 
   const assistant = harness.messageRepo.get('assistant-1')
   assert.equal(assistant?.status, 'complete')
-  assert.equal(assistant?.parts.some((part) => part.type === 'plain' && String(part.text).includes('maximum agent steps')), true)
+  assert.equal(
+    assistant?.parts.some(
+      (part) => part.type === 'plain' && String(part.text).includes('maximum agent steps')
+    ),
+    true
+  )
 }
 
 async function testToolExecutorSuccess(): Promise<void> {
@@ -307,9 +338,10 @@ async function testToolExecutorTimeout(): Promise<void> {
     risk: 'safe',
     source: 'builtin',
     timeoutMs: 5,
-    execute: async () => new Promise((resolve) => {
-      setTimeout(() => resolve({ content: [{ type: 'text', text: 'late' }] }), 50)
-    }),
+    execute: async () =>
+      new Promise((resolve) => {
+        setTimeout(() => resolve({ content: [{ type: 'text', text: 'late' }] }), 50)
+      }),
   }
 
   const output = await executor.execute({
@@ -335,7 +367,7 @@ function toolCall(id: string, name: string, args: unknown): ProviderToolCall {
 
 function createRunnerHarness(
   scriptedResponses: ChatCompletionChunk[][],
-  options: { tools?: AgentTool[]; skills?: unknown } = {},
+  options: { tools?: AgentTool[]; skills?: unknown } = {}
 ) {
   const session: ChatSession = {
     id: 'session-1',
@@ -407,9 +439,18 @@ function createRunnerHarness(
       }),
     } as never,
     contextBuilder: {
-      build: async (input: { skillPrompt?: { injected?: boolean; content?: string; enabledSkillIds?: string[]; omittedReason?: string } }) => ({
+      build: async (input: {
+        skillPrompt?: {
+          injected?: boolean
+          content?: string
+          enabledSkillIds?: string[]
+          omittedReason?: string
+        }
+      }) => ({
         messages: [
-          ...(input.skillPrompt?.injected ? [{ role: 'system' as const, content: input.skillPrompt.content ?? '' }] : []),
+          ...(input.skillPrompt?.injected
+            ? [{ role: 'system' as const, content: input.skillPrompt.content ?? '' }]
+            : []),
           { role: 'user' as const, content: 'hello' },
         ],
         snapshot: {
@@ -429,16 +470,17 @@ function createRunnerHarness(
     } as never,
     runManager: runManager as never,
     toolRegistry: {
-      resolve: () => options.tools ?? [
-        {
-          name: 'system_time',
-          description: 'time',
-          parameters: { type: 'object' },
-          risk: 'safe',
-          source: 'builtin',
-          execute: async () => ({ content: [{ type: 'text', text: '{"now":"2026-05-15"}' }] }),
-        } satisfies AgentTool,
-      ],
+      resolve: () =>
+        options.tools ?? [
+          {
+            name: 'system_time',
+            description: 'time',
+            parameters: { type: 'object' },
+            risk: 'safe',
+            source: 'builtin',
+            execute: async () => ({ content: [{ type: 'text', text: '{"now":"2026-05-15"}' }] }),
+          } satisfies AgentTool,
+        ],
     } as never,
     skills: options.skills as never,
     compactSkillDescriptions: () => true,
@@ -498,7 +540,7 @@ class MemoryMessageRepo {
   updateParts(
     id: string,
     parts: ChatMessagePart[],
-    fields: Partial<Pick<ChatMessage, 'status' | 'usage' | 'error' | 'metadata'>> = {},
+    fields: Partial<Pick<ChatMessage, 'status' | 'usage' | 'error' | 'metadata'>> = {}
   ): boolean {
     const message = this.messages.get(id)
     if (!message) return false
@@ -530,7 +572,11 @@ class MemoryRunRepo {
     return { ...this.run }
   }
 
-  updateStatus(id: string, status: ChatRun['status'], fields: Partial<Pick<ChatRun, 'usage' | 'error' | 'abortReason' | 'finishedAt'>> = {}): boolean {
+  updateStatus(
+    id: string,
+    status: ChatRun['status'],
+    fields: Partial<Pick<ChatRun, 'usage' | 'error' | 'abortReason' | 'finishedAt'>> = {}
+  ): boolean {
     if (this.run.id !== id) return false
     this.run = { ...this.run, ...fields, status }
     return true

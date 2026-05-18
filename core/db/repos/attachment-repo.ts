@@ -61,7 +61,7 @@ export class AttachmentRepo {
             extracted_text_status = excluded.extracted_text_status,
             extracted_text_error = excluded.extracted_text_error,
             updated_at = excluded.updated_at
-        `,
+        `
       )
       .run({
         id: attachment.id,
@@ -83,27 +83,32 @@ export class AttachmentRepo {
 
   updateExtraction(
     id: string,
-    fields: Pick<InternalAttachmentRecord, 'extractedText' | 'extractedTextStatus' | 'extractedTextError'>,
-    updatedAt = Date.now(),
+    fields: Pick<
+      InternalAttachmentRecord,
+      'extractedText' | 'extractedTextStatus' | 'extractedTextError'
+    >,
+    updatedAt = Date.now()
   ): boolean {
-    return this.db
-      .prepare(
-        `
+    return (
+      this.db
+        .prepare(
+          `
           UPDATE attachments
           SET extracted_text = @extractedText,
               extracted_text_status = @extractedTextStatus,
               extracted_text_error = @extractedTextError,
               updated_at = @updatedAt
           WHERE id = @id
-        `,
-      )
-      .run({
-        id,
-        extractedText: fields.extractedText ?? null,
-        extractedTextStatus: fields.extractedTextStatus ?? 'none',
-        extractedTextError: fields.extractedTextError ?? null,
-        updatedAt,
-      }).changes > 0
+        `
+        )
+        .run({
+          id,
+          extractedText: fields.extractedText ?? null,
+          extractedTextStatus: fields.extractedTextStatus ?? 'none',
+          extractedTextError: fields.extractedTextError ?? null,
+          updatedAt,
+        }).changes > 0
+    )
   }
 }
 

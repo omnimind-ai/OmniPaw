@@ -19,12 +19,15 @@ import {
 import MarkdownMessagePart from './MarkdownMessagePart.vue'
 import ToolCallCard from './ToolCallCard.vue'
 
-const props = withDefaults(defineProps<{
-  part: MessagePart
-  user?: boolean
-}>(), {
-  user: false,
-})
+const props = withDefaults(
+  defineProps<{
+    part: MessagePart
+    user?: boolean
+  }>(),
+  {
+    user: false,
+  }
+)
 
 const emit = defineEmits<{
   jumpMessage: [messageId: string]

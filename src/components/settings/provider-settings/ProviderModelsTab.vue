@@ -1,27 +1,12 @@
 <script setup lang="ts">
-import {
-  ChevronDownIcon,
-  PlusIcon,
-  RefreshCwIcon,
-  Trash2Icon,
-} from 'lucide-vue-next'
+import { ChevronDownIcon, PlusIcon, RefreshCwIcon, Trash2Icon } from 'lucide-vue-next'
 import { ref, watch } from 'vue'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from '@/components/ui/collapsible'
-import {
-  Field,
-  FieldGroup,
-  FieldLabel,
-  FieldLegend,
-  FieldSet,
-} from '@/components/ui/field'
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
+import { Field, FieldGroup, FieldLabel, FieldLegend, FieldSet } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import {
   Select,
@@ -32,11 +17,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
-import type {
-  ModelInput,
-  ProviderDraft,
-  ProviderModelDraft,
-} from './types'
+import type { ModelInput, ProviderDraft, ProviderModelDraft } from './types'
 
 const props = defineProps<{
   draft: ProviderDraft
@@ -75,7 +56,7 @@ watch(
     const existingOpen = openModelIds.value.filter((modelId) => modelIds.includes(modelId))
     openModelIds.value = existingOpen.length ? existingOpen : [modelIds[0]]
   },
-  { immediate: true },
+  { immediate: true }
 )
 
 function isModelInputChecked(model: ProviderModelDraft, input: ModelInput) {

@@ -1,5 +1,18 @@
 <script setup lang="ts">
-import { AlertCircleIcon, ArrowUpIcon, FileIcon, ImageIcon, Loader2Icon, MicIcon, PlusIcon, ReplyIcon, SparklesIcon, SquareIcon, VideoIcon, XIcon } from 'lucide-vue-next'
+import {
+  AlertCircleIcon,
+  ArrowUpIcon,
+  FileIcon,
+  ImageIcon,
+  Loader2Icon,
+  MicIcon,
+  PlusIcon,
+  ReplyIcon,
+  SparklesIcon,
+  SquareIcon,
+  VideoIcon,
+  XIcon,
+} from 'lucide-vue-next'
 import { computed, ref } from 'vue'
 
 import { Badge } from '@/components/ui/badge'
@@ -19,7 +32,12 @@ import {
   InputGroupButton,
   InputGroupTextarea,
 } from '@/components/ui/input-group'
-import { ATTACHMENT_LIMITS, formatBytes, type StagedFileInfo, type StagedUploadItem } from '@/composables/useMediaHandling'
+import {
+  ATTACHMENT_LIMITS,
+  formatBytes,
+  type StagedFileInfo,
+  type StagedUploadItem,
+} from '@/composables/useMediaHandling'
 import { cn } from '@/lib/utils'
 import type { ProviderModelOption } from '@/stores/provider'
 
@@ -42,15 +60,15 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   'update:modelValue': [value: string]
-  'selectModel': [key: string]
-  'addAttachment': []
-  'removeAttachment': [index: number]
-  'removeUploadItem': [index: number]
-  'filesDropped': [files: File[]]
-  'clearReply': []
-  'paste': [event: ClipboardEvent]
-  'submit': []
-  'stop': []
+  selectModel: [key: string]
+  addAttachment: []
+  removeAttachment: [index: number]
+  removeUploadItem: [index: number]
+  filesDropped: [files: File[]]
+  clearReply: []
+  paste: [event: ClipboardEvent]
+  submit: []
+  stop: []
 }>()
 
 const compositionActive = ref(false)
@@ -61,12 +79,18 @@ const textareaValue = computed({
   set: (value) => emit('update:modelValue', String(value)),
 })
 const uploadItems = computed(() => props.stagedUploadItems || [])
-const attachmentCount = computed(() => uploadItems.value.filter((item) => item.status !== 'failed').length || props.stagedFiles.length)
-const limitsText = computed(() =>
-  `${attachmentCount.value}/${ATTACHMENT_LIMITS.maxFilesPerMessage} · ${formatBytes(ATTACHMENT_LIMITS.maxFileBytes)} / 文件`,
+const attachmentCount = computed(
+  () =>
+    uploadItems.value.filter((item) => item.status !== 'failed').length || props.stagedFiles.length
 )
-const primaryActionLabel = computed(() => props.running ? '停止生成' : '发送')
-const canUsePrimaryAction = computed(() => props.running ? props.canStop !== false : props.canSend)
+const limitsText = computed(
+  () =>
+    `${attachmentCount.value}/${ATTACHMENT_LIMITS.maxFilesPerMessage} · ${formatBytes(ATTACHMENT_LIMITS.maxFileBytes)} / 文件`
+)
+const primaryActionLabel = computed(() => (props.running ? '停止生成' : '发送'))
+const canUsePrimaryAction = computed(() =>
+  props.running ? props.canStop !== false : props.canSend
+)
 
 function handleCompositionStart() {
   compositionActive.value = true
@@ -81,11 +105,16 @@ function handleKeydown(event: KeyboardEvent) {
   if (event.key !== 'Enter' || event.shiftKey) return
 
   const recentCompositionEnd =
-    typeof lastCompositionEndAt.value === 'number'
-    && event.timeStamp >= lastCompositionEndAt.value
-    && event.timeStamp - lastCompositionEndAt.value < 100
+    typeof lastCompositionEndAt.value === 'number' &&
+    event.timeStamp >= lastCompositionEndAt.value &&
+    event.timeStamp - lastCompositionEndAt.value < 100
 
-  if (compositionActive.value || event.isComposing || event.keyCode === 229 || recentCompositionEnd) {
+  if (
+    compositionActive.value ||
+    event.isComposing ||
+    event.keyCode === 229 ||
+    recentCompositionEnd
+  ) {
     return
   }
 

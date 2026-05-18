@@ -103,14 +103,30 @@ async function testContextBuilderToolHistory(): Promise<void> {
     model: model(),
   })
 
-  const assistantToolMessage = context.messages.find((message) => message.role === 'assistant' && message.toolCalls?.length)
+  const assistantToolMessage = context.messages.find(
+    (message) => message.role === 'assistant' && message.toolCalls?.length
+  )
   assert.equal(assistantToolMessage?.reasoningContent, 'Need current time before answering.')
   assert.equal(assistantToolMessage?.toolCalls?.[0]?.id, 'call_time')
   assert.equal(assistantToolMessage?.toolCalls?.[0]?.function.name, 'system_time')
   assert.equal(assistantToolMessage?.toolCalls?.length, 1)
-  assert.equal(context.messages.filter((message) => message.role === 'assistant' && message.toolCalls?.length).length, 1)
-  assert.equal(context.messages.some((message) => message.role === 'tool' && message.toolCallId === 'call_time'), true)
-  assert.equal(context.messages.some((message) => message.role === 'tool' && message.toolCallId === 'call_running'), false)
+  assert.equal(
+    context.messages.filter((message) => message.role === 'assistant' && message.toolCalls?.length)
+      .length,
+    1
+  )
+  assert.equal(
+    context.messages.some(
+      (message) => message.role === 'tool' && message.toolCallId === 'call_time'
+    ),
+    true
+  )
+  assert.equal(
+    context.messages.some(
+      (message) => message.role === 'tool' && message.toolCallId === 'call_running'
+    ),
+    false
+  )
 }
 
 async function testAttachmentToolsSessionBoundary(): Promise<void> {
@@ -127,14 +143,20 @@ async function testAttachmentToolsSessionBoundary(): Promise<void> {
   assert.ok(search)
 
   const readResult = await read.execute('call_read', { attachmentId: 'att-1' })
-  assert.match(readResult.content[0]?.type === 'text' ? readResult.content[0].text : '', /alpha beta/)
+  assert.match(
+    readResult.content[0]?.type === 'text' ? readResult.content[0].text : '',
+    /alpha beta/
+  )
 
   const searchResult = await search.execute('call_search', { query: 'beta' })
-  assert.match(searchResult.content[0]?.type === 'text' ? searchResult.content[0].text : '', /matchCount/)
+  assert.match(
+    searchResult.content[0]?.type === 'text' ? searchResult.content[0].text : '',
+    /matchCount/
+  )
 
   await assert.rejects(
     () => read.execute('call_denied', { attachmentId: 'att-2' }),
-    /not available in the current session/,
+    /not available in the current session/
   )
 }
 

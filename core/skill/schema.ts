@@ -90,7 +90,7 @@ export function skillError(
     path?: string
     recoverable?: boolean
     issues?: SkillValidationIssue[]
-  } = {},
+  } = {}
 ): SkillOperationError {
   return {
     code,
@@ -136,19 +136,21 @@ function migrateState(raw: unknown): unknown {
 
   const version = typeof raw.version === 'number' ? raw.version : CURRENT_SKILL_STATE_VERSION
   if (version > CURRENT_SKILL_STATE_VERSION) {
-    throw new SkillValidationError(skillError(
-      'unsupported_version',
-      `Skill state version ${version} is newer than supported version ${CURRENT_SKILL_STATE_VERSION}.`,
-      {
-        issues: [
-          {
-            path: 'version',
-            message: `Unsupported future skill state version ${version}.`,
-            code: 'unsupported_version',
-          },
-        ],
-      },
-    ))
+    throw new SkillValidationError(
+      skillError(
+        'unsupported_version',
+        `Skill state version ${version} is newer than supported version ${CURRENT_SKILL_STATE_VERSION}.`,
+        {
+          issues: [
+            {
+              path: 'version',
+              message: `Unsupported future skill state version ${version}.`,
+              code: 'unsupported_version',
+            },
+          ],
+        }
+      )
+    )
   }
 
   if (version < CURRENT_SKILL_STATE_VERSION) {
@@ -168,7 +170,10 @@ function normalizeStateShape(raw: unknown, issues: SkillValidationIssue[]): Skil
   }
 
   return {
-    version: typeof raw.version === 'number' ? raw.version as SkillStateVersion : CURRENT_SKILL_STATE_VERSION,
+    version:
+      typeof raw.version === 'number'
+        ? (raw.version as SkillStateVersion)
+        : CURRENT_SKILL_STATE_VERSION,
     enabledById: normalizeBooleanRecord(raw.enabledById, 'enabledById', issues),
   }
 }
@@ -176,7 +181,7 @@ function normalizeStateShape(raw: unknown, issues: SkillValidationIssue[]): Skil
 function normalizeBooleanRecord(
   raw: unknown,
   path: string,
-  issues: SkillValidationIssue[],
+  issues: SkillValidationIssue[]
 ): Record<string, boolean> {
   if (raw === undefined || raw === null) {
     return {}
@@ -194,7 +199,11 @@ function normalizeBooleanRecord(
       continue
     }
     if (typeof value !== 'boolean') {
-      issues.push({ path: `${path}.${key}`, message: 'Enabled value must be boolean.', code: 'invalid_type' })
+      issues.push({
+        path: `${path}.${key}`,
+        message: 'Enabled value must be boolean.',
+        code: 'invalid_type',
+      })
       continue
     }
     record[id] = value
@@ -211,7 +220,11 @@ function validateStateShape(state: SkillState, issues: SkillValidationIssue[]): 
     })
   }
   if (!isPlainObject(state.enabledById)) {
-    issues.push({ path: 'enabledById', message: 'Enabled state must be an object.', code: 'invalid_type' })
+    issues.push({
+      path: 'enabledById',
+      message: 'Enabled state must be an object.',
+      code: 'invalid_type',
+    })
   }
 }
 
@@ -226,7 +239,11 @@ function sortState(state: SkillState): SkillState {
   }
 }
 
-function throwValidationError(code: SkillErrorCode, message: string, issues: SkillValidationIssue[]): never {
+function throwValidationError(
+  code: SkillErrorCode,
+  message: string,
+  issues: SkillValidationIssue[]
+): never {
   throw new SkillValidationError(skillError(code, message, { issues }))
 }
 
