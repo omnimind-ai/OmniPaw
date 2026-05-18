@@ -9,7 +9,7 @@ export interface AgentToolContext {
   sessionId: string
 }
 
-export interface AgentTool<TArgs = unknown, TDetails = unknown> {
+export interface AgentTool<TDetails = unknown> {
   name: string
   providerName?: string
   label?: string
@@ -23,7 +23,7 @@ export interface AgentTool<TArgs = unknown, TDetails = unknown> {
   timeoutMs?: number
   execute: (
     toolCallId: string,
-    args: TArgs,
+    args: unknown,
     signal?: AbortSignal,
     onUpdate?: (update: unknown) => void
   ) => Promise<AgentToolResult<TDetails>>

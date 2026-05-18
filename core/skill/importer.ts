@@ -33,7 +33,10 @@ export function importSkillPackage(
   skillsRoot: string
 ): SkillImportResult {
   const fileName = sanitizeFileName(input.fileName)
-  const bytes = Buffer.from(input.bytes)
+  const bytes =
+    input.bytes instanceof ArrayBuffer
+      ? Buffer.from(input.bytes)
+      : Buffer.from(input.bytes.buffer, input.bytes.byteOffset, input.bytes.byteLength)
   if (!bytes.length) {
     throwImportError('Imported skill file is empty.')
   }

@@ -1,4 +1,4 @@
-import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync, statSync, type Dirent } from 'node:fs'
 import { basename, relative, resolve } from 'node:path'
 
 import type { SkillMetadata } from '@shared/types/skill'
@@ -96,7 +96,7 @@ export class SkillLoader {
       throw new Error(`Skill document exceeds ${maxFileBytes} bytes.`)
     }
     return {
-      content: normalizeLineEndings(readFileSync(skillFilePath, 'utf8')),
+      content: normalizeLineEndings(readFileSync(skillFilePath, { encoding: 'utf8' })),
       updatedAt: stat.mtimeMs,
     }
   }
@@ -213,7 +213,7 @@ function unquote(value: string): string {
   return value
 }
 
-function safeReadDirectory(path: string): ReturnType<typeof readdirSync> {
+function safeReadDirectory(path: string): Dirent<string>[] {
   try {
     return readdirSync(path, { withFileTypes: true })
   } catch {

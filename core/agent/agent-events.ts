@@ -20,10 +20,10 @@ export function upsertToolCallPart(
 ): ChatMessagePart[] {
   const next = [...parts]
   for (const part of next) {
-    if (part.type !== 'tool_call') {
+    if (!isToolCallPart(part)) {
       continue
     }
-    const calls = part.tool_calls ?? part.toolCalls ?? []
+    const calls: ToolCallDisplay[] = part.tool_calls ?? part.toolCalls ?? []
     const index = calls.findIndex((item) => item.id === toolCall.id)
     if (index >= 0) {
       calls[index] = { ...calls[index], ...toolCall }
@@ -43,6 +43,12 @@ export function toolCallPart(toolCall: ToolCallDisplay): ChatMessagePart {
     tool_calls: [toolCall],
     toolCalls: [toolCall],
   }
+}
+
+function isToolCallPart(
+  part: ChatMessagePart
+): part is Extract<ChatMessagePart, { type: 'tool_call' }> {
+  return part.type === 'tool_call'
 }
 
 export function createAgentStepEvent(

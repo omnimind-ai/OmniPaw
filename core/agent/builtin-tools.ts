@@ -154,7 +154,7 @@ const BUILTIN_TOOL_DEFINITIONS = {
   },
 } satisfies Record<string, BuiltinToolDefinition>
 
-function createSystemTimeExecutor(): AgentTool<Record<string, never>>['execute'] {
+function createSystemTimeExecutor(): AgentTool['execute'] {
   return async () => {
     const now = new Date()
     const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone
@@ -184,9 +184,9 @@ interface CalculatorArgs {
   operands?: number[]
 }
 
-function createCalculatorExecutor(): AgentTool<CalculatorArgs>['execute'] {
+function createCalculatorExecutor(): AgentTool['execute'] {
   return async (_toolCallId, args) => {
-    const value = calculate(args)
+    const value = calculate(asCalculatorArgs(args))
     return {
       content: [{ type: 'text', text: JSON.stringify({ result: value }) }],
     }
@@ -199,19 +199,20 @@ interface AttachmentReadArgs {
   maxChars?: number
 }
 
-function createAttachmentTextReadExecutor(
-  options: BuiltinToolOptions
-): AgentTool<AttachmentReadArgs>['execute'] {
+function createAttachmentTextReadExecutor(options: BuiltinToolOptions): AgentTool['execute'] {
   return async (_toolCallId, args, signal) => {
     throwIfAborted(signal)
+    const readArgs = asAttachmentReadArgs(args)
     const ids = [
-      ...new Set([args.attachmentId, ...(args.attachmentIds ?? [])].filter(isNonEmptyString)),
+      ...new Set(
+        [readArgs.attachmentId, ...(readArgs.attachmentIds ?? [])].filter(isNonEmptyString)
+      ),
     ]
     if (!ids.length) {
       throw new Error('attachment_text_read requires attachmentId or attachmentIds.')
     }
     const allowed = currentSessionAttachmentIds(options)
-    const maxChars = clampMaxChars(args.maxChars, options.maxResultChars)
+    const maxChars = clampMaxChars(readArgs.maxChars, options.maxResultChars)
     const blocks: string[] = []
     for (const id of ids) {
       throwIfAborted(signal)
@@ -242,17 +243,16 @@ interface AttachmentSearchArgs {
   contextChars?: number
 }
 
-function createAttachmentTextSearchExecutor(
-  options: BuiltinToolOptions
-): AgentTool<AttachmentSearchArgs>['execute'] {
+function createAttachmentTextSearchExecutor(options: BuiltinToolOptions): AgentTool['execute'] {
   return async (_toolCallId, args, signal) => {
     throwIfAborted(signal)
-    const query = args.query?.trim()
+    const searchArgs = asAttachmentSearchArgs(args)
+    const query = searchArgs.query?.trim()
     if (!query) {
       throw new Error('attachment_text_search requires query.')
     }
-    const maxResults = Math.max(1, Math.min(Math.floor(args.maxResults ?? 8), 20))
-    const contextChars = Math.max(20, Math.min(Math.floor(args.contextChars ?? 120), 500))
+    const maxResults = Math.max(1, Math.min(Math.floor(searchArgs.maxResults ?? 8), 20))
+    const contextChars = Math.max(20, Math.min(Math.floor(searchArgs.contextChars ?? 120), 500))
     const allowed = currentSessionAttachmentIds(options)
     const matches: Array<{
       attachmentId: string
@@ -305,10 +305,10 @@ interface SkillReadArgs {
   skillId?: string
 }
 
-function createSkillReadExecutor(skills: SkillManager): AgentTool<SkillReadArgs>['execute'] {
+function createSkillReadExecutor(skills: SkillManager): AgentTool['execute'] {
   return async (_toolCallId, args, signal) => {
     throwIfAborted(signal)
-    const skillId = args.skillId?.trim()
+    const skillId = asSkillReadArgs(args).skillId?.trim()
     if (!skillId) {
       throw new Error('skill_read requires skillId.')
     }
@@ -322,6 +322,59 @@ function createSkillReadExecutor(skills: SkillManager): AgentTool<SkillReadArgs>
       ],
     }
   }
+}
+
+function asRecord(value: unknown, toolName: string): Record<string, unknown> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    throw new Error(`${toolName} arguments must be an object.`)
+  }
+  return value as Record<string, unknown>
+}
+
+function asCalculatorArgs(value: unknown): CalculatorArgs {
+  const args = asRecord(value, 'calculator')
+  return {
+    expression: typeof args.expression === 'string' ? args.expression : undefined,
+    operation: isCalculatorOperation(args.operation) ? args.operation : undefined,
+    operands: Array.isArray(args.operands) ? args.operands.filter(isFiniteNumber) : undefined,
+  }
+}
+
+function asAttachmentReadArgs(value: unknown): AttachmentReadArgs {
+  const args = asRecord(value, 'attachment_text_read')
+  return {
+    attachmentId: typeof args.attachmentId === 'string' ? args.attachmentId : undefined,
+    attachmentIds: Array.isArray(args.attachmentIds)
+      ? args.attachmentIds.filter(isNonEmptyString)
+      : undefined,
+    maxChars: isFiniteNumber(args.maxChars) ? args.maxChars : undefined,
+  }
+}
+
+function asAttachmentSearchArgs(value: unknown): AttachmentSearchArgs {
+  const args = asRecord(value, 'attachment_text_search')
+  return {
+    query: typeof args.query === 'string' ? args.query : undefined,
+    maxResults: isFiniteNumber(args.maxResults) ? args.maxResults : undefined,
+    contextChars: isFiniteNumber(args.contextChars) ? args.contextChars : undefined,
+  }
+}
+
+function asSkillReadArgs(value: unknown): SkillReadArgs {
+  const args = asRecord(value, 'skill_read')
+  return {
+    skillId: typeof args.skillId === 'string' ? args.skillId : undefined,
+  }
+}
+
+function isCalculatorOperation(value: unknown): value is NonNullable<CalculatorArgs['operation']> {
+  return (
+    value === 'add' ||
+    value === 'subtract' ||
+    value === 'multiply' ||
+    value === 'divide' ||
+    value === 'power'
+  )
 }
 
 function currentSessionAttachmentIds(options: BuiltinToolOptions): Set<string> {
@@ -511,6 +564,10 @@ function escapeXml(value: string): string {
 
 function isNonEmptyString(value: unknown): value is string {
   return typeof value === 'string' && value.length > 0
+}
+
+function isFiniteNumber(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value)
 }
 
 function escapeAttribute(value: string): string {

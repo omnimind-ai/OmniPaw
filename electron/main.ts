@@ -223,7 +223,7 @@ function registerIpcHandlers(): void {
       )
   )
   ipcMain.handle(IPC_CHANNELS.mcp.setServerEnabled, (_event, request: SetMcpServerEnabledRequest) =>
-    mcpResult(() => mcpServerManager.setServerEnabled(request.serverId, request.enabled))
+    mcpResult(() => mcpServerManager.setServerEnabled(request))
   )
   ipcMain.handle(
     IPC_CHANNELS.mcp.refreshServer,
