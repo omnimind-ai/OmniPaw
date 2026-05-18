@@ -1,7 +1,5 @@
 import { join } from 'node:path'
 
-import { BrowserWindow, ipcMain, screen } from 'electron'
-
 import { IPC_CHANNELS } from '@shared/constants'
 import type {
   CatBounds,
@@ -13,6 +11,7 @@ import type {
   CatTaskState,
   CatWindowState,
 } from '@shared/types/cat'
+import { BrowserWindow, ipcMain, screen } from 'electron'
 
 const allowedTaskStates = new Set<CatTaskState>(['idle', 'preparing', 'running', 'completed'])
 const allowedWindowStates = new Set<CatWindowState>([
@@ -146,7 +145,8 @@ function reportCatState(state: CatWindowState): void {
   }
 
   catState = state
-  catVisible = state !== 'hidden' && !!catWindow && !catWindow.isDestroyed() && catWindow.isVisible()
+  catVisible =
+    state !== 'hidden' && !!catWindow && !catWindow.isDestroyed() && catWindow.isVisible()
 }
 
 function createCatWindow(): BrowserWindow {
@@ -493,14 +493,14 @@ function registerCatWindowIpcHandlers(): void {
 }
 
 export {
-  registerCatWindowIpcHandlers,
-  showCatWindow,
-  hideCatWindow,
-  toggleCatVisibility,
-  setCatState,
-  toggleCatPanelWindow,
   closeCatPanelWindow,
-  dragStart,
-  dragMove,
   dragEnd,
+  dragMove,
+  dragStart,
+  hideCatWindow,
+  registerCatWindowIpcHandlers,
+  setCatState,
+  showCatWindow,
+  toggleCatPanelWindow,
+  toggleCatVisibility,
 }

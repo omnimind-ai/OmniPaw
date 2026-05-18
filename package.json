@@ -16,7 +16,8 @@
     "chat-core:smoke": "node scripts/run-electron-node.mjs scripts/chat-core-smoke.ts",
     "pack": "pnpm rebuild:electron && pnpm build && electron-builder --dir",
     "dist": "pnpm rebuild:electron && pnpm build && electron-builder",
-    "lint": "pnpm typecheck && biome lint .",
+    "lint": "pnpm typecheck && biome check electron --error-on-warnings && biome lint .",
+    "lint:electron": "biome check electron --error-on-warnings",
     "check": "pnpm lint",
     "format": "biome format --write ."
   },

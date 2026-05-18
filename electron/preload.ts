@@ -1,6 +1,6 @@
-import { contextBridge, ipcRenderer } from 'electron'
 import { IPC_CHANNELS } from '@shared/constants'
 import type { OpenOmniClawBridge, Unsubscribe } from '@shared/types/bridge'
+import { contextBridge, ipcRenderer } from 'electron'
 
 const allowedTaskStates = new Set(['idle', 'preparing', 'running', 'completed'])
 
@@ -16,9 +16,9 @@ function createUnsubscriber<T>(channel: string, callback: (payload: T) => void):
 
 async function invokeSettings<T>(channel: string, payload?: unknown): Promise<T> {
   const response =
-    arguments.length >= 2
-      ? await ipcRenderer.invoke(channel, payload)
-      : await ipcRenderer.invoke(channel)
+    payload === undefined
+      ? await ipcRenderer.invoke(channel)
+      : await ipcRenderer.invoke(channel, payload)
 
   if (response?.ok === false) {
     const error = new Error(response.error?.message || 'Settings operation failed.') as Error & {
@@ -34,9 +34,9 @@ async function invokeSettings<T>(channel: string, payload?: unknown): Promise<T>
 
 async function invokeMcp<T>(channel: string, payload?: unknown): Promise<T> {
   const response =
-    arguments.length >= 2
-      ? await ipcRenderer.invoke(channel, payload)
-      : await ipcRenderer.invoke(channel)
+    payload === undefined
+      ? await ipcRenderer.invoke(channel)
+      : await ipcRenderer.invoke(channel, payload)
 
   if (response?.ok === false) {
     const error = new Error(response.error?.message || 'MCP operation failed.') as Error & {
@@ -52,9 +52,9 @@ async function invokeMcp<T>(channel: string, payload?: unknown): Promise<T> {
 
 async function invokeSkill<T>(channel: string, payload?: unknown): Promise<T> {
   const response =
-    arguments.length >= 2
-      ? await ipcRenderer.invoke(channel, payload)
-      : await ipcRenderer.invoke(channel)
+    payload === undefined
+      ? await ipcRenderer.invoke(channel)
+      : await ipcRenderer.invoke(channel, payload)
 
   if (response?.ok === false) {
     const error = new Error(response.error?.message || 'Skill operation failed.') as Error & {

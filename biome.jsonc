@@ -76,6 +76,24 @@
           }
         }
       }
+    },
+    {
+      "includes": ["electron/**/*.ts"],
+      "linter": {
+        "rules": {
+          "correctness": {
+            "noUnusedImports": "error",
+            "noUnusedVariables": "error"
+          },
+          "complexity": {
+            "noArguments": "error"
+          },
+          "style": {
+            "useImportType": "error",
+            "noNonNullAssertion": "error"
+          }
+        }
+      }
     }
   ]
 }

@@ -1,39 +1,21 @@
 import { join } from 'node:path'
-
-import { app, BrowserWindow, ipcMain, shell } from 'electron'
+import { listBuiltinToolDefinitions } from '@core/agent/builtin-tools'
+import { ToolManagementService } from '@core/agent/tool-management-service'
 import { AttachmentService } from '@core/chat/attachment-service'
 import { ChatService } from '@core/chat/chat-service'
 import { ContextBuilder } from '@core/chat/context-manager'
 import { RunManager } from '@core/chat/run-manager'
+import { ConfigValidationError, configError } from '@core/config/schema'
 import { ConfigStore } from '@core/config/store'
 import { ConfigToolSettingsStore } from '@core/config/tool-settings-store'
-import { configError, ConfigValidationError } from '@core/config/schema'
 import { CronManager } from '@core/cron/cron-manager'
 import { DatabaseClient } from '@core/db/client'
 import { AttachmentRepo, ChatMessageRepo, ChatRunRepo, ChatSessionRepo } from '@core/db/repos'
 import { seedDefaultChatData } from '@core/db/seed'
 import { McpRegistryStore, McpServerManager, McpValidationError, mcpError } from '@core/mcp'
-import { listBuiltinToolDefinitions } from '@core/agent/builtin-tools'
-import { ToolManagementService } from '@core/agent/tool-management-service'
 import { ProviderManager } from '@core/provider/manager'
 import { SkillManager, SkillValidationError, skillError } from '@core/skill'
 import { APP_NAME, IPC_CHANNELS } from '@shared/constants'
-import type {
-  DesktopSettingsConfig,
-  DesktopSettingsChangedEvent,
-  SettingsChangeReason,
-  SaveDesktopSettingsRequest,
-  SettingsOperationError,
-} from '@shared/types/settings'
-import type {
-  DeleteProviderRequest,
-  CreateProviderFromPresetRequest,
-  RefreshProviderModelsRequest,
-  SaveProviderRequest,
-  SetSessionModelRequest,
-  TestProviderRequest,
-} from '@shared/types/provider'
-import type { SetToolEnabledRequest } from '@shared/types/tool'
 import type {
   DeleteMcpServerRequest,
   McpOperationError,
@@ -42,15 +24,28 @@ import type {
   SetMcpServerEnabledRequest,
 } from '@shared/types/mcp'
 import type {
+  CreateProviderFromPresetRequest,
+  DeleteProviderRequest,
+  RefreshProviderModelsRequest,
+  SaveProviderRequest,
+  SetSessionModelRequest,
+  TestProviderRequest,
+} from '@shared/types/provider'
+import type {
+  DesktopSettingsChangedEvent,
+  DesktopSettingsConfig,
+  SaveDesktopSettingsRequest,
+  SettingsChangeReason,
+  SettingsOperationError,
+} from '@shared/types/settings'
+import type {
   ImportSkillRequest,
   SetSkillEnabledRequest,
   SkillOperationError,
 } from '@shared/types/skill'
-import {
-  closeCatPanelWindow,
-  registerCatWindowIpcHandlers,
-  showCatWindow,
-} from './cat-window'
+import type { SetToolEnabledRequest } from '@shared/types/tool'
+import { app, BrowserWindow, ipcMain, shell } from 'electron'
+import { closeCatPanelWindow, registerCatWindowIpcHandlers, showCatWindow } from './cat-window'
 
 const isMac = process.platform === 'darwin'
 
