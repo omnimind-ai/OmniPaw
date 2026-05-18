@@ -52,14 +52,6 @@ function blocks(record: ChatRecord) {
   return props.messageBlocks(props.messageContent(record))
 }
 
-function thinkingBlocks(record: ChatRecord) {
-  return blocks(record).filter((block) => block.kind === 'thinking')
-}
-
-function contentBlocks(record: ChatRecord) {
-  return blocks(record).filter((block) => block.kind === 'content')
-}
-
 function hasDisplayBlocks(record: ChatRecord) {
   return blocks(record).length > 0
 }
@@ -200,37 +192,31 @@ function messageContentStackClass(record: ChatRecord) {
           </div>
 
           <template v-else>
-            <div
-              v-if="thinkingBlocks(record).length"
-              class="flex min-w-0 flex-col gap-2"
+            <template
+              v-for="(block, blockIndex) in blocks(record)"
+              :key="`${recordId(record)}-block-${blockIndex}-${block.kind}`"
             >
               <ReasoningBlock
-                v-for="(block, blockIndex) in thinkingBlocks(record)"
-                :key="`${recordId(record)}-thinking-${blockIndex}`"
+                v-if="block.kind === 'thinking'"
                 :parts="block.parts"
                 :streaming="isMessageStreaming(record, recordIndex)"
               />
-            </div>
 
-            <div
-              v-if="contentBlocks(record).length"
-              :class="messageContentStackClass(record)"
-            >
-              <template
-                v-for="(block, blockIndex) in contentBlocks(record)"
-                :key="`${recordId(record)}-content-${blockIndex}`"
+              <div
+                v-else
+                :class="messageContentStackClass(record)"
               >
                 <MessagePartRenderer
                   v-for="(part, partIndex) in block.parts"
-                  :key="`${recordId(record)}-${blockIndex}-${part.type}-${partIndex}`"
+                  :key="`${recordId(record)}-part-${blockIndex}-${part.type}-${partIndex}`"
                   :part="part"
                   :user="isUserMessage(record)"
                   @jump-message="emit('jumpMessage', $event)"
                   @open-refs="openRefs"
                   @copy-code="emit('copyCode', $event)"
                 />
-              </template>
-            </div>
+              </div>
+            </template>
 
             <div
               v-if="isRecordErrored(record) && errorText(record)"

@@ -186,7 +186,10 @@ function clearSearch() {
 </script>
 
 <template>
-  <Sidebar collapsible="icon">
+  <Sidebar
+    collapsible="icon"
+    class="group-data-[collapsible=icon]:border-r-0! group-data-[collapsible=icon]:[&>[data-slot=sidebar-inner]]:bg-transparent"
+  >
     <SidebarHeader>
       <div class="flex items-center gap-2">
         <SidebarTrigger />
@@ -206,10 +209,10 @@ function clearSearch() {
       </SidebarMenu>
     </SidebarHeader>
 
-    <SidebarSeparator />
+    <SidebarSeparator class="group-data-[collapsible=icon]:hidden" />
 
     <SidebarContent>
-      <SidebarGroup>
+      <SidebarGroup class="group-data-[collapsible=icon]:hidden">
         <SidebarGroupLabel>Sessions</SidebarGroupLabel>
         <SidebarGroupContent>
           <div class="group-data-[collapsible=icon]:hidden mb-2">
@@ -335,7 +338,7 @@ function clearSearch() {
       </SidebarGroup>
     </SidebarContent>
 
-    <SidebarSeparator />
+    <SidebarSeparator class="group-data-[collapsible=icon]:hidden" />
 
     <SidebarFooter class="items-end">
       <SidebarMenu>
