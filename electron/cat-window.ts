@@ -30,11 +30,19 @@ const catWindowSize = {
 }
 
 const catPanelSize = {
-  width: 280,
-  height: 280,
+  width: 376,
+  height: 360,
 }
 
-const catPanelGap = 10
+const catPanelGap = 2
+const catPanelCardInset = 20
+
+const catStageVisualBounds = {
+  x: 31,
+  y: 36,
+  width: 86,
+  height: 86,
+}
 
 let catWindow: BrowserWindow | null = null
 let catPanelWindow: BrowserWindow | null = null
@@ -308,15 +316,24 @@ function animateCatBounds(targetBounds: CatBounds, duration = 260): Promise<CatB
 function getCatPanelPlacement(catBounds: CatBounds): CatPanelPlacement {
   const display = getDisplay(catBounds)
   const workArea = display.workArea
-  const leftSpace = catBounds.x - workArea.x - catPanelGap
-  const rightSpace = workArea.x + workArea.width - (catBounds.x + catBounds.width) - catPanelGap
+  const visibleCatBounds: CatBounds = {
+    width: catStageVisualBounds.width,
+    height: catStageVisualBounds.height,
+    x: catBounds.x + catStageVisualBounds.x,
+    y: catBounds.y + catStageVisualBounds.y,
+  }
+  const leftSpace = visibleCatBounds.x - workArea.x - catPanelGap
+  const rightSpace =
+    workArea.x + workArea.width - (visibleCatBounds.x + visibleCatBounds.width) - catPanelGap
+  const requiredPanelSpace = catPanelSize.width - catPanelCardInset
   const side: CatPanelPlacement['side'] =
-    rightSpace >= catPanelSize.width || rightSpace >= leftSpace ? 'right' : 'left'
+    rightSpace >= requiredPanelSpace || rightSpace >= leftSpace ? 'right' : 'left'
   const preferredX =
     side === 'right'
-      ? catBounds.x + catBounds.width + catPanelGap
-      : catBounds.x - catPanelSize.width - catPanelGap
-  const centeredY = catBounds.y + Math.round((catBounds.height - catPanelSize.height) / 2)
+      ? visibleCatBounds.x + visibleCatBounds.width + catPanelGap - catPanelCardInset
+      : visibleCatBounds.x - (catPanelSize.width - catPanelCardInset) - catPanelGap
+  const centeredY =
+    visibleCatBounds.y + Math.round((visibleCatBounds.height - catPanelSize.height) / 2)
 
   return {
     side,
