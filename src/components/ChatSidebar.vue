@@ -342,9 +342,11 @@ function clearSearch() {
 
     <SidebarSeparator class="group-data-[collapsible=icon]:hidden" />
 
-    <SidebarFooter class="items-end">
+    <SidebarFooter class="items-end group-data-[collapsible=icon]:items-center">
       <SidebarMenu>
-        <SidebarMenuItem class="flex justify-end gap-2">
+        <SidebarMenuItem
+          class="flex justify-end gap-2 group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:gap-2"
+        >
           <SidebarMenuButton
             class="w-auto"
             size="default"

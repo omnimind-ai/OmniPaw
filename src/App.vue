@@ -36,7 +36,7 @@ function syncCatWindow(event: BridgeStreamEvent) {
 }
 
 onMounted(() => {
-  stopCatSubscription = appBridge.chat.onStreamEvent(syncCatWindow)
+  stopCatSubscription = appBridge.chat.onStreamEvent?.(syncCatWindow)
 })
 
 onBeforeUnmount(() => {
