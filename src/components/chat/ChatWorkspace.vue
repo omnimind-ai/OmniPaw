@@ -1,6 +1,7 @@
 <script setup lang="ts">
+import { ArrowDownIcon } from 'lucide-vue-next'
 import { storeToRefs } from 'pinia'
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import { appBridge } from '@/bridge/app'
@@ -91,15 +92,27 @@ const {
 } = useMessages({
   currentSessionId: currSessionId,
   onSessionsChanged: getSessions,
+  onStreamUpdate: (sessionId) => {
+    if (sessionId === currSessionId.value) scheduleScrollToLatest()
+  },
 })
 
 const draft = ref('')
 const fileInput = ref<HTMLInputElement | null>(null)
+const messagesScrollArea = ref<{ $el?: HTMLElement } | HTMLElement | null>(null)
 const creatingSession = ref(false)
 const selectedModelKey = ref('')
 const syncedModelSessionId = ref<string | null>(null)
 const replyTarget = ref<{ messageId: string; preview: string } | null>(null)
 const highlightedMessageId = ref('')
+const followingLatestMessage = ref(true)
+const showScrollToBottom = ref(false)
+const bottomFollowThreshold = 48
+
+let messagesScrollViewport: HTMLElement | null = null
+let autoScrollFrame = 0
+let programmaticScrollUntil = 0
+let scrollStateTimer = 0
 
 const isHomeMode = computed(() => props.mode === 'home')
 const hasMessages = computed(() => activeMessages.value.length > 0)
@@ -196,11 +209,37 @@ watch(
   () => currSessionId.value,
   (sessionId) => {
     chatStore.activeSessionId = sessionId || undefined
+    followingLatestMessage.value = true
+    showScrollToBottom.value = false
   },
   { immediate: true }
 )
 
+watch(
+  () => [isHomeMode.value, showMessageList.value],
+  async () => {
+    await nextTick()
+    attachMessageScrollViewport()
+    if (!isHomeMode.value) scheduleScrollToLatest('auto', true)
+  },
+  { flush: 'post' }
+)
+
+watch(
+  () => [currSessionId.value, activeMessages.value.length, loadingMessages.value],
+  async () => {
+    await nextTick()
+    attachMessageScrollViewport()
+    scheduleScrollToLatest()
+  },
+  { flush: 'post' }
+)
+
 onMounted(async () => {
+  await nextTick()
+  attachMessageScrollViewport()
+  scheduleScrollToLatest('auto', true)
+
   const results = await Promise.allSettled([getSessions(), providerStore.loadProviders()])
   results.forEach((result) => {
     if (result.status === 'rejected') {
@@ -211,9 +250,107 @@ onMounted(async () => {
 })
 
 onBeforeUnmount(() => {
+  detachMessageScrollViewport()
+  if (autoScrollFrame) {
+    cancelAnimationFrame(autoScrollFrame)
+    autoScrollFrame = 0
+  }
+  if (scrollStateTimer) {
+    window.clearTimeout(scrollStateTimer)
+    scrollStateTimer = 0
+  }
   clearStaged()
   cleanupMediaCache()
 })
+
+function messageScrollRoot() {
+  const value = messagesScrollArea.value
+  if (!value) return null
+  if (value instanceof HTMLElement) return value
+  return value.$el || null
+}
+
+function resolveMessageScrollViewport() {
+  return (
+    messageScrollRoot()?.querySelector<HTMLElement>('[data-slot="scroll-area-viewport"]') ?? null
+  )
+}
+
+function attachMessageScrollViewport() {
+  const nextViewport = resolveMessageScrollViewport()
+  if (nextViewport === messagesScrollViewport) {
+    updateScrollFollowState()
+    return
+  }
+
+  detachMessageScrollViewport()
+  messagesScrollViewport = nextViewport
+  messagesScrollViewport?.addEventListener('scroll', updateScrollFollowState, { passive: true })
+  updateScrollFollowState()
+}
+
+function detachMessageScrollViewport() {
+  messagesScrollViewport?.removeEventListener('scroll', updateScrollFollowState)
+  messagesScrollViewport = null
+}
+
+function isNearMessageBottom(viewport: HTMLElement) {
+  return viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight <= bottomFollowThreshold
+}
+
+function updateScrollFollowState() {
+  const viewport = messagesScrollViewport
+  if (!viewport) {
+    followingLatestMessage.value = true
+    showScrollToBottom.value = false
+    return
+  }
+
+  const nearBottom = isNearMessageBottom(viewport)
+  if (!nearBottom && performance.now() < programmaticScrollUntil) return
+
+  followingLatestMessage.value = nearBottom
+  showScrollToBottom.value = hasMessages.value && !nearBottom
+  if (nearBottom) programmaticScrollUntil = 0
+}
+
+function scheduleScrollToLatest(behavior: ScrollBehavior = 'auto', force = false) {
+  if (isHomeMode.value || (!force && !followingLatestMessage.value)) {
+    updateScrollFollowState()
+    return
+  }
+
+  if (autoScrollFrame) cancelAnimationFrame(autoScrollFrame)
+  autoScrollFrame = requestAnimationFrame(() => {
+    autoScrollFrame = requestAnimationFrame(() => {
+      autoScrollFrame = 0
+      scrollToLatestMessage(behavior, force)
+    })
+  })
+}
+
+function scrollToLatestMessage(behavior: ScrollBehavior = 'smooth', force = true) {
+  attachMessageScrollViewport()
+  const viewport = messagesScrollViewport
+  if (!viewport || (!force && !followingLatestMessage.value)) return
+
+  programmaticScrollUntil = performance.now() + (behavior === 'smooth' ? 1200 : 120)
+  followingLatestMessage.value = true
+  showScrollToBottom.value = false
+  viewport.scrollTo({
+    top: viewport.scrollHeight,
+    behavior,
+  })
+
+  if (scrollStateTimer) window.clearTimeout(scrollStateTimer)
+  scrollStateTimer = window.setTimeout(
+    () => {
+      scrollStateTimer = 0
+      updateScrollFollowState()
+    },
+    behavior === 'smooth' ? 350 : 0
+  )
+}
 
 function routeSessionId() {
   const param = route.params.conversationId
@@ -644,28 +781,46 @@ function attachmentTypeLabel(type: string) {
       </header>
 
       <main class="flex min-h-0 flex-1 flex-col bg-background">
-        <ScrollArea
+        <div
           v-if="!isHomeMode"
-          class="min-h-0 flex-1"
+          class="relative min-h-0 flex-1"
         >
-          <ChatMessageList
-            v-if="showMessageList"
-            :messages="activeMessages"
-            :loading="showMessageSkeleton"
-            :highlighted-message-id="highlightedMessageId"
-            :is-user-message="isUserMessage"
-            :message-content="messageContent"
-            :message-blocks="messageBlocks"
-            :is-message-streaming="isMessageStreaming"
-            @copy-message="handleCopyMessage"
-            @copy-code="handleCopyCode"
-            @edit-message="handleEditMessage"
-            @continue-message="handleContinueMessage"
-            @regenerate-message="handleRegenerateMessage"
-            @quote-message="handleQuoteMessage"
-            @jump-message="handleJumpMessage"
-          />
-        </ScrollArea>
+          <ScrollArea
+            ref="messagesScrollArea"
+            class="h-full"
+          >
+            <ChatMessageList
+              v-if="showMessageList"
+              :messages="activeMessages"
+              :loading="showMessageSkeleton"
+              :highlighted-message-id="highlightedMessageId"
+              :is-user-message="isUserMessage"
+              :message-content="messageContent"
+              :message-blocks="messageBlocks"
+              :is-message-streaming="isMessageStreaming"
+              @copy-message="handleCopyMessage"
+              @copy-code="handleCopyCode"
+              @edit-message="handleEditMessage"
+              @continue-message="handleContinueMessage"
+              @regenerate-message="handleRegenerateMessage"
+              @quote-message="handleQuoteMessage"
+              @jump-message="handleJumpMessage"
+            />
+          </ScrollArea>
+
+          <Button
+            v-if="showScrollToBottom"
+            type="button"
+            variant="outline"
+            size="sm"
+            class="absolute bottom-4 left-1/2 -translate-x-1/2 border-border/70 bg-background/35 shadow-md backdrop-blur-xl hover:bg-background/50"
+            aria-label="回到底部"
+            @click="scrollToLatestMessage('smooth', true)"
+          >
+            <ArrowDownIcon data-icon="inline-start" />
+            回到底部
+          </Button>
+        </div>
 
         <div
           :class="cn(
