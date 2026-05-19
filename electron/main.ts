@@ -331,9 +331,8 @@ function registerIpcHandlers(): void {
     platform: process.platform,
   }))
 
-  registerLoggedIpcHandler(
-    IPC_CHANNELS.settings.load,
-    () => settingsResult(() => configStore.get())
+  registerLoggedIpcHandler(IPC_CHANNELS.settings.load, () =>
+    settingsResult(() => configStore.get())
   )
   registerLoggedIpcHandler(
     IPC_CHANNELS.settings.save,
@@ -345,35 +344,24 @@ function registerIpcHandlers(): void {
         return saved
       })
   )
-  registerLoggedIpcHandler(
-    IPC_CHANNELS.settings.reset,
-    () =>
-      settingsResult(() => {
-        const saved = configStore.reset()
-        broadcastSettingsChanged('reset', saved)
-        return saved
-      })
+  registerLoggedIpcHandler(IPC_CHANNELS.settings.reset, () =>
+    settingsResult(() => {
+      const saved = configStore.reset()
+      broadcastSettingsChanged('reset', saved)
+      return saved
+    })
   )
-  registerLoggedIpcHandler(
-    IPC_CHANNELS.settings.status,
-    () => settingsResult(() => configStore.status())
+  registerLoggedIpcHandler(IPC_CHANNELS.settings.status, () =>
+    settingsResult(() => configStore.status())
   )
 
-  registerLoggedIpcHandler(
-    IPC_CHANNELS.chat.listSessions,
-    () => chatService.listSessions()
+  registerLoggedIpcHandler(IPC_CHANNELS.chat.listSessions, () => chatService.listSessions())
+  registerLoggedIpcHandler(IPC_CHANNELS.chat.createSession, () => chatService.createSession())
+  registerLoggedIpcHandler(IPC_CHANNELS.chat.getSession, (_event, sessionId: string) =>
+    chatService.getSession(sessionId)
   )
-  registerLoggedIpcHandler(
-    IPC_CHANNELS.chat.createSession,
-    () => chatService.createSession()
-  )
-  registerLoggedIpcHandler(
-    IPC_CHANNELS.chat.getSession,
-    (_event, sessionId: string) => chatService.getSession(sessionId)
-  )
-  registerLoggedIpcHandler(
-    IPC_CHANNELS.chat.updateSession,
-    (_event, request) => chatService.updateSession(normalizeUpdateSessionRequest(request))
+  registerLoggedIpcHandler(IPC_CHANNELS.chat.updateSession, (_event, request) =>
+    chatService.updateSession(normalizeUpdateSessionRequest(request))
   )
   registerLoggedIpcHandler(
     IPC_CHANNELS.chat.deleteSession,
@@ -383,9 +371,8 @@ function registerIpcHandlers(): void {
     IPC_CHANNELS.chat.listMessages,
     (_event, request: ListMessagesRequest | string) => chatService.listMessages(request)
   )
-  registerLoggedIpcHandler(
-    IPC_CHANNELS.chat.sendMessage,
-    (event, request: SendMessageRequest) => chatService.sendMessage(request, event.sender)
+  registerLoggedIpcHandler(IPC_CHANNELS.chat.sendMessage, (event, request: SendMessageRequest) =>
+    chatService.sendMessage(request, event.sender)
   )
   registerLoggedIpcHandler(
     IPC_CHANNELS.chat.abortRun,
@@ -403,7 +390,8 @@ function registerIpcHandlers(): void {
   )
   registerLoggedIpcHandler(
     IPC_CHANNELS.chat.uploadAttachment,
-    (_event, request: UploadAttachmentRequest) => attachmentService.upload(normalizeUploadRequest(request))
+    (_event, request: UploadAttachmentRequest) =>
+      attachmentService.upload(normalizeUploadRequest(request))
   )
   registerLoggedIpcHandler(
     IPC_CHANNELS.chat.getAttachmentPreview,
@@ -413,22 +401,15 @@ function registerIpcHandlers(): void {
     }
   )
 
-  registerLoggedIpcHandler(
-    IPC_CHANNELS.provider.list,
-    () => providerManager.list()
-  )
-  registerLoggedIpcHandler(
-    IPC_CHANNELS.provider.listPresets,
-    () => providerManager.listPresets()
-  )
+  registerLoggedIpcHandler(IPC_CHANNELS.provider.list, () => providerManager.list())
+  registerLoggedIpcHandler(IPC_CHANNELS.provider.listPresets, () => providerManager.listPresets())
   registerLoggedIpcHandler(
     IPC_CHANNELS.provider.createFromPreset,
     (_event, request: CreateProviderFromPresetRequest | string) =>
       providerManager.createFromPreset(typeof request === 'string' ? request : request.presetId)
   )
-  registerLoggedIpcHandler(
-    IPC_CHANNELS.provider.upsert,
-    (_event, request: SaveProviderRequest) => providerManager.upsert(request)
+  registerLoggedIpcHandler(IPC_CHANNELS.provider.upsert, (_event, request: SaveProviderRequest) =>
+    providerManager.upsert(request)
   )
   registerLoggedIpcHandler(
     IPC_CHANNELS.provider.delete,
@@ -445,9 +426,8 @@ function registerIpcHandlers(): void {
         typeof request === 'string' ? modelId : request.modelId
       )
   )
-  registerLoggedIpcHandler(
-    IPC_CHANNELS.provider.listModels,
-    (_event, providerId: string) => providerManager.listModels(providerId)
+  registerLoggedIpcHandler(IPC_CHANNELS.provider.listModels, (_event, providerId: string) =>
+    providerManager.listModels(providerId)
   )
   registerLoggedIpcHandler(
     IPC_CHANNELS.provider.refreshModels,
@@ -463,42 +443,29 @@ function registerIpcHandlers(): void {
         defaultModelId: request.modelId,
       })
   )
-  registerLoggedIpcHandler(
-    IPC_CHANNELS.skill.list,
-    () => skillResult(() => skillManager.list())
-  )
-  registerLoggedIpcHandler(
-    IPC_CHANNELS.skill.refresh,
-    () => skillResult(() => skillManager.refresh())
+  registerLoggedIpcHandler(IPC_CHANNELS.skill.list, () => skillResult(() => skillManager.list()))
+  registerLoggedIpcHandler(IPC_CHANNELS.skill.refresh, () =>
+    skillResult(() => skillManager.refresh())
   )
   registerLoggedIpcHandler(
     IPC_CHANNELS.skill.setEnabled,
     (_event, request: SetSkillEnabledRequest) => skillResult(() => skillManager.setEnabled(request))
   )
-  registerLoggedIpcHandler(
-    IPC_CHANNELS.skill.importSkill,
-    (_event, request: ImportSkillRequest) => skillResult(() => skillManager.importSkill(request))
+  registerLoggedIpcHandler(IPC_CHANNELS.skill.importSkill, (_event, request: ImportSkillRequest) =>
+    skillResult(() => skillManager.importSkill(request))
   )
-  registerLoggedIpcHandler(
-    IPC_CHANNELS.cron.list,
-    () => cronManager.list()
-  )
-  registerLoggedIpcHandler(
-    IPC_CHANNELS.tools.list,
-    () => toolManagementService.list()
-  )
+  registerLoggedIpcHandler(IPC_CHANNELS.cron.list, () => cronManager.list())
+  registerLoggedIpcHandler(IPC_CHANNELS.tools.list, () => toolManagementService.list())
   registerLoggedIpcHandler(
     IPC_CHANNELS.tools.setEnabled,
     (_event, request: SetToolEnabledRequest) =>
       toolManagementService.setEnabled(request.name, request.enabled)
   )
-  registerLoggedIpcHandler(
-    IPC_CHANNELS.mcp.listServers,
-    () => mcpResult(() => mcpServerManager.listServers())
+  registerLoggedIpcHandler(IPC_CHANNELS.mcp.listServers, () =>
+    mcpResult(() => mcpServerManager.listServers())
   )
-  registerLoggedIpcHandler(
-    IPC_CHANNELS.mcp.saveServer,
-    (_event, request: SaveMcpServerRequest) => mcpResult(() => mcpServerManager.saveServer(request))
+  registerLoggedIpcHandler(IPC_CHANNELS.mcp.saveServer, (_event, request: SaveMcpServerRequest) =>
+    mcpResult(() => mcpServerManager.saveServer(request))
   )
   registerLoggedIpcHandler(
     IPC_CHANNELS.mcp.deleteServer,
@@ -519,9 +486,8 @@ function registerIpcHandlers(): void {
         mcpServerManager.refreshServer(typeof request === 'string' ? request : request?.serverId)
       )
   )
-  registerLoggedIpcHandler(
-    IPC_CHANNELS.mcp.listTools,
-    () => mcpResult(() => mcpServerManager.listTools())
+  registerLoggedIpcHandler(IPC_CHANNELS.mcp.listTools, () =>
+    mcpResult(() => mcpServerManager.listTools())
   )
 }
 
