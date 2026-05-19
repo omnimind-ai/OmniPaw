@@ -4,6 +4,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import type { BridgeProviderPreset } from '@/bridge/app'
 import ProviderAdvancedTab from '@/components/settings/provider-settings/ProviderAdvancedTab.vue'
 import ProviderBasicTab from '@/components/settings/provider-settings/ProviderBasicTab.vue'
+import ProviderDeleteModal from '@/components/settings/provider-settings/ProviderDeleteModal.vue'
 import ProviderModelsTab from '@/components/settings/provider-settings/ProviderModelsTab.vue'
 import ProviderSelectorSidebar from '@/components/settings/provider-settings/ProviderSelectorSidebar.vue'
 import type {
@@ -11,15 +12,8 @@ import type {
   ProviderSidebarItem,
 } from '@/components/settings/provider-settings/types'
 import SettingsSection from '@/components/settings/SettingsSection.vue'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useProviderAutosave } from '@/composables/useProviderAutosave'
 import { useProviderDraft } from '@/composables/useProviderDraft'
@@ -39,6 +33,7 @@ const deleteDialogOpen = ref(false)
 const deleteProviderTarget = ref<ProviderSidebarItem | undefined>()
 const refreshingModels = ref(false)
 let suppressDraftReload = false
+
 const {
   providerDraft,
   credentialMode,
@@ -52,6 +47,7 @@ const {
   replaceModels,
   setOptionalNumber,
   startNewProviderDraft,
+  startProviderDraftFromPreset,
   updateModelInput,
   updateProviderType,
 } = useProviderDraft({ rawProviders, originalProviderId })
@@ -60,6 +56,7 @@ const currentProvider = computed(() =>
   rawProviders.value.find((provider) => provider.id === originalProviderId.value)
 )
 const isExistingProvider = computed(() => Boolean(currentProvider.value))
+const hasDraft = computed(() => Boolean(activeProviderId.value && !isExistingProvider.value))
 const canAutosave = computed(() => Boolean(isExistingProvider.value && persistenceAvailable.value))
 const canRefreshModels = computed(() =>
   Boolean(
@@ -84,7 +81,7 @@ const providerSidebarList = computed<ProviderSidebarItem[]>(() => {
     )
   })
 
-  if (!isExistingProvider.value && activeProviderId.value) {
+  if (hasDraft.value) {
     const draft = providerDraft.value
     const matchesDraft =
       !query ||
@@ -123,14 +120,20 @@ watch(
   rawProviders,
   (providers) => {
     if (!providers.length) {
-      if (!activeProviderId.value) startNewProvider()
+      if (!hasDraft.value) {
+        activeProviderId.value = ''
+        originalProviderId.value = ''
+      }
       return
     }
 
     const activeStillExists = providers.some((provider) => provider.id === activeProviderId.value)
-    if (!activeProviderId.value || (!activeStillExists && isExistingProvider.value)) {
+    if (!activeProviderId.value) {
       void selectProvider(providers[0].id)
-    } else if (activeStillExists && !suppressDraftReload) {
+      return
+    }
+
+    if (activeStillExists && isExistingProvider.value && !suppressDraftReload) {
       loadProviderDraft(activeProviderId.value)
     }
   },
@@ -178,22 +181,28 @@ async function selectProviderSidebarItem(provider: ProviderSidebarItem) {
   await selectProvider(provider.id)
 }
 
-async function createProviderFromPreset(preset: BridgeProviderPreset) {
+function createNewProviderDraft() {
+  const draft = startNewProviderDraft()
+  activeProviderId.value = draft.id
+  originalProviderId.value = ''
+  providerTab.value = 'basic'
   clearMessages()
+}
+
+function createProviderFromPreset(preset: BridgeProviderPreset) {
+  clearMessages()
+  void startProviderFromPreset(preset)
+}
+
+async function startProviderFromPreset(preset: BridgeProviderPreset) {
   const savedCurrent = await autosave.flushAutosave()
   if (!savedCurrent) return
 
-  try {
-    const saved = await providerStore.createProviderFromPreset({ presetId: preset.id })
-    if (saved?.id) {
-      activeProviderId.value = saved.id
-      originalProviderId.value = saved.id
-      loadProviderDraft(saved.id)
-    }
-    toast.success(`${saved?.name || preset.name} 已添加。`)
-  } catch (error) {
-    toast.error(error)
-  }
+  const draft = startProviderDraftFromPreset(preset)
+  activeProviderId.value = draft.id
+  originalProviderId.value = ''
+  providerTab.value = 'basic'
+  clearMessages()
 }
 
 function loadProviderDraft(providerId: string) {
@@ -201,13 +210,6 @@ function loadProviderDraft(providerId: string) {
   if (!provider) return
 
   loadProviderDraftState(provider)
-  providerTab.value = 'basic'
-  clearMessages()
-}
-
-function startNewProvider() {
-  const draft = startNewProviderDraft()
-  activeProviderId.value = draft.id
   providerTab.value = 'basic'
   clearMessages()
 }
@@ -265,17 +267,16 @@ async function handleDeleteProvider() {
   }
 
   try {
-    await providerStore.deleteProvider({ providerId: target.id })
+    const result = await providerStore.deleteProvider({ providerId: target.id })
     deleteDialogOpen.value = false
     deleteProviderTarget.value = undefined
 
-    if (target.id === originalProviderId.value) {
-      const nextProvider = rawProviders.value.find((provider) => provider.id !== target.id)
-      if (nextProvider) {
-        await selectProvider(nextProvider.id)
-      } else {
-        startNewProvider()
-      }
+    const nextProviderId = result?.nextProviderId || result?.nextSelection?.providerId
+    if (nextProviderId) {
+      await selectProvider(nextProviderId)
+    } else {
+      activeProviderId.value = ''
+      originalProviderId.value = ''
     }
     toast.success('Provider 已删除。')
   } catch (error) {
@@ -334,82 +335,138 @@ function clearMessages() {}
       title="模型服务"
       class="min-w-0 flex-1 self-stretch"
     >
-      <div class="flex flex-col gap-4 p-4">
-        <Tabs
-          v-model="providerTab"
-          activation-mode="manual"
-          class="gap-4"
+      <div class="flex min-h-0 flex-col gap-4 p-4">
+        <div
+          v-if="!activeProviderId"
+          class="flex min-h-80 flex-col items-start justify-between gap-6 rounded-lg border bg-muted/20 p-6"
         >
-          <TabsList class="w-full justify-start">
-            <TabsTrigger value="basic">基础配置</TabsTrigger>
-            <TabsTrigger value="models">模型配置</TabsTrigger>
-            <TabsTrigger value="advanced">高级配置</TabsTrigger>
-          </TabsList>
+          <div class="flex max-w-2xl flex-col gap-2">
+            <div class="flex items-center gap-2">
+              <h3 class="text-base font-semibold">当前没有 Provider</h3>
+              <Badge variant="secondary">空状态</Badge>
+            </div>
+            <p class="text-sm text-muted-foreground">
+              从左侧预设创建一个本地草稿，或者直接新建一个 Provider 后再保存。
+            </p>
+          </div>
 
-          <TabsContent
-            value="basic"
-            class="mt-0"
-          >
-            <ProviderBasicTab
-              v-model:credential-mode="credentialMode"
-              v-model:credential-value="credentialValue"
-              :draft="providerDraft"
-              :is-existing-provider="isExistingProvider"
-              @update-provider-type="updateProviderType"
-            />
-          </TabsContent>
+          <div class="flex flex-wrap gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              :disabled="saving || presetsLoading"
+              @click="createNewProviderDraft"
+            >
+              新建 Provider
+            </Button>
+          </div>
+        </div>
 
-          <TabsContent
-            value="models"
-            class="mt-0"
-          >
-            <ProviderModelsTab
-              :can-refresh-models="canRefreshModels"
-              :draft="providerDraft"
-              :enabled-models="enabledModels"
-              :refreshing-models="refreshingModels"
-              @add-model="addModel"
-              @refresh-models="refreshProviderModels"
-              @remove-model="removeModel"
-              @set-optional-number="setOptionalNumber"
-              @update-model-input="updateModelInput"
-            />
-          </TabsContent>
+        <template v-else>
+          <div class="flex flex-col gap-4 rounded-lg border bg-card p-4">
+            <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+              <div class="min-w-0 flex-1">
+                <div class="flex flex-wrap items-center gap-2">
+                  <h3 class="truncate text-base font-semibold">
+                    {{ providerDraft.name || '未命名 Provider' }}
+                  </h3>
+                  <Badge
+                    v-if="!isExistingProvider"
+                    variant="secondary"
+                  >
+                    草稿
+                  </Badge>
+                  <Badge
+                    v-else-if="providerDraft.enabled === false"
+                    variant="outline"
+                  >
+                    禁用
+                  </Badge>
+                </div>
+                <p class="mt-1 truncate text-sm text-muted-foreground">
+                  {{ providerDraft.id }}
+                </p>
+              </div>
 
-          <TabsContent
-            value="advanced"
-            class="mt-0"
+              <div class="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  :disabled="saving || !persistenceAvailable"
+                  @click="handleSaveProvider"
+                >
+                  保存 Provider
+                </Button>
+                <Button
+                  v-if="isExistingProvider"
+                  type="button"
+                  variant="destructive"
+                  :disabled="saving || !persistenceAvailable"
+                  @click="requestDeleteProvider({ id: providerDraft.id, name: providerDraft.name, baseUrl: providerDraft.baseUrl })"
+                >
+                  删除
+                </Button>
+              </div>
+            </div>
+          </div>
+
+          <Tabs
+            v-model="providerTab"
+            activation-mode="manual"
+            class="gap-4"
           >
-            <ProviderAdvancedTab :draft="providerDraft" />
-          </TabsContent>
-        </Tabs>
+            <TabsList class="w-full justify-start">
+              <TabsTrigger value="basic">基础配置</TabsTrigger>
+              <TabsTrigger value="models">模型配置</TabsTrigger>
+              <TabsTrigger value="advanced">高级配置</TabsTrigger>
+            </TabsList>
+
+            <TabsContent
+              value="basic"
+              class="mt-0"
+            >
+              <ProviderBasicTab
+                v-model:credential-mode="credentialMode"
+                v-model:credential-value="credentialValue"
+                :draft="providerDraft"
+                :is-existing-provider="isExistingProvider"
+                @update-provider-type="updateProviderType"
+              />
+            </TabsContent>
+
+            <TabsContent
+              value="models"
+              class="mt-0"
+            >
+              <ProviderModelsTab
+                :can-refresh-models="canRefreshModels"
+                :draft="providerDraft"
+                :enabled-models="enabledModels"
+                :refreshing-models="refreshingModels"
+                @add-model="addModel"
+                @refresh-models="refreshProviderModels"
+                @remove-model="removeModel"
+                @set-optional-number="setOptionalNumber"
+                @update-model-input="updateModelInput"
+              />
+            </TabsContent>
+
+            <TabsContent
+              value="advanced"
+              class="mt-0"
+            >
+              <ProviderAdvancedTab :draft="providerDraft" />
+            </TabsContent>
+          </Tabs>
+        </template>
       </div>
     </SettingsSection>
 
-    <Dialog v-model:open="deleteDialogOpen">
-      <DialogContent>
-        <DialogHeader>
-          <DialogTitle>删除 Provider</DialogTitle>
-          <DialogDescription>
-            删除 {{ deleteProviderTarget?.name || '该 Provider' }} 后，其下模型也会从配置中移除。
-          </DialogDescription>
-        </DialogHeader>
-        <DialogFooter>
-          <Button
-            variant="outline"
-            @click="deleteDialogOpen = false"
-          >
-            取消
-          </Button>
-          <Button
-            variant="destructive"
-            :disabled="saving"
-            @click="handleDeleteProvider"
-          >
-            删除
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    <ProviderDeleteModal
+      v-model:open="deleteDialogOpen"
+      :provider-name="deleteProviderTarget?.name || '该 Provider'"
+      :saving="saving"
+      @confirm="handleDeleteProvider"
+    />
   </div>
 </template>

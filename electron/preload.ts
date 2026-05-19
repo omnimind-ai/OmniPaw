@@ -5,12 +5,30 @@ import {
   sanitizeLogMessage,
   serializeLogError,
 } from '@shared/logging/sanitize'
-import type { OpenOmniClawBridge, Unsubscribe } from '@shared/types/bridge'
+import type {
+  DeleteProviderModelRequest,
+  DeleteProviderSourceRequest,
+  OpenOmniClawBridge,
+  SetDefaultProviderModelRequest,
+  SetFallbackProviderModelsRequest,
+  Unsubscribe,
+  UpsertProviderModelRequest,
+  UpsertProviderSourceRequest,
+} from '@shared/types/bridge'
 import type {
   LoggerHealthStatus,
   LoggerWriteResponse,
   RendererLogRequest,
 } from '@shared/types/logging'
+import type {
+  CreateProviderFromPresetRequest,
+  DeleteProviderRequest,
+  RefreshProviderModelsRequest,
+  SaveProviderRequest,
+  SetSessionModelRequest,
+  TestProviderRequest,
+} from '@shared/types/provider'
+import type { DesktopSettingsConfig, SaveDesktopSettingsRequest } from '@shared/types/settings'
 import { contextBridge, ipcRenderer } from 'electron'
 
 const allowedTaskStates = new Set(['idle', 'preparing', 'running', 'completed'])
@@ -38,6 +56,19 @@ function createUnsubscriber<T>(channel: string, callback: (payload: T) => void):
   return () => {
     ipcRenderer.removeListener(channel, listener)
   }
+}
+
+function stripProviderRegistryFromSettingsRequest(
+  request: SaveDesktopSettingsRequest | DesktopSettingsConfig
+): SaveDesktopSettingsRequest | DesktopSettingsConfig {
+  const config = 'config' in request ? request.config : request
+  const { providers: _providers, ...rest } = config as DesktopSettingsConfig & {
+    providers?: unknown
+  }
+
+  return 'config' in request
+    ? ({ config: rest as DesktopSettingsConfig } as SaveDesktopSettingsRequest)
+    : (rest as DesktopSettingsConfig)
 }
 
 async function invokeSettings<T>(channel: string, payload?: unknown): Promise<T> {
@@ -168,7 +199,8 @@ const bridge: OpenOmniClawBridge = {
   },
   settings: {
     load: () => invokeSettings(IPC_CHANNELS.settings.load),
-    save: (request) => invokeSettings(IPC_CHANNELS.settings.save, request),
+    save: (request) =>
+      invokeSettings(IPC_CHANNELS.settings.save, stripProviderRegistryFromSettingsRequest(request)),
     reset: () => invokeSettings(IPC_CHANNELS.settings.reset),
     status: () => invokeSettings(IPC_CHANNELS.settings.status),
     onChanged: (callback) => createUnsubscriber(IPC_CHANNELS.settings.changed, callback),
@@ -238,23 +270,42 @@ const bridge: OpenOmniClawBridge = {
         .then((response) => response),
   },
   provider: {
+    load: () => ipcRenderer.invoke(IPC_CHANNELS.provider.load),
+    status: () => ipcRenderer.invoke(IPC_CHANNELS.provider.status),
     list: () => ipcRenderer.invoke(IPC_CHANNELS.provider.list),
     listPresets: () => ipcRenderer.invoke(IPC_CHANNELS.provider.listPresets),
-    createFromPreset: (request) =>
+    createFromPreset: (request: CreateProviderFromPresetRequest | string) =>
       ipcRenderer.invoke(IPC_CHANNELS.provider.createFromPreset, request),
-    upsert: (request) => ipcRenderer.invoke(IPC_CHANNELS.provider.upsert, request),
-    delete: (request) => ipcRenderer.invoke(IPC_CHANNELS.provider.delete, request),
-    test: (...args) => {
+    upsertSource: (request: UpsertProviderSourceRequest) =>
+      ipcRenderer.invoke(IPC_CHANNELS.provider.upsertSource, request),
+    upsertModel: (request: UpsertProviderModelRequest) =>
+      ipcRenderer.invoke(IPC_CHANNELS.provider.upsertModel, request),
+    upsert: (request: SaveProviderRequest) =>
+      ipcRenderer.invoke(IPC_CHANNELS.provider.upsert, request),
+    deleteSource: (request: DeleteProviderSourceRequest | string) =>
+      ipcRenderer.invoke(IPC_CHANNELS.provider.deleteSource, request),
+    deleteModel: (request: DeleteProviderModelRequest) =>
+      ipcRenderer.invoke(IPC_CHANNELS.provider.deleteModel, request),
+    delete: (request: DeleteProviderRequest | string) =>
+      ipcRenderer.invoke(IPC_CHANNELS.provider.delete, request),
+    setDefaultModel: (request: SetDefaultProviderModelRequest) =>
+      ipcRenderer.invoke(IPC_CHANNELS.provider.setDefaultModel, request),
+    setFallbackModels: (request: SetFallbackProviderModelsRequest) =>
+      ipcRenderer.invoke(IPC_CHANNELS.provider.setFallbackModels, request),
+    test: (...args: [request: TestProviderRequest] | [providerId: string, modelId?: string]) => {
       const request =
         typeof args[0] === 'string'
           ? { providerId: args[0], modelId: args[1] as string | undefined }
           : args[0]
       return ipcRenderer.invoke(IPC_CHANNELS.provider.test, request)
     },
-    listModels: (providerId) => ipcRenderer.invoke(IPC_CHANNELS.provider.listModels, providerId),
-    refreshModels: (request) => ipcRenderer.invoke(IPC_CHANNELS.provider.refreshModels, request),
-    setSessionModel: (request) =>
+    listModels: (providerId: string) =>
+      ipcRenderer.invoke(IPC_CHANNELS.provider.listModels, providerId),
+    refreshModels: (request: RefreshProviderModelsRequest | string) =>
+      ipcRenderer.invoke(IPC_CHANNELS.provider.refreshModels, request),
+    setSessionModel: (request: SetSessionModelRequest) =>
       ipcRenderer.invoke(IPC_CHANNELS.provider.setSessionModel, request),
+    onChanged: (callback) => createUnsubscriber(IPC_CHANNELS.provider.changed, callback),
   },
   skill: {
     list: () => invokeSkill(IPC_CHANNELS.skill.list),

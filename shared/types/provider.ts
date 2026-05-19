@@ -95,6 +95,115 @@ export interface ProviderCredential {
   updatedAt: number
 }
 
+export type ProviderRegistryVersion = 1
+
+export interface ProviderModelRef {
+  providerId: ID
+  modelId: string
+}
+
+export interface ProviderRegistrySource {
+  id: ID
+  name: string
+  type?: ProviderType
+  api?: ProviderApi
+  baseUrl: string
+  enabled: boolean
+  credentialRef?: ID
+  authHeader?: string
+  apiKey?: string
+  envVar?: string
+  headers?: Record<string, string>
+  extraBody?: Record<string, unknown>
+  capabilities?: ProviderCapabilities
+  compat?: ProviderCompat
+  createdAt: number
+  updatedAt: number
+}
+
+export interface ProviderRegistryModel
+  extends Omit<ProviderModel, 'providerId' | 'displayName' | 'capabilities'> {
+  providerId: ID
+  manual?: boolean
+  capabilities?: Record<string, unknown>
+  createdAt: number
+  updatedAt: number
+}
+
+export interface ProviderRegistrySettings {
+  defaultProviderId?: ID
+  defaultModelId?: string
+  fallbackModelRefs: ProviderModelRef[]
+  streaming: boolean
+}
+
+export interface ProviderRegistry {
+  version: ProviderRegistryVersion
+  sources: ProviderRegistrySource[]
+  models: ProviderRegistryModel[]
+  settings: ProviderRegistrySettings
+}
+
+export interface ProviderRegistryValidationIssue {
+  path: string
+  message: string
+  code?: string
+}
+
+export type ProviderRegistryErrorCode =
+  | 'invalid_json'
+  | 'invalid_registry'
+  | 'unsupported_version'
+  | 'save_failed'
+  | 'not_found'
+  | 'validation_failed'
+
+export interface ProviderRegistryOperationError {
+  code: ProviderRegistryErrorCode
+  message: string
+  path?: string
+  recoverable: boolean
+  issues?: ProviderRegistryValidationIssue[]
+}
+
+export interface ProviderRegistryStatus {
+  path: string
+  backupPath: string
+  exists: boolean
+  backupExists: boolean
+  loaded: boolean
+  version?: ProviderRegistryVersion
+  recoverable: boolean
+  error?: ProviderRegistryOperationError
+}
+
+export type ProviderRegistryChangeReason =
+  | 'load'
+  | 'save'
+  | 'reset'
+  | 'delete'
+  | 'refresh'
+  | 'settings'
+
+export interface ProviderRegistryChangedEvent {
+  reason: ProviderRegistryChangeReason
+  registry: ProviderRegistry
+  status: ProviderRegistryStatus
+}
+
+export interface SetProviderDefaultModelRequest extends ProviderModelRef {}
+
+export interface SetProviderFallbackModelsRequest {
+  models: ProviderModelRef[]
+}
+
+export interface DeleteProviderModelRequest extends ProviderModelRef {}
+
+export interface ProviderDeleteResult {
+  deleted: boolean
+  nextSelection?: ProviderModelRef
+}
+
 export interface SaveProviderRequest {
   provider: Omit<ProviderConfig, 'models'> & {
     models?: ProviderModel[]

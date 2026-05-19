@@ -37,6 +37,8 @@ const localSearchQuery = computed({
   get: () => props.searchQuery,
   set: (value: string) => emit('update:searchQuery', value),
 })
+
+const hasSearchQuery = computed(() => Boolean(localSearchQuery.value.trim()))
 </script>
 
 <template>
@@ -112,7 +114,7 @@ const localSearchQuery = computed({
         v-else-if="!providerSidebarList.length"
         class="rounded-lg border px-3 py-2 text-sm text-muted-foreground"
       >
-        暂无匹配 Provider。
+        {{ hasSearchQuery ? '暂无匹配 Provider。' : '暂无 Provider。' }}
       </div>
 
       <div

@@ -1,6 +1,6 @@
 <script setup lang="ts">
+import { storeToRefs } from 'pinia'
 import { computed } from 'vue'
-import type { BridgeDesktopSettingsConfig } from '@/bridge/app'
 import SettingsSection from '@/components/settings/SettingsSection.vue'
 import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -22,49 +22,51 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
-import type { ProviderModelOption } from '@/stores/provider'
+import { type ProviderModelOption, useProviderStore } from '@/stores/provider'
 
-const props = defineProps<{
-  draft: BridgeDesktopSettingsConfig
-  modelOptions: ProviderModelOption[]
-}>()
+const NONE_VALUE = '__none__'
 
-const enabledOptions = computed(() => props.modelOptions.filter((option) => option.enabled))
+const providerStore = useProviderStore()
+const {
+  defaultModelKey,
+  fallbackModelKeys,
+  modelOptions,
+  persistenceAvailable,
+  registrySettings,
+  saving,
+} = storeToRefs(providerStore)
 
-const defaultModelId = computed({
-  get: () => props.draft.providers.settings.defaultModelId,
-  set: (value: string) => {
-    props.draft.providers.settings.defaultModelId = value
-    props.draft.providers.settings.fallbackModelIds =
-      props.draft.providers.settings.fallbackModelIds.filter((modelId) => modelId !== value)
-  },
-})
+const enabledOptions = computed(() => modelOptions.value.filter((option) => option.enabled))
+const streaming = computed(() => registrySettings.value.streaming)
 
-const streaming = computed({
-  get: () => props.draft.providers.settings.streaming,
-  set: (value: boolean) => {
-    props.draft.providers.settings.streaming = value
-  },
-})
-
-function fallbackChecked(modelId: string) {
-  return props.draft.providers.settings.fallbackModelIds.includes(modelId)
+function fallbackChecked(modelKey: string) {
+  return fallbackModelKeys.value.includes(modelKey)
 }
 
-function updateFallback(modelId: string, checked: boolean | 'indeterminate') {
+function updateDefaultModel(value: string) {
+  void providerStore.setDefaultModelKey(value === NONE_VALUE ? '' : value)
+}
+
+function updateFallback(modelKey: string, checked: boolean | 'indeterminate') {
   const selected = checked === true
-  const current = new Set(props.draft.providers.settings.fallbackModelIds)
+  const current = new Set(fallbackModelKeys.value)
 
   if (selected) {
-    current.add(modelId)
+    current.add(modelKey)
   } else {
-    current.delete(modelId)
+    current.delete(modelKey)
   }
 
-  current.delete(defaultModelId.value)
-  props.draft.providers.settings.fallbackModelIds = [...current].filter((item) =>
-    enabledOptions.value.some((option) => option.modelId === item)
-  )
+  current.delete(defaultModelKey.value)
+  void providerStore.setFallbackModelKeys([...current])
+}
+
+function updateStreaming(value: boolean) {
+  void providerStore.setStreaming(value)
+}
+
+function modelLabel(option: ProviderModelOption) {
+  return `${option.providerName} / ${option.modelName}`
 }
 </script>
 
@@ -81,23 +83,25 @@ function updateFallback(modelId: string, checked: boolean | 'indeterminate') {
             <FieldDescription>新会话默认使用的模型。</FieldDescription>
           </FieldContent>
           <Select
-            v-model="defaultModelId"
-            :disabled="!enabledOptions.length"
+            :model-value="defaultModelKey || NONE_VALUE"
+            :disabled="saving || !enabledOptions.length || !persistenceAvailable"
+            @update:model-value="updateDefaultModel"
           >
             <SelectTrigger
               id="settings-default-model"
               class="w-full md:w-72"
             >
-              <SelectValue placeholder="选择默认模型" />
+              <SelectValue placeholder="未设置默认模型" />
             </SelectTrigger>
             <SelectContent>
               <SelectGroup>
+                <SelectItem :value="NONE_VALUE">不设置</SelectItem>
                 <SelectItem
                   v-for="option in enabledOptions"
                   :key="option.key"
-                  :value="option.modelId"
+                  :value="option.key"
                 >
-                  {{ option.providerName }} / {{ option.modelName }}
+                  {{ modelLabel(option) }}
                 </SelectItem>
               </SelectGroup>
             </SelectContent>
@@ -114,8 +118,10 @@ function updateFallback(modelId: string, checked: boolean | 'indeterminate') {
           </FieldContent>
           <Switch
             id="settings-streaming"
-            v-model="streaming"
+            :model-value="streaming"
             aria-label="流式输出"
+            :disabled="saving || !persistenceAvailable"
+            @update:model-value="updateStreaming"
           />
         </Field>
       </FieldGroup>
@@ -137,19 +143,19 @@ function updateFallback(modelId: string, checked: boolean | 'indeterminate') {
             :key="option.key"
             orientation="horizontal"
             class="items-center"
-            :data-disabled="option.modelId === defaultModelId"
+            :data-disabled="option.key === defaultModelKey"
           >
             <Checkbox
               :id="`fallback-${option.key}`"
-              :model-value="fallbackChecked(option.modelId)"
-              :disabled="option.modelId === defaultModelId"
-              @update:model-value="updateFallback(option.modelId, $event)"
+              :model-value="fallbackChecked(option.key)"
+              :disabled="option.key === defaultModelKey || saving || !persistenceAvailable"
+              @update:model-value="updateFallback(option.key, $event)"
             />
             <FieldContent>
               <FieldLabel :for="`fallback-${option.key}`">
                 {{ option.modelName }}
                 <Badge
-                  v-if="option.modelId === defaultModelId"
+                  v-if="option.key === defaultModelKey"
                   variant="secondary"
                 >
                   默认

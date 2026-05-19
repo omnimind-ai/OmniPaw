@@ -22,7 +22,6 @@ import { useSessions } from '@/composables/useSessions'
 import { cn } from '@/lib/utils'
 import { useChatStore } from '@/stores/chat'
 import { type ProviderModelOption, useProviderStore } from '@/stores/provider'
-import { useSettingsStore } from '@/stores/settings'
 import { copyToClipboard } from '@/utils/clipboard'
 import { logger } from '@/utils/logger'
 import { useToast } from '@/utils/toast'
@@ -40,11 +39,13 @@ const router = useRouter()
 const route = useRoute()
 const chatStore = useChatStore()
 const providerStore = useProviderStore()
-const settingsStore = useSettingsStore()
 const toast = useToast()
 const chatWorkspaceLogger = logger.child('chat.workspace')
-const { enabledModelOptions, loading: providersLoading } = storeToRefs(providerStore)
-const { config: settingsConfig } = storeToRefs(settingsStore)
+const {
+  defaultModelKey,
+  enabledModelOptions,
+  loading: providersLoading,
+} = storeToRefs(providerStore)
 
 const {
   sessions,
@@ -112,9 +113,8 @@ const defaultModelOption = computed(() => {
   const options = enabledModelOptions.value
   if (!options.length) return undefined
 
-  const defaultModelId = settingsConfig.value?.providers.settings.defaultModelId || ''
-  if (defaultModelId) {
-    const matched = options.find((option) => option.modelId === defaultModelId)
+  if (defaultModelKey.value) {
+    const matched = options.find((option) => option.key === defaultModelKey.value)
     if (matched) return matched
   }
 
@@ -179,7 +179,7 @@ watch(
 )
 
 watch(
-  [enabledModelOptions, () => currSessionId.value, () => sessions.value, settingsConfig],
+  [enabledModelOptions, defaultModelKey, () => currSessionId.value, () => sessions.value],
   () => syncSelectedModel(),
   { deep: true, immediate: true }
 )
@@ -197,11 +197,7 @@ watch(
 )
 
 onMounted(async () => {
-  const results = await Promise.allSettled([
-    getSessions(),
-    providerStore.loadProviders(),
-    settingsStore.load(),
-  ])
+  const results = await Promise.allSettled([getSessions(), providerStore.loadProviders()])
   results.forEach((result) => {
     if (result.status === 'rejected') {
       toast.error(result.reason, { description: '聊天数据加载失败' })

@@ -14,6 +14,8 @@ import { seedDefaultChatData } from '@core/db/seed'
 import type { Logger } from '@core/logging'
 import { McpRegistryStore, McpServerManager, McpValidationError } from '@core/mcp'
 import { ProviderManager } from '@core/provider/manager'
+import { ProviderRegistryValidationError } from '@core/provider/registry-schema'
+import { ProviderRegistryStore } from '@core/provider/registry-store'
 import { SkillManager, SkillValidationError } from '@core/skill'
 import type { DesktopSettingsConfig, SettingsChangeReason } from '@shared/types/settings'
 import type { app } from 'electron'
@@ -108,6 +110,10 @@ export function createCoreRuntime(options: CoreRuntimeOptions): CoreRuntime {
 
   const providerManager = new ProviderManager({
     configStore,
+    registryStore: new ProviderRegistryStore({
+      appDataPath: options.app.getPath('appData'),
+      appName: options.appName,
+    }),
     onConfigSaved: (saved) => options.onSettingsChanged('save', saved),
     logger: coreLogger.child({ scope: 'provider' }),
     sessions: {
@@ -120,8 +126,34 @@ export function createCoreRuntime(options: CoreRuntimeOptions): CoreRuntime {
             }
           : undefined
       },
+      async clearProviderOverrides({ providerId, modelIds }) {
+        const now = Date.now()
+        let changed = 0
+        const removedModelIds = modelIds ? new Set(modelIds) : undefined
+        for (const session of sessionRepo.list({ includeDeleted: true })) {
+          if (session.defaultProviderId !== providerId) {
+            continue
+          }
+          if (
+            removedModelIds &&
+            session.defaultModelId &&
+            !removedModelIds.has(session.defaultModelId)
+          ) {
+            continue
+          }
+          sessionRepo.save({
+            ...session,
+            defaultProviderId: undefined,
+            defaultModelId: undefined,
+            updatedAt: now,
+          })
+          changed += 1
+        }
+        return changed
+      },
     },
   })
+  loadStartupProviderRegistry(providerManager, options.lifecycleLogger)
   const attachmentService = new AttachmentService({ repo: attachmentRepo })
   const contextBuilder = new ContextBuilder(attachmentService)
   const runManager = new RunManager(runRepo)
@@ -208,6 +240,30 @@ function loadStartupSkills(skillManager: SkillManager, lifecycleLogger: Logger):
       return
     }
     lifecycleLogger.error('Startup skill load failed.', { error })
+    throw error
+  }
+}
+
+function loadStartupProviderRegistry(
+  providerManager: ProviderManager,
+  lifecycleLogger: Logger
+): void {
+  try {
+    const { registry } = providerManager.loadRegistry()
+    lifecycleLogger.info('Startup Provider registry loaded.', {
+      version: registry.version,
+      sourceCount: registry.sources.length,
+      modelCount: registry.models.length,
+    })
+  } catch (error) {
+    if (error instanceof ProviderRegistryValidationError) {
+      lifecycleLogger.warn('Startup Provider registry validation failed.', {
+        errorCode: error.details.code,
+        recoverable: error.details.recoverable,
+      })
+      return
+    }
+    lifecycleLogger.error('Startup Provider registry load failed.', { error })
     throw error
   }
 }

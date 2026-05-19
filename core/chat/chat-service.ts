@@ -4,7 +4,7 @@ import type { ToolResolutionInput } from '@core/agent/tool-registry'
 import { ToolRegistry } from '@core/agent/tool-registry'
 import type { AttachmentRepo, ChatMessageRepo, ChatRunRepo, ChatSessionRepo } from '@core/db/repos'
 import type { Logger } from '@core/logging'
-import type { ProviderManager } from '@core/provider/manager'
+import { type ProviderManager, ProviderSelectionError } from '@core/provider/manager'
 import type { SkillManager } from '@core/skill/skill-manager'
 import type {
   AbortRunRequest,
@@ -154,7 +154,7 @@ export class ChatService {
     }
 
     const session = this.requireSession(request.sessionId)
-    const { provider, model } = await this.resolveProviderAndModel(
+    const { provider, model, fallbackReason } = await this.resolveProviderAndModel(
       session,
       request.providerId,
       request.modelId
@@ -202,6 +202,15 @@ export class ChatService {
       status: 'running',
       idempotencyKey: request.idempotencyKey,
       startedAt: Date.now(),
+      requestSnapshot: fallbackReason
+        ? {
+            api: provider.api ?? provider.type ?? provider.id,
+            model: model.remoteId || model.id,
+            fallbackReason,
+            messageCount: 0,
+            attachmentCount: attachmentLinks.length,
+          }
+        : undefined,
       createdAt: Date.now(),
       updatedAt: Date.now(),
     }
@@ -232,6 +241,7 @@ export class ChatService {
       sessionId: session.id,
       providerId: provider.id,
       modelId: model.id,
+      fallbackReason,
       attachmentCount: attachmentLinks.length,
       mode: request.mode,
       toolProfile: request.toolProfile,
@@ -334,23 +344,64 @@ export class ChatService {
     session: ChatSession,
     providerId?: string,
     modelId?: string
-  ): Promise<{ provider: ProviderConfig; model: ProviderModel }> {
-    const provider =
-      (providerId ? await this.options.providers.get(providerId) : undefined) ??
-      (session.defaultProviderId
-        ? await this.options.providers.get(session.defaultProviderId)
-        : undefined) ??
-      (await this.options.providers.list()).find((item) => item.enabled)
+  ): Promise<{ provider: ProviderConfig; model: ProviderModel; fallbackReason?: string }> {
+    if (providerId) {
+      return this.resolveSelectedProviderAndModel(providerId, modelId)
+    }
+
+    if (session.defaultProviderId) {
+      return this.resolveSelectedProviderAndModel(session.defaultProviderId, session.defaultModelId)
+    }
+
+    const resolved = await this.options.providers.resolveDefaultProvider()
+    const provider = await this.options.providers.get(resolved.provider.id)
     if (!provider) {
-      throw new Error('No provider is configured.')
+      throw new ProviderSelectionError({
+        code: 'not_found',
+        message: `Provider is not enabled or does not exist: ${resolved.provider.id}.`,
+        retryable: false,
+      })
     }
+    const model = provider.models.find(
+      (item) => item.id === resolved.modelId && item.enabled !== false
+    )
+    if (!model) {
+      throw new ProviderSelectionError({
+        code: 'validation',
+        message: `No enabled model is configured for provider ${provider.id}.`,
+        retryable: false,
+      })
+    }
+
+    return { provider, model, fallbackReason: resolved.fallbackReason }
+  }
+
+  private async resolveSelectedProviderAndModel(
+    providerId: string,
+    modelId?: string
+  ): Promise<{ provider: ProviderConfig; model: ProviderModel }> {
+    const provider = await this.options.providers.get(providerId)
+    if (!provider || provider.enabled === false) {
+      throw new ProviderSelectionError({
+        code: 'not_found',
+        message: `Provider is not enabled or does not exist: ${providerId}.`,
+        retryable: false,
+      })
+    }
+
     const model =
-      provider.models.find(
-        (item) => item.id === (modelId ?? session.defaultModelId ?? provider.defaultModelId)
-      ) ?? provider.models.find((item) => item.enabled)
-    if (!model || model.enabled === false) {
-      throw new Error(`No enabled model is configured for provider ${provider.id}.`)
+      provider.models.find((item) => item.id === modelId && item.enabled !== false) ??
+      (modelId ? undefined : provider.models.find((item) => item.enabled !== false))
+    if (!model) {
+      throw new ProviderSelectionError({
+        code: 'validation',
+        message: modelId
+          ? `Provider model is not enabled or does not exist: ${providerId}/${modelId}.`
+          : `No enabled model is configured for provider ${provider.id}.`,
+        retryable: false,
+      })
     }
+
     return { provider, model }
   }
 

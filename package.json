@@ -12,6 +12,7 @@
     "build": "vue-tsc --noEmit && electron-vite build",
     "typecheck": "vue-tsc --noEmit && tsc -p tsconfig.node.json --noEmit",
     "settings-config:smoke": "node scripts/run-electron-node.mjs scripts/settings-config-smoke.ts",
+    "provider-registry:smoke": "node scripts/run-electron-node.mjs scripts/provider-registry-smoke.ts",
     "db:smoke": "node scripts/run-electron-node.mjs scripts/db-smoke.ts",
     "chat-core:smoke": "node scripts/run-electron-node.mjs scripts/chat-core-smoke.ts",
     "logging:smoke": "node scripts/run-electron-node.mjs scripts/logging-smoke.ts",

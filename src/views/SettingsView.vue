@@ -33,7 +33,6 @@ const toast = useToast()
 
 const { draft, config, status, loading, saving, error, persistenceAvailable } =
   storeToRefs(settingsStore)
-const { modelOptions } = storeToRefs(providerStore)
 
 const activeTab = ref<SettingsTab>('general')
 const isMobile = useMediaQuery('(max-width: 768px)')
@@ -163,7 +162,6 @@ async function autosave() {
   saveQueued = false
   try {
     await settingsStore.save()
-    await providerStore.loadProviders()
   } catch (err) {
     toast.error(err, { description: '设置保存失败' })
     return
@@ -212,8 +210,6 @@ async function autosave() {
 
               <DefaultModelSettingsForm
                 v-else-if="activeTab === 'defaults'"
-                :draft="draft"
-                :model-options="modelOptions"
               />
 
               <GeneralSettingsForm

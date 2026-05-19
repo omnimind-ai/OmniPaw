@@ -1,9 +1,16 @@
 import type { ConfigStore } from '@core/config/store'
 import type { Logger } from '@core/logging'
+import type { ChatError } from '@shared/types/chat'
 import type {
   ModelConfig,
   ProviderConfig,
+  ProviderDeleteResult,
+  ProviderModelRef,
   ProviderPreset,
+  ProviderRegistry,
+  ProviderRegistryModel,
+  ProviderRegistrySource,
+  ProviderRegistryStatus,
   ProviderType,
   SaveProviderRequest,
 } from '@shared/types/provider'
@@ -13,6 +20,7 @@ import type { ProviderCredentialRecord } from './credentials'
 import { resolveCredential } from './credentials'
 import { normalizeProviderError } from './errors'
 import { OpenAICompatibleProvider } from './providers/openai'
+import type { ProviderRegistryStore } from './registry-store'
 
 export type ProviderApi = 'openai-chat-completions' | 'openai-responses' | 'ollama' | 'omniinfer'
 
@@ -74,18 +82,64 @@ export interface SessionProviderOverrideRepository {
   getProviderOverride(
     sessionId: string
   ): Promise<{ providerId?: string; modelId?: string } | undefined>
+  clearProviderOverrides?(input: {
+    providerId: string
+    modelIds?: string[]
+  }): Promise<number> | number
 }
 
 export interface ProviderManagerOptions {
   sessions?: SessionProviderOverrideRepository
-  configStore: ConfigStore
+  registryStore?: ProviderRegistryStore
+  configStore?: ConfigStore
   onConfigSaved?: (config: DesktopSettingsConfig) => void
+  onRegistryChanged?: (registry: ProviderRegistry) => void
   logger?: Logger
 }
 
 export interface ProviderTestResult {
   ok: boolean
   error?: ReturnType<typeof normalizeProviderError>
+}
+
+interface ProviderRegistryLoadResult {
+  registry: ProviderRegistry
+  status: ProviderRegistryStatus
+}
+
+interface ProviderRegistryMutationResult extends ProviderRegistryLoadResult {
+  ok?: boolean
+  source?: ProviderRegistrySource
+  model?: ProviderRegistryModel
+  models?: ProviderRegistryModel[]
+  nextSelection?: ProviderModelRef
+}
+
+interface UpsertProviderSourceRequest {
+  source: Partial<ProviderRegistrySource> & {
+    id: string
+    name: string
+    baseUrl: string
+  }
+  credential?: {
+    type?: string
+    label?: string
+    value?: string
+    envVar?: string
+  }
+}
+
+interface UpsertProviderModelRequest {
+  providerId: string
+  model: Partial<ProviderRegistryModel> & {
+    id: string
+    name: string
+  }
+}
+
+interface DeleteProviderModelRequest {
+  providerId: string
+  modelId: string
 }
 
 const providerPresets: ProviderPreset[] = [
@@ -168,14 +222,21 @@ const providerPresets: ProviderPreset[] = [
 
 export class ProviderManager {
   private readonly sessions?: SessionProviderOverrideRepository
-  private readonly configStore: ConfigStore
+  private readonly registryStore?: ProviderRegistryStore
+  private readonly configStore?: ConfigStore
   private readonly onConfigSaved?: (config: DesktopSettingsConfig) => void
+  private readonly onRegistryChanged?: (registry: ProviderRegistry) => void
   private readonly logger?: Logger
 
   constructor(options: ProviderManagerOptions) {
+    if (!options.registryStore && !options.configStore) {
+      throw new Error('ProviderManager requires a provider registry store or config store.')
+    }
     this.sessions = options.sessions
+    this.registryStore = options.registryStore
     this.configStore = options.configStore
     this.onConfigSaved = options.onConfigSaved
+    this.onRegistryChanged = options.onRegistryChanged
     this.logger = options.logger
   }
 
@@ -190,6 +251,15 @@ export class ProviderManager {
 
   async listPresets(): Promise<ProviderPreset[]> {
     return providerPresets.map(cloneProviderPreset)
+  }
+
+  loadRegistry(): ProviderRegistryLoadResult {
+    const registry = this.requireRegistryStore().load()
+    return this.registryResult(registry)
+  }
+
+  registryStatus(): ProviderRegistryStatus {
+    return this.requireRegistryStore().status()
   }
 
   async createFromPreset(presetId: string): Promise<ProviderConfig> {
@@ -212,7 +282,9 @@ export class ProviderManager {
     const modelIds = new Map<string, string>()
     const models =
       preset.models?.map((model) => {
-        const modelId = uniqueModelId(model.id, providerId, existingModelIds)
+        const modelId = this.registryStore
+          ? model.id
+          : uniqueModelId(model.id, providerId, existingModelIds)
         modelIds.set(model.id, modelId)
         existingModelIds.add(modelId)
 
@@ -235,7 +307,11 @@ export class ProviderManager {
       authHeader: preset.authHeader,
       headers: preset.headers ? { ...preset.headers } : {},
       extraBody: preset.extraBody ? { ...preset.extraBody } : {},
-      defaultModelId: preset.defaultModelId ? modelIds.get(preset.defaultModelId) : undefined,
+      defaultModelId: this.registryStore
+        ? undefined
+        : preset.defaultModelId
+          ? modelIds.get(preset.defaultModelId)
+          : undefined,
       capabilities: preset.capabilities ? { ...preset.capabilities } : {},
       compat: preset.compat ? { ...preset.compat } : undefined,
       models,
@@ -261,7 +337,19 @@ export class ProviderManager {
   }
 
   async save(provider: ProviderRecord): Promise<void> {
-    const config = this.configStore.get()
+    if (this.registryStore) {
+      const registry = this.registryStore.get()
+      const next = upsertProviderInRegistry(registry, provider)
+      this.saveRegistry(next)
+      this.logger?.debug('Provider saved.', {
+        providerId: provider.id,
+        enabled: provider.enabled,
+        modelCount: provider.models?.length ?? 0,
+      })
+      return
+    }
+
+    const config = this.requireConfigStore().get()
     upsertProviderInConfig(config, provider)
     this.saveConfig(config)
     this.logger?.debug('Provider saved.', {
@@ -272,17 +360,32 @@ export class ProviderManager {
   }
 
   async listModels(providerId: string): Promise<ProviderModelRecord[]> {
+    if (this.registryStore) {
+      return this.registryStore
+        .get()
+        .models.filter((model) => model.providerId === providerId)
+        .map(registryModelToRecord)
+    }
+
     return cloneProvider(await this.getRecord(providerId))?.models ?? []
   }
 
   async resolveDefaultProvider(
     sessionId?: string
-  ): Promise<{ provider: ProviderRecord; modelId: string }> {
+  ): Promise<{ provider: ProviderRecord; modelId: string; fallbackReason?: string }> {
+    if (this.registryStore) {
+      const override = sessionId ? await this.sessions?.getProviderOverride(sessionId) : undefined
+      return this.resolveRegistrySelection({
+        providerId: override?.providerId,
+        modelId: override?.modelId,
+      })
+    }
+
     const override = sessionId ? await this.sessions?.getProviderOverride(sessionId) : undefined
     const records = await this.listRecords()
     const globalDefaultModelId =
       !override?.providerId && !override?.modelId
-        ? this.configStore.get().providers.settings.defaultModelId
+        ? this.requireConfigStore().get().providers.settings.defaultModelId
         : undefined
     const providerFromGlobalDefault = globalDefaultModelId
       ? records.find(
@@ -317,6 +420,172 @@ export class ProviderManager {
     }
 
     return { provider, modelId }
+  }
+
+  async upsertSource(
+    request: UpsertProviderSourceRequest
+  ): Promise<ProviderRegistryMutationResult> {
+    const registry = this.requireRegistryStore().get()
+    const existingModels = registry.models
+      .filter((model) => model.providerId === request.source.id)
+      .map(registryModelToRecord)
+    const credential = request.credential
+    const credentialRef =
+      credential && (credential.value || credential.envVar)
+        ? (request.source.credentialRef ?? `${request.source.id}:default`)
+        : request.source.credentialRef
+    const next = upsertProviderInRegistry(registry, {
+      id: request.source.id,
+      name: request.source.name,
+      type: request.source.type,
+      api: request.source.api,
+      baseUrl: request.source.baseUrl,
+      enabled: request.source.enabled !== false,
+      credentialRef,
+      authHeader: request.source.authHeader,
+      envVar: credential?.envVar ?? request.source.envVar,
+      apiKey: credential?.value ?? request.source.apiKey,
+      headers: request.source.headers,
+      extraBody: request.source.extraBody,
+      capabilities: request.source.capabilities,
+      compat: request.source.compat,
+      models: existingModels,
+      createdAt: request.source.createdAt,
+      updatedAt: Date.now(),
+    })
+    const saved = this.saveRegistry(next)
+    return this.registryResult(saved, {
+      ok: true,
+      source: sanitizeRegistry(saved).sources.find((source) => source.id === request.source.id),
+    })
+  }
+
+  async upsertModel(request: UpsertProviderModelRequest): Promise<ProviderRegistryMutationResult> {
+    const registry = this.requireRegistryStore().get()
+    if (!registry.sources.some((source) => source.id === request.providerId)) {
+      throw new ProviderSelectionError({
+        code: 'not_found',
+        message: `Provider not found: ${request.providerId}`,
+        retryable: false,
+      })
+    }
+
+    const existing = registry.models.find(
+      (model) => model.providerId === request.providerId && model.id === request.model.id
+    )
+    const nextModel = recordToRegistryModel(
+      {
+        id: request.model.id,
+        providerId: request.providerId,
+        name: request.model.name,
+        remoteId: request.model.remoteId,
+        enabled: request.model.enabled !== false,
+        manual: request.model.manual,
+        input: request.model.input,
+        supportsStreaming: request.model.supportsStreaming,
+        supportsTools: request.model.supportsTools,
+        supportsReasoning: request.model.supportsReasoning,
+        contextWindow: request.model.contextWindow,
+        maxOutputTokens: request.model.maxOutputTokens,
+        compat: request.model.compat,
+        createdAt: request.model.createdAt,
+        updatedAt: Date.now(),
+      },
+      request.providerId,
+      existing
+    )
+    nextModel.capabilities = request.model.capabilities ?? existing?.capabilities ?? {}
+    const next = cleanupRegistryReferences({
+      ...registry,
+      models: existing
+        ? registry.models.map((model) =>
+            model.providerId === request.providerId && model.id === request.model.id
+              ? nextModel
+              : model
+          )
+        : [...registry.models, nextModel],
+    })
+    const saved = this.saveRegistry(next)
+    return this.registryResult(saved, {
+      ok: true,
+      model: sanitizeRegistry(saved).models.find(
+        (model) => model.providerId === request.providerId && model.id === request.model.id
+      ),
+    })
+  }
+
+  async setDefaultModel(
+    selection: Partial<ProviderModelRef> | undefined
+  ): Promise<ProviderRegistryMutationResult> {
+    const registry = this.requireRegistryStore().get()
+    const nextSettings = { ...registry.settings }
+    if (!selection?.providerId || !selection.modelId) {
+      delete nextSettings.defaultProviderId
+      delete nextSettings.defaultModelId
+      return this.registryResult(this.saveRegistry({ ...registry, settings: nextSettings }), {
+        ok: true,
+      })
+    }
+
+    const selectedRef: ProviderModelRef = {
+      providerId: selection.providerId,
+      modelId: selection.modelId,
+    }
+    const model = findEnabledRegistryModel(registry, selectedRef.providerId, selectedRef.modelId)
+    if (!model) {
+      throw new ProviderSelectionError({
+        code: 'validation',
+        message: `Default model is not enabled or does not exist: ${selectedRef.providerId}/${selectedRef.modelId}.`,
+        retryable: false,
+      })
+    }
+    nextSettings.defaultProviderId = selectedRef.providerId
+    nextSettings.defaultModelId = selectedRef.modelId
+    nextSettings.fallbackModelRefs = nextSettings.fallbackModelRefs.filter(
+      (ref) => !sameModelRef(ref, selectedRef)
+    )
+    return this.registryResult(this.saveRegistry({ ...registry, settings: nextSettings }), {
+      ok: true,
+    })
+  }
+
+  async setFallbackModels(
+    request: ProviderModelRef[] | { models: ProviderModelRef[] }
+  ): Promise<ProviderRegistryMutationResult> {
+    const models = Array.isArray(request) ? request : request.models
+    const registry = this.requireRegistryStore().get()
+    const defaultRef = registry.settings.defaultProviderId
+      ? {
+          providerId: registry.settings.defaultProviderId,
+          modelId: registry.settings.defaultModelId ?? '',
+        }
+      : undefined
+    const normalized: ProviderModelRef[] = []
+    for (const ref of models) {
+      if (defaultRef && sameModelRef(ref, defaultRef)) {
+        continue
+      }
+      if (!findEnabledRegistryModel(registry, ref.providerId, ref.modelId)) {
+        throw new ProviderSelectionError({
+          code: 'validation',
+          message: `Fallback model is not enabled or does not exist: ${ref.providerId}/${ref.modelId}.`,
+          retryable: false,
+        })
+      }
+      if (!normalized.some((item) => sameModelRef(item, ref))) {
+        normalized.push({ ...ref })
+      }
+    }
+    return this.registryResult(
+      this.saveRegistry({
+        ...registry,
+        settings: {
+          ...registry.settings,
+          fallbackModelRefs: normalized,
+        },
+      }),
+      { ok: true }
+    )
   }
 
   async test(
@@ -424,7 +693,30 @@ export class ProviderManager {
   }
 
   async delete(providerId: string): Promise<void> {
-    const config = this.configStore.get()
+    if (this.registryStore) {
+      const registry = this.registryStore.get()
+      const exists = registry.sources.some((source) => source.id === providerId)
+      if (!exists) {
+        return
+      }
+      const removedModelIds = registry.models
+        .filter((model) => model.providerId === providerId)
+        .map((model) => model.id)
+      const nextRegistry = cleanupRegistryReferences({
+        ...registry,
+        sources: registry.sources.filter((source) => source.id !== providerId),
+        models: registry.models.filter((model) => model.providerId !== providerId),
+      })
+      this.saveRegistry(nextRegistry)
+      await this.sessions?.clearProviderOverrides?.({ providerId, modelIds: removedModelIds })
+      this.logger?.info('Provider deleted.', {
+        providerId,
+        removedModelCount: removedModelIds.length,
+      })
+      return
+    }
+
+    const config = this.requireConfigStore().get()
     config.providers.sources = config.providers.sources.filter((source) => source.id !== providerId)
     config.providers.models = config.providers.models.filter(
       (model) => model.providerSourceId !== providerId
@@ -443,6 +735,74 @@ export class ProviderManager {
     )
     this.saveConfig(config)
     this.logger?.info('Provider deleted.', { providerId })
+  }
+
+  async deleteWithSelection(providerId: string): Promise<ProviderDeleteResult> {
+    if (!this.registryStore) {
+      await this.delete(providerId)
+      const next = await this.resolveDefaultProvider().catch(() => undefined)
+      return {
+        deleted: true,
+        nextSelection: next ? { providerId: next.provider.id, modelId: next.modelId } : undefined,
+      }
+    }
+
+    const before = this.registryStore.get()
+    const deleted = before.sources.some((source) => source.id === providerId)
+    await this.delete(providerId)
+    const after = this.registryStore.get()
+    return {
+      deleted,
+      nextSelection: findFirstEnabledSelection(after),
+    }
+  }
+
+  async deleteSource(
+    request: { providerId: string } | string
+  ): Promise<ProviderRegistryMutationResult> {
+    const providerId = typeof request === 'string' ? request : request.providerId
+    const before = this.requireRegistryStore().get()
+    const deleted = before.sources.some((source) => source.id === providerId)
+    const removedModelIds = before.models
+      .filter((model) => model.providerId === providerId)
+      .map((model) => model.id)
+    if (!deleted) {
+      return this.registryResult(before, {
+        ok: true,
+        nextSelection: findFirstEnabledSelection(before),
+      })
+    }
+
+    const next = cleanupRegistryReferences({
+      ...before,
+      sources: before.sources.filter((source) => source.id !== providerId),
+      models: before.models.filter((model) => model.providerId !== providerId),
+    })
+    const saved = this.saveRegistry(next)
+    await this.sessions?.clearProviderOverrides?.({ providerId, modelIds: removedModelIds })
+    return this.registryResult(saved, {
+      ok: true,
+      nextSelection: findFirstEnabledSelection(saved),
+    })
+  }
+
+  async deleteModel(request: DeleteProviderModelRequest): Promise<ProviderRegistryMutationResult> {
+    const registry = this.requireRegistryStore().get()
+    const next = cleanupRegistryReferences({
+      ...registry,
+      models: registry.models.filter(
+        (model) => !(model.providerId === request.providerId && model.id === request.modelId)
+      ),
+    })
+    const saved = this.saveRegistry(next)
+    await this.sessions?.clearProviderOverrides?.({
+      providerId: request.providerId,
+      modelIds: [request.modelId],
+    })
+    return this.registryResult(saved, {
+      ok: true,
+      nextSelection: findFirstEnabledSelection(saved),
+    })
   }
 
   async createProviderClient(providerId: string): Promise<BaseProvider> {
@@ -484,7 +844,11 @@ export class ProviderManager {
   }
 
   private async listRecords(): Promise<ProviderRecord[]> {
-    return configToProviderRecords(this.configStore.get())
+    if (this.registryStore) {
+      return registryToProviderRecords(this.registryStore.get())
+    }
+
+    return configToProviderRecords(this.requireConfigStore().get())
   }
 
   private async getRecord(providerId: string): Promise<ProviderRecord | undefined> {
@@ -492,7 +856,13 @@ export class ProviderManager {
       return undefined
     }
 
-    return configToProviderRecords(this.configStore.get()).find(
+    if (this.registryStore) {
+      return registryToProviderRecords(this.registryStore.get()).find(
+        (provider) => provider.id === providerId
+      )
+    }
+
+    return configToProviderRecords(this.requireConfigStore().get()).find(
       (provider) => provider.id === providerId
     )
   }
@@ -507,6 +877,21 @@ export class ProviderManager {
   }
 
   private async defaultModelId(providerId: string): Promise<string | undefined> {
+    if (this.registryStore) {
+      const registry = this.registryStore.get()
+      if (
+        registry.settings.defaultProviderId === providerId &&
+        registry.settings.defaultModelId &&
+        findEnabledRegistryModel(registry, providerId, registry.settings.defaultModelId)
+      ) {
+        return registry.settings.defaultModelId
+      }
+
+      return registry.models.find(
+        (model) => model.providerId === providerId && model.enabled !== false
+      )?.id
+    }
+
     const provider = await this.requireRecord(providerId)
     return (
       provider.defaultModelId ??
@@ -515,7 +900,20 @@ export class ProviderManager {
   }
 
   private replaceProviderModels(providerId: string, models: ProviderModelRecord[]): void {
-    const config = this.configStore.get()
+    if (this.registryStore) {
+      const registry = this.registryStore.get()
+      const nextRegistry = cleanupRegistryReferences({
+        ...registry,
+        models: [
+          ...registry.models.filter((model) => model.providerId !== providerId),
+          ...models.map((model) => recordToRegistryModel(model, providerId)),
+        ],
+      })
+      this.saveRegistry(nextRegistry)
+      return
+    }
+
+    const config = this.requireConfigStore().get()
     config.providers.models = config.providers.models.filter(
       (model) => model.providerSourceId !== providerId
     )
@@ -539,9 +937,109 @@ export class ProviderManager {
   }
 
   private saveConfig(config: DesktopSettingsConfig): DesktopSettingsConfig {
-    const saved = this.configStore.save(config)
+    const saved = this.requireConfigStore().save(config)
     this.onConfigSaved?.(saved)
     return saved
+  }
+
+  private saveRegistry(registry: ProviderRegistry): ProviderRegistry {
+    if (!this.registryStore) {
+      throw new Error('Provider registry store is not configured.')
+    }
+    const saved = this.registryStore.save(cleanupRegistryReferences(registry))
+    this.onRegistryChanged?.(saved)
+    return saved
+  }
+
+  private registryResult(
+    registry: ProviderRegistry,
+    extra: Omit<ProviderRegistryMutationResult, 'registry' | 'status'> = {}
+  ): ProviderRegistryMutationResult {
+    return {
+      registry: sanitizeRegistry(registry),
+      status: this.requireRegistryStore().status(),
+      ...extra,
+    }
+  }
+
+  private requireRegistryStore(): ProviderRegistryStore {
+    if (!this.registryStore) {
+      throw new Error('Provider registry store is not configured.')
+    }
+    return this.registryStore
+  }
+
+  private requireConfigStore(): ConfigStore {
+    if (!this.configStore) {
+      throw new Error('Provider config store is not configured.')
+    }
+    return this.configStore
+  }
+
+  private resolveRegistrySelection(selection: { providerId?: string; modelId?: string }): {
+    provider: ProviderRecord
+    modelId: string
+    fallbackReason?: string
+  } {
+    if (!this.registryStore) {
+      throw new Error('Provider registry store is not configured.')
+    }
+
+    const registry = this.registryStore.get()
+    if (selection.providerId) {
+      const explicit = resolveRegistrySelection(registry, selection.providerId, selection.modelId)
+      if (explicit) {
+        return explicit
+      }
+      throw new ProviderSelectionError({
+        code: 'not_found',
+        message: selection.modelId
+          ? `Provider model is not enabled or does not exist: ${selection.providerId}/${selection.modelId}.`
+          : `Provider is not enabled or does not exist: ${selection.providerId}.`,
+        retryable: false,
+      })
+    }
+
+    const defaultProviderId = registry.settings.defaultProviderId
+    const defaultModelId = registry.settings.defaultModelId
+    if (defaultProviderId && defaultModelId) {
+      const explicit = resolveRegistrySelection(registry, defaultProviderId, defaultModelId)
+      if (explicit) {
+        return explicit
+      }
+    }
+
+    const fallback = findFirstEnabledSelection(registry)
+    if (!fallback) {
+      throw new ProviderSelectionError({
+        code: 'not_found',
+        message: 'No enabled provider model is configured.',
+        retryable: false,
+      })
+    }
+
+    const resolved = resolveRegistrySelection(registry, fallback.providerId, fallback.modelId)
+    if (!resolved) {
+      throw new ProviderSelectionError({
+        code: 'validation',
+        message: 'No enabled provider model is available.',
+        retryable: false,
+      })
+    }
+    return {
+      ...resolved,
+      fallbackReason: 'first_enabled_provider_model',
+    }
+  }
+}
+
+export class ProviderSelectionError extends Error {
+  readonly chatError: ChatError
+
+  constructor(chatError: ChatError) {
+    super(chatError.message)
+    this.name = 'ProviderSelectionError'
+    this.chatError = chatError
   }
 }
 
@@ -594,6 +1092,229 @@ export function configToProviderRecords(config: DesktopSettingsConfig): Provider
   }))
 }
 
+function registryToProviderRecords(registry: ProviderRegistry): ProviderRecord[] {
+  return registry.sources.map((source) => {
+    const defaultModelId =
+      registry.settings.defaultProviderId === source.id
+        ? registry.settings.defaultModelId
+        : undefined
+
+    return {
+      id: source.id,
+      name: source.name,
+      type: source.type,
+      api: source.api,
+      baseUrl: source.baseUrl,
+      enabled: source.enabled,
+      credentialRef: source.credentialRef,
+      authHeader: source.authHeader,
+      envVar: source.envVar,
+      apiKey: source.apiKey,
+      headers: source.headers,
+      extraBody: source.extraBody,
+      defaultModelId,
+      capabilities: source.capabilities,
+      compat: source.compat,
+      models: registry.models
+        .filter((model) => model.providerId === source.id)
+        .map(registryModelToRecord),
+      createdAt: source.createdAt,
+      updatedAt: source.updatedAt,
+    }
+  })
+}
+
+function registryModelToRecord(model: ProviderRegistryModel): ProviderModelRecord {
+  return {
+    id: model.id,
+    providerId: model.providerId,
+    name: model.name,
+    remoteId: model.remoteId ?? model.id,
+    enabled: model.enabled !== false,
+    manual: model.manual,
+    input: model.input,
+    supportsStreaming: model.supportsStreaming,
+    supportsTools: model.supportsTools,
+    supportsReasoning: model.supportsReasoning,
+    contextWindow: model.contextWindow,
+    maxOutputTokens: model.maxOutputTokens,
+    compat: model.compat,
+    createdAt: model.createdAt,
+    updatedAt: model.updatedAt,
+  }
+}
+
+function recordToRegistryModel(
+  model: ProviderModelRecord,
+  providerId: string,
+  existing?: ProviderRegistryModel
+): ProviderRegistryModel {
+  const now = Date.now()
+  return {
+    id: model.id,
+    providerId,
+    name: model.name,
+    remoteId: model.remoteId ?? model.id,
+    enabled: model.enabled !== false,
+    manual: model.manual ?? existing?.manual,
+    input: model.input ?? existing?.input ?? ['text'],
+    supportsStreaming: model.supportsStreaming ?? existing?.supportsStreaming ?? true,
+    supportsTools: model.supportsTools ?? existing?.supportsTools ?? false,
+    supportsReasoning: model.supportsReasoning ?? existing?.supportsReasoning ?? false,
+    contextWindow: model.contextWindow ?? existing?.contextWindow,
+    maxOutputTokens: model.maxOutputTokens ?? existing?.maxOutputTokens,
+    capabilities: existing?.capabilities ?? {},
+    compat: model.compat ?? existing?.compat,
+    createdAt: model.createdAt ?? existing?.createdAt ?? now,
+    updatedAt: model.updatedAt ?? now,
+  }
+}
+
+function upsertProviderInRegistry(
+  registry: ProviderRegistry,
+  provider: ProviderRecord
+): ProviderRegistry {
+  const now = Date.now()
+  const existingSource = registry.sources.find((source) => source.id === provider.id)
+  const source: ProviderRegistrySource = {
+    id: provider.id,
+    name: provider.name,
+    type: provider.type ?? legacyTypeFromApi(provider.api),
+    api: provider.api ?? apiFromLegacyType(provider.type),
+    baseUrl: provider.baseUrl,
+    enabled: provider.enabled,
+    credentialRef: provider.credentialRef,
+    authHeader: provider.authHeader,
+    apiKey: provider.apiKey ?? existingSource?.apiKey,
+    envVar: provider.envVar ?? existingSource?.envVar,
+    headers: provider.headers ?? existingSource?.headers ?? {},
+    extraBody: provider.extraBody ?? existingSource?.extraBody ?? {},
+    capabilities: provider.capabilities ?? existingSource?.capabilities ?? {},
+    compat: provider.compat ?? existingSource?.compat,
+    createdAt: provider.createdAt ?? existingSource?.createdAt ?? now,
+    updatedAt: provider.updatedAt ?? now,
+  }
+  const sources = registry.sources.some((item) => item.id === provider.id)
+    ? registry.sources.map((item) => (item.id === provider.id ? source : item))
+    : [...registry.sources, source]
+  const existingModelsById = new Map(
+    registry.models
+      .filter((model) => model.providerId === provider.id)
+      .map((model) => [model.id, model])
+  )
+  const nextModelsForProvider = (provider.models ?? []).map((model) =>
+    recordToRegistryModel(model, provider.id, existingModelsById.get(model.id))
+  )
+
+  return cleanupRegistryReferences({
+    ...registry,
+    sources,
+    models: [
+      ...registry.models.filter((model) => model.providerId !== provider.id),
+      ...nextModelsForProvider,
+    ],
+  })
+}
+
+function cleanupRegistryReferences(registry: ProviderRegistry): ProviderRegistry {
+  const enabledModelRefs = new Set(
+    registry.models
+      .filter((model) => {
+        const source = registry.sources.find((item) => item.id === model.providerId)
+        return source?.enabled !== false && model.enabled !== false
+      })
+      .map((model) => modelRefKey({ providerId: model.providerId, modelId: model.id }))
+  )
+  const defaultRef =
+    registry.settings.defaultProviderId && registry.settings.defaultModelId
+      ? {
+          providerId: registry.settings.defaultProviderId,
+          modelId: registry.settings.defaultModelId,
+        }
+      : undefined
+  const defaultIsValid = defaultRef && enabledModelRefs.has(modelRefKey(defaultRef))
+  const nextSettings = {
+    ...registry.settings,
+    defaultProviderId: defaultIsValid ? defaultRef.providerId : undefined,
+    defaultModelId: defaultIsValid ? defaultRef.modelId : undefined,
+    fallbackModelRefs: registry.settings.fallbackModelRefs.filter((ref, index, refs) => {
+      if (!enabledModelRefs.has(modelRefKey(ref))) {
+        return false
+      }
+      if (defaultIsValid && defaultRef && sameModelRef(ref, defaultRef)) {
+        return false
+      }
+      return refs.findIndex((item) => sameModelRef(item, ref)) === index
+    }),
+  }
+
+  return {
+    ...registry,
+    sources: registry.sources.map((source) => ({ ...source })),
+    models: registry.models.map((model) => ({ ...model })),
+    settings: nextSettings,
+  }
+}
+
+function resolveRegistrySelection(
+  registry: ProviderRegistry,
+  providerId: string,
+  modelId?: string
+): { provider: ProviderRecord; modelId: string } | undefined {
+  const provider = registryToProviderRecords(registry).find(
+    (item) => item.id === providerId && item.enabled !== false
+  )
+  if (!provider) {
+    return undefined
+  }
+
+  const model =
+    provider.models?.find((item) => item.id === modelId && item.enabled !== false) ??
+    (modelId ? undefined : provider.models?.find((item) => item.enabled !== false))
+  if (!model) {
+    return undefined
+  }
+
+  return { provider, modelId: model.id }
+}
+
+function findEnabledRegistryModel(
+  registry: ProviderRegistry,
+  providerId: string,
+  modelId: string
+): ProviderRegistryModel | undefined {
+  const source = registry.sources.find((item) => item.id === providerId && item.enabled !== false)
+  if (!source) {
+    return undefined
+  }
+  return registry.models.find(
+    (model) => model.providerId === providerId && model.id === modelId && model.enabled !== false
+  )
+}
+
+function findFirstEnabledSelection(registry: ProviderRegistry): ProviderModelRef | undefined {
+  for (const source of registry.sources) {
+    if (source.enabled === false) {
+      continue
+    }
+    const model = registry.models.find(
+      (item) => item.providerId === source.id && item.enabled !== false
+    )
+    if (model) {
+      return { providerId: source.id, modelId: model.id }
+    }
+  }
+  return undefined
+}
+
+function sameModelRef(left: ProviderModelRef, right: ProviderModelRef): boolean {
+  return left.providerId === right.providerId && left.modelId === right.modelId
+}
+
+function modelRefKey(ref: ProviderModelRef): string {
+  return `${ref.providerId}\u0000${ref.modelId}`
+}
+
 function providerToCredentials(provider: ProviderRecord): ProviderCredentialRecord[] {
   if (!provider.apiKey && !provider.envVar) {
     return []
@@ -629,6 +1350,21 @@ function sanitizeProvider(provider: ProviderRecord, models: ProviderModelRecord[
     createdAt: provider.createdAt,
     updatedAt: provider.updatedAt,
     models: models.map(toLegacyModel),
+  }
+}
+
+function sanitizeRegistry(registry: ProviderRegistry): ProviderRegistry {
+  return {
+    ...registry,
+    sources: registry.sources.map((source) => {
+      const { apiKey: _apiKey, envVar: _envVar, ...safeSource } = source
+      return { ...safeSource }
+    }),
+    models: registry.models.map((model) => ({ ...model })),
+    settings: {
+      ...registry.settings,
+      fallbackModelRefs: registry.settings.fallbackModelRefs.map((ref) => ({ ...ref })),
+    },
   }
 }
 

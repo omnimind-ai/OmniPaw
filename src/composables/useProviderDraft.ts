@@ -7,7 +7,7 @@ import type {
   SaveProviderRequest,
 } from '@shared/types/provider'
 import { nextTick, type Ref, ref } from 'vue'
-import type { BridgeProviderConfig, BridgeProviderModel } from '@/bridge/app'
+import type { BridgeProviderConfig, BridgeProviderModel, BridgeProviderPreset } from '@/bridge/app'
 import type {
   CredentialMode,
   ModelInput,
@@ -47,6 +47,18 @@ export function useProviderDraft(options: {
 
   function startNewProviderDraft() {
     const draft = createEmptyProviderDraft()
+    loadingDraft.value = true
+    providerDraft.value = draft
+    options.originalProviderId.value = ''
+    resetCredentialDraft()
+    void nextTick(() => {
+      loadingDraft.value = false
+    })
+    return draft
+  }
+
+  function startProviderDraftFromPreset(preset: BridgeProviderPreset) {
+    const draft = draftFromPreset(preset)
     loadingDraft.value = true
     providerDraft.value = draft
     options.originalProviderId.value = ''
@@ -223,8 +235,6 @@ export function useProviderDraft(options: {
     for (const model of providerDraft.value.models) {
       if (!model.id.trim()) return '模型 ID 不能为空。'
       if (modelIds.has(model.id.trim())) return `模型 ID 重复：${model.id.trim()}`
-      if (modelIdBelongsToOtherProvider(model.id.trim()))
-        return `模型 ID 已被其他 Provider 使用：${model.id.trim()}`
       modelIds.add(model.id.trim())
     }
 
@@ -233,14 +243,6 @@ export function useProviderDraft(options: {
     }
 
     return ''
-  }
-
-  function modelIdBelongsToOtherProvider(modelId: string) {
-    return options.rawProviders.value.some(
-      (provider) =>
-        provider.id !== options.originalProviderId.value &&
-        provider.models?.some((model) => model.id === modelId)
-    )
   }
 
   return {
@@ -256,6 +258,7 @@ export function useProviderDraft(options: {
     replaceModels,
     setOptionalNumber,
     startNewProviderDraft,
+    startProviderDraftFromPreset,
     updateModelInput,
     updateProviderType,
   }
@@ -313,6 +316,29 @@ function draftFromProvider(provider: BridgeProviderConfig): ProviderDraft {
     models,
     createdAt: typeof provider.createdAt === 'number' ? provider.createdAt : undefined,
     updatedAt: typeof provider.updatedAt === 'number' ? provider.updatedAt : undefined,
+  }
+}
+
+function draftFromPreset(preset: BridgeProviderPreset): ProviderDraft {
+  const draft = createEmptyProviderDraft()
+  const presetType = providerType(preset.type || preset.api)
+  const presetModels = (preset.models?.length ? preset.models : []).map(draftFromModel)
+
+  return {
+    ...draft,
+    id: uniqueId(preset.id || 'provider'),
+    name: preset.name || draft.name,
+    type: presetType,
+    api: preset.api || apiFromType(presetType),
+    baseUrl: preset.baseUrl || draft.baseUrl,
+    enabled: preset.enabled !== false,
+    authHeader: preset.authHeader || draft.authHeader,
+    headersText: formatJson(preset.headers || {}),
+    extraBodyText: formatJson(preset.extraBody || {}),
+    defaultModelId: preset.defaultModelId || presetModels[0]?.id || '',
+    capabilities: normalizeCapabilities(preset.capabilities),
+    compat: normalizeCompat(preset.compat),
+    models: presetModels,
   }
 }
 

@@ -44,11 +44,16 @@ import type {
 import type {
   CreateProviderFromPresetRequest,
   DeleteProviderRequest,
+  ProviderApi,
+  ProviderCapabilities,
+  ProviderCompat,
   ProviderConfig,
+  ProviderCredential,
   ProviderModel,
   ProviderOperationResult,
   ProviderPreset,
   ProviderTestResult,
+  ProviderType,
   RefreshProviderModelsRequest,
   SaveProviderRequest,
   SetSessionModelRequest,
@@ -71,6 +76,143 @@ import type {
 import type { ManagedToolInfo, SetToolEnabledRequest, SetToolEnabledResponse } from './tool'
 
 export type Unsubscribe = () => void
+
+export interface ProviderModelRef {
+  providerId: string
+  modelId: string
+}
+
+export interface ProviderRegistrySource {
+  id: string
+  name: string
+  type?: ProviderType
+  api?: ProviderApi
+  baseUrl: string
+  enabled: boolean
+  credentialRef?: string
+  authHeader?: string
+  headers?: Record<string, string>
+  extraBody?: Record<string, unknown>
+  defaultModelId?: string
+  capabilities?: ProviderCapabilities
+  compat?: ProviderCompat
+  createdAt?: number
+  updatedAt?: number
+}
+
+export interface ProviderRegistryModel extends ProviderModel {
+  providerId: string
+  providerSourceId?: string
+  manual?: boolean
+  createdAt?: number
+  updatedAt?: number
+}
+
+export interface ProviderRegistrySettings {
+  defaultProviderId?: string
+  defaultModelId?: string
+  fallbackModelRefs: ProviderModelRef[]
+  streaming: boolean
+}
+
+export interface ProviderRegistryConfig {
+  version: 1
+  sources: ProviderRegistrySource[]
+  models: ProviderRegistryModel[]
+  settings: ProviderRegistrySettings
+}
+
+export interface ProviderRegistryOperationError {
+  code: string
+  message: string
+  path?: string
+  recoverable: boolean
+  issues?: Array<{ path: string; message: string; code?: string }>
+}
+
+export interface ProviderRegistryStatus {
+  path: string
+  backupPath: string
+  exists: boolean
+  backupExists: boolean
+  loaded: boolean
+  version?: 1
+  recoverable: boolean
+  error?: ProviderRegistryOperationError
+}
+
+export type ProviderRegistryChangeReason =
+  | 'load'
+  | 'save'
+  | 'delete'
+  | 'refresh'
+  | 'default'
+  | 'fallback'
+
+export interface ProviderSelectionRef {
+  providerId?: string
+  modelId?: string
+}
+
+export interface ProviderRegistryLoadResponse {
+  registry: ProviderRegistryConfig
+  status: ProviderRegistryStatus
+}
+
+export interface ProviderRegistryMutationResult extends ProviderRegistryLoadResponse {
+  ok?: boolean
+  source?: ProviderRegistrySource
+  model?: ProviderRegistryModel
+  models?: ProviderRegistryModel[]
+  nextSelection?: ProviderSelectionRef
+}
+
+export interface ProviderRegistryChangedEvent extends ProviderRegistryLoadResponse {
+  reason: ProviderRegistryChangeReason
+  nextSelection?: ProviderSelectionRef
+}
+
+export interface UpsertProviderSourceRequest {
+  source: ProviderRegistrySource
+  credential?: {
+    type: ProviderCredential['type']
+    label: string
+    value?: string
+    envVar?: string
+  }
+}
+
+export interface UpsertProviderModelRequest {
+  providerId: string
+  model: ProviderRegistryModel
+}
+
+export interface DeleteProviderSourceRequest {
+  providerId: string
+}
+
+export interface DeleteProviderModelRequest {
+  providerId: string
+  modelId: string
+}
+
+export interface SetDefaultProviderModelRequest {
+  providerId?: string
+  modelId?: string
+}
+
+export interface SetFallbackProviderModelsRequest {
+  models: ProviderModelRef[]
+}
+
+export interface RefreshProviderRegistryModelsRequest {
+  providerId: string
+}
+
+export interface TestProviderRegistryRequest extends Omit<TestProviderRequest, 'provider'> {
+  source?: ProviderRegistrySource
+  model?: ProviderRegistryModel
+}
 
 export interface OpenOmniClawBridge {
   app: {
@@ -146,17 +288,32 @@ export interface OpenOmniClawBridge {
     ) => Promise<AttachmentPreviewResponse | string>
   }
   provider: {
+    load: () => Promise<ProviderRegistryLoadResponse>
+    status: () => Promise<ProviderRegistryStatus>
     list: () => Promise<ProviderConfig[]>
     listPresets: () => Promise<ProviderPreset[]>
     createFromPreset: (request: CreateProviderFromPresetRequest | string) => Promise<ProviderConfig>
+    upsertSource: (request: UpsertProviderSourceRequest) => Promise<ProviderRegistryMutationResult>
+    upsertModel: (request: UpsertProviderModelRequest) => Promise<ProviderRegistryMutationResult>
     upsert: (request: SaveProviderRequest) => Promise<ProviderConfig>
+    deleteSource: (
+      request: DeleteProviderSourceRequest | string
+    ) => Promise<ProviderRegistryMutationResult>
+    deleteModel: (request: DeleteProviderModelRequest) => Promise<ProviderRegistryMutationResult>
     delete: (request: DeleteProviderRequest | string) => Promise<ProviderOperationResult>
+    setDefaultModel: (
+      request: SetDefaultProviderModelRequest
+    ) => Promise<ProviderRegistryMutationResult>
+    setFallbackModels: (
+      request: SetFallbackProviderModelsRequest
+    ) => Promise<ProviderRegistryMutationResult>
     test: (
       ...args: [request: TestProviderRequest] | [providerId: string, modelId?: string]
     ) => Promise<ProviderTestResult>
     listModels: (providerId: string) => Promise<ProviderModel[]>
     refreshModels: (request: RefreshProviderModelsRequest | string) => Promise<ProviderModel[]>
     setSessionModel: (request: SetSessionModelRequest) => Promise<ChatSession>
+    onChanged: (callback: (event: ProviderRegistryChangedEvent) => void) => Unsubscribe
   }
   skill: {
     list: () => Promise<SkillListResponse>

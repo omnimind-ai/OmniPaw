@@ -308,6 +308,113 @@ export interface BridgeProviderPreset {
   compat?: Record<string, unknown>
 }
 
+export interface BridgeProviderRegistrySource extends Omit<BridgeProviderConfig, 'models'> {
+  defaultModelId?: string
+}
+
+export interface BridgeProviderRegistryModel extends BridgeProviderModel {
+  providerId: string
+  providerSourceId?: string
+  manual?: boolean
+}
+
+export interface BridgeProviderRegistrySettings {
+  defaultProviderId?: string
+  defaultModelId?: string
+  fallbackModelRefs: Array<{ providerId: string; modelId: string }>
+  streaming: boolean
+}
+
+export interface BridgeProviderRegistryConfig {
+  version: 1
+  sources: BridgeProviderRegistrySource[]
+  models: BridgeProviderRegistryModel[]
+  settings: BridgeProviderRegistrySettings
+}
+
+export interface BridgeProviderRegistryOperationError {
+  code: string
+  message: string
+  path?: string
+  recoverable: boolean
+  issues?: Array<{ path: string; message: string; code?: string }>
+}
+
+export interface BridgeProviderRegistryStatus {
+  path: string
+  backupPath: string
+  exists: boolean
+  backupExists: boolean
+  loaded: boolean
+  version?: 1
+  recoverable: boolean
+  error?: BridgeProviderRegistryOperationError
+}
+
+export type BridgeProviderRegistryChangeReason =
+  | 'load'
+  | 'save'
+  | 'delete'
+  | 'refresh'
+  | 'default'
+  | 'fallback'
+
+export interface BridgeProviderRegistrySelection {
+  providerId?: string
+  modelId?: string
+}
+
+export interface BridgeProviderRegistryLoadResponse {
+  registry: BridgeProviderRegistryConfig
+  status: BridgeProviderRegistryStatus
+}
+
+export interface BridgeProviderRegistryMutationResult extends BridgeProviderRegistryLoadResponse {
+  ok?: boolean
+  source?: BridgeProviderRegistrySource
+  model?: BridgeProviderRegistryModel
+  models?: BridgeProviderRegistryModel[]
+  nextSelection?: BridgeProviderRegistrySelection
+}
+
+export interface BridgeProviderRegistryChangedEvent extends BridgeProviderRegistryLoadResponse {
+  reason: BridgeProviderRegistryChangeReason
+  nextSelection?: BridgeProviderRegistrySelection
+}
+
+export interface BridgeUpsertProviderSourceRequest {
+  source: BridgeProviderRegistrySource
+  credential?: {
+    type: 'api-key' | 'bearer-token' | 'env'
+    label: string
+    value?: string
+    envVar?: string
+  }
+}
+
+export interface BridgeUpsertProviderModelRequest {
+  providerId: string
+  model: BridgeProviderRegistryModel
+}
+
+export interface BridgeDeleteProviderSourceRequest {
+  providerId: string
+}
+
+export interface BridgeDeleteProviderModelRequest {
+  providerId: string
+  modelId: string
+}
+
+export interface BridgeSetDefaultProviderModelRequest {
+  providerId?: string
+  modelId?: string
+}
+
+export interface BridgeSetFallbackProviderModelsRequest {
+  models: Array<{ providerId: string; modelId: string }>
+}
+
 export interface BridgeManagedToolInfo {
   name: string
   providerName?: string
@@ -568,13 +675,33 @@ export interface RendererOpenOmniClawBridge {
     getPreviewUrl: (attachmentId: string) => Promise<string | { url: string; mimeType?: string }>
   }
   provider: {
+    load: () => Promise<BridgeProviderRegistryLoadResponse>
+    status: () => Promise<BridgeProviderRegistryStatus>
     list: () => Promise<BridgeProviderConfig[]>
     listPresets?: () => Promise<BridgeProviderPreset[]>
     createFromPreset?: (request: string | { presetId: string }) => Promise<BridgeProviderConfig>
+    upsertSource?: (
+      request: BridgeUpsertProviderSourceRequest
+    ) => Promise<BridgeProviderRegistryMutationResult>
+    upsertModel?: (
+      request: BridgeUpsertProviderModelRequest
+    ) => Promise<BridgeProviderRegistryMutationResult>
     upsert?: (request: unknown) => Promise<BridgeProviderConfig>
+    deleteSource?: (
+      request: string | BridgeDeleteProviderSourceRequest
+    ) => Promise<BridgeProviderRegistryMutationResult>
+    deleteModel?: (
+      request: BridgeDeleteProviderModelRequest
+    ) => Promise<BridgeProviderRegistryMutationResult>
     delete?: (
       request: string | { providerId: string }
     ) => Promise<{ ok?: boolean; error?: unknown }>
+    setDefaultModel?: (
+      request: BridgeSetDefaultProviderModelRequest
+    ) => Promise<BridgeProviderRegistryMutationResult>
+    setFallbackModels?: (
+      request: BridgeSetFallbackProviderModelsRequest
+    ) => Promise<BridgeProviderRegistryMutationResult>
     listModels?: (providerId: string) => Promise<BridgeProviderModel[]>
     refreshModels?: (providerId: string) => Promise<BridgeProviderModel[]>
     test?: (providerId: string, modelId?: string) => Promise<{ ok: boolean; error?: unknown }>
@@ -583,6 +710,7 @@ export interface RendererOpenOmniClawBridge {
       providerId: string
       modelId: string
     }) => Promise<BridgeChatSession>
+    onChanged: (callback: (event: BridgeProviderRegistryChangedEvent) => void) => BridgeUnsubscribe
   }
   skill: {
     list: () => Promise<BridgeSkillListResponse>
@@ -623,7 +751,7 @@ export interface RendererOpenOmniClawBridge {
 export type BridgeRuntime = 'electron' | 'fallback'
 
 export const fallbackBridgePersistenceMessage =
-  '当前未连接 Electron 主进程，Provider 配置不会写入数据库。请在 Electron 窗口中操作。'
+  '当前未连接 Electron 主进程，本地配置不会写入磁盘。请在 Electron 窗口中操作。'
 
 function rejectFallbackPersistence<T>(operation: string): Promise<T> {
   return Promise.reject(new Error(`${fallbackBridgePersistenceMessage} (${operation})`))
@@ -643,6 +771,44 @@ function fallbackCatStatus(extra: Partial<CatStatus> = {}): CatStatus {
     panelSide: fallbackCatPanelSide,
     ...extra,
   }
+}
+
+function emptyProviderRegistryStatus(): BridgeProviderRegistryStatus {
+  return {
+    path: '',
+    backupPath: '',
+    exists: false,
+    backupExists: false,
+    loaded: true,
+    version: 1,
+    recoverable: false,
+  }
+}
+
+function emptyProviderRegistry(): BridgeProviderRegistryConfig {
+  return {
+    version: 1,
+    sources: [],
+    models: [],
+    settings: {
+      defaultModelId: '',
+      fallbackModelRefs: [],
+      streaming: true,
+    },
+  }
+}
+
+function stripProviderRegistryFromSettingsRequest(
+  request: { config: BridgeDesktopSettingsConfig } | BridgeDesktopSettingsConfig
+): { config: BridgeDesktopSettingsConfig } | BridgeDesktopSettingsConfig {
+  const config = 'config' in request ? request.config : request
+  const { providers: _providers, ...rest } = config as BridgeDesktopSettingsConfig & {
+    providers?: unknown
+  }
+
+  return 'config' in request
+    ? ({ config: rest as BridgeDesktopSettingsConfig } as { config: BridgeDesktopSettingsConfig })
+    : (rest as BridgeDesktopSettingsConfig)
 }
 
 const fallbackBridge: RendererOpenOmniClawBridge = {
@@ -826,23 +992,12 @@ const fallbackBridge: RendererOpenOmniClawBridge = {
     getPreviewUrl: async () => '',
   },
   provider: {
-    list: async () => [
-      {
-        id: 'omniinfer-local',
-        name: 'OmniInfer Local',
-        type: 'omniinfer',
-        api: 'omniinfer',
-        baseUrl: 'http://localhost:11434/v1',
-        enabled: true,
-        models: [
-          {
-            id: 'local-small-model',
-            name: 'Local Small Model',
-            contextWindow: 8192,
-          },
-        ],
-      },
-    ],
+    load: async () => ({
+      registry: emptyProviderRegistry(),
+      status: emptyProviderRegistryStatus(),
+    }),
+    status: async () => emptyProviderRegistryStatus(),
+    list: async () => [],
     listPresets: async () => [
       {
         id: 'openai-compatible',
@@ -871,12 +1026,25 @@ const fallbackBridge: RendererOpenOmniClawBridge = {
     ],
     createFromPreset: () =>
       rejectFallbackPersistence<BridgeProviderConfig>('provider.createFromPreset'),
+    upsertSource: () =>
+      rejectFallbackPersistence<BridgeProviderRegistryMutationResult>('provider.upsertSource'),
+    upsertModel: () =>
+      rejectFallbackPersistence<BridgeProviderRegistryMutationResult>('provider.upsertModel'),
     upsert: () => rejectFallbackPersistence<BridgeProviderConfig>('provider.upsert'),
+    deleteSource: () =>
+      rejectFallbackPersistence<BridgeProviderRegistryMutationResult>('provider.deleteSource'),
+    deleteModel: () =>
+      rejectFallbackPersistence<BridgeProviderRegistryMutationResult>('provider.deleteModel'),
     delete: () => rejectFallbackPersistence<{ ok?: boolean; error?: unknown }>('provider.delete'),
+    setDefaultModel: () =>
+      rejectFallbackPersistence<BridgeProviderRegistryMutationResult>('provider.setDefaultModel'),
+    setFallbackModels: () =>
+      rejectFallbackPersistence<BridgeProviderRegistryMutationResult>('provider.setFallbackModels'),
     listModels: async () => [],
     refreshModels: () => rejectFallbackPersistence<BridgeProviderModel[]>('provider.refreshModels'),
     test: () => rejectFallbackPersistence<{ ok: boolean; error?: unknown }>('provider.test'),
     setSessionModel: () => rejectFallbackPersistence<BridgeChatSession>('provider.setSessionModel'),
+    onChanged: () => () => {},
   },
   skill: {
     list: async () => ({
@@ -961,38 +1129,10 @@ function fallbackSettingsConfig(): BridgeDesktopSettingsConfig {
       compactSkillDescriptions: true,
     },
     providers: {
-      sources: [
-        {
-          id: 'omniinfer-local',
-          type: 'omniinfer',
-          api: 'omniinfer',
-          name: 'OmniInfer Local',
-          baseUrl: 'http://localhost:11434/v1',
-          enabled: true,
-          headers: {},
-          extraBody: {},
-          capabilities: {
-            streaming: true,
-          },
-          createdAt: 0,
-          updatedAt: 0,
-        },
-      ],
-      models: [
-        {
-          id: 'local-small-model',
-          name: 'Local Small Model',
-          providerSourceId: 'omniinfer-local',
-          enabled: true,
-          input: ['text'],
-          capabilities: {},
-          contextWindow: 8192,
-          createdAt: 0,
-          updatedAt: 0,
-        },
-      ],
+      sources: [],
+      models: [],
       settings: {
-        defaultModelId: 'local-small-model',
+        defaultModelId: '',
         fallbackModelIds: [],
         streaming: true,
       },
@@ -1014,11 +1154,44 @@ const exposedBridge =
 
 export const bridgeRuntime: BridgeRuntime = exposedBridge ? 'electron' : 'fallback'
 export const isFallbackBridge = bridgeRuntime === 'fallback'
+
+function createSettingsBridge(
+  bridge: RendererOpenOmniClawBridge['settings'] | undefined
+): RendererOpenOmniClawBridge['settings'] {
+  if (!bridge) {
+    return fallbackBridge.settings
+  }
+
+  return {
+    ...fallbackBridge.settings,
+    ...bridge,
+    save: (request) => bridge.save(stripProviderRegistryFromSettingsRequest(request)),
+  }
+}
+
+function createProviderBridge(
+  bridge: RendererOpenOmniClawBridge['provider'] | undefined
+): RendererOpenOmniClawBridge['provider'] {
+  if (!bridge) {
+    return fallbackBridge.provider
+  }
+
+  return {
+    ...fallbackBridge.provider,
+    ...bridge,
+    load: bridge.load ?? fallbackBridge.provider.load,
+    status: bridge.status ?? fallbackBridge.provider.status,
+    onChanged: bridge.onChanged ?? fallbackBridge.provider.onChanged,
+  }
+}
+
 export const appBridge: RendererOpenOmniClawBridge = exposedBridge
   ? {
       ...fallbackBridge,
       ...exposedBridge,
       logging: exposedBridge.logging ?? fallbackBridge.logging,
+      settings: createSettingsBridge(exposedBridge.settings),
+      provider: createProviderBridge(exposedBridge.provider),
     }
   : fallbackBridge
 

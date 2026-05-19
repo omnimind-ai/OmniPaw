@@ -10,6 +10,22 @@ import type {
 export const CURRENT_SETTINGS_VERSION = 1
 
 const now = 0
+const defaultProviderSource: DesktopProviderSource = {
+  id: '',
+  type: 'openai-compatible',
+  api: 'openai-chat-completions',
+  name: '',
+  baseUrl: '',
+  enabled: true,
+  credentialRef: undefined,
+  authHeader: undefined,
+  headers: {},
+  extraBody: {},
+  capabilities: {},
+  compat: undefined,
+  createdAt: now,
+  updatedAt: now,
+}
 const defaultProviderModel: DesktopProviderModel = {
   id: '',
   name: '',
@@ -40,34 +56,7 @@ export const defaultConfig: DesktopSettingsConfig = {
     compactSkillDescriptions: true,
   },
   providers: {
-    sources: [
-      {
-        id: 'openai-compatible',
-        type: 'openai-compatible',
-        api: 'openai-chat-completions',
-        name: 'OpenAI Compatible',
-        baseUrl: 'https://api.openai.com/v1',
-        enabled: false,
-        credentialRef: 'openai-compatible:default',
-        authHeader: 'Authorization',
-        headers: {},
-        extraBody: {},
-        capabilities: {
-          listModels: true,
-          streaming: true,
-          tools: true,
-          vision: true,
-        },
-        compat: {
-          maxTokensField: 'max_tokens',
-          supportsSystemRole: true,
-          supportsJsonMode: true,
-          reasoningFormat: 'none',
-        },
-        createdAt: now,
-        updatedAt: now,
-      },
-    ],
+    sources: [],
     models: [],
     settings: {
       defaultModelId: '',
@@ -257,7 +246,7 @@ function normalizeArrayItem(path: string, item: unknown): unknown {
 }
 
 function normalizeProviderSource(item: unknown): DesktopProviderSource {
-  const defaults = defaultConfig.providers.sources[0]
+  const defaults = defaultProviderSource
   if (!isPlainObject(item)) {
     throwValidationError([
       {
