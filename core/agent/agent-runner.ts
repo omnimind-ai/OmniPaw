@@ -2,7 +2,7 @@ import type { ContextBuilder } from '@core/chat/context-manager'
 import type { RunManager } from '@core/chat/run-manager'
 import type { ChatMessageRepo, ChatRunRepo } from '@core/db/repos'
 import type { Logger } from '@core/logging'
-import type { ProviderToolCall } from '@core/provider/base-provider'
+import type { ProviderMessage, ProviderToolCall } from '@core/provider/base-provider'
 import { normalizeProviderError } from '@core/provider/errors'
 import type { ProviderManager } from '@core/provider/manager'
 import type { SkillManager } from '@core/skill/skill-manager'
@@ -22,6 +22,7 @@ import {
   toolCallPart,
   upsertToolCallPart,
 } from './agent-events'
+import type { AgentTool } from './tool'
 import { ToolExecutor } from './tool-executor'
 import { defaultToolPolicy } from './tool-policy'
 import { providerToolsFromAgentTools, type ToolRegistry } from './tool-registry'
@@ -92,6 +93,12 @@ export class AgentRunner {
         compact: this.options.compactSkillDescriptions?.() ?? true,
         supportsSystemRole: input.model.compat?.supportsSystemRole !== false,
       })
+      const toolProfile = input.toolProfile ?? 'assistant'
+      const policy = defaultToolPolicy(toolProfile)
+      const agentTools =
+        mode === 'assistant'
+          ? await this.options.toolRegistry.resolve({ sessionId: input.session.id, policy })
+          : []
       const context = await this.options.contextBuilder.build({
         session: input.session,
         messages: allMessages,
@@ -101,12 +108,11 @@ export class AgentRunner {
         skillPrompt,
       })
       const client = await this.options.providers.createProviderClient(input.provider.id)
-      const messages = [...context.messages]
-      const policy = defaultToolPolicy(input.toolProfile ?? 'minimal')
-      const agentTools =
-        mode === 'assistant'
-          ? await this.options.toolRegistry.resolve({ sessionId: input.session.id, policy })
-          : []
+      const messages = injectToolInventory(
+        context.messages,
+        agentTools,
+        input.model.compat?.supportsSystemRole !== false
+      )
       const providerTools = providerToolsFromAgentTools(agentTools)
       logger?.debug('Agent context prepared.', {
         mode,
@@ -116,8 +122,9 @@ export class AgentRunner {
       })
       const snapshot: ProviderRequestSnapshot = {
         ...context.snapshot,
+        messageCount: messages.length,
         mode,
-        toolProfile: input.toolProfile ?? 'minimal',
+        toolProfile,
         availableTools: agentTools.map((tool) => tool.providerName ?? tool.name),
         toolSources: agentTools.map((tool) => ({
           name: tool.providerName ?? tool.name,
@@ -496,4 +503,98 @@ function collectPlainContent(parts: ChatMessagePart[]): string | undefined {
     .join('')
     .trim()
   return text || undefined
+}
+
+function injectToolInventory(
+  messages: ProviderMessage[],
+  tools: AgentTool[],
+  supportsSystemRole: boolean
+): ProviderMessage[] {
+  const prompt = buildToolInventoryPrompt(tools)
+  if (!prompt) {
+    return [...messages]
+  }
+
+  if (supportsSystemRole) {
+    const next = [...messages]
+    const systemIndex = next.findIndex((message) => message.role === 'system')
+    if (systemIndex >= 0) {
+      const system = next[systemIndex]!
+      next[systemIndex] = {
+        ...system,
+        content: appendTextContent(system.content, prompt),
+      }
+      return next
+    }
+    return [{ role: 'system', content: prompt }, ...next]
+  }
+
+  const next = [...messages]
+  const userIndex = next.findIndex((message) => message.role === 'user')
+  if (userIndex >= 0) {
+    const user = next[userIndex]!
+    next[userIndex] = {
+      ...user,
+      content: prependTextContent(user.content, prompt),
+    }
+    return next
+  }
+
+  return [{ role: 'user', content: prompt }, ...next]
+}
+
+function buildToolInventoryPrompt(tools: AgentTool[]): string | undefined {
+  if (!tools.length) {
+    return undefined
+  }
+
+  const lines = tools.slice(0, 80).map((tool) => {
+    const name = tool.providerName ?? tool.name
+    const source =
+      tool.source === 'mcp'
+        ? `mcp${tool.serverName ? `:${sanitizeToolPromptText(tool.serverName, 80)}` : ''}`
+        : tool.source
+    const description = sanitizeToolPromptText(tool.description, 180)
+    return `- ${name} [${source}]: ${description}`
+  })
+
+  const omittedCount = Math.max(0, tools.length - lines.length)
+  if (omittedCount) {
+    lines.push(`- ... ${omittedCount} additional tools omitted from this summary.`)
+  }
+
+  return [
+    'Available tools for this chat run are listed below. Tool parameter schemas are provided separately through the tool API.',
+    'If the user asks which MCP tools are available, answer from entries marked with [mcp] and use the exact tool names shown here.',
+    'If no entries are marked [mcp], say that no MCP tools are currently available in this run.',
+    ...lines,
+  ].join('\n')
+}
+
+function appendTextContent(
+  content: ProviderMessage['content'],
+  text: string
+): ProviderMessage['content'] {
+  if (typeof content === 'string') {
+    return content ? `${content}\n\n${text}` : text
+  }
+  return [...content, { type: 'text', text }]
+}
+
+function prependTextContent(
+  content: ProviderMessage['content'],
+  text: string
+): ProviderMessage['content'] {
+  if (typeof content === 'string') {
+    return content ? `${text}\n\n${content}` : text
+  }
+  return [{ type: 'text', text }, ...content]
+}
+
+function sanitizeToolPromptText(value: string | undefined, maxLength: number): string {
+  return (value ?? '')
+    .replace(/[\r\n\t]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, maxLength)
 }

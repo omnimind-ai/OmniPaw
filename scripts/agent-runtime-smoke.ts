@@ -152,7 +152,14 @@ async function testAgentRunnerMcpToolLoop(): Promise<void> {
     harness.providerRequests[0]?.tools?.some((tool) => tool.function.name === 'mcp_server_echo'),
     true
   )
+  const toolInventoryMessage = harness.providerRequests[0]?.messages.find(
+    (message) => message.role === 'system'
+  )
+  assert.match(String(toolInventoryMessage?.content), /Available tools/)
+  assert.match(String(toolInventoryMessage?.content), /mcp_server_echo/)
+  assert.match(String(toolInventoryMessage?.content), /mcp:Server One/)
   const snapshot = harness.runRepo.get('run-1')?.requestSnapshot
+  assert.equal(snapshot?.toolProfile, 'assistant')
   assert.equal(
     snapshot?.toolSources?.some((tool) => tool.name === 'mcp_server_echo' && tool.source === 'mcp'),
     true
