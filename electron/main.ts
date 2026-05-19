@@ -44,12 +44,13 @@ import type {
   SkillOperationError,
 } from '@shared/types/skill'
 import type { SetToolEnabledRequest } from '@shared/types/tool'
-import { app, BrowserWindow, ipcMain, shell } from 'electron'
+import { app, BrowserWindow, ipcMain, Menu, nativeImage, shell, Tray } from 'electron'
 import { closeCatWindow, registerCatWindowIpcHandlers, showCatWindow } from './cat-window'
 
 const cronManager = new CronManager()
 
 let mainWindow: BrowserWindow | null = null
+let tray: Tray | null = null
 let isQuitting = false
 let chatService: ChatService
 let providerManager: ProviderManager
@@ -88,14 +89,25 @@ function createMainWindow(): void {
       return
     }
 
-    window.show()
-    window.focus()
-    showCatWindow()
+    showMainWindow()
   })
 
   window.webContents.setWindowOpenHandler(({ url }) => {
     void shell.openExternal(url)
     return { action: 'deny' }
+  })
+
+  window.on('minimize', () => {
+    if (!isQuitting && isMinimizeToTrayEnabled()) {
+      hideMainWindowToTray()
+    }
+  })
+
+  window.on('close', (event) => {
+    if (!isQuitting && isMinimizeToTrayEnabled()) {
+      event.preventDefault()
+      hideMainWindowToTray()
+    }
   })
 
   window.on('closed', () => {
@@ -109,6 +121,86 @@ function createMainWindow(): void {
   })
 }
 
+function createTray(): void {
+  if (tray) {
+    updateTrayMenu()
+    return
+  }
+
+  tray = new Tray(createTrayIcon())
+  tray.setToolTip(APP_NAME)
+  tray.on('click', () => {
+    showMainWindow()
+  })
+  tray.on('double-click', () => {
+    showMainWindow()
+  })
+  updateTrayMenu()
+}
+
+function createTrayIcon() {
+  const trayIconPath = join(app.getAppPath(), 'resources/tray.png')
+  const icon = nativeImage.createFromPath(trayIconPath)
+  const size = process.platform === 'darwin' ? 18 : 16
+  const resized = icon.resize({ width: size, height: size })
+
+  if (process.platform === 'darwin') {
+    resized.setTemplateImage(true)
+  }
+
+  return resized
+}
+
+function updateTrayMenu(): void {
+  if (!tray) {
+    return
+  }
+
+  const minimizeToTrayEnabled = isMinimizeToTrayEnabled()
+  tray.setContextMenu(
+    Menu.buildFromTemplate([
+      {
+        label: '显示主窗口',
+        click: () => showMainWindow(),
+      },
+      {
+        label: `关闭/最小化到托盘：${minimizeToTrayEnabled ? '开启' : '关闭'}`,
+        enabled: false,
+      },
+      { type: 'separator' },
+      {
+        label: '退出',
+        click: () => quitApp(),
+      },
+    ])
+  )
+}
+
+function destroyTray(): void {
+  if (!tray) {
+    return
+  }
+
+  tray.destroy()
+  tray = null
+}
+
+function quitApp(): void {
+  isQuitting = true
+  closeCatWindow()
+  destroyTray()
+  app.quit()
+}
+
+function hideMainWindowToTray(): void {
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    return
+  }
+
+  mainWindow.hide()
+  updateTrayMenu()
+}
+
 function showMainWindow(): void {
   if (isQuitting) {
     return
@@ -117,6 +209,10 @@ function showMainWindow(): void {
   if (!mainWindow) {
     createMainWindow()
     return
+  }
+
+  if (process.platform === 'darwin') {
+    app.dock?.show()
   }
 
   if (mainWindow.isMinimized()) {
@@ -128,6 +224,16 @@ function showMainWindow(): void {
   }
 
   mainWindow.focus()
+  showCatWindow()
+  updateTrayMenu()
+}
+
+function isMinimizeToTrayEnabled(): boolean {
+  try {
+    return configStore.get().app.minimizeToTrayOnStartup
+  } catch {
+    return false
+  }
 }
 
 function registerIpcHandlers(): void {
@@ -272,6 +378,7 @@ app.whenReady().then(() => {
   initializeCore()
   registerCatWindowIpcHandlers()
   registerIpcHandlers()
+  createTray()
   createMainWindow()
 
   app.on('activate', () => {
@@ -282,6 +389,7 @@ app.whenReady().then(() => {
 app.on('before-quit', () => {
   isQuitting = true
   closeCatWindow()
+  destroyTray()
 })
 
 let attachmentService: AttachmentService
@@ -367,6 +475,8 @@ function broadcastSettingsChanged(
   reason: SettingsChangeReason,
   config: DesktopSettingsConfig
 ): void {
+  updateTrayMenu()
+
   const event: DesktopSettingsChangedEvent = {
     reason,
     config,

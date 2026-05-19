@@ -159,13 +159,13 @@ const zoomFactor = computed({
           class="px-4 py-3"
         >
           <FieldContent>
-            <FieldLabel for="settings-minimize-startup">启动时最小化到托盘</FieldLabel>
-            <FieldDescription>启动后保持后台可用。</FieldDescription>
+            <FieldLabel for="settings-minimize-tray">关闭/最小化到托盘</FieldLabel>
+            <FieldDescription>关闭或最小化主窗口后保持后台可用。</FieldDescription>
           </FieldContent>
           <Switch
-            id="settings-minimize-startup"
+            id="settings-minimize-tray"
             v-model="minimizeToTrayOnStartup"
-            aria-label="启动时最小化到托盘"
+            aria-label="关闭/最小化到托盘"
           />
         </Field>
       </FieldGroup>
