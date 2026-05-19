@@ -743,21 +743,7 @@ function upsertProviderInConfig(config: DesktopSettingsConfig, provider: Provide
     (model) => model.providerSourceId !== provider.id || nextModelIds.has(model.id)
   )
 
-  if (
-    source.defaultModelId &&
-    !config.providers.models.some((model) => model.id === source.defaultModelId)
-  ) {
-    source.defaultModelId = undefined
-  }
-  if (
-    config.providers.settings.defaultModelId &&
-    !config.providers.models.some(
-      (model) => model.id === config.providers.settings.defaultModelId && model.enabled !== false
-    )
-  ) {
-    config.providers.settings.defaultModelId =
-      config.providers.models.find((model) => model.enabled !== false)?.id ?? ''
-  }
+  pruneProviderModelReferences(config, provider.id)
 }
 
 function upsertModelInConfig(config: DesktopSettingsConfig, model: ProviderModelRecord): void {

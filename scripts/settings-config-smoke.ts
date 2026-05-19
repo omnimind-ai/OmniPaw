@@ -101,6 +101,36 @@ try {
   assert.equal(provider?.enabled, true)
   assert.equal(provider?.models[0]?.id, 'custom-model')
   assert.equal(provider?.apiKey, undefined)
+
+  const configWithFallback = providerStore.get()
+  configWithFallback.providers.settings.fallbackModelIds = ['custom-model']
+  providerStore.save(configWithFallback)
+  const replacementProvider = await providers.upsert({
+    provider: {
+      id: 'custom-openai',
+      name: 'Custom OpenAI',
+      type: 'openai-compatible',
+      api: 'openai-chat-completions',
+      baseUrl: 'https://example.test/v1',
+      enabled: true,
+      credentialRef: 'custom-openai:default',
+      authHeader: 'Authorization',
+      headers: {},
+      extraBody: {},
+      defaultModelId: 'replacement-model',
+      capabilities: {},
+      models: [
+        {
+          id: 'replacement-model',
+          name: 'Replacement Model',
+          enabled: true,
+        },
+      ],
+    },
+  })
+  assert.equal(replacementProvider?.defaultModelId, 'replacement-model')
+  assert.deepEqual(providerStore.get().providers.settings.fallbackModelIds, [])
+
   const openAiPreset = await providers.createFromPreset('openai-compatible')
   assert.equal(openAiPreset.models.length, 0)
   assert.equal(openAiPreset.defaultModelId, undefined)
