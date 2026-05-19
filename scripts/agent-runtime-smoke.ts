@@ -4,18 +4,23 @@ import { AgentRunner } from '../core/agent/agent-runner'
 import type { AgentTool } from '../core/agent/tool'
 import { ToolExecutor } from '../core/agent/tool-executor'
 import { defaultToolPolicy } from '../core/agent/tool-policy'
-import type {
-  ChatCompletionChunk,
-  ChatCompletionRequest,
-  ProviderToolCall,
+import {
+  ProviderError,
+  type ChatCompletionChunk,
+  type ChatCompletionRequest,
+  type ProviderToolCall,
 } from '../core/provider/base-provider'
 import type { ChatMessage, ChatMessagePart, ChatRun, ChatSession } from '../shared/types/chat'
 import type { ProviderConfig, ProviderModel } from '../shared/types/provider'
+
+type ScriptedProviderResponse = ChatCompletionChunk[] | Error
 
 async function runSmoke(): Promise<void> {
   await testAgentRunnerPlainReply()
   await testAgentRunnerToolLoop()
   await testAgentRunnerToolLoopPreservesReasoningContent()
+  await testAgentRunnerTreatsModelToolFalseAsUnknown()
+  await testAgentRunnerToolUnsupportedFallback()
   await testAgentRunnerMcpToolLoop()
   await testAgentRunnerSkillPromptAndRead()
   await testAgentRunnerMaxSteps()
@@ -104,6 +109,81 @@ async function testAgentRunnerToolLoopPreservesReasoningContent(): Promise<void>
   assert.equal(followupToolMessage?.reasoningContent, 'Need current time before answering.')
   assert.equal(followupToolMessage?.content, 'Checking the clock.')
   assert.equal(followupToolMessage?.toolCalls?.[0]?.id, 'call_time')
+}
+
+async function testAgentRunnerTreatsModelToolFalseAsUnknown(): Promise<void> {
+  const harness = createRunnerHarness([
+    [
+      {
+        type: 'tool_call_final',
+        done: false,
+        toolCalls: [toolCall('call_time', 'system_time', {})],
+        finishReason: 'tool_calls',
+      },
+      { type: 'final', done: true, finishReason: 'tool_calls' },
+    ],
+    [
+      { type: 'delta', content: 'time checked', done: false },
+      { type: 'final', done: true, finishReason: 'stop' },
+    ],
+  ])
+
+  await harness.runner.run(
+    harness.input({
+      model: {
+        id: 'model-1',
+        name: 'Model',
+        supportsTools: false,
+      },
+    })
+  )
+
+  assert.equal(harness.providerRequests[0]?.tools?.[0]?.function.name, 'system_time')
+  const snapshot = harness.runRepo.get('run-1')?.requestSnapshot
+  assert.equal(snapshot?.mode, 'assistant')
+  assert.equal(snapshot?.fallbackReason, undefined)
+}
+
+async function testAgentRunnerToolUnsupportedFallback(): Promise<void> {
+  const harness = createRunnerHarness([
+    new ProviderError({
+      code: 'provider_bad_request',
+      message: 'This model does not support tools.',
+      retryable: false,
+      providerStatus: 400,
+    }),
+    [
+      { type: 'delta', content: 'fallback answer', done: false },
+      { type: 'final', done: true, finishReason: 'stop' },
+    ],
+  ])
+
+  await harness.runner.run(
+    harness.input({
+      model: {
+        id: 'model-1',
+        name: 'Model',
+        supportsTools: false,
+      },
+    })
+  )
+
+  assert.equal(harness.providerRequests.length, 2)
+  assert.equal(harness.providerRequests[0]?.tools?.[0]?.function.name, 'system_time')
+  assert.equal(harness.providerRequests[1]?.tools, undefined)
+  assert.equal(
+    harness.providerRequests[1]?.messages.some((message) =>
+      String(message.content).includes('Available tools')
+    ),
+    false
+  )
+  const snapshot = harness.runRepo.get('run-1')?.requestSnapshot
+  assert.equal(snapshot?.mode, 'fast_chat')
+  assert.equal(snapshot?.fallbackReason, 'provider_rejected_tools')
+  assert.deepEqual(snapshot?.availableTools, [])
+  const assistant = harness.messageRepo.get('assistant-1')
+  assert.equal(assistant?.status, 'complete')
+  assert.equal((assistant?.parts[0] as { text?: string } | undefined)?.text, 'fallback answer')
 }
 
 async function testAgentRunnerMcpToolLoop(): Promise<void> {
@@ -373,7 +453,7 @@ function toolCall(id: string, name: string, args: unknown): ProviderToolCall {
 }
 
 function createRunnerHarness(
-  scriptedResponses: ChatCompletionChunk[][],
+  scriptedResponses: ScriptedProviderResponse[],
   options: { tools?: AgentTool[]; skills?: unknown } = {}
 ) {
   const session: ChatSession = {
@@ -439,6 +519,9 @@ function createRunnerHarness(
         streamChat: async function* (request: ChatCompletionRequest) {
           providerRequests.push(structuredClone(request))
           const chunks = scriptedResponses[callIndex++] ?? []
+          if (chunks instanceof Error) {
+            throw chunks
+          }
           for (const chunk of chunks) {
             yield chunk
           }

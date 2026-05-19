@@ -2,7 +2,7 @@ import type { ContextBuilder } from '@core/chat/context-manager'
 import type { RunManager } from '@core/chat/run-manager'
 import type { ChatMessageRepo, ChatRunRepo } from '@core/db/repos'
 import type { Logger } from '@core/logging'
-import type { ProviderMessage, ProviderToolCall } from '@core/provider/base-provider'
+import type { ChatError, ProviderMessage, ProviderToolCall } from '@core/provider/base-provider'
 import { normalizeProviderError } from '@core/provider/errors'
 import type { ProviderManager } from '@core/provider/manager'
 import type { SkillManager } from '@core/skill/skill-manager'
@@ -108,12 +108,13 @@ export class AgentRunner {
         skillPrompt,
       })
       const client = await this.options.providers.createProviderClient(input.provider.id)
-      const messages = injectToolInventory(
+      let messages = injectToolInventory(
         context.messages,
         agentTools,
         input.model.compat?.supportsSystemRole !== false
       )
       const providerTools = providerToolsFromAgentTools(agentTools)
+      let activeProviderTools = providerTools
       logger?.debug('Agent context prepared.', {
         mode,
         toolCount: agentTools.length,
@@ -160,62 +161,101 @@ export class AgentRunner {
 
         const stepToolCalls: ProviderToolCall[] = []
         let sawFinal = false
-        for await (const chunk of client.streamChat({
-          modelId: input.model.remoteId || input.model.id,
-          messages,
-          maxOutputTokens: input.model.maxOutputTokens,
-          tools: providerTools.length ? providerTools : undefined,
-          abortSignal: input.signal,
-        })) {
-          throwIfAborted(input.signal)
+        let retryWithoutTools = false
+        do {
+          retryWithoutTools = false
+          try {
+            for await (const chunk of client.streamChat({
+              modelId: input.model.remoteId || input.model.id,
+              messages,
+              maxOutputTokens: input.model.maxOutputTokens,
+              tools: activeProviderTools.length ? activeProviderTools : undefined,
+              abortSignal: input.signal,
+            })) {
+              throwIfAborted(input.signal)
 
-          if (chunk.type === 'delta' && (chunk.content || chunk.reasoning)) {
-            const text = chunk.content ?? chunk.reasoning ?? ''
-            if (chunk.content) {
-              appendText(assistantParts, text)
-              appendText(stepParts, text)
+              if (chunk.type === 'delta' && (chunk.content || chunk.reasoning)) {
+                const text = chunk.content ?? chunk.reasoning ?? ''
+                if (chunk.content) {
+                  appendText(assistantParts, text)
+                  appendText(stepParts, text)
+                }
+                if (chunk.reasoning) {
+                  assistantParts.push({ type: 'think', think: text })
+                  stepParts.push({ type: 'think', think: text })
+                }
+                this.options.messages.updateParts(input.run.assistantMessageId, assistantParts, {
+                  status: 'streaming',
+                })
+                this.options.runManager.emit({
+                  type: 'delta',
+                  runId: input.run.id,
+                  sessionId: input.run.sessionId,
+                  assistantMessageId: input.run.assistantMessageId,
+                  seq: this.options.runManager.nextSeq(input.run.id),
+                  text,
+                  channel: chunk.reasoning ? 'reasoning' : 'content',
+                })
+                continue
+              }
+
+              if (chunk.type === 'tool_call_delta') {
+                continue
+              }
+
+              if (chunk.type === 'tool_call_final') {
+                stepToolCalls.push(...chunk.toolCalls)
+                continue
+              }
+
+              if (chunk.type === 'final') {
+                sawFinal = true
+                if (!stepToolCalls.length) {
+                  this.completeRun(input.run, assistantParts, chunk.usage)
+                  logger?.info('Agent run completed.', {
+                    status: 'complete',
+                    step,
+                    durationMs: Date.now() - startedAt,
+                  })
+                  return
+                }
+              }
             }
-            if (chunk.reasoning) {
-              assistantParts.push({ type: 'think', think: text })
-              stepParts.push({ type: 'think', think: text })
-            }
-            this.options.messages.updateParts(input.run.assistantMessageId, assistantParts, {
-              status: 'streaming',
-            })
-            this.options.runManager.emit({
-              type: 'delta',
-              runId: input.run.id,
-              sessionId: input.run.sessionId,
-              assistantMessageId: input.run.assistantMessageId,
-              seq: this.options.runManager.nextSeq(input.run.id),
-              text,
-              channel: chunk.reasoning ? 'reasoning' : 'content',
-            })
-            continue
-          }
-
-          if (chunk.type === 'tool_call_delta') {
-            continue
-          }
-
-          if (chunk.type === 'tool_call_final') {
-            stepToolCalls.push(...chunk.toolCalls)
-            continue
-          }
-
-          if (chunk.type === 'final') {
-            sawFinal = true
-            if (!stepToolCalls.length) {
-              this.completeRun(input.run, assistantParts, chunk.usage)
-              logger?.info('Agent run completed.', {
-                status: 'complete',
-                step,
-                durationMs: Date.now() - startedAt,
+          } catch (error) {
+            const chatError = normalizeProviderError(error)
+            if (
+              activeProviderTools.length &&
+              canRetryWithoutTools(chatError, stepParts, stepToolCalls, sawFinal)
+            ) {
+              activeProviderTools = []
+              messages = [...context.messages]
+              retryWithoutTools = true
+              const currentRun = this.options.runs.get(input.run.id) ?? input.run
+              const currentSnapshot = currentRun.requestSnapshot ?? snapshot
+              this.options.runs.save({
+                ...currentRun,
+                requestSnapshot: {
+                  ...currentSnapshot,
+                  mode: 'fast_chat',
+                  availableTools: [],
+                  toolSources: [],
+                  fallbackReason: 'provider_rejected_tools',
+                  messageCount: messages.length,
+                },
+                updatedAt: Date.now(),
               })
-              return
+              logger?.info('Provider rejected tool calling; retrying without tools.', {
+                providerId: input.provider.id,
+                modelId: input.model.id,
+                errorCode: chatError.code,
+                providerStatus: chatError.providerStatus,
+                fallbackReason: 'provider_rejected_tools',
+              })
+              continue
             }
+            throw error
           }
-        }
+        } while (retryWithoutTools)
 
         if (!stepToolCalls.length) {
           if (!sawFinal) {
@@ -467,10 +507,53 @@ function clampMaxSteps(value?: number): number {
 }
 
 function providerSupportsTools(provider: ProviderConfig, model: ProviderModel): boolean {
-  if (provider.capabilities?.tools === false || model.supportsTools === false) {
+  if (
+    provider.capabilities?.tools === false ||
+    model.capabilities?.tools === false ||
+    model.capabilities?.toolCall === false
+  ) {
     return false
   }
+  // OpenAI-compatible /models commonly returns only model IDs. In existing configs
+  // supportsTools:false often means "unknown" rather than a verified model limit.
   return true
+}
+
+function canRetryWithoutTools(
+  chatError: ChatError,
+  stepParts: ChatMessagePart[],
+  stepToolCalls: ProviderToolCall[],
+  sawFinal: boolean
+): boolean {
+  return (
+    !sawFinal &&
+    stepParts.length === 0 &&
+    stepToolCalls.length === 0 &&
+    isToolUnsupportedProviderError(chatError)
+  )
+}
+
+function isToolUnsupportedProviderError(chatError: ChatError): boolean {
+  const message = `${chatError.message} ${chatError.providerBodyPreview ?? ''}`.toLowerCase()
+  if (message.includes('function calling is not enabled')) {
+    return true
+  }
+  if (message.includes('tool') && hasUnsupportedCapabilityText(message)) {
+    return true
+  }
+  if (message.includes('function') && hasUnsupportedCapabilityText(message)) {
+    return true
+  }
+  return false
+}
+
+function hasUnsupportedCapabilityText(message: string): boolean {
+  return (
+    message.includes('support') ||
+    message.includes('unsupported') ||
+    message.includes('not enabled') ||
+    message.includes('disabled')
+  )
 }
 
 function parseArgumentsForDisplay(value: string): unknown {
