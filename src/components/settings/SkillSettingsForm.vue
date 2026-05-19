@@ -18,6 +18,7 @@ import { Button } from '@/components/ui/button'
 import { Field, FieldContent, FieldDescription, FieldLabel } from '@/components/ui/field'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Switch } from '@/components/ui/switch'
+import { useDelayedFlag } from '@/composables/useDelayedFlag'
 import { cn } from '@/lib/utils'
 import { errorToText, useToast } from '@/utils/toast'
 
@@ -58,6 +59,7 @@ const persistenceUnavailable = computed(
   () => skillUnavailable.value || isFallbackBridge || !skillBridge?.setEnabled
 )
 const importUnavailable = computed(() => persistenceUnavailable.value || !skillBridge?.importSkill)
+const showListSkeleton = useDelayedFlag(() => loading.value)
 
 onMounted(async () => {
   unsubscribeSkills = skillBridge.onChanged?.((event: BridgeSkillChangedEvent) => {
@@ -371,8 +373,10 @@ function normalizeMetadata(value: unknown): Record<string, string | undefined> {
         v-if="loading"
         class="flex flex-col gap-3 px-4 py-4"
       >
-        <Skeleton class="h-24 w-full" />
-        <Skeleton class="h-24 w-full" />
+        <template v-if="showListSkeleton">
+          <Skeleton class="h-24 w-full" />
+          <Skeleton class="h-24 w-full" />
+        </template>
       </div>
 
       <div

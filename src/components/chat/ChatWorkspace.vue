@@ -11,6 +11,7 @@ import { contentText } from '@/components/chat/chat-display'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { SidebarInset, SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar'
+import { useDelayedFlag } from '@/composables/useDelayedFlag'
 import { ATTACHMENT_LIMITS, formatBytes, useMediaHandling } from '@/composables/useMediaHandling'
 import {
   type ChatRecord,
@@ -105,6 +106,9 @@ const hasMessages = computed(() => activeMessages.value.length > 0)
 const showWelcome = computed(() => isHomeMode.value && !hasMessages.value && !loadingMessages.value)
 const showMessageList = computed(
   () => !isHomeMode.value && (hasMessages.value || loadingMessages.value)
+)
+const showMessageSkeleton = useDelayedFlag(
+  () => !isHomeMode.value && loadingMessages.value && !hasMessages.value
 )
 const currentSessionRunning = computed(() =>
   currSessionId.value ? isSessionRunning(currSessionId.value) : false
@@ -647,7 +651,7 @@ function attachmentTypeLabel(type: string) {
           <ChatMessageList
             v-if="showMessageList"
             :messages="activeMessages"
-            :loading="loadingMessages"
+            :loading="showMessageSkeleton"
             :highlighted-message-id="highlightedMessageId"
             :is-user-message="isUserMessage"
             :message-content="messageContent"

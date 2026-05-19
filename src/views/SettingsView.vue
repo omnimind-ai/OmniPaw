@@ -22,6 +22,7 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { SidebarInset, SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Switch } from '@/components/ui/switch'
+import { useDelayedFlag } from '@/composables/useDelayedFlag'
 import { useProviderStore } from '@/stores/provider'
 import { useSettingsStore } from '@/stores/settings'
 import { errorToText, useToast } from '@/utils/toast'
@@ -42,6 +43,7 @@ let autosavePromise: Promise<void> | undefined
 let saveQueued = false
 
 const hasChanges = computed(() => JSON.stringify(draft.value) !== JSON.stringify(config.value))
+const showInitialSkeleton = useDelayedFlag(() => loading.value && !draft.value)
 const contentClass = computed(() =>
   activeTab.value === 'providers'
     ? 'mx-auto flex min-h-full w-full max-w-none flex-1 flex-col gap-4 px-4 pb-6 pt-14 md:px-6 md:py-6'
@@ -193,9 +195,11 @@ async function autosave() {
               v-if="loading && !draft"
               class="flex flex-col gap-4"
             >
-              <Skeleton class="h-32 w-full" />
-              <Skeleton class="h-48 w-full" />
-              <Skeleton class="h-24 w-full" />
+              <template v-if="showInitialSkeleton">
+                <Skeleton class="h-32 w-full" />
+                <Skeleton class="h-48 w-full" />
+                <Skeleton class="h-24 w-full" />
+              </template>
             </div>
 
             <div

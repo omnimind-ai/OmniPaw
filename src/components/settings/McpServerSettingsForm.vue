@@ -33,6 +33,7 @@ import { Button } from '@/components/ui/button'
 import { Field, FieldLabel } from '@/components/ui/field'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Switch } from '@/components/ui/switch'
+import { useDelayedFlag } from '@/composables/useDelayedFlag'
 import { cn } from '@/lib/utils'
 import { errorToText, useToast } from '@/utils/toast'
 
@@ -76,6 +77,7 @@ const deletePending = computed(() =>
 const productOwnedTools = computed(() =>
   productTools.value.filter((tool) => tool.source === 'builtin')
 )
+const showServerListSkeleton = useDelayedFlag(() => loading.value)
 
 onMounted(async () => {
   unsubscribeMcp = appBridge.mcp?.onChanged((event: BridgeMcpChangedEvent) => {
@@ -538,8 +540,10 @@ function transportDetails(transport: BridgeMcpSafeTransport) {
         v-if="loading"
         class="flex flex-col gap-3 px-4 py-4"
       >
-        <Skeleton class="h-24 w-full" />
-        <Skeleton class="h-24 w-full" />
+        <template v-if="showServerListSkeleton">
+          <Skeleton class="h-24 w-full" />
+          <Skeleton class="h-24 w-full" />
+        </template>
       </div>
 
       <div
