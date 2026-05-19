@@ -1,7 +1,14 @@
 <script setup lang="ts">
 import type { HTMLAttributes } from 'vue'
 
-import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  Card,
+  CardAction,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from '@/components/ui/card'
 import { cn } from '@/lib/utils'
 
 const props = defineProps<{

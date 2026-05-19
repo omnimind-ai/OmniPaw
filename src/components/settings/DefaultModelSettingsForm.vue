@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { storeToRefs } from 'pinia'
+import type { AcceptableValue } from 'reka-ui'
 import { computed } from 'vue'
 import SettingsSection from '@/components/settings/SettingsSection.vue'
 import { Badge } from '@/components/ui/badge'
@@ -22,7 +23,6 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
-import type { AcceptableValue } from 'reka-ui'
 import { type ProviderModelOption, useProviderStore } from '@/stores/provider'
 
 const NONE_VALUE = '__none__'
