@@ -13,8 +13,8 @@
 
 ## Core 边界
 
-- MUST：`core/` 是主进程业务核心，只能由 main/preload 之外的 Node 环境调用。
-- MUST NOT：renderer 直接导入 `@core/*`。
+- MUST：`core/` 是主进程业务核心，只能由 Electron main 侧 runtime、smoke script 等 Node 环境调用。
+- MUST NOT：renderer 或 preload 直接导入 `@core/*`。
 - MUST：跨层类型来自 `shared/types/*`，不要在 core 内定义另一套对外契约。
 - MUST：DB、文件、Provider 网络请求、附件读写只在 main/core 侧发生。
 - MUST：对用户数据路径使用 Electron `app.getPath('userData')` 或已有路径解析函数，不散落硬编码路径。
@@ -22,10 +22,11 @@
 
 ## 依赖注入与初始化
 
-- MUST：在 `electron/main.ts` 统一初始化 core 依赖，再通过 IPC handler 暴露能力。
+- MUST：在 `electron/core-runtime.ts` 统一初始化 core 依赖，`electron/main.ts` 只负责启动编排。
+- MUST：core 能力通过 `CoreRuntime` 注入 `electron/ipc/<domain>.ts` 的 IPC handler 暴露。
 - MUST：保持 service / manager / repo 分层；service/manager 承担业务流程，repo 只处理持久化映射。
 - MUST：通过构造函数注入依赖，不在业务方法中临时 new 另一个跨域 service。
-- SHOULD：保持 `electron/main.ts` 的 handler 薄，参数归一化后交给 core。
+- SHOULD：保持 `electron/ipc/<domain>.ts` 的 handler 薄，参数归一化后交给 core。
 - SHOULD：让 manager 负责跨配置和运行时状态协调，repo 不处理业务决策。
 - SHOULD：避免循环依赖；需要共享能力时抽出更小 service 或纯函数。
 
@@ -122,7 +123,9 @@
 
 | 职责 | 路径 |
 |------|------|
-| 初始化和依赖装配 | `electron/main.ts` |
+| 初始化和依赖装配 | `electron/core-runtime.ts` |
+| main 启动编排 | `electron/main.ts` |
+| IPC handler | `electron/ipc/<domain>.ts` |
 | 聊天业务 | `core/chat/` |
 | Agent 和工具 | `core/agent/` |
 | Provider | `core/provider/` |
@@ -139,7 +142,7 @@
 - [ ] renderer 没有导入 core。
 - [ ] 业务逻辑没有堆进 preload。
 - [ ] 新能力通过 shared 类型跨层。
-- [ ] 依赖从 main 初始化链路进入。
+- [ ] 依赖从 `electron/core-runtime.ts` 初始化链路进入。
 - [ ] 配置字段变更同步了 shared type、默认值、normalize、validate、UI/store。
 - [ ] schema 变更有新 migration，repo 映射和 shared 类型已同步。
 - [ ] smoke script 可覆盖的路径已运行或说明未运行原因。

@@ -4,7 +4,15 @@
 
 | 职责 | 路径 |
 |------|------|
-| Electron 应用启动、窗口创建、core 初始化、IPC handler | `electron/main.ts` |
+| Electron 应用启动编排 | `electron/main.ts` |
+| core 初始化和依赖装配 | `electron/core-runtime.ts` |
+| 主窗口 controller | `electron/main-window.ts` |
+| 托盘 controller | `electron/tray.ts` |
+| IPC 注册入口 | `electron/ipc/index.ts` |
+| IPC 共享注册工具 | `electron/ipc/common.ts` |
+| IPC 注册依赖类型 | `electron/ipc/types.ts` |
+| IPC domain handler | `electron/ipc/<domain>.ts` |
+| 猫窗口和窗口专属 IPC | `electron/cat-window.ts` |
 | contextBridge 暴露、ipcRenderer 调用、事件订阅包装 | `electron/preload.ts` |
 | IPC channel 常量 | `shared/constants.ts` |
 | bridge 契约类型 | `shared/types/bridge.ts` |

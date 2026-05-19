@@ -58,7 +58,8 @@
 
 ### IPC
 
-- [ ] constants、shared bridge type、main、preload、renderer bridge 已同步。
+- [ ] constants、shared bridge type、domain handler、preload、renderer bridge 已同步。
+- [ ] 新增通用 handler 已接入 `electron/ipc/index.ts` 并复用统一注册包装。
 - [ ] renderer 没有直接访问 Node/Electron/数据库。
 - [ ] 事件订阅有 unsubscribe。
 

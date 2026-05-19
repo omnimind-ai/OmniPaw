@@ -50,7 +50,9 @@ Electron 桌面客户端。
 
 | 类型 | 文件 |
 |------|------|
-| Electron main / IPC 注册 | `electron/main.ts` |
+| Electron main 启动编排 | `electron/main.ts` |
+| IPC 注册入口 | `electron/ipc/index.ts` |
+| IPC domain handler | `electron/ipc/<domain>.ts` |
 | preload bridge | `electron/preload.ts` |
 | renderer bridge 包装 | `src/bridge/app.ts` |
 | IPC channel | `shared/constants.ts` |
@@ -60,7 +62,7 @@ Electron 桌面客户端。
 | Provider 状态 | `src/stores/provider.ts` |
 | 聊天页面 | `src/views/ChatHomeView.vue` |
 | 设置页面 | `src/views/SettingsView.vue` |
-| core 初始化 | `electron/main.ts` |
+| core 初始化 | `electron/core-runtime.ts` |
 | 数据库迁移 | `core/db/migrations.ts` |
 | 配置 schema | `core/config/schema.ts` |
 
