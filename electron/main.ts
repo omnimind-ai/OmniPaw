@@ -45,13 +45,12 @@ import type {
 } from '@shared/types/skill'
 import type { SetToolEnabledRequest } from '@shared/types/tool'
 import { app, BrowserWindow, ipcMain, shell } from 'electron'
-import { closeCatPanelWindow, registerCatWindowIpcHandlers, showCatWindow } from './cat-window'
-
-const isMac = process.platform === 'darwin'
+import { closeCatWindow, registerCatWindowIpcHandlers, showCatWindow } from './cat-window'
 
 const cronManager = new CronManager()
 
 let mainWindow: BrowserWindow | null = null
+let isQuitting = false
 let chatService: ChatService
 let providerManager: ProviderManager
 let sessionRepo: ChatSessionRepo
@@ -61,7 +60,7 @@ let mcpServerManager: McpServerManager
 let skillManager: SkillManager
 
 function createMainWindow(): void {
-  mainWindow = new BrowserWindow({
+  const window = new BrowserWindow({
     width: 1240,
     height: 780,
     minWidth: 980,
@@ -76,26 +75,59 @@ function createMainWindow(): void {
       sandbox: false,
     },
   })
+  mainWindow = window
 
   if (process.env.ELECTRON_RENDERER_URL) {
-    void mainWindow.loadURL(process.env.ELECTRON_RENDERER_URL)
+    void window.loadURL(process.env.ELECTRON_RENDERER_URL)
   } else {
-    void mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
+    void window.loadFile(join(__dirname, '../renderer/index.html'))
   }
 
-  mainWindow.once('ready-to-show', () => {
-    mainWindow?.show()
+  window.once('ready-to-show', () => {
+    if (mainWindow !== window || window.isDestroyed()) {
+      return
+    }
+
+    window.show()
+    window.focus()
+    showCatWindow()
   })
 
-  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
+  window.webContents.setWindowOpenHandler(({ url }) => {
     void shell.openExternal(url)
     return { action: 'deny' }
   })
 
-  mainWindow.on('closed', () => {
+  window.on('closed', () => {
     mainWindow = null
-    closeCatPanelWindow()
+    closeCatWindow()
+
+    if (!isQuitting) {
+      isQuitting = true
+      app.quit()
+    }
   })
+}
+
+function showMainWindow(): void {
+  if (isQuitting) {
+    return
+  }
+
+  if (!mainWindow) {
+    createMainWindow()
+    return
+  }
+
+  if (mainWindow.isMinimized()) {
+    mainWindow.restore()
+  }
+
+  if (!mainWindow.isVisible()) {
+    mainWindow.show()
+  }
+
+  mainWindow.focus()
 }
 
 function registerIpcHandlers(): void {
@@ -241,13 +273,15 @@ app.whenReady().then(() => {
   registerCatWindowIpcHandlers()
   registerIpcHandlers()
   createMainWindow()
-  showCatWindow()
 
   app.on('activate', () => {
-    if (!mainWindow) {
-      createMainWindow()
-    }
+    showMainWindow()
   })
+})
+
+app.on('before-quit', () => {
+  isQuitting = true
+  closeCatWindow()
 })
 
 let attachmentService: AttachmentService
@@ -525,7 +559,5 @@ function normalizeUploadRequest(request: unknown) {
 }
 
 app.on('window-all-closed', () => {
-  if (!isMac) {
-    app.quit()
-  }
+  app.quit()
 })

@@ -247,6 +247,18 @@ function closeCatPanelWindow(): void {
   }
 }
 
+function closeCatWindow(): void {
+  cancelCatSnapAnimation()
+  closeCatPanelWindow()
+
+  catVisible = false
+  catState = 'hidden'
+
+  if (catWindow && !catWindow.isDestroyed()) {
+    catWindow.close()
+  }
+}
+
 function cancelCatSnapAnimation(): void {
   if (catSnapTimer) {
     clearInterval(catSnapTimer)
@@ -511,6 +523,7 @@ function registerCatWindowIpcHandlers(): void {
 
 export {
   closeCatPanelWindow,
+  closeCatWindow,
   dragEnd,
   dragMove,
   dragStart,
