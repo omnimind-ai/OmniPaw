@@ -19,10 +19,14 @@
     "pack": "pnpm rebuild:electron && pnpm build && electron-builder --dir",
     "dist": "pnpm rebuild:electron && pnpm build && electron-builder",
     "lint": "pnpm typecheck && biome check --write .",
+    "lint:staged": "lint-staged",
     "lint:electron": "biome check electron",
     "check": "pnpm lint",
     "format": "biome format --write .",
     "prepare": "husky"
+  },
+  "lint-staged": {
+    "**/*.{js,cjs,mjs,ts,tsx,vue,json,jsonc,css,html,md,mdx,graphql,gql}": "biome check --write --no-errors-on-unmatched"
   },
   "keywords": [],
   "author": "",
@@ -64,6 +68,7 @@
     "electron": "^36.8.1",
     "electron-builder": "^26.8.1",
     "husky": "^9.1.7",
+    "lint-staged": "^16.4.0",
     "playwright": "^1.60.0",
     "tailwindcss": "^4.3.0",
     "tsx": "^4.22.0",
