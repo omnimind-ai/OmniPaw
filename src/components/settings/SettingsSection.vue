@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { HTMLAttributes } from 'vue'
 
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardAction, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
 
 const props = defineProps<{
@@ -15,6 +15,9 @@ const props = defineProps<{
   <Card :class="cn('gap-0 rounded-md py-0', props.class)">
     <CardHeader class="border-b py-3">
       <CardTitle>{{ title }}</CardTitle>
+      <CardAction v-if="$slots.actions">
+        <slot name="actions" />
+      </CardAction>
       <CardDescription v-if="description">
         {{ description }}
       </CardDescription>

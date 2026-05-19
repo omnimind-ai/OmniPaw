@@ -22,6 +22,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
+import type { AcceptableValue } from 'reka-ui'
 import { type ProviderModelOption, useProviderStore } from '@/stores/provider'
 
 const NONE_VALUE = '__none__'
@@ -43,8 +44,9 @@ function fallbackChecked(modelKey: string) {
   return fallbackModelKeys.value.includes(modelKey)
 }
 
-function updateDefaultModel(value: string) {
-  void providerStore.setDefaultModelKey(value === NONE_VALUE ? '' : value)
+function updateDefaultModel(value: AcceptableValue) {
+  const normalizedValue = typeof value === 'string' ? value : ''
+  void providerStore.setDefaultModelKey(normalizedValue === NONE_VALUE ? '' : normalizedValue)
 }
 
 function updateFallback(modelKey: string, checked: boolean | 'indeterminate') {
@@ -129,7 +131,6 @@ function modelLabel(option: ProviderModelOption) {
 
     <SettingsSection title="备用模型">
       <FieldSet class="px-4 py-4">
-        <FieldLegend>失败回退顺序</FieldLegend>
         <FieldDescription v-if="!enabledOptions.length">
           还没有可用模型。
         </FieldDescription>

@@ -335,6 +335,19 @@ function clearMessages() {}
       title="模型服务"
       class="min-w-0 flex-1 self-stretch"
     >
+      <template #actions>
+        <Button
+          v-if="activeProviderId"
+          type="button"
+          variant="outline"
+          size="sm"
+          :disabled="saving || !persistenceAvailable"
+          @click="handleSaveProvider"
+        >
+          保存
+        </Button>
+      </template>
+
       <div class="flex min-h-0 flex-col gap-4 p-4">
         <div
           v-if="!activeProviderId"
@@ -388,25 +401,6 @@ function clearMessages() {}
                 </p>
               </div>
 
-              <div class="flex flex-wrap gap-2">
-                <Button
-                  type="button"
-                  variant="outline"
-                  :disabled="saving || !persistenceAvailable"
-                  @click="handleSaveProvider"
-                >
-                  保存 Provider
-                </Button>
-                <Button
-                  v-if="isExistingProvider"
-                  type="button"
-                  variant="destructive"
-                  :disabled="saving || !persistenceAvailable"
-                  @click="requestDeleteProvider({ id: providerDraft.id, name: providerDraft.name, baseUrl: providerDraft.baseUrl })"
-                >
-                  删除
-                </Button>
-              </div>
             </div>
           </div>
 
