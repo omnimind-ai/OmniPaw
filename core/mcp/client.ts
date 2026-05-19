@@ -41,9 +41,7 @@ export class McpClientError extends Error {
 
 export class JsonRpcMcpClient implements McpClient {
   async listTools(server: McpServerRecord, signal?: AbortSignal): Promise<McpClientTool[]> {
-    assertSupportedTransport(server)
-
-    return withStdioSession(server, signal, async (session) => {
+    return withJsonRpcSession(server, signal, async (session) => {
       await initialize(session, server, signal)
 
       const tools: McpClientTool[] = []
@@ -71,9 +69,7 @@ export class JsonRpcMcpClient implements McpClient {
     args: unknown,
     signal?: AbortSignal
   ): Promise<AgentToolResult> {
-    assertSupportedTransport(server)
-
-    return withStdioSession(server, signal, async (session) => {
+    return withJsonRpcSession(server, signal, async (session) => {
       await initialize(session, server, signal)
       const result = await session.request(
         'tools/call',
@@ -112,29 +108,61 @@ export function normalizeMcpClientError(
   })
 }
 
-async function withStdioSession<T>(
+const STDIO_PROTOCOL_VERSION = '2024-11-05'
+const STREAMABLE_HTTP_PROTOCOL_VERSION = '2025-06-18'
+const HTTP_ACCEPT_HEADER = 'application/json, text/event-stream'
+
+type HttpMcpServerRecord = McpServerRecord & {
+  transport: Extract<McpServerRecord['transport'], { type: 'http' }>
+}
+
+type StdioMcpServerRecord = McpServerRecord & {
+  transport: Extract<McpServerRecord['transport'], { type: 'stdio' }>
+}
+
+interface JsonRpcSession {
+  readonly protocolVersion: string
+  start(signal?: AbortSignal): void
+  setProtocolVersion?(protocolVersion: string): void
+  request(
+    method: string,
+    params: unknown,
+    timeoutMs: number,
+    signal: AbortSignal | undefined,
+    errorCode: McpErrorCode
+  ): Promise<unknown>
+  notify(
+    method: string,
+    params: unknown,
+    timeoutMs: number,
+    signal: AbortSignal | undefined
+  ): Promise<void> | void
+  close(): Promise<void> | void
+}
+
+async function withJsonRpcSession<T>(
   server: McpServerRecord,
   signal: AbortSignal | undefined,
-  execute: (session: StdioJsonRpcSession) => Promise<T>
+  execute: (session: JsonRpcSession) => Promise<T>
 ): Promise<T> {
-  const session = new StdioJsonRpcSession(server)
+  const session = createJsonRpcSession(server)
   try {
     session.start(signal)
     return await execute(session)
   } finally {
-    session.close()
+    await session.close()
   }
 }
 
 async function initialize(
-  session: StdioJsonRpcSession,
+  session: JsonRpcSession,
   server: McpServerRecord,
   signal?: AbortSignal
 ): Promise<void> {
-  await session.request(
+  const result = await session.request(
     'initialize',
     {
-      protocolVersion: '2024-11-05',
+      protocolVersion: session.protocolVersion,
       capabilities: {},
       clientInfo: {
         name: 'OpenOmniClaw',
@@ -145,10 +173,21 @@ async function initialize(
     signal,
     'discovery_failed'
   )
-  session.notify('notifications/initialized', {})
+  if (isRecord(result) && typeof result.protocolVersion === 'string') {
+    session.setProtocolVersion?.(result.protocolVersion)
+  }
+  await session.notify('notifications/initialized', {}, server.timeoutMs, signal)
 }
 
-class StdioJsonRpcSession {
+function createJsonRpcSession(server: McpServerRecord): JsonRpcSession {
+  if (server.transport.type === 'stdio') {
+    return new StdioJsonRpcSession(server as StdioMcpServerRecord)
+  }
+  return new StreamableHttpJsonRpcSession(server as HttpMcpServerRecord)
+}
+
+class StdioJsonRpcSession implements JsonRpcSession {
+  readonly protocolVersion = STDIO_PROTOCOL_VERSION
   private child: ChildProcessWithoutNullStreams | undefined
   private buffer = Buffer.alloc(0)
   private nextId = 1
@@ -156,16 +195,9 @@ class StdioJsonRpcSession {
   private stderr = ''
   private closing = false
 
-  constructor(private readonly server: McpServerRecord) {}
+  constructor(private readonly server: StdioMcpServerRecord) {}
 
   start(signal?: AbortSignal): void {
-    if (this.server.transport.type !== 'stdio') {
-      throw new McpClientError(
-        'transport_unsupported',
-        'Only stdio MCP transport is supported in this build.'
-      )
-    }
-
     const child = spawn(this.server.transport.command, this.server.transport.args, {
       cwd: this.server.transport.cwd,
       env: {
@@ -291,7 +323,12 @@ class StdioJsonRpcSession {
     })
   }
 
-  notify(method: string, params: unknown): void {
+  notify(
+    method: string,
+    params: unknown,
+    _timeoutMs: number,
+    _signal: AbortSignal | undefined
+  ): void {
     const child = this.child
     if (!child || child.killed || !child.stdin.writable) {
       return
@@ -413,19 +450,194 @@ class StdioJsonRpcSession {
   }
 }
 
+class StreamableHttpJsonRpcSession implements JsonRpcSession {
+  protocolVersion = STREAMABLE_HTTP_PROTOCOL_VERSION
+  private nextId = 1
+  private sessionId: string | undefined
+
+  constructor(private readonly server: HttpMcpServerRecord) {}
+
+  start(_signal?: AbortSignal): void {}
+
+  setProtocolVersion(protocolVersion: string): void {
+    if (protocolVersion.trim()) {
+      this.protocolVersion = protocolVersion.trim()
+    }
+  }
+
+  async request(
+    method: string,
+    params: unknown,
+    timeoutMs: number,
+    signal: AbortSignal | undefined,
+    errorCode: McpErrorCode
+  ): Promise<unknown> {
+    const id = this.nextId++
+    return this.postJsonRpc(
+      { jsonrpc: '2.0', id, method, params },
+      method,
+      timeoutMs,
+      signal,
+      errorCode,
+      (response, requestSignal) =>
+        this.readJsonRpcResponse(response, id, method, errorCode, requestSignal)
+    )
+  }
+
+  async notify(
+    method: string,
+    params: unknown,
+    timeoutMs: number,
+    signal: AbortSignal | undefined
+  ): Promise<void> {
+    await this.postJsonRpc(
+      { jsonrpc: '2.0', method, params },
+      method,
+      timeoutMs,
+      signal,
+      'mcp_io_error',
+      async (response) => {
+        await response.body?.cancel().catch(() => undefined)
+      }
+    )
+  }
+
+  close(): void {}
+
+  private async postJsonRpc<T>(
+    message: unknown,
+    method: string,
+    timeoutMs: number,
+    signal: AbortSignal | undefined,
+    errorCode: McpErrorCode,
+    handleResponse: (response: Response, signal: AbortSignal) => Promise<T>
+  ): Promise<T> {
+    const request = createRequestSignal(timeoutMs, signal)
+    try {
+      const response = await fetch(this.server.transport.url, {
+        method: 'POST',
+        headers: this.headersFor(method),
+        body: JSON.stringify(message),
+        signal: request.signal,
+      })
+      this.captureSessionId(response)
+      if (!response.ok) {
+        throw new McpClientError(
+          errorCode,
+          `MCP HTTP request "${method}" failed with status ${response.status}${response.statusText ? ` ${response.statusText}` : ''}.`,
+          { recoverable: isRecoverableHttpStatus(response.status) }
+        )
+      }
+      return await handleResponse(response, request.signal)
+    } catch (error) {
+      if (error instanceof McpClientError) {
+        throw error
+      }
+      if (isAbortError(error)) {
+        if (request.timedOut()) {
+          throw new McpClientError(
+            errorCode,
+            `MCP HTTP request "${method}" timed out after ${timeoutMs}ms.`,
+            { recoverable: true, cause: error }
+          )
+        }
+        throw createAbortError('MCP request was aborted.')
+      }
+      if (error instanceof Error) {
+        throw new McpClientError(errorCode, error.message, { recoverable: true, cause: error })
+      }
+      throw new McpClientError(errorCode, 'MCP HTTP request failed.', {
+        recoverable: true,
+        cause: error,
+      })
+    } finally {
+      request.cleanup()
+    }
+  }
+
+  private headersFor(method: string): Headers {
+    const headers = new Headers(this.server.transport.headers)
+    headers.set('Accept', HTTP_ACCEPT_HEADER)
+    headers.set('Content-Type', 'application/json')
+    if (method !== 'initialize') {
+      headers.set('MCP-Protocol-Version', this.protocolVersion)
+    }
+    if (this.sessionId) {
+      headers.set('Mcp-Session-Id', this.sessionId)
+    }
+    return headers
+  }
+
+  private captureSessionId(response: Response): void {
+    const sessionId = response.headers.get('Mcp-Session-Id')
+    if (!sessionId) {
+      return
+    }
+    if (!isVisibleAscii(sessionId)) {
+      throw new McpClientError('mcp_io_error', 'MCP server returned an invalid session ID.', {
+        recoverable: false,
+      })
+    }
+    this.sessionId = sessionId
+  }
+
+  private async readJsonRpcResponse(
+    response: Response,
+    id: number,
+    method: string,
+    errorCode: McpErrorCode,
+    signal: AbortSignal
+  ): Promise<unknown> {
+    if (response.status === 202) {
+      throw new McpClientError(
+        errorCode,
+        `MCP HTTP request "${method}" was accepted but did not return a JSON-RPC response.`,
+        { recoverable: true }
+      )
+    }
+
+    const contentType = response.headers.get('content-type')?.toLowerCase() ?? ''
+    if (contentType.includes('text/event-stream')) {
+      const message = await readSseJsonRpcResponse(response, id, method, errorCode, signal)
+      return resultFromJsonRpcResponse(message, errorCode)
+    }
+
+    const text = await response.text()
+    if (!text.trim()) {
+      throw new McpClientError(
+        errorCode,
+        `MCP HTTP request "${method}" returned an empty response.`,
+        { recoverable: true }
+      )
+    }
+
+    try {
+      const payload = JSON.parse(text) as unknown
+      const message = findJsonRpcResponse(payload, id)
+      if (!message) {
+        throw new McpClientError(
+          errorCode,
+          `MCP HTTP request "${method}" did not return the expected JSON-RPC response.`,
+          { recoverable: true }
+        )
+      }
+      return resultFromJsonRpcResponse(message, errorCode)
+    } catch (error) {
+      if (error instanceof McpClientError) {
+        throw error
+      }
+      throw new McpClientError(
+        errorCode,
+        error instanceof Error ? error.message : 'Failed to parse MCP HTTP response.',
+        { recoverable: false, cause: error }
+      )
+    }
+  }
+}
+
 interface PendingRequest {
   resolve: (value: unknown) => void
   reject: (error: Error) => void
-}
-
-function assertSupportedTransport(
-  server: McpServerRecord
-): asserts server is McpServerRecord & { transport: { type: 'stdio' } } {
-  if (server.transport.type !== 'stdio') {
-    throw new McpClientError('transport_unsupported', 'HTTP MCP transport is not supported yet.', {
-      recoverable: false,
-    })
-  }
 }
 
 function normalizeToolsListResult(result: unknown): {
@@ -552,6 +764,199 @@ function isAbortError(error: unknown): boolean {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
+}
+
+function createRequestSignal(timeoutMs: number, upstream?: AbortSignal): RequestSignal {
+  const controller = new AbortController()
+  let timeoutHit = false
+  const timeout = setTimeout(() => {
+    timeoutHit = true
+    controller.abort()
+  }, timeoutMs)
+  const abort = () => controller.abort(upstream?.reason)
+
+  if (upstream?.aborted) {
+    abort()
+  } else {
+    upstream?.addEventListener('abort', abort, { once: true })
+  }
+
+  return {
+    signal: controller.signal,
+    timedOut: () => timeoutHit,
+    cleanup: () => {
+      clearTimeout(timeout)
+      upstream?.removeEventListener('abort', abort)
+    },
+  }
+}
+
+interface RequestSignal {
+  signal: AbortSignal
+  timedOut: () => boolean
+  cleanup: () => void
+}
+
+async function readSseJsonRpcResponse(
+  response: Response,
+  id: number,
+  method: string,
+  errorCode: McpErrorCode,
+  signal: AbortSignal
+): Promise<Record<string, unknown>> {
+  const body = response.body
+  if (!body) {
+    throw new McpClientError(
+      errorCode,
+      `MCP HTTP request "${method}" returned an empty event stream.`,
+      { recoverable: true }
+    )
+  }
+
+  const reader = body.getReader()
+  const decoder = new TextDecoder()
+  let buffer = ''
+  const abort = () => {
+    void reader.cancel().catch(() => undefined)
+  }
+
+  try {
+    if (signal.aborted) {
+      abort()
+    } else {
+      signal.addEventListener('abort', abort, { once: true })
+    }
+
+    while (true) {
+      const { done, value } = await reader.read()
+      if (done) {
+        break
+      }
+      buffer += decoder.decode(value, { stream: true })
+      const found = readBufferedSseResponse(buffer, id, errorCode)
+      buffer = found.buffer
+      if (found.message) {
+        await reader.cancel().catch(() => undefined)
+        return found.message
+      }
+    }
+
+    if (signal.aborted) {
+      throw createAbortError('MCP request was aborted.')
+    }
+
+    buffer += decoder.decode()
+    const found = readBufferedSseResponse(`${buffer}\n\n`, id, errorCode)
+    if (found.message) {
+      return found.message
+    }
+  } catch (error) {
+    if (error instanceof McpClientError) {
+      throw error
+    }
+    if (isAbortError(error)) {
+      throw error
+    }
+    throw new McpClientError(
+      errorCode,
+      error instanceof Error ? error.message : 'Failed to read MCP HTTP event stream.',
+      { recoverable: true, cause: error }
+    )
+  } finally {
+    signal.removeEventListener('abort', abort)
+    reader.releaseLock()
+  }
+
+  throw new McpClientError(
+    errorCode,
+    `MCP HTTP request "${method}" event stream ended without the expected JSON-RPC response.`,
+    { recoverable: true }
+  )
+}
+
+function readBufferedSseResponse(
+  initialBuffer: string,
+  id: number,
+  errorCode: McpErrorCode
+): { buffer: string; message?: Record<string, unknown> } {
+  let buffer = initialBuffer
+  while (true) {
+    const event = takeSseEvent(buffer)
+    if (!event) {
+      return { buffer }
+    }
+    buffer = event.rest
+    const data = dataFromSseEvent(event.value)
+    if (!data) {
+      continue
+    }
+    let payload: unknown
+    try {
+      payload = JSON.parse(data)
+    } catch (error) {
+      throw new McpClientError(
+        errorCode,
+        error instanceof Error ? error.message : 'Failed to parse MCP HTTP event data.',
+        { recoverable: false, cause: error }
+      )
+    }
+    const message = findJsonRpcResponse(payload, id)
+    if (message) {
+      return { buffer, message }
+    }
+  }
+}
+
+function takeSseEvent(buffer: string): { value: string; rest: string } | undefined {
+  const match = /\r?\n\r?\n/.exec(buffer)
+  if (!match) {
+    return undefined
+  }
+  return {
+    value: buffer.slice(0, match.index),
+    rest: buffer.slice(match.index + match[0].length),
+  }
+}
+
+function dataFromSseEvent(event: string): string | undefined {
+  const data = event
+    .split(/\r?\n/)
+    .filter((line) => line.startsWith('data:'))
+    .map((line) => line.slice(5).replace(/^ /, ''))
+    .join('\n')
+  return data.trim() ? data : undefined
+}
+
+function findJsonRpcResponse(payload: unknown, id: number): Record<string, unknown> | undefined {
+  const messages = Array.isArray(payload) ? payload : [payload]
+  return messages.find(
+    (message): message is Record<string, unknown> =>
+      isRecord(message) && message.id === id && ('result' in message || 'error' in message)
+  )
+}
+
+function resultFromJsonRpcResponse(
+  message: Record<string, unknown>,
+  errorCode: McpErrorCode
+): unknown {
+  if (isRecord(message.error)) {
+    throw new McpClientError(
+      errorCode,
+      typeof message.error.message === 'string'
+        ? message.error.message
+        : 'MCP server returned an error.',
+      { recoverable: true }
+    )
+  }
+  return message.result
+}
+
+function isRecoverableHttpStatus(status: number): boolean {
+  return status === 408 || status === 409 || status === 425 || status === 429 || status >= 500
+}
+
+function isVisibleAscii(value: string): boolean {
+  return /^[\x21-\x7E]+$/.test(value)
 }
 
 export function mcpClientErrorToOperationError(error: unknown, fallbackCode: McpErrorCode) {

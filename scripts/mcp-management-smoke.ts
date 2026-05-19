@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { createServer, type IncomingMessage, type ServerResponse } from 'node:http'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
@@ -295,6 +296,7 @@ try {
   assert.match(execution?.content[0]?.type === 'text' ? execution.content[0].text : '', /hello/)
 
   await testStdioJsonRpcClient(tempDir)
+  await testHttpJsonRpcClient()
 
   console.log('MCP management smoke check passed')
 } finally {
@@ -327,4 +329,156 @@ async function testStdioJsonRpcClient(baseDir: string): Promise<void> {
 
   const result = await client.callTool(server, 'echo', { text: 'stdio works' })
   assert.match(result.content[0]?.type === 'text' ? result.content[0].text : '', /stdio works/)
+}
+
+async function testHttpJsonRpcClient(): Promise<void> {
+  const server = createServer((request, response) => {
+    void handleHttpMcpRequest(request, response)
+  })
+  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve))
+
+  try {
+    const address = server.address()
+    assert.equal(typeof address, 'object')
+    assert.notEqual(address, null)
+    const now = Date.now()
+    const mcpServer: McpServerRecord = {
+      id: 'http_fixture',
+      name: 'HTTP Fixture',
+      enabled: true,
+      transport: {
+        type: 'http',
+        url: `http://127.0.0.1:${address!.port}/mcp`,
+        headers: { 'x-fixture-token': 'ok' },
+      },
+      timeoutMs: 5_000,
+      toolTimeoutMs: 5_000,
+      createdAt: now,
+      updatedAt: now,
+    }
+    const client = new JsonRpcMcpClient()
+    const tools = await client.listTools(mcpServer)
+    assert.equal(tools[0]?.name, 'http_echo')
+
+    const result = await client.callTool(mcpServer, 'http_echo', { text: 'http works' })
+    assert.match(result.content[0]?.type === 'text' ? result.content[0].text : '', /http works/)
+  } finally {
+    await new Promise<void>((resolve, reject) =>
+      server.close((error) => (error ? reject(error) : resolve()))
+    )
+  }
+}
+
+async function handleHttpMcpRequest(
+  request: IncomingMessage,
+  response: ServerResponse
+): Promise<void> {
+  if (request.method !== 'POST' || request.url !== '/mcp') {
+    response.writeHead(404).end()
+    return
+  }
+  assert.equal(request.headers['x-fixture-token'], 'ok')
+  assert.match(String(request.headers.accept), /application\/json/)
+  assert.match(String(request.headers.accept), /text\/event-stream/)
+
+  const body = await readRequestBody(request)
+  const message = JSON.parse(body) as {
+    id?: number
+    method?: string
+    params?: { name?: string; arguments?: unknown }
+  }
+
+  if (message.method === 'initialize') {
+    response.writeHead(200, {
+      'Content-Type': 'application/json',
+      'Mcp-Session-Id': 'fixture-session',
+    })
+    response.end(
+      JSON.stringify({
+        jsonrpc: '2.0',
+        id: message.id,
+        result: {
+          protocolVersion: '2025-06-18',
+          capabilities: { tools: {} },
+          serverInfo: { name: 'http-fixture', version: '1.0.0' },
+        },
+      })
+    )
+    return
+  }
+
+  assert.equal(request.headers['mcp-session-id'], 'fixture-session')
+  assert.equal(request.headers['mcp-protocol-version'], '2025-06-18')
+
+  if (message.method === 'notifications/initialized') {
+    response.writeHead(202).end()
+    return
+  }
+
+  if (message.method === 'tools/list') {
+    response.writeHead(200, { 'Content-Type': 'application/json' })
+    response.end(
+      JSON.stringify({
+        jsonrpc: '2.0',
+        id: message.id,
+        result: {
+          tools: [
+            {
+              name: 'http_echo',
+              description: 'Echo text over HTTP',
+              inputSchema: {
+                type: 'object',
+                properties: { text: { type: 'string' } },
+              },
+            },
+          ],
+        },
+      })
+    )
+    return
+  }
+
+  if (message.method === 'tools/call') {
+    response.writeHead(200, { 'Content-Type': 'text/event-stream' })
+    response.write(
+      `event: message\ndata: ${JSON.stringify({
+        jsonrpc: '2.0',
+        id: message.id,
+        result: {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify({
+                name: message.params?.name,
+                args: message.params?.arguments,
+              }),
+            },
+          ],
+        },
+      })}\n\n`
+    )
+    response.end()
+    return
+  }
+
+  response.writeHead(200, { 'Content-Type': 'application/json' })
+  response.end(
+    JSON.stringify({
+      jsonrpc: '2.0',
+      id: message.id,
+      error: { code: -32601, message: 'Method not found' },
+    })
+  )
+}
+
+function readRequestBody(request: IncomingMessage): Promise<string> {
+  return new Promise((resolve, reject) => {
+    let body = ''
+    request.setEncoding('utf8')
+    request.on('data', (chunk) => {
+      body += chunk
+    })
+    request.on('end', () => resolve(body))
+    request.on('error', reject)
+  })
 }
