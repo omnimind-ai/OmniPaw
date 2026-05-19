@@ -1,7 +1,7 @@
 import type { AttachmentService } from '@core/chat/attachment-service'
 import type { ChatMessageRepo } from '@core/db/repos'
-import type { SkillManager } from '@core/skill/skill-manager'
 import type { ProviderTool } from '@core/provider/base-provider'
+import type { SkillManager } from '@core/skill/skill-manager'
 import type { ToolProfile } from '@shared/types/chat'
 import { createBuiltinTools } from './builtin-tools'
 import type { AgentTool } from './tool'

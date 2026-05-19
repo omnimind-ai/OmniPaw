@@ -1,9 +1,12 @@
 import { mkdirSync } from 'node:fs'
 import { join } from 'node:path'
-
-import electronLog from 'electron-log/main'
-import type { LoggerHealthStatus, SerializedLogError, SerializedLogRecord } from '@shared/types/logging'
 import { serializeLogError } from '@shared/logging/sanitize'
+import type {
+  LoggerHealthStatus,
+  SerializedLogError,
+  SerializedLogRecord,
+} from '@shared/types/logging'
+import electronLog from 'electron-log/main'
 import type { LogSink } from './logger'
 
 export interface ElectronLogSinkOptions {
@@ -55,7 +58,8 @@ class ElectronLogSink implements LogSink {
     try {
       mkdirSync(this.logDir, { recursive: true })
       const native = electronLog.create({ logId: 'openomniclaw' }) as MutableElectronLogger
-      native.transports.console = createNoopTransport() as unknown as typeof native.transports.console
+      native.transports.console =
+        createNoopTransport() as unknown as typeof native.transports.console
       native.transports.ipc = createNoopTransport() as unknown as typeof native.transports.ipc
       native.transports.remote = createNoopTransport() as unknown as typeof native.transports.remote
       native.transports.file.level = 'silly'

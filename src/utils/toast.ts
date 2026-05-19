@@ -1,4 +1,4 @@
-import { toast as sonnerToast, type ExternalToast } from 'vue-sonner'
+import { type ExternalToast, toast as sonnerToast } from 'vue-sonner'
 
 export type ToastLevel = 'success' | 'error' | 'info' | 'warning'
 export type ToastMessage = string | Error | unknown

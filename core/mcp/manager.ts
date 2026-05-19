@@ -28,8 +28,8 @@ import {
   DEFAULT_MCP_TOOL_PROFILES,
   DEFAULT_MCP_TOOL_TIMEOUT_MS,
   isKnownToolRisk,
-  mcpError,
   McpValidationError,
+  mcpError,
   normalizeMcpServerId,
   normalizeMcpServerRecord,
 } from './schema'

@@ -1,20 +1,18 @@
-import type { WebContents } from 'electron'
-
-import type { ProviderManager } from '@core/provider/manager'
 import { AgentRunner } from '@core/agent/agent-runner'
 import type { AgentTool } from '@core/agent/tool'
-import { ToolRegistry } from '@core/agent/tool-registry'
 import type { ToolResolutionInput } from '@core/agent/tool-registry'
-import type { SkillManager } from '@core/skill/skill-manager'
+import { ToolRegistry } from '@core/agent/tool-registry'
 import type { AttachmentRepo, ChatMessageRepo, ChatRunRepo, ChatSessionRepo } from '@core/db/repos'
 import type { Logger } from '@core/logging'
-import type { ChatSession } from '@shared/types/chat'
+import type { ProviderManager } from '@core/provider/manager'
+import type { SkillManager } from '@core/skill/skill-manager'
 import type {
   AbortRunRequest,
   AbortRunResponse,
   ChatMessage,
   ChatMessagePart,
   ChatRun,
+  ChatSession,
   DeleteSessionRequest,
   EditMessageRequest,
   EditMessageResponse,
@@ -25,9 +23,10 @@ import type {
   UpdateSessionRequest,
 } from '@shared/types/chat'
 import type { ProviderConfig, ProviderModel } from '@shared/types/provider'
-import { AttachmentService } from './attachment-service'
-import { ContextBuilder } from './context-manager'
-import { RunManager } from './run-manager'
+import type { WebContents } from 'electron'
+import type { AttachmentService } from './attachment-service'
+import type { ContextBuilder } from './context-manager'
+import type { RunManager } from './run-manager'
 
 export interface ChatServiceOptions {
   sessions: ChatSessionRepo

@@ -18,10 +18,10 @@ import {
   cloneSkillState,
   normalizeSkillId,
   normalizeSkillState,
-  serializeSkillState,
   SKILL_STATE_FILE_NAME,
-  skillError,
   SkillValidationError,
+  serializeSkillState,
+  skillError,
 } from './schema'
 
 export interface SkillStateStoreOptions {

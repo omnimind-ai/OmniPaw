@@ -1,22 +1,21 @@
-import { defineStore } from 'pinia'
-import { computed, ref } from 'vue'
-
-import {
-  appBridge,
-  ensureElectronBridge,
-  isFallbackBridge,
-  type BridgeProviderConfig,
-  type BridgeProviderPreset,
-} from '@/bridge/app'
 import type {
-  DeleteProviderRequest,
   CreateProviderFromPresetRequest,
+  DeleteProviderRequest,
   ProviderConfig,
   ProviderModel,
   ProviderOperationResult,
   SaveProviderRequest,
   SetSessionModelRequest,
 } from '@shared/types/provider'
+import { defineStore } from 'pinia'
+import { computed, ref } from 'vue'
+import {
+  appBridge,
+  type BridgeProviderConfig,
+  type BridgeProviderPreset,
+  ensureElectronBridge,
+  isFallbackBridge,
+} from '@/bridge/app'
 
 export interface ProviderModelOption {
   key: string

@@ -4,15 +4,15 @@ import { basename, dirname, extname, join, resolve } from 'node:path'
 import { inflateRawSync } from 'node:zlib'
 
 import type { ImportSkillRequest } from '@shared/types/skill'
+import { isPathInside } from './loader'
 import {
   MAX_SKILL_IMPORT_ARCHIVE_BYTES,
   MAX_SKILL_IMPORT_FILES,
   MAX_SKILL_IMPORT_TOTAL_BYTES,
   normalizeSkillId,
-  skillError,
   SkillValidationError,
+  skillError,
 } from './schema'
-import { isPathInside } from './loader'
 
 export interface SkillImportResult {
   installedIds: string[]

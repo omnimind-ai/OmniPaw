@@ -22,8 +22,8 @@ import {
   cloneDefaultMcpRegistry,
   cloneRegistry,
   MCP_REGISTRY_FILE_NAME,
-  mcpError,
   McpValidationError,
+  mcpError,
   normalizeMcpRegistry,
   serializeMcpRegistry,
 } from './schema'

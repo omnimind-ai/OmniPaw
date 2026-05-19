@@ -1,8 +1,4 @@
-import type {
-  LogLevel,
-  SerializedLogError,
-  SerializedLogRecord,
-} from '@shared/types/logging'
+import type { LogLevel, SerializedLogError, SerializedLogRecord } from '@shared/types/logging'
 
 export const REDACTED_VALUE = '[redacted]'
 export const TRUNCATED_VALUE = '[truncated]'
@@ -164,7 +160,10 @@ export function serializeLogError(
       sanitized.name = truncateString(redactSensitiveText(record.name), 160)
     }
     if (typeof record.stack === 'string' && resolved.includeStack) {
-      sanitized.stack = truncateString(redactSensitiveText(record.stack), resolved.maxStringLength * 2)
+      sanitized.stack = truncateString(
+        redactSensitiveText(record.stack),
+        resolved.maxStringLength * 2
+      )
     }
     if (typeof record.code === 'string') {
       sanitized.code = truncateString(redactSensitiveText(record.code), 160)

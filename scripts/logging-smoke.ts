@@ -77,13 +77,7 @@ try {
   assert.ok(failingStatus.failedWriteCount > 0)
   assert.ok(failingStatus.droppedCount > 0)
 
-  assertNoConsoleErrorUsage([
-    'electron',
-    'core',
-    'shared',
-    'src',
-    'scripts',
-  ])
+  assertNoConsoleErrorUsage(['electron', 'core', 'shared', 'src', 'scripts'])
 
   console.log('Logging smoke check passed')
 } finally {

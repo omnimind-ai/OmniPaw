@@ -1,8 +1,7 @@
+import type { Session } from '@shared/types/chat'
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
-
 import { appBridge } from '@/bridge/app'
-import type { Session } from '@shared/types/chat'
 
 export interface PendingInitialMessagePart {
   type: string

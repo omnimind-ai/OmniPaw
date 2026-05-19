@@ -1,7 +1,3 @@
-import { nextTick, ref, type Ref } from 'vue'
-
-import type { BridgeProviderConfig, BridgeProviderModel } from '@/bridge/app'
-import { errorToText } from '@/utils/toast'
 import type {
   ProviderApi,
   ProviderCapabilities,
@@ -10,12 +6,15 @@ import type {
   ProviderType,
   SaveProviderRequest,
 } from '@shared/types/provider'
+import { nextTick, type Ref, ref } from 'vue'
+import type { BridgeProviderConfig, BridgeProviderModel } from '@/bridge/app'
 import type {
   CredentialMode,
   ModelInput,
   ProviderDraft,
   ProviderModelDraft,
 } from '@/components/settings/provider-settings/types'
+import { errorToText } from '@/utils/toast'
 
 export type ProviderSaveDraftResult =
   | {

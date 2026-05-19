@@ -1,14 +1,14 @@
-export type { Logger, LoggerChildContext, LogContext, LogSink } from './logger'
+export { createElectronLogSink, type ElectronLogSinkOptions } from './electron-log-adapter'
+export type { LogContext, Logger, LoggerChildContext, LogSink } from './logger'
 export {
   createNoopLogger,
   createNoopLogSink,
   createProjectLogger,
   writeRendererLogRequest,
 } from './logger'
-export { createElectronLogSink, type ElectronLogSinkOptions } from './electron-log-adapter'
 export {
+  isSensitiveKey,
   REDACTED_VALUE,
   redactSensitiveText,
   redactUrl,
-  isSensitiveKey,
 } from './redaction'

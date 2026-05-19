@@ -1,7 +1,7 @@
-import type { WebContents } from 'electron'
+import type { ChatRunRepo } from '@core/db/repos'
 
 import type { ChatStreamEvent } from '@shared/types/chat'
-import type { ChatRunRepo } from '@core/db/repos'
+import type { WebContents } from 'electron'
 
 export interface ActiveRun {
   runId: string

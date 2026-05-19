@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict'
 
 import { AgentRunner } from '../core/agent/agent-runner'
+import type { AgentTool } from '../core/agent/tool'
 import { ToolExecutor } from '../core/agent/tool-executor'
 import { defaultToolPolicy } from '../core/agent/tool-policy'
-import type { AgentTool } from '../core/agent/tool'
 import type {
   ChatCompletionChunk,
   ChatCompletionRequest,

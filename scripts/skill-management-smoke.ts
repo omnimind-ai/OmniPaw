@@ -2,10 +2,9 @@ import assert from 'node:assert/strict'
 import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-
+import { normalizeSkillState, SkillStateStore } from '../core/skill'
 import { SkillLoader } from '../core/skill/loader'
 import { SkillManager } from '../core/skill/skill-manager'
-import { normalizeSkillState, SkillStateStore } from '../core/skill'
 
 const tempDir = mkdtempSync(join(tmpdir(), 'openomniclaw-skill-smoke-'))
 

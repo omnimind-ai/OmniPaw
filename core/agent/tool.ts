@@ -2,8 +2,7 @@ import type { ProviderTool, ProviderToolCall } from '@core/provider/base-provide
 import type { ToolCallDisplay, ToolCallStatus, ToolProfile, ToolRisk } from '@shared/types/chat'
 import type { ToolSource } from '@shared/types/tool'
 
-export type { ToolCallStatus, ToolProfile, ToolRisk }
-export type { ToolSource }
+export type { ToolCallStatus, ToolProfile, ToolRisk, ToolSource }
 
 export interface AgentToolContext {
   sessionId: string

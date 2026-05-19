@@ -1,29 +1,21 @@
 import type { AppInfo } from './app'
-import type { LoggerHealthStatus, LoggerWriteResponse, RendererLogRequest } from './logging'
 import type {
   CatBounds,
   CatCommandEvent,
+  CatDragPayload,
   CatPanelPlacement,
   CatPanelToggleResult,
   CatStatus,
   CatTaskState,
   CatWindowState,
-  CatDragPayload,
 } from './cat'
-import type { CronTask } from './cron'
-import type {
-  DesktopSettingsChangedEvent,
-  DesktopSettingsConfig,
-  DesktopSettingsStatus,
-  SaveDesktopSettingsRequest,
-} from './settings'
 import type {
   AbortRunRequest,
   AbortRunResponse,
   AttachmentPreviewRequest,
   AttachmentPreviewResponse,
-  ChatMessagePart,
   ChatMessage,
+  ChatMessagePart,
   ChatSession,
   ChatStreamEvent,
   DeleteSessionRequest,
@@ -37,9 +29,21 @@ import type {
   UploadAttachmentRequest,
   UploadAttachmentResponse,
 } from './chat'
+import type { CronTask } from './cron'
+import type { LoggerHealthStatus, LoggerWriteResponse, RendererLogRequest } from './logging'
 import type {
-  DeleteProviderRequest,
+  DeleteMcpServerRequest,
+  McpServerChangedEvent,
+  McpServerListResponse,
+  McpServerSummary,
+  McpToolInventoryResponse,
+  RefreshMcpServerRequest,
+  SaveMcpServerRequest,
+  SetMcpServerEnabledRequest,
+} from './mcp'
+import type {
   CreateProviderFromPresetRequest,
+  DeleteProviderRequest,
   ProviderConfig,
   ProviderModel,
   ProviderOperationResult,
@@ -51,6 +55,12 @@ import type {
   TestProviderRequest,
 } from './provider'
 import type {
+  DesktopSettingsChangedEvent,
+  DesktopSettingsConfig,
+  DesktopSettingsStatus,
+  SaveDesktopSettingsRequest,
+} from './settings'
+import type {
   ImportSkillRequest,
   ImportSkillResponse,
   LocalSkillSummary,
@@ -59,16 +69,6 @@ import type {
   SkillListResponse,
 } from './skill'
 import type { ManagedToolInfo, SetToolEnabledRequest, SetToolEnabledResponse } from './tool'
-import type {
-  DeleteMcpServerRequest,
-  McpServerChangedEvent,
-  McpServerListResponse,
-  McpServerSummary,
-  McpToolInventoryResponse,
-  RefreshMcpServerRequest,
-  SaveMcpServerRequest,
-  SetMcpServerEnabledRequest,
-} from './mcp'
 
 export type Unsubscribe = () => void
 

@@ -1,7 +1,7 @@
+import assert from 'node:assert/strict'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import assert from 'node:assert/strict'
 
 import { DatabaseClient } from '../core/db/client'
 import { AttachmentRepo, ChatMessageRepo, ChatRunRepo, ChatSessionRepo } from '../core/db/repos'

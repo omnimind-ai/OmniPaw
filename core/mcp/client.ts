@@ -1,5 +1,5 @@
-import { spawn, type ChildProcessWithoutNullStreams } from 'node:child_process'
 import { Buffer } from 'node:buffer'
+import { type ChildProcessWithoutNullStreams, spawn } from 'node:child_process'
 
 import type { AgentToolResult, AgentToolResultContent } from '@core/agent/tool'
 import type { McpErrorCode, McpServerRecord } from '@shared/types/mcp'

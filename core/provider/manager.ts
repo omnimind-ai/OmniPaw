@@ -1,17 +1,17 @@
-import type { DesktopSettingsConfig } from '@shared/types/settings'
 import type { ConfigStore } from '@core/config/store'
 import type { Logger } from '@core/logging'
 import type {
-  ProviderConfig,
   ModelConfig,
+  ProviderConfig,
   ProviderPreset,
   ProviderType,
   SaveProviderRequest,
 } from '@shared/types/provider'
+import type { DesktopSettingsConfig } from '@shared/types/settings'
 import type { BaseProvider, ProviderModelCandidate } from './base-provider'
-import { normalizeProviderError } from './errors'
 import type { ProviderCredentialRecord } from './credentials'
 import { resolveCredential } from './credentials'
+import { normalizeProviderError } from './errors'
 import { OpenAICompatibleProvider } from './providers/openai'
 
 export type ProviderApi = 'openai-chat-completions' | 'openai-responses' | 'ollama' | 'omniinfer'

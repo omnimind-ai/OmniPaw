@@ -4,8 +4,9 @@ import { computed, ref } from 'vue'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Textarea } from '@/components/ui/textarea'
-import { cn } from '@/lib/utils'
 import type { ChatContent, ChatRecord, MessageDisplayBlock } from '@/composables/useMessages'
+import { cn } from '@/lib/utils'
+import type { RefItem } from './chat-display'
 import {
   contentText,
   formatTime,
@@ -14,7 +15,6 @@ import {
   recordErrorText,
   recordId,
 } from './chat-display'
-import type { RefItem } from './chat-display'
 import MessagePartRenderer from './parts/MessagePartRenderer.vue'
 import MessageToolbar from './parts/MessageToolbar.vue'
 import ReasoningBlock from './parts/ReasoningBlock.vue'

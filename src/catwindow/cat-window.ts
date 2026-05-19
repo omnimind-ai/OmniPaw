@@ -1,16 +1,15 @@
-import { appBridge } from '@/bridge/app'
 import type { CatCommandEvent, CatWindowState } from '@shared/types/cat'
-
-import idleImage from '@/asserts/cat/ic_cat_normal.png'
-import draggedImage from '@/asserts/cat/anim_cat_dragging.webp'
 import doTaskImage from '@/asserts/cat/anim_cat_doing_task.webp'
+import draggedImage from '@/asserts/cat/anim_cat_dragging.webp'
 import endTaskImage from '@/asserts/cat/anim_cat_end_doing.webp'
 import finishImage from '@/asserts/cat/anim_cat_finish.webp'
 import firstShowImage from '@/asserts/cat/anim_cat_show.webp'
 import startTaskImage from '@/asserts/cat/anim_cat_start_doing.webp'
-import draggedFallbackImage from '@/asserts/cat/ic_cat_normal_dragging.png'
 import doTaskFallbackImage from '@/asserts/cat/ic_cat_doing_task.png'
 import firstShowFallbackImage from '@/asserts/cat/ic_cat_first_show.png'
+import idleImage from '@/asserts/cat/ic_cat_normal.png'
+import draggedFallbackImage from '@/asserts/cat/ic_cat_normal_dragging.png'
+import { appBridge } from '@/bridge/app'
 
 const surface = document.querySelector<HTMLElement>('.cat-surface')
 const stage = document.querySelector<HTMLButtonElement>('#cat-stage')

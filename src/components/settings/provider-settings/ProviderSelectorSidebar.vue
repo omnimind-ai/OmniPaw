@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { CloudIcon, PlusIcon, SearchIcon, Trash2Icon } from 'lucide-vue-next'
 import { computed } from 'vue'
-
+import type { BridgeProviderPreset } from '@/bridge/app'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -13,7 +13,6 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group'
 import { cn } from '@/lib/utils'
-import type { BridgeProviderPreset } from '@/bridge/app'
 import type { ProviderSidebarItem } from './types'
 
 const props = defineProps<{

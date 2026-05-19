@@ -1,14 +1,10 @@
+import { normalizeLogLevel, sanitizeLogContext, sanitizeLogRecord } from '@shared/logging/sanitize'
 import type {
-  LogLevel,
   LoggerHealthStatus,
+  LogLevel,
   RendererLogRequest,
   SerializedLogRecord,
 } from '@shared/types/logging'
-import {
-  normalizeLogLevel,
-  sanitizeLogRecord,
-  sanitizeLogContext,
-} from '@shared/logging/sanitize'
 
 export type LogContext = Record<string, unknown> & { error?: unknown }
 
@@ -178,7 +174,12 @@ class ScopedProjectLogger implements Logger {
   }
 }
 
-function writeByLevel(logger: Logger, level: LogLevel, message: string, context?: LogContext): void {
+function writeByLevel(
+  logger: Logger,
+  level: LogLevel,
+  message: string,
+  context?: LogContext
+): void {
   if (level === 'debug') {
     logger.debug(message, context)
     return

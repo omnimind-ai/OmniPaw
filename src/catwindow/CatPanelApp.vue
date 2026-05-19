@@ -1,6 +1,5 @@
 <script setup lang="ts">
-import type { Component } from 'vue'
-import { computed, onBeforeUnmount, ref } from 'vue'
+import type { CatPanelPlacement, CatTaskState } from '@shared/types/cat'
 import {
   CheckCircle2Icon,
   Clock3Icon,
@@ -8,7 +7,8 @@ import {
   PauseCircleIcon,
   XIcon,
 } from 'lucide-vue-next'
-
+import type { Component } from 'vue'
+import { computed, onBeforeUnmount, ref } from 'vue'
 import { appBridge } from '@/bridge/app'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -22,7 +22,6 @@ import {
 } from '@/components/ui/card'
 import { Separator } from '@/components/ui/separator'
 import { cn } from '@/lib/utils'
-import type { CatPanelPlacement, CatTaskState } from '@shared/types/cat'
 
 type PanelSide = NonNullable<CatPanelPlacement['side']>
 

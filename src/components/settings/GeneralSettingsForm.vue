@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-
+import type { BridgeAppLanguage, BridgeAppTheme, BridgeDesktopSettingsConfig } from '@/bridge/app'
 import SettingsSection from '@/components/settings/SettingsSection.vue'
 import {
   Field,
@@ -19,7 +19,6 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
-import type { BridgeAppLanguage, BridgeAppTheme, BridgeDesktopSettingsConfig } from '@/bridge/app'
 
 const props = defineProps<{
   draft: BridgeDesktopSettingsConfig

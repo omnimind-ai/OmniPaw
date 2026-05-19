@@ -1,7 +1,7 @@
 <script setup lang="ts">
+import type { ProviderType } from '@shared/types/provider'
 import { CloudIcon } from 'lucide-vue-next'
 import { computed } from 'vue'
-
 import {
   Field,
   FieldContent,
@@ -23,7 +23,6 @@ import {
 } from '@/components/ui/select'
 import { Separator } from '@/components/ui/separator'
 import { Switch } from '@/components/ui/switch'
-import type { ProviderType } from '@shared/types/provider'
 import type { CredentialMode, ProviderDraft } from './types'
 
 const props = defineProps<{

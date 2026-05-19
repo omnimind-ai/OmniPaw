@@ -1,5 +1,3 @@
-import type { AttachmentService } from './attachment-service'
-import { attachmentIdFromPart } from './attachment-service'
 import type {
   ChatMessage,
   ChatMessagePart,
@@ -9,6 +7,8 @@ import type {
 } from '@shared/types/chat'
 import type { ProviderConfig, ProviderMessage, ProviderModel } from '@shared/types/provider'
 import type { SkillPromptContext } from '@shared/types/skill'
+import type { AttachmentService } from './attachment-service'
+import { attachmentIdFromPart } from './attachment-service'
 
 export interface BuildContextInput {
   session: ChatSession

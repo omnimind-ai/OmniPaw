@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import DOMPurify from 'dompurify'
-import MarkdownIt from 'markdown-it'
 import { CheckIcon, CopyIcon } from 'lucide-vue-next'
+import MarkdownIt from 'markdown-it'
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 
 import { Button } from '@/components/ui/button'

@@ -10,18 +10,17 @@ import {
   writeFileSync,
 } from 'node:fs'
 import { dirname, join } from 'node:path'
-
+import type { Logger } from '@core/logging'
 import type {
   DesktopSettingsConfig,
   DesktopSettingsStatus,
   SettingsOperationError,
 } from '@shared/types/settings'
-import type { Logger } from '@core/logging'
 import {
+  ConfigValidationError,
   cloneConfig,
   cloneDefaultConfig,
   configError,
-  ConfigValidationError,
   normalizeConfig,
   serializeConfig,
 } from './schema'

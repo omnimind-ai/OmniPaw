@@ -4,13 +4,13 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 
 import {
   appBridge,
-  isFallbackBridge,
   type BridgeImportSkillResponse,
   type BridgeLocalSkillSummary,
   type BridgeSkillChangedEvent,
   type BridgeSkillListResponse,
   type BridgeSkillStatus,
   type BridgeUnsubscribe,
+  isFallbackBridge,
 } from '@/bridge/app'
 import SettingsSection from '@/components/settings/SettingsSection.vue'
 import { Badge } from '@/components/ui/badge'

@@ -1,5 +1,5 @@
-import { createHighlighter, normalizeLimitedShikiLanguage } from './shikiLimitedBundle'
 import { logger } from './logger'
+import { createHighlighter, normalizeLimitedShikiLanguage } from './shikiLimitedBundle'
 
 export const SHIKI_THEMES = {
   light: 'github-light',

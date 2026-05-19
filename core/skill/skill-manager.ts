@@ -11,17 +11,17 @@ import type {
   SkillPromptContext,
   SkillReadResult,
 } from '@shared/types/skill'
+import { importSkillPackage } from './importer'
+import { type LoadedLocalSkill, SkillLoader, type SkillRoot } from './loader'
 import {
   MAX_COMPACT_SKILL_DESCRIPTION_CHARS,
   MAX_SKILL_READ_CHARS,
-  SKILL_ROOT_DIRECTORY_NAME,
   normalizeSkillId,
-  skillError,
+  SKILL_ROOT_DIRECTORY_NAME,
   SkillValidationError,
+  skillError,
   truncateText,
 } from './schema'
-import { importSkillPackage } from './importer'
-import { SkillLoader, type LoadedLocalSkill, type SkillRoot } from './loader'
 import { SkillStateStore } from './store'
 
 export interface SkillManagerOptions {

@@ -1,10 +1,6 @@
-import { appBridge } from '@/bridge/app'
-import {
-  sanitizeLogContext,
-  sanitizeLogMessage,
-  serializeLogError,
-} from '@shared/logging/sanitize'
+import { sanitizeLogContext, sanitizeLogMessage, serializeLogError } from '@shared/logging/sanitize'
 import type { LogLevel, RendererLogRequest } from '@shared/types/logging'
+import { appBridge } from '@/bridge/app'
 
 export type RendererLogContext = Record<string, unknown> & { error?: unknown }
 

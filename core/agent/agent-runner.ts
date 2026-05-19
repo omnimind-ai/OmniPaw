@@ -1,8 +1,11 @@
+import type { ContextBuilder } from '@core/chat/context-manager'
+import type { RunManager } from '@core/chat/run-manager'
 import type { ChatMessageRepo, ChatRunRepo } from '@core/db/repos'
 import type { Logger } from '@core/logging'
+import type { ProviderToolCall } from '@core/provider/base-provider'
 import { normalizeProviderError } from '@core/provider/errors'
 import type { ProviderManager } from '@core/provider/manager'
-import type { ProviderToolCall } from '@core/provider/base-provider'
+import type { SkillManager } from '@core/skill/skill-manager'
 import type {
   ChatMessagePart,
   ChatRun,
@@ -12,9 +15,6 @@ import type {
   ToolProfile,
 } from '@shared/types/chat'
 import type { ProviderConfig, ProviderModel } from '@shared/types/provider'
-import type { ContextBuilder } from '@core/chat/context-manager'
-import type { RunManager } from '@core/chat/run-manager'
-import type { SkillManager } from '@core/skill/skill-manager'
 import {
   createAgentStepEvent,
   createToolCallEvent,
@@ -23,8 +23,8 @@ import {
   upsertToolCallPart,
 } from './agent-events'
 import { ToolExecutor } from './tool-executor'
-import { providerToolsFromAgentTools, ToolRegistry } from './tool-registry'
 import { defaultToolPolicy } from './tool-policy'
+import { providerToolsFromAgentTools, type ToolRegistry } from './tool-registry'
 
 export interface AgentRunnerOptions {
   messages: ChatMessageRepo

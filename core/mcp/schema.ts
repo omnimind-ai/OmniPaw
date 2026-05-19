@@ -1,5 +1,5 @@
-import type { ToolProfile, ToolRisk } from '@shared/types/chat'
 import { redactSensitiveText, redactUrl } from '@core/logging/redaction'
+import type { ToolProfile, ToolRisk } from '@shared/types/chat'
 import type {
   McpErrorCode,
   McpHttpTransportConfig,

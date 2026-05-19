@@ -1,10 +1,10 @@
-import { ref, computed } from 'vue'
+import type { ChatSession } from '@shared/types/chat'
+import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { appBridge, type BridgeChatSession } from '@/bridge/app'
 import { buildWebchatUmoDetails, getStoredSelectedChatConfigId } from '@/utils/chatConfigBinding'
 import { logger } from '@/utils/logger'
 import { useToast } from '@/utils/toast'
-import type { ChatSession } from '@shared/types/chat'
 
 export interface Session extends ChatSession {
   /** Compatibility aliases for legacy callers during renderer migration. */

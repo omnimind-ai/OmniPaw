@@ -2,7 +2,7 @@ import { computed, ref } from 'vue'
 
 import { appBridge } from '@/bridge/app'
 import { logger } from '@/utils/logger'
-import { useToast, errorToText } from '@/utils/toast'
+import { errorToText, useToast } from '@/utils/toast'
 
 export const ATTACHMENT_LIMITS = {
   maxFileBytes: 25 * 1024 * 1024,

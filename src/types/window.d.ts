@@ -5,5 +5,3 @@ declare global {
     openOmniClaw?: RendererOpenOmniClawBridge
   }
 }
-
-export {}

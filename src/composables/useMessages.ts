@@ -1,4 +1,4 @@
-import { computed, onBeforeUnmount, reactive, ref, type Ref } from 'vue'
+import { computed, onBeforeUnmount, type Ref, reactive, ref } from 'vue'
 import {
   appBridge,
   type BridgeChatMessage,

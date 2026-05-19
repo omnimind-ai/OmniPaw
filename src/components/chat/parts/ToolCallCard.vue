@@ -13,8 +13,8 @@ import { computed, ref } from 'vue'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
-import { cn } from '@/lib/utils'
 import type { ToolCall } from '@/composables/useMessages'
+import { cn } from '@/lib/utils'
 import { formatJson, toolCallLabel, toolCallStatus } from '../chat-display'
 
 const props = defineProps<{

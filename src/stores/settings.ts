@@ -3,12 +3,12 @@ import { computed, ref, toRaw } from 'vue'
 
 import {
   appBridge,
-  ensureElectronBridge,
-  isFallbackBridge,
   type BridgeDesktopSettingsChangedEvent,
   type BridgeDesktopSettingsConfig,
   type BridgeDesktopSettingsStatus,
   type BridgeUnsubscribe,
+  ensureElectronBridge,
+  isFallbackBridge,
 } from '@/bridge/app'
 
 export const useSettingsStore = defineStore('settings', () => {

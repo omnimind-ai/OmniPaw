@@ -1,10 +1,9 @@
 <script setup lang="ts">
-import type { Component } from 'vue'
 import {
   ArrowLeftIcon,
+  BookOpenIcon,
   BotIcon,
   CalendarClockIcon,
-  BookOpenIcon,
   InfoIcon,
   KeyboardIcon,
   MonitorIcon,
@@ -14,6 +13,7 @@ import {
   SlidersHorizontalIcon,
   WrenchIcon,
 } from 'lucide-vue-next'
+import type { Component } from 'vue'
 
 import { Button } from '@/components/ui/button'
 import {

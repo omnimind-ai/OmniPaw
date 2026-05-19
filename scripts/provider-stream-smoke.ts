@@ -1,8 +1,7 @@
 import assert from 'node:assert/strict'
-
+import type { ChatCompletionChunk, ChatCompletionRequest } from '../core/provider/base-provider'
 import { ProviderError } from '../core/provider/base-provider'
 import { OpenAICompatibleProvider } from '../core/provider/providers/openai'
-import type { ChatCompletionChunk, ChatCompletionRequest } from '../core/provider/base-provider'
 
 await testToolCallAggregation()
 await testTextDeltaAndUsageFinal()

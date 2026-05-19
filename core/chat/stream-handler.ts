@@ -1,7 +1,6 @@
-import type { WebContents } from 'electron'
-
 import { IPC_CHANNELS } from '@shared/constants'
 import type { ChatStreamEvent } from '@shared/types/chat'
+import type { WebContents } from 'electron'
 
 export class StreamHandler {
   pushEvent(webContents: WebContents, event: ChatStreamEvent): void {

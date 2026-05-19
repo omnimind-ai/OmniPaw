@@ -1,3 +1,4 @@
+import { redactSensitiveText } from '@core/logging/redaction'
 import type {
   DesktopProviderModel,
   DesktopProviderSource,
@@ -5,7 +6,6 @@ import type {
   SettingsOperationError,
   SettingsValidationIssue,
 } from '@shared/types/settings'
-import { redactSensitiveText } from '@core/logging/redaction'
 
 export const CURRENT_SETTINGS_VERSION = 1
 

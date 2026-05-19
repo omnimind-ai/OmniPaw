@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-
+import type { BridgeDesktopSettingsConfig } from '@/bridge/app'
 import SettingsSection from '@/components/settings/SettingsSection.vue'
 import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -22,7 +22,6 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
-import type { BridgeDesktopSettingsConfig } from '@/bridge/app'
 import type { ProviderModelOption } from '@/stores/provider'
 
 const props = defineProps<{

@@ -5,13 +5,12 @@ import { useRoute, useRouter } from 'vue-router'
 
 import { appBridge } from '@/bridge/app'
 import ChatComposer from '@/components/ChatComposer.vue'
+import ChatSidebar from '@/components/ChatSidebar.vue'
 import ChatMessageList from '@/components/chat/ChatMessageList.vue'
 import { contentText } from '@/components/chat/chat-display'
-import ChatSidebar from '@/components/ChatSidebar.vue'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { SidebarInset, SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar'
-import { cn } from '@/lib/utils'
 import { ATTACHMENT_LIMITS, formatBytes, useMediaHandling } from '@/composables/useMediaHandling'
 import {
   type ChatRecord,
@@ -20,8 +19,9 @@ import {
   useMessages,
 } from '@/composables/useMessages'
 import { useSessions } from '@/composables/useSessions'
+import { cn } from '@/lib/utils'
 import { useChatStore } from '@/stores/chat'
-import { useProviderStore, type ProviderModelOption } from '@/stores/provider'
+import { type ProviderModelOption, useProviderStore } from '@/stores/provider'
 import { useSettingsStore } from '@/stores/settings'
 import { copyToClipboard } from '@/utils/clipboard'
 import { logger } from '@/utils/logger'

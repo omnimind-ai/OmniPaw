@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { storeToRefs } from 'pinia'
 import { computed, onMounted, ref, watch } from 'vue'
-
+import type { BridgeProviderPreset } from '@/bridge/app'
 import ProviderAdvancedTab from '@/components/settings/provider-settings/ProviderAdvancedTab.vue'
 import ProviderBasicTab from '@/components/settings/provider-settings/ProviderBasicTab.vue'
 import ProviderModelsTab from '@/components/settings/provider-settings/ProviderModelsTab.vue'
@@ -10,8 +10,6 @@ import type {
   ProviderDraftTab,
   ProviderSidebarItem,
 } from '@/components/settings/provider-settings/types'
-import { useProviderAutosave } from '@/composables/useProviderAutosave'
-import { useProviderDraft } from '@/composables/useProviderDraft'
 import SettingsSection from '@/components/settings/SettingsSection.vue'
 import { Button } from '@/components/ui/button'
 import {
@@ -23,7 +21,8 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import type { BridgeProviderPreset } from '@/bridge/app'
+import { useProviderAutosave } from '@/composables/useProviderAutosave'
+import { useProviderDraft } from '@/composables/useProviderDraft'
 import { useProviderStore } from '@/stores/provider'
 import { useToast } from '@/utils/toast'
 

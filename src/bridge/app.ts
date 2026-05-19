@@ -1,14 +1,18 @@
 import type {
   CatBounds,
   CatCommandEvent,
+  CatDragPayload,
   CatPanelPlacement,
   CatPanelToggleResult,
   CatStatus,
   CatTaskState,
   CatWindowState,
-  CatDragPayload,
 } from '@shared/types/cat'
-import type { LoggerHealthStatus, LoggerWriteResponse, RendererLogRequest } from '@shared/types/logging'
+import type {
+  LoggerHealthStatus,
+  LoggerWriteResponse,
+  RendererLogRequest,
+} from '@shared/types/logging'
 
 export type BridgeUnsubscribe = () => void
 

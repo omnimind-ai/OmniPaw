@@ -10,15 +10,6 @@ import {
   Trash2Icon,
 } from 'lucide-vue-next'
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
-
-import SettingsSection from '@/components/settings/SettingsSection.vue'
-import McpServerDeleteModal from '@/components/settings/mcp-server-settings/McpServerDeleteModal.vue'
-import McpServerFormModal from '@/components/settings/mcp-server-settings/McpServerFormModal.vue'
-import type {
-  McpKeyValueRow,
-  McpSecretRowType,
-  McpServerDraft,
-} from '@/components/settings/mcp-server-settings/types'
 import type {
   BridgeManagedToolInfo,
   BridgeMcpChangedEvent,
@@ -29,6 +20,14 @@ import type {
   BridgeSaveMcpServerRequest,
 } from '@/bridge/app'
 import { appBridge, isFallbackBridge } from '@/bridge/app'
+import McpServerDeleteModal from '@/components/settings/mcp-server-settings/McpServerDeleteModal.vue'
+import McpServerFormModal from '@/components/settings/mcp-server-settings/McpServerFormModal.vue'
+import type {
+  McpKeyValueRow,
+  McpSecretRowType,
+  McpServerDraft,
+} from '@/components/settings/mcp-server-settings/types'
+import SettingsSection from '@/components/settings/SettingsSection.vue'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Field, FieldLabel } from '@/components/ui/field'

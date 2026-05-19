@@ -1,5 +1,5 @@
-import type { ManagedToolInfo, SetToolEnabledResponse } from '@shared/types/tool'
 import type { DesktopSettingsConfig } from '@shared/types/settings'
+import type { ManagedToolInfo, SetToolEnabledResponse } from '@shared/types/tool'
 import { listBuiltinToolDefinitions } from './builtin-tools'
 
 const DISABLED_TOOLS_KEY = 'agent.disabledTools'

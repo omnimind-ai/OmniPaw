@@ -1,10 +1,8 @@
 import { mkdirSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { dirname, join } from 'node:path'
-
-import Database from 'better-sqlite3'
-
 import type { Logger } from '@core/logging'
+import Database from 'better-sqlite3'
 import { migrations } from './migrations'
 
 export type DatabaseConnection = Database.Database

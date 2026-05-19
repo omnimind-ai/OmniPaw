@@ -4,8 +4,8 @@ import { computed, ref, watch } from 'vue'
 
 import { Button } from '@/components/ui/button'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
-import { cn } from '@/lib/utils'
 import type { MessagePart } from '@/composables/useMessages'
+import { cn } from '@/lib/utils'
 
 const props = withDefaults(
   defineProps<{

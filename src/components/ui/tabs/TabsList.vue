@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import type { TabsListProps } from 'reka-ui'
-import type { HTMLAttributes } from 'vue'
-import type { TabsListVariants } from '.'
 import { reactiveOmit } from '@vueuse/core'
+import type { TabsListProps } from 'reka-ui'
 import { TabsList } from 'reka-ui'
+import type { HTMLAttributes } from 'vue'
 import { cn } from '@/lib/utils'
+import type { TabsListVariants } from '.'
 import { tabsListVariants } from '.'
 
 const props = withDefaults(

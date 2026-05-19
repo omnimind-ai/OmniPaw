@@ -2,11 +2,10 @@ import assert from 'node:assert/strict'
 import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-
-import { ConfigToolSettingsStore } from '../core/config/tool-settings-store'
+import { ToolManagementService } from '../core/agent/tool-management-service'
 import { ConfigValidationError, cloneDefaultConfig, normalizeConfig } from '../core/config/schema'
 import { ConfigStore } from '../core/config/store'
-import { ToolManagementService } from '../core/agent/tool-management-service'
+import { ConfigToolSettingsStore } from '../core/config/tool-settings-store'
 import { ProviderManager } from '../core/provider/manager'
 
 const tempDir = mkdtempSync(join(tmpdir(), 'openomniclaw-settings-smoke-'))
