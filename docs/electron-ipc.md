@@ -25,14 +25,19 @@
 - MUST：通用 IPC handler 按业务域放在 `electron/ipc/*.ts`，由 `electron/ipc/index.ts` 统一注册；`electron/main.ts` 只负责启动编排和调用注册入口。
 - MUST：IPC handler 通过 `CoreRuntime` 依赖调用 core service/manager，不把业务规则写进 preload。
 - MUST：新增通用 IPC 域时复用 `electron/ipc/common.ts` 的 `registerLoggedIpcHandler`，保持统一日志、耗时和失败记录。
+- MUST：renderer 通过 `appBridge.logging` 上报日志，preload 只做参数归一化和转发，不直接负责持久化或把日志写到 `console.*`。
+- MUST：logging IPC 只接收已规范化的 level、scope、message、context、error、timestamp，不允许透传原始 request body、Provider payload、附件 bytes 或凭据。
+- MUST：通用 IPC handler 的完成 / 失败日志只记录 channel、duration、错误 code、recoverable 等结构化信息，不记录入参与返回值正文。
 - MUST：`electron/ipc/types.ts` 只放 IPC 注册依赖类型，不放业务类型、channel 常量或 handler 实现。
 - MUST：与窗口状态强耦合的窗口专属 IPC 可以留在对应窗口模块，例如猫窗口 IPC 留在 `electron/cat-window.ts`。
 - MUST：preload 只做参数兼容、错误解包、订阅/退订包装，不做业务持久化。
 - MUST：settings 类错误保持结构化结果，preload 再转换为可抛出的 `SettingsOperationError`。
 - MUST：fallback bridge 只用于 UI 空态和开发预览；保存、删除、刷新远程、测试 Provider 等持久化或外部副作用不能假成功。
+- MUST：fallback bridge 的 logging 只返回降级状态，不得假装已落盘或可用。
 - SHOULD：IPC handler 尽量薄，参数归一化后交给 core 服务。
 - SHOULD：兼容旧调用签名的归一化逻辑集中在对应 `electron/ipc/<domain>.ts` 或 preload 的现有 normalize 函数附近。
 - SHOULD：按 `IPC_CHANNELS` 的业务域拆分 IPC 文件，避免把无关 handler 混入同一个模块。
+- SHOULD：主进程、preload、renderer 的异常诊断统一走 logger，不把 `console` 作为正式观测通道。
 - MAY：为过渡期保留 legacy bridge 方法，但新增功能应优先走结构化 request。
 
 ## IPC 变更 Playbook

@@ -37,6 +37,14 @@
 - MUST：对秘密信息做脱敏处理，不在错误、日志、IPC payload 中泄露 API key。
 - SHOULD：对可恢复错误保留 retryable 或 recoverable 信息。
 
+## 日志与可观测性
+
+- MUST：core / main 统一通过项目 logger 输出结构化日志，不直接使用 `console.*` 作为业务日志通道；`electron-log` 只允许出现在日志适配层。
+- MUST：logger 通过构造函数注入到 service / manager / repo 边界，子域通过 `child()` 派生 scope，不在业务方法里临时 new 另一个 logger。
+- MUST：日志只保留 id、status、duration、error code/message、retryable/recoverable、fallback reason 等结构化字段，不记录 prompt、附件正文、Provider 响应体、API key、凭据或 MCP 原始 env/header。
+- MUST：日志写入前必须经过现有脱敏和截断流程，sink 失败不得影响主流程，只能降级为丢弃或失败计数。
+- SHOULD：诊断信息优先写入 scope 和 context，避免把长文本 stack 或自由文本拼成不可检索字段。
+
 ---
 
 ## 配置

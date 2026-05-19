@@ -25,6 +25,7 @@
 - SHOULD 数据库改动运行 `pnpm db:smoke`。
 - SHOULD 聊天 core 改动运行 `pnpm chat-core:smoke`。
 - SHOULD Agent/tool 改动运行 `pnpm chat-core:smoke`、`node scripts/run-electron-node.mjs scripts/tool-management-smoke.ts` 或相关 agent smoke。
+- SHOULD logger / 日志系统改动运行 `pnpm logging:smoke`；如果同时影响 main、preload 或打包链路，再补 `pnpm build`。
 - SHOULD UI 行为改动在需要时运行 Playwright；运行前先核对现有测试是否与当前 UI 同步。
 
 ## MAY
@@ -43,6 +44,7 @@
 | 聊天 core | `pnpm chat-core:smoke` |
 | Agent runtime | `node scripts/run-electron-node.mjs scripts/agent-runtime-smoke.ts` |
 | Tool management | `node scripts/run-electron-node.mjs scripts/tool-management-smoke.ts` |
+| 日志系统 | `pnpm logging:smoke` |
 | 本地开发 | `pnpm dev` |
 | 打包目录 | `pnpm pack` |
 | 分发包 | `pnpm dist` |

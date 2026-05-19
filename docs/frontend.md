@@ -20,6 +20,8 @@
 - MUST NOT：在 renderer 中直接访问 Node API、Electron main API、数据库、文件系统或 `ipcRenderer`。
 - MUST：复用 `@shared/types/*` 和 bridge 类型，不在组件里临时发明 IPC payload。
 - MUST：对保存类操作考虑 fallback bridge；需要持久化的操作必须用 `ensureElectronBridge` 或等价边界阻止纯浏览器假保存。
+- MUST：renderer 的诊断日志通过 `src/utils/logger.ts` 和 `appBridge.logging` 上报，不直接把 `console.*` 当成正式持久化日志通道。
+- MUST：renderer 日志只保留结构化上下文，不回显 API key、附件正文、prompt、Provider 响应体或其他秘密字段。
 - SHOULD：让 fallback runtime 只服务 UI 空态和开发预览，不把它当成真实持久化。
 
 ## 错误与反馈

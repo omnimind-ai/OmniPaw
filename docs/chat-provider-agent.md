@@ -25,6 +25,14 @@
 - SHOULD：为长运行任务记录 request snapshot，便于排查模式、工具、上下文和 fallback 原因。
 - SHOULD：UI 中的流式展示基于 `onStreamEvent`，legacy token/done 订阅只作为过渡。
 
+## 日志
+
+- MUST：聊天、Provider、Agent 和工具链路的日志只记录 sessionId、runId、providerId、modelId、tool name、status、duration、fallback reason、error code/message、retryable/recoverable 等结构化信息。
+- MUST：不得记录原始 prompt、system prompt、消息正文、附件内容、tool args/result、Provider 响应体、API key、凭据或 MCP 原始 env/header。
+- MUST：错误进入日志前先走已有归一化和脱敏流程，避免把原始异常对象和敏感上下文直接写出。
+- SHOULD：长运行或流式路径在 started、completed、failed、aborted 等节点补齐日志，便于追踪 run 生命周期。
+- SHOULD：debug 级上下文只保留最小可追踪信息。
+
 ## 附件
 
 - MUST：上传附件通过 `AttachmentService`。
@@ -68,6 +76,7 @@
 - MUST：工具只能访问当前会话授权范围内的数据。
 - MUST：新增内置工具时同步工具定义、执行逻辑、管理列表、工具开关和策略可见性。
 - MUST：认清当前工具边界：内置工具只有 `system_time`、`calculator`、`attachment_text_read`、`attachment_text_search`；没有 shell、文件写入、任意网络访问工具。
+- MUST：工具和 Provider 错误在写日志前先归一化，不直接把原始异常、请求体或回包正文塞进日志上下文。
 - SHOULD：工具执行支持超时和 abort。
 - MAY：扩展 tool profile，但必须同步 policy、工具定义和 UI 管理。
 
