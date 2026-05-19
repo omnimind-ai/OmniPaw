@@ -33,9 +33,12 @@
 | 聊天侧栏 | `src/components/ChatSidebar.vue` |
 | 聊天输入区 | `src/components/ChatComposer.vue` |
 | 设置页组件 | `src/components/settings/` |
+| Provider 设置子组件 | `src/components/settings/provider-settings/` |
+| Provider 删除确认弹窗 | `src/components/settings/provider-settings/ProviderDeleteModal.vue` |
 | shadcn-vue 组件 | `src/components/ui/` |
 | 聊天 composables | `src/composables/useSessions.ts`、`src/composables/useMessages.ts`、`src/composables/useMediaHandling.ts` |
 | Pinia stores | `src/stores/` |
+| Provider 设置草稿与自动保存 | `src/composables/useProviderDraft.ts`、`src/composables/useProviderAutosave.ts` |
 | 全局样式与 Tailwind v4 tokens | `src/styles/main.css` |
 | class 合并工具 | `src/lib/utils.ts` |
 | toast 封装 | `src/utils/toast.ts` |
@@ -54,6 +57,8 @@
 | 工具执行与超时 | `core/agent/tool-executor.ts` |
 | 工具策略 | `core/agent/tool-policy.ts` |
 | Provider 管理 | `core/provider/manager.ts` |
+| Provider registry schema | `core/provider/registry-schema.ts` |
+| Provider registry store | `core/provider/registry-store.ts` |
 | Provider 抽象 | `core/provider/base-provider.ts` |
 | OpenAI 兼容 Provider | `core/provider/providers/openai.ts` |
 | Provider 凭据解析 | `core/provider/credentials.ts` |
@@ -85,6 +90,7 @@
 | Electron native rebuild | `scripts/rebuild-electron-native.mjs` |
 | Electron Node 脚本运行器 | `scripts/run-electron-node.mjs` |
 | 配置 smoke | `scripts/settings-config-smoke.ts` |
+| Provider registry smoke | `scripts/provider-registry-smoke.ts` |
 | 数据库 smoke | `scripts/db-smoke.ts` |
 | 聊天 core smoke | `scripts/chat-core-smoke.ts` |
 | Agent runtime smoke | `scripts/agent-runtime-smoke.ts` |

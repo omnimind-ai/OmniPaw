@@ -58,7 +58,7 @@
 约束：
 
 - MUST：保持设置页 `config`、`draft`、`saving`、`hasChanges`、autosave 队列关系稳定。
-- MUST：保持 Provider 设置页自己的 draft/autosave 关系稳定，不把 Provider 表单状态混进全局设置页草稿模型。
+- MUST：保持 Provider 设置页自己的本地草稿/保存关系稳定，不把 Provider 表单状态混进全局设置页草稿模型。
 - MUST：新增设置项时同步 core 配置 schema、shared type、bridge type、settings store 和具体表单。
 - SHOULD：设置页 UI 的本地状态限制在控件展开、搜索、loading、dialog 等临时状态。
 - SHOULD：对设置保存失败给出可读 toast，同时保留结构化错误供恢复 UI 使用。
@@ -74,9 +74,13 @@
 
 ## Provider 设置页面
 
-- MUST：Provider 表单状态使用 Provider 设置页 draft，不直接编辑 store 的持久化对象。
+- MUST：Provider 表单状态使用本地 provider draft，不直接编辑 settings store 的持久化对象。
 - MUST：保存 Provider 时通过 `useProviderStore` 和 bridge，不绕过 main/core。
 - MUST：不在 renderer 回显 API key 等秘密字段。
+- SHOULD：空 Provider  registry 展示空态，不自动创建占位 Provider。
+- SHOULD：从预设添加 Provider 时先落成本地 draft，再由显式保存写入 registry。
+- SHOULD：删除 Provider 使用抽出的 `ProviderDeleteModal.vue`，删除后采用核心返回或 store 返回的 next selection。
+- SHOULD：默认模型、备用模型、流式开关走 Provider store 的显式更新方法，不再通过 settings draft 间接保存。
 - SHOULD：Provider 模型、能力、compat 字段保持 config、shared type、UI 三侧命名一致。
 - SHOULD：测试 Provider、刷新模型、保存、删除路径提供 loading/disabled/error 状态。
 
@@ -117,6 +121,7 @@
 | 设置页 | `src/views/SettingsView.vue` |
 | 设置表单 | `src/components/settings/` |
 | Provider 设置子组件 | `src/components/settings/provider-settings/` |
+| Provider 设置弹窗 | `src/components/settings/provider-settings/ProviderDeleteModal.vue` |
 | 基础 UI | `src/components/ui/` |
 | 聊天状态 | `src/stores/chat.ts` |
 | 设置状态 | `src/stores/settings.ts` |

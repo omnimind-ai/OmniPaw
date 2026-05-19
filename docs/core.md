@@ -71,10 +71,14 @@
 
 ### Provider 配置
 
-- MUST：Provider 配置来源于桌面配置中的 `providers` 结构，不重新引入数据库 Provider 表。
-- MUST：保存 Provider 时处理 credential，不把 API key 回显到 renderer 的 provider 列表。
+- MUST：Provider 配置来源于独立 Provider registry 文件（默认 `providers.json`），不从桌面配置 `DesktopSettingsConfig.providers` 读取运行时 Provider 状态，也不重新引入数据库 Provider 表。
+- MUST：通过 `core/provider/registry-store.ts` 读写 Provider registry，保持备份、原子写入、错误状态和 clone 语义。
+- MUST：Provider registry 默认是空 sources、空 models、无默认模型；不要在配置默认值里创建空占位 Provider。
+- MUST：默认模型和 fallback 模型只能通过 Provider registry 的显式设置操作写入，保存 source/model 或刷新模型不能隐式写默认模型。
+- MUST：删除 Provider source/model 时在 core 侧集中清理 registry default、fallback refs 和 chat session overrides，并向 renderer 返回建议的 next selection。
+- MUST：保存 Provider 时处理 credential，不把 API key 回显到 renderer 的 provider registry、provider 列表或日志中。
 - MUST：认清 Provider 配置与 Provider 执行实现不是一回事；新增 preset 不代表该 Provider 已可执行。
-- SHOULD：Provider 模型、能力、compat 字段保持 config、shared type、UI 三侧命名一致。
+- SHOULD：Provider 模型、能力、compat 字段保持 registry、shared type、UI 三侧命名一致。
 
 ### 工具开关配置
 
