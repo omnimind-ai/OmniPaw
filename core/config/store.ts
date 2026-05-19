@@ -16,6 +16,7 @@ import type {
   DesktopSettingsStatus,
   SettingsOperationError,
 } from '@shared/types/settings'
+import type { Logger } from '@core/logging'
 import {
   cloneConfig,
   cloneDefaultConfig,
@@ -28,23 +29,28 @@ import {
 export interface ConfigStoreOptions {
   appDataPath: string
   appName?: string
+  logger?: Logger
 }
 
 export class ConfigStore {
   readonly configPath: string
   readonly backupPath: string
+  private readonly logger?: Logger
   private loadedConfig: DesktopSettingsConfig | undefined
   private lastError: SettingsOperationError | undefined
 
   constructor(options: ConfigStoreOptions) {
     this.configPath = resolveDesktopConfigPath(options.appDataPath, options.appName)
     this.backupPath = `${this.configPath}.bak`
+    this.logger = options.logger
+    this.logger?.debug('Config store initialized.', { path: this.configPath })
   }
 
   load(): DesktopSettingsConfig {
     this.ensureDirectory()
 
     if (!existsSync(this.configPath)) {
+      this.logger?.info('Config file missing; writing default config.', { path: this.configPath })
       return this.writeLoaded(cloneDefaultConfig(), false)
     }
 
@@ -60,17 +66,24 @@ export class ConfigStore {
           recoverable: existsSync(this.backupPath),
         }
       )
+      this.logger?.warn('Config parse failed.', {
+        path: this.configPath,
+        recoverable: this.lastError.recoverable,
+        error,
+      })
       throw new ConfigValidationError(this.lastError)
     }
 
     const { config, changed } = this.normalizeOrThrow(parsed)
     if (changed) {
+      this.logger?.info('Config normalized with compatibility changes.', { path: this.configPath })
       this.save(config)
       return this.get()
     }
 
     this.loadedConfig = cloneConfig(config)
     this.lastError = undefined
+    this.logger?.info('Config loaded.', { path: this.configPath, version: config.version })
     return this.get()
   }
 
@@ -84,10 +97,12 @@ export class ConfigStore {
   save(nextConfig: DesktopSettingsConfig): DesktopSettingsConfig {
     const { config } = this.normalizeOrThrow(nextConfig)
     this.writeLoaded(config, true)
+    this.logger?.debug('Config saved.', { path: this.configPath, version: config.version })
     return this.get()
   }
 
   reset(): DesktopSettingsConfig {
+    this.logger?.info('Config reset to defaults.', { path: this.configPath })
     return this.writeLoaded(cloneDefaultConfig(), true)
   }
 
@@ -127,6 +142,11 @@ export class ConfigStore {
           recoverable: existsSync(this.backupPath),
         }
       )
+      this.logger?.warn('Config normalization failed.', {
+        path: this.configPath,
+        recoverable: this.lastError.recoverable,
+        error,
+      })
       throw new ConfigValidationError(this.lastError)
     }
   }
@@ -153,6 +173,11 @@ export class ConfigStore {
           recoverable: existsSync(this.backupPath),
         }
       )
+      this.logger?.error('Config save failed.', {
+        path: this.configPath,
+        recoverable: this.lastError.recoverable,
+        error,
+      })
       throw new ConfigValidationError(this.lastError)
     }
   }

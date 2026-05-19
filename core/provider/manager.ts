@@ -1,5 +1,6 @@
 import type { DesktopSettingsConfig } from '@shared/types/settings'
 import type { ConfigStore } from '@core/config/store'
+import type { Logger } from '@core/logging'
 import type {
   ProviderConfig,
   ModelConfig,
@@ -79,6 +80,7 @@ export interface ProviderManagerOptions {
   sessions?: SessionProviderOverrideRepository
   configStore: ConfigStore
   onConfigSaved?: (config: DesktopSettingsConfig) => void
+  logger?: Logger
 }
 
 export interface ProviderTestResult {
@@ -168,11 +170,13 @@ export class ProviderManager {
   private readonly sessions?: SessionProviderOverrideRepository
   private readonly configStore: ConfigStore
   private readonly onConfigSaved?: (config: DesktopSettingsConfig) => void
+  private readonly logger?: Logger
 
   constructor(options: ProviderManagerOptions) {
     this.sessions = options.sessions
     this.configStore = options.configStore
     this.onConfigSaved = options.onConfigSaved
+    this.logger = options.logger
   }
 
   async list(): Promise<ProviderConfig[]> {
@@ -189,6 +193,7 @@ export class ProviderManager {
   }
 
   async createFromPreset(presetId: string): Promise<ProviderConfig> {
+    this.logger?.info('Creating provider from preset.', { presetId })
     const preset = providerPresets.find((item) => item.id === presetId)
     if (!preset) {
       throw new Error(`Provider preset not found: ${presetId}`)
@@ -242,6 +247,7 @@ export class ProviderManager {
       throw new Error(`Provider preset was not saved: ${presetId}`)
     }
 
+    this.logger?.info('Provider preset created.', { presetId, providerId })
     return saved
   }
 
@@ -258,6 +264,11 @@ export class ProviderManager {
     const config = this.configStore.get()
     upsertProviderInConfig(config, provider)
     this.saveConfig(config)
+    this.logger?.debug('Provider saved.', {
+      providerId: provider.id,
+      enabled: provider.enabled,
+      modelCount: provider.models?.length ?? 0,
+    })
   }
 
   async listModels(providerId: string): Promise<ProviderModelRecord[]> {
@@ -313,35 +324,70 @@ export class ProviderManager {
     modelId?: string,
     signal?: AbortSignal
   ): Promise<ProviderTestResult> {
+    const startedAt = Date.now()
     try {
       const provider = await this.createProviderClient(providerId)
       const resolvedModelId = modelId ?? (await this.defaultModelId(providerId))
       await provider.test?.(resolvedModelId, signal)
+      this.logger?.info('Provider test succeeded.', {
+        providerId,
+        modelId: resolvedModelId,
+        durationMs: Date.now() - startedAt,
+      })
       return { ok: true }
     } catch (error) {
+      const normalized = normalizeProviderError(error)
+      this.logger?.warn('Provider test failed.', {
+        providerId,
+        modelId,
+        durationMs: Date.now() - startedAt,
+        errorCode: normalized.code,
+        retryable: normalized.retryable,
+        error: safeProviderError(normalized),
+      })
       return {
         ok: false,
-        error: normalizeProviderError(error),
+        error: normalized,
       }
     }
   }
 
   async refreshModels(providerId: string, signal?: AbortSignal): Promise<ProviderModelRecord[]> {
+    const startedAt = Date.now()
     const record = await this.requireRecord(providerId)
     if (
       !record.capabilities?.listModels &&
       record.api !== 'openai-chat-completions' &&
       record.type !== 'openai-compatible'
     ) {
+      this.logger?.debug('Provider model refresh skipped.', { providerId, reason: 'unsupported' })
       return this.listModels(providerId)
     }
 
-    const client = await this.createProviderClient(providerId)
-    const remoteModels = (await client.listModels?.(signal)) ?? []
-    const merged = mergeModels(providerId, await this.listModels(providerId), remoteModels)
-    this.replaceProviderModels(providerId, merged)
+    try {
+      const client = await this.createProviderClient(providerId)
+      const remoteModels = (await client.listModels?.(signal)) ?? []
+      const merged = mergeModels(providerId, await this.listModels(providerId), remoteModels)
+      this.replaceProviderModels(providerId, merged)
+      this.logger?.info('Provider models refreshed.', {
+        providerId,
+        remoteModelCount: remoteModels.length,
+        modelCount: merged.length,
+        durationMs: Date.now() - startedAt,
+      })
 
-    return merged
+      return merged
+    } catch (error) {
+      const normalized = normalizeProviderError(error)
+      this.logger?.warn('Provider model refresh failed.', {
+        providerId,
+        durationMs: Date.now() - startedAt,
+        errorCode: normalized.code,
+        retryable: normalized.retryable,
+        error: safeProviderError(normalized),
+      })
+      throw error
+    }
   }
 
   async upsert(request: SaveProviderRequest): Promise<ProviderConfig | undefined> {
@@ -368,7 +414,13 @@ export class ProviderManager {
       updatedAt: now,
     })
 
-    return this.get(request.provider.id)
+    const saved = await this.get(request.provider.id)
+    this.logger?.info('Provider upserted.', {
+      providerId: request.provider.id,
+      enabled: request.provider.enabled !== false,
+      modelCount: request.provider.models?.length ?? 0,
+    })
+    return saved
   }
 
   async delete(providerId: string): Promise<void> {
@@ -390,6 +442,7 @@ export class ProviderManager {
         config.providers.models.some((model) => model.id === modelId && model.enabled !== false)
     )
     this.saveConfig(config)
+    this.logger?.info('Provider deleted.', { providerId })
   }
 
   async createProviderClient(providerId: string): Promise<BaseProvider> {
@@ -403,6 +456,12 @@ export class ProviderManager {
     })
 
     if (provider.api === 'openai-chat-completions' || provider.type === 'openai-compatible') {
+      this.logger?.debug('Creating provider client.', {
+        providerId: provider.id,
+        api: provider.api,
+        type: provider.type,
+        hasCredential: Boolean(credential?.value),
+      })
       return new OpenAICompatibleProvider({
         id: provider.id,
         baseUrl: provider.baseUrl,
@@ -414,6 +473,11 @@ export class ProviderManager {
       })
     }
 
+    this.logger?.warn('Provider transport is unsupported.', {
+      providerId: provider.id,
+      api: provider.api,
+      type: provider.type,
+    })
     throw new Error(
       `Provider transport is not implemented for ${provider.api ?? provider.type ?? provider.id}.`
     )
@@ -478,6 +542,15 @@ export class ProviderManager {
     const saved = this.configStore.save(config)
     this.onConfigSaved?.(saved)
     return saved
+  }
+}
+
+function safeProviderError(error: ReturnType<typeof normalizeProviderError>) {
+  return {
+    code: error.code,
+    message: error.message,
+    retryable: error.retryable,
+    providerStatus: error.providerStatus,
   }
 }
 

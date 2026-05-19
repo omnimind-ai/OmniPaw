@@ -4,6 +4,7 @@ import { dirname, join } from 'node:path'
 
 import Database from 'better-sqlite3'
 
+import type { Logger } from '@core/logging'
 import { migrations } from './migrations'
 
 export type DatabaseConnection = Database.Database
@@ -11,14 +12,17 @@ export type DatabaseConnection = Database.Database
 export interface DatabaseClientOptions {
   path?: string
   appName?: string
+  logger?: Logger
 }
 
 export class DatabaseClient {
   readonly path: string
   private connection?: DatabaseConnection
+  private readonly logger?: Logger
 
   constructor(options: DatabaseClientOptions = {}) {
     this.path = options.path ?? resolveDatabasePath(options.appName)
+    this.logger = options.logger
   }
 
   get ready(): boolean {
@@ -30,14 +34,31 @@ export class DatabaseClient {
       return this.connection
     }
 
+    const startedAt = Date.now()
+    this.logger?.info('Opening database connection.', { path: this.path })
     mkdirSync(dirname(this.path), { recursive: true })
     const db = new Database(this.path)
-    db.pragma('foreign_keys = ON')
-    db.pragma('journal_mode = WAL')
-    db.pragma('busy_timeout = 5000')
-    runMigrations(db)
-    this.connection = db
-    return db
+    try {
+      db.pragma('foreign_keys = ON')
+      db.pragma('journal_mode = WAL')
+      db.pragma('busy_timeout = 5000')
+      const appliedMigrations = runMigrations(db)
+      this.connection = db
+      this.logger?.info('Database ready.', {
+        path: this.path,
+        appliedMigrations,
+        durationMs: Date.now() - startedAt,
+      })
+      return db
+    } catch (error) {
+      this.logger?.error('Database initialization failed.', {
+        path: this.path,
+        durationMs: Date.now() - startedAt,
+        error,
+      })
+      db.close()
+      throw error
+    }
   }
 
   get db(): DatabaseConnection {
@@ -46,6 +67,9 @@ export class DatabaseClient {
 
   close(): void {
     this.connection?.close()
+    if (this.connection) {
+      this.logger?.info('Database connection closed.', { path: this.path })
+    }
     this.connection = undefined
   }
 }
@@ -73,7 +97,7 @@ function getElectronApp(): Electron.App | undefined {
   }
 }
 
-export function runMigrations(db: DatabaseConnection): void {
+export function runMigrations(db: DatabaseConnection): number {
   db.exec(`
     CREATE TABLE IF NOT EXISTS schema_migrations (
       id INTEGER PRIMARY KEY,
@@ -89,6 +113,7 @@ export function runMigrations(db: DatabaseConnection): void {
       .map((row) => (row as { id: number }).id)
   )
 
+  let appliedCount = 0
   const apply = db.transaction(() => {
     for (const migration of migrations) {
       if (applied.has(migration.id)) {
@@ -101,8 +126,10 @@ export function runMigrations(db: DatabaseConnection): void {
         migration.name,
         Date.now()
       )
+      appliedCount += 1
     }
   })
 
   apply()
+  return appliedCount
 }

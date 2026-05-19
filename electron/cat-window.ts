@@ -1,5 +1,6 @@
 import { join } from 'node:path'
 
+import type { Logger } from '@core/logging'
 import { IPC_CHANNELS } from '@shared/constants'
 import type {
   CatBounds,
@@ -51,6 +52,11 @@ let catState: CatWindowState = 'hidden'
 let catVisible = false
 let catPanelVisible = false
 let catPanelSide: CatPanelPlacement['side'] | null = null
+let catLogger: Logger | undefined
+
+function setCatWindowLogger(logger: Logger): void {
+  catLogger = logger
+}
 
 function clamp(value: number, min: number, max: number): number {
   return Math.min(Math.max(value, min), max)
@@ -184,6 +190,7 @@ function createCatWindow(): BrowserWindow {
     },
   })
 
+  attachCatDiagnostics(catWindow, 'window')
   catWindow.setAlwaysOnTop(true, 'floating')
   catWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
   loadRendererEntry(catWindow, 'cat-window.html')
@@ -226,6 +233,7 @@ function createCatPanelWindow(placement: CatPanelPlacement): BrowserWindow {
     },
   })
 
+  attachCatDiagnostics(catPanelWindow, 'panel')
   catPanelWindow.setAlwaysOnTop(true, 'floating')
   catPanelWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
   loadRendererEntry(catPanelWindow, 'cat-panel.html')
@@ -237,6 +245,27 @@ function createCatPanelWindow(placement: CatPanelPlacement): BrowserWindow {
   })
 
   return catPanelWindow
+}
+
+function attachCatDiagnostics(window: BrowserWindow, windowName: string): void {
+  const logger = catLogger?.child({ scope: windowName })
+  window.webContents.on('preload-error', (_event, preloadPath, error) => {
+    logger?.error('Cat preload script failed.', { preloadPath, error })
+  })
+  window.webContents.on('render-process-gone', (_event, details) => {
+    const context = {
+      reason: details.reason,
+      exitCode: details.exitCode,
+    }
+    if (details.reason === 'clean-exit') {
+      logger?.info('Cat renderer process ended.', context)
+      return
+    }
+    logger?.error('Cat renderer process ended.', context)
+  })
+  window.webContents.on('unresponsive', () => {
+    logger?.warn('Cat window became unresponsive.')
+  })
 }
 
 function closeCatPanelWindow(): void {
@@ -530,6 +559,7 @@ export {
   hideCatWindow,
   registerCatWindowIpcHandlers,
   setCatState,
+  setCatWindowLogger,
   showCatWindow,
   toggleCatPanelWindow,
   toggleCatVisibility,

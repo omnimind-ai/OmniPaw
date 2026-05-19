@@ -1,6 +1,7 @@
 import { computed, ref } from 'vue'
 
 import { appBridge } from '@/bridge/app'
+import { logger } from '@/utils/logger'
 import { useToast, errorToText } from '@/utils/toast'
 
 export const ATTACHMENT_LIMITS = {
@@ -38,6 +39,8 @@ export interface StagedUploadItem {
   status: StagedUploadStatus
   error?: string
 }
+
+const mediaLogger = logger.child('chat.media')
 
 export function useMediaHandling() {
   const toast = useToast()
@@ -81,7 +84,7 @@ export function useMediaHandling() {
       mediaCache.value[filename] = url
       return url
     } catch (error) {
-      console.error('Error fetching media file:', error)
+      mediaLogger.error('Failed to fetch media preview.', { filename, error })
       toast.error(error, { description: '媒体预览加载失败' })
       return ''
     }
@@ -158,7 +161,12 @@ export function useMediaHandling() {
         revokeUrl(localUrl)
       }
     } catch (err) {
-      console.error('Error uploading file:', err)
+      mediaLogger.error('Failed to upload attachment.', {
+        fileName: file.name,
+        mimeType: file.type || 'application/octet-stream',
+        size: file.size,
+        error: err,
+      })
       uploadItem.status = 'failed'
       uploadItem.error = errorToText(err)
       removeStagedFileBySignature(signature, false)

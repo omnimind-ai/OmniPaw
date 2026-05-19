@@ -1,5 +1,6 @@
 import { join } from 'node:path'
 
+import type { Logger } from '@core/logging'
 import type {
   ImportSkillRequest,
   ImportSkillResponse,
@@ -29,6 +30,7 @@ export interface SkillManagerOptions {
   loader?: SkillLoader
   roots?: SkillRoot[]
   onChanged?: (event: SkillChangedEvent) => void
+  logger?: Logger
 }
 
 export interface BuildSkillPromptOptions {
@@ -40,6 +42,7 @@ export class SkillManager {
   private readonly store: SkillStateStore
   private readonly loader: SkillLoader
   private readonly roots: SkillRoot[]
+  private readonly logger?: Logger
   private discovered: LoadedLocalSkill[] = []
   private loaded = false
   private readSkillIds = new Set<string>()
@@ -53,14 +56,21 @@ export class SkillManager {
         path: join(options.userDataPath, SKILL_ROOT_DIRECTORY_NAME),
       },
     ]
+    this.logger = options.logger
   }
 
   load(): SkillListResponse {
+    const startedAt = Date.now()
     this.store.load()
     this.discovered = this.loader.loadFromRoots(this.roots)
     this.loaded = true
     const response = this.list()
     this.emitChanged('load')
+    this.logger?.info('Skills loaded.', {
+      skillCount: response.skills.length,
+      availableCount: response.skills.filter((skill) => skill.status === 'available').length,
+      durationMs: Date.now() - startedAt,
+    })
     return response
   }
 
@@ -74,15 +84,22 @@ export class SkillManager {
   }
 
   refresh(): SkillListResponse {
+    const startedAt = Date.now()
     this.store.get()
     this.discovered = this.loader.loadFromRoots(this.roots)
     this.loaded = true
     const response = this.list()
     this.emitChanged('refresh')
+    this.logger?.info('Skills refreshed.', {
+      skillCount: response.skills.length,
+      availableCount: response.skills.filter((skill) => skill.status === 'available').length,
+      durationMs: Date.now() - startedAt,
+    })
     return response
   }
 
   importSkill(request: ImportSkillRequest): ImportSkillResponse {
+    const startedAt = Date.now()
     const root = this.primaryRoot()
     const result = importSkillPackage(request, root.path)
     const state = this.store.get()
@@ -95,6 +112,10 @@ export class SkillManager {
     const response = this.list()
     const imported = response.skills.filter((skill) => result.installedIds.includes(skill.id))
     this.emitChanged('import')
+    this.logger?.info('Skill package imported.', {
+      importedSkillIds: imported.map((skill) => skill.id),
+      durationMs: Date.now() - startedAt,
+    })
     return {
       imported,
       skills: response.skills,
@@ -129,6 +150,11 @@ export class SkillManager {
     this.store.setEnabled(id, nextEnabled)
     const summary = this.toSummary(skill)
     this.emitChanged('enable')
+    this.logger?.info('Skill enabled state changed.', {
+      skillId: id,
+      enabled: nextEnabled,
+      status: summary.status,
+    })
     return summary
   }
 
@@ -203,6 +229,7 @@ export class SkillManager {
 
     const { content } = this.loader.readSkillFile(skill)
     this.readSkillIds.add(id)
+    this.logger?.debug('Skill content read for agent.', { skillId: id })
     return {
       skillId: id,
       name: summary.name,

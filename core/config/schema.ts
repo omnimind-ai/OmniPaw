@@ -5,6 +5,7 @@ import type {
   SettingsOperationError,
   SettingsValidationIssue,
 } from '@shared/types/settings'
+import { redactSensitiveText } from '@core/logging/redaction'
 
 export const CURRENT_SETTINGS_VERSION = 1
 
@@ -627,5 +628,5 @@ function normalizeBooleanRecord(value: unknown): Record<string, boolean> {
 }
 
 function redactSecretText(text: string): string {
-  return text.replace(/(api[_-]?key|token|password|secret)\s*[:=]\s*[^,\s]+/gi, '$1: [redacted]')
+  return redactSensitiveText(text)
 }

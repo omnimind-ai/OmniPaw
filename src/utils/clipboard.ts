@@ -1,6 +1,10 @@
+import { logger } from './logger'
+
 interface CopyToClipboardOptions {
   container?: HTMLElement | null
 }
+
+const clipboardLogger = logger.child('clipboard')
 
 export async function copyToClipboard(
   text: string,
@@ -18,27 +22,27 @@ export async function copyToClipboard(
   }
 
   if (!text) {
-    console.debug('[clipboard] empty text payload', debugInfo)
+    clipboardLogger.debug('Empty text payload.', debugInfo)
     return false
   }
 
-  console.debug('[clipboard] copy request', debugInfo)
+  clipboardLogger.debug('Copy requested.', debugInfo)
 
   if (typeof navigator !== 'undefined' && navigator.clipboard && window.isSecureContext) {
     try {
       await navigator.clipboard.writeText(text)
-      console.info('[clipboard] copied via Clipboard API', debugInfo)
+      clipboardLogger.info('Copied via Clipboard API.', debugInfo)
       return true
     } catch (err) {
-      console.warn('[clipboard] Clipboard API failed, falling back:', err, debugInfo)
+      clipboardLogger.warn('Clipboard API failed; falling back.', { ...debugInfo, error: err })
     }
   }
 
   const fallbackOk = fallbackCopy(text, container)
   if (fallbackOk) {
-    console.info("[clipboard] fallback succeeded via document.execCommand('copy')", debugInfo)
+    clipboardLogger.info("Fallback copy succeeded via document.execCommand('copy').", debugInfo)
   } else {
-    console.warn("[clipboard] fallback failed via document.execCommand('copy')", debugInfo)
+    clipboardLogger.warn("Fallback copy failed via document.execCommand('copy').", debugInfo)
   }
   return fallbackOk
 }
@@ -75,7 +79,7 @@ function fallbackCopy(text: string, container?: HTMLElement | null): boolean {
   try {
     return document.execCommand('copy')
   } catch (err) {
-    console.error('Fallback copy failed:', err)
+    clipboardLogger.error('Fallback copy command failed.', { error: err })
     return false
   } finally {
     if (textArea.parentNode) {

@@ -2,6 +2,7 @@ import { ref, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { appBridge, type BridgeChatSession } from '@/bridge/app'
 import { buildWebchatUmoDetails, getStoredSelectedChatConfigId } from '@/utils/chatConfigBinding'
+import { logger } from '@/utils/logger'
 import { useToast } from '@/utils/toast'
 import type { ChatSession } from '@shared/types/chat'
 
@@ -32,6 +33,8 @@ export interface NewSessionOptions {
   navigate?: boolean
 }
 
+const sessionsLogger = logger.child('chat.sessions')
+
 export function useSessions(chatboxMode: boolean = false) {
   const router = useRouter()
   const toast = useToast()
@@ -54,7 +57,7 @@ export function useSessions(chatboxMode: boolean = false) {
       const bridgeSessions = await appBridge.chat.listSessions()
       sessions.value = bridgeSessions.map(mapBridgeSession)
     } catch (err: any) {
-      console.error(err)
+      sessionsLogger.error('Failed to load sessions.', { error: err })
       toast.error(err, { description: '会话列表加载失败' })
     }
   }
@@ -79,7 +82,7 @@ export function useSessions(chatboxMode: boolean = false) {
             },
           } as Partial<BridgeChatSession>)
         } catch (err) {
-          console.error('Failed to bind config to session', err)
+          sessionsLogger.warn('Failed to bind config to session.', { sessionId, error: err })
           toast.error(err, { description: '会话配置绑定失败' })
         }
       }
@@ -96,7 +99,7 @@ export function useSessions(chatboxMode: boolean = false) {
 
       return sessionId
     } catch (err) {
-      console.error(err)
+      sessionsLogger.error('Failed to create session.', { error: err })
       toast.error(err, { description: '新建会话失败' })
       throw err
     }
@@ -113,7 +116,7 @@ export function useSessions(chatboxMode: boolean = false) {
       }
       return true
     } catch (err) {
-      console.error(err)
+      sessionsLogger.error('Failed to delete session.', { sessionId, error: err })
       toast.error(err, { description: '删除会话失败' })
       return false
     }
@@ -155,7 +158,10 @@ export function useSessions(chatboxMode: boolean = false) {
         currentSessionDeleted,
       }
     } catch (err) {
-      console.error(err)
+      sessionsLogger.error('Failed to batch delete sessions.', {
+        sessionCount: sessionIds.length,
+        error: err,
+      })
       toast.error(err, { description: '批量删除会话失败' })
       throw err
     }
@@ -194,7 +200,10 @@ export function useSessions(chatboxMode: boolean = false) {
       }
       editTitleDialog.value = false
     } catch (err) {
-      console.error('重命名会话失败:', err)
+      sessionsLogger.error('Failed to rename session.', {
+        sessionId: editingSessionId.value,
+        error: err,
+      })
       toast.error(err, { description: '重命名会话失败' })
     }
   }

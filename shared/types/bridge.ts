@@ -1,4 +1,5 @@
 import type { AppInfo } from './app'
+import type { LoggerHealthStatus, LoggerWriteResponse, RendererLogRequest } from './logging'
 import type {
   CatBounds,
   CatCommandEvent,
@@ -74,6 +75,10 @@ export type Unsubscribe = () => void
 export interface OpenOmniClawBridge {
   app: {
     getInfo: () => Promise<AppInfo>
+  }
+  logging: {
+    write: (request: RendererLogRequest) => Promise<LoggerWriteResponse>
+    status: () => Promise<LoggerHealthStatus>
   }
   cat: {
     show: () => Promise<CatStatus>

@@ -1,8 +1,34 @@
 import { IPC_CHANNELS } from '@shared/constants'
+import {
+  normalizeLogLevel,
+  sanitizeLogContext,
+  sanitizeLogMessage,
+  serializeLogError,
+} from '@shared/logging/sanitize'
 import type { OpenOmniClawBridge, Unsubscribe } from '@shared/types/bridge'
+import type {
+  LoggerHealthStatus,
+  LoggerWriteResponse,
+  RendererLogRequest,
+} from '@shared/types/logging'
 import { contextBridge, ipcRenderer } from 'electron'
 
 const allowedTaskStates = new Set(['idle', 'preparing', 'running', 'completed'])
+
+function fallbackLoggingStatus(): LoggerHealthStatus {
+  const now = Date.now()
+  return {
+    initialized: false,
+    available: false,
+    runtime: 'fallback',
+    transport: 'none',
+    writeCount: 0,
+    droppedCount: 0,
+    failedWriteCount: 0,
+    startedAt: now,
+    updatedAt: now,
+  }
+}
 
 function createUnsubscriber<T>(channel: string, callback: (payload: T) => void): Unsubscribe {
   const listener = (_event: Electron.IpcRendererEvent, payload: T) => callback(payload)
@@ -68,9 +94,52 @@ async function invokeSkill<T>(channel: string, payload?: unknown): Promise<T> {
   return response?.ok === true ? (response.value as T) : (response as T)
 }
 
+function normalizeRendererLogPayload(request: RendererLogRequest): RendererLogRequest {
+  const payload = request as Partial<RendererLogRequest>
+  return {
+    level: normalizeLogLevel(payload?.level, 'info'),
+    scope:
+      typeof payload?.scope === 'string' && payload.scope.trim()
+        ? sanitizeLogMessage(payload.scope, { maxStringLength: 160, includeStack: false })
+        : 'renderer',
+    message: sanitizeLogMessage(payload?.message ?? 'Renderer diagnostic event.'),
+    context: sanitizeLogContext(payload?.context),
+    error: payload?.error === undefined ? undefined : serializeLogError(payload.error),
+    timestamp: Number.isFinite(payload?.timestamp) ? payload.timestamp : Date.now(),
+  }
+}
+
+async function writeRendererLog(request: RendererLogRequest): Promise<LoggerWriteResponse> {
+  try {
+    return await ipcRenderer.invoke(
+      IPC_CHANNELS.logging.write,
+      normalizeRendererLogPayload(request)
+    )
+  } catch {
+    return {
+      accepted: false,
+      persisted: false,
+      dropped: true,
+      reason: 'ipc_failed',
+    }
+  }
+}
+
+async function getLoggingStatus(): Promise<LoggerHealthStatus> {
+  try {
+    return await ipcRenderer.invoke(IPC_CHANNELS.logging.status)
+  } catch {
+    return fallbackLoggingStatus()
+  }
+}
+
 const bridge: OpenOmniClawBridge = {
   app: {
     getInfo: () => ipcRenderer.invoke(IPC_CHANNELS.app.getInfo),
+  },
+  logging: {
+    write: writeRendererLog,
+    status: getLoggingStatus,
   },
   cat: {
     show: () => ipcRenderer.invoke(IPC_CHANNELS.cat.show),

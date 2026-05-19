@@ -1,4 +1,5 @@
 import { createHighlighter, normalizeLimitedShikiLanguage } from './shikiLimitedBundle'
+import { logger } from './logger'
 
 export const SHIKI_THEMES = {
   light: 'github-light',
@@ -6,6 +7,7 @@ export const SHIKI_THEMES = {
 }
 
 let highlighterPromise
+const shikiLogger = logger.child('shiki')
 
 function normalizeLanguage(language) {
   return normalizeLimitedShikiLanguage(language)
@@ -48,10 +50,10 @@ export function renderShikiCode(highlighter, code, language, colorMode = 'auto')
   try {
     return highlighter.codeToHtml(code, options)
   } catch (err) {
-    console.warn(
-      `Failed to render code with Shiki language "${normalizedLanguage}". Falling back to plain text.`,
-      err
-    )
+    shikiLogger.warn('Failed to render code with Shiki; falling back to plain text.', {
+      language: normalizedLanguage,
+      error: err,
+    })
 
     const fallbackOptions =
       colorMode === 'dark'

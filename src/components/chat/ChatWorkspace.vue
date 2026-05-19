@@ -24,6 +24,7 @@ import { useChatStore } from '@/stores/chat'
 import { useProviderStore, type ProviderModelOption } from '@/stores/provider'
 import { useSettingsStore } from '@/stores/settings'
 import { copyToClipboard } from '@/utils/clipboard'
+import { logger } from '@/utils/logger'
 import { useToast } from '@/utils/toast'
 
 const props = withDefaults(
@@ -41,6 +42,7 @@ const chatStore = useChatStore()
 const providerStore = useProviderStore()
 const settingsStore = useSettingsStore()
 const toast = useToast()
+const chatWorkspaceLogger = logger.child('chat.workspace')
 const { enabledModelOptions, loading: providersLoading } = storeToRefs(providerStore)
 const { config: settingsConfig } = storeToRefs(settingsStore)
 
@@ -358,7 +360,12 @@ async function selectModel(option: ProviderModelOption) {
       session.defaultModelId = option.modelId
     }
   } catch (error) {
-    console.warn('Failed to persist selected model:', error)
+    chatWorkspaceLogger.warn('Failed to persist selected model.', {
+      sessionId: currSessionId.value,
+      providerId: option.providerId,
+      modelId: option.modelId,
+      error,
+    })
     toast.error(error, { description: '会话模型保存失败' })
   }
 }

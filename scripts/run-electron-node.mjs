@@ -3,7 +3,7 @@ import { spawnPnpmSync } from './spawn-pnpm.mjs'
 const script = process.argv[2]
 
 if (!script) {
-  console.error('Usage: node scripts/run-electron-node.mjs <script.ts> [...args]')
+  process.stderr.write('Usage: node scripts/run-electron-node.mjs <script.ts> [...args]\n')
   process.exit(1)
 }
 

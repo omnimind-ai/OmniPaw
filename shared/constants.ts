@@ -4,6 +4,10 @@ export const IPC_CHANNELS = {
   app: {
     getInfo: 'app:get-info',
   },
+  logging: {
+    write: 'logging:write',
+    status: 'logging:status',
+  },
   cat: {
     show: 'cat:show',
     hide: 'cat:hide',

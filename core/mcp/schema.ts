@@ -1,4 +1,5 @@
 import type { ToolProfile, ToolRisk } from '@shared/types/chat'
+import { redactSensitiveText, redactUrl } from '@core/logging/redaction'
 import type {
   McpErrorCode,
   McpHttpTransportConfig,
@@ -165,12 +166,7 @@ export function normalizeMcpServerId(value: string): string {
 }
 
 export function redactSecretText(text: string): string {
-  return text
-    .replace(/(authorization\s*[:=]\s*bearer\s+)[^,\s]+/gi, '$1[redacted]')
-    .replace(
-      /((?:api[_-]?key|token|password|secret|authorization)\s*[:=]\s*)[^,\s]+/gi,
-      '$1[redacted]'
-    )
+  return redactSensitiveText(text)
 }
 
 export function isKnownToolRisk(value: unknown): value is ToolRisk {
@@ -606,23 +602,7 @@ function maskCommandArgs(args: string[]): string[] {
 }
 
 function maskUrl(value: string): string {
-  try {
-    const url = new URL(value)
-    if (url.username) {
-      url.username = '[redacted]'
-    }
-    if (url.password) {
-      url.password = '[redacted]'
-    }
-    for (const key of [...url.searchParams.keys()]) {
-      if (/api[_-]?key|token|password|secret/i.test(key)) {
-        url.searchParams.set(key, '[redacted]')
-      }
-    }
-    return url.toString()
-  } catch {
-    return redactSecretText(value)
-  }
+  return redactUrl(value)
 }
 
 function stableComparable(value: unknown): string {

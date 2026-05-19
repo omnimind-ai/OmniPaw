@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto'
 
 import type { AgentTool } from '@core/agent/tool'
+import type { Logger } from '@core/logging'
 import type { ToolProfile, ToolRisk } from '@shared/types/chat'
 import type {
   DeleteMcpServerRequest,
@@ -39,6 +40,7 @@ export interface McpServerManagerOptions {
   client?: McpClient
   reservedToolNames?: Iterable<string>
   onChanged?: (event: McpServerChangedEvent) => void
+  logger?: Logger
 }
 
 interface DiscoveryState {
@@ -50,12 +52,14 @@ interface DiscoveryState {
 export class McpServerManager {
   private readonly client: McpClient
   private readonly reservedToolNames: Set<string>
+  private readonly logger?: Logger
   private readonly discoveries = new Map<string, DiscoveryState>()
   private startupRefreshStarted = false
 
   constructor(private readonly options: McpServerManagerOptions) {
     this.client = options.client ?? new JsonRpcMcpClient()
     this.reservedToolNames = new Set(options.reservedToolNames ?? [])
+    this.logger = options.logger
   }
 
   load(): McpServerListResponse {
@@ -63,6 +67,10 @@ export class McpServerManager {
     const response = this.listServers()
     this.emitChanged('load')
     this.startBackgroundRefresh()
+    this.logger?.info('MCP registry loaded.', {
+      serverCount: response.servers.length,
+      enabledCount: response.servers.filter((server) => server.enabled).length,
+    })
     return response
   }
 
@@ -71,7 +79,8 @@ export class McpServerManager {
       return
     }
     this.startupRefreshStarted = true
-    void this.refreshServer().catch(() => {
+    void this.refreshServer().catch((error) => {
+      this.logger?.warn('MCP startup discovery failed.', { error })
       // Startup discovery is best-effort; built-in tools must remain available.
     })
   }
@@ -99,10 +108,12 @@ export class McpServerManager {
     if (!saved.enabled) {
       this.discoveries.set(saved.id, { status: 'disabled', tools: [] })
       this.emitChanged('save')
+      this.logger?.info('MCP server saved disabled.', { serverId: saved.id })
       return this.summaryFor(saved)
     }
 
     await this.refreshOne(saved.id, 'save')
+    this.logger?.info('MCP server saved.', { serverId: saved.id })
     return this.summaryForId(saved.id)
   }
 
@@ -120,6 +131,7 @@ export class McpServerManager {
 
     this.discoveries.delete(serverId)
     this.emitChanged('delete')
+    this.logger?.info('MCP server deleted.', { serverId })
     return this.listServers()
   }
 
@@ -128,14 +140,17 @@ export class McpServerManager {
     if (!saved.enabled) {
       this.discoveries.set(saved.id, { status: 'disabled', tools: [] })
       this.emitChanged('enable')
+      this.logger?.info('MCP server disabled.', { serverId: saved.id })
       return this.summaryFor(saved)
     }
 
     await this.refreshOne(saved.id, 'enable')
+    this.logger?.info('MCP server enabled.', { serverId: saved.id })
     return this.summaryForId(saved.id)
   }
 
   async refreshServer(request?: RefreshMcpServerRequest | string): Promise<McpServerListResponse> {
+    const startedAt = Date.now()
     const serverId = typeof request === 'string' ? request : request?.serverId
     const servers = this.options.store.list()
 
@@ -149,11 +164,19 @@ export class McpServerManager {
         )
       }
       await this.refreshOne(serverId, 'refresh')
+      this.logger?.info('MCP server refreshed.', {
+        serverId,
+        durationMs: Date.now() - startedAt,
+      })
       return this.listServers()
     }
 
     await Promise.all(servers.map((server) => this.refreshServerRecord(server)))
     this.emitChanged('refresh')
+    this.logger?.info('MCP servers refreshed.', {
+      serverCount: servers.length,
+      durationMs: Date.now() - startedAt,
+    })
     return this.listServers()
   }
 
@@ -237,12 +260,23 @@ export class McpServerManager {
         tools: normalized.tools,
         error: normalized.warning,
       })
+      this.logger?.debug('MCP server discovery succeeded.', {
+        serverId: server.id,
+        toolCount: normalized.tools.length,
+        warning: normalized.warning,
+      })
     } catch (error) {
       const normalized = normalizeMcpClientError(error, 'discovery_failed')
       this.discoveries.set(server.id, {
         status: 'error',
         error: normalized.message,
         tools: [],
+      })
+      this.logger?.warn('MCP server discovery failed.', {
+        serverId: server.id,
+        errorCode: normalized.code,
+        recoverable: normalized.recoverable,
+        error: normalized,
       })
     }
   }

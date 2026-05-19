@@ -1,4 +1,5 @@
 import type { ChatMessageRepo, ChatRunRepo } from '@core/db/repos'
+import type { Logger } from '@core/logging'
 import { normalizeProviderError } from '@core/provider/errors'
 import type { ProviderManager } from '@core/provider/manager'
 import type { ProviderToolCall } from '@core/provider/base-provider'
@@ -36,6 +37,7 @@ export interface AgentRunnerOptions {
   compactSkillDescriptions?: () => boolean
   toolExecutor?: ToolExecutor
   onComplete?: (sessionId: string) => void
+  logger?: Logger
 }
 
 export interface AgentRunInput {
@@ -53,10 +55,19 @@ export class AgentRunner {
   private readonly toolExecutor: ToolExecutor
 
   constructor(private readonly options: AgentRunnerOptions) {
-    this.toolExecutor = options.toolExecutor ?? new ToolExecutor()
+    this.toolExecutor =
+      options.toolExecutor ?? new ToolExecutor({ logger: options.logger?.child({ scope: 'tool' }) })
   }
 
   async run(input: AgentRunInput): Promise<void> {
+    const startedAt = Date.now()
+    const logger = this.options.logger?.child({
+      scope: 'run',
+      runId: input.run.id,
+      sessionId: input.session.id,
+      providerId: input.provider.id,
+      modelId: input.model.id,
+    })
     const assistantParts: ChatMessagePart[] = []
     const maxSteps = clampMaxSteps(input.maxSteps)
     const requestedMode = input.mode ?? 'assistant'
@@ -67,6 +78,13 @@ export class AgentRunner {
       requestedMode === 'assistant' && !supportsTools
         ? 'provider_or_model_does_not_support_tools'
         : undefined
+    logger?.info('Agent run started.', {
+      mode,
+      requestedMode,
+      fallbackReason,
+      maxSteps,
+      supportsTools,
+    })
 
     try {
       const allMessages = this.options.messages.listBySession(input.session.id)
@@ -90,6 +108,12 @@ export class AgentRunner {
           ? await this.options.toolRegistry.resolve({ sessionId: input.session.id, policy })
           : []
       const providerTools = providerToolsFromAgentTools(agentTools)
+      logger?.debug('Agent context prepared.', {
+        mode,
+        toolCount: agentTools.length,
+        skillInjected: skillPrompt?.injected,
+        enabledSkillCount: skillPrompt?.enabledSkillIds.length ?? 0,
+      })
       const snapshot: ProviderRequestSnapshot = {
         ...context.snapshot,
         mode,
@@ -176,6 +200,11 @@ export class AgentRunner {
             sawFinal = true
             if (!stepToolCalls.length) {
               this.completeRun(input.run, assistantParts, chunk.usage)
+              logger?.info('Agent run completed.', {
+                status: 'complete',
+                step,
+                durationMs: Date.now() - startedAt,
+              })
               return
             }
           }
@@ -184,6 +213,11 @@ export class AgentRunner {
         if (!stepToolCalls.length) {
           if (!sawFinal) {
             this.completeRun(input.run, assistantParts)
+            logger?.info('Agent run completed without final chunk.', {
+              status: 'complete',
+              step,
+              durationMs: Date.now() - startedAt,
+            })
           }
           return
         }
@@ -287,9 +321,39 @@ export class AgentRunner {
       this.options.runs.updateStatus(input.run.id, 'complete', { finishedAt: Date.now() })
       this.emitFinal(input.run)
       this.options.onComplete?.(input.run.sessionId)
+      logger?.warn('Agent run reached max steps.', {
+        status: 'complete',
+        maxSteps,
+        durationMs: Date.now() - startedAt,
+      })
     } catch (error) {
       const chatError = normalizeProviderError(error)
       const status = chatError.code === 'aborted' ? 'aborted' : 'error'
+      if (status === 'aborted') {
+        logger?.info('Agent run aborted.', {
+          errorCode: chatError.code,
+          retryable: chatError.retryable,
+          durationMs: Date.now() - startedAt,
+          error: {
+            code: chatError.code,
+            message: chatError.message,
+            retryable: chatError.retryable,
+            providerStatus: chatError.providerStatus,
+          },
+        })
+      } else {
+        logger?.warn('Agent run failed.', {
+          errorCode: chatError.code,
+          retryable: chatError.retryable,
+          durationMs: Date.now() - startedAt,
+          error: {
+            code: chatError.code,
+            message: chatError.message,
+            retryable: chatError.retryable,
+            providerStatus: chatError.providerStatus,
+          },
+        })
+      }
       this.options.messages.updateParts(input.run.assistantMessageId, assistantParts, {
         status,
         error: chatError,

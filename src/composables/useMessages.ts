@@ -5,9 +5,12 @@ import {
   type BridgeChatMessagePart,
   type BridgeStreamEvent,
 } from '@/bridge/app'
+import { logger } from '@/utils/logger'
 import { useToast } from '@/utils/toast'
 
 export type TransportMode = 'sse' | 'websocket'
+
+const messagesLogger = logger.child('chat.messages')
 
 export interface MessagePart {
   type: string
@@ -204,7 +207,7 @@ export function useMessages(options: UseMessagesOptions) {
         part.embedded_url = await promise
       } catch (e) {
         attachmentBlobCache.delete(cacheKey)
-        console.error('Failed to resolve media:', cacheKey, e)
+        messagesLogger.error('Failed to resolve media preview.', { cacheKey, error: e })
         toast.error(e, { description: '媒体预览加载失败' })
       }
       return
@@ -238,7 +241,7 @@ export function useMessages(options: UseMessagesOptions) {
       messagesBySession[sessionId] = records
       loadedSessions[sessionId] = true
     } catch (error) {
-      console.error('Failed to load session messages:', error)
+      messagesLogger.error('Failed to load session messages.', { sessionId, error })
       toast.error(error, { description: '会话消息加载失败' })
       messagesBySession[sessionId] = messagesBySession[sessionId] || []
     } finally {
@@ -442,7 +445,11 @@ export function useMessages(options: UseMessagesOptions) {
     } catch (error) {
       delete activeConnections[sessionId]
       markRecordErrored(botRecord, error)
-      console.error('Regenerate failed:', error)
+      messagesLogger.error('Regenerate failed.', {
+        sessionId,
+        messageId: String(targetMessageId),
+        error,
+      })
       if (!runningSessionIds.value.length) {
         void appBridge.cat.setState('idle').catch(() => {})
       }
@@ -537,7 +544,13 @@ export function useMessages(options: UseMessagesOptions) {
       unsubscribe?.()
       delete activeConnections[sessionId]
       markRecordErrored(botRecord, error)
-      console.error('Bridge chat failed:', error)
+      messagesLogger.error('Bridge chat failed.', {
+        sessionId,
+        messageId,
+        providerId: selectedProvider || undefined,
+        modelId: selectedModel || undefined,
+        error,
+      })
       if (!runningSessionIds.value.length) {
         void appBridge.cat.setState('idle').catch(() => {})
       }

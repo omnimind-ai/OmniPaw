@@ -1,4 +1,5 @@
 import { normalizeProviderError } from '@core/provider/errors'
+import type { Logger } from '@core/logging'
 import type { ProviderToolCall } from '@core/provider/base-provider'
 import type { ToolCallDisplay } from '@shared/types/chat'
 import {
@@ -22,10 +23,21 @@ export interface ExecuteToolOutput {
   result: NormalizedToolResult
 }
 
+export interface ToolExecutorOptions {
+  logger?: Logger
+}
+
 export class ToolExecutor {
+  private readonly logger?: Logger
+
+  constructor(options: ToolExecutorOptions = {}) {
+    this.logger = options.logger
+  }
+
   async execute(input: ExecuteToolInput): Promise<ExecuteToolOutput> {
     const startedAt = Date.now()
     const name = input.toolCall.function.name
+    const logger = this.logger?.child({ scope: 'execute', toolName: name })
     const tool = input.tools.find((item) => item.name === name)
     const argsDisplay = displayArguments(input.toolCall.function.arguments)
     const baseDisplay: ToolCallDisplay = {
@@ -41,6 +53,11 @@ export class ToolExecutor {
     const decision = decideToolUse(tool, input.policy)
     if (!decision.allowed || !tool) {
       const message = decision.reason ?? `Tool "${name}" is not allowed.`
+      logger?.warn('Tool execution denied.', {
+        status: 'denied',
+        approvalRequired: decision.approvalRequired,
+        durationMs: Date.now() - startedAt,
+      })
       return {
         display: finishDisplay(baseDisplay, 'denied', message),
         result: {
@@ -59,6 +76,12 @@ export class ToolExecutor {
       args = parseToolArguments(input.toolCall.function.arguments)
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Tool arguments are not valid JSON.'
+      logger?.warn('Tool arguments invalid.', {
+        status: 'error',
+        errorCode: 'tool_arguments_invalid',
+        durationMs: Date.now() - startedAt,
+        error,
+      })
       return {
         display: finishDisplay(baseDisplay, 'error', message),
         result: {
@@ -77,6 +100,12 @@ export class ToolExecutor {
         input.signal
       )
       const text = toolResultToText(result)
+      logger?.info('Tool execution completed.', {
+        status: 'complete',
+        source: tool.source,
+        risk: tool.risk,
+        durationMs: Date.now() - startedAt,
+      })
       return {
         display: finishDisplay(baseDisplay, 'complete', text),
         result: {
@@ -88,6 +117,12 @@ export class ToolExecutor {
     } catch (error) {
       if (error instanceof ToolTimeoutError) {
         const message = error.message
+        logger?.warn('Tool execution timed out.', {
+          status: 'error',
+          errorCode: 'tool_timeout',
+          durationMs: Date.now() - startedAt,
+          error,
+        })
         return {
           display: finishDisplay(baseDisplay, 'error', message),
           result: {
@@ -99,6 +134,10 @@ export class ToolExecutor {
       }
       if (isAbortError(error) || input.signal?.aborted) {
         const message = 'Tool execution was aborted.'
+        logger?.info('Tool execution aborted.', {
+          status: 'aborted',
+          durationMs: Date.now() - startedAt,
+        })
         return {
           display: finishDisplay(baseDisplay, 'aborted', message),
           result: {
@@ -109,6 +148,18 @@ export class ToolExecutor {
         }
       }
       const normalized = normalizeProviderError(error)
+      logger?.warn('Tool execution failed.', {
+        status: 'error',
+        errorCode: normalized.code,
+        retryable: normalized.retryable,
+        durationMs: Date.now() - startedAt,
+        error: {
+          code: normalized.code,
+          message: normalized.message,
+          retryable: normalized.retryable,
+          providerStatus: normalized.providerStatus,
+        },
+      })
       return {
         display: finishDisplay(baseDisplay, 'error', normalized.message),
         result: {

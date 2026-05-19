@@ -8,6 +8,7 @@ import type {
   CatWindowState,
   CatDragPayload,
 } from '@shared/types/cat'
+import type { LoggerHealthStatus, LoggerWriteResponse, RendererLogRequest } from '@shared/types/logging'
 
 export type BridgeUnsubscribe = () => void
 
@@ -494,6 +495,10 @@ export interface RendererOpenOmniClawBridge {
   app: {
     getInfo: () => Promise<{ name: string; version: string; platform: string }>
   }
+  logging: {
+    write: (request: RendererLogRequest) => Promise<LoggerWriteResponse>
+    status: () => Promise<LoggerHealthStatus>
+  }
   cat: {
     show: () => Promise<CatStatus>
     hide: () => Promise<CatStatus>
@@ -643,6 +648,28 @@ const fallbackBridge: RendererOpenOmniClawBridge = {
       version: 'dev',
       platform: 'win32',
     }),
+  },
+  logging: {
+    write: async () => ({
+      accepted: false,
+      persisted: false,
+      dropped: true,
+      reason: 'fallback_runtime',
+    }),
+    status: async () => {
+      const now = Date.now()
+      return {
+        initialized: false,
+        available: false,
+        runtime: 'fallback',
+        transport: 'none',
+        writeCount: 0,
+        droppedCount: 0,
+        failedWriteCount: 0,
+        startedAt: now,
+        updatedAt: now,
+      }
+    },
   },
   cat: {
     show: async () => {
@@ -983,7 +1010,13 @@ const exposedBridge =
 
 export const bridgeRuntime: BridgeRuntime = exposedBridge ? 'electron' : 'fallback'
 export const isFallbackBridge = bridgeRuntime === 'fallback'
-export const appBridge = exposedBridge ?? fallbackBridge
+export const appBridge: RendererOpenOmniClawBridge = exposedBridge
+  ? {
+      ...fallbackBridge,
+      ...exposedBridge,
+      logging: exposedBridge.logging ?? fallbackBridge.logging,
+    }
+  : fallbackBridge
 
 export function ensureElectronBridge(operation = '该操作'): void {
   if (isFallbackBridge) {

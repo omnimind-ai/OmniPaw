@@ -7,6 +7,7 @@ import { ToolRegistry } from '@core/agent/tool-registry'
 import type { ToolResolutionInput } from '@core/agent/tool-registry'
 import type { SkillManager } from '@core/skill/skill-manager'
 import type { AttachmentRepo, ChatMessageRepo, ChatRunRepo, ChatSessionRepo } from '@core/db/repos'
+import type { Logger } from '@core/logging'
 import type { ChatSession } from '@shared/types/chat'
 import type {
   AbortRunRequest,
@@ -42,12 +43,15 @@ export interface ChatServiceOptions {
   skills?: SkillManager
   compactSkillDescriptions?: () => boolean
   agentRunner?: AgentRunner
+  logger?: Logger
 }
 
 export class ChatService {
   private readonly agentRunner: AgentRunner
+  private readonly logger?: Logger
 
   constructor(private readonly options: ChatServiceOptions) {
+    this.logger = options.logger
     this.agentRunner =
       options.agentRunner ??
       new AgentRunner({
@@ -66,6 +70,7 @@ export class ChatService {
           mcpTools: options.mcpTools,
         }),
         onComplete: (sessionId) => this.updateSessionSummary(sessionId),
+        logger: options.logger?.child({ scope: 'agent' }),
       })
   }
 
@@ -92,6 +97,11 @@ export class ChatService {
       updatedAt: now,
     }
     this.options.sessions.save(session)
+    this.logger?.info('Chat session created.', {
+      sessionId: session.id,
+      providerId: provider.id,
+      modelId,
+    })
     return session
   }
 
@@ -113,12 +123,20 @@ export class ChatService {
       updatedAt: Date.now(),
     }
     this.options.sessions.save(updated)
+    this.logger?.debug('Chat session updated.', {
+      sessionId: updated.id,
+      status: updated.status,
+      providerId: updated.defaultProviderId,
+      modelId: updated.defaultModelId,
+    })
     return updated
   }
 
   deleteSession(request: DeleteSessionRequest | string): { deleted: boolean } {
     const sessionId = typeof request === 'string' ? request : request.sessionId
-    return { deleted: this.options.sessions.markDeleted(sessionId) }
+    const deleted = this.options.sessions.markDeleted(sessionId)
+    this.logger?.info('Chat session delete requested.', { sessionId, deleted })
+    return { deleted }
   }
 
   listMessages(request: ListMessagesRequest | string): ChatMessage[] {
@@ -210,6 +228,15 @@ export class ChatService {
       maxSteps: request.maxSteps,
     })
 
+    this.logger?.info('Chat run accepted.', {
+      runId: run.id,
+      sessionId: session.id,
+      providerId: provider.id,
+      modelId: model.id,
+      attachmentCount: attachmentLinks.length,
+      mode: request.mode,
+      toolProfile: request.toolProfile,
+    })
     return responseFromRun(run)
   }
 
@@ -233,6 +260,7 @@ export class ChatService {
         this.options.messages.updateStatus(run.assistantMessageId, 'aborted')
       }
     }
+    this.logger?.info('Chat run abort requested.', { runId, aborted })
     return { runId, aborted }
   }
 
@@ -248,6 +276,11 @@ export class ChatService {
     for (const later of messages.slice(messageIndex + 1)) {
       this.options.messages.updateStatus(later.id, 'superseded')
     }
+    this.logger?.info('Chat message edited.', {
+      sessionId: request.sessionId,
+      messageId: request.messageId,
+      truncatedCount: Math.max(0, messages.length - messageIndex - 1),
+    })
     return {
       message: updated,
       needsRegenerate: true,
@@ -272,6 +305,12 @@ export class ChatService {
       throw new Error('No preceding user message found.')
     }
     this.options.messages.updateStatus(target.id, 'superseded')
+    this.logger?.info('Chat regeneration requested.', {
+      sessionId: request.sessionId,
+      targetMessageId: request.messageId,
+      providerId: request.providerId,
+      modelId: request.modelId,
+    })
     return this.sendMessage(
       {
         sessionId: request.sessionId,
@@ -322,6 +361,11 @@ export class ChatService {
     this.options.sessions.updateMessageSummary(sessionId, {
       messageCount: messages.length,
       lastMessagePreview: last ? previewMessage(last) : undefined,
+      lastMessageAt: last?.createdAt,
+    })
+    this.logger?.debug('Chat session summary updated.', {
+      sessionId,
+      messageCount: messages.length,
       lastMessageAt: last?.createdAt,
     })
   }
