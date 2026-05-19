@@ -617,7 +617,10 @@ function attachmentTypeLabel(type: string) {
 </script>
 
 <template>
-  <SidebarProvider>
+  <SidebarProvider
+    :open="chatStore.sidebarOpen"
+    @update:open="chatStore.setSidebarOpen"
+  >
     <ChatSidebar
       :sessions="sessions"
       :active-session-id="currSessionId"

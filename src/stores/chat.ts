@@ -16,6 +16,13 @@ export interface PendingInitialMessage {
   selectedModel: string
 }
 
+const SIDEBAR_STATE_COOKIE = 'sidebar_state'
+
+function getInitialSidebarOpen(): boolean {
+  if (typeof document === 'undefined') return true
+  return !document.cookie.includes(`${SIDEBAR_STATE_COOKIE}=false`)
+}
+
 export const useChatStore = defineStore('chat', () => {
   const sessions = ref<Session[]>([])
   const activeSessionId = ref<string>()
@@ -23,6 +30,7 @@ export const useChatStore = defineStore('chat', () => {
   const draft = ref('')
   const streamingText = ref('')
   const isStreaming = ref(false)
+  const sidebarOpen = ref(getInitialSidebarOpen())
 
   const activeSession = computed(() =>
     sessions.value.find((session) => session.id === activeSessionId.value)
@@ -64,6 +72,10 @@ export const useChatStore = defineStore('chat', () => {
     isStreaming.value = false
   }
 
+  function setSidebarOpen(open: boolean): void {
+    sidebarOpen.value = open
+  }
+
   function setPendingInitialMessage(message: PendingInitialMessage): void {
     pendingInitialMessage.value = message
   }
@@ -86,11 +98,13 @@ export const useChatStore = defineStore('chat', () => {
     draft,
     streamingText,
     isStreaming,
+    sidebarOpen,
     loadSessions,
     createSession,
     sendDraft,
     appendToken,
     finishStream,
+    setSidebarOpen,
     setPendingInitialMessage,
     consumePendingInitialMessage,
   }
