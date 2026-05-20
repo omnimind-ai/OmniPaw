@@ -51,11 +51,14 @@
 | 上下文构建 | `core/chat/context-manager.ts` |
 | 运行状态与 stream event | `core/chat/run-manager.ts` |
 | 附件上传、预览、文本提取 | `core/chat/attachment-service.ts` |
-| Agent 运行循环 | `core/agent/agent-runner.ts` |
-| 工具注册 | `core/agent/tool-registry.ts` |
-| 内置工具定义 | `core/agent/builtin-tools.ts` |
-| 工具执行与超时 | `core/agent/tool-executor.ts` |
-| 工具策略 | `core/agent/tool-policy.ts` |
+| Agent 运行入口 | `core/agent/agent-runner.ts` |
+| Agent step engine | `core/agent/step-engine.ts` |
+| Agent run 支撑模块 | `core/agent/run/` |
+| 工具调用循环 | `core/agent/tool-loop.ts` |
+| 工具注册 | `core/agent/tools/registry.ts` |
+| 内置工具定义 | `core/agent/tools/builtin-tools.ts` |
+| 工具执行与超时 | `core/agent/tools/executor.ts` |
+| 工具策略 | `core/agent/tools/policy.ts` |
 | Provider 管理 | `core/provider/manager.ts` |
 | Provider registry schema | `core/provider/registry-schema.ts` |
 | Provider registry store | `core/provider/registry-store.ts` |

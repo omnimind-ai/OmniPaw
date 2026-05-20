@@ -113,11 +113,14 @@
 | 上下文 | `core/chat/context-manager.ts` |
 | run 管理 | `core/chat/run-manager.ts` |
 | 附件 | `core/chat/attachment-service.ts` |
-| Agent | `core/agent/agent-runner.ts` |
-| 工具定义 | `core/agent/builtin-tools.ts` |
-| 工具注册 | `core/agent/tool-registry.ts` |
-| 工具执行 | `core/agent/tool-executor.ts` |
-| 工具策略 | `core/agent/tool-policy.ts` |
+| Agent 运行入口 | `core/agent/agent-runner.ts` |
+| Agent step engine | `core/agent/step-engine.ts` |
+| Agent run 支撑模块 | `core/agent/run/` |
+| 工具调用循环 | `core/agent/tool-loop.ts` |
+| 工具定义 | `core/agent/tools/builtin-tools.ts` |
+| 工具注册 | `core/agent/tools/registry.ts` |
+| 工具执行 | `core/agent/tools/executor.ts` |
+| 工具策略 | `core/agent/tools/policy.ts` |
 | Provider 管理 | `core/provider/manager.ts` |
 | Provider 抽象 | `core/provider/base-provider.ts` |
 | OpenAI 兼容 Provider | `core/provider/providers/openai.ts` |
