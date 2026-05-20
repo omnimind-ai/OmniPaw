@@ -168,6 +168,7 @@ export function createCoreRuntime(options: CoreRuntimeOptions): CoreRuntime {
     runManager,
     skills: skillManager,
     compactSkillDescriptions: () => configStore.get().app.compactSkillDescriptions,
+    agentToolProfile: () => configStore.get().tools.agentToolProfile,
     disabledToolNames: () => toolManagementService.getDisabledToolNames(),
     mcpTools: () => mcpServerManager.getAgentTools(),
     logger: coreLogger.child({ scope: 'chat' }),

@@ -53,6 +53,7 @@ try {
   assert.equal(normalized.providers.sources[0]?.id, 'custom-openai')
   assert.equal(normalized.providers.models[0]?.providerSourceId, 'custom-openai')
   assert.equal(normalized.providers.settings.defaultModelId, 'custom-model')
+  assert.equal(normalized.tools.agentToolProfile, 'assistant')
   assert.equal(normalized.scheduledTasks.enabled, false)
 
   assert.throws(

@@ -1,4 +1,4 @@
-import type { Session } from '@shared/types/chat'
+import type { Session, ToolProfile } from '@shared/types/chat'
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import { appBridge } from '@/bridge/app'
@@ -14,6 +14,7 @@ export interface PendingInitialMessage {
   parts: PendingInitialMessagePart[]
   selectedProvider: string
   selectedModel: string
+  toolProfile?: ToolProfile
 }
 
 const SIDEBAR_STATE_COOKIE = 'sidebar_state'

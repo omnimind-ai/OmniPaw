@@ -18,6 +18,7 @@ export type BridgeUnsubscribe = () => void
 
 export type BridgeAppTheme = 'system' | 'light' | 'dark'
 export type BridgeAppLanguage = 'system' | 'zh-CN' | 'en-US'
+export type BridgeToolProfile = 'minimal' | 'assistant' | 'power' | string
 
 export interface BridgeDesktopSettingsConfig {
   version: 1
@@ -53,6 +54,7 @@ export interface BridgeDesktopSettingsConfig {
     }
   }
   tools: {
+    agentToolProfile: BridgeToolProfile
     enabledByName: Record<string, boolean>
   }
   scheduledTasks: {
@@ -127,7 +129,6 @@ export interface BridgeChatMessagePart {
 }
 
 export type BridgeChatRunMode = 'assistant' | 'fast_chat' | string
-export type BridgeToolProfile = 'minimal' | 'assistant' | 'power' | string
 export type BridgeToolCallStatus =
   | 'pending'
   | 'running'
@@ -211,6 +212,16 @@ export interface BridgeSendMessageResponse {
   accepted?: boolean
   userMessage?: BridgeChatMessage
   assistantMessage?: BridgeChatMessage
+}
+
+export interface BridgeRegenerateMessageRequest {
+  sessionId: string
+  messageId: string
+  providerId?: string
+  modelId?: string
+  toolProfile?: BridgeToolProfile
+  maxSteps?: number
+  idempotencyKey?: string
 }
 
 export interface BridgeStreamEvent {
@@ -669,10 +680,9 @@ export interface RendererOpenOmniClawBridge {
       truncatedAfterMessage?: boolean
     }>
     regenerateMessage?: (
-      sessionId: string,
-      messageId: string,
-      providerId?: string,
-      modelId?: string
+      ...args:
+        | [request: BridgeRegenerateMessageRequest]
+        | [sessionId: string, messageId: string, providerId?: string, modelId?: string]
     ) => Promise<BridgeSendMessageResponse>
     onSessionChanged?: (
       callback: (event: BridgeChatSessionChangedEvent) => void
@@ -1160,6 +1170,7 @@ function fallbackSettingsConfig(): BridgeDesktopSettingsConfig {
       },
     },
     tools: {
+      agentToolProfile: 'assistant',
       enabledByName: {},
     },
     scheduledTasks: {

@@ -1,6 +1,6 @@
+import type { ToolProfile } from '@shared/types/chat'
 import { defineStore } from 'pinia'
 import { computed, ref, toRaw } from 'vue'
-
 import {
   appBridge,
   type BridgeDesktopSettingsChangedEvent,
@@ -30,6 +30,10 @@ export const useSettingsStore = defineStore('settings', () => {
   const maxRecentMessages = computed({
     get: () => draft.value?.app.maxRecentMessages ?? 20,
     set: (value) => updateAppSetting('maxRecentMessages', value),
+  })
+  const agentToolProfile = computed<ToolProfile>({
+    get: () => normalizeToolProfile(draft.value?.tools.agentToolProfile),
+    set: (value) => updateToolProfile(value),
   })
 
   async function load(): Promise<BridgeDesktopSettingsConfig> {
@@ -90,6 +94,12 @@ export const useSettingsStore = defineStore('settings', () => {
         ...next.tools.enabledByName,
         [name]: enabled,
       }
+    })
+  }
+
+  function updateToolProfile(profile: ToolProfile): void {
+    updateDraft((next) => {
+      next.tools.agentToolProfile = profile
     })
   }
 
@@ -205,11 +215,13 @@ export const useSettingsStore = defineStore('settings', () => {
     persistenceAvailable,
     compactSkillDescriptions,
     maxRecentMessages,
+    agentToolProfile,
     load,
     refreshStatus,
     updateDraft,
     updateAppSetting,
     updateToolEnabled,
+    updateToolProfile,
     save,
     reset,
     discardDraft,
@@ -242,4 +254,11 @@ function normalizeSettingsError(error: unknown): unknown {
     return (error as { details: unknown }).details
   }
   return error
+}
+
+function normalizeToolProfile(value: unknown): ToolProfile {
+  if (value === 'minimal' || value === 'assistant' || value === 'power') {
+    return value
+  }
+  return 'assistant'
 }

@@ -1,4 +1,5 @@
 import { redactSensitiveText } from '@core/logging/redaction'
+import type { ToolProfile } from '@shared/types/chat'
 import type {
   DesktopProviderModel,
   DesktopProviderSource,
@@ -65,6 +66,7 @@ export const defaultConfig: DesktopSettingsConfig = {
     },
   },
   tools: {
+    agentToolProfile: 'assistant',
     enabledByName: {},
   },
   scheduledTasks: {
@@ -199,6 +201,10 @@ function migrateConfig(raw: unknown): unknown {
 }
 
 function normalizeObject(defaultValue: unknown, rawValue: unknown, path: string): unknown {
+  if (path === 'tools.agentToolProfile') {
+    return isToolProfile(rawValue) ? rawValue : defaultConfig.tools.agentToolProfile
+  }
+
   if (path === 'tools.enabledByName') {
     return normalizeBooleanRecord(rawValue)
   }
@@ -537,6 +543,13 @@ function validateProviders(config: DesktopSettingsConfig, issues: SettingsValida
 }
 
 function validateTools(config: DesktopSettingsConfig, issues: SettingsValidationIssue[]): void {
+  if (!isToolProfile(config.tools.agentToolProfile)) {
+    issues.push({
+      path: 'tools.agentToolProfile',
+      message: 'Agent tool profile must be minimal, assistant, or power.',
+      code: 'invalid_enum',
+    })
+  }
   if (!isPlainObject(config.tools.enabledByName)) {
     issues.push({
       path: 'tools.enabledByName',
@@ -602,6 +615,10 @@ function isModelInput(value: unknown): value is DesktopProviderModel['input'] {
       (item) => item === 'text' || item === 'image' || item === 'audio' || item === 'file'
     )
   )
+}
+
+function isToolProfile(value: unknown): value is ToolProfile {
+  return value === 'minimal' || value === 'assistant' || value === 'power'
 }
 
 function normalizeBooleanRecord(value: unknown): Record<string, boolean> {

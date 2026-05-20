@@ -14,6 +14,7 @@ import {
 } from '@/composables/useMessages'
 import { useSessions } from '@/composables/useSessions'
 import { useChatStore } from '@/stores/chat'
+import { useSettingsStore } from '@/stores/settings'
 import { copyToClipboard } from '@/utils/clipboard'
 import { useToast } from '@/utils/toast'
 
@@ -24,6 +25,7 @@ export function useChatWorkspaceController() {
   const router = useRouter()
   const route = useRoute()
   const chatStore = useChatStore()
+  const settingsStore = useSettingsStore()
   const toast = useToast()
   const {
     sessions,
@@ -100,6 +102,7 @@ export function useChatWorkspaceController() {
   )
   const replyPreview = computed(() => replyTarget.value?.preview || '')
   const sidebarOpen = computed(() => chatStore.sidebarOpen)
+  const agentToolProfile = computed(() => settingsStore.agentToolProfile)
 
   const workspaceContext: ChatWorkspaceContext = {
     showWelcome,
@@ -215,7 +218,11 @@ export function useChatWorkspaceController() {
     scroll.attachMessageScrollViewport()
     scroll.scheduleScrollToLatest('auto', true)
 
-    const results = await Promise.allSettled([getSessions(), model.loadProviders()])
+    const results = await Promise.allSettled([
+      getSessions(),
+      model.loadProviders(),
+      settingsStore.load(),
+    ])
     results.forEach((result) => {
       if (result.status === 'rejected') {
         toast.error(result.reason, { description: '聊天数据加载失败' })
@@ -328,6 +335,7 @@ export function useChatWorkspaceController() {
           parts,
           selectedProvider: model.selectedModel.value?.providerId || '',
           selectedModel: model.selectedModel.value?.modelId || '',
+          toolProfile: agentToolProfile.value,
         })
 
         draft.value = ''
@@ -356,6 +364,7 @@ export function useChatWorkspaceController() {
         transport: 'sse',
         selectedProvider: model.selectedModel.value?.providerId || '',
         selectedModel: model.selectedModel.value?.modelId || '',
+        toolProfile: agentToolProfile.value,
         enableStreaming: true,
         userRecord,
         botRecord,
@@ -385,6 +394,7 @@ export function useChatWorkspaceController() {
       transport: 'sse',
       selectedProvider: pending.selectedProvider,
       selectedModel: pending.selectedModel,
+      toolProfile: pending.toolProfile ?? agentToolProfile.value,
       enableStreaming: true,
       userRecord,
       botRecord,
@@ -461,6 +471,7 @@ export function useChatWorkspaceController() {
         sourceRecord: record,
         selectedProvider: model.selectedModel.value.providerId,
         selectedModel: model.selectedModel.value.modelId,
+        toolProfile: agentToolProfile.value,
         enableStreaming: true,
       })
     } catch (error) {
@@ -475,7 +486,8 @@ export function useChatWorkspaceController() {
         currSessionId.value,
         record,
         model.selectedModel.value.providerId,
-        model.selectedModel.value.modelId
+        model.selectedModel.value.modelId,
+        agentToolProfile.value
       )
     } catch (error) {
       toast.error(error, { description: '重新生成失败' })

@@ -23,6 +23,7 @@ import type {
   RegenerateMessageRequest,
   SendMessageRequest,
   SendMessageResponse,
+  ToolProfile,
   UpdateSessionRequest,
 } from '@shared/types/chat'
 import type { ProviderConfig, ProviderModel } from '@shared/types/provider'
@@ -44,6 +45,7 @@ export interface ChatServiceOptions {
   mcpTools?: (input: ToolResolutionInput) => AgentTool[] | Promise<AgentTool[]>
   skills?: SkillManager
   compactSkillDescriptions?: () => boolean
+  agentToolProfile?: () => ToolProfile
   agentRunner?: AgentRunner
   logger?: Logger
 }
@@ -221,6 +223,7 @@ export class ChatService {
 
     this.options.runs.save(run)
     const signal = this.options.runManager.start(run.id, webContents)
+    const toolProfile = request.toolProfile ?? this.options.agentToolProfile?.()
     this.options.runManager.emit({
       type: 'started',
       runId: run.id,
@@ -236,7 +239,7 @@ export class ChatService {
       model,
       signal,
       mode: request.mode,
-      toolProfile: request.toolProfile,
+      toolProfile,
       maxSteps: request.maxSteps,
     })
     void this.generateSessionTitleFromMessage(session.id, userMessage.id, webContents)
@@ -249,7 +252,7 @@ export class ChatService {
       fallbackReason,
       attachmentCount: attachmentLinks.length,
       mode: request.mode,
-      toolProfile: request.toolProfile,
+      toolProfile,
     })
     return responseFromRun(run)
   }
@@ -331,6 +334,8 @@ export class ChatService {
         parts: user.parts,
         providerId: request.providerId,
         modelId: request.modelId,
+        toolProfile: request.toolProfile,
+        maxSteps: request.maxSteps,
         idempotencyKey: request.idempotencyKey,
       },
       webContents

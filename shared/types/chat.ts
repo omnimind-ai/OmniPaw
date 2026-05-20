@@ -363,6 +363,8 @@ export interface RegenerateMessageRequest {
   messageId: ID
   providerId?: ID
   modelId?: string
+  toolProfile?: ToolProfile
+  maxSteps?: number
   idempotencyKey?: string
 }
 

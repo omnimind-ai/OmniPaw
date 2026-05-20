@@ -1,3 +1,4 @@
+import type { ToolProfile } from './chat'
 import type {
   ProviderApi,
   ProviderCapabilities,
@@ -66,6 +67,7 @@ export interface DesktopProvidersSettings {
 }
 
 export interface DesktopToolSettings {
+  agentToolProfile: ToolProfile
   enabledByName: Record<string, boolean>
 }
 

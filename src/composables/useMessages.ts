@@ -3,7 +3,9 @@ import {
   appBridge,
   type BridgeChatMessage,
   type BridgeChatMessagePart,
+  type BridgeRegenerateMessageRequest,
   type BridgeStreamEvent,
+  type BridgeToolProfile,
 } from '@/bridge/app'
 import { logger } from '@/utils/logger'
 import { useToast } from '@/utils/toast'
@@ -118,7 +120,7 @@ interface SendMessageStreamOptions {
   selectedProvider?: string
   selectedModel?: string
   mode?: string
-  toolProfile?: string
+  toolProfile?: BridgeToolProfile
   maxSteps?: number
   userRecord?: ChatRecord
   botRecord: ChatRecord
@@ -133,7 +135,7 @@ interface ContinueEditedMessageOptions {
   selectedProvider?: string
   selectedModel?: string
   mode?: string
-  toolProfile?: string
+  toolProfile?: BridgeToolProfile
   maxSteps?: number
 }
 
@@ -400,7 +402,8 @@ export function useMessages(options: UseMessagesOptions) {
     sessionId: string,
     botRecord: ChatRecord,
     selectedProvider = '',
-    selectedModel = ''
+    selectedModel = '',
+    toolProfile?: BridgeToolProfile
   ) {
     if (!sessionId || botRecord.id == null) return
     const targetMessageId = botRecord.id
@@ -417,12 +420,14 @@ export function useMessages(options: UseMessagesOptions) {
 
     try {
       await appBridge.cat.setState('preparing').catch(() => {})
-      const response = await appBridge.chat.regenerateMessage?.(
+      const request: BridgeRegenerateMessageRequest = {
         sessionId,
-        String(targetMessageId),
-        selectedProvider || undefined,
-        selectedModel || undefined
-      )
+        messageId: String(targetMessageId),
+        providerId: selectedProvider || undefined,
+        modelId: selectedModel || undefined,
+        toolProfile: toolProfile || undefined,
+      }
+      const response = await appBridge.chat.regenerateMessage?.(request)
       if (!response) throw new Error('Regenerate is not available.')
       botRecord.id = response.assistantMessageId || response.messageId || botRecord.id
       const unsubscribe = appBridge.chat.onStreamEvent?.((event) => {
@@ -483,7 +488,7 @@ export function useMessages(options: UseMessagesOptions) {
     selectedProvider: string,
     selectedModel: string,
     mode?: string,
-    toolProfile?: string,
+    toolProfile?: BridgeToolProfile,
     maxSteps?: number,
     skipUserHistory = false,
     llmCheckpointId: string | null = null
