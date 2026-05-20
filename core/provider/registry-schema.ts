@@ -22,6 +22,7 @@ export const defaultProviderRegistry: ProviderRegistry = {
   models: [],
   settings: {
     fallbackModelRefs: [],
+    titleModelRef: undefined,
     streaming: true,
   },
 }
@@ -253,6 +254,7 @@ function normalizeSettings(
       'settings.fallbackModelRefs',
       issues
     ),
+    titleModelRef: normalizeOptionalModelRef(raw.titleModelRef, 'settings.titleModelRef', issues),
     streaming: typeof raw.streaming === 'boolean' ? raw.streaming : true,
   }
 }
@@ -445,6 +447,16 @@ function validateSettings(
     }
     fallbackKeys.add(key)
   }
+  if (settings.titleModelRef) {
+    const key = modelKey(settings.titleModelRef.providerId, settings.titleModelRef.modelId)
+    if (!sourceIds.has(settings.titleModelRef.providerId) || !enabledModelKeys.has(key)) {
+      issues.push({
+        path: 'settings.titleModelRef',
+        message: 'Title summary model must reference an enabled provider model.',
+        code: 'missing_reference',
+      })
+    }
+  }
   if (typeof settings.streaming !== 'boolean') {
     issues.push({
       path: 'settings.streaming',
@@ -500,6 +512,18 @@ function normalizeModelRefs(
   return refs
 }
 
+function normalizeOptionalModelRef(
+  raw: unknown,
+  path: string,
+  issues: ProviderRegistryValidationIssue[]
+): ProviderModelRef | undefined {
+  if (raw === undefined || raw === null) {
+    return undefined
+  }
+  const refs = normalizeModelRefs([raw], path, issues)
+  return refs[0]
+}
+
 function sortRegistry(registry: ProviderRegistry): ProviderRegistry {
   return {
     ...registry,
@@ -508,6 +532,9 @@ function sortRegistry(registry: ProviderRegistry): ProviderRegistry {
     settings: {
       ...registry.settings,
       fallbackModelRefs: registry.settings.fallbackModelRefs.map((ref) => ({ ...ref })),
+      titleModelRef: registry.settings.titleModelRef
+        ? { ...registry.settings.titleModelRef }
+        : undefined,
     },
   }
 }

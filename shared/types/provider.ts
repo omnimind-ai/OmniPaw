@@ -134,6 +134,7 @@ export interface ProviderRegistrySettings {
   defaultProviderId?: ID
   defaultModelId?: string
   fallbackModelRefs: ProviderModelRef[]
+  titleModelRef?: ProviderModelRef
   streaming: boolean
 }
 
@@ -184,6 +185,7 @@ export type ProviderRegistryChangeReason =
   | 'delete'
   | 'refresh'
   | 'settings'
+  | 'title'
 
 export interface ProviderRegistryChangedEvent {
   reason: ProviderRegistryChangeReason
@@ -196,6 +198,8 @@ export interface SetProviderDefaultModelRequest extends ProviderModelRef {}
 export interface SetProviderFallbackModelsRequest {
   models: ProviderModelRef[]
 }
+
+export interface SetProviderTitleModelRequest extends Partial<ProviderModelRef> {}
 
 export interface DeleteProviderModelRequest extends ProviderModelRef {}
 

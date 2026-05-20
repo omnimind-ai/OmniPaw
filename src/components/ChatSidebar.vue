@@ -300,42 +300,6 @@ function clearSearch() {
               </DropdownMenu>
             </SidebarMenuItem>
           </SidebarMenu>
-
-          <div
-            v-if="!filteredSessions.length"
-            class="group-data-[collapsible=icon]:hidden mt-2 flex flex-col gap-3 rounded-lg border border-dashed p-3 text-sm text-muted-foreground"
-          >
-            <div class="flex flex-col gap-1">
-              <p class="font-medium text-sidebar-foreground">
-                {{ emptyTitle }}
-              </p>
-              <p class="text-xs">
-                {{ emptyDescription }}
-              </p>
-            </div>
-            <div class="flex flex-wrap gap-2">
-              <Button
-                v-if="hasSearchQuery"
-                type="button"
-                variant="ghost"
-                size="sm"
-                @click="clearSearch"
-              >
-                <XIcon data-icon="inline-start" />
-                清除搜索
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                :disabled="creating"
-                @click="emit('newChat')"
-              >
-                <PlusIcon data-icon="inline-start" />
-                新建对话
-              </Button>
-            </div>
-          </div>
         </SidebarGroupContent>
       </SidebarGroup>
     </SidebarContent>

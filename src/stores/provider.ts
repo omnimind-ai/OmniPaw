@@ -34,6 +34,7 @@ export interface ProviderModelRef {
 export interface ProviderRegistrySettings {
   defaultModelRef?: ProviderModelRef
   fallbackModelRefs: ProviderModelRef[]
+  titleModelRef?: ProviderModelRef
   streaming: boolean
 }
 
@@ -95,6 +96,7 @@ type ProviderBridgeWithSettings = typeof appBridge.provider & {
 const emptyRegistrySettings = (): ProviderRegistrySettings => ({
   defaultModelRef: undefined,
   fallbackModelRefs: [],
+  titleModelRef: undefined,
   streaming: true,
 })
 
@@ -118,6 +120,7 @@ export const useProviderStore = defineStore('provider', () => {
   const fallbackModelKeys = computed(() =>
     registrySettings.value.fallbackModelRefs.map(modelRefToKey).filter(Boolean)
   )
+  const titleModelKey = computed(() => modelRefToKey(registrySettings.value.titleModelRef))
 
   const modelOptions = computed<ProviderModelOption[]>(() =>
     registryModels.value.map((model) => {
@@ -296,6 +299,18 @@ export const useProviderStore = defineStore('provider', () => {
     )
   }
 
+  async function setTitleModelKey(key: string): Promise<void> {
+    const nextTitleModel = parseModelKey(key)
+    const nextSettings: ProviderRegistrySettings = {
+      ...registrySettings.value,
+      titleModelRef: nextTitleModel,
+    }
+
+    await saveRegistrySettings(nextSettings, async () =>
+      providerBridge().setTitleModel?.(nextTitleModel ?? {})
+    )
+  }
+
   async function setStreaming(streaming: boolean): Promise<void> {
     await saveRegistrySettings({
       ...registrySettings.value,
@@ -358,6 +373,7 @@ export const useProviderStore = defineStore('provider', () => {
     enabledModelOptions,
     defaultModelKey,
     fallbackModelKeys,
+    titleModelKey,
     loading,
     presetsLoading,
     saving,
@@ -372,6 +388,7 @@ export const useProviderStore = defineStore('provider', () => {
     deleteProvider,
     setDefaultModelKey,
     setFallbackModelKeys,
+    setTitleModelKey,
     setStreaming,
     listModels,
     setSessionModel,
@@ -540,6 +557,7 @@ function normalizeRegistrySettings(
   return {
     defaultModelRef,
     fallbackModelRefs: dedupeModelRefs(fallbackModelRefs),
+    titleModelRef: normalizeSelection(value.titleModelRef),
     streaming: value.streaming !== false,
   }
 }

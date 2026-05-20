@@ -35,9 +35,13 @@ const {
   persistenceAvailable,
   registrySettings,
   saving,
+  titleModelKey,
 } = storeToRefs(providerStore)
 
 const enabledOptions = computed(() => modelOptions.value.filter((option) => option.enabled))
+const enabledTextOptions = computed(() =>
+  enabledOptions.value.filter((option) => option.input.includes('text'))
+)
 const streaming = computed(() => registrySettings.value.streaming)
 
 function fallbackChecked(modelKey: string) {
@@ -61,6 +65,11 @@ function updateFallback(modelKey: string, checked: boolean | 'indeterminate') {
 
   current.delete(defaultModelKey.value)
   void providerStore.setFallbackModelKeys([...current])
+}
+
+function updateTitleModel(value: AcceptableValue) {
+  const normalizedValue = typeof value === 'string' ? value : ''
+  void providerStore.setTitleModelKey(normalizedValue === NONE_VALUE ? '' : normalizedValue)
 }
 
 function updateStreaming(value: boolean) {
@@ -100,6 +109,40 @@ function modelLabel(option: ProviderModelOption) {
                 <SelectItem :value="NONE_VALUE">不设置</SelectItem>
                 <SelectItem
                   v-for="option in enabledOptions"
+                  :key="option.key"
+                  :value="option.key"
+                >
+                  {{ modelLabel(option) }}
+                </SelectItem>
+              </SelectGroup>
+            </SelectContent>
+          </Select>
+        </Field>
+
+        <Field
+          orientation="responsive"
+          class="border-b px-4 py-3"
+        >
+          <FieldContent>
+            <FieldLabel for="settings-title-model">标题总结模型</FieldLabel>
+            <FieldDescription>新聊天首次出现明确主题时，用于生成侧栏标题。</FieldDescription>
+          </FieldContent>
+          <Select
+            :model-value="titleModelKey || NONE_VALUE"
+            :disabled="saving || !enabledTextOptions.length || !persistenceAvailable"
+            @update:model-value="updateTitleModel"
+          >
+            <SelectTrigger
+              id="settings-title-model"
+              class="w-full md:w-72"
+            >
+              <SelectValue placeholder="使用默认模型" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectGroup>
+                <SelectItem :value="NONE_VALUE">使用默认模型</SelectItem>
+                <SelectItem
+                  v-for="option in enabledTextOptions"
                   :key="option.key"
                   :value="option.key"
                 >

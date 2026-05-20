@@ -330,6 +330,12 @@ export interface DeleteSessionRequest {
   sessionId: ID
 }
 
+export interface ChatSessionChangedEvent {
+  reason: 'created' | 'updated' | 'deleted' | 'title_generated'
+  sessionId: ID
+  session?: ChatSession
+}
+
 export interface AbortRunRequest {
   runId: ID
   reason?: string

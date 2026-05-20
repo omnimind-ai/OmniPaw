@@ -11,6 +11,7 @@ import type {
   ProviderRegistryStatus,
   SetDefaultProviderModelRequest,
   SetFallbackProviderModelsRequest,
+  SetTitleProviderModelRequest,
   UpsertProviderModelRequest,
   UpsertProviderSourceRequest,
 } from '@shared/types/bridge'
@@ -46,6 +47,7 @@ interface ProviderRegistryApi {
   setFallbackModels?: (
     request: SetFallbackProviderModelsRequest
   ) => Promise<ProviderRegistryMutationResult>
+  setTitleModel?: (request: SetTitleProviderModelRequest) => Promise<ProviderRegistryMutationResult>
   [method: string]: unknown
 }
 
@@ -144,6 +146,15 @@ export function registerProviderIpcHandlers(options: IpcHandlerOptions): void {
     async (event, request: SetFallbackProviderModelsRequest) => {
       const result = await callRegistryMutation(runtime, 'setFallbackModels', request)
       emitProviderChanged(event, runtime, 'fallback', result)
+      return result
+    }
+  )
+  registerLoggedIpcHandler(
+    options,
+    IPC_CHANNELS.provider.setTitleModel,
+    async (event, request: SetTitleProviderModelRequest) => {
+      const result = await callRegistryMutation(runtime, 'setTitleModel', request)
+      emitProviderChanged(event, runtime, 'title', result)
       return result
     }
   )

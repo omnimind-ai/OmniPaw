@@ -113,6 +113,7 @@ let messagesScrollViewport: HTMLElement | null = null
 let autoScrollFrame = 0
 let programmaticScrollUntil = 0
 let scrollStateTimer = 0
+let stopSessionChanged: (() => void) | undefined
 
 const isHomeMode = computed(() => props.mode === 'home')
 const hasMessages = computed(() => activeMessages.value.length > 0)
@@ -236,6 +237,11 @@ watch(
 )
 
 onMounted(async () => {
+  stopSessionChanged = appBridge.chat.onSessionChanged?.((event) => {
+    if (!event.sessionId) return
+    void getSessions()
+  })
+
   await nextTick()
   attachMessageScrollViewport()
   scheduleScrollToLatest('auto', true)
@@ -250,6 +256,8 @@ onMounted(async () => {
 })
 
 onBeforeUnmount(() => {
+  stopSessionChanged?.()
+  stopSessionChanged = undefined
   detachMessageScrollViewport()
   if (autoScrollFrame) {
     cancelAnimationFrame(autoScrollFrame)

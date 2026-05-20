@@ -11,6 +11,7 @@ import type {
   OpenOmniClawBridge,
   SetDefaultProviderModelRequest,
   SetFallbackProviderModelsRequest,
+  SetTitleProviderModelRequest,
   Unsubscribe,
   UpsertProviderModelRequest,
   UpsertProviderSourceRequest,
@@ -248,6 +249,7 @@ const bridge: OpenOmniClawBridge = {
     uploadAttachment: (request) => ipcRenderer.invoke(IPC_CHANNELS.chat.uploadAttachment, request),
     getAttachmentPreview: (request) =>
       ipcRenderer.invoke(IPC_CHANNELS.chat.getAttachmentPreview, request),
+    onSessionChanged: (callback) => createUnsubscriber(IPC_CHANNELS.chat.sessionChanged, callback),
     onStreamEvent: (callback) => createUnsubscriber(IPC_CHANNELS.chat.streamEvent, callback),
     onToken: (callback) => createUnsubscriber<string>(IPC_CHANNELS.chat.streamToken, callback),
     onDone: (callback) => {
@@ -292,6 +294,8 @@ const bridge: OpenOmniClawBridge = {
       ipcRenderer.invoke(IPC_CHANNELS.provider.setDefaultModel, request),
     setFallbackModels: (request: SetFallbackProviderModelsRequest) =>
       ipcRenderer.invoke(IPC_CHANNELS.provider.setFallbackModels, request),
+    setTitleModel: (request: SetTitleProviderModelRequest) =>
+      ipcRenderer.invoke(IPC_CHANNELS.provider.setTitleModel, request),
     test: (...args: [request: TestProviderRequest] | [providerId: string, modelId?: string]) => {
       const request =
         typeof args[0] === 'string'

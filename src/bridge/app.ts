@@ -102,6 +102,12 @@ export interface BridgeChatSession {
   updatedAt: number
 }
 
+export interface BridgeChatSessionChangedEvent {
+  reason: 'created' | 'updated' | 'deleted' | 'title_generated' | string
+  sessionId: string
+  session?: BridgeChatSession
+}
+
 export interface BridgeChatMessagePart {
   type: string
   text?: string
@@ -322,6 +328,7 @@ export interface BridgeProviderRegistrySettings {
   defaultProviderId?: string
   defaultModelId?: string
   fallbackModelRefs: Array<{ providerId: string; modelId: string }>
+  titleModelRef?: { providerId: string; modelId: string }
   streaming: boolean
 }
 
@@ -358,6 +365,7 @@ export type BridgeProviderRegistryChangeReason =
   | 'refresh'
   | 'default'
   | 'fallback'
+  | 'title'
 
 export interface BridgeProviderRegistrySelection {
   providerId?: string
@@ -413,6 +421,11 @@ export interface BridgeSetDefaultProviderModelRequest {
 
 export interface BridgeSetFallbackProviderModelsRequest {
   models: Array<{ providerId: string; modelId: string }>
+}
+
+export interface BridgeSetTitleProviderModelRequest {
+  providerId?: string
+  modelId?: string
 }
 
 export interface BridgeManagedToolInfo {
@@ -661,6 +674,9 @@ export interface RendererOpenOmniClawBridge {
       providerId?: string,
       modelId?: string
     ) => Promise<BridgeSendMessageResponse>
+    onSessionChanged?: (
+      callback: (event: BridgeChatSessionChangedEvent) => void
+    ) => BridgeUnsubscribe
     onStreamEvent?: (callback: (event: BridgeStreamEvent) => void) => BridgeUnsubscribe
     onToken?: (callback: (token: string) => void) => BridgeUnsubscribe
     onDone?: (callback: () => void) => BridgeUnsubscribe
@@ -701,6 +717,9 @@ export interface RendererOpenOmniClawBridge {
     ) => Promise<BridgeProviderRegistryMutationResult>
     setFallbackModels?: (
       request: BridgeSetFallbackProviderModelsRequest
+    ) => Promise<BridgeProviderRegistryMutationResult>
+    setTitleModel?: (
+      request: BridgeSetTitleProviderModelRequest
     ) => Promise<BridgeProviderRegistryMutationResult>
     listModels?: (providerId: string) => Promise<BridgeProviderModel[]>
     refreshModels?: (providerId: string) => Promise<BridgeProviderModel[]>
@@ -968,6 +987,7 @@ const fallbackBridge: RendererOpenOmniClawBridge = {
       assistantMessageId: crypto.randomUUID(),
       accepted: true,
     }),
+    onSessionChanged: () => () => {},
     onStreamEvent: () => () => {},
     onToken: () => () => {},
     onDone: () => () => {},
@@ -1040,6 +1060,8 @@ const fallbackBridge: RendererOpenOmniClawBridge = {
       rejectFallbackPersistence<BridgeProviderRegistryMutationResult>('provider.setDefaultModel'),
     setFallbackModels: () =>
       rejectFallbackPersistence<BridgeProviderRegistryMutationResult>('provider.setFallbackModels'),
+    setTitleModel: () =>
+      rejectFallbackPersistence<BridgeProviderRegistryMutationResult>('provider.setTitleModel'),
     listModels: async () => [],
     refreshModels: () => rejectFallbackPersistence<BridgeProviderModel[]>('provider.refreshModels'),
     test: () => rejectFallbackPersistence<{ ok: boolean; error?: unknown }>('provider.test'),

@@ -422,6 +422,31 @@ export class ProviderManager {
     return { provider, modelId }
   }
 
+  async resolveTitleProvider(
+    sessionId?: string
+  ): Promise<{ provider: ProviderRecord; modelId: string; fallbackReason?: string }> {
+    if (this.registryStore) {
+      const registry = this.registryStore.get()
+      const titleModelRef = registry.settings.titleModelRef
+      if (titleModelRef) {
+        const explicit = resolveRegistrySelection(
+          registry,
+          titleModelRef.providerId,
+          titleModelRef.modelId
+        )
+        if (explicit) {
+          return explicit
+        }
+      }
+    }
+
+    const resolved = await this.resolveDefaultProvider(sessionId)
+    return {
+      ...resolved,
+      fallbackReason: resolved.fallbackReason ?? 'default_model_for_title_summary',
+    }
+  }
+
   async upsertSource(
     request: UpsertProviderSourceRequest
   ): Promise<ProviderRegistryMutationResult> {
@@ -586,6 +611,36 @@ export class ProviderManager {
       }),
       { ok: true }
     )
+  }
+
+  async setTitleModel(
+    selection: Partial<ProviderModelRef> | undefined
+  ): Promise<ProviderRegistryMutationResult> {
+    const registry = this.requireRegistryStore().get()
+    const nextSettings = { ...registry.settings }
+    if (!selection?.providerId || !selection.modelId) {
+      delete nextSettings.titleModelRef
+      return this.registryResult(this.saveRegistry({ ...registry, settings: nextSettings }), {
+        ok: true,
+      })
+    }
+
+    const selectedRef: ProviderModelRef = {
+      providerId: selection.providerId,
+      modelId: selection.modelId,
+    }
+    const model = findEnabledRegistryModel(registry, selectedRef.providerId, selectedRef.modelId)
+    if (!model) {
+      throw new ProviderSelectionError({
+        code: 'validation',
+        message: `Title summary model is not enabled or does not exist: ${selectedRef.providerId}/${selectedRef.modelId}.`,
+        retryable: false,
+      })
+    }
+    nextSettings.titleModelRef = selectedRef
+    return this.registryResult(this.saveRegistry({ ...registry, settings: nextSettings }), {
+      ok: true,
+    })
   }
 
   async test(
@@ -1246,6 +1301,11 @@ function cleanupRegistryReferences(registry: ProviderRegistry): ProviderRegistry
       }
       return refs.findIndex((item) => sameModelRef(item, ref)) === index
     }),
+    titleModelRef:
+      registry.settings.titleModelRef &&
+      enabledModelRefs.has(modelRefKey(registry.settings.titleModelRef))
+        ? { ...registry.settings.titleModelRef }
+        : undefined,
   }
 
   return {
@@ -1364,6 +1424,9 @@ function sanitizeRegistry(registry: ProviderRegistry): ProviderRegistry {
     settings: {
       ...registry.settings,
       fallbackModelRefs: registry.settings.fallbackModelRefs.map((ref) => ({ ...ref })),
+      titleModelRef: registry.settings.titleModelRef
+        ? { ...registry.settings.titleModelRef }
+        : undefined,
     },
   }
 }

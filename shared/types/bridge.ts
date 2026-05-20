@@ -17,6 +17,7 @@ import type {
   ChatMessage,
   ChatMessagePart,
   ChatSession,
+  ChatSessionChangedEvent,
   ChatStreamEvent,
   DeleteSessionRequest,
   EditMessageRequest,
@@ -112,6 +113,7 @@ export interface ProviderRegistrySettings {
   defaultProviderId?: string
   defaultModelId?: string
   fallbackModelRefs: ProviderModelRef[]
+  titleModelRef?: ProviderModelRef
   streaming: boolean
 }
 
@@ -148,6 +150,7 @@ export type ProviderRegistryChangeReason =
   | 'refresh'
   | 'default'
   | 'fallback'
+  | 'title'
 
 export interface ProviderSelectionRef {
   providerId?: string
@@ -203,6 +206,11 @@ export interface SetDefaultProviderModelRequest {
 
 export interface SetFallbackProviderModelsRequest {
   models: ProviderModelRef[]
+}
+
+export interface SetTitleProviderModelRequest {
+  providerId?: string
+  modelId?: string
 }
 
 export interface RefreshProviderRegistryModelsRequest {
@@ -273,6 +281,7 @@ export interface OpenOmniClawBridge {
     getAttachmentPreview: (
       request: AttachmentPreviewRequest | string
     ) => Promise<AttachmentPreviewResponse>
+    onSessionChanged: (callback: (event: ChatSessionChangedEvent) => void) => Unsubscribe
     onStreamEvent: (callback: (event: ChatStreamEvent) => void) => Unsubscribe
 
     /** Legacy global stream subscriptions kept for transitional UI code. */
@@ -306,6 +315,9 @@ export interface OpenOmniClawBridge {
     ) => Promise<ProviderRegistryMutationResult>
     setFallbackModels: (
       request: SetFallbackProviderModelsRequest
+    ) => Promise<ProviderRegistryMutationResult>
+    setTitleModel: (
+      request: SetTitleProviderModelRequest
     ) => Promise<ProviderRegistryMutationResult>
     test: (
       ...args: [request: TestProviderRequest] | [providerId: string, modelId?: string]
