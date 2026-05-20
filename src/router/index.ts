@@ -30,26 +30,6 @@ export const router = createRouter({
       redirect: '/',
     },
     {
-      path: '/chatbox/:conversationId?',
-      name: 'chatbox',
-      component: RewritePlaceholderView,
-      meta: {
-        rewriteTitle: 'Chatbox workspace',
-        rewriteDescription:
-          'The legacy AstrBot chatbox UI has been removed. Rebuild this route with the same chat core capabilities as the main chat workspace.',
-      },
-    },
-    {
-      path: '/cron',
-      name: 'cron',
-      component: RewritePlaceholderView,
-      meta: {
-        rewriteTitle: 'Cron',
-        rewriteDescription:
-          'The legacy cron page has been removed. Rebuild this page on top of appBridge.cron.list().',
-      },
-    },
-    {
       path: '/settings',
       name: 'settings',
       component: SettingsView,

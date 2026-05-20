@@ -1,4 +1,4 @@
-import type { AgentTool, ToolProfile, ToolRisk } from './tool'
+import type { AgentTool, ToolProfile, ToolRisk } from './types'
 
 export interface ToolPolicy {
   enabled: boolean

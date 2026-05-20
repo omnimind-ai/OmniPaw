@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 
-import { createBuiltinTools } from '../core/agent/builtin-tools'
+import { createBuiltinTools } from '../core/agent/tools/builtin-tools'
 import type { AttachmentService } from '../core/chat/attachment-service'
 import { ContextBuilder } from '../core/chat/context-manager'
 import type { ChatMessageRepo } from '../core/db/repos'

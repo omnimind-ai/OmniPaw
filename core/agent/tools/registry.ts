@@ -4,9 +4,9 @@ import type { ProviderTool } from '@core/provider/base-provider'
 import type { SkillManager } from '@core/skill/skill-manager'
 import type { ToolProfile } from '@shared/types/chat'
 import { createBuiltinTools } from './builtin-tools'
-import type { AgentTool } from './tool'
-import { toProviderTool } from './tool'
-import { allowedToolNamesForProfile, type ToolPolicy } from './tool-policy'
+import { allowedToolNamesForProfile, type ToolPolicy } from './policy'
+import type { AgentTool } from './types'
+import { toProviderTool } from './types'
 
 export interface ToolRegistryOptions {
   messages: ChatMessageRepo

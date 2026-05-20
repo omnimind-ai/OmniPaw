@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto'
 
-import type { AgentTool } from '@core/agent/tool'
+import type { AgentTool } from '@core/agent/tools/types'
 import type { Logger } from '@core/logging'
 import type { ToolProfile, ToolRisk } from '@shared/types/chat'
 import type {

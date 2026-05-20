@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict'
 
 import { AgentRunner } from '../core/agent/agent-runner'
-import type { AgentTool } from '../core/agent/tool'
-import { ToolExecutor } from '../core/agent/tool-executor'
-import { defaultToolPolicy } from '../core/agent/tool-policy'
+import { ToolExecutor } from '../core/agent/tools/executor'
+import { defaultToolPolicy } from '../core/agent/tools/policy'
+import type { AgentTool } from '../core/agent/tools/types'
 import {
   type ChatCompletionChunk,
   type ChatCompletionRequest,
@@ -13,7 +13,10 @@ import {
 import type { ChatMessage, ChatMessagePart, ChatRun, ChatSession } from '../shared/types/chat'
 import type { ProviderConfig, ProviderModel } from '../shared/types/provider'
 
-type ScriptedProviderResponse = ChatCompletionChunk[] | Error
+type ScriptedProviderResponse =
+  | ChatCompletionChunk[]
+  | Error
+  | ((request: ChatCompletionRequest) => AsyncIterable<ChatCompletionChunk>)
 
 async function runSmoke(): Promise<void> {
   await testAgentRunnerPlainReply()
@@ -24,6 +27,8 @@ async function runSmoke(): Promise<void> {
   await testAgentRunnerMcpToolLoop()
   await testAgentRunnerSkillPromptAndRead()
   await testAgentRunnerMaxSteps()
+  await testAgentRunnerAbortDuringProviderStream()
+  await testAgentRunnerAbortDuringToolExecution()
   await testToolExecutorSuccess()
   await testToolExecutorMcpApprovalDenied()
   await testToolExecutorDenied()
@@ -329,6 +334,63 @@ async function testAgentRunnerMaxSteps(): Promise<void> {
   )
 }
 
+async function testAgentRunnerAbortDuringProviderStream(): Promise<void> {
+  const abort = new AbortController()
+  const harness = createRunnerHarness([
+    async function* () {
+      yield { type: 'delta', content: 'partial', done: false }
+      abort.abort('stream_abort')
+      yield { type: 'final', done: true, finishReason: 'stop' }
+    },
+  ])
+
+  await harness.runner.run(harness.input({ signal: abort.signal }))
+
+  const assistant = harness.messageRepo.get('assistant-1')
+  assert.equal(assistant?.status, 'aborted')
+  assert.equal((assistant?.parts[0] as { text?: string } | undefined)?.text, 'partial')
+  assert.equal(harness.runRepo.get('run-1')?.status, 'aborted')
+  assert.equal(harness.finishedRuns.includes('run-1'), true)
+}
+
+async function testAgentRunnerAbortDuringToolExecution(): Promise<void> {
+  const abort = new AbortController()
+  const abortingTool: AgentTool = {
+    name: 'system_time',
+    description: 'time',
+    parameters: { type: 'object' },
+    risk: 'safe',
+    source: 'builtin',
+    execute: async () => {
+      abort.abort('tool_abort')
+      throw new DOMException('Tool aborted.', 'AbortError')
+    },
+  }
+  const harness = createRunnerHarness(
+    [
+      [
+        {
+          type: 'tool_call_final',
+          done: false,
+          toolCalls: [toolCall('call_time', 'system_time', {})],
+          finishReason: 'tool_calls',
+        },
+        { type: 'final', done: true, finishReason: 'tool_calls' },
+      ],
+    ],
+    { tools: [abortingTool] }
+  )
+
+  await harness.runner.run(harness.input({ signal: abort.signal }))
+
+  const assistant = harness.messageRepo.get('assistant-1')
+  const toolPart = assistant?.parts.find((part) => part.type === 'tool_call')
+  assert.equal(assistant?.status, 'aborted')
+  assert.equal(toolPart?.tool_calls?.[0]?.status, 'aborted')
+  assert.equal(harness.runRepo.get('run-1')?.status, 'aborted')
+  assert.equal(harness.finishedRuns.includes('run-1'), true)
+}
+
 async function testToolExecutorSuccess(): Promise<void> {
   const executor = new ToolExecutor()
   const tool: AgentTool<{ value: number }> = {
@@ -521,6 +583,10 @@ function createRunnerHarness(
           const chunks = scriptedResponses[callIndex++] ?? []
           if (chunks instanceof Error) {
             throw chunks
+          }
+          if (typeof chunks === 'function') {
+            yield* chunks(request)
+            return
           }
           for (const chunk of chunks) {
             yield chunk

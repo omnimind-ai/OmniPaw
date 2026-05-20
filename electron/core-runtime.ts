@@ -1,5 +1,5 @@
-import { listBuiltinToolDefinitions } from '@core/agent/builtin-tools'
-import { ToolManagementService } from '@core/agent/tool-management-service'
+import { listBuiltinToolDefinitions } from '@core/agent/tools/builtin-tools'
+import { ToolManagementService } from '@core/agent/tools/management-service'
 import { AttachmentService } from '@core/chat/attachment-service'
 import { ChatService } from '@core/chat/chat-service'
 import { ContextBuilder } from '@core/chat/context-manager'

@@ -1,0 +1,72 @@
+import {
+  type ComponentPublicInstance,
+  type ComputedRef,
+  type InjectionKey,
+  inject,
+  type Ref,
+} from 'vue'
+import type { StagedFileInfo, StagedUploadItem } from '@/composables/useMediaHandling'
+import type { ChatContent, ChatRecord, MessageDisplayBlock } from '@/composables/useMessages'
+import type { ProviderModelOption } from '@/stores/provider'
+
+export type MessageScrollAreaRef = Element | ComponentPublicInstance | null
+
+export interface ChatWorkspaceContext {
+  showWelcome: ComputedRef<boolean>
+  activeMessages: ComputedRef<ChatRecord[]>
+  showMessageList: ComputedRef<boolean>
+  showMessageSkeleton: Ref<boolean>
+  highlightedMessageId: Ref<string>
+  showScrollToBottom: Ref<boolean>
+  draft: Ref<string>
+  stagedFiles: Ref<StagedFileInfo[]>
+  stagedUploadItems: Ref<StagedUploadItem[]>
+  uploadPending: ComputedRef<boolean>
+  enabledModelOptions: Ref<ProviderModelOption[]>
+  providersLoading: Ref<boolean>
+  selectedModel: ComputedRef<ProviderModelOption | undefined>
+  selectedModelKey: Ref<string>
+  selectedModelLabel: ComputedRef<string>
+  selectedModelMeta: ComputedRef<string>
+  currentSessionRunning: ComputedRef<boolean>
+  sending: Ref<boolean>
+  attachmentWarning: ComputedRef<string>
+  canSend: ComputedRef<boolean>
+  replyPreview: ComputedRef<string>
+  fileInput: Ref<HTMLInputElement | null>
+  setMessagesScrollArea: (value: MessageScrollAreaRef) => void
+  scrollToLatestMessage: (behavior?: ScrollBehavior, force?: boolean) => void
+  openSettings: () => Promise<void>
+  openFilePicker: () => void
+  handleFileInputChange: (event: Event) => Promise<void>
+  handleFilesDropped: (files: File[]) => Promise<void>
+  removeStagedFile: (index: number) => void
+  removeUploadAt: (index: number) => void
+  handleModelChange: (value: unknown) => Promise<void>
+  handlePaste: (event: ClipboardEvent) => Promise<void>
+  handleSubmit: () => Promise<void>
+  handleStop: () => Promise<void>
+  handleCopyMessage: (record: ChatRecord) => Promise<void>
+  handleCopyCode: (code?: string) => void
+  handleEditMessage: (record: ChatRecord, text: string) => Promise<void>
+  handleContinueMessage: (record: ChatRecord) => Promise<void>
+  handleRegenerateMessage: (record: ChatRecord) => Promise<void>
+  handleQuoteMessage: (record: ChatRecord, text: string) => void
+  clearReply: () => void
+  handleJumpMessage: (messageId: string) => Promise<void>
+  isUserMessage: (record: ChatRecord) => boolean
+  isMessageStreaming: (record: ChatRecord, index: number) => boolean
+  messageContent: (record: ChatRecord) => ChatContent
+  messageBlocks: (content: ChatContent) => MessageDisplayBlock[]
+}
+
+export const chatWorkspaceContextKey: InjectionKey<ChatWorkspaceContext> =
+  Symbol('chatWorkspaceContext')
+
+export function useChatWorkspace() {
+  const context = inject(chatWorkspaceContextKey)
+  if (!context) {
+    throw new Error('Chat workspace context is only available under ChatWorkspace.')
+  }
+  return context
+}
