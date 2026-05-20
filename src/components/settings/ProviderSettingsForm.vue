@@ -356,11 +356,7 @@ function clearMessages() {}
           <div class="flex max-w-2xl flex-col gap-2">
             <div class="flex items-center gap-2">
               <h3 class="text-base font-semibold">当前没有 Provider</h3>
-              <Badge variant="secondary">空状态</Badge>
             </div>
-            <p class="text-sm text-muted-foreground">
-              从左侧预设创建一个本地草稿，或者直接新建一个 Provider 后再保存。
-            </p>
           </div>
 
           <div class="flex flex-wrap gap-2">
@@ -376,34 +372,6 @@ function clearMessages() {}
         </div>
 
         <template v-else>
-          <div class="flex flex-col gap-4 rounded-lg border bg-card p-4">
-            <div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-              <div class="min-w-0 flex-1">
-                <div class="flex flex-wrap items-center gap-2">
-                  <h3 class="truncate text-base font-semibold">
-                    {{ providerDraft.name || '未命名 Provider' }}
-                  </h3>
-                  <Badge
-                    v-if="!isExistingProvider"
-                    variant="secondary"
-                  >
-                    草稿
-                  </Badge>
-                  <Badge
-                    v-else-if="providerDraft.enabled === false"
-                    variant="outline"
-                  >
-                    禁用
-                  </Badge>
-                </div>
-                <p class="mt-1 truncate text-sm text-muted-foreground">
-                  {{ providerDraft.id }}
-                </p>
-              </div>
-
-            </div>
-          </div>
-
           <Tabs
             v-model="providerTab"
             activation-mode="manual"
