@@ -1,5 +1,6 @@
 import { listBuiltinToolDefinitions } from '@core/agent/tools/builtin-tools'
 import { ToolManagementService } from '@core/agent/tools/management-service'
+import { ToolRegistry } from '@core/agent/tools/registry'
 import { AttachmentService } from '@core/chat/attachment-service'
 import { ChatService } from '@core/chat/chat-service'
 import { ContextBuilder } from '@core/chat/context-manager'
@@ -8,8 +9,16 @@ import { ConfigValidationError } from '@core/config/schema'
 import { ConfigStore } from '@core/config/store'
 import { ConfigToolSettingsStore } from '@core/config/tool-settings-store'
 import { CronManager } from '@core/cron/cron-manager'
+import { ScheduledTaskAgentExecutor } from '@core/cron/scheduled-task-executor'
 import { DatabaseClient } from '@core/db/client'
-import { AttachmentRepo, ChatMessageRepo, ChatRunRepo, ChatSessionRepo } from '@core/db/repos'
+import {
+  AttachmentRepo,
+  ChatMessageRepo,
+  ChatRunRepo,
+  ChatSessionRepo,
+  CronRunRepo,
+  CronTaskRepo,
+} from '@core/db/repos'
 import { seedDefaultChatData } from '@core/db/seed'
 import type { Logger } from '@core/logging'
 import { McpRegistryStore, McpServerManager, McpValidationError } from '@core/mcp'
@@ -17,6 +26,7 @@ import { ProviderManager } from '@core/provider/manager'
 import { ProviderRegistryValidationError } from '@core/provider/registry-schema'
 import { ProviderRegistryStore } from '@core/provider/registry-store'
 import { SkillManager, SkillValidationError } from '@core/skill'
+import type { CronTaskChangedEvent } from '@shared/types/cron'
 import type { DesktopSettingsConfig, SettingsChangeReason } from '@shared/types/settings'
 import type { app } from 'electron'
 
@@ -34,6 +44,7 @@ interface CoreRuntimeOptions {
   rootLogger: Logger
   lifecycleLogger: Logger
   onSettingsChanged: (reason: SettingsChangeReason, config: DesktopSettingsConfig) => void
+  onCronChanged: (event: CronTaskChangedEvent) => void
   onMcpChanged: (event: McpChangedEvent) => void
   onSkillChanged: (event: SkillChangedEvent) => void
 }
@@ -48,15 +59,16 @@ export interface CoreRuntime {
   sessionRepo: ChatSessionRepo
   skillManager: SkillManager
   toolManagementService: ToolManagementService
+  dispose: () => void
 }
 
 export function createCoreRuntime(options: CoreRuntimeOptions): CoreRuntime {
   const coreLogger = options.rootLogger.child({ scope: 'core' })
   const startedAt = Date.now()
-  const cronManager = new CronManager()
   coreLogger.info('Core initialization started.')
 
-  const db = new DatabaseClient({ logger: coreLogger.child({ scope: 'db' }) }).connect()
+  const dbClient = new DatabaseClient({ logger: coreLogger.child({ scope: 'db' }) })
+  const db = dbClient.connect()
   seedDefaultChatData(db)
   coreLogger.debug('Default chat seed checked.')
 
@@ -64,12 +76,23 @@ export function createCoreRuntime(options: CoreRuntimeOptions): CoreRuntime {
   const messageRepo = new ChatMessageRepo(db)
   const attachmentRepo = new AttachmentRepo(db)
   const runRepo = new ChatRunRepo(db)
+  const cronTaskRepo = new CronTaskRepo(db)
+  const cronRunRepo = new CronRunRepo(db)
   const configStore = new ConfigStore({
     appDataPath: options.app.getPath('appData'),
     appName: options.appName,
     logger: coreLogger.child({ scope: 'config' }),
   })
   loadStartupConfig(configStore, options.lifecycleLogger)
+
+  const cronManager = new CronManager({
+    tasks: cronTaskRepo,
+    runs: cronRunRepo,
+    sessions: sessionRepo,
+    settings: () => configStore.get().scheduledTasks,
+    onChanged: options.onCronChanged,
+    logger: coreLogger.child({ scope: 'cron' }),
+  })
 
   const mcpServerManager = new McpServerManager({
     store: new McpRegistryStore({ userDataPath: options.app.getPath('userData') }),
@@ -171,8 +194,30 @@ export function createCoreRuntime(options: CoreRuntimeOptions): CoreRuntime {
     agentToolProfile: () => configStore.get().tools.agentToolProfile,
     disabledToolNames: () => toolManagementService.getDisabledToolNames(),
     mcpTools: () => mcpServerManager.getAgentTools(),
+    cronManager: () => cronManager,
     logger: coreLogger.child({ scope: 'chat' }),
   })
+
+  cronManager.setExecutor(
+    new ScheduledTaskAgentExecutor({
+      sessions: sessionRepo,
+      messages: messageRepo,
+      providers: providerManager,
+      contextBuilder,
+      toolRegistry: new ToolRegistry({
+        messages: messageRepo,
+        attachments: attachmentService,
+        skills: skillManager,
+        cronManager: () => cronManager,
+        disabledToolNames: () => toolManagementService.getDisabledToolNames(),
+        mcpTools: () => mcpServerManager.getAgentTools(),
+      }),
+      skills: skillManager,
+      compactSkillDescriptions: () => configStore.get().app.compactSkillDescriptions,
+      logger: coreLogger.child({ scope: 'cron.agent' }),
+    })
+  )
+  cronManager.start()
 
   coreLogger.info('Core initialization complete.', { durationMs: Date.now() - startedAt })
 
@@ -186,6 +231,10 @@ export function createCoreRuntime(options: CoreRuntimeOptions): CoreRuntime {
     sessionRepo,
     skillManager,
     toolManagementService,
+    dispose: () => {
+      cronManager.stop()
+      dbClient.close()
+    },
   }
 }
 

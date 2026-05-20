@@ -127,4 +127,67 @@ export const migrations: Migration[] = [
       DROP TABLE IF EXISTS app_settings;
     `,
   },
+  {
+    id: 4,
+    name: 'create_cron_task_tables',
+    sql: `
+      CREATE TABLE IF NOT EXISTS cron_tasks (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        note TEXT NOT NULL,
+        source_session_id TEXT NOT NULL,
+        target_session_id TEXT NOT NULL,
+        schedule_kind TEXT NOT NULL,
+        run_at INTEGER,
+        cron_expression TEXT,
+        timezone TEXT,
+        enabled INTEGER NOT NULL DEFAULT 1,
+        state TEXT NOT NULL DEFAULT 'idle',
+        next_run_at INTEGER,
+        running_at INTEGER,
+        last_run_at INTEGER,
+        last_completed_at INTEGER,
+        last_status TEXT,
+        last_error_json TEXT,
+        failure_count INTEGER NOT NULL DEFAULT 0,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL,
+        FOREIGN KEY(source_session_id) REFERENCES chat_sessions(id) ON DELETE CASCADE,
+        FOREIGN KEY(target_session_id) REFERENCES chat_sessions(id) ON DELETE CASCADE
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_cron_tasks_due
+        ON cron_tasks(enabled, next_run_at, running_at);
+      CREATE INDEX IF NOT EXISTS idx_cron_tasks_source_session
+        ON cron_tasks(source_session_id, updated_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_cron_tasks_target_session
+        ON cron_tasks(target_session_id, updated_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_cron_tasks_running
+        ON cron_tasks(running_at)
+        WHERE running_at IS NOT NULL;
+
+      CREATE TABLE IF NOT EXISTS cron_runs (
+        id TEXT PRIMARY KEY,
+        task_id TEXT NOT NULL,
+        reason TEXT NOT NULL,
+        status TEXT NOT NULL,
+        scheduled_for INTEGER,
+        started_at INTEGER,
+        completed_at INTEGER,
+        duration_ms INTEGER,
+        result_message_id TEXT,
+        result_summary TEXT,
+        error_json TEXT,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL,
+        FOREIGN KEY(task_id) REFERENCES cron_tasks(id) ON DELETE CASCADE,
+        FOREIGN KEY(result_message_id) REFERENCES chat_messages(id) ON DELETE SET NULL
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_cron_runs_task_created
+        ON cron_runs(task_id, created_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_cron_runs_status
+        ON cron_runs(status, started_at);
+    `,
+  },
 ]

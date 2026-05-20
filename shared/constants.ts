@@ -78,6 +78,12 @@ export const IPC_CHANNELS = {
   },
   cron: {
     list: 'cron:list',
+    create: 'cron:create',
+    update: 'cron:update',
+    delete: 'cron:delete',
+    runNow: 'cron:run-now',
+    listRuns: 'cron:list-runs',
+    changed: 'cron:changed',
   },
   tools: {
     list: 'tools:list',

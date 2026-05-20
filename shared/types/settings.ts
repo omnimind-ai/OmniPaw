@@ -71,9 +71,13 @@ export interface DesktopToolSettings {
   enabledByName: Record<string, boolean>
 }
 
+export type ScheduledTaskMisfirePolicy = 'run_once' | 'skip'
+
 export interface DesktopScheduledTaskSettings {
   enabled: boolean
-  tasks: unknown[]
+  misfirePolicy: ScheduledTaskMisfirePolicy
+  misfireGraceMs: number
+  misfireStartupLimit: number
 }
 
 export interface DesktopSettingsConfig {

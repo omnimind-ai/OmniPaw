@@ -27,6 +27,7 @@ const PROFILE_TOOLS: Record<ToolProfile, string[]> = {
     'calculator',
     'attachment_text_read',
     'attachment_text_search',
+    'future_task',
     'skill_read',
   ],
   power: [
@@ -34,6 +35,7 @@ const PROFILE_TOOLS: Record<ToolProfile, string[]> = {
     'calculator',
     'attachment_text_read',
     'attachment_text_search',
+    'future_task',
     'skill_read',
   ],
 }

@@ -2,11 +2,12 @@ import assert from 'node:assert/strict'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-
+import { ToolRegistry } from '../core/agent/tools/registry'
 import { AttachmentService } from '../core/chat/attachment-service'
 import { ContextBuilder } from '../core/chat/context-manager'
+import { ScheduledTaskAgentExecutor } from '../core/cron/scheduled-task-executor'
 import { DatabaseClient } from '../core/db/client'
-import { AttachmentRepo } from '../core/db/repos'
+import { AttachmentRepo, ChatMessageRepo, ChatSessionRepo } from '../core/db/repos'
 import { seedDefaultChatData } from '../core/db/seed'
 import { normalizeProviderError } from '../core/provider/errors'
 import { parseSseStream } from '../core/provider/providers/openai'
@@ -24,6 +25,8 @@ try {
     repo: new AttachmentRepo(db),
     rootDir: join(tempDir, 'attachments'),
   })
+  const sessionRepo = new ChatSessionRepo(db)
+  const messageRepo = new ChatMessageRepo(db)
   const textUpload = await attachments.upload({
     name: 'note.txt',
     mimeType: 'text/plain',
@@ -110,6 +113,102 @@ try {
   assert.equal(events[1], '[DONE]')
 
   assert.equal(normalizeProviderError(new DOMException('stop', 'AbortError')).code, 'aborted')
+
+  const scheduledProvider: ProviderConfig = {
+    ...provider,
+    models: [
+      {
+        id: 'gpt-4o-mini',
+        name: 'GPT smoke',
+        enabled: true,
+        supportsTools: false,
+      },
+    ],
+  }
+  const scheduledExecutor = new ScheduledTaskAgentExecutor({
+    sessions: sessionRepo,
+    messages: messageRepo,
+    providers: {
+      get: async () => scheduledProvider,
+      resolveDefaultProvider: async () => ({
+        provider: scheduledProvider,
+        modelId: 'gpt-4o-mini',
+      }),
+      createProviderClient: async () => ({
+        id: 'scheduled-smoke',
+        streamChat: async function* () {
+          yield { type: 'delta' as const, content: 'scheduled result', done: false }
+          yield { type: 'final' as const, done: true, finishReason: 'stop' }
+        },
+      }),
+    } as never,
+    contextBuilder: new ContextBuilder(attachments),
+    toolRegistry: new ToolRegistry({
+      messages: messageRepo,
+      attachments,
+    }),
+  })
+  const beforeScheduledMessages = messageRepo.listBySession('default').length
+  const result = await scheduledExecutor.execute({
+    task: {
+      id: 'scheduled-task-smoke',
+      name: 'Scheduled smoke',
+      note: 'Produce a result.',
+      sourceSessionId: 'default',
+      targetSessionId: 'default',
+      schedule: { kind: 'at', runAt: Date.now() + 60_000 },
+      enabled: true,
+      state: 'idle',
+      failureCount: 0,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    },
+    run: {
+      id: 'scheduled-run-smoke',
+      taskId: 'scheduled-task-smoke',
+      reason: 'manual',
+      status: 'running',
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    },
+    signal: new AbortController().signal,
+  })
+  const afterScheduledMessages = messageRepo.listBySession('default')
+  assert.equal(afterScheduledMessages.length, beforeScheduledMessages + 1)
+  assert.equal(result.resultSummary, 'scheduled result')
+  assert.equal(
+    afterScheduledMessages.some((message) => message.id.startsWith('cron-instruction:')),
+    false
+  )
+  assert.equal(afterScheduledMessages.at(-1)?.metadata?.source, 'cron')
+
+  await assert.rejects(() =>
+    scheduledExecutor.execute({
+      task: {
+        id: 'missing-task-smoke',
+        name: 'Missing target',
+        note: 'Do not append errors.',
+        sourceSessionId: 'missing',
+        targetSessionId: 'missing',
+        schedule: { kind: 'at', runAt: Date.now() + 60_000 },
+        enabled: true,
+        state: 'idle',
+        failureCount: 0,
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      },
+      run: {
+        id: 'missing-run-smoke',
+        taskId: 'missing-task-smoke',
+        reason: 'manual',
+        status: 'running',
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      },
+      signal: new AbortController().signal,
+    })
+  )
+  assert.equal(messageRepo.listBySession('default').length, afterScheduledMessages.length)
 
   console.log('Chat core smoke check passed')
 } finally {

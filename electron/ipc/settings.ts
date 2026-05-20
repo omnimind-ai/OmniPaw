@@ -23,6 +23,7 @@ export function registerSettingsIpcHandlers(options: IpcHandlerOptions): void {
       settingsResult(options, () => {
         const config = isSaveSettingsRequest(request) ? request.config : request
         const saved = runtime.configStore.save(config)
+        runtime.cronManager.reloadSettings()
         options.onSettingsChanged('save', saved)
         return saved
       })
@@ -30,6 +31,7 @@ export function registerSettingsIpcHandlers(options: IpcHandlerOptions): void {
   registerLoggedIpcHandler(options, IPC_CHANNELS.settings.reset, () =>
     settingsResult(options, () => {
       const saved = runtime.configStore.reset()
+      runtime.cronManager.reloadSettings()
       options.onSettingsChanged('reset', saved)
       return saved
     })

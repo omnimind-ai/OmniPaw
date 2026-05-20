@@ -9,6 +9,21 @@ import type {
   CatWindowState,
 } from '@shared/types/cat'
 import type {
+  CreateCronTaskRequest,
+  CreateCronTaskResponse,
+  CronTaskChangedEvent,
+  DeleteCronTaskRequest,
+  DeleteCronTaskResponse,
+  ListCronRunsRequest,
+  ListCronRunsResponse,
+  ListCronTasksRequest,
+  ListCronTasksResponse,
+  RunCronTaskNowRequest,
+  RunCronTaskNowResponse,
+  UpdateCronTaskRequest,
+  UpdateCronTaskResponse,
+} from '@shared/types/cron'
+import type {
   LoggerHealthStatus,
   LoggerWriteResponse,
   RendererLogRequest,
@@ -59,7 +74,9 @@ export interface BridgeDesktopSettingsConfig {
   }
   scheduledTasks: {
     enabled: boolean
-    tasks: unknown[]
+    misfirePolicy: 'run_once' | 'skip'
+    misfireGraceMs: number
+    misfireStartupLimit: number
   }
 }
 
@@ -752,7 +769,13 @@ export interface RendererOpenOmniClawBridge {
     onChanged?: (callback: (event: BridgeSkillChangedEvent) => void) => BridgeUnsubscribe
   }
   cron: {
-    list: () => Promise<unknown[]>
+    list: (request?: ListCronTasksRequest) => Promise<ListCronTasksResponse>
+    create?: (request: CreateCronTaskRequest) => Promise<CreateCronTaskResponse>
+    update?: (request: UpdateCronTaskRequest) => Promise<UpdateCronTaskResponse>
+    delete?: (request: DeleteCronTaskRequest | string) => Promise<DeleteCronTaskResponse>
+    runNow?: (request: RunCronTaskNowRequest | string) => Promise<RunCronTaskNowResponse>
+    listRuns?: (request?: ListCronRunsRequest) => Promise<ListCronRunsResponse>
+    onChanged?: (callback: (event: CronTaskChangedEvent) => void) => BridgeUnsubscribe
   }
   tools?: {
     list: () => Promise<BridgeManagedToolInfo[]>
@@ -1097,7 +1120,13 @@ const fallbackBridge: RendererOpenOmniClawBridge = {
     onChanged: () => () => {},
   },
   cron: {
-    list: async () => [],
+    list: async () => ({ tasks: [] }),
+    create: () => rejectFallbackPersistence<CreateCronTaskResponse>('cron.create'),
+    update: () => rejectFallbackPersistence<UpdateCronTaskResponse>('cron.update'),
+    delete: () => rejectFallbackPersistence<DeleteCronTaskResponse>('cron.delete'),
+    runNow: () => rejectFallbackPersistence<RunCronTaskNowResponse>('cron.runNow'),
+    listRuns: async () => ({ runs: [] }),
+    onChanged: () => () => {},
   },
   tools: {
     list: async () => [
@@ -1175,7 +1204,9 @@ function fallbackSettingsConfig(): BridgeDesktopSettingsConfig {
     },
     scheduledTasks: {
       enabled: false,
-      tasks: [],
+      misfirePolicy: 'run_once',
+      misfireGraceMs: 15 * 60 * 1000,
+      misfireStartupLimit: 3,
     },
   }
 }
@@ -1218,6 +1249,22 @@ function createProviderBridge(
   }
 }
 
+function createCronBridge(
+  bridge: RendererOpenOmniClawBridge['cron'] | undefined
+): RendererOpenOmniClawBridge['cron'] {
+  if (!bridge) {
+    return fallbackBridge.cron
+  }
+
+  return {
+    ...fallbackBridge.cron,
+    ...bridge,
+    list: bridge.list ?? fallbackBridge.cron.list,
+    listRuns: bridge.listRuns ?? fallbackBridge.cron.listRuns,
+    onChanged: bridge.onChanged ?? fallbackBridge.cron.onChanged,
+  }
+}
+
 export const appBridge: RendererOpenOmniClawBridge = exposedBridge
   ? {
       ...fallbackBridge,
@@ -1225,6 +1272,7 @@ export const appBridge: RendererOpenOmniClawBridge = exposedBridge
       logging: exposedBridge.logging ?? fallbackBridge.logging,
       settings: createSettingsBridge(exposedBridge.settings),
       provider: createProviderBridge(exposedBridge.provider),
+      cron: createCronBridge(exposedBridge.cron),
     }
   : fallbackBridge
 

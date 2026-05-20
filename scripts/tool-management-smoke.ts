@@ -21,7 +21,11 @@ try {
   const service = new ToolManagementService(settings)
 
   const initialTools = service.list()
-  assert.ok(initialTools.length >= 4)
+  assert.ok(initialTools.length >= 5)
+  assert.equal(
+    initialTools.some((tool) => tool.name === 'future_task' && tool.risk === 'write'),
+    true
+  )
   assert.ok(initialTools.every((tool) => tool.enabled))
   assert.ok(initialTools.every((tool) => tool.source === 'builtin'))
 

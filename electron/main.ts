@@ -2,6 +2,7 @@ import { join } from 'node:path'
 
 import { createElectronLogSink, createProjectLogger } from '@core/logging'
 import { APP_NAME, IPC_CHANNELS } from '@shared/constants'
+import type { CronTaskChangedEvent } from '@shared/types/cron'
 import type {
   DesktopSettingsChangedEvent,
   DesktopSettingsConfig,
@@ -165,6 +166,12 @@ function broadcastSkillChanged(event: SkillChangedEvent): void {
   }
 }
 
+function broadcastCronChanged(event: CronTaskChangedEvent): void {
+  for (const window of BrowserWindow.getAllWindows()) {
+    window.webContents.send(IPC_CHANNELS.cron.changed, event)
+  }
+}
+
 app
   .whenReady()
   .then(() => {
@@ -179,6 +186,7 @@ app
       rootLogger,
       lifecycleLogger,
       onSettingsChanged: broadcastSettingsChanged,
+      onCronChanged: broadcastCronChanged,
       onMcpChanged: broadcastMcpChanged,
       onSkillChanged: broadcastSkillChanged,
     })
@@ -214,6 +222,7 @@ app.on('before-quit', () => {
   lifecycleLogger.info('App before-quit.')
   markQuitting()
   closeCatWindow()
+  runtime?.dispose()
   trayController?.destroy()
 })
 

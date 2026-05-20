@@ -3,6 +3,7 @@ import assert from 'node:assert/strict'
 import { AgentRunner } from '../core/agent/agent-runner'
 import { ToolExecutor } from '../core/agent/tools/executor'
 import { defaultToolPolicy } from '../core/agent/tools/policy'
+import { ToolRegistry } from '../core/agent/tools/registry'
 import type { AgentTool } from '../core/agent/tools/types'
 import {
   type ChatCompletionChunk,
@@ -34,6 +35,8 @@ async function runSmoke(): Promise<void> {
   await testToolExecutorDenied()
   await testToolExecutorInvalidArguments()
   await testToolExecutorTimeout()
+  await testFutureTaskToolCreateListEditDelete()
+  await testFutureTaskToolDeniedAndDisabled()
 
   console.log('Agent runtime smoke check passed')
 }
@@ -501,6 +504,165 @@ async function testToolExecutorTimeout(): Promise<void> {
 
   assert.equal(output.result.status, 'error')
   assert.equal(output.result.error?.code, 'tool_timeout')
+}
+
+async function testFutureTaskToolCreateListEditDelete(): Promise<void> {
+  const executor = new ToolExecutor()
+  const calls: Array<{ method: string; request: Record<string, unknown> | undefined }> = []
+  const task = {
+    id: 'task-1',
+    name: 'Reminder',
+    note: 'hidden prompt',
+    sourceSessionId: 'session-1',
+    targetSessionId: 'session-1',
+    schedule: { kind: 'at' as const, runAt: Date.now() + 60_000 },
+    enabled: true,
+    state: 'idle' as const,
+    nextRunAt: Date.now() + 60_000,
+    failureCount: 0,
+    createdAt: 1,
+    updatedAt: 1,
+  }
+  const registry = new ToolRegistry({
+    messages: {
+      listBySession: () => [],
+      listAttachmentLinks: () => [],
+    } as never,
+    attachments: {
+      get: () => undefined,
+    } as never,
+    cronManager: () =>
+      ({
+        list: (request?: Record<string, unknown>) => {
+          calls.push({ method: 'list', request })
+          return { tasks: [task] }
+        },
+        create: (request: Record<string, unknown>) => {
+          calls.push({ method: 'create', request })
+          return { task: { ...task, name: String(request.name) } }
+        },
+        update: (request: Record<string, unknown>) => {
+          calls.push({ method: 'edit', request })
+          return { task: { ...task, name: String(request.name ?? task.name) } }
+        },
+        delete: (request: Record<string, unknown>) => {
+          calls.push({ method: 'delete', request })
+          return { deleted: true }
+        },
+      }) as never,
+  })
+  const tools = await registry.resolve({
+    sessionId: 'session-1',
+    policy: { enabled: true, profile: 'assistant', requireApprovalForRisk: [] },
+  })
+  const futureTask = tools.find((tool) => tool.name === 'future_task')
+  assert.ok(futureTask)
+  const policy = { enabled: true, profile: 'assistant' as const, requireApprovalForRisk: [] }
+
+  const list = await executor.execute({
+    toolCall: toolCall('future-list', 'future_task', { action: 'list' }),
+    tools,
+    policy,
+  })
+  assert.equal(JSON.parse(list.result.resultText).tasks[0].note, undefined)
+  assert.equal(calls.at(-1)?.request?.sessionId, 'session-1')
+
+  await executor.execute({
+    toolCall: toolCall('future-create', 'future_task', {
+      action: 'create',
+      name: 'Created',
+      note: 'Do something later',
+      runAt: Date.now() + 60_000,
+      targetSessionId: 'other-session',
+    }),
+    tools,
+    policy,
+  })
+  assert.equal(calls.at(-1)?.method, 'create')
+  assert.equal(calls.at(-1)?.request?.sourceSessionId, 'session-1')
+  assert.equal(calls.at(-1)?.request?.targetSessionId, 'session-1')
+
+  await executor.execute({
+    toolCall: toolCall('future-edit', 'future_task', {
+      action: 'edit',
+      taskId: 'task-1',
+      name: 'Edited',
+    }),
+    tools,
+    policy,
+  })
+  assert.equal(calls.at(-1)?.method, 'edit')
+  assert.equal(calls.at(-1)?.request?.sessionId, 'session-1')
+
+  await executor.execute({
+    toolCall: toolCall('future-delete', 'future_task', {
+      action: 'delete',
+      taskId: 'task-1',
+    }),
+    tools,
+    policy,
+  })
+  assert.equal(calls.at(-1)?.method, 'delete')
+  assert.equal(calls.at(-1)?.request?.sessionId, 'session-1')
+
+  const invalid = await executor.execute({
+    toolCall: toolCall('future-invalid', 'future_task', { action: 'unknown' }),
+    tools,
+    policy,
+  })
+  assert.equal(JSON.parse(invalid.result.resultText).ok, false)
+}
+
+async function testFutureTaskToolDeniedAndDisabled(): Promise<void> {
+  const registry = new ToolRegistry({
+    messages: {
+      listBySession: () => [],
+      listAttachmentLinks: () => [],
+    } as never,
+    attachments: {
+      get: () => undefined,
+    } as never,
+    cronManager: () =>
+      ({
+        list: () => ({ tasks: [] }),
+      }) as never,
+  })
+  const tools = await registry.resolve({
+    sessionId: 'session-1',
+    policy: defaultToolPolicy('assistant'),
+  })
+  assert.equal(
+    tools.some((tool) => tool.name === 'future_task'),
+    true
+  )
+
+  const denied = await new ToolExecutor().execute({
+    toolCall: toolCall('future-denied', 'future_task', { action: 'list' }),
+    tools,
+    policy: defaultToolPolicy('assistant'),
+  })
+  assert.equal(denied.result.status, 'denied')
+  assert.equal(denied.result.error?.code, 'approval_required')
+
+  const disabledRegistry = new ToolRegistry({
+    messages: {
+      listBySession: () => [],
+      listAttachmentLinks: () => [],
+    } as never,
+    attachments: {
+      get: () => undefined,
+    } as never,
+    cronManager: () => ({ list: () => ({ tasks: [] }) }) as never,
+    disabledToolNames: () => ['future_task'],
+  })
+  const disabledTools = await disabledRegistry.resolve({
+    sessionId: 'session-1',
+    policy: { enabled: true, profile: 'assistant', requireApprovalForRisk: [] },
+  })
+  assert.equal(
+    disabledTools.some((tool) => tool.name === 'future_task'),
+    false
+  )
 }
 
 function toolCall(id: string, name: string, args: unknown): ProviderToolCall {

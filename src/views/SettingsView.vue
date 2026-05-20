@@ -9,20 +9,12 @@ import DefaultModelSettingsForm from '@/components/settings/DefaultModelSettings
 import GeneralSettingsForm from '@/components/settings/GeneralSettingsForm.vue'
 import McpServerSettingsForm from '@/components/settings/McpServerSettingsForm.vue'
 import ProviderSettingsForm from '@/components/settings/ProviderSettingsForm.vue'
-import SettingsSection from '@/components/settings/SettingsSection.vue'
+import ScheduledTaskSettingsForm from '@/components/settings/ScheduledTaskSettingsForm.vue'
 import SettingsSidebar, { type SettingsTab } from '@/components/settings/SettingsSidebar.vue'
 import SkillSettingsForm from '@/components/settings/SkillSettingsForm.vue'
-import {
-  Field,
-  FieldContent,
-  FieldDescription,
-  FieldGroup,
-  FieldLabel,
-} from '@/components/ui/field'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { SidebarInset, SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Switch } from '@/components/ui/switch'
 import { useDelayedFlag } from '@/composables/useDelayedFlag'
 import { useProviderStore } from '@/stores/provider'
 import { useSettingsStore } from '@/stores/settings'
@@ -82,11 +74,6 @@ function handleSidebarOpenUpdate(open: boolean) {
 async function backToChat() {
   await flushAutosave()
   await router.push('/')
-}
-
-function setScheduledTasksEnabled(value: boolean) {
-  if (!draft.value) return
-  draft.value.scheduledTasks.enabled = value
 }
 
 watch(
@@ -228,33 +215,10 @@ async function autosave() {
 
               <SkillSettingsForm v-else-if="activeTab === 'skills'" />
 
-              <SettingsSection
+              <ScheduledTaskSettingsForm
                 v-else-if="activeTab === 'schedule'"
-                title="计划任务"
-                description="当前接入全局启用开关，任务编辑后续扩展。"
-              >
-                <FieldGroup class="gap-0">
-                  <Field
-                    orientation="responsive"
-                    class="border-b px-4 py-3"
-                  >
-                    <FieldContent>
-                      <FieldLabel for="scheduled-enabled">启用计划任务</FieldLabel>
-                      <FieldDescription>控制本地计划任务模块是否运行。</FieldDescription>
-                    </FieldContent>
-                    <Switch
-                      id="scheduled-enabled"
-                      :model-value="draft.scheduledTasks.enabled"
-                      aria-label="启用计划任务"
-                      @update:model-value="setScheduledTasksEnabled($event)"
-                    />
-                  </Field>
-                  <Field class="px-4 py-3">
-                    <FieldLabel>任务数量</FieldLabel>
-                    <FieldDescription>{{ draft.scheduledTasks.tasks.length }} 个任务。</FieldDescription>
-                  </Field>
-                </FieldGroup>
-              </SettingsSection>
+                :draft="draft"
+              />
             </template>
           </div>
         </ScrollArea>

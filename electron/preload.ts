@@ -319,7 +319,13 @@ const bridge: OpenOmniClawBridge = {
     onChanged: (callback) => createUnsubscriber(IPC_CHANNELS.skill.changed, callback),
   },
   cron: {
-    list: () => ipcRenderer.invoke(IPC_CHANNELS.cron.list),
+    list: (request) => ipcRenderer.invoke(IPC_CHANNELS.cron.list, request),
+    create: (request) => ipcRenderer.invoke(IPC_CHANNELS.cron.create, request),
+    update: (request) => ipcRenderer.invoke(IPC_CHANNELS.cron.update, request),
+    delete: (request) => ipcRenderer.invoke(IPC_CHANNELS.cron.delete, request),
+    runNow: (request) => ipcRenderer.invoke(IPC_CHANNELS.cron.runNow, request),
+    listRuns: (request) => ipcRenderer.invoke(IPC_CHANNELS.cron.listRuns, request),
+    onChanged: (callback) => createUnsubscriber(IPC_CHANNELS.cron.changed, callback),
   },
   tools: {
     list: () => ipcRenderer.invoke(IPC_CHANNELS.tools.list),

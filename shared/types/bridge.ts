@@ -30,7 +30,21 @@ import type {
   UploadAttachmentRequest,
   UploadAttachmentResponse,
 } from './chat'
-import type { CronTask } from './cron'
+import type {
+  CreateCronTaskRequest,
+  CreateCronTaskResponse,
+  CronTaskChangedEvent,
+  DeleteCronTaskRequest,
+  DeleteCronTaskResponse,
+  ListCronRunsRequest,
+  ListCronRunsResponse,
+  ListCronTasksRequest,
+  ListCronTasksResponse,
+  RunCronTaskNowRequest,
+  RunCronTaskNowResponse,
+  UpdateCronTaskRequest,
+  UpdateCronTaskResponse,
+} from './cron'
 import type { LoggerHealthStatus, LoggerWriteResponse, RendererLogRequest } from './logging'
 import type {
   DeleteMcpServerRequest,
@@ -335,7 +349,13 @@ export interface OpenOmniClawBridge {
     onChanged: (callback: (event: SkillChangedEvent) => void) => Unsubscribe
   }
   cron: {
-    list: () => Promise<CronTask[]>
+    list: (request?: ListCronTasksRequest) => Promise<ListCronTasksResponse>
+    create: (request: CreateCronTaskRequest) => Promise<CreateCronTaskResponse>
+    update: (request: UpdateCronTaskRequest) => Promise<UpdateCronTaskResponse>
+    delete: (request: DeleteCronTaskRequest | string) => Promise<DeleteCronTaskResponse>
+    runNow: (request: RunCronTaskNowRequest | string) => Promise<RunCronTaskNowResponse>
+    listRuns: (request?: ListCronRunsRequest) => Promise<ListCronRunsResponse>
+    onChanged: (callback: (event: CronTaskChangedEvent) => void) => Unsubscribe
   }
   tools: {
     list: () => Promise<ManagedToolInfo[]>

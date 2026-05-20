@@ -2,6 +2,7 @@ import { AgentRunner } from '@core/agent/agent-runner'
 import type { ToolResolutionInput } from '@core/agent/tools/registry'
 import { ToolRegistry } from '@core/agent/tools/registry'
 import type { AgentTool } from '@core/agent/tools/types'
+import type { CronManager } from '@core/cron/cron-manager'
 import type { AttachmentRepo, ChatMessageRepo, ChatRunRepo, ChatSessionRepo } from '@core/db/repos'
 import type { Logger } from '@core/logging'
 import type { ChatCompletionChunk, ProviderMessage } from '@core/provider/base-provider'
@@ -43,6 +44,7 @@ export interface ChatServiceOptions {
   runManager: RunManager
   disabledToolNames?: () => Iterable<string>
   mcpTools?: (input: ToolResolutionInput) => AgentTool[] | Promise<AgentTool[]>
+  cronManager?: () => CronManager
   skills?: SkillManager
   compactSkillDescriptions?: () => boolean
   agentToolProfile?: () => ToolProfile
@@ -71,6 +73,7 @@ export class ChatService {
           messages: options.messages,
           attachments: options.attachments,
           skills: options.skills,
+          cronManager: options.cronManager,
           disabledToolNames: options.disabledToolNames,
           mcpTools: options.mcpTools,
         }),

@@ -1,4 +1,5 @@
 import type { AttachmentService } from '@core/chat/attachment-service'
+import type { CronManager } from '@core/cron/cron-manager'
 import type { ChatMessageRepo } from '@core/db/repos'
 import type { SkillManager } from '@core/skill/skill-manager'
 import type { AgentTool, ToolProfile, ToolRisk } from './types'
@@ -19,6 +20,7 @@ export interface BuiltinToolOptions {
   attachments: AttachmentService
   sessionId: string
   skills?: SkillManager
+  cronManager?: CronManager
   maxResultChars?: number
 }
 
@@ -35,6 +37,12 @@ export function createBuiltinTools(options: BuiltinToolOptions): AgentTool[] {
       execute: createAttachmentTextSearchExecutor(options),
     },
   ]
+  if (options.cronManager) {
+    tools.push({
+      ...BUILTIN_TOOL_DEFINITIONS.future_task,
+      execute: createFutureTaskExecutor(options),
+    })
+  }
   if (options.skills?.getActiveSkills().length) {
     tools.push({
       ...BUILTIN_TOOL_DEFINITIONS.skill_read,
@@ -50,6 +58,7 @@ export function listBuiltinToolDefinitions(): BuiltinToolDefinition[] {
     BUILTIN_TOOL_DEFINITIONS.calculator,
     BUILTIN_TOOL_DEFINITIONS.attachment_text_read,
     BUILTIN_TOOL_DEFINITIONS.attachment_text_search,
+    BUILTIN_TOOL_DEFINITIONS.future_task,
     BUILTIN_TOOL_DEFINITIONS.skill_read,
   ].map((definition) => ({ ...definition }))
 }
@@ -147,6 +156,37 @@ const BUILTIN_TOOL_DEFINITIONS = {
           type: 'string',
           description: 'The local skill id from the available skills inventory.',
         },
+      },
+      additionalProperties: false,
+    },
+  },
+  future_task: {
+    name: 'future_task',
+    label: 'Future task',
+    description: 'Create, edit, delete, or list scheduled tasks for the current chat session only.',
+    risk: 'write',
+    source: 'builtin',
+    profiles: ['assistant', 'power'],
+    parameters: {
+      type: 'object',
+      required: ['action'],
+      properties: {
+        action: {
+          type: 'string',
+          enum: ['create', 'edit', 'delete', 'list'],
+        },
+        taskId: { type: 'string' },
+        name: { type: 'string' },
+        note: { type: 'string' },
+        runAt: {
+          anyOf: [{ type: 'number' }, { type: 'string' }],
+          description: 'Unix milliseconds or an ISO-like date/time parseable by the host.',
+        },
+        cronExpression: {
+          type: 'string',
+          description: 'Supported five-field cron expression.',
+        },
+        enabled: { type: 'boolean' },
       },
       additionalProperties: false,
     },
@@ -323,6 +363,87 @@ function createSkillReadExecutor(skills: SkillManager): AgentTool['execute'] {
   }
 }
 
+interface FutureTaskArgs {
+  action?: 'create' | 'edit' | 'delete' | 'list'
+  taskId?: string
+  name?: string
+  note?: string
+  runAt?: string | number
+  cronExpression?: string
+  enabled?: boolean
+}
+
+function createFutureTaskExecutor(options: BuiltinToolOptions): AgentTool['execute'] {
+  return async (_toolCallId, args, signal) => {
+    throwIfAborted(signal)
+    if (!options.cronManager) {
+      return futureTaskError('unavailable', 'Scheduled task management is not available.')
+    }
+    const taskArgs = asFutureTaskArgs(args)
+    if (taskArgs.action === 'list') {
+      const response = options.cronManager.list({ sessionId: options.sessionId })
+      return futureTaskResult({
+        ok: true,
+        action: 'list',
+        tasks: response.tasks.map(summarizeCronTaskForTool),
+      })
+    }
+    if (taskArgs.action === 'create') {
+      if (!taskArgs.name?.trim() || !taskArgs.note?.trim()) {
+        return futureTaskError('validation', 'create requires name and note.')
+      }
+      const response = options.cronManager.create({
+        name: taskArgs.name,
+        note: taskArgs.note,
+        sourceSessionId: options.sessionId,
+        targetSessionId: options.sessionId,
+        runAt: parseToolRunAt(taskArgs.runAt),
+        cronExpression: taskArgs.cronExpression,
+        enabled: taskArgs.enabled,
+      })
+      return futureTaskResult({
+        ok: true,
+        action: 'create',
+        task: summarizeCronTaskForTool(response.task),
+      })
+    }
+    if (taskArgs.action === 'edit') {
+      if (!taskArgs.taskId?.trim()) {
+        return futureTaskError('validation', 'edit requires taskId.')
+      }
+      const response = options.cronManager.update({
+        taskId: taskArgs.taskId,
+        sessionId: options.sessionId,
+        name: taskArgs.name,
+        note: taskArgs.note,
+        runAt: taskArgs.runAt === undefined ? undefined : parseToolRunAt(taskArgs.runAt),
+        cronExpression: taskArgs.cronExpression,
+        enabled: taskArgs.enabled,
+      })
+      return futureTaskResult({
+        ok: true,
+        action: 'edit',
+        task: summarizeCronTaskForTool(response.task),
+      })
+    }
+    if (taskArgs.action === 'delete') {
+      if (!taskArgs.taskId?.trim()) {
+        return futureTaskError('validation', 'delete requires taskId.')
+      }
+      const response = options.cronManager.delete({
+        taskId: taskArgs.taskId,
+        sessionId: options.sessionId,
+      })
+      return futureTaskResult({
+        ok: response.deleted,
+        action: 'delete',
+        taskId: taskArgs.taskId,
+      })
+    }
+    return futureTaskError('unsupported_action', 'action must be create, edit, delete, or list.')
+  }
+}
+
 function asRecord(value: unknown, toolName: string): Record<string, unknown> {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     throw new Error(`${toolName} arguments must be an object.`)
@@ -364,6 +485,71 @@ function asSkillReadArgs(value: unknown): SkillReadArgs {
   return {
     skillId: typeof args.skillId === 'string' ? args.skillId : undefined,
   }
+}
+
+function asFutureTaskArgs(value: unknown): FutureTaskArgs {
+  const args = asRecord(value, 'future_task')
+  return {
+    action:
+      args.action === 'create' ||
+      args.action === 'edit' ||
+      args.action === 'delete' ||
+      args.action === 'list'
+        ? args.action
+        : undefined,
+    taskId: typeof args.taskId === 'string' ? args.taskId : undefined,
+    name: typeof args.name === 'string' ? args.name : undefined,
+    note: typeof args.note === 'string' ? args.note : undefined,
+    runAt:
+      typeof args.runAt === 'string' || typeof args.runAt === 'number' ? args.runAt : undefined,
+    cronExpression: typeof args.cronExpression === 'string' ? args.cronExpression : undefined,
+    enabled: typeof args.enabled === 'boolean' ? args.enabled : undefined,
+  }
+}
+
+function parseToolRunAt(value: string | number | undefined): number | undefined {
+  if (value === undefined) {
+    return undefined
+  }
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return Math.floor(value)
+  }
+  if (typeof value === 'string') {
+    const parsed = Date.parse(value)
+    if (Number.isFinite(parsed)) {
+      return parsed
+    }
+  }
+  throw new Error('future_task runAt must be Unix milliseconds or a parseable date/time string.')
+}
+
+function summarizeCronTaskForTool(task: ReturnType<CronManager['list']>['tasks'][number]) {
+  return {
+    id: task.id,
+    name: task.name,
+    schedule: task.schedule,
+    enabled: task.enabled,
+    state: task.state,
+    nextRunAt: task.nextRunAt,
+    lastStatus: task.lastStatus,
+    lastError: task.lastError
+      ? {
+          code: task.lastError.code,
+          message: task.lastError.message,
+        }
+      : undefined,
+  }
+}
+
+function futureTaskResult(value: unknown): ReturnType<AgentTool['execute']> {
+  return Promise.resolve({ content: [{ type: 'text', text: JSON.stringify(value) }] })
+}
+
+function futureTaskError(code: string, message: string): ReturnType<AgentTool['execute']> {
+  return futureTaskResult({
+    ok: false,
+    error: { code, message },
+  })
 }
 
 function isCalculatorOperation(value: unknown): value is NonNullable<CalculatorArgs['operation']> {

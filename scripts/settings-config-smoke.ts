@@ -45,6 +45,11 @@ try {
         stale_tool: false,
       },
     },
+    scheduledTasks: {
+      enabled: true,
+      tasks: [{ id: 'legacy-placeholder' }],
+      misfireGraceMs: 120000,
+    },
   }).config
 
   assert.equal(normalized.app.theme, 'dark')
@@ -54,7 +59,11 @@ try {
   assert.equal(normalized.providers.models[0]?.providerSourceId, 'custom-openai')
   assert.equal(normalized.providers.settings.defaultModelId, 'custom-model')
   assert.equal(normalized.tools.agentToolProfile, 'assistant')
-  assert.equal(normalized.scheduledTasks.enabled, false)
+  assert.equal(normalized.scheduledTasks.enabled, true)
+  assert.equal(normalized.scheduledTasks.misfirePolicy, 'run_once')
+  assert.equal(normalized.scheduledTasks.misfireGraceMs, 120000)
+  assert.equal(normalized.scheduledTasks.misfireStartupLimit, 3)
+  assert.equal('tasks' in normalized.scheduledTasks, false)
 
   assert.throws(
     () => normalizeConfig({ ...cloneDefaultConfig(), version: 999 }),
@@ -80,6 +89,17 @@ try {
       normalizeConfig({
         ...cloneDefaultConfig(),
         app: 'invalid',
+      }),
+    ConfigValidationError
+  )
+  assert.throws(
+    () =>
+      normalizeConfig({
+        ...cloneDefaultConfig(),
+        scheduledTasks: {
+          ...cloneDefaultConfig().scheduledTasks,
+          misfirePolicy: 'invalid',
+        },
       }),
     ConfigValidationError
   )

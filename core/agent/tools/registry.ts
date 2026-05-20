@@ -1,4 +1,5 @@
 import type { AttachmentService } from '@core/chat/attachment-service'
+import type { CronManager } from '@core/cron/cron-manager'
 import type { ChatMessageRepo } from '@core/db/repos'
 import type { ProviderTool } from '@core/provider/base-provider'
 import type { SkillManager } from '@core/skill/skill-manager'
@@ -12,6 +13,7 @@ export interface ToolRegistryOptions {
   messages: ChatMessageRepo
   attachments: AttachmentService
   skills?: SkillManager
+  cronManager?: () => CronManager
   disabledToolNames?: () => Iterable<string>
   mcpTools?: (input: ToolResolutionInput) => AgentTool[] | Promise<AgentTool[]>
 }
@@ -35,6 +37,7 @@ export class ToolRegistry {
       attachments: this.options.attachments,
       sessionId: input.sessionId,
       skills: this.options.skills,
+      cronManager: this.options.cronManager?.(),
     })
     const profileNames = new Set(allowedToolNamesForProfile(input.policy.profile as ToolProfile))
     const builtins = builtinTools.filter(

@@ -3,8 +3,17 @@ import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
+import { CronManager } from '../core/cron/cron-manager'
+import { nextRunAt, validateCronExpression } from '../core/cron/schedule'
 import { DatabaseClient } from '../core/db/client'
-import { AttachmentRepo, ChatMessageRepo, ChatRunRepo, ChatSessionRepo } from '../core/db/repos'
+import {
+  AttachmentRepo,
+  ChatMessageRepo,
+  ChatRunRepo,
+  ChatSessionRepo,
+  CronRunRepo,
+  CronTaskRepo,
+} from '../core/db/repos'
 import { seedDefaultChatData } from '../core/db/seed'
 import type { ChatMessage, ChatRun, ChatSession, InternalAttachmentRecord } from '../core/db/types'
 
@@ -19,6 +28,8 @@ try {
   const messages = new ChatMessageRepo(db)
   const attachments = new AttachmentRepo(db)
   const runs = new ChatRunRepo(db)
+  const cronTasks = new CronTaskRepo(db)
+  const cronRuns = new CronRunRepo(db)
 
   assert.equal(sessions.list().length, 1)
 
@@ -124,6 +135,114 @@ try {
     true
   )
   assert.equal(runs.get(run.id)?.usage?.total, 10)
+
+  assert.equal(validateCronExpression('*/5 * * * *').length, 0)
+  assert.equal(validateCronExpression('* * *').length, 1)
+  assert.equal(nextRunAt({ kind: 'at', runAt: 3000 }, 2000), 3000)
+  assert.equal(nextRunAt({ kind: 'at', runAt: 1000 }, 2000), undefined)
+  assert.equal(
+    nextRunAt(
+      { kind: 'cron', cronExpression: '*/15 * * * *' },
+      new Date(2026, 0, 1, 0, 7).getTime()
+    ),
+    new Date(2026, 0, 1, 0, 15).getTime()
+  )
+
+  const cronTask = cronTasks.save({
+    id: 'cron-task-smoke',
+    name: 'Cron smoke',
+    note: 'Return a smoke result.',
+    sourceSessionId: session.id,
+    targetSessionId: session.id,
+    schedule: { kind: 'at', runAt: 1999 },
+    enabled: true,
+    state: 'idle',
+    nextRunAt: 1999,
+    failureCount: 0,
+    createdAt: 1990,
+    updatedAt: 1990,
+  })
+  assert.equal(cronTasks.get(cronTask.id)?.name, 'Cron smoke')
+  assert.equal(cronTasks.list({ sessionId: session.id }).length, 1)
+  assert.equal(cronTasks.findDue(2000).length, 1)
+  assert.equal(cronTasks.tryMarkRunning(cronTask.id, 2001)?.runningAt, 2001)
+  assert.equal(cronTasks.tryMarkRunning(cronTask.id, 2002), undefined)
+  const cronRun = cronRuns.createRunning({
+    taskId: cronTask.id,
+    reason: 'scheduled',
+    scheduledFor: 1999,
+    startedAt: 2001,
+  })
+  assert.equal(
+    cronRuns.finish(cronRun.id, {
+      status: 'complete',
+      completedAt: 2005,
+      resultSummary: 'done',
+    })?.durationMs,
+    4
+  )
+  cronTasks.save({
+    ...cronTask,
+    runningAt: undefined,
+    lastStatus: 'complete',
+    lastCompletedAt: 2005,
+    updatedAt: 2005,
+  })
+  assert.equal(cronRuns.list({ taskId: cronTask.id })[0]?.resultSummary, 'done')
+
+  const manager = new CronManager({
+    tasks: cronTasks,
+    runs: cronRuns,
+    sessions,
+    settings: () => ({
+      enabled: false,
+      misfirePolicy: 'run_once',
+      misfireGraceMs: 60_000,
+      misfireStartupLimit: 2,
+    }),
+    executor: {
+      async execute({ run }) {
+        return { resultSummary: `ran:${run.reason}` }
+      },
+    },
+    maxTimerMs: 5_000,
+  })
+  const recentPast = manager.create({
+    name: 'Recent past',
+    note: 'within grace',
+    targetSessionId: session.id,
+    runAt: Date.now() - 1_000,
+  }).task
+  assert.ok(recentPast.nextRunAt && recentPast.nextRunAt <= Date.now())
+  assert.equal((await manager.executeDue(2010)).length, 0)
+  const manual = await manager.runNow({ taskId: cronTask.id })
+  assert.equal(manual.run.reason, 'manual')
+  assert.equal(manual.run.status, 'complete')
+
+  cronTasks.save({
+    id: 'cron-task-stale',
+    name: 'Stale',
+    note: 'stale',
+    sourceSessionId: session.id,
+    targetSessionId: session.id,
+    schedule: { kind: 'cron', cronExpression: '* * * * *' },
+    enabled: true,
+    state: 'running',
+    nextRunAt: 2100,
+    runningAt: 2000,
+    failureCount: 0,
+    createdAt: 2000,
+    updatedAt: 2000,
+  })
+  const staleRun = cronRuns.createRunning({
+    taskId: 'cron-task-stale',
+    reason: 'scheduled',
+    startedAt: 2000,
+  })
+  manager.start()
+  manager.stop()
+  assert.equal(cronTasks.get('cron-task-stale')?.runningAt, undefined)
+  assert.equal(cronRuns.get(staleRun.id)?.status, 'interrupted')
 
   console.log('DB smoke check passed')
 } finally {

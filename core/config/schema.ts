@@ -71,7 +71,9 @@ export const defaultConfig: DesktopSettingsConfig = {
   },
   scheduledTasks: {
     enabled: false,
-    tasks: [],
+    misfirePolicy: 'run_once',
+    misfireGraceMs: 15 * 60 * 1000,
+    misfireStartupLimit: 3,
   },
 }
 
@@ -570,11 +572,33 @@ function validateScheduledTasks(
       code: 'invalid_type',
     })
   }
-  if (!Array.isArray(config.scheduledTasks.tasks)) {
+  if (!['run_once', 'skip'].includes(config.scheduledTasks.misfirePolicy)) {
     issues.push({
-      path: 'scheduledTasks.tasks',
-      message: 'Scheduled tasks must be an array.',
-      code: 'invalid_type',
+      path: 'scheduledTasks.misfirePolicy',
+      message: 'Scheduled task misfire policy must be run_once or skip.',
+      code: 'invalid_enum',
+    })
+  }
+  if (
+    !Number.isInteger(config.scheduledTasks.misfireGraceMs) ||
+    config.scheduledTasks.misfireGraceMs < 0 ||
+    config.scheduledTasks.misfireGraceMs > 7 * 24 * 60 * 60 * 1000
+  ) {
+    issues.push({
+      path: 'scheduledTasks.misfireGraceMs',
+      message: 'Scheduled task misfire grace must be an integer between 0 and 604800000.',
+      code: 'out_of_range',
+    })
+  }
+  if (
+    !Number.isInteger(config.scheduledTasks.misfireStartupLimit) ||
+    config.scheduledTasks.misfireStartupLimit < 0 ||
+    config.scheduledTasks.misfireStartupLimit > 50
+  ) {
+    issues.push({
+      path: 'scheduledTasks.misfireStartupLimit',
+      message: 'Scheduled task startup backfill limit must be an integer between 0 and 50.',
+      code: 'out_of_range',
     })
   }
 }
