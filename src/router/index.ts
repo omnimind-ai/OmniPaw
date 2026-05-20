@@ -1,5 +1,6 @@
 import { createRouter, createWebHashHistory } from 'vue-router'
 
+import ChatWorkspace from '@/components/chat/ChatWorkspace.vue'
 import ChatContentView from '@/views/ChatContentView.vue'
 import ChatHomeView from '@/views/ChatHomeView.vue'
 import RewritePlaceholderView from '@/views/RewritePlaceholderView.vue'
@@ -10,17 +11,23 @@ export const router = createRouter({
   routes: [
     {
       path: '/',
-      name: 'home',
-      component: ChatHomeView,
+      component: ChatWorkspace,
+      children: [
+        {
+          path: '',
+          name: 'home',
+          component: ChatHomeView,
+        },
+        {
+          path: 'chat/:conversationId',
+          name: 'chat',
+          component: ChatContentView,
+        },
+      ],
     },
     {
       path: '/chat',
       redirect: '/',
-    },
-    {
-      path: '/chat/:conversationId',
-      name: 'chat',
-      component: ChatContentView,
     },
     {
       path: '/chatbox/:conversationId?',

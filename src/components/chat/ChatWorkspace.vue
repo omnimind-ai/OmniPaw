@@ -1,16 +1,15 @@
 <script setup lang="ts">
-import { ArrowDownIcon } from 'lucide-vue-next'
 import { storeToRefs } from 'pinia'
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, provide, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import { appBridge } from '@/bridge/app'
-import ChatComposer from '@/components/ChatComposer.vue'
 import ChatSidebar from '@/components/ChatSidebar.vue'
-import ChatMessageList from '@/components/chat/ChatMessageList.vue'
 import { contentText } from '@/components/chat/chat-display'
-import { Button } from '@/components/ui/button'
-import { ScrollArea } from '@/components/ui/scroll-area'
+import {
+  chatWorkspaceContextKey,
+  type MessageScrollAreaRef,
+} from '@/components/chat/chat-workspace-context'
 import { SidebarInset, SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar'
 import { useDelayedFlag } from '@/composables/useDelayedFlag'
 import { ATTACHMENT_LIMITS, formatBytes, useMediaHandling } from '@/composables/useMediaHandling'
@@ -21,21 +20,11 @@ import {
   useMessages,
 } from '@/composables/useMessages'
 import { useSessions } from '@/composables/useSessions'
-import { cn } from '@/lib/utils'
 import { useChatStore } from '@/stores/chat'
 import { type ProviderModelOption, useProviderStore } from '@/stores/provider'
 import { copyToClipboard } from '@/utils/clipboard'
 import { logger } from '@/utils/logger'
 import { useToast } from '@/utils/toast'
-
-const props = withDefaults(
-  defineProps<{
-    mode?: 'home' | 'content'
-  }>(),
-  {
-    mode: 'home',
-  }
-)
 
 const router = useRouter()
 const route = useRoute()
@@ -99,7 +88,7 @@ const {
 
 const draft = ref('')
 const fileInput = ref<HTMLInputElement | null>(null)
-const messagesScrollArea = ref<{ $el?: HTMLElement } | HTMLElement | null>(null)
+const messagesScrollArea = ref<MessageScrollAreaRef>(null)
 const creatingSession = ref(false)
 const selectedModelKey = ref('')
 const syncedModelSessionId = ref<string | null>(null)
@@ -115,7 +104,7 @@ let programmaticScrollUntil = 0
 let scrollStateTimer = 0
 let stopSessionChanged: (() => void) | undefined
 
-const isHomeMode = computed(() => props.mode === 'home')
+const isHomeMode = computed(() => route.name !== 'chat')
 const hasMessages = computed(() => activeMessages.value.length > 0)
 const showWelcome = computed(() => isHomeMode.value && !hasMessages.value && !loadingMessages.value)
 const showMessageList = computed(
@@ -178,6 +167,55 @@ const attachmentWarning = computed(() => {
     return `${selectedModel.value?.modelName || '当前模型'} 不支持${attachmentTypeLabel(unsupported.type)}输入。`
   }
   return ''
+})
+
+provide(chatWorkspaceContextKey, {
+  showWelcome,
+  activeMessages,
+  showMessageList,
+  showMessageSkeleton,
+  highlightedMessageId,
+  showScrollToBottom,
+  draft,
+  stagedFiles,
+  stagedUploadItems,
+  uploadPending,
+  enabledModelOptions,
+  providersLoading,
+  selectedModel,
+  selectedModelKey,
+  selectedModelLabel,
+  selectedModelMeta,
+  currentSessionRunning,
+  sending,
+  attachmentWarning,
+  canSend,
+  replyPreview,
+  fileInput,
+  setMessagesScrollArea,
+  scrollToLatestMessage,
+  openSettings,
+  openFilePicker,
+  handleFileInputChange,
+  handleFilesDropped,
+  removeStagedFile,
+  removeUploadAt,
+  handleModelChange,
+  handlePaste,
+  handleSubmit,
+  handleStop,
+  handleCopyMessage,
+  handleCopyCode,
+  handleEditMessage,
+  handleContinueMessage,
+  handleRegenerateMessage,
+  handleQuoteMessage,
+  clearReply,
+  handleJumpMessage,
+  isUserMessage,
+  isMessageStreaming,
+  messageContent,
+  messageBlocks,
 })
 
 watch(
@@ -275,7 +313,21 @@ function messageScrollRoot() {
   const value = messagesScrollArea.value
   if (!value) return null
   if (value instanceof HTMLElement) return value
-  return value.$el || null
+  if ('$el' in value) {
+    return value.$el instanceof HTMLElement ? value.$el : null
+  }
+  return null
+}
+
+function setMessagesScrollArea(value: MessageScrollAreaRef) {
+  if (!value) {
+    detachMessageScrollViewport()
+    messagesScrollArea.value = null
+    return
+  }
+
+  messagesScrollArea.value = value
+  void nextTick(() => attachMessageScrollViewport())
 }
 
 function resolveMessageScrollViewport() {
@@ -789,111 +841,7 @@ function attachmentTypeLabel(type: string) {
       </header>
 
       <main class="flex min-h-0 flex-1 flex-col bg-background">
-        <div
-          v-if="!isHomeMode"
-          class="relative min-h-0 flex-1"
-        >
-          <ScrollArea
-            ref="messagesScrollArea"
-            class="h-full"
-          >
-            <ChatMessageList
-              v-if="showMessageList"
-              :messages="activeMessages"
-              :loading="showMessageSkeleton"
-              :highlighted-message-id="highlightedMessageId"
-              :is-user-message="isUserMessage"
-              :message-content="messageContent"
-              :message-blocks="messageBlocks"
-              :is-message-streaming="isMessageStreaming"
-              @copy-message="handleCopyMessage"
-              @copy-code="handleCopyCode"
-              @edit-message="handleEditMessage"
-              @continue-message="handleContinueMessage"
-              @regenerate-message="handleRegenerateMessage"
-              @quote-message="handleQuoteMessage"
-              @jump-message="handleJumpMessage"
-            />
-          </ScrollArea>
-
-          <Button
-            v-if="showScrollToBottom"
-            type="button"
-            variant="outline"
-            size="sm"
-            class="absolute bottom-4 left-1/2 -translate-x-1/2 border-border/70 bg-background/35 shadow-md backdrop-blur-xl hover:bg-background/50"
-            aria-label="回到底部"
-            @click="scrollToLatestMessage('smooth', true)"
-          >
-            <ArrowDownIcon data-icon="inline-start" />
-            回到底部
-          </Button>
-        </div>
-
-        <div
-          :class="cn(
-            'flex w-full flex-col items-center px-6 pb-6 md:px-10 lg:px-16',
-            showWelcome ? 'flex-1 justify-center gap-8' : 'shrink-0',
-          )"
-        >
-          <h1
-            v-if="showWelcome"
-            class="text-center text-3xl font-semibold tracking-normal md:text-4xl"
-          >
-            👋 欢迎使用 OmniClaw
-          </h1>
-
-          <div class="w-full max-w-4xl">
-            <div
-              v-if="!selectedModel && !providersLoading"
-              class="mb-3 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-dashed px-3 py-2 text-sm text-muted-foreground"
-            >
-              <span>未配置可用模型</span>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                @click="openSettings"
-              >
-                打开设置
-              </Button>
-            </div>
-
-            <ChatComposer
-              v-model="draft"
-              :staged-files="stagedFiles"
-              :staged-upload-items="stagedUploadItems"
-              :model-options="enabledModelOptions"
-              :selected-model-key="selectedModelKey"
-              :selected-model-label="selectedModelLabel"
-              :selected-model-meta="selectedModelMeta"
-              :reply-preview="replyPreview"
-              :running="currentSessionRunning"
-              :upload-pending="uploadPending"
-              :attachment-warning="attachmentWarning"
-              :disabled="sending || currentSessionRunning || uploadPending"
-              :can-send="canSend"
-              :can-stop="currentSessionRunning"
-              @add-attachment="openFilePicker"
-              @remove-attachment="removeStagedFile"
-              @remove-upload-item="removeUploadAt"
-              @files-dropped="handleFilesDropped"
-              @clear-reply="clearReply"
-              @select-model="handleModelChange"
-              @paste="handlePaste"
-              @submit="handleSubmit"
-              @stop="handleStop"
-            />
-          </div>
-
-          <input
-            ref="fileInput"
-            class="sr-only"
-            type="file"
-            multiple
-            @change="handleFileInputChange"
-          >
-        </div>
+        <RouterView />
       </main>
     </SidebarInset>
   </SidebarProvider>
