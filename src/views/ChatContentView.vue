@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { ArrowDownIcon } from 'lucide-vue-next'
 
+import ChatComposerDock from '@/components/chat/ChatComposerDock.vue'
 import ChatMessageList from '@/components/chat/ChatMessageList.vue'
-import ChatWorkspaceComposerDock from '@/components/chat/ChatWorkspaceComposerDock.vue'
-import { useChatWorkspace } from '@/components/chat/chat-workspace-context'
+import { useChatWorkspaceContext } from '@/components/chat/chat-workspace-context'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
 
@@ -26,7 +26,7 @@ const {
   handleJumpMessage,
   showScrollToBottom,
   scrollToLatestMessage,
-} = useChatWorkspace()
+} = useChatWorkspaceContext()
 </script>
 
 <template>
@@ -68,5 +68,5 @@ const {
     </Button>
   </div>
 
-  <ChatWorkspaceComposerDock />
+  <ChatComposerDock />
 </template>

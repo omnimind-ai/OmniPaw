@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import ChatComposer from '@/components/ChatComposer.vue'
+import ChatComposer from '@/components/chat/ChatComposer.vue'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
-import { useChatWorkspace } from './chat-workspace-context'
+import { useChatWorkspaceContext } from './chat-workspace-context'
 
 const props = withDefaults(
   defineProps<{
@@ -42,7 +42,7 @@ const {
   handleStop,
   fileInput,
   handleFileInputChange,
-} = useChatWorkspace()
+} = useChatWorkspaceContext()
 </script>
 
 <template>

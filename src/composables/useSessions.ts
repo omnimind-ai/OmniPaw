@@ -1,5 +1,5 @@
 import type { ChatSession } from '@shared/types/chat'
-import { computed, ref } from 'vue'
+import { type ComputedRef, computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { appBridge, type BridgeChatSession } from '@/bridge/app'
 import { buildWebchatUmoDetails, getStoredSelectedChatConfigId } from '@/utils/chatConfigBinding'
@@ -47,16 +47,16 @@ export function useSessions(chatboxMode: boolean = false) {
   const editingTitle = ref('')
   const editingSessionId = ref('')
 
-  const getCurrentSession = computed(() => {
+  const getCurrentSession: ComputedRef<Session | null> = computed((): Session | null => {
     if (!currSessionId.value) return null
-    return sessions.value.find((s) => s.id === currSessionId.value)
+    return sessions.value.find((s) => s.id === currSessionId.value) ?? null
   })
 
   async function getSessions() {
     try {
       const bridgeSessions = await appBridge.chat.listSessions()
       sessions.value = bridgeSessions.map(mapBridgeSession)
-    } catch (err: any) {
+    } catch (err: unknown) {
       sessionsLogger.error('Failed to load sessions.', { error: err })
       toast.error(err, { description: '会话列表加载失败' })
     }

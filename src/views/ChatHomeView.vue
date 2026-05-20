@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import ChatWorkspaceComposerDock from '@/components/chat/ChatWorkspaceComposerDock.vue'
+import ChatComposerDock from '@/components/chat/ChatComposerDock.vue'
 </script>
 
 <template>
-  <ChatWorkspaceComposerDock welcome />
+  <ChatComposerDock welcome />
 </template>

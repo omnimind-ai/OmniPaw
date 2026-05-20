@@ -1,15 +1,8 @@
-import {
-  type ComponentPublicInstance,
-  type ComputedRef,
-  type InjectionKey,
-  inject,
-  type Ref,
-} from 'vue'
+import { type ComputedRef, type InjectionKey, inject, type Ref } from 'vue'
+import type { MessageScrollAreaRef } from '@/composables/chat/useChatWorkspaceScroll'
 import type { StagedFileInfo, StagedUploadItem } from '@/composables/useMediaHandling'
 import type { ChatContent, ChatRecord, MessageDisplayBlock } from '@/composables/useMessages'
 import type { ProviderModelOption } from '@/stores/provider'
-
-export type MessageScrollAreaRef = Element | ComponentPublicInstance | null
 
 export interface ChatWorkspaceContext {
   showWelcome: ComputedRef<boolean>
@@ -63,7 +56,7 @@ export interface ChatWorkspaceContext {
 export const chatWorkspaceContextKey: InjectionKey<ChatWorkspaceContext> =
   Symbol('chatWorkspaceContext')
 
-export function useChatWorkspace() {
+export function useChatWorkspaceContext() {
   const context = inject(chatWorkspaceContextKey)
   if (!context) {
     throw new Error('Chat workspace context is only available under ChatWorkspace.')
