@@ -31,6 +31,7 @@ async function runSmoke(): Promise<void> {
   await testAgentRunnerAbortDuringProviderStream()
   await testAgentRunnerAbortDuringToolExecution()
   await testToolExecutorSuccess()
+  await testToolExecutorApprovalContinues()
   await testToolExecutorMcpApprovalDenied()
   await testToolExecutorDenied()
   await testToolExecutorInvalidArguments()
@@ -415,6 +416,47 @@ async function testToolExecutorSuccess(): Promise<void> {
 
   assert.equal(output.result.status, 'complete')
   assert.equal(output.result.resultText, '42')
+  assert.equal(output.display.status, 'complete')
+}
+
+async function testToolExecutorApprovalContinues(): Promise<void> {
+  const executor = new ToolExecutor()
+  const updates: Array<{ status?: string; approval?: { state?: string } }> = []
+  let executed = false
+  const tool: AgentTool = {
+    name: 'mcp_network_lookup',
+    providerName: 'mcp_network_lookup',
+    description: 'network MCP lookup',
+    parameters: { type: 'object' },
+    risk: 'network',
+    source: 'mcp',
+    serverId: 'server-1',
+    profiles: ['assistant', 'power'],
+    execute: async () => {
+      executed = true
+      return { content: [{ type: 'text', text: 'approved result' }] }
+    },
+  }
+
+  const output = await executor.execute({
+    toolCall: toolCall('call_mcp_approved', 'mcp_network_lookup', {}),
+    tools: [tool],
+    policy: defaultToolPolicy('assistant'),
+    approval: {
+      request: async (display) => {
+        assert.equal(display.status, 'pending')
+        assert.equal(display.approval?.state, 'pending')
+        return true
+      },
+      update: (display) => updates.push(display),
+    },
+  })
+
+  assert.equal(executed, true)
+  assert.equal(updates.at(-1)?.status, 'running')
+  assert.equal(updates.at(-1)?.approval?.state, 'approved')
+  assert.equal(output.result.status, 'complete')
+  assert.equal(output.result.resultText, 'approved result')
   assert.equal(output.display.status, 'complete')
 }
 

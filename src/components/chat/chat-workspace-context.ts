@@ -1,3 +1,4 @@
+import type { ToolProfile } from '@shared/types/chat'
 import { type ComputedRef, type InjectionKey, inject, type Ref } from 'vue'
 import type { MessageScrollAreaRef } from '@/composables/chat/useChatWorkspaceScroll'
 import type { StagedFileInfo, StagedUploadItem } from '@/composables/useMediaHandling'
@@ -21,6 +22,13 @@ export interface ChatWorkspaceContext {
   selectedModelKey: Ref<string>
   selectedModelLabel: ComputedRef<string>
   selectedModelMeta: ComputedRef<string>
+  agentToolProfile: ComputedRef<ToolProfile>
+  toolProfileOptions: Array<{
+    value: ToolProfile
+    label: string
+    description: string
+  }>
+  toolProfileSaving: Ref<boolean>
   currentSessionRunning: ComputedRef<boolean>
   sending: Ref<boolean>
   attachmentWarning: ComputedRef<string>
@@ -36,6 +44,7 @@ export interface ChatWorkspaceContext {
   removeStagedFile: (index: number) => void
   removeUploadAt: (index: number) => void
   handleModelChange: (value: unknown) => Promise<void>
+  handleToolProfileChange: (value: ToolProfile) => Promise<void>
   handlePaste: (event: ClipboardEvent) => Promise<void>
   handleSubmit: () => Promise<void>
   handleStop: () => Promise<void>

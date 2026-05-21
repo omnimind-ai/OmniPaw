@@ -1,6 +1,6 @@
+import type { ToolProfile } from '@shared/types/chat'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-
 import { appBridge } from '@/bridge/app'
 import { contentText } from '@/components/chat/chat-display'
 import type { ChatWorkspaceContext } from '@/components/chat/chat-workspace-context'
@@ -42,6 +42,7 @@ export function useChatWorkspaceController() {
   const draft = ref(chatStore.draft || '')
   const fileInput = ref<HTMLInputElement | null>(null)
   const creatingSession = ref(false)
+  const toolProfileSaving = ref(false)
   const replyTarget = ref<{ messageId: string; preview: string } | null>(null)
   const highlightedMessageId = ref('')
   const messages = useMessages({
@@ -103,6 +104,27 @@ export function useChatWorkspaceController() {
   const replyPreview = computed(() => replyTarget.value?.preview || '')
   const sidebarOpen = computed(() => chatStore.sidebarOpen)
   const agentToolProfile = computed(() => settingsStore.agentToolProfile)
+  const toolProfileOptions: Array<{
+    value: ToolProfile
+    label: string
+    description: string
+  }> = [
+    {
+      value: 'minimal',
+      label: '最小',
+      description: '仅暴露基础安全与只读能力。',
+    },
+    {
+      value: 'assistant',
+      label: '助手',
+      description: '默认等级，允许常用助手工具。',
+    },
+    {
+      value: 'power',
+      label: '高级',
+      description: '暴露更完整的工具清单，高风险工具仍需要授权。',
+    },
+  ]
 
   const workspaceContext: ChatWorkspaceContext = {
     showWelcome,
@@ -121,6 +143,9 @@ export function useChatWorkspaceController() {
     selectedModelKey: model.selectedModelKey,
     selectedModelLabel: model.selectedModelLabel,
     selectedModelMeta: model.selectedModelMeta,
+    agentToolProfile,
+    toolProfileOptions,
+    toolProfileSaving,
     currentSessionRunning,
     sending: messages.sending,
     attachmentWarning,
@@ -136,6 +161,7 @@ export function useChatWorkspaceController() {
     removeStagedFile,
     removeUploadAt,
     handleModelChange: model.handleModelChange,
+    handleToolProfileChange,
     handlePaste: media.handlePaste,
     handleSubmit,
     handleStop,
@@ -299,6 +325,23 @@ export function useChatWorkspaceController() {
 
   async function handleFilesDropped(files: File[]) {
     await media.uploadFiles(files)
+  }
+
+  async function handleToolProfileChange(value: ToolProfile) {
+    if (!['minimal', 'assistant', 'power'].includes(value)) return
+    if (value === agentToolProfile.value) return
+    toolProfileSaving.value = true
+    try {
+      if (!settingsStore.draft) {
+        await settingsStore.load()
+      }
+      settingsStore.updateToolProfile(value)
+      await settingsStore.save()
+    } catch (error) {
+      toast.error(error, { description: 'Agent 权限保存失败' })
+    } finally {
+      toolProfileSaving.value = false
+    }
   }
 
   function removeStagedFile(index: number) {

@@ -227,6 +227,7 @@ const bridge: OpenOmniClawBridge = {
           : args[0]
       return ipcRenderer.invoke(IPC_CHANNELS.chat.abortRun, request)
     },
+    approveToolCall: (request) => ipcRenderer.invoke(IPC_CHANNELS.chat.approveToolCall, request),
     editMessage: (...args) => {
       const request =
         args.length >= 3 && typeof args[0] === 'string'

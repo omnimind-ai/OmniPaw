@@ -158,6 +158,10 @@ export type BridgeToolCallStatus =
 
 export interface BridgeToolCall {
   id?: string
+  runId?: string
+  run_id?: string
+  sessionId?: string
+  session_id?: string
   index?: number
   toolCallId?: string
   tool_call_id?: string
@@ -170,6 +174,12 @@ export interface BridgeToolCall {
   arguments_delta?: string
   result?: unknown
   error?: unknown
+  approval?: {
+    required?: boolean
+    state?: 'pending' | 'approved' | 'rejected' | string
+    risk?: string
+    reason?: string
+  }
   status?: BridgeToolCallStatus
   state?: BridgeToolCallStatus
   toolStatus?: BridgeToolCallStatus
@@ -240,6 +250,20 @@ export interface BridgeRegenerateMessageRequest {
   toolProfile?: BridgeToolProfile
   maxSteps?: number
   idempotencyKey?: string
+}
+
+export interface BridgeToolApprovalRequest {
+  runId: string
+  toolCallId: string
+  action: 'approve' | 'reject'
+}
+
+export interface BridgeToolApprovalResponse {
+  accepted: boolean
+  runId: string
+  toolCallId: string
+  action: 'approve' | 'reject'
+  reason?: string
 }
 
 export interface BridgeStreamEvent {
@@ -688,6 +712,7 @@ export interface RendererOpenOmniClawBridge {
     listMessages?: (sessionId: string) => Promise<BridgeChatMessage[]>
     sendMessage: (request: BridgeSendMessageRequest) => Promise<BridgeSendMessageResponse>
     abortRun?: (runId: string, reason?: string) => Promise<void>
+    approveToolCall?: (request: BridgeToolApprovalRequest) => Promise<BridgeToolApprovalResponse>
     editMessage?: (
       sessionId: string,
       messageId: string,
@@ -1017,6 +1042,8 @@ const fallbackBridge: RendererOpenOmniClawBridge = {
       accepted: true,
     }),
     abortRun: async () => {},
+    approveToolCall: () =>
+      rejectFallbackPersistence<BridgeToolApprovalResponse>('chat.approveToolCall'),
     editMessage: async () => ({ needsRegenerate: true, truncatedAfterMessage: true }),
     regenerateMessage: async () => ({
       runId: crypto.randomUUID(),

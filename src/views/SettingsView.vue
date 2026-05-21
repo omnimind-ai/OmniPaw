@@ -4,7 +4,6 @@ import { storeToRefs } from 'pinia'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 
-import AgentSettingsForm from '@/components/settings/AgentSettingsForm.vue'
 import DefaultModelSettingsForm from '@/components/settings/DefaultModelSettingsForm.vue'
 import GeneralSettingsForm from '@/components/settings/GeneralSettingsForm.vue'
 import McpServerSettingsForm from '@/components/settings/McpServerSettingsForm.vue'
@@ -210,8 +209,6 @@ async function autosave() {
               />
 
               <McpServerSettingsForm v-else-if="activeTab === 'tools'" />
-
-              <AgentSettingsForm v-else-if="activeTab === 'agent'" />
 
               <SkillSettingsForm v-else-if="activeTab === 'skills'" />
 

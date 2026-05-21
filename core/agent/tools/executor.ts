@@ -1,7 +1,7 @@
 import type { Logger } from '@core/logging'
 import type { ProviderToolCall } from '@core/provider/base-provider'
 import { normalizeProviderError } from '@core/provider/errors'
-import type { ToolCallDisplay } from '@shared/types/chat'
+import type { ToolCallDisplay, ToolRisk } from '@shared/types/chat'
 import { decideToolUse, type ToolPolicy } from './policy'
 import {
   type AgentTool,
@@ -15,7 +15,13 @@ export interface ExecuteToolInput {
   toolCall: ProviderToolCall
   tools: AgentTool[]
   policy: ToolPolicy
+  runId?: string
+  sessionId?: string
   signal?: AbortSignal
+  approval?: {
+    request: (display: ToolCallDisplay) => Promise<boolean>
+    update: (display: ToolCallDisplay) => void
+  }
 }
 
 export interface ExecuteToolOutput {
@@ -42,6 +48,8 @@ export class ToolExecutor {
     const argsDisplay = displayArguments(input.toolCall.function.arguments)
     const baseDisplay: ToolCallDisplay = {
       id: input.toolCall.id,
+      runId: input.runId,
+      sessionId: input.sessionId,
       name,
       args: argsDisplay,
       arguments: argsDisplay,
@@ -51,7 +59,7 @@ export class ToolExecutor {
     }
 
     const decision = decideToolUse(tool, input.policy)
-    if (!decision.allowed || !tool) {
+    if (!tool) {
       const message = decision.reason ?? `Tool "${name}" is not allowed.`
       logger?.warn('Tool execution denied.', {
         status: 'denied',
@@ -68,6 +76,83 @@ export class ToolExecutor {
             message,
           },
         },
+      }
+    }
+
+    if (!decision.allowed) {
+      let approvalGranted = false
+      if (decision.approvalRequired && input.approval) {
+        const approved = await waitForApproval({
+          approval: input.approval,
+          baseDisplay,
+          risk: tool.risk,
+          reason: decision.reason ?? `Tool "${name}" requires approval.`,
+          logger,
+          startedAt,
+          signal: input.signal,
+        })
+        if (approved === 'approved') {
+          input.approval.update(
+            approvalDisplay(baseDisplay, tool.risk, decision.reason, 'approved')
+          )
+          approvalGranted = true
+        } else if (approved === 'rejected') {
+          const message = `Tool "${name}" was rejected by the user.`
+          logger?.warn('Tool execution rejected by user.', {
+            status: 'denied',
+            durationMs: Date.now() - startedAt,
+          })
+          return {
+            display: finishDisplay(
+              approvalDisplay(baseDisplay, tool.risk, decision.reason, 'rejected'),
+              'denied',
+              message
+            ),
+            result: {
+              status: 'denied',
+              resultText: message,
+              error: { code: 'tool_rejected', message },
+            },
+          }
+        } else {
+          const message = 'Tool approval was aborted.'
+          logger?.info('Tool approval aborted.', {
+            status: 'aborted',
+            durationMs: Date.now() - startedAt,
+          })
+          return {
+            display: finishDisplay(baseDisplay, 'aborted', message),
+            result: {
+              status: 'aborted',
+              resultText: message,
+              error: { code: 'aborted', message },
+            },
+          }
+        }
+      }
+      if (approvalGranted) {
+        logger?.info('Tool execution approved by user.', {
+          status: 'running',
+          durationMs: Date.now() - startedAt,
+        })
+      } else {
+        const message = decision.reason ?? `Tool "${name}" is not allowed.`
+        logger?.warn('Tool execution denied.', {
+          status: 'denied',
+          approvalRequired: decision.approvalRequired,
+          durationMs: Date.now() - startedAt,
+        })
+        return {
+          display: finishDisplay(baseDisplay, 'denied', message),
+          result: {
+            status: 'denied',
+            resultText: message,
+            error: {
+              code: decision.approvalRequired ? 'approval_required' : 'tool_denied',
+              message,
+            },
+          },
+        }
       }
     }
 
@@ -169,6 +254,54 @@ export class ToolExecutor {
         },
       }
     }
+  }
+}
+
+async function waitForApproval(input: {
+  approval: NonNullable<ExecuteToolInput['approval']>
+  baseDisplay: ToolCallDisplay
+  risk: ToolRisk
+  reason?: string
+  logger?: Logger
+  startedAt: number
+  signal?: AbortSignal
+}): Promise<'approved' | 'rejected' | 'aborted'> {
+  try {
+    input.logger?.info('Tool execution waiting for approval.', {
+      status: 'pending',
+      risk: input.risk,
+      durationMs: Date.now() - input.startedAt,
+    })
+    const approved = await input.approval.request(
+      approvalDisplay(input.baseDisplay, input.risk, input.reason, 'pending')
+    )
+    if (input.signal?.aborted) {
+      return 'aborted'
+    }
+    return approved ? 'approved' : 'rejected'
+  } catch (error) {
+    if (isAbortError(error) || input.signal?.aborted) {
+      return 'aborted'
+    }
+    throw error
+  }
+}
+
+function approvalDisplay(
+  display: ToolCallDisplay,
+  risk: ToolRisk,
+  reason: string | undefined,
+  state: 'pending' | 'approved' | 'rejected'
+): ToolCallDisplay {
+  return {
+    ...display,
+    status: state === 'pending' ? 'pending' : 'running',
+    approval: {
+      required: true,
+      state,
+      risk,
+      reason,
+    },
   }
 }
 

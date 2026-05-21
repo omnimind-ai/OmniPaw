@@ -31,6 +31,8 @@ export async function executeAgentToolLoop(
     const now = Date.now()
     const runningCall: ToolCallDisplay = {
       id: toolCall.id,
+      runId: state.input.run.id,
+      sessionId: state.input.run.sessionId,
       name: toolCall.function.name,
       arguments: parseArgumentsForDisplay(toolCall.function.arguments),
       args: parseArgumentsForDisplay(toolCall.function.arguments),
@@ -44,7 +46,23 @@ export async function executeAgentToolLoop(
       toolCall,
       tools: state.agentTools,
       policy: state.policy,
+      runId: state.input.run.id,
+      sessionId: state.input.run.sessionId,
       signal: state.input.signal,
+      approval: {
+        request: (display) => {
+          const approval = options.runManager.waitForToolApproval({
+            runId: state.input.run.id,
+            toolCallId: toolCall.id,
+            signal: state.input.signal,
+          })
+          upsertAndEmitTool(options, state.input.run, state, display, step, 'call')
+          return approval
+        },
+        update: (display) => {
+          upsertAndEmitTool(options, state.input.run, state, display, step, 'call')
+        },
+      },
     })
 
     if (toolCall.function.name === 'skill_read') {

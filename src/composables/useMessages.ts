@@ -42,6 +42,10 @@ export type ToolCallStatus =
 
 export interface ToolCall {
   id?: string
+  runId?: string
+  run_id?: string
+  sessionId?: string
+  session_id?: string
   index?: number
   toolCallId?: string
   tool_call_id?: string
@@ -54,6 +58,12 @@ export interface ToolCall {
   arguments_delta?: string
   result?: unknown
   error?: unknown
+  approval?: {
+    required?: boolean
+    state?: 'pending' | 'approved' | 'rejected' | string
+    risk?: string
+    reason?: string
+  }
   status?: ToolCallStatus
   state?: ToolCallStatus
   toolStatus?: ToolCallStatus

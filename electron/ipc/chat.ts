@@ -8,6 +8,7 @@ import type {
   ListMessagesRequest,
   RegenerateMessageRequest,
   SendMessageRequest,
+  ToolApprovalRequest,
   UploadAttachmentRequest,
 } from '@shared/types/chat'
 import type { CoreRuntime } from '../core-runtime'
@@ -48,6 +49,11 @@ export function registerChatIpcHandlers(options: IpcHandlerOptions): void {
     options,
     IPC_CHANNELS.chat.abortRun,
     (_event, request: AbortRunRequest | string) => runtime.chatService.abortRun(request)
+  )
+  registerLoggedIpcHandler(
+    options,
+    IPC_CHANNELS.chat.approveToolCall,
+    (_event, request: ToolApprovalRequest) => runtime.chatService.approveToolCall(request)
   )
   registerLoggedIpcHandler(
     options,

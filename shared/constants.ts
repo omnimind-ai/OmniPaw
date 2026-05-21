@@ -43,6 +43,7 @@ export const IPC_CHANNELS = {
     listMessages: 'chat:list-messages',
     sendMessage: 'chat:send-message',
     abortRun: 'chat:abort-run',
+    approveToolCall: 'chat:approve-tool-call',
     editMessage: 'chat:edit-message',
     regenerateMessage: 'chat:regenerate-message',
     uploadAttachment: 'chat:upload-attachment',

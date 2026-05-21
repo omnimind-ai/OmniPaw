@@ -24,6 +24,8 @@ import type {
   RegenerateMessageRequest,
   SendMessageRequest,
   SendMessageResponse,
+  ToolApprovalRequest,
+  ToolApprovalResponse,
   ToolProfile,
   UpdateSessionRequest,
 } from '@shared/types/chat'
@@ -283,6 +285,10 @@ export class ChatService {
     }
     this.logger?.info('Chat run abort requested.', { runId, aborted })
     return { runId, aborted }
+  }
+
+  approveToolCall(request: ToolApprovalRequest): ToolApprovalResponse {
+    return this.options.runManager.resolveToolApproval(request)
   }
 
   editMessage(request: EditMessageRequest): EditMessageResponse {

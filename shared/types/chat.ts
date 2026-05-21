@@ -28,6 +28,31 @@ export type ToolRisk = 'safe' | 'read' | 'write' | 'network' | 'exec'
 
 export type ToolCallStatus = 'pending' | 'running' | 'complete' | 'error' | 'denied' | 'aborted'
 
+export type ToolApprovalAction = 'approve' | 'reject'
+
+export type ToolApprovalState = 'pending' | 'approved' | 'rejected'
+
+export interface ToolCallApprovalDisplay {
+  required: boolean
+  state: ToolApprovalState
+  risk?: ToolRisk
+  reason?: string
+}
+
+export interface ToolApprovalRequest {
+  runId: ID
+  toolCallId: ID
+  action: ToolApprovalAction
+}
+
+export interface ToolApprovalResponse {
+  accepted: boolean
+  runId: ID
+  toolCallId: ID
+  action: ToolApprovalAction
+  reason?: string
+}
+
 export interface TextPart {
   type: 'plain'
   text: string
@@ -96,11 +121,14 @@ export interface ToolCallPart {
 
 export interface ToolCallDisplay {
   id: string
+  runId?: ID
+  sessionId?: ID
   name?: string
   args?: unknown
   arguments?: unknown
   result?: unknown
   error?: unknown
+  approval?: ToolCallApprovalDisplay
   startedAt?: UnixMs
   finishedAt?: UnixMs
   ts?: UnixMs

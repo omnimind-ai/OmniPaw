@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { ToolProfile } from '@shared/types/chat'
 import {
   AlertCircleIcon,
   ArrowUpIcon,
@@ -8,13 +9,13 @@ import {
   MicIcon,
   PlusIcon,
   ReplyIcon,
+  ShieldCheckIcon,
   SparklesIcon,
   SquareIcon,
   VideoIcon,
   XIcon,
 } from 'lucide-vue-next'
 import { computed, ref } from 'vue'
-
 import { Badge } from '@/components/ui/badge'
 import {
   DropdownMenu,
@@ -49,6 +50,13 @@ const props = defineProps<{
   selectedModelKey: string
   selectedModelLabel: string
   selectedModelMeta?: string
+  toolProfile: ToolProfile
+  toolProfileOptions: Array<{
+    value: ToolProfile
+    label: string
+    description: string
+  }>
+  toolProfileSaving?: boolean
   replyPreview?: string
   running?: boolean
   uploadPending?: boolean
@@ -61,6 +69,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   'update:modelValue': [value: string]
   selectModel: [key: string]
+  selectToolProfile: [profile: ToolProfile]
   addAttachment: []
   removeAttachment: [index: number]
   removeUploadItem: [index: number]
@@ -90,6 +99,16 @@ const limitsText = computed(
 const primaryActionLabel = computed(() => (props.running ? '停止生成' : '发送'))
 const canUsePrimaryAction = computed(() =>
   props.running ? props.canStop !== false : props.canSend
+)
+const selectedToolProfile = computed(
+  () =>
+    props.toolProfileOptions.find((option) => option.value === props.toolProfile) ??
+    props.toolProfileOptions[0] ??
+    null
+)
+const selectedToolProfileLabel = computed(() => selectedToolProfile.value?.label ?? '权限')
+const selectedToolProfileDescription = computed(
+  () => selectedToolProfile.value?.description ?? '选择 Agent 工具权限'
 )
 
 function handleCompositionStart() {
@@ -142,6 +161,11 @@ function attachmentMeta(file: StagedFileInfo | StagedUploadItem) {
   if ('size' in file && file.size) details.push(formatBytes(file.size))
   if ('mimeType' in file && file.mimeType) details.push(file.mimeType)
   return details.join(' · ')
+}
+
+function handleToolProfileSelect(value: unknown) {
+  if (typeof value !== 'string') return
+  emit('selectToolProfile', value as ToolProfile)
 }
 
 function handlePrimaryAction() {
@@ -353,6 +377,45 @@ function handleDrop(event: DragEvent) {
                           <span class="truncate">{{ option.modelName }}</span>
                           <span class="truncate text-xs text-muted-foreground">
                             {{ option.providerName }}
+                          </span>
+                        </div>
+                      </DropdownMenuRadioItem>
+                    </DropdownMenuRadioGroup>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+
+                <DropdownMenu>
+                  <DropdownMenuTrigger as-child>
+                    <InputGroupButton
+                      class="max-w-40 justify-start"
+                      :disabled="toolProfileSaving || !toolProfileOptions.length"
+                      :aria-label="`Agent 权限：${selectedToolProfileDescription}`"
+                    >
+                      <ShieldCheckIcon data-icon="inline-start" />
+                      <span class="truncate">{{ selectedToolProfileLabel }}</span>
+                    </InputGroupButton>
+                  </DropdownMenuTrigger>
+
+                  <DropdownMenuContent
+                    align="start"
+                    class="w-72"
+                  >
+                    <DropdownMenuLabel>Agent 权限</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuRadioGroup
+                      :model-value="toolProfile"
+                      @update:model-value="handleToolProfileSelect"
+                    >
+                      <DropdownMenuRadioItem
+                        v-for="option in toolProfileOptions"
+                        :key="option.value"
+                        :value="option.value"
+                        class="items-start"
+                      >
+                        <div class="flex min-w-0 flex-1 flex-col gap-0.5">
+                          <span class="truncate">{{ option.label }}</span>
+                          <span class="text-xs text-muted-foreground">
+                            {{ option.description }}
                           </span>
                         </div>
                       </DropdownMenuRadioItem>

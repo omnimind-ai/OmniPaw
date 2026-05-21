@@ -25,6 +25,9 @@ const {
   selectedModelKey,
   selectedModelLabel,
   selectedModelMeta,
+  agentToolProfile,
+  toolProfileOptions,
+  toolProfileSaving,
   replyPreview,
   currentSessionRunning,
   uploadPending,
@@ -37,6 +40,7 @@ const {
   handleFilesDropped,
   clearReply,
   handleModelChange,
+  handleToolProfileChange,
   handlePaste,
   handleSubmit,
   handleStop,
@@ -83,6 +87,9 @@ const {
         :selected-model-key="selectedModelKey"
         :selected-model-label="selectedModelLabel"
         :selected-model-meta="selectedModelMeta"
+        :tool-profile="agentToolProfile"
+        :tool-profile-options="toolProfileOptions"
+        :tool-profile-saving="toolProfileSaving"
         :reply-preview="replyPreview"
         :running="currentSessionRunning"
         :upload-pending="uploadPending"
@@ -96,6 +103,7 @@ const {
         @files-dropped="handleFilesDropped"
         @clear-reply="clearReply"
         @select-model="handleModelChange"
+        @select-tool-profile="handleToolProfileChange"
         @paste="handlePaste"
         @submit="handleSubmit"
         @stop="handleStop"

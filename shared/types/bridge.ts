@@ -26,6 +26,8 @@ import type {
   RegenerateMessageRequest,
   SendMessageRequest,
   SendMessageResponse,
+  ToolApprovalRequest,
+  ToolApprovalResponse,
   UpdateSessionRequest,
   UploadAttachmentRequest,
   UploadAttachmentResponse,
@@ -281,6 +283,7 @@ export interface OpenOmniClawBridge {
     abortRun: (
       ...args: [request: AbortRunRequest | string] | [runId: string, reason?: string]
     ) => Promise<AbortRunResponse>
+    approveToolCall: (request: ToolApprovalRequest) => Promise<ToolApprovalResponse>
     editMessage: (
       ...args:
         | [request: EditMessageRequest]

@@ -9,7 +9,6 @@ import {
   PlugIcon,
   SearchIcon,
   ServerIcon,
-  ShieldCheckIcon,
   SlidersHorizontalIcon,
   WrenchIcon,
 } from 'lucide-vue-next'
@@ -37,7 +36,6 @@ export type SettingsTab =
   | 'display'
   | 'data'
   | 'tools'
-  | 'agent'
   | 'skills'
   | 'schedule'
   | 'about'
@@ -67,7 +65,6 @@ const settingsItems: SettingsNavItem[] = [
 ]
 
 const capabilityItems: SettingsNavItem[] = [
-  { value: 'agent', label: 'Agent 权限', icon: ShieldCheckIcon },
   { value: 'tools', label: '工具设置', icon: WrenchIcon },
   { value: 'skills', label: '技能', icon: BookOpenIcon },
   { value: 'schedule', label: '计划任务', icon: CalendarClockIcon },
