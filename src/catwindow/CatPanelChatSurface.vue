@@ -104,7 +104,7 @@ const {
     <header class="flex shrink-0 items-center gap-2 border-b border-border/70 px-3 py-2">
       <div class="min-w-0 flex-1">
         <div class="flex min-w-0 items-center gap-2">
-          <p class="truncate text-sm font-semibold">小猫</p>
+          <p class="truncate text-sm font-semibold">小万</p>
           <Badge
             variant="secondary"
             class="shrink-0"
@@ -143,7 +143,7 @@ const {
           align="end"
           class="w-72"
         >
-          <DropdownMenuLabel>小猫会话</DropdownMenuLabel>
+          <DropdownMenuLabel>会话</DropdownMenuLabel>
           <DropdownMenuSeparator />
 
           <DropdownMenuGroup>
@@ -262,7 +262,6 @@ const {
             class="text-muted-foreground"
             aria-hidden="true"
           />
-          <p class="text-sm font-medium">小猫会话已就绪</p>
           <p class="text-xs leading-5 text-muted-foreground">
             {{ selectedModel ? '等待消息' : '需要可用模型' }}
           </p>

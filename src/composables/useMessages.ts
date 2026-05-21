@@ -118,6 +118,7 @@ interface ActiveConnection {
   messageId: string
   transport: TransportMode
   runId?: string
+  catLifecycleState?: 'preparing' | 'running'
   unsubscribe?: () => void
 }
 
@@ -429,7 +430,7 @@ export function useMessages(options: UseMessagesOptions) {
     }
 
     try {
-      await appBridge.cat.setState('preparing').catch(() => {})
+      await setCatLifecyclePreparing()
       const request: BridgeRegenerateMessageRequest = {
         sessionId,
         messageId: String(targetMessageId),
@@ -442,11 +443,11 @@ export function useMessages(options: UseMessagesOptions) {
       botRecord.id = response.assistantMessageId || response.messageId || botRecord.id
       const unsubscribe = appBridge.chat.onStreamEvent?.((event) => {
         if (event.sessionId !== sessionId || event.runId !== response.runId) return
+        markCatLifecycleRunning(sessionId)
         processBridgeStreamEvent(botRecord, event)
         options.onStreamUpdate?.(sessionId)
-        if (event.type === 'final' || event.type === 'error' || event.type === 'aborted') {
-          activeConnections[sessionId]?.unsubscribe?.()
-          delete activeConnections[sessionId]
+        if (isTerminalStreamEvent(event)) {
+          settleCatLifecycle(sessionId, event.type)
           options.onSessionsChanged?.()
         }
       })
@@ -455,8 +456,10 @@ export function useMessages(options: UseMessagesOptions) {
         messageId: String(botRecord.id),
         runId: response.runId,
         transport: 'sse',
+        catLifecycleState: 'preparing',
         unsubscribe,
       }
+      markCatLifecycleRunning(sessionId)
     } catch (error) {
       delete activeConnections[sessionId]
       markRecordErrored(botRecord, error)
@@ -465,9 +468,7 @@ export function useMessages(options: UseMessagesOptions) {
         messageId: String(targetMessageId),
         error,
       })
-      if (!runningSessionIds.value.length) {
-        void appBridge.cat.setState('idle').catch(() => {})
-      }
+      settleCatLifecycle(sessionId, 'error')
       toast.error(error, { description: '重新生成失败' })
     } finally {
       await options.onSessionsChanged?.()
@@ -504,18 +505,18 @@ export function useMessages(options: UseMessagesOptions) {
     llmCheckpointId: string | null = null
   ) {
     let runId: string | undefined
-    await appBridge.cat.setState('preparing').catch(() => {})
+    await setCatLifecyclePreparing()
     const unsubscribe = appBridge.chat.onStreamEvent?.((event) => {
       if (event.sessionId !== sessionId) return
       if (runId && event.runId !== runId) return
       if (event.assistantMessageId !== String(botRecord.id) && event.runId !== runId) return
+      markCatLifecycleRunning(sessionId)
       processBridgeStreamEvent(botRecord, event)
       options.onStreamUpdate?.(sessionId)
-      if (event.type === 'final' || event.type === 'error' || event.type === 'aborted') {
+      if (isTerminalStreamEvent(event)) {
         const active = activeConnections[sessionId]
         if (active?.runId === event.runId) {
-          active.unsubscribe?.()
-          delete activeConnections[sessionId]
+          settleCatLifecycle(sessionId, event.type)
           options.onSessionsChanged?.()
         }
       }
@@ -525,6 +526,7 @@ export function useMessages(options: UseMessagesOptions) {
       sessionId,
       messageId,
       transport: 'sse',
+      catLifecycleState: 'preparing',
       unsubscribe,
     }
 
@@ -545,6 +547,7 @@ export function useMessages(options: UseMessagesOptions) {
 
       runId = response.runId
       activeConnections[sessionId].runId = runId
+      markCatLifecycleRunning(sessionId)
       botRecord.id = response.assistantMessageId || response.messageId || botRecord.id
       if (userRecord && response.userMessageId) {
         userRecord.id = response.userMessageId
@@ -566,12 +569,36 @@ export function useMessages(options: UseMessagesOptions) {
         modelId: selectedModel || undefined,
         error,
       })
-      if (!runningSessionIds.value.length) {
-        void appBridge.cat.setState('idle').catch(() => {})
-      }
+      settleCatLifecycle(sessionId, 'error')
       toast.error(error, { description: '消息发送失败' })
       await options.onSessionsChanged?.()
     }
+  }
+
+  async function setCatLifecyclePreparing() {
+    await appBridge.cat.setState('preparing').catch(() => {})
+  }
+
+  function markCatLifecycleRunning(sessionId: string) {
+    const connection = activeConnections[sessionId]
+    if (connection?.catLifecycleState === 'running') return
+    if (connection) {
+      connection.catLifecycleState = 'running'
+    }
+    void appBridge.cat.setState('running').catch(() => {})
+  }
+
+  function settleCatLifecycle(sessionId: string, eventType: BridgeStreamEvent['type']) {
+    activeConnections[sessionId]?.unsubscribe?.()
+    delete activeConnections[sessionId]
+    if (Object.keys(activeConnections).length > 0) return
+
+    const nextState = eventType === 'final' ? 'completed' : 'idle'
+    void appBridge.cat.setState(nextState).catch(() => {})
+  }
+
+  function isTerminalStreamEvent(event: BridgeStreamEvent) {
+    return event.type === 'final' || event.type === 'error' || event.type === 'aborted'
   }
 
   function processBridgeStreamEvent(botRecord: ChatRecord, event: BridgeStreamEvent) {
