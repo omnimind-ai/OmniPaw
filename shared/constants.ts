@@ -26,6 +26,19 @@ export const IPC_CHANNELS = {
   },
   catPanel: {
     placement: 'cat-panel:placement',
+    open: 'cat-panel:open',
+    getActiveSession: 'cat-panel:get-active-session',
+    setActiveSession: 'cat-panel:set-active-session',
+    activeSessionChanged: 'cat-panel:active-session-changed',
+    getDraft: 'cat-panel:get-draft',
+    stageDraftAttachments: 'cat-panel:stage-draft-attachments',
+    clearDraft: 'cat-panel:clear-draft',
+    draftChanged: 'cat-panel:draft-changed',
+  },
+  catNotification: {
+    event: 'cat-notification:event',
+    close: 'cat-notification:close',
+    viewResult: 'cat-notification:view-result',
   },
   settings: {
     load: 'settings:load',

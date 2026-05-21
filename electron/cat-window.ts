@@ -5,14 +5,45 @@ import { IPC_CHANNELS } from '@shared/constants'
 import type {
   CatBounds,
   CatCommandEvent,
+  CatDraftAttachment,
+  CatDraftChangedEvent,
+  CatDraftClearRequest,
+  CatDraftRequest,
+  CatDraftStageRequest,
+  CatDraftState,
   CatDragPayload,
+  CatPanelActiveSessionState,
+  CatPanelOpenRequest,
   CatPanelPlacement,
+  CatPanelSetActiveSessionRequest,
   CatPanelToggleResult,
   CatStatus,
   CatTaskState,
   CatWindowState,
 } from '@shared/types/cat'
 import { BrowserWindow, ipcMain, screen } from 'electron'
+
+type CatSessionIdResolver = (
+  preferredSessionId?: string | null
+) => string | null | Promise<string | null>
+
+interface OpenCatPanelOptions {
+  sessionId?: string | null
+  source?: string
+}
+
+interface StageCatDraftAttachmentsInput {
+  sessionId?: string | null
+  attachments?: unknown[]
+  replace?: boolean
+  source?: string
+}
+
+interface ClearCatDraftInput {
+  sessionId?: string | null
+  attachmentIds?: string[]
+  source?: string
+}
 
 const allowedTaskStates = new Set<CatTaskState>(['idle', 'preparing', 'running', 'completed'])
 const allowedWindowStates = new Set<CatWindowState>([
@@ -31,8 +62,8 @@ const catWindowSize = {
 }
 
 const catPanelSize = {
-  width: 376,
-  height: 360,
+  width: 420,
+  height: 560,
 }
 
 const catPanelGap = 2
@@ -53,9 +84,17 @@ let catVisible = false
 let catPanelVisible = false
 let catPanelSide: CatPanelPlacement['side'] | null = null
 let catLogger: Logger | undefined
+let activeCatSessionId: string | null = null
+let activeCatSessionUpdatedAt = Date.now()
+let catSessionIdResolver: CatSessionIdResolver | undefined
+const catDrafts = new Map<string, CatDraftState>()
 
 function setCatWindowLogger(logger: Logger): void {
   catLogger = logger
+}
+
+function setCatSessionIdResolver(resolver: CatSessionIdResolver | undefined): void {
+  catSessionIdResolver = resolver
 }
 
 function clamp(value: number, min: number, max: number): number {
@@ -64,6 +103,98 @@ function clamp(value: number, min: number, max: number): number {
 
 function isFiniteNumber(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value)
+}
+
+function normalizeIdentifier(value: unknown, maxLength = 160): string | null {
+  if (typeof value !== 'string') {
+    return null
+  }
+
+  const normalized = value.trim()
+  if (!normalized) {
+    return null
+  }
+
+  return normalized.slice(0, maxLength)
+}
+
+function sanitizeBoundedText(value: unknown, maxLength: number): string | undefined {
+  if (typeof value !== 'string') {
+    return undefined
+  }
+
+  const normalized = value
+    .replace(/\p{Cc}/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+  if (!normalized) {
+    return undefined
+  }
+
+  return normalized.slice(0, maxLength)
+}
+
+function sanitizeFilename(value: unknown): string {
+  const fallback = 'attachment'
+  const bounded = sanitizeBoundedText(value, 180)
+  if (!bounded) {
+    return fallback
+  }
+
+  const filename = bounded.split(/[\\/]/).filter(Boolean).at(-1)
+  return filename || fallback
+}
+
+function normalizeDraftAttachment(value: unknown): CatDraftAttachment | null {
+  if (!value || typeof value !== 'object') {
+    return null
+  }
+
+  const record = value as Record<string, unknown>
+  const attachmentId = normalizeIdentifier(record.attachmentId ?? record.id)
+  if (!attachmentId) {
+    return null
+  }
+
+  const sizeBytes = isFiniteNumber(record.sizeBytes ?? record.size)
+    ? Math.max(0, Math.floor(Number(record.sizeBytes ?? record.size)))
+    : undefined
+  const mimeType = sanitizeBoundedText(record.mimeType ?? record.type, 120)
+  const kind = normalizeAttachmentKind(record.kind)
+
+  return {
+    attachmentId,
+    attachment_id: attachmentId,
+    filename: sanitizeFilename(record.filename ?? record.originalName ?? record.name),
+    originalName: sanitizeFilename(record.originalName ?? record.name),
+    ...(mimeType ? { mimeType } : {}),
+    ...(sizeBytes !== undefined ? { sizeBytes } : {}),
+    ...(kind ? { kind } : {}),
+  }
+}
+
+function mergeDraftAttachments(
+  existing: CatDraftAttachment[],
+  incoming: CatDraftAttachment[]
+): CatDraftAttachment[] {
+  const byId = new Map<string, CatDraftAttachment>()
+  for (const attachment of existing) {
+    byId.set(attachment.attachmentId, attachment)
+  }
+  for (const attachment of incoming) {
+    byId.set(attachment.attachmentId, attachment)
+  }
+  return [...byId.values()]
+}
+
+function normalizeAttachmentKind(value: unknown): CatDraftAttachment['kind'] | undefined {
+  return value === 'image' ||
+    value === 'audio' ||
+    value === 'video' ||
+    value === 'file' ||
+    value === 'text'
+    ? value
+    : undefined
 }
 
 function getDisplay(bounds: CatBounds) {
@@ -87,6 +218,55 @@ function loadRendererEntry(window: BrowserWindow, entryName: string): void {
   }
 
   void window.loadFile(entry)
+}
+
+function sendToCatPanel(channel: string, payload: unknown): void {
+  if (!catPanelWindow || catPanelWindow.isDestroyed()) {
+    return
+  }
+
+  const send = () => {
+    if (catPanelWindow && !catPanelWindow.isDestroyed()) {
+      catPanelWindow.webContents.send(channel, payload)
+    }
+  }
+
+  if (catPanelWindow.webContents.isLoading()) {
+    catPanelWindow.webContents.once('did-finish-load', send)
+  } else {
+    send()
+  }
+}
+
+function sendCatPanelPlacement(placement: CatPanelPlacement): void {
+  sendToCatPanel(IPC_CHANNELS.catPanel.placement, placement)
+}
+
+function notifyActiveCatSessionChanged(source = 'main'): void {
+  const event: CatPanelActiveSessionState = {
+    ...(activeCatSessionId ? { sessionId: activeCatSessionId } : {}),
+    updatedAt: activeCatSessionUpdatedAt,
+  }
+  for (const window of BrowserWindow.getAllWindows()) {
+    window.webContents.send(IPC_CHANNELS.catPanel.activeSessionChanged, event)
+  }
+  catLogger?.debug('Active cat session changed.', {
+    sessionId: activeCatSessionId,
+    source,
+  })
+}
+
+function notifyCatDraftChanged(snapshot: CatDraftState | null, source = 'main'): void {
+  const sessionId = snapshot?.sessionId ?? activeCatSessionId ?? undefined
+  const event: CatDraftChangedEvent = {
+    ...(sessionId ? { sessionId } : {}),
+    draft: snapshot,
+    source,
+    updatedAt: Date.now(),
+  }
+  for (const window of BrowserWindow.getAllWindows()) {
+    window.webContents.send(IPC_CHANNELS.catPanel.draftChanged, event)
+  }
 }
 
 function getInitialCatBounds(): CatBounds {
@@ -124,6 +304,143 @@ function getCatStatus(extra: Partial<CatStatus> = {}): CatStatus {
     panelSide: catPanelSide,
     ...extra,
   }
+}
+
+function getCatWindowBounds(): CatBounds | null {
+  return catWindow && !catWindow.isDestroyed() ? catWindow.getBounds() : null
+}
+
+function getActiveCatSessionId(): string | null {
+  return activeCatSessionId
+}
+
+function setActiveCatSessionId(
+  sessionId: string | null | undefined,
+  source = 'main'
+): string | null {
+  const normalized = normalizeIdentifier(sessionId)
+  if (activeCatSessionId === normalized) {
+    return activeCatSessionId
+  }
+
+  activeCatSessionId = normalized
+  activeCatSessionUpdatedAt = Date.now()
+  notifyActiveCatSessionChanged(source)
+  if (activeCatSessionId) {
+    notifyCatDraftChanged(catDrafts.get(activeCatSessionId) ?? null, source)
+  }
+  return activeCatSessionId
+}
+
+async function ensureActiveCatSessionId(
+  preferredSessionId?: string | null
+): Promise<string | null> {
+  const preferred = normalizeIdentifier(preferredSessionId)
+  const fallback = preferred ?? activeCatSessionId
+
+  if (catSessionIdResolver) {
+    const resolved = normalizeIdentifier(await catSessionIdResolver(fallback))
+    if (resolved) {
+      return setActiveCatSessionId(resolved, preferred ? 'preferred' : 'resolver')
+    }
+  }
+
+  if (fallback) {
+    return setActiveCatSessionId(fallback, preferred ? 'preferred' : 'cached')
+  }
+
+  return null
+}
+
+function getCatDraftSnapshot(sessionId = activeCatSessionId): CatDraftState | null {
+  const normalized = normalizeIdentifier(sessionId)
+  if (!normalized) {
+    return null
+  }
+
+  return catDrafts.get(normalized) ?? null
+}
+
+async function stageCatDraftAttachments(
+  input: StageCatDraftAttachmentsInput
+): Promise<CatDraftState | null> {
+  const sessionId = await ensureActiveCatSessionId(input.sessionId)
+  if (!sessionId) {
+    catLogger?.warn('Unable to stage cat draft attachments without an active cat session.')
+    return null
+  }
+
+  const incoming = (input.attachments ?? [])
+    .map((attachment) => normalizeDraftAttachment(attachment))
+    .filter((attachment): attachment is CatDraftAttachment => attachment !== null)
+
+  const existing = catDrafts.get(sessionId)
+  if (incoming.length === 0) {
+    openCatPanelWindow({ sessionId, source: input.source ?? 'draft' })
+    notifyCatDraftChanged(existing ?? null, input.source ?? 'draft')
+    return existing ?? null
+  }
+
+  const snapshot: CatDraftState = {
+    sessionId,
+    attachments: (input.replace
+      ? incoming
+      : mergeDraftAttachments(existing?.attachments ?? [], incoming)
+    ).slice(0, 12),
+    updatedAt: Date.now(),
+  }
+  catDrafts.set(sessionId, snapshot)
+
+  openCatPanelWindow({ sessionId, source: input.source ?? 'draft' })
+  notifyCatDraftChanged(snapshot, input.source ?? 'draft')
+
+  catLogger?.info('Cat draft attachments staged.', {
+    sessionId,
+    attachmentCount: incoming.length,
+    totalAttachmentCount: snapshot.attachments.length,
+    source: input.source,
+  })
+  return snapshot
+}
+
+function clearCatDraft(input: ClearCatDraftInput = {}): CatDraftState | null {
+  const sessionId = normalizeIdentifier(input.sessionId) ?? activeCatSessionId
+  if (!sessionId) {
+    return null
+  }
+
+  const existing = catDrafts.get(sessionId)
+  if (!existing) {
+    notifyCatDraftChanged(null, input.source ?? 'clear')
+    return null
+  }
+
+  const attachmentIds = new Set((input.attachmentIds ?? []).map((id) => normalizeIdentifier(id)))
+  attachmentIds.delete(null)
+
+  if (attachmentIds.size === 0) {
+    catDrafts.delete(sessionId)
+    notifyCatDraftChanged(null, input.source ?? 'clear')
+    return null
+  }
+
+  const snapshot: CatDraftState = {
+    sessionId,
+    attachments: existing.attachments.filter(
+      (attachment) => !attachmentIds.has(attachment.attachmentId)
+    ),
+    updatedAt: Date.now(),
+  }
+
+  if (snapshot.attachments.length === 0) {
+    catDrafts.delete(sessionId)
+    notifyCatDraftChanged(null, input.source ?? 'clear')
+    return null
+  }
+
+  catDrafts.set(sessionId, snapshot)
+  notifyCatDraftChanged(snapshot, input.source ?? 'clear')
+  return snapshot
 }
 
 function sendCatCommand(state: CatWindowState, source = 'main'): void {
@@ -446,6 +763,40 @@ function setCatState(state: CatTaskState): CatStatus {
   return getCatStatus({ state, visible: true })
 }
 
+function openCatPanelWindow(options: OpenCatPanelOptions = {}): CatPanelToggleResult {
+  if (options.sessionId) {
+    setActiveCatSessionId(options.sessionId, options.source ?? 'panel')
+  }
+
+  showCatWindow()
+
+  if (!catWindow || catWindow.isDestroyed() || !catWindow.isVisible()) {
+    return {
+      visible: false,
+    }
+  }
+
+  const placement = getCatPanelPlacement(catWindow.getBounds())
+  const panelWindow = createCatPanelWindow(placement)
+  panelWindow.setBounds(placement.bounds)
+  sendCatPanelPlacement(placement)
+
+  panelWindow.showInactive()
+  catPanelVisible = true
+  catPanelSide = placement.side
+
+  notifyActiveCatSessionChanged(options.source ?? 'panel')
+  if (activeCatSessionId) {
+    notifyCatDraftChanged(catDrafts.get(activeCatSessionId) ?? null, options.source ?? 'panel')
+  }
+
+  return {
+    visible: true,
+    side: placement.side,
+    bounds: placement.bounds,
+  }
+}
+
 function toggleCatPanelWindow(): CatPanelToggleResult {
   if (!catWindow || catWindow.isDestroyed() || !catWindow.isVisible()) {
     return {
@@ -463,31 +814,7 @@ function toggleCatPanelWindow(): CatPanelToggleResult {
     }
   }
 
-  const placement = getCatPanelPlacement(catWindow.getBounds())
-  const panelWindow = createCatPanelWindow(placement)
-  panelWindow.setBounds(placement.bounds)
-
-  const sendPlacement = () => {
-    if (catPanelWindow && !catPanelWindow.isDestroyed()) {
-      catPanelWindow.webContents.send(IPC_CHANNELS.catPanel.placement, placement)
-    }
-  }
-
-  if (panelWindow.webContents.isLoading()) {
-    panelWindow.webContents.once('did-finish-load', sendPlacement)
-  } else {
-    sendPlacement()
-  }
-
-  panelWindow.showInactive()
-  catPanelVisible = true
-  catPanelSide = placement.side
-
-  return {
-    visible: true,
-    side: placement.side,
-    bounds: placement.bounds,
-  }
+  return openCatPanelWindow({ source: 'toggle' })
 }
 
 function dragStart(): CatBounds | null {
@@ -548,19 +875,64 @@ function registerCatWindowIpcHandlers(): void {
   ipcMain.on(IPC_CHANNELS.cat.reportState, (_event, state: CatWindowState) => {
     reportCatState(state)
   })
+
+  ipcMain.handle(IPC_CHANNELS.catPanel.open, async (_event, request?: CatPanelOpenRequest) => {
+    const sessionId = await ensureActiveCatSessionId(request?.sessionId)
+    return openCatPanelWindow({ sessionId, source: 'ipc' })
+  })
+  ipcMain.handle(IPC_CHANNELS.catPanel.getActiveSession, async () => {
+    await ensureActiveCatSessionId(activeCatSessionId)
+    return {
+      ...(activeCatSessionId ? { sessionId: activeCatSessionId } : {}),
+      updatedAt: activeCatSessionUpdatedAt,
+    }
+  })
+  ipcMain.handle(
+    IPC_CHANNELS.catPanel.setActiveSession,
+    (_event, request: CatPanelSetActiveSessionRequest | string | undefined) => {
+      const sessionId = typeof request === 'string' ? request : request?.sessionId
+      setActiveCatSessionId(sessionId, 'panel')
+      return {
+        ...(activeCatSessionId ? { sessionId: activeCatSessionId } : {}),
+        updatedAt: activeCatSessionUpdatedAt,
+      }
+    }
+  )
+  ipcMain.handle(IPC_CHANNELS.catPanel.getDraft, (_event, request?: CatDraftRequest | string) => {
+    const sessionId = typeof request === 'string' ? request : request?.sessionId
+    return getCatDraftSnapshot(sessionId ?? activeCatSessionId)
+  })
+  ipcMain.handle(
+    IPC_CHANNELS.catPanel.stageDraftAttachments,
+    (_event, input: StageCatDraftAttachmentsInput | CatDraftStageRequest) =>
+      stageCatDraftAttachments(input)
+  )
+  ipcMain.handle(
+    IPC_CHANNELS.catPanel.clearDraft,
+    (_event, input: ClearCatDraftInput | CatDraftClearRequest | string) =>
+      clearCatDraft(typeof input === 'string' ? { sessionId: input } : input)
+  )
 }
 
 export {
+  clearCatDraft,
   closeCatPanelWindow,
   closeCatWindow,
   dragEnd,
   dragMove,
   dragStart,
+  getActiveCatSessionId,
+  getCatDraftSnapshot,
+  getCatWindowBounds,
   hideCatWindow,
+  openCatPanelWindow,
   registerCatWindowIpcHandlers,
+  setActiveCatSessionId,
+  setCatSessionIdResolver,
   setCatState,
   setCatWindowLogger,
   showCatWindow,
+  stageCatDraftAttachments,
   toggleCatPanelWindow,
   toggleCatVisibility,
 }

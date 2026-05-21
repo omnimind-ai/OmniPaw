@@ -1,8 +1,18 @@
 import type {
   CatBounds,
   CatCommandEvent,
+  CatDraftChangedEvent,
+  CatDraftClearRequest,
+  CatDraftRequest,
+  CatDraftStageRequest,
+  CatDraftState,
   CatDragPayload,
+  CatNotificationActionRequest,
+  CatNotificationEvent,
+  CatPanelActiveSessionState,
+  CatPanelOpenRequest,
   CatPanelPlacement,
+  CatPanelSetActiveSessionRequest,
   CatPanelToggleResult,
   CatStatus,
   CatTaskState,
@@ -108,7 +118,7 @@ export interface BridgeDesktopSettingsChangedEvent {
 export interface BridgeChatSession {
   id: string
   title: string
-  kind?: 'chat' | 'cron' | string
+  kind?: 'chat' | 'cat' | 'cron' | string
   status: 'active' | 'archived' | 'deleted'
   defaultProviderId?: string
   defaultModelId?: string
@@ -120,6 +130,16 @@ export interface BridgeChatSession {
   lastMessageAt?: number
   createdAt: number
   updatedAt: number
+}
+
+export interface BridgeListSessionsRequest {
+  kind?: 'chat' | 'cat' | 'cron' | 'all'
+  includeDeleted?: boolean
+}
+
+export interface BridgeCreateSessionRequest {
+  title?: string
+  kind?: 'chat' | 'cat'
 }
 
 export interface BridgeChatSessionChangedEvent {
@@ -690,6 +710,23 @@ export interface RendererOpenOmniClawBridge {
   }
   catPanel: {
     onPlacement: (callback: (event: CatPanelPlacement) => void) => BridgeUnsubscribe
+    open?: (request?: CatPanelOpenRequest) => Promise<CatPanelToggleResult>
+    getActiveSession?: () => Promise<CatPanelActiveSessionState>
+    setActiveSession?: (
+      request: CatPanelSetActiveSessionRequest | string
+    ) => Promise<CatPanelActiveSessionState>
+    onActiveSessionChanged?: (
+      callback: (event: CatPanelActiveSessionState) => void
+    ) => BridgeUnsubscribe
+    getDraft?: (request?: CatDraftRequest | string) => Promise<CatDraftState | null>
+    stageDraftAttachments?: (request: CatDraftStageRequest) => Promise<CatDraftState>
+    clearDraft?: (request: CatDraftClearRequest | string) => Promise<CatDraftState | null>
+    onDraftChanged?: (callback: (event: CatDraftChangedEvent) => void) => BridgeUnsubscribe
+  }
+  catNotification?: {
+    onEvent?: (callback: (event: CatNotificationEvent) => void) => BridgeUnsubscribe
+    close?: (request?: CatNotificationActionRequest | string) => Promise<void>
+    viewResult?: (request: CatNotificationActionRequest | string) => Promise<void>
   }
   settings?: {
     load: () => Promise<BridgeDesktopSettingsConfig>
@@ -701,8 +738,8 @@ export interface RendererOpenOmniClawBridge {
     onChanged: (callback: (event: BridgeDesktopSettingsChangedEvent) => void) => BridgeUnsubscribe
   }
   chat: {
-    listSessions: () => Promise<BridgeChatSession[]>
-    createSession: (request?: Partial<BridgeChatSession>) => Promise<BridgeChatSession>
+    listSessions: (request?: BridgeListSessionsRequest) => Promise<BridgeChatSession[]>
+    createSession: (request?: BridgeCreateSessionRequest) => Promise<BridgeChatSession>
     updateSession?: (
       sessionId: string,
       patch: Partial<BridgeChatSession>
@@ -839,6 +876,8 @@ let fallbackCatVisible = false
 let fallbackCatState: CatWindowState = 'hidden'
 let fallbackCatPanelVisible = false
 let fallbackCatPanelSide: CatPanelPlacement['side'] | null = null
+let fallbackActiveCatSessionId: string | undefined
+const fallbackCatDrafts = new Map<string, CatDraftState>()
 
 function fallbackCatStatus(extra: Partial<CatStatus> = {}): CatStatus {
   return {
@@ -973,6 +1012,73 @@ const fallbackBridge: RendererOpenOmniClawBridge = {
   },
   catPanel: {
     onPlacement: () => () => {},
+    open: async (request) => {
+      fallbackCatPanelVisible = true
+      fallbackCatPanelSide = 'right'
+      fallbackActiveCatSessionId = request?.sessionId || fallbackActiveCatSessionId
+      return {
+        visible: true,
+        side: fallbackCatPanelSide,
+      }
+    },
+    getActiveSession: async () => ({
+      sessionId: fallbackActiveCatSessionId,
+      updatedAt: Date.now(),
+    }),
+    setActiveSession: async (request) => {
+      fallbackActiveCatSessionId = typeof request === 'string' ? request : request.sessionId
+      return {
+        sessionId: fallbackActiveCatSessionId,
+        updatedAt: Date.now(),
+      }
+    },
+    onActiveSessionChanged: () => () => {},
+    getDraft: async (request) => {
+      const sessionId =
+        typeof request === 'string' ? request : request?.sessionId || fallbackActiveCatSessionId
+      return sessionId ? fallbackCatDrafts.get(sessionId) || null : null
+    },
+    stageDraftAttachments: async (request) => {
+      const previous = fallbackCatDrafts.get(request.sessionId)
+      const draft = {
+        sessionId: request.sessionId,
+        attachments: [...(previous?.attachments || []), ...request.attachments],
+        updatedAt: Date.now(),
+      }
+      fallbackCatDrafts.set(request.sessionId, draft)
+      return draft
+    },
+    clearDraft: async (request) => {
+      const sessionId = typeof request === 'string' ? request : request.sessionId
+      const attachmentIds =
+        typeof request === 'string' ? undefined : new Set(request.attachmentIds || [])
+      const previous = fallbackCatDrafts.get(sessionId)
+      if (!previous) return null
+      if (!attachmentIds?.size) {
+        fallbackCatDrafts.delete(sessionId)
+        return { ...previous, attachments: [], updatedAt: Date.now() }
+      }
+      const draft = {
+        ...previous,
+        attachments: previous.attachments.filter((item) => !attachmentIds.has(item.attachmentId)),
+        updatedAt: Date.now(),
+      }
+      fallbackCatDrafts.set(sessionId, draft)
+      return draft
+    },
+    onDraftChanged: () => () => {},
+  },
+  catNotification: {
+    onEvent: () => () => {},
+    close: async () => {},
+    viewResult: async (request) => {
+      const sessionId = typeof request === 'string' ? undefined : request.sessionId
+      if (sessionId) {
+        fallbackActiveCatSessionId = sessionId
+        fallbackCatPanelVisible = true
+        fallbackCatPanelSide = 'right'
+      }
+    },
   },
   settings: {
     load: async () => fallbackSettingsConfig(),
@@ -990,8 +1096,9 @@ const fallbackBridge: RendererOpenOmniClawBridge = {
     onChanged: () => () => {},
   },
   chat: {
-    listSessions: async () => [
-      {
+    listSessions: async (request) => {
+      const now = Date.now()
+      const chatSession: BridgeChatSession = {
         id: 'welcome',
         title: '默认会话',
         kind: 'chat',
@@ -999,17 +1106,31 @@ const fallbackBridge: RendererOpenOmniClawBridge = {
         defaultProviderId: 'omniinfer-local',
         defaultModelId: 'local-small-model',
         systemPrompt: '你是 OpenOmniClaw，本地优先的桌面 AI 助手。',
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
-      },
-    ],
-    createSession: async () => {
+        createdAt: now,
+        updatedAt: now,
+      }
+      const catSession: BridgeChatSession = {
+        id: fallbackActiveCatSessionId || 'fallback-cat',
+        title: '小猫会话',
+        kind: 'cat',
+        status: 'active',
+        defaultProviderId: 'omniinfer-local',
+        defaultModelId: 'local-small-model',
+        createdAt: now,
+        updatedAt: now,
+      }
+      if (request?.kind === 'cat') return [catSession]
+      if (request?.kind === 'cron') return []
+      if (request?.kind === 'all') return [chatSession, catSession]
+      return [chatSession]
+    },
+    createSession: async (request) => {
       const now = Date.now()
 
       return {
         id: crypto.randomUUID(),
-        title: '新会话',
-        kind: 'chat',
+        title: request?.title || (request?.kind === 'cat' ? '小猫会话' : '新会话'),
+        kind: request?.kind === 'cat' ? 'cat' : 'chat',
         status: 'active',
         defaultProviderId: 'omniinfer-local',
         defaultModelId: 'local-small-model',

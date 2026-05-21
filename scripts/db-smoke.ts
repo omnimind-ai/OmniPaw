@@ -51,6 +51,22 @@ try {
   assert.equal(sessions.get(session.id)?.title, 'Smoke test')
   assert.equal(sessions.updateTitle(session.id, 'Renamed', 2001), true)
   assert.equal(sessions.get(session.id)?.title, 'Renamed')
+  const catSession: ChatSession = {
+    id: 'cat-session-smoke',
+    title: 'Cat smoke',
+    kind: 'cat',
+    status: 'active',
+    messageCount: 0,
+    createdAt: 2001,
+    updatedAt: 2001,
+  }
+  sessions.save(catSession)
+  assert.equal(sessions.get(catSession.id)?.kind, 'cat')
+  assert.equal(sessions.list({ kind: 'cat' }).length, 1)
+  assert.equal(
+    sessions.list({ kind: 'chat' }).some((item) => item.id === catSession.id),
+    false
+  )
   const cronSession = getOrCreateSmokeCronSession(sessions, 2002)
   assert.equal(cronSession.kind, 'cron')
   assert.equal(sessions.list({ kind: 'cron' }).length, 1)

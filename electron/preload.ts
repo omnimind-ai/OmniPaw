@@ -197,6 +197,22 @@ const bridge: OpenOmniClawBridge = {
   },
   catPanel: {
     onPlacement: (callback) => createUnsubscriber(IPC_CHANNELS.catPanel.placement, callback),
+    open: (request) => ipcRenderer.invoke(IPC_CHANNELS.catPanel.open, request),
+    getActiveSession: () => ipcRenderer.invoke(IPC_CHANNELS.catPanel.getActiveSession),
+    setActiveSession: (request) =>
+      ipcRenderer.invoke(IPC_CHANNELS.catPanel.setActiveSession, request),
+    onActiveSessionChanged: (callback) =>
+      createUnsubscriber(IPC_CHANNELS.catPanel.activeSessionChanged, callback),
+    getDraft: (request) => ipcRenderer.invoke(IPC_CHANNELS.catPanel.getDraft, request),
+    stageDraftAttachments: (request) =>
+      ipcRenderer.invoke(IPC_CHANNELS.catPanel.stageDraftAttachments, request),
+    clearDraft: (request) => ipcRenderer.invoke(IPC_CHANNELS.catPanel.clearDraft, request),
+    onDraftChanged: (callback) => createUnsubscriber(IPC_CHANNELS.catPanel.draftChanged, callback),
+  },
+  catNotification: {
+    onEvent: (callback) => createUnsubscriber(IPC_CHANNELS.catNotification.event, callback),
+    close: (request) => ipcRenderer.invoke(IPC_CHANNELS.catNotification.close, request),
+    viewResult: (request) => ipcRenderer.invoke(IPC_CHANNELS.catNotification.viewResult, request),
   },
   settings: {
     load: () => invokeSettings(IPC_CHANNELS.settings.load),
@@ -207,8 +223,8 @@ const bridge: OpenOmniClawBridge = {
     onChanged: (callback) => createUnsubscriber(IPC_CHANNELS.settings.changed, callback),
   },
   chat: {
-    listSessions: () => ipcRenderer.invoke(IPC_CHANNELS.chat.listSessions),
-    createSession: () => ipcRenderer.invoke(IPC_CHANNELS.chat.createSession),
+    listSessions: (request) => ipcRenderer.invoke(IPC_CHANNELS.chat.listSessions, request),
+    createSession: (request) => ipcRenderer.invoke(IPC_CHANNELS.chat.createSession, request),
     getSession: (sessionId) => ipcRenderer.invoke(IPC_CHANNELS.chat.getSession, sessionId),
     updateSession: (...args) => {
       const request =

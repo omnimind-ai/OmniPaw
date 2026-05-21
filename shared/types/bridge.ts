@@ -2,8 +2,18 @@ import type { AppInfo } from './app'
 import type {
   CatBounds,
   CatCommandEvent,
+  CatDraftChangedEvent,
+  CatDraftClearRequest,
+  CatDraftRequest,
+  CatDraftStageRequest,
+  CatDraftState,
   CatDragPayload,
+  CatNotificationActionRequest,
+  CatNotificationEvent,
+  CatPanelActiveSessionState,
+  CatPanelOpenRequest,
   CatPanelPlacement,
+  CatPanelSetActiveSessionRequest,
   CatPanelToggleResult,
   CatStatus,
   CatTaskState,
@@ -19,10 +29,12 @@ import type {
   ChatSession,
   ChatSessionChangedEvent,
   ChatStreamEvent,
+  CreateSessionRequest,
   DeleteSessionRequest,
   EditMessageRequest,
   EditMessageResponse,
   ListMessagesRequest,
+  ListSessionsRequest,
   RegenerateMessageRequest,
   SendMessageRequest,
   SendMessageResponse,
@@ -260,6 +272,21 @@ export interface OpenOmniClawBridge {
   }
   catPanel: {
     onPlacement: (callback: (placement: CatPanelPlacement) => void) => Unsubscribe
+    open: (request?: CatPanelOpenRequest) => Promise<CatPanelToggleResult>
+    getActiveSession: () => Promise<CatPanelActiveSessionState>
+    setActiveSession: (
+      request: CatPanelSetActiveSessionRequest | string
+    ) => Promise<CatPanelActiveSessionState>
+    onActiveSessionChanged: (callback: (event: CatPanelActiveSessionState) => void) => Unsubscribe
+    getDraft: (request?: CatDraftRequest | string) => Promise<CatDraftState | null>
+    stageDraftAttachments: (request: CatDraftStageRequest) => Promise<CatDraftState>
+    clearDraft: (request: CatDraftClearRequest | string) => Promise<CatDraftState | null>
+    onDraftChanged: (callback: (event: CatDraftChangedEvent) => void) => Unsubscribe
+  }
+  catNotification: {
+    onEvent: (callback: (event: CatNotificationEvent) => void) => Unsubscribe
+    close: (request?: CatNotificationActionRequest | string) => Promise<void>
+    viewResult: (request: CatNotificationActionRequest | string) => Promise<void>
   }
   settings: {
     load: () => Promise<DesktopSettingsConfig>
@@ -271,8 +298,8 @@ export interface OpenOmniClawBridge {
     onChanged: (callback: (event: DesktopSettingsChangedEvent) => void) => Unsubscribe
   }
   chat: {
-    listSessions: () => Promise<ChatSession[]>
-    createSession: () => Promise<ChatSession>
+    listSessions: (request?: ListSessionsRequest) => Promise<ChatSession[]>
+    createSession: (request?: CreateSessionRequest) => Promise<ChatSession>
     getSession: (sessionId: string) => Promise<ChatSession | null>
     updateSession: (
       ...args: [request: UpdateSessionRequest] | [sessionId: string, patch: Partial<ChatSession>]

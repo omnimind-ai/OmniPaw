@@ -16,7 +16,7 @@ export type MessageStatus =
 export type AttachmentKind = 'image' | 'audio' | 'video' | 'file' | 'text'
 
 export type ChatSessionStatus = 'active' | 'archived' | 'deleted'
-export type ChatSessionKind = 'chat' | 'cron'
+export type ChatSessionKind = 'chat' | 'cat' | 'cron'
 
 export type ChatRunStatus = 'queued' | 'running' | 'complete' | 'error' | 'aborted'
 
@@ -337,6 +337,16 @@ export interface SendMessageResponse {
 
   /** Compatibility alias for old callers. */
   messageId?: ID
+}
+
+export interface ListSessionsRequest {
+  kind?: ChatSessionKind | 'all'
+  includeDeleted?: boolean
+}
+
+export interface CreateSessionRequest {
+  title?: string
+  kind?: Extract<ChatSessionKind, 'chat' | 'cat'>
 }
 
 export interface ListMessagesRequest {

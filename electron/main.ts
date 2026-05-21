@@ -2,6 +2,7 @@ import { join } from 'node:path'
 
 import { createElectronLogSink, createProjectLogger } from '@core/logging'
 import { APP_NAME, IPC_CHANNELS } from '@shared/constants'
+import type { ChatSession } from '@shared/types/chat'
 import type { CronTaskChangedEvent } from '@shared/types/cron'
 import type {
   DesktopSettingsChangedEvent,
@@ -10,8 +11,17 @@ import type {
 } from '@shared/types/settings'
 import { app, BrowserWindow } from 'electron'
 import {
+  type CatNotificationController,
+  createCatNotificationController,
+} from './cat-notification-controller'
+import {
   closeCatWindow,
+  getActiveCatSessionId,
+  getCatWindowBounds,
+  openCatPanelWindow,
   registerCatWindowIpcHandlers,
+  setActiveCatSessionId,
+  setCatSessionIdResolver,
   setCatWindowLogger,
   showCatWindow,
 } from './cat-window'
@@ -47,6 +57,7 @@ const lifecycleLogger = mainLogger.child({ scope: 'lifecycle' })
 let runtime: CoreRuntime | undefined
 let mainWindowController: MainWindowController | undefined
 let trayController: TrayController | undefined
+let catNotificationController: CatNotificationController | undefined
 let isQuitting = false
 
 registerProcessDiagnostics()
@@ -112,6 +123,7 @@ function markQuitting(): void {
 
 function quitApp(): void {
   markQuitting()
+  catNotificationController?.destroy()
   closeCatWindow()
   trayController?.destroy()
   app.quit()
@@ -131,6 +143,82 @@ function isMinimizeToTrayEnabled(): boolean {
   } catch {
     return false
   }
+}
+
+function getRuntimeSessionKind(sessionId: string): string | undefined {
+  const session = runtime?.sessionRepo.get(sessionId)
+  return typeof session?.kind === 'string' ? session.kind : undefined
+}
+
+function isRuntimeCatSession(session: ChatSession | undefined | null): session is ChatSession {
+  return session?.status !== 'deleted' && session?.kind === 'cat'
+}
+
+function normalizeSessionId(value: string | null | undefined): string | null {
+  if (typeof value !== 'string') {
+    return null
+  }
+
+  const normalized = value.trim()
+  return normalized || null
+}
+
+async function resolveRuntimeCatSessionId(
+  preferredSessionId?: string | null
+): Promise<string | null> {
+  if (!runtime) {
+    return null
+  }
+
+  const preferred = normalizeSessionId(preferredSessionId)
+  if (preferred && isRuntimeCatSession(runtime.sessionRepo.get(preferred))) {
+    return preferred
+  }
+
+  const active = normalizeSessionId(getActiveCatSessionId())
+  if (active && isRuntimeCatSession(runtime.sessionRepo.get(active))) {
+    return active
+  }
+
+  const existing = runtime.sessionRepo
+    .list({ kind: 'all' })
+    .find((session) => isRuntimeCatSession(session))
+  if (existing) {
+    return existing.id
+  }
+
+  try {
+    const created = await createRuntimeCatSession(runtime)
+    return created.id
+  } catch (error) {
+    mainLogger.warn('Unable to create cat session for cat window state.', { error })
+    return null
+  }
+}
+
+async function createRuntimeCatSession(currentRuntime: CoreRuntime): Promise<ChatSession> {
+  const session = await currentRuntime.chatService.createSession({
+    kind: 'cat',
+    title: '小猫会话',
+  })
+  mainLogger.info('Cat session created.', {
+    sessionId: session.id,
+    providerId: session.defaultProviderId,
+    modelId: session.defaultModelId,
+  })
+  return session
+}
+
+function createCatNotificationControllerForRuntime(): CatNotificationController {
+  return createCatNotificationController({
+    logger: mainLogger.child({ scope: 'cat.notification' }),
+    getSessionKind: getRuntimeSessionKind,
+    getAnchorBounds: getCatWindowBounds,
+    openCatPanel: (sessionId) => {
+      setActiveCatSessionId(sessionId, 'notification')
+      openCatPanelWindow({ sessionId, source: 'notification' })
+    },
+  })
 }
 
 function broadcastSettingsChanged(
@@ -170,6 +258,7 @@ function broadcastCronChanged(event: CronTaskChangedEvent): void {
   for (const window of BrowserWindow.getAllWindows()) {
     window.webContents.send(IPC_CHANNELS.cron.changed, event)
   }
+  catNotificationController?.handleCronChanged(event)
 }
 
 app
@@ -192,6 +281,9 @@ app
     })
     createControllers()
     setCatWindowLogger(mainLogger.child({ scope: 'cat' }))
+    setCatSessionIdResolver(resolveRuntimeCatSessionId)
+    catNotificationController = createCatNotificationControllerForRuntime()
+    catNotificationController.registerIpcHandlers()
     registerCatWindowIpcHandlers()
     registerIpcHandlers({
       appName: APP_NAME,
@@ -221,6 +313,7 @@ app
 app.on('before-quit', () => {
   lifecycleLogger.info('App before-quit.')
   markQuitting()
+  catNotificationController?.destroy()
   closeCatWindow()
   runtime?.dispose()
   trayController?.destroy()

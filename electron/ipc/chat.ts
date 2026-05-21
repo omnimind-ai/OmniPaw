@@ -3,26 +3,31 @@ import type {
   AbortRunRequest,
   AttachmentPreviewRequest,
   ChatMessagePart,
+  ChatSessionKind,
+  CreateSessionRequest,
   DeleteSessionRequest,
   EditMessageRequest,
   ListMessagesRequest,
+  ListSessionsRequest,
   RegenerateMessageRequest,
   SendMessageRequest,
   ToolApprovalRequest,
   UploadAttachmentRequest,
 } from '@shared/types/chat'
 import type { CoreRuntime } from '../core-runtime'
-import { registerLoggedIpcHandler } from './common'
+import { isRecord, registerLoggedIpcHandler } from './common'
 import type { IpcHandlerOptions } from './types'
+
+const chatSessionKinds = new Set<ChatSessionKind>(['chat', 'cat', 'cron'])
 
 export function registerChatIpcHandlers(options: IpcHandlerOptions): void {
   const runtime = options.runtime
 
-  registerLoggedIpcHandler(options, IPC_CHANNELS.chat.listSessions, () =>
-    runtime.chatService.listSessions()
+  registerLoggedIpcHandler(options, IPC_CHANNELS.chat.listSessions, (_event, request?: unknown) =>
+    runtime.chatService.listSessions(normalizeListSessionsRequest(request))
   )
-  registerLoggedIpcHandler(options, IPC_CHANNELS.chat.createSession, () =>
-    runtime.chatService.createSession()
+  registerLoggedIpcHandler(options, IPC_CHANNELS.chat.createSession, (_event, request?: unknown) =>
+    runtime.chatService.createSession(normalizeCreateSessionRequest(request))
   )
   registerLoggedIpcHandler(options, IPC_CHANNELS.chat.getSession, (_event, sessionId: string) =>
     runtime.chatService.getSession(sessionId)
@@ -88,6 +93,43 @@ function normalizeUpdateSessionRequest(request: unknown) {
     return { sessionId: request }
   }
   return request as Parameters<CoreRuntime['chatService']['updateSession']>[0]
+}
+
+function normalizeListSessionsRequest(request: unknown): ListSessionsRequest {
+  if (!isRecord(request)) {
+    return {}
+  }
+
+  const kind = normalizeListSessionKind(request.kind)
+  return {
+    ...(kind ? { kind } : {}),
+    ...(request.includeDeleted === true ? { includeDeleted: true } : {}),
+  }
+}
+
+function normalizeCreateSessionRequest(request: unknown): CreateSessionRequest {
+  if (!isRecord(request)) {
+    return {}
+  }
+
+  const kind = normalizeChatSessionKind(request.kind)
+  return {
+    ...(kind === 'cat' || kind === 'chat' ? { kind } : {}),
+    ...(typeof request.title === 'string' ? { title: request.title } : {}),
+  }
+}
+
+function normalizeListSessionKind(kind: unknown): ListSessionsRequest['kind'] | undefined {
+  if (kind === 'all') {
+    return 'all'
+  }
+  return normalizeChatSessionKind(kind)
+}
+
+function normalizeChatSessionKind(kind: unknown): ChatSessionKind | undefined {
+  return typeof kind === 'string' && chatSessionKinds.has(kind as ChatSessionKind)
+    ? (kind as ChatSessionKind)
+    : undefined
 }
 
 function normalizeEditMessageRequest(request: unknown) {

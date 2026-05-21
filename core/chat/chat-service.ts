@@ -17,10 +17,12 @@ import type {
   ChatMessagePart,
   ChatRun,
   ChatSession,
+  CreateSessionRequest,
   DeleteSessionRequest,
   EditMessageRequest,
   EditMessageResponse,
   ListMessagesRequest,
+  ListSessionsRequest,
   RegenerateMessageRequest,
   SendMessageRequest,
   SendMessageResponse,
@@ -84,20 +86,24 @@ export class ChatService {
       })
   }
 
-  listSessions(): ChatSession[] {
-    return this.options.sessions.list({ kind: 'chat' })
+  listSessions(request: ListSessionsRequest = {}): ChatSession[] {
+    return this.options.sessions.list({
+      kind: request.kind ?? 'chat',
+      includeDeleted: request.includeDeleted,
+    })
   }
 
-  async createSession(): Promise<ChatSession> {
+  async createSession(request: CreateSessionRequest = {}): Promise<ChatSession> {
     const now = Date.now()
-    const { provider, modelId } = await this.options.providers.resolveDefaultProvider()
+    const modelRef = await this.resolveInitialModelRef()
+    const kind = request.kind === 'cat' ? 'cat' : 'chat'
     const session: ChatSession = {
       id: crypto.randomUUID(),
-      title: '新会话',
-      kind: 'chat',
+      title: request.title?.trim() || (kind === 'cat' ? '小猫会话' : '新会话'),
+      kind,
       status: 'active',
-      defaultProviderId: provider.id,
-      defaultModelId: modelId,
+      defaultProviderId: modelRef?.providerId,
+      defaultModelId: modelRef?.modelId,
       messageCount: 0,
       contextPolicy: {
         mode: 'recent-turns',
@@ -110,8 +116,9 @@ export class ChatService {
     this.options.sessions.save(session)
     this.logger?.info('Chat session created.', {
       sessionId: session.id,
-      providerId: provider.id,
-      modelId,
+      kind: session.kind,
+      providerId: session.defaultProviderId,
+      modelId: session.defaultModelId,
     })
     return session
   }
@@ -358,6 +365,18 @@ export class ChatService {
       throw new Error(`Session not found: ${sessionId}`)
     }
     return session
+  }
+
+  private async resolveInitialModelRef(): Promise<
+    { providerId: string; modelId: string } | undefined
+  > {
+    try {
+      const { provider, modelId } = await this.options.providers.resolveDefaultProvider()
+      return { providerId: provider.id, modelId }
+    } catch (error) {
+      this.logger?.warn('Chat session created without a resolved default model.', { error })
+      return undefined
+    }
   }
 
   private async resolveProviderAndModel(
