@@ -1,5 +1,6 @@
 import type { CronRunRepo, CronTaskRepo } from '@core/db/repos'
 import type { Logger } from '@core/logging'
+import type { ChatSession } from '@shared/types/chat'
 import type {
   CreateCronTaskRequest,
   CreateCronTaskResponse,
@@ -32,6 +33,7 @@ import {
 
 export interface CronSessionLookup {
   get(id: string): { id: string; status?: string } | undefined
+  getOrCreateCronSession?: () => Pick<ChatSession, 'id' | 'status' | 'kind'>
 }
 
 export interface ScheduledTaskExecutionResult {
@@ -130,8 +132,16 @@ export class CronManager {
 
   create(request: CreateCronTaskRequest): CreateCronTaskResponse {
     const now = Date.now()
-    const errors = this.validateTaskInput(request, now)
-    const scheduleResult = scheduleFromCreateRequest(request, now)
+    const errors: CronValidationError[] = []
+    const targetSessionId = this.resolveTargetSessionId(request)
+    const sourceSessionId = request.sourceSessionId?.trim() || targetSessionId
+    const normalizedRequest: CreateCronTaskRequest = {
+      ...request,
+      sourceSessionId,
+      targetSessionId,
+    }
+    errors.push(...this.validateTaskInput(normalizedRequest, now))
+    const scheduleResult = scheduleFromCreateRequest(normalizedRequest, now)
     errors.push(...scheduleResult.errors)
     if (scheduleResult.schedule?.kind === 'cron') {
       errors.push(...validateCronExpression(scheduleResult.schedule.cronExpression))
@@ -155,8 +165,8 @@ export class CronManager {
       id: crypto.randomUUID(),
       name: request.name.trim(),
       note: request.note.trim(),
-      sourceSessionId: request.sourceSessionId?.trim() || request.targetSessionId.trim(),
-      targetSessionId: request.targetSessionId.trim(),
+      sourceSessionId,
+      targetSessionId,
       schedule: scheduleResult.schedule,
       enabled: request.enabled ?? true,
       state: request.enabled === false ? 'disabled' : 'idle',
@@ -338,7 +348,10 @@ export class CronManager {
         completedAt: Date.now(),
         resultMessageId: result.resultMessageId,
         resultSummary: result.resultSummary,
-      })!
+      })
+      if (!completed) {
+        throw new Error('Scheduled task run was not found during completion.')
+      }
       this.finalizeTaskAfterRun(task, completed, options.manual)
       this.options.logger?.info('Cron task execution completed.', {
         taskId: task.id,
@@ -360,7 +373,10 @@ export class CronManager {
         status,
         completedAt: Date.now(),
         error: runError,
-      })!
+      })
+      if (!failed) {
+        throw new Error('Scheduled task run was not found during failure handling.')
+      }
       this.finalizeTaskAfterRun(task, failed, options.manual)
       this.options.logger?.warn('Cron task execution failed.', {
         taskId: task.id,
@@ -601,6 +617,18 @@ export class CronManager {
 
   private emit(event: CronTaskChangedEvent): void {
     this.options.onChanged?.(event)
+  }
+
+  private resolveTargetSessionId(request: Pick<CreateCronTaskRequest, 'targetSessionId'>): string {
+    const requested = request.targetSessionId?.trim()
+    if (requested) {
+      return requested
+    }
+    const cronSession = this.options.sessions?.getOrCreateCronSession?.()
+    if (cronSession?.id) {
+      return cronSession.id
+    }
+    return ''
   }
 }
 

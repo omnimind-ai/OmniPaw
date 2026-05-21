@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { SYSTEM_SESSION_IDS } from '@shared/constants'
 import type {
   CreateCronTaskRequest,
   CronRun,
@@ -17,8 +18,7 @@ import {
 } from 'lucide-vue-next'
 import { storeToRefs } from 'pinia'
 import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
-import type { BridgeChatSession, BridgeDesktopSettingsConfig } from '@/bridge/app'
-import { appBridge } from '@/bridge/app'
+import type { BridgeDesktopSettingsConfig } from '@/bridge/app'
 import SettingsSection from '@/components/settings/SettingsSection.vue'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -54,14 +54,13 @@ type ScheduleMode = 'at' | 'cron'
 const cronStore = useCronStore()
 const toast = useToast()
 const { tasks, runsByTaskId, loading, saving, persistenceAvailable } = storeToRefs(cronStore)
-const sessions = ref<BridgeChatSession[]>([])
 const selectedTaskId = ref<string | undefined>()
 const editingTaskId = ref<string | undefined>()
 const confirmDeleteTaskId = ref<string | undefined>()
 const form = reactive({
   name: '',
   note: '',
-  targetSessionId: '',
+  targetSessionId: undefined as string | undefined,
   scheduleMode: 'at' as ScheduleMode,
   runAtLocal: toDatetimeLocal(Date.now() + 60 * 60 * 1000),
   cronExpression: '0 9 * * *',
@@ -89,11 +88,7 @@ const formTitle = computed(() => (editingTaskId.value ? '编辑任务' : '新建
 
 onMounted(async () => {
   try {
-    const [sessionList] = await Promise.all([appBridge.chat.listSessions(), cronStore.loadTasks()])
-    sessions.value = sessionList
-    if (!form.targetSessionId) {
-      form.targetSessionId = sessionList[0]?.id ?? ''
-    }
+    await cronStore.loadTasks()
   } catch (error) {
     toast.error(errorToText(error, '计划任务加载失败。'))
   }
@@ -125,7 +120,7 @@ function startEdit(task: CronTask): void {
 function resetForm(): void {
   form.name = ''
   form.note = ''
-  form.targetSessionId = sessions.value[0]?.id ?? ''
+  form.targetSessionId = undefined
   form.scheduleMode = 'at'
   form.runAtLocal = toDatetimeLocal(Date.now() + 60 * 60 * 1000)
   form.cronExpression = '0 9 * * *'
@@ -139,26 +134,23 @@ function cancelEdit(): void {
 
 async function submitTask(): Promise<void> {
   try {
-    if (!form.targetSessionId) {
-      throw new Error('请选择目标会话。')
-    }
     const schedule = formSchedulePayload()
     if (editingTaskId.value) {
       const request: UpdateCronTaskRequest = {
         taskId: editingTaskId.value,
         name: form.name,
         note: form.note,
-        targetSessionId: form.targetSessionId,
         enabled: form.enabled,
         ...schedule,
+      }
+      if (form.targetSessionId) {
+        request.targetSessionId = form.targetSessionId
       }
       await cronStore.updateTask(request)
     } else {
       const request: CreateCronTaskRequest = {
         name: form.name,
         note: form.note,
-        targetSessionId: form.targetSessionId,
-        sourceSessionId: form.targetSessionId,
         enabled: form.enabled,
         ...schedule,
       }
@@ -221,6 +213,13 @@ function scheduleSummary(schedule: CronSchedule): string {
     return formatTime(schedule.runAt)
   }
   return schedule.cronExpression
+}
+
+function taskSessionLabel(task: CronTask): string {
+  if (task.targetSessionId === SYSTEM_SESSION_IDS.cron) {
+    return '计划任务会话'
+  }
+  return `会话 ${task.targetSessionId.slice(0, 8)}`
 }
 
 function statusLabel(task: CronTask): string {
@@ -351,7 +350,10 @@ function toDatetimeLocal(value: number): string {
       </FieldGroup>
     </SettingsSection>
 
-    <SettingsSection :title="formTitle">
+    <SettingsSection
+      :title="formTitle"
+      description="新任务会使用独立的计划任务会话保存上下文和结果。"
+    >
       <FieldGroup class="gap-0">
         <Field class="border-b px-4 py-3">
           <FieldLabel for="cron-task-name">名称</FieldLabel>
@@ -370,38 +372,6 @@ function toDatetimeLocal(value: number): string {
             placeholder="写给 Agent 的计划任务说明"
             class="min-h-24"
           />
-        </Field>
-
-        <Field
-          orientation="responsive"
-          class="border-b px-4 py-3"
-        >
-          <FieldContent>
-            <FieldLabel for="cron-task-session">目标会话</FieldLabel>
-            <FieldDescription>计划任务会读取并写回这个会话。</FieldDescription>
-          </FieldContent>
-          <Select
-            v-model="form.targetSessionId"
-            class="w-full md:w-72"
-          >
-            <SelectTrigger
-              id="cron-task-session"
-              class="w-full md:w-72"
-            >
-              <SelectValue placeholder="选择会话" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectGroup>
-                <SelectItem
-                  v-for="session in sessions"
-                  :key="session.id"
-                  :value="session.id"
-                >
-                  {{ session.title }}
-                </SelectItem>
-              </SelectGroup>
-            </SelectContent>
-          </Select>
         </Field>
 
         <Field
@@ -531,7 +501,8 @@ function toDatetimeLocal(value: number): string {
                 <Badge variant="secondary">{{ statusLabel(task) }}</Badge>
               </span>
               <span class="text-sm text-muted-foreground">
-                {{ scheduleSummary(task.schedule) }} · 下次 {{ formatTime(task.nextRunAt) }}
+                {{ scheduleSummary(task.schedule) }} · {{ taskSessionLabel(task) }} · 下次
+                {{ formatTime(task.nextRunAt) }}
               </span>
             </button>
 

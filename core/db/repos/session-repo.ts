@@ -1,10 +1,11 @@
 import type { DatabaseConnection } from '../client'
 import { decodeJson, encodeJson } from '../json'
-import type { ChatSession, ContextPolicy } from '../types'
+import type { ChatSession, ChatSessionKind, ContextPolicy } from '../types'
 
 interface SessionRow {
   id: string
   title: string
+  kind?: ChatSessionKind | null
   status: ChatSession['status']
   default_provider_id: string | null
   default_model_id: string | null
@@ -21,16 +22,26 @@ interface SessionRow {
 
 export interface ListSessionsOptions {
   includeDeleted?: boolean
+  kind?: ChatSessionKind | 'all'
 }
 
 export class ChatSessionRepo {
   constructor(private readonly db: DatabaseConnection) {}
 
   list(options: ListSessionsOptions = {}): ChatSession[] {
-    const where = options.includeDeleted ? '' : "WHERE status != 'deleted'"
+    const filters: string[] = []
+    const params: Record<string, unknown> = {}
+    if (!options.includeDeleted) {
+      filters.push("status != 'deleted'")
+    }
+    if (options.kind && options.kind !== 'all') {
+      filters.push('kind = @kind')
+      params.kind = options.kind
+    }
+    const where = filters.length ? `WHERE ${filters.join(' AND ')}` : ''
     return this.db
       .prepare(`SELECT * FROM chat_sessions ${where} ORDER BY pinned DESC, updated_at DESC`)
-      .all()
+      .all(params)
       .map((row) => mapSession(row as SessionRow))
   }
 
@@ -52,16 +63,17 @@ export class ChatSessionRepo {
       .prepare(
         `
           INSERT INTO chat_sessions (
-            id, title, status, default_provider_id, default_model_id, system_prompt,
+            id, title, kind, status, default_provider_id, default_model_id, system_prompt,
             context_policy_json, pinned, message_count, last_message_preview,
             last_message_at, metadata_json, created_at, updated_at
           ) VALUES (
-            @id, @title, @status, @defaultProviderId, @defaultModelId, @systemPrompt,
+            @id, @title, @kind, @status, @defaultProviderId, @defaultModelId, @systemPrompt,
             @contextPolicyJson, @pinned, @messageCount, @lastMessagePreview,
             @lastMessageAt, @metadataJson, @createdAt, @updatedAt
           )
           ON CONFLICT(id) DO UPDATE SET
             title = excluded.title,
+            kind = excluded.kind,
             status = excluded.status,
             default_provider_id = excluded.default_provider_id,
             default_model_id = excluded.default_model_id,
@@ -126,6 +138,7 @@ function mapSession(row: SessionRow): ChatSession {
   return {
     id: row.id,
     title: row.title,
+    kind: row.kind ?? 'chat',
     status: row.status,
     defaultProviderId: row.default_provider_id ?? undefined,
     defaultModelId: row.default_model_id ?? undefined,
@@ -145,6 +158,7 @@ function toSessionParams(session: ChatSession): Record<string, unknown> {
   return {
     id: session.id,
     title: session.title,
+    kind: session.kind ?? 'chat',
     status: session.status,
     defaultProviderId: session.defaultProviderId ?? null,
     defaultModelId: session.defaultModelId ?? null,

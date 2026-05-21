@@ -93,7 +93,7 @@ export interface ListCronTasksResponse {
 export interface CreateCronTaskRequest {
   name: string
   note: string
-  targetSessionId: ID
+  targetSessionId?: ID
   sourceSessionId?: ID
   runAt?: UnixMs
   cronExpression?: string

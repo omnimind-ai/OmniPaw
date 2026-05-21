@@ -83,7 +83,7 @@ export class ChatService {
   }
 
   listSessions(): ChatSession[] {
-    return this.options.sessions.list()
+    return this.options.sessions.list({ kind: 'chat' })
   }
 
   async createSession(): Promise<ChatSession> {
@@ -92,6 +92,7 @@ export class ChatService {
     const session: ChatSession = {
       id: crypto.randomUUID(),
       title: '新会话',
+      kind: 'chat',
       status: 'active',
       defaultProviderId: provider.id,
       defaultModelId: modelId,

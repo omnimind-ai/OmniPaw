@@ -1,5 +1,9 @@
 export const APP_NAME = 'OpenOmniClaw'
 
+export const SYSTEM_SESSION_IDS = {
+  cron: 'cron-default',
+} as const
+
 export const IPC_CHANNELS = {
   app: {
     getInfo: 'app:get-info',

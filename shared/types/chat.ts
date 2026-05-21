@@ -16,6 +16,7 @@ export type MessageStatus =
 export type AttachmentKind = 'image' | 'audio' | 'video' | 'file' | 'text'
 
 export type ChatSessionStatus = 'active' | 'archived' | 'deleted'
+export type ChatSessionKind = 'chat' | 'cron'
 
 export type ChatRunStatus = 'queued' | 'running' | 'complete' | 'error' | 'aborted'
 
@@ -171,6 +172,7 @@ export const defaultContextPolicy: ContextPolicy = {
 export interface ChatSession {
   id: ID
   title: string
+  kind?: ChatSessionKind
   status: ChatSessionStatus
   defaultProviderId?: ID
   defaultModelId?: string

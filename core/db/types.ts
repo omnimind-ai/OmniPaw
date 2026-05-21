@@ -7,6 +7,7 @@ export type {
   ChatRun,
   ChatRunStatus as RunStatus,
   ChatSession,
+  ChatSessionKind,
   ContextPolicy,
   ID,
   InternalAttachmentRecord,

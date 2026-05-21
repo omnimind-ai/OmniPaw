@@ -16,6 +16,7 @@ import {
 } from '../core/db/repos'
 import { seedDefaultChatData } from '../core/db/seed'
 import type { ChatMessage, ChatRun, ChatSession, InternalAttachmentRecord } from '../core/db/types'
+import { SYSTEM_SESSION_IDS } from '../shared/constants'
 
 const tempDir = mkdtempSync(join(tmpdir(), 'openomniclaw-db-smoke-'))
 const client = new DatabaseClient({ path: join(tempDir, 'smoke.sqlite3') })
@@ -32,10 +33,13 @@ try {
   const cronRuns = new CronRunRepo(db)
 
   assert.equal(sessions.list().length, 1)
+  assert.equal(sessions.list({ kind: 'chat' }).length, 1)
+  assert.equal(sessions.get('default')?.kind, 'chat')
 
   const session: ChatSession = {
     id: 'session-smoke',
     title: 'Smoke test',
+    kind: 'chat',
     status: 'active',
     defaultProviderId: 'openai-compatible',
     defaultModelId: 'gpt-4o-mini',
@@ -47,6 +51,13 @@ try {
   assert.equal(sessions.get(session.id)?.title, 'Smoke test')
   assert.equal(sessions.updateTitle(session.id, 'Renamed', 2001), true)
   assert.equal(sessions.get(session.id)?.title, 'Renamed')
+  const cronSession = getOrCreateSmokeCronSession(sessions, 2002)
+  assert.equal(cronSession.kind, 'cron')
+  assert.equal(sessions.list({ kind: 'cron' }).length, 1)
+  assert.equal(
+    sessions.list({ kind: 'chat' }).some((item) => item.id === SYSTEM_SESSION_IDS.cron),
+    false
+  )
 
   const attachment: InternalAttachmentRecord = {
     id: 'attachment-smoke',
@@ -193,7 +204,10 @@ try {
   const manager = new CronManager({
     tasks: cronTasks,
     runs: cronRuns,
-    sessions,
+    sessions: {
+      get: (id) => sessions.get(id),
+      getOrCreateCronSession: () => getOrCreateSmokeCronSession(sessions),
+    },
     settings: () => ({
       enabled: false,
       misfirePolicy: 'run_once',
@@ -214,6 +228,13 @@ try {
     runAt: Date.now() - 1_000,
   }).task
   assert.ok(recentPast.nextRunAt && recentPast.nextRunAt <= Date.now())
+  const autoSessionTask = manager.create({
+    name: 'Auto cron session',
+    note: 'uses the cron session',
+    runAt: Date.now() + 60_000,
+  }).task
+  assert.equal(autoSessionTask.targetSessionId, SYSTEM_SESSION_IDS.cron)
+  assert.equal(autoSessionTask.sourceSessionId, SYSTEM_SESSION_IDS.cron)
   assert.equal((await manager.executeDue(2010)).length, 0)
   const manual = await manager.runNow({ taskId: cronTask.id })
   assert.equal(manual.run.reason, 'manual')
@@ -248,4 +269,31 @@ try {
 } finally {
   client.close()
   rmSync(tempDir, { recursive: true, force: true })
+}
+
+function getOrCreateSmokeCronSession(sessions: ChatSessionRepo, now = Date.now()): ChatSession {
+  const existing = sessions.get(SYSTEM_SESSION_IDS.cron)
+  if (existing) {
+    return existing
+  }
+  const session: ChatSession = {
+    id: SYSTEM_SESSION_IDS.cron,
+    title: '计划任务',
+    kind: 'cron',
+    status: 'active',
+    pinned: false,
+    messageCount: 0,
+    contextPolicy: {
+      mode: 'recent-turns',
+      maxMessages: 40,
+      includeAttachments: 'current-only',
+    },
+    metadata: {
+      system: 'cron',
+    },
+    createdAt: now,
+    updatedAt: now,
+  }
+  sessions.save(session)
+  return sessions.get(session.id) ?? session
 }

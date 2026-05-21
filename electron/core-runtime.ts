@@ -19,13 +19,15 @@ import {
   CronRunRepo,
   CronTaskRepo,
 } from '@core/db/repos'
-import { seedDefaultChatData } from '@core/db/seed'
+import { defaultContextPolicy, seedDefaultChatData } from '@core/db/seed'
 import type { Logger } from '@core/logging'
 import { McpRegistryStore, McpServerManager, McpValidationError } from '@core/mcp'
 import { ProviderManager } from '@core/provider/manager'
 import { ProviderRegistryValidationError } from '@core/provider/registry-schema'
 import { ProviderRegistryStore } from '@core/provider/registry-store'
 import { SkillManager, SkillValidationError } from '@core/skill'
+import { SYSTEM_SESSION_IDS } from '@shared/constants'
+import type { ChatSession } from '@shared/types/chat'
 import type { CronTaskChangedEvent } from '@shared/types/cron'
 import type { DesktopSettingsConfig, SettingsChangeReason } from '@shared/types/settings'
 import type { app } from 'electron'
@@ -88,7 +90,10 @@ export function createCoreRuntime(options: CoreRuntimeOptions): CoreRuntime {
   const cronManager = new CronManager({
     tasks: cronTaskRepo,
     runs: cronRunRepo,
-    sessions: sessionRepo,
+    sessions: {
+      get: (id) => sessionRepo.get(id),
+      getOrCreateCronSession: () => getOrCreateCronSession(sessionRepo),
+    },
     settings: () => configStore.get().scheduledTasks,
     onChanged: options.onCronChanged,
     logger: coreLogger.child({ scope: 'cron' }),
@@ -236,6 +241,35 @@ export function createCoreRuntime(options: CoreRuntimeOptions): CoreRuntime {
       dbClient.close()
     },
   }
+}
+
+function getOrCreateCronSession(sessionRepo: ChatSessionRepo): ChatSession {
+  const now = Date.now()
+  const existing = sessionRepo.get(SYSTEM_SESSION_IDS.cron)
+  const session: ChatSession = existing
+    ? {
+        ...existing,
+        title: existing.title || '计划任务',
+        kind: 'cron',
+        status: 'active',
+        updatedAt: now,
+      }
+    : {
+        id: SYSTEM_SESSION_IDS.cron,
+        title: '计划任务',
+        kind: 'cron',
+        status: 'active',
+        pinned: false,
+        messageCount: 0,
+        contextPolicy: defaultContextPolicy,
+        metadata: {
+          system: 'cron',
+        },
+        createdAt: now,
+        updatedAt: now,
+      }
+  sessionRepo.save(session)
+  return sessionRepo.get(session.id) ?? session
 }
 
 function loadStartupConfig(

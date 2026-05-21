@@ -190,4 +190,15 @@ export const migrations: Migration[] = [
         ON cron_runs(status, started_at);
     `,
   },
+  {
+    id: 5,
+    name: 'add_chat_session_kind',
+    sql: `
+      ALTER TABLE chat_sessions
+        ADD COLUMN kind TEXT NOT NULL DEFAULT 'chat';
+
+      CREATE INDEX IF NOT EXISTS idx_chat_sessions_kind_updated
+        ON chat_sessions(kind, updated_at DESC);
+    `,
+  },
 ]

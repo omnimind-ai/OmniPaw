@@ -24,6 +24,7 @@ export function defaultChatSession(now = Date.now()): ChatSession {
   return {
     id: 'default',
     title: 'New chat',
+    kind: 'chat',
     status: 'active',
     defaultProviderId: 'openai-compatible',
     defaultModelId: 'gpt-4o-mini',

@@ -108,6 +108,7 @@ export interface BridgeDesktopSettingsChangedEvent {
 export interface BridgeChatSession {
   id: string
   title: string
+  kind?: 'chat' | 'cron' | string
   status: 'active' | 'archived' | 'deleted'
   defaultProviderId?: string
   defaultModelId?: string
@@ -968,6 +969,7 @@ const fallbackBridge: RendererOpenOmniClawBridge = {
       {
         id: 'welcome',
         title: '默认会话',
+        kind: 'chat',
         status: 'active',
         defaultProviderId: 'omniinfer-local',
         defaultModelId: 'local-small-model',
@@ -982,6 +984,7 @@ const fallbackBridge: RendererOpenOmniClawBridge = {
       return {
         id: crypto.randomUUID(),
         title: '新会话',
+        kind: 'chat',
         status: 'active',
         defaultProviderId: 'omniinfer-local',
         defaultModelId: 'local-small-model',
