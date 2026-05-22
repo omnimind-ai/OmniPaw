@@ -110,6 +110,15 @@ const selectedToolProfile = computed(
     props.toolProfileOptions[0] ??
     null
 )
+const selectedModelOption = computed(
+  () => props.modelOptions.find((option) => option.key === props.selectedModelKey) ?? null
+)
+const selectedModelCompactLabel = computed(() =>
+  compactModelLabel(
+    selectedModelOption.value?.modelName || props.selectedModelLabel,
+    selectedModelOption.value?.providerName
+  )
+)
 const selectedToolProfileLabel = computed(() => selectedToolProfile.value?.label ?? '权限')
 const selectedToolProfileDescription = computed(
   () => selectedToolProfile.value?.description ?? '选择 Agent 工具权限'
@@ -167,6 +176,39 @@ function attachmentMeta(file: StagedFileInfo | StagedUploadItem) {
   return details.join(' · ')
 }
 
+function compactModelLabel(label: string, providerName?: string): string {
+  let value = label.trim()
+  if (!value) return label
+
+  const pathParts = value.split('/').filter(Boolean)
+  value = pathParts[pathParts.length - 1]?.trim() || value
+
+  const prefixes = [
+    providerName,
+    'openai',
+    'anthropic',
+    'google',
+    'deepseek',
+    'qwen',
+    'moonshot',
+    'openrouter',
+    'siliconflow',
+    'volcengine',
+  ]
+
+  for (const prefix of prefixes) {
+    const normalized = prefix ? escapeRegExp(prefix.trim()).replace(/\s+/g, '[-_\\s]+') : ''
+    if (!normalized) continue
+    value = value.replace(new RegExp(`^${normalized}[-_\\s]+`, 'i'), '')
+  }
+
+  return value.replace(/[-_]+/g, ' ').trim() || label
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
 function handleToolProfileSelect(value: unknown) {
   if (typeof value !== 'string') return
   emit('selectToolProfile', value as ToolProfile)
@@ -202,7 +244,7 @@ function handleDrop(event: DragEvent) {
 
 <template>
   <form
-    :class="cn('w-full rounded-xl transition-colors', dragging && 'bg-accent/40')"
+    :class="cn('@container/chat-composer w-full rounded-xl transition-colors', dragging && 'bg-accent/40')"
     @submit.prevent="emit('submit')"
     @dragover.prevent="handleDragOver"
     @dragleave.prevent="handleDragLeave"
@@ -339,8 +381,8 @@ function handleDrop(event: DragEvent) {
               <span v-if="uploadPending">附件上传中</span>
             </div>
 
-            <div class="flex w-full flex-wrap items-center justify-between gap-2">
-              <div class="flex min-w-0 flex-wrap items-center gap-2">
+            <div class="flex w-full min-w-0 items-center justify-between gap-2">
+              <div class="flex min-w-0 flex-1 items-center gap-1.5">
                 <InputGroupButton
                   size="icon-sm"
                   aria-label="添加附件"
@@ -353,11 +395,17 @@ function handleDrop(event: DragEvent) {
                 <DropdownMenu>
                   <DropdownMenuTrigger as-child>
                     <InputGroupButton
-                      class="max-w-64 justify-start"
+                      class="max-w-9 justify-start px-1.5 @min-[30rem]/chat-composer:max-w-36 @min-[44rem]/chat-composer:max-w-64"
                       :disabled="!modelOptions.length"
+                      :aria-label="`切换模型：${selectedModelLabel}`"
                     >
                       <SparklesIcon data-icon="inline-start" />
-                      <span class="truncate">{{ selectedModelLabel }}</span>
+                      <span class="hidden truncate @min-[30rem]/chat-composer:inline @min-[44rem]/chat-composer:hidden">
+                        {{ selectedModelCompactLabel }}
+                      </span>
+                      <span class="hidden truncate @min-[44rem]/chat-composer:inline">
+                        {{ selectedModelLabel }}
+                      </span>
                     </InputGroupButton>
                   </DropdownMenuTrigger>
 
@@ -391,12 +439,14 @@ function handleDrop(event: DragEvent) {
                 <DropdownMenu>
                   <DropdownMenuTrigger as-child>
                     <InputGroupButton
-                      class="max-w-40 justify-start"
+                      class="max-w-9 justify-start px-1.5 @min-[34rem]/chat-composer:max-w-32 @min-[44rem]/chat-composer:max-w-40"
                       :disabled="toolProfileSaving || !toolProfileOptions.length"
                       :aria-label="`Agent 权限：${selectedToolProfileDescription}`"
                     >
                       <ShieldCheckIcon data-icon="inline-start" />
-                      <span class="truncate">{{ selectedToolProfileLabel }}</span>
+                      <span class="hidden truncate @min-[34rem]/chat-composer:inline">
+                        {{ selectedToolProfileLabel }}
+                      </span>
                     </InputGroupButton>
                   </DropdownMenuTrigger>
 
@@ -433,10 +483,10 @@ function handleDrop(event: DragEvent) {
                 />
               </div>
 
-              <div class="flex items-center gap-2">
+              <div class="flex shrink-0 items-center gap-2">
                 <span
                   v-if="selectedModelMeta"
-                  class="hidden max-w-36 truncate text-xs text-muted-foreground sm:inline"
+                  class="hidden max-w-36 truncate text-xs text-muted-foreground @min-[44rem]/chat-composer:inline"
                 >
                   {{ selectedModelMeta }}
                 </span>

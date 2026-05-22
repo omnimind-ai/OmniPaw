@@ -58,17 +58,18 @@ const ariaLabel = computed(() => {
 const progressStyle = computed(() => {
   const loadingWithoutUsage = props.loading && !hasUsage.value
   const percent = loadingWithoutUsage ? 28 : (boundedPercentage.value ?? 0)
-  const color = loadingWithoutUsage
-    ? 'var(--muted-foreground)'
-    : percent >= 85
-      ? 'var(--destructive)'
-      : percent >= 70
-        ? 'var(--chart-3)'
-        : 'var(--primary)'
+  const trackColor = 'color-mix(in oklch, var(--foreground) 32%, transparent)'
   return {
-    background: `conic-gradient(${color} ${percent * 3.6}deg, var(--muted) 0deg)`,
+    background: `conic-gradient(${progressColor(percent, loadingWithoutUsage)} ${percent * 3.6}deg, ${trackColor} 0deg)`,
   }
 })
+
+function progressColor(percent: number, loading: boolean): string {
+  if (loading) return 'color-mix(in oklch, var(--foreground) 72%, transparent)'
+  if (percent >= 85) return 'var(--destructive)'
+  if (percent >= 70) return 'color-mix(in oklch, var(--foreground) 78%, var(--destructive))'
+  return 'var(--foreground)'
+}
 
 function formatTokenCount(value: number | undefined): string {
   if (value === undefined || !Number.isFinite(value)) return ''
@@ -108,17 +109,21 @@ function formatTokenCount(value: number | undefined): string {
         side="top"
         align="center"
         :side-offset="8"
-        class="flex flex-col items-center gap-1 px-5 py-3 text-center text-sm"
+        class="min-w-48 flex-col items-stretch gap-1.5 px-3 py-2.5 text-left"
       >
-        <span class="font-medium text-background/70">Context window:</span>
-        <span class="text-base font-semibold">{{ usedLine }}</span>
-        <span class="text-base font-semibold">{{ tokensLine }}</span>
-        <span
-          v-if="sourceLabel"
-          class="text-xs text-background/70"
-        >
-          {{ sourceLabel }}
-        </span>
+        <div class="flex items-center justify-between gap-3">
+          <span class="text-[0.7rem] font-medium text-background/70">Context</span>
+          <span
+            v-if="sourceLabel"
+            class="text-[0.7rem] text-background/60"
+          >
+            {{ sourceLabel }}
+          </span>
+        </div>
+        <div class="flex flex-col gap-0.5">
+          <span class="text-xs font-medium leading-none">{{ usedLine }}</span>
+          <span class="text-[0.7rem] leading-none text-background/70">{{ tokensLine }}</span>
+        </div>
       </TooltipContent>
     </Tooltip>
   </TooltipProvider>
