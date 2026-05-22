@@ -96,16 +96,6 @@ const compactThresholdPercent = computed({
   },
 })
 
-const compactModelId = computed({
-  get: () => chatContext.value.compactModelId ?? '',
-  set: (value: string) => {
-    const trimmed = value.trim()
-    chatContext.value.compactModelId = trimmed || undefined
-  },
-})
-
-const supportsCompactModel = computed(() => true)
-
 const zoomFactor = computed({
   get: () => props.draft.app.zoom.factor,
   set: (value: string | number) => {
@@ -322,23 +312,6 @@ function clampPercent(value: string | number): number {
               max="100"
               step="1"
               :disabled="!autoCompact"
-            />
-          </Field>
-
-          <Field
-            v-if="supportsCompactModel"
-            orientation="responsive"
-            class="border-b px-4 py-3"
-          >
-            <FieldContent>
-              <FieldLabel for="settings-context-compact-model">压缩模型</FieldLabel>
-              <FieldDescription>留空时使用当前会话模型。</FieldDescription>
-            </FieldContent>
-            <Input
-              id="settings-context-compact-model"
-              v-model="compactModelId"
-              class="w-full md:w-48"
-              placeholder="provider/model"
             />
           </Field>
         </template>

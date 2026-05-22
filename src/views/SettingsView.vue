@@ -201,6 +201,7 @@ async function autosave() {
 
               <DefaultModelSettingsForm
                 v-else-if="activeTab === 'defaults'"
+                :draft="draft"
               />
 
               <GeneralSettingsForm

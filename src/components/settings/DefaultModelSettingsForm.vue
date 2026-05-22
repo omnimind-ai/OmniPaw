@@ -2,6 +2,7 @@
 import { storeToRefs } from 'pinia'
 import type { AcceptableValue } from 'reka-ui'
 import { computed } from 'vue'
+import type { BridgeDesktopSettingsConfig } from '@/bridge/app'
 import SettingsSection from '@/components/settings/SettingsSection.vue'
 import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -27,6 +28,10 @@ import { type ProviderModelOption, useProviderStore } from '@/stores/provider'
 
 const NONE_VALUE = '__none__'
 
+const props = defineProps<{
+  draft: BridgeDesktopSettingsConfig
+}>()
+
 const providerStore = useProviderStore()
 const {
   defaultModelKey,
@@ -43,6 +48,16 @@ const enabledTextOptions = computed(() =>
   enabledOptions.value.filter((option) => option.input.includes('text'))
 )
 const streaming = computed(() => registrySettings.value.streaming)
+const chatContext = computed(() => props.draft.app.chatContext)
+const compactModelKey = computed(() => {
+  const configuredModelId = chatContext.value.compactModelId
+  if (!configuredModelId) return NONE_VALUE
+  return (
+    enabledTextOptions.value.find(
+      (option) => option.modelId === configuredModelId || option.key === configuredModelId
+    )?.key ?? NONE_VALUE
+  )
+})
 
 function fallbackChecked(modelKey: string) {
   return fallbackModelKeys.value.includes(modelKey)
@@ -70,6 +85,12 @@ function updateFallback(modelKey: string, checked: boolean | 'indeterminate') {
 function updateTitleModel(value: AcceptableValue) {
   const normalizedValue = typeof value === 'string' ? value : ''
   void providerStore.setTitleModelKey(normalizedValue === NONE_VALUE ? '' : normalizedValue)
+}
+
+function updateCompactModel(value: AcceptableValue) {
+  const normalizedValue = typeof value === 'string' ? value : ''
+  const selected = enabledTextOptions.value.find((option) => option.key === normalizedValue)
+  chatContext.value.compactModelId = selected?.modelId
 }
 
 function updateStreaming(value: boolean) {
@@ -141,6 +162,40 @@ function modelLabel(option: ProviderModelOption) {
             <SelectContent>
               <SelectGroup>
                 <SelectItem :value="NONE_VALUE">使用默认模型</SelectItem>
+                <SelectItem
+                  v-for="option in enabledTextOptions"
+                  :key="option.key"
+                  :value="option.key"
+                >
+                  {{ modelLabel(option) }}
+                </SelectItem>
+              </SelectGroup>
+            </SelectContent>
+          </Select>
+        </Field>
+
+        <Field
+          orientation="responsive"
+          class="border-b px-4 py-3"
+        >
+          <FieldContent>
+            <FieldLabel for="settings-context-compact-model">压缩默认模型</FieldLabel>
+            <FieldDescription>上下文压缩时默认使用的模型，留空时使用当前会话模型。</FieldDescription>
+          </FieldContent>
+          <Select
+            :model-value="compactModelKey"
+            :disabled="saving || !enabledTextOptions.length || !persistenceAvailable"
+            @update:model-value="updateCompactModel"
+          >
+            <SelectTrigger
+              id="settings-context-compact-model"
+              class="w-full md:w-72"
+            >
+              <SelectValue placeholder="使用当前会话模型" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectGroup>
+                <SelectItem :value="NONE_VALUE">使用当前会话模型</SelectItem>
                 <SelectItem
                   v-for="option in enabledTextOptions"
                   :key="option.key"
