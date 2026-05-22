@@ -1,3 +1,4 @@
+import type { ContextCompactionService } from '@core/chat/context-compaction'
 import type { ContextBuilder } from '@core/chat/context-manager'
 import type { RunManager } from '@core/chat/run-manager'
 import type { ChatMessageRepo, ChatRunRepo } from '@core/db/repos'
@@ -6,6 +7,7 @@ import type { ProviderManager } from '@core/provider/manager'
 import type { SkillManager } from '@core/skill/skill-manager'
 import type { ChatRun, ChatRunMode, ChatSession, ToolProfile } from '@shared/types/chat'
 import type { ProviderConfig, ProviderModel } from '@shared/types/provider'
+import type { DesktopChatContextSettings } from '@shared/types/settings'
 import { AgentRunFinalizer } from './run/finalize'
 import { prepareAgentRun } from './run/prepare'
 import type { AgentRunState } from './run/state'
@@ -18,10 +20,12 @@ export interface AgentRunnerOptions {
   runs: ChatRunRepo
   providers: ProviderManager
   contextBuilder: ContextBuilder
+  contextCompaction?: ContextCompactionService
   runManager: RunManager
   toolRegistry: ToolRegistry
   skills?: SkillManager
   compactSkillDescriptions?: () => boolean
+  contextDefaults?: () => DesktopChatContextSettings
   toolExecutor?: ToolExecutor
   onComplete?: (sessionId: string) => void
   logger?: Logger

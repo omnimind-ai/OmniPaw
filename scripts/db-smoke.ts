@@ -8,6 +8,7 @@ import { nextRunAt, validateCronExpression } from '../core/cron/schedule'
 import { DatabaseClient } from '../core/db/client'
 import {
   AttachmentRepo,
+  ChatContextSummaryRepo,
   ChatMessageRepo,
   ChatRunRepo,
   ChatSessionRepo,
@@ -27,6 +28,7 @@ try {
 
   const sessions = new ChatSessionRepo(db)
   const messages = new ChatMessageRepo(db)
+  const contextSummaries = new ChatContextSummaryRepo(db)
   const attachments = new AttachmentRepo(db)
   const runs = new ChatRunRepo(db)
   const cronTasks = new CronTaskRepo(db)
@@ -162,6 +164,34 @@ try {
     true
   )
   assert.equal(runs.get(run.id)?.usage?.total, 10)
+
+  const contextSummary = contextSummaries.create({
+    id: 'summary-smoke',
+    sessionId: session.id,
+    summary: 'Goal\n- Keep context.',
+    status: 'usable',
+    coveredFromMessageId: userMessage.id,
+    coveredToMessageId: assistantMessage.id,
+    coveredFromCreatedAt: userMessage.createdAt,
+    coveredToCreatedAt: assistantMessage.createdAt,
+    sourceMessageIds: [userMessage.id, assistantMessage.id],
+    providerId: 'openai-compatible',
+    modelId: 'gpt-4o-mini',
+    tokenEstimateBefore: 100,
+    tokenEstimateAfter: 10,
+    createdAt: 2009,
+    updatedAt: 2009,
+  })
+  assert.equal(contextSummaries.latestUsable(session.id)?.id, contextSummary.id)
+  assert.equal(
+    contextSummaries.markStaleByCoverage({
+      sessionId: session.id,
+      messageCreatedAt: assistantMessage.createdAt,
+      updatedAt: 2010,
+    }),
+    1
+  )
+  assert.equal(contextSummaries.latestUsable(session.id), undefined)
 
   assert.equal(validateCronExpression('*/5 * * * *').length, 0)
   assert.equal(validateCronExpression('* * *').length, 1)

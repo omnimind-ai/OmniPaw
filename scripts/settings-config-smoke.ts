@@ -54,6 +54,9 @@ try {
 
   assert.equal(normalized.app.theme, 'dark')
   assert.equal(normalized.app.language, 'system')
+  assert.equal(normalized.app.chatContext.recentMessages, 20)
+  assert.equal(normalized.app.chatContext.includeAttachments, 'current-only')
+  assert.equal(normalized.app.chatContext.autoCompact, true)
   assert.equal('unknownField' in normalized.app, false)
   assert.equal(normalized.providers.sources[0]?.id, 'custom-openai')
   assert.equal(normalized.providers.models[0]?.providerSourceId, 'custom-openai')
@@ -89,6 +92,20 @@ try {
       normalizeConfig({
         ...cloneDefaultConfig(),
         app: 'invalid',
+      }),
+    ConfigValidationError
+  )
+  assert.throws(
+    () =>
+      normalizeConfig({
+        ...cloneDefaultConfig(),
+        app: {
+          ...cloneDefaultConfig().app,
+          chatContext: {
+            ...cloneDefaultConfig().app.chatContext,
+            maxInputBudgetPercent: 101,
+          },
+        },
       }),
     ConfigValidationError
   )

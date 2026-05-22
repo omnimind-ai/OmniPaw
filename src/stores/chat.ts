@@ -1,7 +1,13 @@
 import type { Session, ToolProfile } from '@shared/types/chat'
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
-import { appBridge } from '@/bridge/app'
+import {
+  appBridge,
+  type BridgeChatMessage,
+  type BridgeChatSession,
+  type BridgeContextUsageMetadata,
+  type BridgeStreamEvent,
+} from '@/bridge/app'
 
 export interface PendingInitialMessagePart {
   type: string
@@ -15,6 +21,18 @@ export interface PendingInitialMessage {
   selectedProvider: string
   selectedModel: string
   toolProfile?: ToolProfile
+}
+
+export interface SessionContextUsage {
+  inputTokens?: number
+  outputTokens?: number
+  totalTokens?: number
+  windowTokens?: number
+  budgetTokens?: number
+  windowPercentage?: number
+  percentage?: number
+  source?: string
+  updatedAt?: number
 }
 
 const SIDEBAR_STATE_COOKIE = 'sidebar_state'
@@ -32,19 +50,31 @@ export const useChatStore = defineStore('chat', () => {
   const streamingText = ref('')
   const isStreaming = ref(false)
   const sidebarOpen = ref(getInitialSidebarOpen())
+  const contextUsageBySession = ref<Record<string, SessionContextUsage | undefined>>({})
+  const contextUsageLoadingBySession = ref<Record<string, boolean | undefined>>({})
 
   const activeSession = computed(() =>
     sessions.value.find((session) => session.id === activeSessionId.value)
   )
+  const activeContextUsage = computed(() =>
+    activeSessionId.value ? contextUsageBySession.value[activeSessionId.value] : undefined
+  )
+  const activeContextUsageLoading = computed(() =>
+    activeSessionId.value
+      ? Boolean(contextUsageLoadingBySession.value[activeSessionId.value])
+      : false
+  )
 
   async function loadSessions(): Promise<void> {
-    sessions.value = await appBridge.chat.listSessions()
+    const loaded = await appBridge.chat.listSessions()
+    sessions.value = loaded as Session[]
     activeSessionId.value ??= sessions.value[0]?.id
+    reconcileContextUsageFromSessions(sessions.value)
   }
 
   async function createSession(): Promise<void> {
     const session = await appBridge.chat.createSession()
-    sessions.value.unshift(session)
+    sessions.value.unshift(session as Session)
     activeSessionId.value = session.id
   }
 
@@ -77,6 +107,77 @@ export const useChatStore = defineStore('chat', () => {
     sidebarOpen.value = open
   }
 
+  function setContextUsageLoading(sessionId: string, loading: boolean): void {
+    if (!sessionId) return
+    contextUsageLoadingBySession.value = {
+      ...contextUsageLoadingBySession.value,
+      [sessionId]: loading,
+    }
+  }
+
+  function setSessionContextUsage(
+    sessionId: string,
+    usage: SessionContextUsage | BridgeContextUsageMetadata | undefined,
+    options: { loading?: boolean } = {}
+  ): void {
+    if (!sessionId) return
+    const normalized = normalizeContextUsage(usage)
+    contextUsageBySession.value = {
+      ...contextUsageBySession.value,
+      [sessionId]: normalized ?? contextUsageBySession.value[sessionId],
+    }
+    if (options.loading !== undefined) {
+      setContextUsageLoading(sessionId, options.loading)
+    }
+  }
+
+  function clearSessionContextUsage(sessionId: string): void {
+    if (!sessionId) return
+    contextUsageBySession.value = {
+      ...contextUsageBySession.value,
+      [sessionId]: undefined,
+    }
+    setContextUsageLoading(sessionId, false)
+  }
+
+  function reconcileContextUsageFromSessions(
+    nextSessions: Array<Session | BridgeChatSession>
+  ): void {
+    const nextUsage = { ...contextUsageBySession.value }
+    for (const session of nextSessions) {
+      const usage = extractContextUsage(session)
+      if (usage) nextUsage[session.id] = usage
+    }
+    contextUsageBySession.value = nextUsage
+  }
+
+  function updateContextUsageFromStreamEvent(event: BridgeStreamEvent): void {
+    const usage = extractContextUsage(event)
+    if (usage) {
+      setSessionContextUsage(event.sessionId, usage, {
+        loading: event.type === 'started' ? true : !isTerminalUsageEvent(event.type),
+      })
+      return
+    }
+    if (event.type === 'started') {
+      setContextUsageLoading(event.sessionId, true)
+    } else if (isTerminalUsageEvent(event.type)) {
+      setContextUsageLoading(event.sessionId, false)
+    }
+  }
+
+  function updateContextUsageFromMessages(
+    sessionId: string,
+    messages: BridgeChatMessage[] | Array<Record<string, unknown>>
+  ): void {
+    const latest = [...messages].reverse().map(extractContextUsage).find(Boolean)
+    if (latest) {
+      setSessionContextUsage(sessionId, latest, { loading: false })
+    } else {
+      setContextUsageLoading(sessionId, false)
+    }
+  }
+
   function setPendingInitialMessage(message: PendingInitialMessage): void {
     pendingInitialMessage.value = message
   }
@@ -100,13 +201,136 @@ export const useChatStore = defineStore('chat', () => {
     streamingText,
     isStreaming,
     sidebarOpen,
+    contextUsageBySession,
+    contextUsageLoadingBySession,
+    activeContextUsage,
+    activeContextUsageLoading,
     loadSessions,
     createSession,
     sendDraft,
     appendToken,
     finishStream,
     setSidebarOpen,
+    setContextUsageLoading,
+    setSessionContextUsage,
+    clearSessionContextUsage,
+    reconcileContextUsageFromSessions,
+    updateContextUsageFromStreamEvent,
+    updateContextUsageFromMessages,
     setPendingInitialMessage,
     consumePendingInitialMessage,
   }
 })
+
+function isTerminalUsageEvent(type: string): boolean {
+  return type === 'final' || type === 'error' || type === 'aborted' || type === 'compact_retry'
+}
+
+function extractContextUsage(value: unknown): SessionContextUsage | undefined {
+  if (!value || typeof value !== 'object') return undefined
+  const record = value as Record<string, unknown>
+  const candidates = [
+    record.contextUsage,
+    record.context_usage,
+    nested(record.metadata, 'contextUsage'),
+    nested(record.metadata, 'context_usage'),
+    nested(record.metadata, 'latestContextUsage'),
+    nested(record.usage, 'context'),
+    nested(record.usage, 'contextUsage'),
+    nested(record.requestSnapshot, 'contextUsage'),
+    nested(record.requestSnapshot, 'context_usage'),
+    record.requestSnapshot,
+  ]
+
+  for (const candidate of candidates) {
+    const normalized = normalizeContextUsage(candidate)
+    if (normalized) return normalized
+  }
+  return undefined
+}
+
+function normalizeContextUsage(value: unknown): SessionContextUsage | undefined {
+  if (!value || typeof value !== 'object') return undefined
+  const record = value as Record<string, unknown>
+  const inputTokens = firstNumber(record.inputTokens, record.input, record.estimatedInputTokens)
+  const outputTokens = firstNumber(record.outputTokens, record.output)
+  const totalTokens = firstNumber(record.totalTokens, record.total)
+  const windowTokens = firstNumber(
+    record.windowTokens,
+    record.contextWindowTokens,
+    record.contextWindow
+  )
+  const budgetTokens = firstNumber(
+    record.budgetTokens,
+    record.budgetInputTokens,
+    record.maxInputTokens,
+    nested(record.tokenBudget, 'usableInputTokens'),
+    nested(record.tokenBudget, 'maxInputTokens')
+  )
+  const rawWindowPercentage = firstNumber(
+    record.windowPercentage,
+    record.windowUsagePercent,
+    record.windowPercent
+  )
+  const windowPercentage =
+    rawWindowPercentage !== undefined
+      ? rawWindowPercentage > 1
+        ? rawWindowPercentage
+        : rawWindowPercentage * 100
+      : inputTokens !== undefined && windowTokens
+        ? (inputTokens / windowTokens) * 100
+        : undefined
+  const rawPercentage = firstNumber(record.percentage, record.percent, record.usagePercent)
+  const percentage =
+    rawPercentage !== undefined
+      ? rawPercentage > 1
+        ? rawPercentage
+        : rawPercentage * 100
+      : inputTokens !== undefined && budgetTokens
+        ? (inputTokens / budgetTokens) * 100
+        : undefined
+  const source = firstString(record.source, record.usageSource, record.usage_source)
+  const updatedAt = firstNumber(record.updatedAt, record.lastUpdatedAt, record.createdAt)
+
+  if (
+    inputTokens === undefined &&
+    outputTokens === undefined &&
+    totalTokens === undefined &&
+    windowTokens === undefined &&
+    budgetTokens === undefined &&
+    windowPercentage === undefined &&
+    percentage === undefined
+  ) {
+    return undefined
+  }
+
+  return {
+    inputTokens,
+    outputTokens,
+    totalTokens,
+    windowTokens,
+    budgetTokens,
+    windowPercentage,
+    percentage,
+    source,
+    updatedAt,
+  }
+}
+
+function nested(value: unknown, key: string): unknown {
+  return value && typeof value === 'object' ? (value as Record<string, unknown>)[key] : undefined
+}
+
+function firstNumber(...values: unknown[]): number | undefined {
+  for (const value of values) {
+    if (typeof value === 'number' && Number.isFinite(value)) return value
+  }
+  return undefined
+}
+
+function firstString(...values: unknown[]): string | undefined {
+  for (const value of values) {
+    if (typeof value === 'string' && value.trim()) return value
+  }
+  return undefined
+}

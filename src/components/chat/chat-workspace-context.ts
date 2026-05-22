@@ -3,6 +3,7 @@ import { type ComputedRef, type InjectionKey, inject, type Ref } from 'vue'
 import type { MessageScrollAreaRef } from '@/composables/chat/useChatWorkspaceScroll'
 import type { StagedFileInfo, StagedUploadItem } from '@/composables/useMediaHandling'
 import type { ChatContent, ChatRecord, MessageDisplayBlock } from '@/composables/useMessages'
+import type { SessionContextUsage } from '@/stores/chat'
 import type { ProviderModelOption } from '@/stores/provider'
 
 export interface ChatWorkspaceContext {
@@ -31,6 +32,8 @@ export interface ChatWorkspaceContext {
   toolProfileSaving: Ref<boolean>
   currentSessionRunning: ComputedRef<boolean>
   sending: Ref<boolean>
+  activeContextUsage: ComputedRef<SessionContextUsage | undefined>
+  activeContextUsageLoading: ComputedRef<boolean>
   attachmentWarning: ComputedRef<string>
   canSend: ComputedRef<boolean>
   replyPreview: ComputedRef<string>

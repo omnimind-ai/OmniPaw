@@ -1,4 +1,5 @@
 export { AttachmentRepo } from './attachment-repo'
+export { ChatContextSummaryRepo } from './context-summary-repo'
 export { CronRunRepo } from './cron-run-repo'
 export { CronTaskRepo } from './cron-task-repo'
 export { ChatMessageRepo } from './message-repo'

@@ -118,4 +118,34 @@ export class AgentRunState {
       messageCount: this.providerMessages.length,
     }
   }
+
+  trimForContextLengthRetry(reason: string): boolean {
+    if (this.snapshot.fallbackReasons?.includes(reason)) {
+      return false
+    }
+    if (this.providerMessages.length <= 2) {
+      return false
+    }
+
+    const first = this.providerMessages[0]
+    const last = this.providerMessages.at(-1)
+    const middle = this.providerMessages.slice(1, -1)
+    const keepMiddle = middle.slice(Math.floor(middle.length / 2))
+    this.providerMessages = [first, ...keepMiddle, last].filter(
+      (message): message is NonNullable<typeof message> => Boolean(message)
+    )
+    this.snapshot = {
+      ...this.snapshot,
+      fallbackReason: reason,
+      fallbackReasons: [...(this.snapshot.fallbackReasons ?? []), reason],
+      messageCount: this.providerMessages.length,
+      droppedCounts: {
+        ...(this.snapshot.droppedCounts ?? {}),
+        message:
+          (this.snapshot.droppedCounts?.message ?? 0) +
+          Math.max(0, middle.length - keepMiddle.length),
+      },
+    }
+    return true
+  }
 }

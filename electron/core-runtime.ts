@@ -3,6 +3,7 @@ import { ToolManagementService } from '@core/agent/tools/management-service'
 import { ToolRegistry } from '@core/agent/tools/registry'
 import { AttachmentService } from '@core/chat/attachment-service'
 import { ChatService } from '@core/chat/chat-service'
+import { ContextCompactionService } from '@core/chat/context-compaction'
 import { ContextBuilder } from '@core/chat/context-manager'
 import { RunManager } from '@core/chat/run-manager'
 import { ConfigValidationError } from '@core/config/schema'
@@ -13,6 +14,7 @@ import { ScheduledTaskAgentExecutor } from '@core/cron/scheduled-task-executor'
 import { DatabaseClient } from '@core/db/client'
 import {
   AttachmentRepo,
+  ChatContextSummaryRepo,
   ChatMessageRepo,
   ChatRunRepo,
   ChatSessionRepo,
@@ -77,6 +79,7 @@ export function createCoreRuntime(options: CoreRuntimeOptions): CoreRuntime {
   const sessionRepo = new ChatSessionRepo(db)
   const messageRepo = new ChatMessageRepo(db)
   const attachmentRepo = new AttachmentRepo(db)
+  const contextSummaryRepo = new ChatContextSummaryRepo(db)
   const runRepo = new ChatRunRepo(db)
   const cronTaskRepo = new CronTaskRepo(db)
   const cronRunRepo = new CronRunRepo(db)
@@ -183,7 +186,11 @@ export function createCoreRuntime(options: CoreRuntimeOptions): CoreRuntime {
   })
   loadStartupProviderRegistry(providerManager, options.lifecycleLogger)
   const attachmentService = new AttachmentService({ repo: attachmentRepo })
-  const contextBuilder = new ContextBuilder(attachmentService)
+  const contextBuilder = new ContextBuilder(attachmentService, {
+    summaries: contextSummaryRepo,
+    contextDefaults: () => configStore.get().app.chatContext,
+  })
+  const contextCompaction = new ContextCompactionService(contextSummaryRepo)
   const runManager = new RunManager(runRepo)
   const chatService = new ChatService({
     sessions: sessionRepo,
@@ -193,9 +200,11 @@ export function createCoreRuntime(options: CoreRuntimeOptions): CoreRuntime {
     attachmentRepo,
     providers: providerManager,
     contextBuilder,
+    contextCompaction,
     runManager,
     skills: skillManager,
     compactSkillDescriptions: () => configStore.get().app.compactSkillDescriptions,
+    contextDefaults: () => configStore.get().app.chatContext,
     agentToolProfile: () => configStore.get().tools.agentToolProfile,
     disabledToolNames: () => toolManagementService.getDisabledToolNames(),
     mcpTools: () => mcpServerManager.getAgentTools(),

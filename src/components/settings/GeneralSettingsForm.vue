@@ -1,6 +1,11 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import type { BridgeAppLanguage, BridgeAppTheme, BridgeDesktopSettingsConfig } from '@/bridge/app'
+import type {
+  BridgeAppLanguage,
+  BridgeAppTheme,
+  BridgeContextAttachmentPolicy,
+  BridgeDesktopSettingsConfig,
+} from '@/bridge/app'
 import SettingsSection from '@/components/settings/SettingsSection.vue'
 import {
   Field,
@@ -57,8 +62,49 @@ const maxRecentMessages = computed({
   set: (value: string | number) => {
     const next = Math.max(1, Number(value) || 1)
     props.draft.app.maxRecentMessages = Math.round(next)
+    props.draft.app.chatContext.recentMessages = Math.round(next)
   },
 })
+
+const chatContext = computed(() => props.draft.app.chatContext)
+
+const inputBudgetPercent = computed({
+  get: () => chatContext.value.maxInputBudgetPercent,
+  set: (value: string | number) => {
+    chatContext.value.maxInputBudgetPercent = clampPercent(value)
+  },
+})
+
+const includeAttachments = computed({
+  get: () => chatContext.value.includeAttachments,
+  set: (value: BridgeContextAttachmentPolicy) => {
+    chatContext.value.includeAttachments = value
+  },
+})
+
+const autoCompact = computed({
+  get: () => chatContext.value.autoCompact,
+  set: (value: boolean) => {
+    chatContext.value.autoCompact = value
+  },
+})
+
+const compactThresholdPercent = computed({
+  get: () => chatContext.value.compactThresholdPercent,
+  set: (value: string | number) => {
+    chatContext.value.compactThresholdPercent = clampPercent(value)
+  },
+})
+
+const compactModelId = computed({
+  get: () => chatContext.value.compactModelId ?? '',
+  set: (value: string) => {
+    const trimmed = value.trim()
+    chatContext.value.compactModelId = trimmed || undefined
+  },
+})
+
+const supportsCompactModel = computed(() => true)
 
 const zoomFactor = computed({
   get: () => props.draft.app.zoom.factor,
@@ -70,6 +116,12 @@ const zoomFactor = computed({
     props.draft.app.zoom.factor = Math.min(max, Math.max(min, next))
   },
 })
+
+function clampPercent(value: string | number): number {
+  const next = Number(value)
+  if (!Number.isFinite(next)) return 1
+  return Math.min(100, Math.max(1, Math.round(next)))
+}
 </script>
 
 <template>
@@ -189,6 +241,107 @@ const zoomFactor = computed({
             step="1"
           />
         </Field>
+
+        <template v-if="chatContext">
+          <Field
+            orientation="responsive"
+            class="border-b px-4 py-3"
+          >
+            <FieldContent>
+              <FieldLabel for="settings-context-budget">输入预算上限</FieldLabel>
+              <FieldDescription>按模型上下文窗口保留的最大输入比例。</FieldDescription>
+            </FieldContent>
+            <Input
+              id="settings-context-budget"
+              v-model="inputBudgetPercent"
+              class="w-full md:w-48"
+              type="number"
+              min="1"
+              max="100"
+              step="1"
+            />
+          </Field>
+
+          <Field
+            orientation="responsive"
+            class="border-b px-4 py-3"
+          >
+            <FieldContent>
+              <FieldLabel for="settings-context-attachments">附件策略</FieldLabel>
+              <FieldDescription>选择默认进入上下文的附件范围。</FieldDescription>
+            </FieldContent>
+            <Select
+              v-model="includeAttachments"
+              class="w-full md:w-48"
+            >
+              <SelectTrigger
+                id="settings-context-attachments"
+                class="w-full md:w-48"
+              >
+                <SelectValue placeholder="选择附件策略" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  <SelectItem value="current-only">仅当前消息</SelectItem>
+                  <SelectItem value="recent">最近消息</SelectItem>
+                  <SelectItem value="never">不包含附件</SelectItem>
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+          </Field>
+
+          <Field
+            orientation="responsive"
+            class="border-b px-4 py-3"
+          >
+            <FieldContent>
+              <FieldLabel for="settings-context-auto-compact">自动压缩上下文</FieldLabel>
+              <FieldDescription>达到阈值后自动维护会话上下文摘要。</FieldDescription>
+            </FieldContent>
+            <Switch
+              id="settings-context-auto-compact"
+              v-model="autoCompact"
+              aria-label="自动压缩上下文"
+            />
+          </Field>
+
+          <Field
+            orientation="responsive"
+            class="border-b px-4 py-3"
+          >
+            <FieldContent>
+              <FieldLabel for="settings-context-compact-threshold">压缩阈值</FieldLabel>
+              <FieldDescription>按输入预算百分比触发自动压缩。</FieldDescription>
+            </FieldContent>
+            <Input
+              id="settings-context-compact-threshold"
+              v-model="compactThresholdPercent"
+              class="w-full md:w-48"
+              type="number"
+              min="1"
+              max="100"
+              step="1"
+              :disabled="!autoCompact"
+            />
+          </Field>
+
+          <Field
+            v-if="supportsCompactModel"
+            orientation="responsive"
+            class="border-b px-4 py-3"
+          >
+            <FieldContent>
+              <FieldLabel for="settings-context-compact-model">压缩模型</FieldLabel>
+              <FieldDescription>留空时使用当前会话模型。</FieldDescription>
+            </FieldContent>
+            <Input
+              id="settings-context-compact-model"
+              v-model="compactModelId"
+              class="w-full md:w-48"
+              placeholder="provider/model"
+            />
+          </Field>
+        </template>
 
         <Field
           orientation="responsive"

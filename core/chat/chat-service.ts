@@ -32,8 +32,10 @@ import type {
   UpdateSessionRequest,
 } from '@shared/types/chat'
 import type { ProviderConfig, ProviderModel } from '@shared/types/provider'
+import type { DesktopChatContextSettings } from '@shared/types/settings'
 import type { WebContents } from 'electron'
 import type { AttachmentService } from './attachment-service'
+import type { ContextCompactionService } from './context-compaction'
 import type { ContextBuilder } from './context-manager'
 import type { RunManager } from './run-manager'
 
@@ -45,12 +47,14 @@ export interface ChatServiceOptions {
   attachmentRepo: AttachmentRepo
   providers: ProviderManager
   contextBuilder: ContextBuilder
+  contextCompaction?: ContextCompactionService
   runManager: RunManager
   disabledToolNames?: () => Iterable<string>
   mcpTools?: (input: ToolResolutionInput) => AgentTool[] | Promise<AgentTool[]>
   cronManager?: () => CronManager
   skills?: SkillManager
   compactSkillDescriptions?: () => boolean
+  contextDefaults?: () => DesktopChatContextSettings
   agentToolProfile?: () => ToolProfile
   agentRunner?: AgentRunner
   logger?: Logger
@@ -70,9 +74,11 @@ export class ChatService {
         runs: options.runs,
         providers: options.providers,
         contextBuilder: options.contextBuilder,
+        contextCompaction: options.contextCompaction,
         runManager: options.runManager,
         skills: options.skills,
         compactSkillDescriptions: options.compactSkillDescriptions,
+        contextDefaults: options.contextDefaults,
         toolRegistry: new ToolRegistry({
           messages: options.messages,
           attachments: options.attachments,
@@ -97,6 +103,7 @@ export class ChatService {
     const now = Date.now()
     const modelRef = await this.resolveInitialModelRef()
     const kind = request.kind === 'cat' ? 'cat' : 'chat'
+    const contextDefaults = this.options.contextDefaults?.()
     const session: ChatSession = {
       id: crypto.randomUUID(),
       title: request.title?.trim() || (kind === 'cat' ? '小猫会话' : '新会话'),
@@ -107,8 +114,8 @@ export class ChatService {
       messageCount: 0,
       contextPolicy: {
         mode: 'recent-turns',
-        maxMessages: 40,
-        includeAttachments: 'current-only',
+        maxMessages: contextDefaults?.recentMessages ?? 40,
+        includeAttachments: contextDefaults?.includeAttachments ?? 'current-only',
       },
       createdAt: now,
       updatedAt: now,
@@ -136,6 +143,14 @@ export class ChatService {
       defaultProviderId: request.defaultProviderId ?? session.defaultProviderId,
       defaultModelId: request.defaultModelId ?? session.defaultModelId,
       systemPrompt: request.systemPrompt ?? session.systemPrompt,
+      systemContext:
+        request.systemContext ??
+        (request.systemPrompt !== undefined
+          ? {
+              ...(session.systemContext ?? {}),
+              baseSystemPrompt: request.systemPrompt,
+            }
+          : session.systemContext),
       pinned: request.pinned ?? session.pinned,
       contextPolicy: request.contextPolicy ?? session.contextPolicy,
       updatedAt: Date.now(),
@@ -153,6 +168,9 @@ export class ChatService {
   deleteSession(request: DeleteSessionRequest | string): { deleted: boolean } {
     const sessionId = typeof request === 'string' ? request : request.sessionId
     const deleted = this.options.sessions.markDeleted(sessionId)
+    if (deleted) {
+      this.options.contextCompaction?.hideForSession(sessionId)
+    }
     this.logger?.info('Chat session delete requested.', { sessionId, deleted })
     return { deleted }
   }
@@ -303,12 +321,14 @@ export class ChatService {
     if (!message || message.sessionId !== request.sessionId || message.role !== 'user') {
       throw new Error('Editable user message not found.')
     }
+    this.options.contextCompaction?.markStaleByMessage(message)
     this.options.messages.updateParts(message.id, request.parts, { status: 'complete' })
     const updated = this.options.messages.get(message.id) ?? { ...message, parts: request.parts }
     const messages = this.options.messages.listBySession(request.sessionId)
     const messageIndex = messages.findIndex((item) => item.id === message.id)
     for (const later of messages.slice(messageIndex + 1)) {
       this.options.messages.updateStatus(later.id, 'superseded')
+      this.options.contextCompaction?.markStaleByMessage(later)
     }
     this.logger?.info('Chat message edited.', {
       sessionId: request.sessionId,
@@ -339,6 +359,7 @@ export class ChatService {
       throw new Error('No preceding user message found.')
     }
     this.options.messages.updateStatus(target.id, 'superseded')
+    this.options.contextCompaction?.markStaleByMessage(target)
     this.logger?.info('Chat regeneration requested.', {
       sessionId: request.sessionId,
       targetMessageId: request.messageId,

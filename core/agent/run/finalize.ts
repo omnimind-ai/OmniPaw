@@ -13,14 +13,21 @@ export class AgentRunFinalizer {
 
   completeRun(state: AgentRunState, usage?: TokenUsage): void {
     const { run } = state.input
+    this.applyUsageToSnapshot(state, usage)
     this.options.messages.updateParts(run.assistantMessageId, state.assistantParts, {
       status: 'complete',
       usage,
     })
-    this.options.runs.updateStatus(run.id, 'complete', {
-      finishedAt: Date.now(),
+    const finishedAt = Date.now()
+    this.options.runs.save({
+      ...(this.options.runs.get(run.id) ?? run),
+      status: 'complete',
+      finishedAt,
       usage,
+      requestSnapshot: state.snapshot,
+      updatedAt: finishedAt,
     })
+    this.maybeCompact(state)
     this.emitFinal(state)
     this.options.onComplete?.(run.sessionId)
   }
@@ -32,7 +39,15 @@ export class AgentRunFinalizer {
     this.options.messages.updateParts(run.assistantMessageId, state.assistantParts, {
       status: 'complete',
     })
-    this.options.runs.updateStatus(run.id, 'complete', { finishedAt: Date.now() })
+    const finishedAt = Date.now()
+    this.options.runs.save({
+      ...(this.options.runs.get(run.id) ?? run),
+      status: 'complete',
+      finishedAt,
+      requestSnapshot: state.snapshot,
+      updatedAt: finishedAt,
+    })
+    this.maybeCompact(state)
     this.emitFinal(state)
     this.options.onComplete?.(run.sessionId)
     this.logger?.warn('Agent run reached max steps.', {
@@ -94,6 +109,75 @@ export class AgentRunFinalizer {
 
   finishRun(runId: string): void {
     this.options.runManager.finish(runId)
+  }
+
+  private applyUsageToSnapshot(state: AgentRunState, usage?: TokenUsage): void {
+    if (!usage) {
+      return
+    }
+    const budgetInputTokens = state.snapshot.contextUsage?.budgetInputTokens
+    const contextWindowTokens = state.snapshot.contextUsage?.contextWindowTokens
+    const inputTokens = usage.input ?? state.snapshot.contextUsage?.estimatedInputTokens
+    state.snapshot = {
+      ...state.snapshot,
+      usageSource: 'actual',
+      contextUsage: {
+        ...(state.snapshot.contextUsage ?? { updatedAt: Date.now(), source: 'actual' }),
+        source: 'actual',
+        inputTokens: usage.input,
+        outputTokens: usage.output,
+        cachedInputTokens: usage.cachedInput,
+        reasoningTokens: usage.reasoning,
+        totalTokens: usage.total,
+        contextWindowTokens,
+        budgetInputTokens,
+        windowUsagePercent:
+          inputTokens !== undefined && contextWindowTokens
+            ? Math.round((inputTokens / contextWindowTokens) * 100)
+            : state.snapshot.contextUsage?.windowUsagePercent,
+        usagePercent:
+          inputTokens !== undefined && budgetInputTokens
+            ? Math.round((inputTokens / budgetInputTokens) * 100)
+            : state.snapshot.contextUsage?.usagePercent,
+        updatedAt: Date.now(),
+      },
+    }
+  }
+
+  private maybeCompact(state: AgentRunState): void {
+    const summary = this.options.contextCompaction?.maybeCompact({
+      sessionId: state.input.session.id,
+      messages: this.options.messages.listBySession(state.input.session.id),
+      provider: state.input.provider,
+      model: state.input.model,
+      snapshot: state.snapshot,
+      settings: this.options.contextDefaults?.(),
+    })
+    if (!summary) {
+      return
+    }
+    state.snapshot = {
+      ...state.snapshot,
+      summaryId: summary.id,
+      fallbackReasons: [...(state.snapshot.fallbackReasons ?? []), 'auto_compact_created_summary'],
+      contextUsage: state.snapshot.contextUsage
+        ? {
+            ...state.snapshot.contextUsage,
+            summaryId: summary.id,
+            fallbackReasons: [
+              ...(state.snapshot.contextUsage.fallbackReasons ?? []),
+              'auto_compact_created_summary',
+            ],
+            updatedAt: Date.now(),
+          }
+        : undefined,
+    }
+    const currentRun = this.options.runs.get(state.input.run.id) ?? state.input.run
+    this.options.runs.save({
+      ...currentRun,
+      requestSnapshot: state.snapshot,
+      updatedAt: Date.now(),
+    })
   }
 
   private emitFinal(state: AgentRunState): void {

@@ -1,6 +1,8 @@
 import type { DatabaseConnection } from '../client'
 import { decodeJson, encodeJson } from '../json'
-import type { ChatSession, ChatSessionKind, ContextPolicy } from '../types'
+import type { ChatSession, ChatSessionKind, ChatSystemContextConfig, ContextPolicy } from '../types'
+
+const systemContextMetadataKey = 'systemContext'
 
 interface SessionRow {
   id: string
@@ -135,6 +137,9 @@ export class ChatSessionRepo {
 }
 
 function mapSession(row: SessionRow): ChatSession {
+  const metadata = decodeJson<Record<string, unknown> | undefined>(row.metadata_json, undefined)
+  const systemContext = getSystemContextFromMetadata(metadata, row.system_prompt ?? undefined)
+
   return {
     id: row.id,
     title: row.title,
@@ -143,18 +148,28 @@ function mapSession(row: SessionRow): ChatSession {
     defaultProviderId: row.default_provider_id ?? undefined,
     defaultModelId: row.default_model_id ?? undefined,
     systemPrompt: row.system_prompt ?? undefined,
+    systemContext,
     pinned: row.pinned === 1,
     messageCount: row.message_count,
     lastMessagePreview: row.last_message_preview ?? undefined,
     lastMessageAt: row.last_message_at ?? undefined,
     contextPolicy: decodeJson<ContextPolicy | undefined>(row.context_policy_json, undefined),
-    metadata: decodeJson<Record<string, unknown> | undefined>(row.metadata_json, undefined),
+    metadata,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   }
 }
 
 function toSessionParams(session: ChatSession): Record<string, unknown> {
+  const systemPrompt = session.systemPrompt ?? session.systemContext?.baseSystemPrompt
+  const systemContext =
+    session.systemContext || systemPrompt
+      ? {
+          ...(session.systemContext ?? {}),
+          ...(systemPrompt !== undefined ? { baseSystemPrompt: systemPrompt } : {}),
+        }
+      : undefined
+
   return {
     id: session.id,
     title: session.title,
@@ -162,14 +177,51 @@ function toSessionParams(session: ChatSession): Record<string, unknown> {
     status: session.status,
     defaultProviderId: session.defaultProviderId ?? null,
     defaultModelId: session.defaultModelId ?? null,
-    systemPrompt: session.systemPrompt ?? null,
+    systemPrompt: systemPrompt ?? null,
     contextPolicyJson: encodeJson(session.contextPolicy),
     pinned: session.pinned ? 1 : 0,
     messageCount: session.messageCount ?? 0,
     lastMessagePreview: session.lastMessagePreview ?? null,
     lastMessageAt: session.lastMessageAt ?? null,
-    metadataJson: encodeJson(session.metadata),
+    metadataJson: encodeJson(withSystemContextMetadata(session.metadata, systemContext)),
     createdAt: session.createdAt,
     updatedAt: session.updatedAt,
   }
+}
+
+function getSystemContextFromMetadata(
+  metadata: Record<string, unknown> | undefined,
+  systemPrompt: string | undefined
+): ChatSystemContextConfig | undefined {
+  const value = metadata?.[systemContextMetadataKey]
+  if (isSystemContextConfig(value)) {
+    return value
+  }
+  return systemPrompt ? { baseSystemPrompt: systemPrompt } : undefined
+}
+
+function withSystemContextMetadata(
+  metadata: Record<string, unknown> | undefined,
+  systemContext: ChatSystemContextConfig | undefined
+): Record<string, unknown> | undefined {
+  if (!systemContext) {
+    return metadata
+  }
+  return {
+    ...(metadata ?? {}),
+    [systemContextMetadataKey]: systemContext,
+  }
+}
+
+function isSystemContextConfig(value: unknown): value is ChatSystemContextConfig {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return false
+  }
+  const candidate = value as ChatSystemContextConfig
+  return (
+    (candidate.baseSystemPrompt === undefined || typeof candidate.baseSystemPrompt === 'string') &&
+    (candidate.mask === undefined || typeof candidate.mask === 'object') &&
+    (candidate.persona === undefined || typeof candidate.persona === 'object') &&
+    (candidate.runtimeInstructions === undefined || Array.isArray(candidate.runtimeInstructions))
+  )
 }

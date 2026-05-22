@@ -1,4 +1,4 @@
-import type { ToolProfile } from './chat'
+import type { ContextAttachmentPolicy, ToolProfile } from './chat'
 import type {
   ProviderApi,
   ProviderCapabilities,
@@ -22,8 +22,18 @@ export interface DesktopBaseSettings {
     max: number
   }
   maxRecentMessages: number
+  chatContext: DesktopChatContextSettings
   compactSkillDescriptions: boolean
   dataDir?: string
+}
+
+export interface DesktopChatContextSettings {
+  recentMessages: number
+  maxInputBudgetPercent: number
+  includeAttachments: ContextAttachmentPolicy
+  autoCompact: boolean
+  compactThresholdPercent: number
+  compactModelId?: string
 }
 
 export interface DesktopProviderSource {

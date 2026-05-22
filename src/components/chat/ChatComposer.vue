@@ -16,6 +16,7 @@ import {
   XIcon,
 } from 'lucide-vue-next'
 import { computed, ref } from 'vue'
+import ChatContextUsageIndicator from '@/components/chat/ChatContextUsageIndicator.vue'
 import { Badge } from '@/components/ui/badge'
 import {
   DropdownMenu,
@@ -40,6 +41,7 @@ import {
   type StagedUploadItem,
 } from '@/composables/useMediaHandling'
 import { cn } from '@/lib/utils'
+import type { SessionContextUsage } from '@/stores/chat'
 import type { ProviderModelOption } from '@/stores/provider'
 
 const props = defineProps<{
@@ -57,6 +59,8 @@ const props = defineProps<{
     description: string
   }>
   toolProfileSaving?: boolean
+  contextUsage?: SessionContextUsage
+  contextUsageLoading?: boolean
   replyPreview?: string
   running?: boolean
   uploadPending?: boolean
@@ -335,8 +339,8 @@ function handleDrop(event: DragEvent) {
               <span v-if="uploadPending">附件上传中</span>
             </div>
 
-            <div class="flex w-full items-center justify-between gap-2">
-              <div class="flex min-w-0 items-center gap-2">
+            <div class="flex w-full flex-wrap items-center justify-between gap-2">
+              <div class="flex min-w-0 flex-wrap items-center gap-2">
                 <InputGroupButton
                   size="icon-sm"
                   aria-label="添加附件"
@@ -422,6 +426,11 @@ function handleDrop(event: DragEvent) {
                     </DropdownMenuRadioGroup>
                   </DropdownMenuContent>
                 </DropdownMenu>
+
+                <ChatContextUsageIndicator
+                  :usage="contextUsage"
+                  :loading="contextUsageLoading"
+                />
               </div>
 
               <div class="flex items-center gap-2">

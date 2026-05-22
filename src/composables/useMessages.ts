@@ -160,6 +160,8 @@ interface UseMessagesOptions {
   currentSessionId: Ref<string>
   onSessionsChanged?: () => Promise<void> | void
   onStreamUpdate?: (sessionId: string) => void
+  onContextUsageUpdate?: (event: BridgeStreamEvent) => void
+  onMessagesLoaded?: (sessionId: string, messages: BridgeChatMessage[]) => void
 }
 
 export function useMessages(options: UseMessagesOptions) {
@@ -253,6 +255,7 @@ export function useMessages(options: UseMessagesOptions) {
       await resolveRecordMedia(records)
       messagesBySession[sessionId] = records
       loadedSessions[sessionId] = true
+      options.onMessagesLoaded?.(sessionId, history || [])
     } catch (error) {
       messagesLogger.error('Failed to load session messages.', { sessionId, error })
       toast.error(error, { description: '会话消息加载失败' })
@@ -445,6 +448,7 @@ export function useMessages(options: UseMessagesOptions) {
         if (event.sessionId !== sessionId || event.runId !== response.runId) return
         markCatLifecycleRunning(sessionId)
         processBridgeStreamEvent(botRecord, event)
+        options.onContextUsageUpdate?.(event)
         options.onStreamUpdate?.(sessionId)
         if (isTerminalStreamEvent(event)) {
           settleCatLifecycle(sessionId, event.type)
@@ -512,6 +516,7 @@ export function useMessages(options: UseMessagesOptions) {
       if (event.assistantMessageId !== String(botRecord.id) && event.runId !== runId) return
       markCatLifecycleRunning(sessionId)
       processBridgeStreamEvent(botRecord, event)
+      options.onContextUsageUpdate?.(event)
       options.onStreamUpdate?.(sessionId)
       if (isTerminalStreamEvent(event)) {
         const active = activeConnections[sessionId]

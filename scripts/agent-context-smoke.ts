@@ -83,6 +83,7 @@ const messageRepo = {
 } as unknown as ChatMessageRepo
 
 await testContextBuilderToolHistory()
+await testContextBuilderSystemFallbackAndTokenBudget()
 await testAttachmentToolsSessionBoundary()
 
 console.log('Agent context smoke check passed')
@@ -158,6 +159,67 @@ async function testAttachmentToolsSessionBoundary(): Promise<void> {
     () => read.execute('call_denied', { attachmentId: 'att-2' }),
     /not available in the current session/
   )
+}
+
+async function testContextBuilderSystemFallbackAndTokenBudget(): Promise<void> {
+  const longMessages: ChatMessage[] = [
+    {
+      id: 'old-user',
+      sessionId: 'session-1',
+      role: 'user',
+      status: 'complete',
+      parts: [{ type: 'plain', text: 'old '.repeat(400) }],
+      createdAt: 1,
+      updatedAt: 1,
+    },
+    {
+      id: 'current-user',
+      sessionId: 'session-1',
+      role: 'user',
+      status: 'complete',
+      parts: [{ type: 'plain', text: 'current question' }],
+      createdAt: 3,
+      updatedAt: 3,
+    },
+  ]
+  const context = await new ContextBuilder(attachments).build({
+    session: {
+      id: 'session-1',
+      title: 'Session',
+      status: 'active',
+      systemPrompt: 'Base prompt',
+      systemContext: {
+        baseSystemPrompt: 'Base prompt',
+        mask: { text: 'Mask prompt', enabled: true },
+        persona: { text: 'Persona prompt', enabled: true },
+      },
+      contextPolicy: {
+        mode: 'token-budget',
+        maxInputTokens: 80,
+        includeAttachments: 'never',
+      },
+      createdAt: 1,
+      updatedAt: 1,
+    },
+    messages: longMessages,
+    currentUserMessageId: 'current-user',
+    provider: provider(),
+    model: {
+      ...model(),
+      compat: { supportsSystemRole: false },
+      contextWindow: 256,
+      maxOutputTokens: 64,
+    },
+  })
+
+  assert.equal(context.messages[0]?.role, 'user')
+  assert.match(String(context.messages[0]?.content), /Base prompt/)
+  assert.match(String(context.messages[0]?.content), /Mask prompt/)
+  assert.match(String(context.messages[0]?.content), /Persona prompt/)
+  assert.match(JSON.stringify(context.messages), /current question/)
+  assert.equal(context.snapshot.contextPolicyMode, 'token-budget')
+  assert.ok(context.snapshot.contextUsage?.estimatedInputTokens)
+  assert.ok((context.snapshot.droppedCounts?.message ?? 0) >= 1)
 }
 
 function provider(): ProviderConfig {

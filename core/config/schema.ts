@@ -1,5 +1,5 @@
 import { redactSensitiveText } from '@core/logging/redaction'
-import type { ToolProfile } from '@shared/types/chat'
+import type { ContextAttachmentPolicy, ToolProfile } from '@shared/types/chat'
 import type {
   DesktopProviderModel,
   DesktopProviderSource,
@@ -54,6 +54,13 @@ export const defaultConfig: DesktopSettingsConfig = {
       max: 1.5,
     },
     maxRecentMessages: 20,
+    chatContext: {
+      recentMessages: 20,
+      maxInputBudgetPercent: 75,
+      includeAttachments: 'current-only',
+      autoCompact: true,
+      compactThresholdPercent: 85,
+    },
     compactSkillDescriptions: true,
   },
   providers: {
@@ -102,7 +109,10 @@ export function cloneConfig(config: DesktopSettingsConfig): DesktopSettingsConfi
 
 export function normalizeConfig(raw: unknown): NormalizeConfigResult {
   const migrated = migrateConfig(raw)
-  const normalized = normalizeObject(cloneDefaultConfig(), migrated, '')
+  const normalized = normalizeChatContextCompatibility(
+    normalizeObject(cloneDefaultConfig(), migrated, '') as DesktopSettingsConfig,
+    migrated
+  )
   const config = validateConfig(normalized)
 
   return {
@@ -203,6 +213,10 @@ function migrateConfig(raw: unknown): unknown {
 }
 
 function normalizeObject(defaultValue: unknown, rawValue: unknown, path: string): unknown {
+  if (path === 'app.chatContext') {
+    return normalizeChatContextSettings(rawValue)
+  }
+
   if (path === 'tools.agentToolProfile') {
     return isToolProfile(rawValue) ? rawValue : defaultConfig.tools.agentToolProfile
   }
@@ -376,6 +390,75 @@ function validateApp(config: DesktopSettingsConfig, issues: SettingsValidationIs
       path: 'app.maxRecentMessages',
       message: 'Max recent messages must be a positive integer.',
       code: 'invalid_number',
+    })
+  }
+  validateChatContext(config, issues)
+}
+
+function validateChatContext(
+  config: DesktopSettingsConfig,
+  issues: SettingsValidationIssue[]
+): void {
+  const settings = config.app.chatContext
+  if (!isPlainObject(settings)) {
+    issues.push({
+      path: 'app.chatContext',
+      message: 'Chat context settings must be an object.',
+      code: 'invalid_type',
+    })
+    return
+  }
+  if (!Number.isInteger(settings.recentMessages) || settings.recentMessages < 1) {
+    issues.push({
+      path: 'app.chatContext.recentMessages',
+      message: 'Recent messages must be a positive integer.',
+      code: 'invalid_number',
+    })
+  }
+  if (
+    !Number.isInteger(settings.maxInputBudgetPercent) ||
+    settings.maxInputBudgetPercent < 1 ||
+    settings.maxInputBudgetPercent > 100
+  ) {
+    issues.push({
+      path: 'app.chatContext.maxInputBudgetPercent',
+      message: 'Max input budget percent must be an integer between 1 and 100.',
+      code: 'out_of_range',
+    })
+  }
+  if (!isContextAttachmentPolicy(settings.includeAttachments)) {
+    issues.push({
+      path: 'app.chatContext.includeAttachments',
+      message: 'Attachment policy must be current-only, recent, or never.',
+      code: 'invalid_enum',
+    })
+  }
+  if (typeof settings.autoCompact !== 'boolean') {
+    issues.push({
+      path: 'app.chatContext.autoCompact',
+      message: 'Auto compact setting must be boolean.',
+      code: 'invalid_type',
+    })
+  }
+  if (
+    !Number.isInteger(settings.compactThresholdPercent) ||
+    settings.compactThresholdPercent < 1 ||
+    settings.compactThresholdPercent > 100
+  ) {
+    issues.push({
+      path: 'app.chatContext.compactThresholdPercent',
+      message: 'Compact threshold percent must be an integer between 1 and 100.',
+      code: 'out_of_range',
+    })
+  }
+  if (
+    settings.compactModelId !== undefined &&
+    (typeof settings.compactModelId !== 'string' || settings.compactModelId.length === 0)
+  ) {
+    issues.push({
+      path: 'app.chatContext.compactModelId',
+      message: 'Compact model ID must be a non-empty string when set.',
+      code: 'invalid_type',
     })
   }
 }
@@ -643,6 +726,73 @@ function isModelInput(value: unknown): value is DesktopProviderModel['input'] {
 
 function isToolProfile(value: unknown): value is ToolProfile {
   return value === 'minimal' || value === 'assistant' || value === 'power'
+}
+
+function isContextAttachmentPolicy(value: unknown): value is ContextAttachmentPolicy {
+  return value === 'current-only' || value === 'recent' || value === 'never'
+}
+
+function normalizeChatContextSettings(
+  rawValue: unknown
+): DesktopSettingsConfig['app']['chatContext'] {
+  const defaults = defaultConfig.app.chatContext
+  if (rawValue === undefined || rawValue === null) {
+    return cloneUnknown(defaults)
+  }
+  if (!isPlainObject(rawValue)) {
+    throwValidationError([
+      {
+        path: 'app.chatContext',
+        message: 'Chat context settings must be an object.',
+        code: 'invalid_type',
+      },
+    ])
+  }
+
+  return {
+    recentMessages: rawValue.recentMessages ?? defaults.recentMessages,
+    maxInputBudgetPercent: rawValue.maxInputBudgetPercent ?? defaults.maxInputBudgetPercent,
+    includeAttachments: rawValue.includeAttachments ?? defaults.includeAttachments,
+    autoCompact: rawValue.autoCompact ?? defaults.autoCompact,
+    compactThresholdPercent: rawValue.compactThresholdPercent ?? defaults.compactThresholdPercent,
+    compactModelId: rawValue.compactModelId,
+  } as DesktopSettingsConfig['app']['chatContext']
+}
+
+function normalizeChatContextCompatibility(
+  config: DesktopSettingsConfig,
+  raw: unknown
+): DesktopSettingsConfig {
+  if (!isPlainObject(raw) || !isPlainObject(raw.app)) {
+    return config
+  }
+
+  const rawApp = raw.app
+  const legacyRecentMessages =
+    typeof rawApp.maxRecentMessages === 'number' ? rawApp.maxRecentMessages : undefined
+  const rawChatContext = rawApp.chatContext
+  const hasChatContext = isPlainObject(rawChatContext)
+  const rawChatContextObject = hasChatContext ? rawChatContext : undefined
+  const chatRecentMessages =
+    rawChatContextObject !== undefined && typeof rawChatContextObject.recentMessages === 'number'
+      ? rawChatContextObject.recentMessages
+      : undefined
+
+  if (!hasChatContext && legacyRecentMessages !== undefined) {
+    config.app.chatContext.recentMessages = legacyRecentMessages
+    return config
+  }
+
+  if (hasChatContext && chatRecentMessages === undefined && legacyRecentMessages !== undefined) {
+    config.app.chatContext.recentMessages = legacyRecentMessages
+    return config
+  }
+
+  if (legacyRecentMessages === undefined && chatRecentMessages !== undefined) {
+    config.app.maxRecentMessages = chatRecentMessages
+  }
+
+  return config
 }
 
 function normalizeBooleanRecord(value: unknown): Record<string, boolean> {

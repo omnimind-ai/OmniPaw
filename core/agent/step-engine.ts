@@ -113,6 +113,28 @@ export class AgentStepEngine {
             })
             continue
           }
+          if (
+            chatError.code === 'provider_context_length' &&
+            !sawFinal &&
+            stepParts.length === 0 &&
+            stepToolCalls.length === 0 &&
+            state.trimForContextLengthRetry('provider_context_length_retry')
+          ) {
+            const currentRun = this.options.runs.get(input.run.id) ?? input.run
+            this.options.runs.save({
+              ...currentRun,
+              requestSnapshot: state.snapshot,
+              updatedAt: Date.now(),
+            })
+            retryWithoutTools = true
+            this.logger?.info('Provider rejected context length; retrying with trimmed context.', {
+              providerId: input.provider.id,
+              modelId: input.model.id,
+              errorCode: chatError.code,
+              fallbackReason: 'provider_context_length_retry',
+            })
+            continue
+          }
           throw error
         }
       } while (retryWithoutTools)

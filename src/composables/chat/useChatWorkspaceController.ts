@@ -49,6 +49,8 @@ export function useChatWorkspaceController() {
     currentSessionId: currSessionId,
     onSessionsChanged: getSessions,
     onStreamUpdate: handleStreamUpdate,
+    onContextUsageUpdate: chatStore.updateContextUsageFromStreamEvent,
+    onMessagesLoaded: chatStore.updateContextUsageFromMessages,
   })
 
   const isHomeMode = computed(() => route.name !== 'chat')
@@ -103,6 +105,8 @@ export function useChatWorkspaceController() {
   )
   const replyPreview = computed(() => replyTarget.value?.preview || '')
   const sidebarOpen = computed(() => chatStore.sidebarOpen)
+  const activeContextUsage = computed(() => chatStore.activeContextUsage)
+  const activeContextUsageLoading = computed(() => chatStore.activeContextUsageLoading)
   const agentToolProfile = computed(() => settingsStore.agentToolProfile)
   const toolProfileOptions: Array<{
     value: ToolProfile
@@ -148,6 +152,8 @@ export function useChatWorkspaceController() {
     toolProfileSaving,
     currentSessionRunning,
     sending: messages.sending,
+    activeContextUsage,
+    activeContextUsageLoading,
     attachmentWarning,
     canSend,
     replyPreview,
@@ -190,6 +196,7 @@ export function useChatWorkspaceController() {
       chatStore.activeSessionId = sessionId || undefined
 
       if (sessionId) {
+        chatStore.setContextUsageLoading(sessionId, true)
         await messages.loadSessionMessages(sessionId)
         await consumePendingInitialMessage(sessionId)
       }
@@ -205,9 +212,18 @@ export function useChatWorkspaceController() {
     () => currSessionId.value,
     (sessionId) => {
       chatStore.activeSessionId = sessionId || undefined
+      chatStore.reconcileContextUsageFromSessions(sessions.value)
       scroll.resetScrollFollowState()
     },
     { immediate: true }
+  )
+
+  watch(
+    sessions,
+    (nextSessions) => {
+      chatStore.reconcileContextUsageFromSessions(nextSessions)
+    },
+    { deep: true }
   )
 
   watch(
@@ -237,6 +253,9 @@ export function useChatWorkspaceController() {
   onMounted(async () => {
     stopSessionChanged = appBridge.chat.onSessionChanged?.((event) => {
       if (!event.sessionId) return
+      if (event.session) {
+        chatStore.reconcileContextUsageFromSessions([event.session])
+      }
       void getSessions()
     })
 
@@ -295,6 +314,7 @@ export function useChatWorkspaceController() {
     currSessionId.value = sessionId
     selectedSessions.value = [sessionId]
     chatStore.activeSessionId = sessionId
+    chatStore.setContextUsageLoading(sessionId, true)
     await router.push(`/chat/${sessionId}`)
   }
 

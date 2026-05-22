@@ -30,6 +30,8 @@ const {
   toolProfileSaving,
   replyPreview,
   currentSessionRunning,
+  activeContextUsage,
+  activeContextUsageLoading,
   uploadPending,
   attachmentWarning,
   sending,
@@ -90,6 +92,8 @@ const {
         :tool-profile="agentToolProfile"
         :tool-profile-options="toolProfileOptions"
         :tool-profile-saving="toolProfileSaving"
+        :context-usage="activeContextUsage"
+        :context-usage-loading="activeContextUsageLoading"
         :reply-preview="replyPreview"
         :running="currentSessionRunning"
         :upload-pending="uploadPending"

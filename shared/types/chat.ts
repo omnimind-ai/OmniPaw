@@ -183,18 +183,120 @@ export interface TokenUsage {
   total?: number
 }
 
+export type ContextAttachmentPolicy = 'current-only' | 'recent' | 'never'
+export type ContextUsageSource = 'estimated' | 'actual' | 'mixed'
+export type ContextUnitKind =
+  | 'base-system'
+  | 'mask'
+  | 'persona'
+  | 'runtime'
+  | 'skill'
+  | 'tool-inventory'
+  | 'summary'
+  | 'message'
+  | 'attachment'
+  | 'tool-result'
+export type ContextUnitSource =
+  | 'session'
+  | 'settings'
+  | 'runtime'
+  | 'skill'
+  | 'tool'
+  | 'message'
+  | 'attachment'
+  | 'summary'
+export type ContextSummaryStatus = 'usable' | 'stale' | 'hidden'
+
 export interface ContextPolicy {
   mode: 'recent-turns' | 'token-budget' | 'summary-plus-recent'
   maxMessages?: number
   maxInputTokens?: number
   keepRecentTurns?: number
-  includeAttachments?: 'current-only' | 'recent' | 'never'
+  includeAttachments?: ContextAttachmentPolicy
 }
 
 export const defaultContextPolicy: ContextPolicy = {
   mode: 'recent-turns',
   maxMessages: 40,
   includeAttachments: 'current-only',
+}
+
+export interface SessionContextInstruction {
+  id?: ID
+  label?: string
+  text?: string
+  refId?: ID
+  enabled?: boolean
+}
+
+export interface ChatSystemContextConfig {
+  baseSystemPrompt?: string
+  mask?: SessionContextInstruction
+  persona?: SessionContextInstruction
+  runtimeInstructions?: SessionContextInstruction[]
+}
+
+export interface ContextUnitMetadata {
+  kind: ContextUnitKind
+  source: ContextUnitSource
+  required: boolean
+  priority: number
+  estimatedTokens?: number
+  selected?: boolean
+  count?: number
+  messageRole?: MessageRole
+  fallbackReason?: string
+}
+
+export interface ContextUnitAccounting {
+  kind: ContextUnitKind
+  selectedCount: number
+  droppedCount?: number
+  estimatedTokens?: number
+}
+
+export interface ContextUsageMetadata {
+  source: ContextUsageSource
+  inputTokens?: number
+  outputTokens?: number
+  cachedInputTokens?: number
+  reasoningTokens?: number
+  totalTokens?: number
+  estimatedInputTokens?: number
+  contextWindowTokens?: number
+  budgetInputTokens?: number
+  budgetPercent?: number
+  windowUsagePercent?: number
+  usagePercent?: number
+  reservedOutputTokens?: number
+  selectedUnitCount?: number
+  droppedUnitCount?: number
+  selectedMessageCount?: number
+  droppedMessageCount?: number
+  summaryId?: ID
+  fallbackReasons?: string[]
+  updatedAt: UnixMs
+}
+
+export interface ChatContextSummary {
+  id: ID
+  sessionId: ID
+  summary: string
+  status: ContextSummaryStatus
+  coveredFromMessageId?: ID
+  coveredToMessageId?: ID
+  coveredFromCreatedAt?: UnixMs
+  coveredToCreatedAt?: UnixMs
+  sourceMessageIds?: ID[]
+  providerId?: ID
+  modelId?: string
+  tokenEstimateBefore?: number
+  tokenEstimateAfter?: number
+  metadata?: Record<string, unknown>
+  createdAt: UnixMs
+  updatedAt: UnixMs
+  staleAt?: UnixMs
+  hiddenAt?: UnixMs
 }
 
 export interface ChatSession {
@@ -205,6 +307,7 @@ export interface ChatSession {
   defaultProviderId?: ID
   defaultModelId?: string
   systemPrompt?: string
+  systemContext?: ChatSystemContextConfig
   pinned?: boolean
   messageCount?: number
   lastMessagePreview?: string
@@ -278,6 +381,7 @@ export interface ProviderRequestSnapshot {
   baseUrlHost?: string
   model: string
   mode?: ChatRunMode
+  contextPolicyMode?: ContextPolicy['mode']
   toolProfile?: ToolProfile
   availableTools?: string[]
   toolSources?: Array<{
@@ -293,9 +397,21 @@ export interface ProviderRequestSnapshot {
   }
   maxSteps?: number
   fallbackReason?: string
+  fallbackReasons?: string[]
   messageCount: number
   attachmentCount: number
+  tokenBudget?: {
+    maxInputTokens?: number
+    usableInputTokens?: number
+    reservedOutputTokens?: number
+  }
   estimatedInputTokens?: number
+  usageSource?: ContextUsageSource
+  contextUsage?: ContextUsageMetadata
+  contextUnits?: ContextUnitAccounting[]
+  selectedCounts?: Partial<Record<ContextUnitKind, number>>
+  droppedCounts?: Partial<Record<ContextUnitKind, number>>
+  summaryId?: ID
 }
 
 export interface ChatRun {
@@ -362,6 +478,7 @@ export interface UpdateSessionRequest {
   defaultProviderId?: ID
   defaultModelId?: string
   systemPrompt?: string
+  systemContext?: ChatSystemContextConfig
   pinned?: boolean
   contextPolicy?: ContextPolicy
 }

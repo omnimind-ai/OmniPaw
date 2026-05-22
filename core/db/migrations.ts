@@ -201,4 +201,36 @@ export const migrations: Migration[] = [
         ON chat_sessions(kind, updated_at DESC);
     `,
   },
+  {
+    id: 6,
+    name: 'create_chat_context_summaries',
+    sql: `
+      CREATE TABLE IF NOT EXISTS chat_context_summaries (
+        id TEXT PRIMARY KEY,
+        session_id TEXT NOT NULL,
+        summary_text TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'usable',
+        covered_from_message_id TEXT,
+        covered_to_message_id TEXT,
+        covered_from_created_at INTEGER,
+        covered_to_created_at INTEGER,
+        source_message_ids_json TEXT,
+        provider_id TEXT,
+        model_id TEXT,
+        token_estimate_before INTEGER,
+        token_estimate_after INTEGER,
+        metadata_json TEXT,
+        stale_at INTEGER,
+        hidden_at INTEGER,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL,
+        FOREIGN KEY(session_id) REFERENCES chat_sessions(id) ON DELETE CASCADE
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_chat_context_summaries_latest
+        ON chat_context_summaries(session_id, status, covered_to_created_at DESC, updated_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_chat_context_summaries_coverage
+        ON chat_context_summaries(session_id, covered_from_created_at, covered_to_created_at);
+    `,
+  },
 ]

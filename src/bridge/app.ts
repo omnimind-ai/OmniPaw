@@ -44,6 +44,39 @@ export type BridgeUnsubscribe = () => void
 export type BridgeAppTheme = 'system' | 'light' | 'dark'
 export type BridgeAppLanguage = 'system' | 'zh-CN' | 'en-US'
 export type BridgeToolProfile = 'minimal' | 'assistant' | 'power' | string
+export type BridgeContextUsageSource = 'actual' | 'estimated' | 'mixed' | 'provider' | string
+export type BridgeContextAttachmentPolicy = 'current-only' | 'recent' | 'never'
+
+export interface BridgeChatContextSettings {
+  recentMessages: number
+  maxInputBudgetPercent: number
+  includeAttachments: BridgeContextAttachmentPolicy
+  autoCompact: boolean
+  compactThresholdPercent: number
+  compactModelId?: string
+}
+
+export interface BridgeContextUsageMetadata {
+  inputTokens?: number
+  estimatedInputTokens?: number
+  outputTokens?: number
+  totalTokens?: number
+  contextWindowTokens?: number
+  contextWindow?: number
+  windowTokens?: number
+  budgetTokens?: number
+  budgetInputTokens?: number
+  maxInputTokens?: number
+  windowUsagePercent?: number
+  windowPercent?: number
+  percentage?: number
+  percent?: number
+  usagePercent?: number
+  source?: BridgeContextUsageSource
+  usageSource?: BridgeContextUsageSource
+  updatedAt?: number
+  lastUpdatedAt?: number
+}
 
 export interface BridgeDesktopSettingsConfig {
   version: 1
@@ -57,6 +90,7 @@ export interface BridgeDesktopSettingsConfig {
       max: number
     }
     maxRecentMessages: number
+    chatContext: BridgeChatContextSettings
     compactSkillDescriptions: boolean
     dataDir?: string
   }
@@ -125,9 +159,12 @@ export interface BridgeChatSession {
   providerId?: string
   modelId?: string
   systemPrompt?: string
+  contextPolicy?: Record<string, unknown>
+  contextUsage?: BridgeContextUsageMetadata
   messageCount?: number
   lastMessagePreview?: string
   lastMessageAt?: number
+  metadata?: Record<string, unknown>
   createdAt: number
   updatedAt: number
 }
@@ -230,6 +267,7 @@ export interface BridgeChatMessage {
   checkpointId?: string
   error?: { message?: string; code?: string }
   usage?: Record<string, unknown>
+  contextUsage?: BridgeContextUsageMetadata
   metadata?: Record<string, unknown>
   createdAt: number
   updatedAt: number
@@ -319,6 +357,8 @@ export interface BridgeStreamEvent {
   message?: BridgeChatMessage
   error?: { message?: string; code?: string } | unknown
   usage?: Record<string, unknown>
+  contextUsage?: BridgeContextUsageMetadata
+  requestSnapshot?: Record<string, unknown>
   [key: string]: unknown
 }
 
@@ -1338,6 +1378,13 @@ function fallbackSettingsConfig(): BridgeDesktopSettingsConfig {
         max: 1.5,
       },
       maxRecentMessages: 20,
+      chatContext: {
+        recentMessages: 20,
+        maxInputBudgetPercent: 75,
+        includeAttachments: 'current-only',
+        autoCompact: true,
+        compactThresholdPercent: 85,
+      },
       compactSkillDescriptions: true,
     },
     providers: {
