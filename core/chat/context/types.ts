@@ -1,0 +1,69 @@
+import type {
+  ChatContextSummary,
+  ChatMessage,
+  ChatSession,
+  ContextPolicy,
+  ProviderRequestSnapshot,
+  ContextUnitKind as SharedContextUnitKind,
+} from '@shared/types/chat'
+import type { ProviderConfig, ProviderMessage, ProviderModel } from '@shared/types/provider'
+import type { DesktopSettingsConfig } from '@shared/types/settings'
+import type { SkillPromptContext } from '@shared/types/skill'
+
+export type UsageSource = 'actual' | 'estimated' | 'mixed'
+
+export interface ContextSummaryStore {
+  latestUsable(sessionId: string): ChatContextSummary | undefined
+}
+
+export type ChatContextDefaults = NonNullable<DesktopSettingsConfig['app']['chatContext']>
+
+export interface ContextBuilderOptions {
+  summaries?: ContextSummaryStore
+  contextDefaults?: () => ChatContextDefaults | undefined
+}
+
+export interface BuildContextInput {
+  session: ChatSession
+  messages: ChatMessage[]
+  currentUserMessageId: string
+  provider: ProviderConfig
+  model: ProviderModel
+  skillPrompt?: SkillPromptContext
+}
+
+export interface BuildContextResult {
+  messages: ProviderMessage[]
+  snapshot: ProviderRequestSnapshot
+}
+
+export interface ContextBudget {
+  contextWindow?: number
+  reservedOutputTokens: number
+  maxInputTokens: number
+  usageSource: UsageSource
+  compactThresholdPercent: number
+  autoCompact: boolean
+}
+
+export type ContextUnitKind = Exclude<SharedContextUnitKind, 'runtime'>
+
+export interface ContextUnit {
+  id: string
+  kind: ContextUnitKind
+  source: string
+  priority: number
+  required: boolean
+  messageId?: string
+  messageCreatedAt?: number
+  attachmentCount?: number
+  estimatedTokens: number
+  messages: ProviderMessage[]
+}
+
+export interface ContextUnitStats {
+  kind: ContextUnitKind
+  selectedCount: number
+  droppedCount: number
+  estimatedTokens: number
+}
