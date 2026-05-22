@@ -178,7 +178,9 @@ export class ChatService {
   listMessages(request: ListMessagesRequest | string): ChatMessage[] {
     const sessionId = typeof request === 'string' ? request : request.sessionId
     const limit = typeof request === 'string' ? undefined : request.limit
-    return this.options.messages.listBySession(sessionId, { limit })
+    return this.options.messages
+      .listBySession(sessionId, { limit })
+      .map((message) => this.attachRunContextUsage(message))
   }
 
   async sendMessage(
@@ -199,6 +201,7 @@ export class ChatService {
     const parts = normalizeSendParts(request)
     const attachmentLinks = this.options.attachments.validateMessageParts(parts)
     const now = Date.now()
+    const runId = crypto.randomUUID()
     const userMessage: ChatMessage = {
       id: crypto.randomUUID(),
       sessionId: session.id,
@@ -216,21 +219,15 @@ export class ChatService {
       role: 'assistant',
       status: 'streaming',
       parts: [],
+      runId,
       providerId: provider.id,
       modelId: model.id,
       createdAt: now + 1,
       updatedAt: now + 1,
     }
 
-    this.options.messages.save(userMessage)
-    this.options.messages.save(assistantMessage)
-    this.options.messages.replaceAttachmentLinks(
-      userMessage.id,
-      attachmentLinks.map((link) => ({ ...link, messageId: userMessage.id }))
-    )
-
     const run: ChatRun = {
-      id: crypto.randomUUID(),
+      id: runId,
       sessionId: session.id,
       userMessageId: userMessage.id,
       assistantMessageId: assistantMessage.id,
@@ -252,6 +249,12 @@ export class ChatService {
       updatedAt: Date.now(),
     }
 
+    this.options.messages.save(userMessage)
+    this.options.messages.save(assistantMessage)
+    this.options.messages.replaceAttachmentLinks(
+      userMessage.id,
+      attachmentLinks.map((link) => ({ ...link, messageId: userMessage.id }))
+    )
     this.options.runs.save(run)
     const signal = this.options.runManager.start(run.id, webContents)
     const toolProfile = request.toolProfile ?? this.options.agentToolProfile?.()
@@ -478,6 +481,26 @@ export class ChatService {
       messageCount: messages.length,
       lastMessageAt: last?.createdAt,
     })
+  }
+
+  private attachRunContextUsage(message: ChatMessage): ChatMessage {
+    if (message.metadata?.contextUsage || message.role !== 'assistant') {
+      return message
+    }
+    const run = message.runId
+      ? this.options.runs.get(message.runId)
+      : this.options.runs.getByAssistantMessageId(message.id)
+    if (!run?.requestSnapshot?.contextUsage) {
+      return message
+    }
+    return {
+      ...message,
+      runId: message.runId ?? run.id,
+      metadata: {
+        ...(message.metadata ?? {}),
+        contextUsage: run.requestSnapshot.contextUsage,
+      },
+    }
   }
 
   private async generateSessionTitleFromMessage(

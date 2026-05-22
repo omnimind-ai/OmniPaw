@@ -38,6 +38,15 @@ export class ChatRunRepo {
     return row ? mapRun(row) : undefined
   }
 
+  getByAssistantMessageId(assistantMessageId: string): ChatRun | undefined {
+    const row = this.db
+      .prepare(
+        'SELECT * FROM chat_runs WHERE assistant_message_id = ? ORDER BY created_at DESC LIMIT 1'
+      )
+      .get(assistantMessageId) as RunRow | undefined
+    return row ? mapRun(row) : undefined
+  }
+
   save(run: ChatRun): ChatRun {
     if (run.idempotencyKey) {
       const existing = this.getByIdempotencyKey(run.idempotencyKey)

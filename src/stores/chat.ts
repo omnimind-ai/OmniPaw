@@ -229,6 +229,26 @@ function isTerminalUsageEvent(type: string): boolean {
 function extractContextUsage(value: unknown): SessionContextUsage | undefined {
   if (!value || typeof value !== 'object') return undefined
   const record = value as Record<string, unknown>
+  const directUsage = normalizeContextUsage(record.usage)
+  const metadataUsage =
+    normalizeContextUsage(nested(record.metadata, 'contextUsage')) ??
+    normalizeContextUsage(nested(record.metadata, 'context_usage'))
+
+  if (directUsage && metadataUsage) {
+    return normalizeContextUsage({
+      ...metadataUsage,
+      ...directUsage,
+      windowTokens: directUsage.windowTokens ?? metadataUsage.windowTokens,
+      contextWindowTokens: directUsage.windowTokens ?? metadataUsage.windowTokens,
+      budgetTokens: directUsage.budgetTokens ?? metadataUsage.budgetTokens,
+      budgetInputTokens: directUsage.budgetTokens ?? metadataUsage.budgetTokens,
+      windowPercentage: directUsage.windowPercentage ?? metadataUsage.windowPercentage,
+      percentage: directUsage.percentage ?? metadataUsage.percentage,
+      source: directUsage.source ?? metadataUsage.source,
+      updatedAt: directUsage.updatedAt ?? metadataUsage.updatedAt,
+    })
+  }
+
   const candidates = [
     record.contextUsage,
     record.context_usage,
@@ -240,6 +260,7 @@ function extractContextUsage(value: unknown): SessionContextUsage | undefined {
     nested(record.requestSnapshot, 'contextUsage'),
     nested(record.requestSnapshot, 'context_usage'),
     record.requestSnapshot,
+    record.usage,
   ]
 
   for (const candidate of candidates) {

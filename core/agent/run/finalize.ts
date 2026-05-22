@@ -17,6 +17,7 @@ export class AgentRunFinalizer {
     this.options.messages.updateParts(run.assistantMessageId, state.assistantParts, {
       status: 'complete',
       usage,
+      metadata: this.contextUsageMetadata(state),
     })
     const finishedAt = Date.now()
     this.options.runs.save({
@@ -38,6 +39,7 @@ export class AgentRunFinalizer {
     appendTextPart(state.assistantParts, message)
     this.options.messages.updateParts(run.assistantMessageId, state.assistantParts, {
       status: 'complete',
+      metadata: this.contextUsageMetadata(state),
     })
     const finishedAt = Date.now()
     this.options.runs.save({
@@ -192,6 +194,8 @@ export class AgentRunFinalizer {
       sessionId: run.sessionId,
       assistantMessageId: run.assistantMessageId,
       seq: this.options.runManager.nextSeq(run.id),
+      contextUsage: state.snapshot.contextUsage,
+      requestSnapshot: state.snapshot,
       message: finalMessage,
     })
   }
@@ -212,6 +216,17 @@ export class AgentRunFinalizer {
       durationMs: Date.now() - startedAt,
       error: safeLogError(chatError),
     })
+  }
+
+  private contextUsageMetadata(state: AgentRunState): Record<string, unknown> | undefined {
+    if (!state.snapshot.contextUsage) {
+      return undefined
+    }
+    const current = this.options.messages.get(state.input.run.assistantMessageId)?.metadata ?? {}
+    return {
+      ...current,
+      contextUsage: state.snapshot.contextUsage,
+    }
   }
 }
 

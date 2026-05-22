@@ -610,6 +610,8 @@ export interface ChatRunFinalEvent {
   sessionId: ID
   assistantMessageId: ID
   seq: number
+  contextUsage?: ContextUsageMetadata
+  requestSnapshot?: ProviderRequestSnapshot
   message: ChatMessage
 }
 
