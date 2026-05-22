@@ -9,6 +9,12 @@ import type {
   TokenUsage,
 } from '../base-provider'
 import { errorFromResponse, normalizeProviderError, throwProviderError } from '../errors'
+import {
+  loadModelsDevMetadata,
+  lookupModelMetadata,
+  OPENAI_COMPATIBLE_FALLBACK_CONTEXT_WINDOW,
+  parseProviderModelMetadata,
+} from '../models-dev-metadata'
 
 export interface OpenAICompatibleProviderOptions {
   id: string
@@ -33,6 +39,12 @@ interface OpenAIChunkChoice {
 interface OpenAIStreamChunk {
   choices?: OpenAIChunkChoice[]
   usage?: unknown
+}
+
+interface OpenAIModelListItem {
+  id: string
+  name?: string
+  metadata: Record<string, unknown>
 }
 
 interface PendingToolCall {
@@ -215,13 +227,47 @@ export class OpenAICompatibleProvider implements BaseProvider {
       return []
     }
 
-    return payload.data
+    const remoteModels = payload.data
       .filter(isRecord)
-      .map((model) => ({
-        id: String(model.id),
-        name: typeof model.id === 'string' ? model.id : String(model.id),
-      }))
+      .map((model): OpenAIModelListItem => {
+        const id = stringValue(model.id)
+        return {
+          id,
+          name: stringValue(model.name) || id,
+          metadata: model,
+        }
+      })
       .filter((model) => model.id && model.id !== 'undefined')
+
+    let metadata: Map<string, ReturnType<typeof parseProviderModelMetadata>> | undefined
+    try {
+      metadata = await loadModelsDevMetadata({ fetchImpl: this.fetchImpl, signal })
+    } catch {
+      metadata = undefined
+    }
+
+    return remoteModels.map((model) => {
+      const inlineMetadata = parseProviderModelMetadata(model.metadata)
+      const catalogMetadata = metadata
+        ? (lookupModelMetadata(metadata, model.id) ??
+          lookupModelMetadata(metadata, model.name ?? ''))
+        : undefined
+      const contextWindow =
+        inlineMetadata.contextWindow ??
+        catalogMetadata?.contextWindow ??
+        OPENAI_COMPATIBLE_FALLBACK_CONTEXT_WINDOW
+
+      return {
+        id: model.id,
+        name: model.name ?? model.id,
+        input: inlineMetadata.input ?? catalogMetadata?.input ?? ['text'],
+        supportsTools: inlineMetadata.supportsTools ?? catalogMetadata?.supportsTools ?? false,
+        supportsReasoning:
+          inlineMetadata.supportsReasoning ?? catalogMetadata?.supportsReasoning ?? false,
+        contextWindow,
+        maxOutputTokens: inlineMetadata.maxOutputTokens ?? catalogMetadata?.maxOutputTokens,
+      }
+    })
   }
 
   private buildChatBody(request: ChatCompletionRequest): Record<string, unknown> {
@@ -591,6 +637,16 @@ function toOpenAIToolCall(toolCall: ProviderToolCall): Record<string, unknown> {
 
 function numberValue(value: unknown): number | undefined {
   return typeof value === 'number' && Number.isFinite(value) ? value : undefined
+}
+
+function stringValue(value: unknown): string {
+  if (typeof value === 'string') {
+    return value.trim()
+  }
+  if (typeof value === 'number' || typeof value === 'boolean') {
+    return String(value)
+  }
+  return ''
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

@@ -5,11 +5,88 @@ import { join } from 'node:path'
 
 import { ConfigStore } from '../core/config/store'
 import { ProviderManager } from '../core/provider/manager'
+import {
+  MODELS_DEV_METADATA_URL,
+  OPENAI_COMPATIBLE_FALLBACK_CONTEXT_WINDOW,
+} from '../core/provider/models-dev-metadata'
+import { OpenAICompatibleProvider } from '../core/provider/providers/openai'
 import { ProviderRegistryStore } from '../core/provider/registry-store'
+
+function jsonResponse(body: unknown, init: ResponseInit = {}): Response {
+  return new Response(JSON.stringify(body), {
+    status: 200,
+    headers: { 'content-type': 'application/json' },
+    ...init,
+  })
+}
+
+function requestUrl(input: Parameters<typeof fetch>[0]): string {
+  if (typeof input === 'string') {
+    return input
+  }
+  if (input instanceof URL) {
+    return input.toString()
+  }
+  return input.url
+}
 
 const tempDir = mkdtempSync(join(tmpdir(), 'openomniclaw-provider-registry-smoke-'))
 
 try {
+  const fakeOpenAiFetch: typeof fetch = async (input) => {
+    const url = requestUrl(input)
+    if (url === 'https://metadata.example/v1/models') {
+      return jsonResponse({
+        data: [
+          { id: 'gpt-4o-mini' },
+          {
+            id: 'inline-context-model',
+            context_length: 64000,
+            max_completion_tokens: 4096,
+            supported_parameters: ['tools'],
+            architecture: { input_modalities: ['text', 'image'] },
+          },
+          { id: 'custom-missing-metadata' },
+        ],
+      })
+    }
+    if (url === MODELS_DEV_METADATA_URL) {
+      return jsonResponse({
+        openai: {
+          models: {
+            'gpt-4o-mini': {
+              id: 'gpt-4o-mini',
+              reasoning: true,
+              tool_call: true,
+              modalities: { input: ['text', 'image'], output: ['text'] },
+              limit: { context: 128000, output: 16384 },
+            },
+          },
+        },
+      })
+    }
+    throw new Error(`Unexpected fetch URL: ${url}`)
+  }
+  const metadataProvider = new OpenAICompatibleProvider({
+    id: 'metadata-test',
+    baseUrl: 'https://metadata.example/v1',
+    fetch: fakeOpenAiFetch,
+  })
+  const detectedModels = await metadataProvider.listModels()
+  const detectedGpt = detectedModels.find((model) => model.id === 'gpt-4o-mini')
+  assert.equal(detectedGpt?.contextWindow, 128000)
+  assert.equal(detectedGpt?.maxOutputTokens, 16384)
+  assert.deepEqual(detectedGpt?.input, ['text', 'image'])
+  assert.equal(detectedGpt?.supportsTools, true)
+  assert.equal(detectedGpt?.supportsReasoning, true)
+  const detectedInline = detectedModels.find((model) => model.id === 'inline-context-model')
+  assert.equal(detectedInline?.contextWindow, 64000)
+  assert.equal(detectedInline?.maxOutputTokens, 4096)
+  assert.deepEqual(detectedInline?.input, ['text', 'image'])
+  assert.equal(detectedInline?.supportsTools, true)
+  const detectedFallback = detectedModels.find((model) => model.id === 'custom-missing-metadata')
+  assert.equal(detectedFallback?.contextWindow, OPENAI_COMPATIBLE_FALLBACK_CONTEXT_WINDOW)
+
   const registryStore = new ProviderRegistryStore({ appDataPath: tempDir })
   const configStore = new ConfigStore({ appDataPath: tempDir, appName: 'settings' })
   let cleanedSessionRefs: { providerId: string; modelIds?: string[] } | undefined
@@ -84,6 +161,46 @@ try {
   assert.equal((await providers.get('custom-openai'))?.models.length, 2)
   assert.equal(JSON.stringify(await providers.list()).includes('sk-test-secret'), false)
   assert.equal(registryStore.get().settings.defaultModelId, undefined)
+
+  const originalFetch = globalThis.fetch
+  const fakeRegistryFetch: typeof fetch = async (input) => {
+    const url = requestUrl(input)
+    if (url === 'https://example.test/v1/models') {
+      return jsonResponse({
+        data: [{ id: 'gpt-4o-mini' }, { id: 'gpt-4o-mini-pro' }],
+      })
+    }
+    if (url === MODELS_DEV_METADATA_URL) {
+      return jsonResponse({
+        openai: {
+          models: {
+            'gpt-4o-mini': {
+              id: 'gpt-4o-mini',
+              tool_call: true,
+              reasoning: true,
+              modalities: { input: ['text', 'image'], output: ['text'] },
+              limit: { context: 111111, output: 2222 },
+            },
+          },
+        },
+      })
+    }
+    throw new Error(`Unexpected fetch URL: ${url}`)
+  }
+  globalThis.fetch = fakeRegistryFetch
+  try {
+    const refreshedOpenAi = await providers.refreshModels('custom-openai')
+    const refreshedGpt = refreshedOpenAi.find((model) => model.id === 'gpt-4o-mini')
+    assert.equal(refreshedGpt?.contextWindow, 111111)
+    assert.equal(refreshedGpt?.maxOutputTokens, 2222)
+    assert.equal(refreshedGpt?.supportsTools, true)
+    assert.equal(refreshedGpt?.supportsReasoning, true)
+    assert.deepEqual(refreshedGpt?.input, ['text', 'image'])
+    const refreshedFallback = refreshedOpenAi.find((model) => model.id === 'gpt-4o-mini-pro')
+    assert.equal(refreshedFallback?.contextWindow, OPENAI_COMPATIBLE_FALLBACK_CONTEXT_WINDOW)
+  } finally {
+    globalThis.fetch = originalFetch
+  }
 
   await providers.setDefaultModel({ providerId: 'custom-openai', modelId: 'gpt-4o-mini' })
   assert.equal(registryStore.get().settings.defaultProviderId, 'custom-openai')

@@ -1485,8 +1485,11 @@ function mergeModels(
       enabled: current?.enabled ?? true,
       manual: current?.manual ?? false,
       contextWindow: current?.contextWindow ?? remote.contextWindow,
+      maxOutputTokens: current?.maxOutputTokens ?? remote.maxOutputTokens,
       supportsStreaming: current?.supportsStreaming ?? true,
-      input: current?.input ?? ['text'],
+      supportsTools: Boolean(current?.supportsTools || remote.supportsTools),
+      supportsReasoning: Boolean(current?.supportsReasoning || remote.supportsReasoning),
+      input: mergeModelInput(current?.input, remote.input),
     } satisfies ProviderModelRecord
   })
 
@@ -1498,6 +1501,14 @@ function mergeModels(
     }))
 
   return [...localRecords, ...remoteRecords]
+}
+
+function mergeModelInput(
+  current: ProviderModelRecord['input'],
+  remote: ProviderModelCandidate['input']
+): ProviderModelRecord['input'] {
+  const values = [...(current ?? []), ...(remote ?? [])]
+  return values.length ? Array.from(new Set(values)) : ['text']
 }
 
 function upsertProviderInConfig(config: DesktopSettingsConfig, provider: ProviderRecord): void {

@@ -112,7 +112,11 @@ export interface BaseProvider {
 export interface ProviderModelCandidate {
   id: string
   name?: string
+  input?: Array<'text' | 'image' | 'audio' | 'file'>
+  supportsTools?: boolean
+  supportsReasoning?: boolean
   contextWindow?: number
+  maxOutputTokens?: number
 }
 
 export class ProviderError extends Error {
