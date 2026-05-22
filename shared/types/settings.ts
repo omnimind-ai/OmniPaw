@@ -12,6 +12,17 @@ export type AppTheme = 'system' | 'light' | 'dark'
 export type AppLanguage = 'zh-CN' | 'en-US' | 'system'
 export type SettingsChangeReason = 'load' | 'save' | 'reset'
 
+export interface DesktopSystemContextMaskSettings {
+  enabled: boolean
+  label?: string
+  text: string
+}
+
+export interface DesktopSystemContextSettings {
+  baseSystemPrompt: string
+  mask?: DesktopSystemContextMaskSettings
+}
+
 export interface DesktopBaseSettings {
   language: AppLanguage
   theme: AppTheme
@@ -23,6 +34,7 @@ export interface DesktopBaseSettings {
   }
   maxRecentMessages: number
   chatContext: DesktopChatContextSettings
+  systemContext: DesktopSystemContextSettings
   compactSkillDescriptions: boolean
   dataDir?: string
 }

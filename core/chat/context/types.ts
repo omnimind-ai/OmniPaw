@@ -59,6 +59,8 @@ export interface ContextUnit {
   attachmentCount?: number
   estimatedTokens: number
   messages: ProviderMessage[]
+  refId?: string
+  fallbackReason?: string
 }
 
 export interface ContextUnitStats {
@@ -66,4 +68,6 @@ export interface ContextUnitStats {
   selectedCount: number
   droppedCount: number
   estimatedTokens: number
+  refId?: string
+  fallbackReason?: string
 }

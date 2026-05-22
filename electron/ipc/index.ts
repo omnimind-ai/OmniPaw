@@ -3,6 +3,7 @@ import { registerChatIpcHandlers } from './chat'
 import { registerCronIpcHandlers } from './cron'
 import { registerLoggingIpcHandlers } from './logging'
 import { registerMcpIpcHandlers } from './mcp'
+import { registerPersonaIpcHandlers } from './persona'
 import { registerProviderIpcHandlers } from './provider'
 import { registerSettingsIpcHandlers } from './settings'
 import { registerSkillIpcHandlers } from './skill'
@@ -15,6 +16,7 @@ export function registerIpcHandlers(options: IpcHandlerOptions): void {
   registerSettingsIpcHandlers(options)
   registerChatIpcHandlers(options)
   registerProviderIpcHandlers(options)
+  registerPersonaIpcHandlers(options)
   registerSkillIpcHandlers(options)
   registerCronIpcHandlers(options)
   registerToolIpcHandlers(options)

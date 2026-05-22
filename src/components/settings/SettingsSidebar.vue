@@ -10,6 +10,7 @@ import {
   SearchIcon,
   ServerIcon,
   SlidersHorizontalIcon,
+  UserIcon,
   WrenchIcon,
 } from 'lucide-vue-next'
 import type { Component } from 'vue'
@@ -37,6 +38,7 @@ export type SettingsTab =
   | 'data'
   | 'tools'
   | 'skills'
+  | 'personas'
   | 'schedule'
   | 'about'
 
@@ -65,6 +67,7 @@ const settingsItems: SettingsNavItem[] = [
 ]
 
 const capabilityItems: SettingsNavItem[] = [
+  { value: 'personas', label: '人格', icon: UserIcon },
   { value: 'tools', label: '工具设置', icon: WrenchIcon },
   { value: 'skills', label: '技能', icon: BookOpenIcon },
   { value: 'schedule', label: '计划任务', icon: CalendarClockIcon },

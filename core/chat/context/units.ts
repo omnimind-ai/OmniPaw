@@ -31,6 +31,7 @@ export function buildSystemUnits(
     text: systemContext?.mask?.enabled === false ? undefined : systemContext?.mask?.text,
     priority: 980,
     required: true,
+    refId: systemContext?.mask?.refId,
   })
   pushTextUnit(units, {
     id: 'system:persona',
@@ -39,6 +40,7 @@ export function buildSystemUnits(
     text: systemContext?.persona?.enabled === false ? undefined : systemContext?.persona?.text,
     priority: 970,
     required: true,
+    refId: systemContext?.persona?.refId,
   })
   if (skillPrompt?.injected) {
     pushTextUnit(units, {
@@ -48,6 +50,7 @@ export function buildSystemUnits(
       text: skillPrompt.content,
       priority: 850,
       required: true,
+      refId: 'skill-inventory',
     })
   }
   return units
@@ -135,23 +138,32 @@ export function contextUnitStats(
   dropped: ContextUnit[]
 ): ContextUnitStats[] {
   const stats: Partial<Record<ContextUnitKind, Omit<ContextUnitStats, 'kind'>>> = {}
-  for (const unit of selected) {
+  const apply = (unit: ContextUnit, selectedFlag: boolean) => {
     let item = stats[unit.kind]
     if (!item) {
       item = { selectedCount: 0, droppedCount: 0, estimatedTokens: 0 }
       stats[unit.kind] = item
     }
-    item.selectedCount += 1
+    if (selectedFlag) {
+      item.selectedCount += 1
+    } else {
+      item.droppedCount += 1
+    }
     item.estimatedTokens += unit.estimatedTokens
+    // Only retain unit identity metadata for source-bearing kinds; do NOT
+    // include raw text.
+    if (unit.refId && !item.refId) {
+      item.refId = unit.refId
+    }
+    if (unit.fallbackReason && !item.fallbackReason) {
+      item.fallbackReason = unit.fallbackReason
+    }
+  }
+  for (const unit of selected) {
+    apply(unit, true)
   }
   for (const unit of dropped) {
-    let item = stats[unit.kind]
-    if (!item) {
-      item = { selectedCount: 0, droppedCount: 0, estimatedTokens: 0 }
-      stats[unit.kind] = item
-    }
-    item.droppedCount += 1
-    item.estimatedTokens += unit.estimatedTokens
+    apply(unit, false)
   }
   return Object.entries(stats).map(([kind, item]) => ({ kind: kind as ContextUnitKind, ...item }))
 }
@@ -194,6 +206,7 @@ function pushTextUnit(
     text?: string
     priority: number
     required: boolean
+    refId?: string
   }
 ): void {
   const text = input.text?.trim()
@@ -209,6 +222,7 @@ function pushTextUnit(
     required: input.required,
     estimatedTokens: estimateTokens(messages),
     messages,
+    refId: input.refId,
   })
 }
 

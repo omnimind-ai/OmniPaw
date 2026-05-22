@@ -71,6 +71,17 @@ import type {
   SetMcpServerEnabledRequest,
 } from './mcp'
 import type {
+  CreatePersonaRequest,
+  DeletePersonaRequest,
+  PersonaRegistryChangedEvent,
+  PersonaRegistryLoadResponse,
+  PersonaRegistryMutationResult,
+  PersonaRegistryStatus,
+  SetDefaultPersonaRequest,
+  SetPersonaEnabledRequest,
+  UpdatePersonaRequest,
+} from './persona'
+import type {
   CreateProviderFromPresetRequest,
   DeleteProviderRequest,
   ProviderApi,
@@ -399,5 +410,16 @@ export interface OpenOmniClawBridge {
     refreshServer: (request?: RefreshMcpServerRequest | string) => Promise<McpServerListResponse>
     listTools: () => Promise<McpToolInventoryResponse>
     onChanged: (callback: (event: McpServerChangedEvent) => void) => Unsubscribe
+  }
+  persona: {
+    load: () => Promise<PersonaRegistryLoadResponse>
+    list: () => Promise<PersonaRegistryLoadResponse>
+    status: () => Promise<PersonaRegistryStatus>
+    create: (request: CreatePersonaRequest) => Promise<PersonaRegistryMutationResult>
+    update: (request: UpdatePersonaRequest) => Promise<PersonaRegistryMutationResult>
+    delete: (request: DeletePersonaRequest | string) => Promise<PersonaRegistryMutationResult>
+    setEnabled: (request: SetPersonaEnabledRequest) => Promise<PersonaRegistryMutationResult>
+    setDefault: (request: SetDefaultPersonaRequest) => Promise<PersonaRegistryMutationResult>
+    onChanged: (callback: (event: PersonaRegistryChangedEvent) => void) => Unsubscribe
   }
 }

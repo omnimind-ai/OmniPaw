@@ -116,4 +116,15 @@ export const IPC_CHANNELS = {
     listTools: 'mcp:list-tools',
     changed: 'mcp:changed',
   },
+  persona: {
+    load: 'persona:load',
+    status: 'persona:status',
+    list: 'persona:list',
+    create: 'persona:create',
+    update: 'persona:update',
+    delete: 'persona:delete',
+    setEnabled: 'persona:set-enabled',
+    setDefault: 'persona:set-default',
+    changed: 'persona:changed',
+  },
 } as const

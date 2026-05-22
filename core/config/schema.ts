@@ -61,6 +61,14 @@ export const defaultConfig: DesktopSettingsConfig = {
       autoCompact: true,
       compactThresholdPercent: 85,
     },
+    systemContext: {
+      baseSystemPrompt: '',
+      mask: {
+        enabled: false,
+        label: 'Mask',
+        text: '',
+      },
+    },
     compactSkillDescriptions: true,
   },
   providers: {
@@ -215,6 +223,10 @@ function migrateConfig(raw: unknown): unknown {
 function normalizeObject(defaultValue: unknown, rawValue: unknown, path: string): unknown {
   if (path === 'app.chatContext') {
     return normalizeChatContextSettings(rawValue)
+  }
+
+  if (path === 'app.systemContext') {
+    return normalizeSystemContextSettings(rawValue)
   }
 
   if (path === 'tools.agentToolProfile') {
@@ -393,6 +405,60 @@ function validateApp(config: DesktopSettingsConfig, issues: SettingsValidationIs
     })
   }
   validateChatContext(config, issues)
+  validateSystemContext(config, issues)
+}
+
+function validateSystemContext(
+  config: DesktopSettingsConfig,
+  issues: SettingsValidationIssue[]
+): void {
+  const settings = config.app.systemContext
+  if (!isPlainObject(settings)) {
+    issues.push({
+      path: 'app.systemContext',
+      message: 'System context settings must be an object.',
+      code: 'invalid_type',
+    })
+    return
+  }
+  if (typeof settings.baseSystemPrompt !== 'string') {
+    issues.push({
+      path: 'app.systemContext.baseSystemPrompt',
+      message: 'Base system prompt must be a string.',
+      code: 'invalid_type',
+    })
+  }
+  if (settings.mask !== undefined) {
+    if (!isPlainObject(settings.mask)) {
+      issues.push({
+        path: 'app.systemContext.mask',
+        message: 'Mask settings must be an object when set.',
+        code: 'invalid_type',
+      })
+    } else {
+      if (typeof settings.mask.enabled !== 'boolean') {
+        issues.push({
+          path: 'app.systemContext.mask.enabled',
+          message: 'Mask enabled flag must be boolean.',
+          code: 'invalid_type',
+        })
+      }
+      if (typeof settings.mask.text !== 'string') {
+        issues.push({
+          path: 'app.systemContext.mask.text',
+          message: 'Mask text must be a string.',
+          code: 'invalid_type',
+        })
+      }
+      if (settings.mask.label !== undefined && typeof settings.mask.label !== 'string') {
+        issues.push({
+          path: 'app.systemContext.mask.label',
+          message: 'Mask label must be a string when set.',
+          code: 'invalid_type',
+        })
+      }
+    }
+  }
 }
 
 function validateChatContext(
@@ -757,6 +823,46 @@ function normalizeChatContextSettings(
     compactThresholdPercent: rawValue.compactThresholdPercent ?? defaults.compactThresholdPercent,
     compactModelId: rawValue.compactModelId,
   } as DesktopSettingsConfig['app']['chatContext']
+}
+
+function normalizeSystemContextSettings(
+  rawValue: unknown
+): DesktopSettingsConfig['app']['systemContext'] {
+  const defaults = defaultConfig.app.systemContext
+  if (rawValue === undefined || rawValue === null) {
+    return cloneUnknown(defaults)
+  }
+  if (!isPlainObject(rawValue)) {
+    throwValidationError([
+      {
+        path: 'app.systemContext',
+        message: 'System context settings must be an object.',
+        code: 'invalid_type',
+      },
+    ])
+  }
+
+  const baseSystemPrompt =
+    typeof rawValue.baseSystemPrompt === 'string'
+      ? rawValue.baseSystemPrompt
+      : defaults.baseSystemPrompt
+
+  const rawMask = rawValue.mask
+  let mask = defaults.mask ? cloneUnknown(defaults.mask) : undefined
+  if (rawMask === null) {
+    mask = undefined
+  } else if (isPlainObject(rawMask)) {
+    mask = {
+      enabled: typeof rawMask.enabled === 'boolean' ? rawMask.enabled : (mask?.enabled ?? false),
+      label: typeof rawMask.label === 'string' ? rawMask.label : mask?.label,
+      text: typeof rawMask.text === 'string' ? rawMask.text : (mask?.text ?? ''),
+    }
+  }
+
+  return {
+    baseSystemPrompt,
+    mask,
+  }
 }
 
 function normalizeChatContextCompatibility(

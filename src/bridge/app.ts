@@ -56,6 +56,17 @@ export interface BridgeChatContextSettings {
   compactModelId?: string
 }
 
+export interface BridgeSystemContextMaskSettings {
+  enabled: boolean
+  label?: string
+  text: string
+}
+
+export interface BridgeSystemContextSettings {
+  baseSystemPrompt: string
+  mask?: BridgeSystemContextMaskSettings
+}
+
 export interface BridgeContextUsageMetadata {
   inputTokens?: number
   estimatedInputTokens?: number
@@ -91,6 +102,7 @@ export interface BridgeDesktopSettingsConfig {
     }
     maxRecentMessages: number
     chatContext: BridgeChatContextSettings
+    systemContext: BridgeSystemContextSettings
     compactSkillDescriptions: boolean
     dataDir?: string
   }
@@ -901,6 +913,111 @@ export interface RendererOpenOmniClawBridge {
     listTools: () => Promise<BridgeMcpToolInventoryResponse>
     onChanged: (callback: (event: BridgeMcpChangedEvent) => void) => BridgeUnsubscribe
   }
+  persona?: {
+    load: () => Promise<BridgePersonaRegistryLoadResponse>
+    list: () => Promise<BridgePersonaRegistryLoadResponse>
+    status: () => Promise<BridgePersonaRegistryStatus>
+    create: (request: BridgeCreatePersonaRequest) => Promise<BridgePersonaRegistryMutationResult>
+    update: (request: BridgeUpdatePersonaRequest) => Promise<BridgePersonaRegistryMutationResult>
+    delete: (
+      request: BridgeDeletePersonaRequest | string
+    ) => Promise<BridgePersonaRegistryMutationResult>
+    setEnabled: (
+      request: BridgeSetPersonaEnabledRequest
+    ) => Promise<BridgePersonaRegistryMutationResult>
+    setDefault: (
+      request: BridgeSetDefaultPersonaRequest
+    ) => Promise<BridgePersonaRegistryMutationResult>
+    onChanged: (callback: (event: BridgePersonaRegistryChangedEvent) => void) => BridgeUnsubscribe
+  }
+}
+
+export interface BridgePersonaProfile {
+  id: string
+  name: string
+  description?: string
+  prompt: string
+  enabled: boolean
+  createdAt: number
+  updatedAt: number
+}
+
+export interface BridgePersonaRegistry {
+  version: 1
+  profiles: BridgePersonaProfile[]
+  defaultPersonaId?: string
+  updatedAt: number
+}
+
+export interface BridgePersonaRegistryStatus {
+  path: string
+  backupPath: string
+  exists: boolean
+  backupExists: boolean
+  loaded: boolean
+  version?: 1
+  recoverable: boolean
+  error?: {
+    code: string
+    message: string
+    path?: string
+    recoverable: boolean
+    issues?: Array<{ path: string; message: string; code?: string }>
+  }
+}
+
+export interface BridgePersonaRegistryLoadResponse {
+  registry: BridgePersonaRegistry
+  status: BridgePersonaRegistryStatus
+}
+
+export interface BridgePersonaRegistryMutationResult extends BridgePersonaRegistryLoadResponse {
+  ok?: boolean
+  profile?: BridgePersonaProfile
+}
+
+export type BridgePersonaRegistryChangeReason =
+  | 'load'
+  | 'save'
+  | 'create'
+  | 'update'
+  | 'delete'
+  | 'default'
+  | 'enable'
+
+export interface BridgePersonaRegistryChangedEvent extends BridgePersonaRegistryLoadResponse {
+  reason: BridgePersonaRegistryChangeReason
+  profile?: BridgePersonaProfile
+}
+
+export interface BridgePersonaProfileDraft {
+  id?: string
+  name: string
+  description?: string
+  prompt: string
+  enabled?: boolean
+}
+
+export interface BridgeCreatePersonaRequest {
+  profile: BridgePersonaProfileDraft
+}
+
+export interface BridgeUpdatePersonaRequest {
+  id: string
+  profile: BridgePersonaProfileDraft
+}
+
+export interface BridgeDeletePersonaRequest {
+  id: string
+}
+
+export interface BridgeSetPersonaEnabledRequest {
+  id: string
+  enabled: boolean
+}
+
+export interface BridgeSetDefaultPersonaRequest {
+  id?: string
 }
 
 export type BridgeRuntime = 'electron' | 'fallback'
@@ -939,6 +1056,34 @@ function emptyProviderRegistryStatus(): BridgeProviderRegistryStatus {
     loaded: true,
     version: 1,
     recoverable: false,
+  }
+}
+
+function emptyPersonaRegistryStatus(): BridgePersonaRegistryStatus {
+  return {
+    path: '',
+    backupPath: '',
+    exists: false,
+    backupExists: false,
+    loaded: true,
+    version: 1,
+    recoverable: false,
+  }
+}
+
+function emptyPersonaRegistry(): BridgePersonaRegistry {
+  return {
+    version: 1,
+    profiles: [],
+    defaultPersonaId: undefined,
+    updatedAt: 0,
+  }
+}
+
+function emptyPersonaRegistryLoadResponse(): BridgePersonaRegistryLoadResponse {
+  return {
+    registry: emptyPersonaRegistry(),
+    status: emptyPersonaRegistryStatus(),
   }
 }
 
@@ -1363,6 +1508,19 @@ const fallbackBridge: RendererOpenOmniClawBridge = {
     listTools: async () => ({ tools: [], servers: [] }),
     onChanged: () => () => {},
   },
+  persona: {
+    load: async () => emptyPersonaRegistryLoadResponse(),
+    list: async () => emptyPersonaRegistryLoadResponse(),
+    status: async () => emptyPersonaRegistryStatus(),
+    create: () => rejectFallbackPersistence<BridgePersonaRegistryMutationResult>('persona.create'),
+    update: () => rejectFallbackPersistence<BridgePersonaRegistryMutationResult>('persona.update'),
+    delete: () => rejectFallbackPersistence<BridgePersonaRegistryMutationResult>('persona.delete'),
+    setEnabled: () =>
+      rejectFallbackPersistence<BridgePersonaRegistryMutationResult>('persona.setEnabled'),
+    setDefault: () =>
+      rejectFallbackPersistence<BridgePersonaRegistryMutationResult>('persona.setDefault'),
+    onChanged: () => () => {},
+  },
 }
 
 function fallbackSettingsConfig(): BridgeDesktopSettingsConfig {
@@ -1384,6 +1542,14 @@ function fallbackSettingsConfig(): BridgeDesktopSettingsConfig {
         includeAttachments: 'current-only',
         autoCompact: true,
         compactThresholdPercent: 85,
+      },
+      systemContext: {
+        baseSystemPrompt: '',
+        mask: {
+          enabled: false,
+          label: 'Mask',
+          text: '',
+        },
       },
       compactSkillDescriptions: true,
     },
@@ -1463,6 +1629,19 @@ function createCronBridge(
   }
 }
 
+function createPersonaBridge(
+  bridge: RendererOpenOmniClawBridge['persona'] | undefined
+): RendererOpenOmniClawBridge['persona'] {
+  if (!bridge) {
+    return fallbackBridge.persona
+  }
+
+  return {
+    ...fallbackBridge.persona,
+    ...bridge,
+  }
+}
+
 export const appBridge: RendererOpenOmniClawBridge = exposedBridge
   ? {
       ...fallbackBridge,
@@ -1471,6 +1650,7 @@ export const appBridge: RendererOpenOmniClawBridge = exposedBridge
       settings: createSettingsBridge(exposedBridge.settings),
       provider: createProviderBridge(exposedBridge.provider),
       cron: createCronBridge(exposedBridge.cron),
+      persona: createPersonaBridge(exposedBridge.persona),
     }
   : fallbackBridge
 

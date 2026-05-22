@@ -253,6 +253,8 @@ export interface ContextUnitAccounting {
   selectedCount: number
   droppedCount?: number
   estimatedTokens?: number
+  refId?: ID
+  fallbackReason?: string
 }
 
 export interface ContextUsageMetadata {

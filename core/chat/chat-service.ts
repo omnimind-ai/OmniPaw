@@ -5,6 +5,7 @@ import type { AgentTool } from '@core/agent/tools/types'
 import type { CronManager } from '@core/cron/cron-manager'
 import type { AttachmentRepo, ChatMessageRepo, ChatRunRepo, ChatSessionRepo } from '@core/db/repos'
 import type { Logger } from '@core/logging'
+import type { PersonaManager } from '@core/persona/manager'
 import type { ProviderManager } from '@core/provider/manager'
 import type { SkillManager } from '@core/skill/skill-manager'
 import type {
@@ -12,6 +13,7 @@ import type {
   AbortRunResponse,
   ChatMessage,
   ChatSession,
+  ChatSystemContextConfig,
   CreateSessionRequest,
   DeleteSessionRequest,
   EditMessageRequest,
@@ -21,12 +23,16 @@ import type {
   RegenerateMessageRequest,
   SendMessageRequest,
   SendMessageResponse,
+  SessionContextInstruction,
   ToolApprovalRequest,
   ToolApprovalResponse,
   ToolProfile,
   UpdateSessionRequest,
 } from '@shared/types/chat'
-import type { DesktopChatContextSettings } from '@shared/types/settings'
+import type {
+  DesktopChatContextSettings,
+  DesktopSystemContextSettings,
+} from '@shared/types/settings'
 import type { WebContents } from 'electron'
 import type { AttachmentService } from './attachment-service'
 import type { ContextCompactionService } from './context-compaction'
@@ -53,6 +59,8 @@ export interface ChatServiceOptions {
   skills?: SkillManager
   compactSkillDescriptions?: () => boolean
   contextDefaults?: () => DesktopChatContextSettings
+  systemContextDefaults?: () => DesktopSystemContextSettings | undefined
+  personaManager?: PersonaManager
   agentToolProfile?: () => ToolProfile
   agentRunner?: AgentRunner
   logger?: Logger
@@ -135,6 +143,8 @@ export class ChatService {
     const modelRef = await this.resolveInitialModelRef()
     const kind = request.kind === 'cat' ? 'cat' : 'chat'
     const contextDefaults = this.options.contextDefaults?.()
+    const systemContext = this.buildDefaultSystemContext()
+    const baseSystemPrompt = systemContext?.baseSystemPrompt
     const session: ChatSession = {
       id: crypto.randomUUID(),
       title: request.title?.trim() || (kind === 'cat' ? '小猫会话' : '新会话'),
@@ -142,6 +152,8 @@ export class ChatService {
       status: 'active',
       defaultProviderId: modelRef?.providerId,
       defaultModelId: modelRef?.modelId,
+      systemPrompt: baseSystemPrompt && baseSystemPrompt.trim() ? baseSystemPrompt : undefined,
+      systemContext,
       messageCount: 0,
       contextPolicy: {
         mode: 'recent-turns',
@@ -157,8 +169,42 @@ export class ChatService {
       kind: session.kind,
       providerId: session.defaultProviderId,
       modelId: session.defaultModelId,
+      personaRefId: systemContext?.persona?.refId,
     })
     return session
+  }
+
+  private buildDefaultSystemContext(): ChatSystemContextConfig | undefined {
+    const defaults = this.options.systemContextDefaults?.()
+    const personaProfile = this.options.personaManager?.getDefaultProfile()
+
+    const baseSystemPrompt = defaults?.baseSystemPrompt?.trim() || undefined
+    const maskInput = defaults?.mask
+    const mask: SessionContextInstruction | undefined =
+      maskInput && maskInput.text?.trim()
+        ? {
+            label: maskInput.label,
+            text: maskInput.text,
+            enabled: maskInput.enabled !== false,
+          }
+        : undefined
+    const persona: SessionContextInstruction | undefined = personaProfile
+      ? {
+          refId: personaProfile.id,
+          label: personaProfile.name,
+          text: personaProfile.prompt,
+          enabled: true,
+        }
+      : undefined
+
+    if (!baseSystemPrompt && !mask && !persona) {
+      return undefined
+    }
+    const systemContext: ChatSystemContextConfig = {}
+    if (baseSystemPrompt) systemContext.baseSystemPrompt = baseSystemPrompt
+    if (mask) systemContext.mask = mask
+    if (persona) systemContext.persona = persona
+    return systemContext
   }
 
   getSession(sessionId: string): ChatSession | null {

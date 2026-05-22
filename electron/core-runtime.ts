@@ -24,6 +24,9 @@ import {
 import { defaultContextPolicy, seedDefaultChatData } from '@core/db/seed'
 import type { Logger } from '@core/logging'
 import { McpRegistryStore, McpServerManager, McpValidationError } from '@core/mcp'
+import { PersonaManager } from '@core/persona/manager'
+import { PersonaRegistryValidationError } from '@core/persona/registry-schema'
+import { PersonaRegistryStore } from '@core/persona/registry-store'
 import { ProviderManager } from '@core/provider/manager'
 import { ProviderRegistryValidationError } from '@core/provider/registry-schema'
 import { ProviderRegistryStore } from '@core/provider/registry-store'
@@ -59,6 +62,7 @@ export interface CoreRuntime {
   configStore: ConfigStore
   cronManager: CronManager
   mcpServerManager: McpServerManager
+  personaManager: PersonaManager
   providerManager: ProviderManager
   sessionRepo: ChatSessionRepo
   skillManager: SkillManager
@@ -139,6 +143,15 @@ export function createCoreRuntime(options: CoreRuntimeOptions): CoreRuntime {
       }))
   )
 
+  const personaManager = new PersonaManager({
+    registryStore: new PersonaRegistryStore({
+      appDataPath: options.app.getPath('appData'),
+      appName: options.appName,
+    }),
+    logger: coreLogger.child({ scope: 'persona' }),
+  })
+  loadStartupPersonaRegistry(personaManager, options.lifecycleLogger)
+
   const providerManager = new ProviderManager({
     configStore,
     registryStore: new ProviderRegistryStore({
@@ -205,6 +218,8 @@ export function createCoreRuntime(options: CoreRuntimeOptions): CoreRuntime {
     skills: skillManager,
     compactSkillDescriptions: () => configStore.get().app.compactSkillDescriptions,
     contextDefaults: () => configStore.get().app.chatContext,
+    systemContextDefaults: () => configStore.get().app.systemContext,
+    personaManager,
     agentToolProfile: () => configStore.get().tools.agentToolProfile,
     disabledToolNames: () => toolManagementService.getDisabledToolNames(),
     mcpTools: () => mcpServerManager.getAgentTools(),
@@ -241,6 +256,7 @@ export function createCoreRuntime(options: CoreRuntimeOptions): CoreRuntime {
     configStore,
     cronManager,
     mcpServerManager,
+    personaManager,
     providerManager,
     sessionRepo,
     skillManager,
@@ -357,6 +373,26 @@ function loadStartupProviderRegistry(
       return
     }
     lifecycleLogger.error('Startup Provider registry load failed.', { error })
+    throw error
+  }
+}
+
+function loadStartupPersonaRegistry(personaManager: PersonaManager, lifecycleLogger: Logger): void {
+  try {
+    const { registry } = personaManager.load()
+    lifecycleLogger.info('Startup persona registry loaded.', {
+      version: registry.version,
+      profileCount: registry.profiles.length,
+    })
+  } catch (error) {
+    if (error instanceof PersonaRegistryValidationError) {
+      lifecycleLogger.warn('Startup persona registry validation failed.', {
+        errorCode: error.details.code,
+        recoverable: error.details.recoverable,
+      })
+      return
+    }
+    lifecycleLogger.error('Startup persona registry load failed.', { error })
     throw error
   }
 }

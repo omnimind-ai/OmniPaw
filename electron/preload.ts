@@ -22,6 +22,13 @@ import type {
   RendererLogRequest,
 } from '@shared/types/logging'
 import type {
+  CreatePersonaRequest,
+  DeletePersonaRequest,
+  SetDefaultPersonaRequest,
+  SetPersonaEnabledRequest,
+  UpdatePersonaRequest,
+} from '@shared/types/persona'
+import type {
   CreateProviderFromPresetRequest,
   DeleteProviderRequest,
   RefreshProviderModelsRequest,
@@ -119,6 +126,24 @@ async function invokeSkill<T>(channel: string, payload?: unknown): Promise<T> {
       details?: unknown
     }
     error.name = 'SkillOperationError'
+    error.details = response.error
+    throw error
+  }
+
+  return response?.ok === true ? (response.value as T) : (response as T)
+}
+
+async function invokePersona<T>(channel: string, payload?: unknown): Promise<T> {
+  const response =
+    payload === undefined
+      ? await ipcRenderer.invoke(channel)
+      : await ipcRenderer.invoke(channel, payload)
+
+  if (response?.ok === false) {
+    const error = new Error(response.error?.message || 'Persona operation failed.') as Error & {
+      details?: unknown
+    }
+    error.name = 'PersonaOperationError'
     error.details = response.error
     throw error
   }
@@ -356,6 +381,20 @@ const bridge: OpenOmniClawBridge = {
     refreshServer: (request) => invokeMcp(IPC_CHANNELS.mcp.refreshServer, request),
     listTools: () => invokeMcp(IPC_CHANNELS.mcp.listTools),
     onChanged: (callback) => createUnsubscriber(IPC_CHANNELS.mcp.changed, callback),
+  },
+  persona: {
+    load: () => invokePersona(IPC_CHANNELS.persona.load),
+    list: () => invokePersona(IPC_CHANNELS.persona.list),
+    status: () => invokePersona(IPC_CHANNELS.persona.status),
+    create: (request: CreatePersonaRequest) => invokePersona(IPC_CHANNELS.persona.create, request),
+    update: (request: UpdatePersonaRequest) => invokePersona(IPC_CHANNELS.persona.update, request),
+    delete: (request: DeletePersonaRequest | string) =>
+      invokePersona(IPC_CHANNELS.persona.delete, request),
+    setEnabled: (request: SetPersonaEnabledRequest) =>
+      invokePersona(IPC_CHANNELS.persona.setEnabled, request),
+    setDefault: (request: SetDefaultPersonaRequest) =>
+      invokePersona(IPC_CHANNELS.persona.setDefault, request),
+    onChanged: (callback) => createUnsubscriber(IPC_CHANNELS.persona.changed, callback),
   },
 }
 
