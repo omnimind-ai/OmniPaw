@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import type { MessagePart } from '@/composables/useMessages'
 import { cn } from '@/lib/utils'
+import MarkdownMessagePart from './MarkdownMessagePart.vue'
 
 const props = withDefaults(
   defineProps<{
@@ -18,6 +19,10 @@ const props = withDefaults(
     initialOpen: false,
   }
 )
+
+const emit = defineEmits<{
+  copyCode: [code: string]
+}>()
 
 const open = ref(props.initialOpen)
 const text = computed(() =>
@@ -61,10 +66,13 @@ watch(
     </CollapsibleTrigger>
 
     <CollapsibleContent>
-      <div class="py-2 text-xs leading-5 text-muted-foreground">
-        <p class="whitespace-pre-wrap break-words">
-          {{ text }}
-        </p>
+      <div class="py-2">
+        <MarkdownMessagePart
+          :content="text"
+          compact
+          muted
+          @copy-code="emit('copyCode', $event)"
+        />
       </div>
     </CollapsibleContent>
   </Collapsible>

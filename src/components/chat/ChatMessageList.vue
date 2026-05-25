@@ -200,6 +200,7 @@ function messageContentStackClass(record: ChatRecord) {
                 v-if="block.kind === 'thinking'"
                 :parts="block.parts"
                 :streaming="isMessageStreaming(record, recordIndex)"
+                @copy-code="emit('copyCode', $event)"
               />
 
               <div
