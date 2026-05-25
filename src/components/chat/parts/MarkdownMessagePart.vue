@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import DOMPurify from 'dompurify'
+import katex from 'katex'
 import MarkdownIt from 'markdown-it'
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 
 import { cn } from '@/lib/utils'
 import { copyToClipboard } from '@/utils/clipboard'
 import { escapeHtml, getShikiHighlighter, renderShikiCode } from '@/utils/shiki.js'
+import 'katex/dist/katex.min.css'
 
 const props = withDefaults(
   defineProps<{
@@ -31,9 +33,16 @@ interface CodeBlock {
   language: string
 }
 
+interface MathBlock {
+  id: string
+  content: string
+  display: boolean
+}
+
 const renderVersion = ref(0)
 const renderedHtml = ref('')
 const codeBlocks = ref<CodeBlock[]>([])
+const mathBlocks = ref<MathBlock[]>([])
 const rootEl = ref<HTMLElement | null>(null)
 
 const markdown = createMarkdownRenderer()
@@ -53,6 +62,7 @@ watch(
     const version = renderVersion.value + 1
     renderVersion.value = version
     codeBlocks.value = []
+    mathBlocks.value = []
 
     const html = markdown.render(normalizeMarkdownSource(props.content || ''))
     renderedHtml.value = finalizeRenderedHtml(html)
@@ -65,6 +75,7 @@ watch(
 
 onBeforeUnmount(() => {
   codeBlocks.value = []
+  mathBlocks.value = []
 })
 
 function createMarkdownRenderer() {
@@ -76,13 +87,14 @@ function createMarkdownRenderer() {
   })
 
   md.enable(['table', 'strikethrough'])
+  installMathRules(md)
   installTaskListRule(md)
 
   md.renderer.rules.table_open = () => '<div class="chat-markdown__table"><table>'
   md.renderer.rules.table_close = () => '</table></div>'
-  md.renderer.rules.fence = (tokens, index) =>
+  md.renderer.rules.fence = (tokens: MarkdownIt.Token[], index: number) =>
     renderCodeBlock(tokens[index]?.content || '', tokens[index]?.info || '')
-  md.renderer.rules.code_block = (tokens, index) =>
+  md.renderer.rules.code_block = (tokens: MarkdownIt.Token[], index: number) =>
     renderCodeBlock(tokens[index]?.content || '', '')
 
   return md
@@ -100,6 +112,120 @@ function renderCodeBlock(code: string, info: string) {
     </div>
     <pre class="chat-code-block__pre"><code>${escapeHtml(code)}</code></pre>
   </div>`
+}
+
+function installMathRules(md: MarkdownIt) {
+  md.inline.ruler.before('escape', 'chat_math_inline_dollar', mathInlineDollarRule)
+  md.inline.ruler.before('escape', 'chat_math_inline_paren', mathInlineParenRule)
+  md.block.ruler.before('paragraph', 'chat_math_block', mathBlockRule, {
+    alt: ['paragraph', 'reference', 'blockquote', 'list'],
+  })
+
+  md.renderer.rules.math_inline = (tokens: MarkdownIt.Token[], index: number) =>
+    renderMathPlaceholder(tokens[index]?.content || '', false)
+  md.renderer.rules.math_block = (tokens: MarkdownIt.Token[], index: number) =>
+    `${renderMathPlaceholder(tokens[index]?.content || '', true)}\n`
+}
+
+function mathInlineDollarRule(state: MarkdownIt.StateInline, silent: boolean) {
+  const start = state.pos
+  const source = state.src
+  if (source[start] !== '$' || source[start + 1] === '$' || isEscaped(source, start)) return false
+  if (!source[start + 1] || /\s/.test(source[start + 1])) return false
+
+  const close = findClosingDollar(source, start + 1, state.posMax)
+  if (close < 0) return false
+
+  const content = source.slice(start + 1, close)
+  if (!content.trim()) return false
+  if (silent) return true
+
+  const token = state.push('math_inline', 'math', 0)
+  token.content = content
+  token.markup = '$'
+  state.pos = close + 1
+  return true
+}
+
+function mathInlineParenRule(state: MarkdownIt.StateInline, silent: boolean) {
+  const start = state.pos
+  const source = state.src
+  if (source.slice(start, start + 2) !== '\\(' || isEscaped(source, start)) return false
+
+  const close = findUnescapedSequence(source, '\\)', start + 2, state.posMax)
+  if (close < 0) return false
+
+  const content = source.slice(start + 2, close)
+  if (!content.trim()) return false
+  if (silent) return true
+
+  const token = state.push('math_inline', 'math', 0)
+  token.content = content
+  token.markup = '\\('
+  state.pos = close + 2
+  return true
+}
+
+function mathBlockRule(
+  state: MarkdownIt.StateBlock,
+  startLine: number,
+  endLine: number,
+  silent: boolean
+) {
+  const start = state.bMarks[startLine] + state.tShift[startLine]
+  const max = state.eMarks[startLine]
+  const line = state.src.slice(start, max)
+  const openMatch = line.match(/^(\$\$|\\\[)\s*(.*)$/)
+  if (!openMatch) return false
+
+  const openMarker = openMatch[1]
+  const closeMarker = openMarker === '$$' ? '$$' : '\\]'
+  const firstLine = openMatch[2] || ''
+  const contentLines: string[] = []
+  let nextLine = startLine
+  let closeIndex = findUnescapedSequence(firstLine, closeMarker, 0)
+
+  if (closeIndex >= 0) {
+    contentLines.push(firstLine.slice(0, closeIndex))
+  } else {
+    contentLines.push(firstLine)
+
+    for (nextLine = startLine + 1; nextLine < endLine; nextLine += 1) {
+      const lineStart = state.bMarks[nextLine] + state.tShift[nextLine]
+      const lineEnd = state.eMarks[nextLine]
+      const nextLineText = state.src.slice(lineStart, lineEnd)
+      const close = findUnescapedSequence(nextLineText, closeMarker, 0)
+
+      if (close >= 0) {
+        contentLines.push(nextLineText.slice(0, close))
+        closeIndex = close
+        break
+      }
+
+      contentLines.push(nextLineText)
+    }
+
+    if (closeIndex < 0) return false
+  }
+
+  if (silent) return true
+
+  const token = state.push('math_block', 'math', 0)
+  token.block = true
+  token.content = contentLines.join('\n').trim()
+  token.markup = openMarker
+  state.line = nextLine + 1
+  return true
+}
+
+function renderMathPlaceholder(content: string, display: boolean) {
+  const id = `math-${renderVersion.value}-${mathBlocks.value.length}`
+  mathBlocks.value.push({ id, content, display })
+  const tag = display ? 'div' : 'span'
+  const className = display
+    ? 'chat-math-placeholder chat-math-placeholder--display'
+    : 'chat-math-placeholder chat-math-placeholder--inline'
+  return `<${tag} class="${className}" data-math-id="${id}"></${tag}>`
 }
 
 async function highlightCodeBlocks(version: number) {
@@ -158,6 +284,7 @@ function finalizeRenderedHtml(html: string) {
       'class',
       'data-code-copy',
       'data-code-id',
+      'data-math-id',
       'disabled',
       'open',
       'rel',
@@ -170,7 +297,55 @@ function finalizeRenderedHtml(html: string) {
   container.innerHTML = cleanHtml
   addHeadingIds(container)
   hardenLinks(container)
+  injectMathHtml(container)
   return container.innerHTML
+}
+
+function injectMathHtml(container: HTMLElement) {
+  if (!mathBlocks.value.length) return
+  container.querySelectorAll<HTMLElement>('[data-math-id]').forEach((placeholder) => {
+    const block = mathBlocks.value.find((item) => item.id === placeholder.dataset.mathId)
+    if (!block) return
+    placeholder.outerHTML = renderKatexHtml(block)
+  })
+}
+
+function renderKatexHtml(block: MathBlock) {
+  try {
+    const html = katex.renderToString(block.content, {
+      displayMode: block.display,
+      throwOnError: false,
+      strict: 'ignore',
+      trust: false,
+      maxSize: 12,
+      maxExpand: 1000,
+      output: 'htmlAndMathml',
+    })
+    const cleanHtml = DOMPurify.sanitize(html, {
+      USE_PROFILES: { html: true, mathMl: true },
+      FORBID_TAGS: ['script', 'style', 'iframe', 'object', 'embed'],
+      ADD_ATTR: [
+        'accent',
+        'aria-hidden',
+        'class',
+        'display',
+        'encoding',
+        'href',
+        'mathvariant',
+        'rowspan',
+        'style',
+        'xmlns',
+      ],
+    })
+    const tag = block.display ? 'div' : 'span'
+    const className = block.display ? 'chat-math chat-math--display' : 'chat-math chat-math--inline'
+    return `<${tag} class="${className}">${cleanHtml}</${tag}>`
+  } catch {
+    const fallback = `<code class="chat-math__fallback">${escapeHtml(block.content)}</code>`
+    return block.display
+      ? `<div class="chat-math chat-math--display">${fallback}</div>`
+      : `<span class="chat-math chat-math--inline">${fallback}</span>`
+  }
 }
 
 function addHeadingIds(container: HTMLElement) {
@@ -219,6 +394,7 @@ function normalizeMarkdownSource(source: string) {
   const lines = source.split(/\r?\n/)
   let fenceMarker = ''
   let fenceLength = 0
+  let mathCloseMarker = ''
 
   return lines
     .map((line) => {
@@ -237,13 +413,67 @@ function normalizeMarkdownSource(source: string) {
       }
 
       if (fenceMarker) return line
+
+      if (mathCloseMarker) {
+        if (findUnescapedSequence(line, mathCloseMarker, 0) >= 0) {
+          mathCloseMarker = ''
+        }
+        return line
+      }
+
+      const trimmed = line.trimStart()
+      if (trimmed.startsWith('$$')) {
+        if (findUnescapedSequence(trimmed.slice(2), '$$', 0) < 0) {
+          mathCloseMarker = '$$'
+        }
+        return line
+      }
+      if (trimmed.startsWith('\\[')) {
+        if (findUnescapedSequence(trimmed.slice(2), '\\]', 0) < 0) {
+          mathCloseMarker = '\\]'
+        }
+        return line
+      }
+
       return line.replace(/^(\s{0,3})(#{1,6})([^\s#].*)$/, '$1$2 $3')
     })
     .join('\n')
 }
 
+function findClosingDollar(source: string, start: number, end = source.length) {
+  for (let index = start; index < end; index += 1) {
+    if (source[index] !== '$' || isEscaped(source, index)) continue
+    if (source[index - 1] && /\s/.test(source[index - 1])) continue
+    if (source[index + 1] && /\d/.test(source[index + 1])) continue
+    return index
+  }
+  return -1
+}
+
+function findUnescapedSequence(
+  source: string,
+  sequence: string,
+  start: number,
+  end = source.length
+) {
+  let index = source.indexOf(sequence, start)
+  while (index >= 0 && index < end) {
+    if (!isEscaped(source, index)) return index
+    index = source.indexOf(sequence, index + sequence.length)
+  }
+  return -1
+}
+
+function isEscaped(source: string, index: number) {
+  let slashCount = 0
+  for (let cursor = index - 1; cursor >= 0 && source[cursor] === '\\'; cursor -= 1) {
+    slashCount += 1
+  }
+  return slashCount % 2 === 1
+}
+
 function installTaskListRule(md: MarkdownIt) {
-  md.core.ruler.after('inline', 'chat_task_lists', (state) => {
+  md.core.ruler.after('inline', 'chat_task_lists', (state: MarkdownIt.Core) => {
     const tokens = state.tokens
 
     for (let index = 0; index < tokens.length; index += 1) {
@@ -426,6 +656,38 @@ function findListItemOpen(tokens: Array<{ type: string }>, startIndex: number) {
   margin: 1em 0;
   border: 0;
   background: var(--border);
+}
+
+.chat-markdown :deep(.chat-math) {
+  color: inherit;
+}
+
+.chat-markdown :deep(.chat-math--inline) {
+  display: inline;
+}
+
+.chat-markdown :deep(.chat-math--display) {
+  display: block;
+  max-width: 100%;
+  margin: 0.85em 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 0.25rem 0;
+}
+
+.chat-markdown :deep(.katex) {
+  color: inherit;
+  font-size: 1.02em;
+}
+
+.chat-markdown :deep(.katex-display) {
+  margin: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+
+.chat-markdown :deep(.chat-math__fallback) {
+  color: var(--destructive);
 }
 
 .chat-markdown :deep(code) {
