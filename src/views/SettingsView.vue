@@ -6,6 +6,7 @@ import { useRouter } from 'vue-router'
 
 import DefaultModelSettingsForm from '@/components/settings/DefaultModelSettingsForm.vue'
 import GeneralSettingsForm from '@/components/settings/GeneralSettingsForm.vue'
+import LocalAgentSettingsForm from '@/components/settings/LocalAgentSettingsForm.vue'
 import McpServerSettingsForm from '@/components/settings/McpServerSettingsForm.vue'
 import PersonaSettingsForm from '@/components/settings/PersonaSettingsForm.vue'
 import ProviderSettingsForm from '@/components/settings/ProviderSettingsForm.vue'
@@ -210,7 +211,13 @@ async function autosave() {
                 :draft="draft"
               />
 
-              <McpServerSettingsForm v-else-if="activeTab === 'tools'" />
+              <div
+                v-else-if="activeTab === 'tools'"
+                class="flex flex-col gap-4"
+              >
+                <LocalAgentSettingsForm :draft="draft" />
+                <McpServerSettingsForm />
+              </div>
 
               <SkillSettingsForm v-else-if="activeTab === 'skills'" />
 

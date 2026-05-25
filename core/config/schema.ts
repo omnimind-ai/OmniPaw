@@ -1,6 +1,15 @@
 import { redactSensitiveText } from '@core/logging/redaction'
 import type { ContextAttachmentPolicy, ToolProfile } from '@shared/types/chat'
 import type {
+  ExternalRootGrant,
+  LocalAgentTerminalSettings,
+  LocalAgentWorkspaceSettings,
+  LocalCommandSandboxLevel,
+  LocalNetworkPolicy,
+  LocalPermissionMode,
+  WorkspaceRootStrategy,
+} from '@shared/types/local-agent'
+import type {
   DesktopProviderModel,
   DesktopProviderSource,
   DesktopSettingsConfig,
@@ -83,6 +92,58 @@ export const defaultConfig: DesktopSettingsConfig = {
   tools: {
     agentToolProfile: 'assistant',
     enabledByName: {},
+    workspace: {
+      enabled: true,
+      rootStrategy: 'managed-user-data',
+      retentionDays: 30,
+      cleanupOnSessionDelete: false,
+      maxFileBytes: 10 * 1024 * 1024,
+      maxReadBytes: 512 * 1024,
+      maxWriteBytes: 2 * 1024 * 1024,
+      maxSearchResults: 50,
+      maxToolResultChars: 20_000,
+      denyPatterns: [
+        '.env',
+        '.env.*',
+        '**/.ssh/**',
+        '**/id_rsa',
+        '**/id_ed25519',
+        '**/*credential*',
+        '**/*secret*',
+        '**/*token*',
+        '**/Library/Application Support/Google/Chrome/**',
+        '**/Library/Application Support/Firefox/**',
+      ],
+      externalRoots: [],
+    },
+    terminal: {
+      enabled: true,
+      sandbox: 'policy-only',
+      timeoutMs: 30_000,
+      maxOutputChars: 20_000,
+      maxForegroundProcesses: 4,
+      maxBackgroundProcesses: 2,
+      backgroundMaxLifetimeMs: 30 * 60 * 1000,
+      minimalEnvKeys: ['PATH', 'HOME', 'TMPDIR', 'TEMP', 'TMP'],
+      assistant: {
+        approval: 'ask',
+        network: 'ask',
+        allowBackground: false,
+        allowPty: false,
+        fullAccess: false,
+        commandAllowPatterns: [],
+        commandDenyPatterns: [],
+      },
+      power: {
+        approval: 'allow',
+        network: 'allow',
+        allowBackground: true,
+        allowPty: true,
+        fullAccess: true,
+        commandAllowPatterns: [],
+        commandDenyPatterns: [],
+      },
+    },
   },
   scheduledTasks: {
     enabled: false,
@@ -235,6 +296,14 @@ function normalizeObject(defaultValue: unknown, rawValue: unknown, path: string)
 
   if (path === 'tools.enabledByName') {
     return normalizeBooleanRecord(rawValue)
+  }
+
+  if (path === 'tools.workspace') {
+    return normalizeWorkspaceSettings(rawValue)
+  }
+
+  if (path === 'tools.terminal') {
+    return normalizeTerminalSettings(rawValue)
   }
 
   if (Array.isArray(defaultValue)) {
@@ -708,6 +777,271 @@ function validateTools(config: DesktopSettingsConfig, issues: SettingsValidation
       code: 'invalid_type',
     })
   }
+  validateWorkspaceSettings(config.tools.workspace, 'tools.workspace', issues)
+  validateTerminalSettings(config.tools.terminal, 'tools.terminal', issues)
+}
+
+function validateWorkspaceSettings(
+  settings: LocalAgentWorkspaceSettings,
+  path: string,
+  issues: SettingsValidationIssue[]
+): void {
+  if (!isPlainObject(settings)) {
+    issues.push({
+      path,
+      message: 'Workspace settings must be an object.',
+      code: 'invalid_type',
+    })
+    return
+  }
+  if (typeof settings.enabled !== 'boolean') {
+    issues.push({
+      path: `${path}.enabled`,
+      message: 'Value must be boolean.',
+      code: 'invalid_type',
+    })
+  }
+  if (!isWorkspaceRootStrategy(settings.rootStrategy)) {
+    issues.push({
+      path: `${path}.rootStrategy`,
+      message: 'Workspace root strategy is invalid.',
+      code: 'invalid_enum',
+    })
+  }
+  validateIntegerRange(settings.retentionDays, `${path}.retentionDays`, 1, 3650, issues)
+  if (typeof settings.cleanupOnSessionDelete !== 'boolean') {
+    issues.push({
+      path: `${path}.cleanupOnSessionDelete`,
+      message: 'Value must be boolean.',
+      code: 'invalid_type',
+    })
+  }
+  validateIntegerRange(
+    settings.maxFileBytes,
+    `${path}.maxFileBytes`,
+    1024,
+    1024 * 1024 * 1024,
+    issues
+  )
+  validateIntegerRange(
+    settings.maxReadBytes,
+    `${path}.maxReadBytes`,
+    1024,
+    64 * 1024 * 1024,
+    issues
+  )
+  validateIntegerRange(
+    settings.maxWriteBytes,
+    `${path}.maxWriteBytes`,
+    1024,
+    64 * 1024 * 1024,
+    issues
+  )
+  validateIntegerRange(settings.maxSearchResults, `${path}.maxSearchResults`, 1, 500, issues)
+  validateIntegerRange(
+    settings.maxToolResultChars,
+    `${path}.maxToolResultChars`,
+    1000,
+    200_000,
+    issues
+  )
+  if (!Array.isArray(settings.denyPatterns) || !settings.denyPatterns.every(isNonEmptyString)) {
+    issues.push({
+      path: `${path}.denyPatterns`,
+      message: 'Deny patterns must be an array of non-empty strings.',
+      code: 'invalid_type',
+    })
+  }
+  if (!Array.isArray(settings.externalRoots)) {
+    issues.push({
+      path: `${path}.externalRoots`,
+      message: 'External root grants must be an array.',
+      code: 'invalid_type',
+    })
+    return
+  }
+  settings.externalRoots.forEach((grant, index) =>
+    validateExternalRootGrant(grant, `${path}.externalRoots.${index}`, issues)
+  )
+}
+
+function validateExternalRootGrant(
+  grant: ExternalRootGrant,
+  path: string,
+  issues: SettingsValidationIssue[]
+): void {
+  if (!isPlainObject(grant)) {
+    issues.push({ path, message: 'External root grant must be an object.', code: 'invalid_type' })
+    return
+  }
+  if (!grant.id) {
+    issues.push({ path: `${path}.id`, message: 'Grant ID is required.', code: 'required' })
+  }
+  if (!grant.path) {
+    issues.push({ path: `${path}.path`, message: 'Grant path is required.', code: 'required' })
+  }
+  if (!['read', 'write', 'read-write'].includes(grant.access)) {
+    issues.push({
+      path: `${path}.access`,
+      message: 'Grant access must be read, write, or read-write.',
+      code: 'invalid_enum',
+    })
+  }
+  if (!['session', 'profile', 'global'].includes(grant.scope)) {
+    issues.push({
+      path: `${path}.scope`,
+      message: 'Grant scope must be session, profile, or global.',
+      code: 'invalid_enum',
+    })
+  }
+  if (typeof grant.enabled !== 'boolean') {
+    issues.push({
+      path: `${path}.enabled`,
+      message: 'Value must be boolean.',
+      code: 'invalid_type',
+    })
+  }
+  if (!Number.isFinite(grant.createdAt)) {
+    issues.push({
+      path: `${path}.createdAt`,
+      message: 'Created timestamp must be a number.',
+      code: 'invalid_type',
+    })
+  }
+  if (!Number.isFinite(grant.updatedAt)) {
+    issues.push({
+      path: `${path}.updatedAt`,
+      message: 'Updated timestamp must be a number.',
+      code: 'invalid_type',
+    })
+  }
+}
+
+function validateTerminalSettings(
+  settings: LocalAgentTerminalSettings,
+  path: string,
+  issues: SettingsValidationIssue[]
+): void {
+  if (!isPlainObject(settings)) {
+    issues.push({ path, message: 'Terminal settings must be an object.', code: 'invalid_type' })
+    return
+  }
+  if (typeof settings.enabled !== 'boolean') {
+    issues.push({
+      path: `${path}.enabled`,
+      message: 'Value must be boolean.',
+      code: 'invalid_type',
+    })
+  }
+  if (!isSandboxLevel(settings.sandbox)) {
+    issues.push({
+      path: `${path}.sandbox`,
+      message: 'Sandbox level is invalid.',
+      code: 'invalid_enum',
+    })
+  }
+  validateIntegerRange(settings.timeoutMs, `${path}.timeoutMs`, 1000, 24 * 60 * 60 * 1000, issues)
+  validateIntegerRange(settings.maxOutputChars, `${path}.maxOutputChars`, 1000, 1_000_000, issues)
+  validateIntegerRange(
+    settings.maxForegroundProcesses,
+    `${path}.maxForegroundProcesses`,
+    1,
+    32,
+    issues
+  )
+  validateIntegerRange(
+    settings.maxBackgroundProcesses,
+    `${path}.maxBackgroundProcesses`,
+    0,
+    32,
+    issues
+  )
+  validateIntegerRange(
+    settings.backgroundMaxLifetimeMs,
+    `${path}.backgroundMaxLifetimeMs`,
+    1000,
+    24 * 60 * 60 * 1000,
+    issues
+  )
+  if (!Array.isArray(settings.minimalEnvKeys) || !settings.minimalEnvKeys.every(isNonEmptyString)) {
+    issues.push({
+      path: `${path}.minimalEnvKeys`,
+      message: 'Minimal env keys must be an array of non-empty strings.',
+      code: 'invalid_type',
+    })
+  }
+  validateTerminalProfileSettings(settings.assistant, `${path}.assistant`, issues)
+  validateTerminalProfileSettings(settings.power, `${path}.power`, issues)
+}
+
+function validateTerminalProfileSettings(
+  settings: LocalAgentTerminalSettings['assistant'],
+  path: string,
+  issues: SettingsValidationIssue[]
+): void {
+  if (!isPlainObject(settings)) {
+    issues.push({
+      path,
+      message: 'Terminal profile settings must be an object.',
+      code: 'invalid_type',
+    })
+    return
+  }
+  if (!isPermissionMode(settings.approval)) {
+    issues.push({
+      path: `${path}.approval`,
+      message: 'Approval policy must be ask, allow, or deny.',
+      code: 'invalid_enum',
+    })
+  }
+  if (!isNetworkPolicy(settings.network)) {
+    issues.push({
+      path: `${path}.network`,
+      message: 'Network policy must be ask, allow, or deny.',
+      code: 'invalid_enum',
+    })
+  }
+  if (typeof settings.allowBackground !== 'boolean') {
+    issues.push({
+      path: `${path}.allowBackground`,
+      message: 'Value must be boolean.',
+      code: 'invalid_type',
+    })
+  }
+  if (typeof settings.allowPty !== 'boolean') {
+    issues.push({
+      path: `${path}.allowPty`,
+      message: 'Value must be boolean.',
+      code: 'invalid_type',
+    })
+  }
+  if (typeof settings.fullAccess !== 'boolean') {
+    issues.push({
+      path: `${path}.fullAccess`,
+      message: 'Value must be boolean.',
+      code: 'invalid_type',
+    })
+  }
+  if (
+    !Array.isArray(settings.commandAllowPatterns) ||
+    !settings.commandAllowPatterns.every(isNonEmptyString)
+  ) {
+    issues.push({
+      path: `${path}.commandAllowPatterns`,
+      message: 'Command allow patterns must be an array of non-empty strings.',
+      code: 'invalid_type',
+    })
+  }
+  if (
+    !Array.isArray(settings.commandDenyPatterns) ||
+    !settings.commandDenyPatterns.every(isNonEmptyString)
+  ) {
+    issues.push({
+      path: `${path}.commandDenyPatterns`,
+      message: 'Command deny patterns must be an array of non-empty strings.',
+      code: 'invalid_type',
+    })
+  }
 }
 
 function validateScheduledTasks(
@@ -865,6 +1199,141 @@ function normalizeSystemContextSettings(
   }
 }
 
+function normalizeWorkspaceSettings(rawValue: unknown): LocalAgentWorkspaceSettings {
+  const defaults = defaultConfig.tools.workspace
+  if (rawValue === undefined || rawValue === null) {
+    return cloneUnknown(defaults)
+  }
+  if (!isPlainObject(rawValue)) {
+    throwValidationError([
+      {
+        path: 'tools.workspace',
+        message: 'Workspace settings must be an object.',
+        code: 'invalid_type',
+      },
+    ])
+  }
+
+  return {
+    enabled: typeof rawValue.enabled === 'boolean' ? rawValue.enabled : defaults.enabled,
+    rootStrategy: isWorkspaceRootStrategy(rawValue.rootStrategy)
+      ? rawValue.rootStrategy
+      : defaults.rootStrategy,
+    retentionDays: integerOrDefault(rawValue.retentionDays, defaults.retentionDays),
+    cleanupOnSessionDelete:
+      typeof rawValue.cleanupOnSessionDelete === 'boolean'
+        ? rawValue.cleanupOnSessionDelete
+        : defaults.cleanupOnSessionDelete,
+    maxFileBytes: integerOrDefault(rawValue.maxFileBytes, defaults.maxFileBytes),
+    maxReadBytes: integerOrDefault(rawValue.maxReadBytes, defaults.maxReadBytes),
+    maxWriteBytes: integerOrDefault(rawValue.maxWriteBytes, defaults.maxWriteBytes),
+    maxSearchResults: integerOrDefault(rawValue.maxSearchResults, defaults.maxSearchResults),
+    maxToolResultChars: integerOrDefault(rawValue.maxToolResultChars, defaults.maxToolResultChars),
+    denyPatterns: normalizeStringArray(rawValue.denyPatterns, defaults.denyPatterns),
+    externalRoots: Array.isArray(rawValue.externalRoots)
+      ? rawValue.externalRoots.map(normalizeExternalRootGrant)
+      : [],
+  }
+}
+
+function normalizeExternalRootGrant(value: unknown): ExternalRootGrant {
+  const now = Date.now()
+  if (!isPlainObject(value)) {
+    return {
+      id: '',
+      path: '',
+      access: 'read',
+      scope: 'session',
+      enabled: false,
+      createdAt: now,
+      updatedAt: now,
+    }
+  }
+  return {
+    id: typeof value.id === 'string' ? value.id : '',
+    path: typeof value.path === 'string' ? value.path : '',
+    access:
+      value.access === 'read' || value.access === 'write' || value.access === 'read-write'
+        ? value.access
+        : 'read',
+    scope:
+      value.scope === 'session' || value.scope === 'profile' || value.scope === 'global'
+        ? value.scope
+        : 'session',
+    sessionId: typeof value.sessionId === 'string' ? value.sessionId : undefined,
+    profile: isToolProfile(value.profile) ? value.profile : undefined,
+    enabled: typeof value.enabled === 'boolean' ? value.enabled : true,
+    createdAt: typeof value.createdAt === 'number' ? value.createdAt : now,
+    updatedAt: typeof value.updatedAt === 'number' ? value.updatedAt : now,
+  }
+}
+
+function normalizeTerminalSettings(rawValue: unknown): LocalAgentTerminalSettings {
+  const defaults = defaultConfig.tools.terminal
+  if (rawValue === undefined || rawValue === null) {
+    return cloneUnknown(defaults)
+  }
+  if (!isPlainObject(rawValue)) {
+    throwValidationError([
+      {
+        path: 'tools.terminal',
+        message: 'Terminal settings must be an object.',
+        code: 'invalid_type',
+      },
+    ])
+  }
+
+  return {
+    enabled: typeof rawValue.enabled === 'boolean' ? rawValue.enabled : defaults.enabled,
+    sandbox: isSandboxLevel(rawValue.sandbox) ? rawValue.sandbox : defaults.sandbox,
+    timeoutMs: integerOrDefault(rawValue.timeoutMs, defaults.timeoutMs),
+    maxOutputChars: integerOrDefault(rawValue.maxOutputChars, defaults.maxOutputChars),
+    maxForegroundProcesses: integerOrDefault(
+      rawValue.maxForegroundProcesses,
+      defaults.maxForegroundProcesses
+    ),
+    maxBackgroundProcesses: integerOrDefault(
+      rawValue.maxBackgroundProcesses,
+      defaults.maxBackgroundProcesses
+    ),
+    backgroundMaxLifetimeMs: integerOrDefault(
+      rawValue.backgroundMaxLifetimeMs,
+      defaults.backgroundMaxLifetimeMs
+    ),
+    minimalEnvKeys: normalizeStringArray(rawValue.minimalEnvKeys, defaults.minimalEnvKeys),
+    assistant: normalizeTerminalProfileSettings(rawValue.assistant, defaults.assistant),
+    power: normalizeTerminalProfileSettings(rawValue.power, defaults.power),
+  }
+}
+
+function normalizeTerminalProfileSettings(
+  rawValue: unknown,
+  defaults: LocalAgentTerminalSettings['assistant']
+): LocalAgentTerminalSettings['assistant'] {
+  if (!isPlainObject(rawValue)) {
+    return cloneUnknown(defaults)
+  }
+  return {
+    approval: isPermissionMode(rawValue.approval) ? rawValue.approval : defaults.approval,
+    network: isNetworkPolicy(rawValue.network) ? rawValue.network : defaults.network,
+    allowBackground:
+      typeof rawValue.allowBackground === 'boolean'
+        ? rawValue.allowBackground
+        : defaults.allowBackground,
+    allowPty: typeof rawValue.allowPty === 'boolean' ? rawValue.allowPty : defaults.allowPty,
+    fullAccess:
+      typeof rawValue.fullAccess === 'boolean' ? rawValue.fullAccess : defaults.fullAccess,
+    commandAllowPatterns: normalizeStringArray(
+      rawValue.commandAllowPatterns,
+      defaults.commandAllowPatterns
+    ),
+    commandDenyPatterns: normalizeStringArray(
+      rawValue.commandDenyPatterns,
+      defaults.commandDenyPatterns
+    ),
+  }
+}
+
 function normalizeChatContextCompatibility(
   config: DesktopSettingsConfig,
   raw: unknown
@@ -911,6 +1380,59 @@ function normalizeBooleanRecord(value: unknown): Record<string, boolean> {
       (entry): entry is [string, boolean] => typeof entry[1] === 'boolean'
     )
   )
+}
+
+function normalizeStringArray(value: unknown, fallback: string[]): string[] {
+  if (!Array.isArray(value)) {
+    return [...fallback]
+  }
+  return value.filter(isNonEmptyString)
+}
+
+function integerOrDefault(value: unknown, fallback: number): number {
+  return Number.isInteger(value) ? (value as number) : fallback
+}
+
+function validateIntegerRange(
+  value: unknown,
+  path: string,
+  min: number,
+  max: number,
+  issues: SettingsValidationIssue[]
+): void {
+  if (!Number.isInteger(value) || (value as number) < min || (value as number) > max) {
+    issues.push({
+      path,
+      message: `Value must be an integer between ${min} and ${max}.`,
+      code: 'out_of_range',
+    })
+  }
+}
+
+function isNonEmptyString(value: unknown): value is string {
+  return typeof value === 'string' && value.length > 0
+}
+
+function isWorkspaceRootStrategy(value: unknown): value is WorkspaceRootStrategy {
+  return value === 'managed-user-data'
+}
+
+function isSandboxLevel(value: unknown): value is LocalCommandSandboxLevel {
+  return (
+    value === 'policy-only' ||
+    value === 'non-sandboxed' ||
+    value === 'macos-seatbelt' ||
+    value === 'linux-bubblewrap' ||
+    value === 'windows-restricted'
+  )
+}
+
+function isPermissionMode(value: unknown): value is LocalPermissionMode {
+  return value === 'ask' || value === 'allow' || value === 'deny'
+}
+
+function isNetworkPolicy(value: unknown): value is LocalNetworkPolicy {
+  return value === 'ask' || value === 'allow' || value === 'deny'
 }
 
 function redactSecretText(text: string): string {

@@ -62,6 +62,13 @@ try {
   assert.equal(normalized.providers.models[0]?.providerSourceId, 'custom-openai')
   assert.equal(normalized.providers.settings.defaultModelId, 'custom-model')
   assert.equal(normalized.tools.agentToolProfile, 'assistant')
+  assert.equal(normalized.tools.workspace.enabled, true)
+  assert.equal(normalized.tools.workspace.rootStrategy, 'managed-user-data')
+  assert.equal(normalized.tools.workspace.maxReadBytes, 512 * 1024)
+  assert.equal(normalized.tools.terminal.enabled, true)
+  assert.equal(normalized.tools.terminal.assistant.approval, 'ask')
+  assert.equal(normalized.tools.terminal.power.approval, 'allow')
+  assert.equal(normalized.tools.terminal.power.fullAccess, true)
   assert.equal(normalized.scheduledTasks.enabled, true)
   assert.equal(normalized.scheduledTasks.misfirePolicy, 'run_once')
   assert.equal(normalized.scheduledTasks.misfireGraceMs, 120000)
@@ -104,6 +111,20 @@ try {
           chatContext: {
             ...cloneDefaultConfig().app.chatContext,
             maxInputBudgetPercent: 101,
+          },
+        },
+      }),
+    ConfigValidationError
+  )
+  assert.throws(
+    () =>
+      normalizeConfig({
+        ...cloneDefaultConfig(),
+        tools: {
+          ...cloneDefaultConfig().tools,
+          terminal: {
+            ...cloneDefaultConfig().tools.terminal,
+            timeoutMs: 0,
           },
         },
       }),

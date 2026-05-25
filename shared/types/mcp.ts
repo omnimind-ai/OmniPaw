@@ -43,6 +43,7 @@ export interface McpSafeStdioTransport {
   args: string[]
   cwd?: string
   envKeys: string[]
+  localExecution: true
 }
 
 export interface McpSafeHttpTransport {

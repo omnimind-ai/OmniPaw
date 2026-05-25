@@ -115,6 +115,7 @@ export function maskMcpTransport(transport: McpServerTransportConfig): McpSafeTr
       args: maskCommandArgs(transport.args),
       cwd: transport.cwd,
       envKeys: Object.keys(transport.env).sort(),
+      localExecution: true,
     }
   }
 

@@ -59,6 +59,25 @@ import type {
   UpdateCronTaskRequest,
   UpdateCronTaskResponse,
 } from './cron'
+import type {
+  AgentWorkspaceStatus,
+  AgentWorkspaceStatusRequest,
+  CleanupWorkspaceRequest,
+  CleanupWorkspaceResponse,
+  DeleteWorkspaceFileRequest,
+  DeleteWorkspaceFileResponse,
+  ExportWorkspaceFileRequest,
+  ExportWorkspaceFileResponse,
+  GetLocalProcessRequest,
+  KillLocalProcessRequest,
+  KillLocalProcessResponse,
+  ListLocalProcessesRequest,
+  ListWorkspaceFilesRequest,
+  ListWorkspaceFilesResponse,
+  LocalProcessSummary,
+  ReadWorkspaceFileRequest,
+  ReadWorkspaceFileResponse,
+} from './local-agent'
 import type { LoggerHealthStatus, LoggerWriteResponse, RendererLogRequest } from './logging'
 import type {
   DeleteMcpServerRequest,
@@ -401,6 +420,19 @@ export interface OpenOmniClawBridge {
   tools: {
     list: () => Promise<ManagedToolInfo[]>
     setEnabled: (request: SetToolEnabledRequest) => Promise<SetToolEnabledResponse>
+  }
+  workspace: {
+    status: (request: AgentWorkspaceStatusRequest | string) => Promise<AgentWorkspaceStatus>
+    listFiles: (request: ListWorkspaceFilesRequest) => Promise<ListWorkspaceFilesResponse>
+    readFile: (request: ReadWorkspaceFileRequest) => Promise<ReadWorkspaceFileResponse>
+    exportFile: (request: ExportWorkspaceFileRequest) => Promise<ExportWorkspaceFileResponse>
+    deleteFile: (request: DeleteWorkspaceFileRequest) => Promise<DeleteWorkspaceFileResponse>
+    cleanup: (request: CleanupWorkspaceRequest | string) => Promise<CleanupWorkspaceResponse>
+  }
+  terminalProcess: {
+    list: (request?: ListLocalProcessesRequest) => Promise<LocalProcessSummary[]>
+    get: (request: GetLocalProcessRequest | string) => Promise<LocalProcessSummary | null>
+    kill: (request: KillLocalProcessRequest | string) => Promise<KillLocalProcessResponse>
   }
   mcp: {
     listServers: () => Promise<McpServerListResponse>

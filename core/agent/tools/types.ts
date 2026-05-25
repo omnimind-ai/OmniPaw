@@ -1,11 +1,14 @@
 import type { ProviderTool, ProviderToolCall } from '@core/provider/base-provider'
 import type { ToolCallDisplay, ToolCallStatus, ToolProfile, ToolRisk } from '@shared/types/chat'
+import type { LocalToolApprovalPlan } from '@shared/types/local-agent'
 import type { ToolSource } from '@shared/types/tool'
 
 export type { ToolCallStatus, ToolProfile, ToolRisk, ToolSource }
 
 export interface AgentToolContext {
   sessionId: string
+  runId?: string
+  policyProfile: ToolProfile
 }
 
 export interface AgentTool<TDetails = unknown> {
@@ -20,11 +23,24 @@ export interface AgentTool<TDetails = unknown> {
   serverName?: string
   profiles?: ToolProfile[]
   timeoutMs?: number
+  localCapability?: {
+    kind: 'workspace' | 'terminal'
+    sandboxLevel?: string
+    fullAccess?: boolean
+  }
+  resolveRisk?: (args: unknown, context: AgentToolContext) => ToolRisk
+  resolveTimeoutMs?: (args: unknown, context: AgentToolContext) => number | undefined
+  requiresApproval?: (args: unknown, context: AgentToolContext, risk: ToolRisk) => boolean
+  approvalPlan?: (
+    args: unknown,
+    context: AgentToolContext
+  ) => Promise<LocalToolApprovalPlan | undefined> | LocalToolApprovalPlan | undefined
   execute: (
     toolCallId: string,
     args: unknown,
     signal?: AbortSignal,
-    onUpdate?: (update: unknown) => void
+    onUpdate?: (update: unknown) => void,
+    context?: AgentToolContext
   ) => Promise<AgentToolResult<TDetails>>
 }
 

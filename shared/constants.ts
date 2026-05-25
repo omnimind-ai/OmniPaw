@@ -107,6 +107,19 @@ export const IPC_CHANNELS = {
     list: 'tools:list',
     setEnabled: 'tools:set-enabled',
   },
+  workspace: {
+    status: 'workspace:status',
+    listFiles: 'workspace:list-files',
+    readFile: 'workspace:read-file',
+    exportFile: 'workspace:export-file',
+    deleteFile: 'workspace:delete-file',
+    cleanup: 'workspace:cleanup',
+  },
+  terminalProcess: {
+    list: 'terminal-process:list',
+    get: 'terminal-process:get',
+    kill: 'terminal-process:kill',
+  },
   mcp: {
     listServers: 'mcp:list-servers',
     saveServer: 'mcp:save-server',

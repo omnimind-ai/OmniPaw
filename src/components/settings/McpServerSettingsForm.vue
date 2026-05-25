@@ -454,10 +454,11 @@ function transportTarget(transport: BridgeMcpSafeTransport) {
 function transportDetails(transport: BridgeMcpSafeTransport) {
   if (transport.type === 'stdio') {
     return [
+      transport.localExecution ? '本地进程执行面' : undefined,
       transport.args.length ? `${transport.args.length} 个参数` : '无参数',
       transport.cwd ? `cwd: ${transport.cwd}` : '默认工作目录',
       transport.envKeys.length ? `环境变量: ${transport.envKeys.join(', ')}` : '无环境变量',
-    ]
+    ].filter(Boolean) as string[]
   }
 
   return [transport.headerKeys.length ? `请求头: ${transport.headerKeys.join(', ')}` : '无请求头']

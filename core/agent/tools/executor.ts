@@ -2,9 +2,11 @@ import type { Logger } from '@core/logging'
 import type { ProviderToolCall } from '@core/provider/base-provider'
 import { normalizeProviderError } from '@core/provider/errors'
 import type { ToolCallDisplay, ToolRisk } from '@shared/types/chat'
+import type { LocalToolApprovalPlan } from '@shared/types/local-agent'
 import { decideToolUse, type ToolPolicy } from './policy'
 import {
   type AgentTool,
+  type AgentToolContext,
   displayArguments,
   type NormalizedToolResult,
   parseToolArguments,
@@ -58,8 +60,8 @@ export class ToolExecutor {
       ts: startedAt / 1000,
     }
 
-    const decision = decideToolUse(tool, input.policy)
     if (!tool) {
+      const decision = decideToolUse(tool, input.policy)
       const message = decision.reason ?? `Tool "${name}" is not allowed.`
       logger?.warn('Tool execution denied.', {
         status: 'denied',
@@ -79,21 +81,56 @@ export class ToolExecutor {
       }
     }
 
+    let args: unknown
+    try {
+      args = parseToolArguments(input.toolCall.function.arguments)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Tool arguments are not valid JSON.'
+      logger?.warn('Tool arguments invalid.', {
+        status: 'error',
+        errorCode: 'tool_arguments_invalid',
+        durationMs: Date.now() - startedAt,
+        error,
+      })
+      return {
+        display: finishDisplay(baseDisplay, 'error', message),
+        result: {
+          status: 'error',
+          resultText: message,
+          error: { code: 'tool_arguments_invalid', message },
+        },
+      }
+    }
+
+    const context: AgentToolContext = {
+      sessionId: input.sessionId ?? '',
+      runId: input.runId,
+      policyProfile: input.policy.profile,
+    }
+    const effectiveRisk = tool.resolveRisk?.(args, context) ?? tool.risk
+    const approvalPlan = await tool.approvalPlan?.(args, context)
+    const baseDecision = decideToolUse(tool, input.policy, { risk: effectiveRisk })
+    const decision =
+      baseDecision.approvalRequired &&
+      tool.requiresApproval?.(args, context, effectiveRisk) === false
+        ? { allowed: true }
+        : baseDecision
     if (!decision.allowed) {
       let approvalGranted = false
       if (decision.approvalRequired && input.approval) {
         const approved = await waitForApproval({
           approval: input.approval,
           baseDisplay,
-          risk: tool.risk,
+          risk: effectiveRisk,
           reason: decision.reason ?? `Tool "${name}" requires approval.`,
+          plan: approvalPlan,
           logger,
           startedAt,
           signal: input.signal,
         })
         if (approved === 'approved') {
           input.approval.update(
-            approvalDisplay(baseDisplay, tool.risk, decision.reason, 'approved')
+            approvalDisplay(baseDisplay, effectiveRisk, decision.reason, 'approved', approvalPlan)
           )
           approvalGranted = true
         } else if (approved === 'rejected') {
@@ -104,7 +141,13 @@ export class ToolExecutor {
           })
           return {
             display: finishDisplay(
-              approvalDisplay(baseDisplay, tool.risk, decision.reason, 'rejected'),
+              approvalDisplay(
+                baseDisplay,
+                effectiveRisk,
+                decision.reason,
+                'rejected',
+                approvalPlan
+              ),
               'denied',
               message
             ),
@@ -156,39 +199,19 @@ export class ToolExecutor {
       }
     }
 
-    let args: unknown
-    try {
-      args = parseToolArguments(input.toolCall.function.arguments)
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Tool arguments are not valid JSON.'
-      logger?.warn('Tool arguments invalid.', {
-        status: 'error',
-        errorCode: 'tool_arguments_invalid',
-        durationMs: Date.now() - startedAt,
-        error,
-      })
-      return {
-        display: finishDisplay(baseDisplay, 'error', message),
-        result: {
-          status: 'error',
-          resultText: message,
-          error: { code: 'tool_arguments_invalid', message },
-        },
-      }
-    }
-
     try {
       throwIfAborted(input.signal)
+      const timeoutMs = tool.resolveTimeoutMs?.(args, context) ?? tool.timeoutMs ?? 30_000
       const result = await withTimeout(
-        (signal) => tool.execute(input.toolCall.id, args, signal),
-        tool.timeoutMs ?? 30_000,
+        (signal) => tool.execute(input.toolCall.id, args, signal, undefined, context),
+        timeoutMs,
         input.signal
       )
       const text = toolResultToText(result)
       logger?.info('Tool execution completed.', {
         status: 'complete',
         source: tool.source,
-        risk: tool.risk,
+        risk: effectiveRisk,
         durationMs: Date.now() - startedAt,
       })
       return {
@@ -262,6 +285,7 @@ async function waitForApproval(input: {
   baseDisplay: ToolCallDisplay
   risk: ToolRisk
   reason?: string
+  plan?: LocalToolApprovalPlan
   logger?: Logger
   startedAt: number
   signal?: AbortSignal
@@ -273,7 +297,7 @@ async function waitForApproval(input: {
       durationMs: Date.now() - input.startedAt,
     })
     const approved = await input.approval.request(
-      approvalDisplay(input.baseDisplay, input.risk, input.reason, 'pending')
+      approvalDisplay(input.baseDisplay, input.risk, input.reason, 'pending', input.plan)
     )
     if (input.signal?.aborted) {
       return 'aborted'
@@ -291,7 +315,8 @@ function approvalDisplay(
   display: ToolCallDisplay,
   risk: ToolRisk,
   reason: string | undefined,
-  state: 'pending' | 'approved' | 'rejected'
+  state: 'pending' | 'approved' | 'rejected',
+  plan?: LocalToolApprovalPlan
 ): ToolCallDisplay {
   return {
     ...display,
@@ -301,6 +326,9 @@ function approvalDisplay(
       state,
       risk,
       reason,
+      plan,
+      sandbox: plan?.kind === 'terminal' ? plan.sandbox : undefined,
+      fullAccess: plan?.kind === 'terminal' ? plan.fullAccess : undefined,
     },
   }
 }

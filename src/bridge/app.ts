@@ -34,6 +34,27 @@ import type {
   UpdateCronTaskResponse,
 } from '@shared/types/cron'
 import type {
+  AgentWorkspaceStatus,
+  AgentWorkspaceStatusRequest,
+  CleanupWorkspaceRequest,
+  CleanupWorkspaceResponse,
+  DeleteWorkspaceFileRequest,
+  DeleteWorkspaceFileResponse,
+  ExportWorkspaceFileRequest,
+  ExportWorkspaceFileResponse,
+  GetLocalProcessRequest,
+  KillLocalProcessRequest,
+  KillLocalProcessResponse,
+  ListLocalProcessesRequest,
+  ListWorkspaceFilesRequest,
+  ListWorkspaceFilesResponse,
+  LocalAgentTerminalSettings,
+  LocalAgentWorkspaceSettings,
+  LocalProcessSummary,
+  ReadWorkspaceFileRequest,
+  ReadWorkspaceFileResponse,
+} from '@shared/types/local-agent'
+import type {
   LoggerHealthStatus,
   LoggerWriteResponse,
   RendererLogRequest,
@@ -127,6 +148,8 @@ export interface BridgeDesktopSettingsConfig {
   tools: {
     agentToolProfile: BridgeToolProfile
     enabledByName: Record<string, boolean>
+    workspace: LocalAgentWorkspaceSettings
+    terminal: LocalAgentTerminalSettings
   }
   scheduledTasks: {
     enabled: boolean
@@ -248,6 +271,9 @@ export interface BridgeToolCall {
     state?: 'pending' | 'approved' | 'rejected' | string
     risk?: string
     reason?: string
+    plan?: unknown
+    sandbox?: unknown
+    fullAccess?: boolean
   }
   status?: BridgeToolCallStatus
   state?: BridgeToolCallStatus
@@ -597,6 +623,7 @@ export interface BridgeMcpSafeStdioTransport {
   args: string[]
   cwd?: string
   envKeys: string[]
+  localExecution: true
 }
 
 export interface BridgeMcpSafeHttpTransport {
@@ -898,6 +925,19 @@ export interface RendererOpenOmniClawBridge {
       name: string
       enabled: boolean
     }) => Promise<{ tool: BridgeManagedToolInfo; tools: BridgeManagedToolInfo[] }>
+  }
+  workspace?: {
+    status: (request: AgentWorkspaceStatusRequest | string) => Promise<AgentWorkspaceStatus>
+    listFiles: (request: ListWorkspaceFilesRequest) => Promise<ListWorkspaceFilesResponse>
+    readFile: (request: ReadWorkspaceFileRequest) => Promise<ReadWorkspaceFileResponse>
+    exportFile: (request: ExportWorkspaceFileRequest) => Promise<ExportWorkspaceFileResponse>
+    deleteFile: (request: DeleteWorkspaceFileRequest) => Promise<DeleteWorkspaceFileResponse>
+    cleanup: (request: CleanupWorkspaceRequest | string) => Promise<CleanupWorkspaceResponse>
+  }
+  terminalProcess?: {
+    list: (request?: ListLocalProcessesRequest) => Promise<LocalProcessSummary[]>
+    get: (request: GetLocalProcessRequest | string) => Promise<LocalProcessSummary | null>
+    kill: (request: KillLocalProcessRequest | string) => Promise<KillLocalProcessResponse>
   }
   mcp?: {
     listServers: () => Promise<BridgeMcpServerListResponse>
@@ -1486,6 +1526,21 @@ const fallbackBridge: RendererOpenOmniClawBridge = {
         'tools.setEnabled'
       ),
   },
+  workspace: {
+    status: () => rejectFallbackPersistence<AgentWorkspaceStatus>('workspace.status'),
+    listFiles: () => rejectFallbackPersistence<ListWorkspaceFilesResponse>('workspace.listFiles'),
+    readFile: () => rejectFallbackPersistence<ReadWorkspaceFileResponse>('workspace.readFile'),
+    exportFile: () =>
+      rejectFallbackPersistence<ExportWorkspaceFileResponse>('workspace.exportFile'),
+    deleteFile: () =>
+      rejectFallbackPersistence<DeleteWorkspaceFileResponse>('workspace.deleteFile'),
+    cleanup: () => rejectFallbackPersistence<CleanupWorkspaceResponse>('workspace.cleanup'),
+  },
+  terminalProcess: {
+    list: async () => [],
+    get: async () => null,
+    kill: () => rejectFallbackPersistence<KillLocalProcessResponse>('terminalProcess.kill'),
+  },
   mcp: {
     listServers: async () => ({
       servers: [],
@@ -1565,6 +1620,58 @@ function fallbackSettingsConfig(): BridgeDesktopSettingsConfig {
     tools: {
       agentToolProfile: 'assistant',
       enabledByName: {},
+      workspace: {
+        enabled: true,
+        rootStrategy: 'managed-user-data',
+        retentionDays: 30,
+        cleanupOnSessionDelete: false,
+        maxFileBytes: 10 * 1024 * 1024,
+        maxReadBytes: 512 * 1024,
+        maxWriteBytes: 2 * 1024 * 1024,
+        maxSearchResults: 50,
+        maxToolResultChars: 20_000,
+        denyPatterns: [
+          '.env',
+          '.env.*',
+          '**/.ssh/**',
+          '**/id_rsa',
+          '**/id_ed25519',
+          '**/*credential*',
+          '**/*secret*',
+          '**/*token*',
+          '**/Library/Application Support/Google/Chrome/**',
+          '**/Library/Application Support/Firefox/**',
+        ],
+        externalRoots: [],
+      },
+      terminal: {
+        enabled: true,
+        sandbox: 'policy-only',
+        timeoutMs: 30_000,
+        maxOutputChars: 20_000,
+        maxForegroundProcesses: 4,
+        maxBackgroundProcesses: 2,
+        backgroundMaxLifetimeMs: 30 * 60 * 1000,
+        minimalEnvKeys: ['PATH', 'HOME', 'TMPDIR', 'TEMP', 'TMP'],
+        assistant: {
+          approval: 'ask',
+          network: 'ask',
+          allowBackground: false,
+          allowPty: false,
+          fullAccess: false,
+          commandAllowPatterns: [],
+          commandDenyPatterns: [],
+        },
+        power: {
+          approval: 'allow',
+          network: 'allow',
+          allowBackground: true,
+          allowPty: true,
+          fullAccess: true,
+          commandAllowPatterns: [],
+          commandDenyPatterns: [],
+        },
+      },
     },
     scheduledTasks: {
       enabled: false,

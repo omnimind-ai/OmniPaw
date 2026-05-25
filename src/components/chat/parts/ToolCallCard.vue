@@ -60,10 +60,16 @@ const approvalReason = computed(() => {
   }
   return approval.value.reason
 })
+const approvalPlan = computed(() => {
+  const plan = approval.value?.plan
+  if (!plan || typeof plan !== 'object') return undefined
+  return plan
+})
 const detailRows = computed(() =>
   [
     ['参数', props.toolCall.args ?? props.toolCall.arguments],
     ['授权', approvalReason.value],
+    ['执行计划', approvalPlan.value],
     ['结果', props.toolCall.result],
     ['错误', props.toolCall.error],
   ].filter(([, value]) => value !== undefined && value !== null && value !== '')
@@ -166,6 +172,12 @@ async function decideToolApproval(action: 'approve' | 'reject') {
         </Button>
         <Badge :variant="statusVariant">
           {{ statusLabel }}
+        </Badge>
+        <Badge
+          v-if="approval?.fullAccess"
+          variant="destructive"
+        >
+          full access
         </Badge>
         <CollapsibleTrigger as-child>
           <Button

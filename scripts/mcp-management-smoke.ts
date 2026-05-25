@@ -84,6 +84,8 @@ function handle(message) {
             text: JSON.stringify({
               name: message.params?.name,
               args: message.params?.arguments,
+              inheritedSecret: process.env.OPENOMNICLAW_MCP_SECRET_TEST || '',
+              explicitEnv: process.env.EXPLICIT_MCP_ENV || '',
             }),
           },
         ],
@@ -152,6 +154,7 @@ class FakeMcpClient implements McpClient {
 const tempDir = mkdtempSync(join(tmpdir(), 'openomniclaw-mcp-smoke-'))
 
 try {
+  process.env.OPENOMNICLAW_MCP_SECRET_TEST = 'must-not-leak'
   const store = new McpRegistryStore({ userDataPath: tempDir })
   const firstLoad = store.load()
   assert.equal(firstLoad.version, 1)
@@ -189,6 +192,7 @@ try {
     args: ['server.mjs', '--token', '[redacted]', '--api-key=[redacted]'],
     cwd: undefined,
     envKeys: ['NORMAL', 'SECRET_TOKEN'],
+    localExecution: true,
   })
   assert.equal(JSON.stringify(masked).includes('raw-secret'), false)
   assert.equal(JSON.stringify(masked).includes('raw-arg-secret'), false)
@@ -300,6 +304,7 @@ try {
 
   console.log('MCP management smoke check passed')
 } finally {
+  delete process.env.OPENOMNICLAW_MCP_SECRET_TEST
   rmSync(tempDir, { recursive: true, force: true })
 }
 
@@ -316,7 +321,7 @@ async function testStdioJsonRpcClient(baseDir: string): Promise<void> {
       type: 'stdio',
       command: process.execPath,
       args: [serverPath],
-      env: {},
+      env: { EXPLICIT_MCP_ENV: 'visible' },
     },
     timeoutMs: 5_000,
     toolTimeoutMs: 5_000,
@@ -328,7 +333,11 @@ async function testStdioJsonRpcClient(baseDir: string): Promise<void> {
   assert.equal(tools[0]?.name, 'echo')
 
   const result = await client.callTool(server, 'echo', { text: 'stdio works' })
-  assert.match(result.content[0]?.type === 'text' ? result.content[0].text : '', /stdio works/)
+  const text = result.content[0]?.type === 'text' ? result.content[0].text : ''
+  const parsed = JSON.parse(text) as { inheritedSecret?: string; explicitEnv?: string }
+  assert.match(text, /stdio works/)
+  assert.equal(parsed.inheritedSecret, '')
+  assert.equal(parsed.explicitEnv, 'visible')
 }
 
 async function testHttpJsonRpcClient(): Promise<void> {

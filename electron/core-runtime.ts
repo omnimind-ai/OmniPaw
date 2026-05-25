@@ -1,6 +1,8 @@
+import { ProcessSupervisor, TerminalService } from '@core/agent/terminal'
 import { listBuiltinToolDefinitions } from '@core/agent/tools/builtin-tools'
 import { ToolManagementService } from '@core/agent/tools/management-service'
 import { ToolRegistry } from '@core/agent/tools/registry'
+import { AgentWorkspaceService } from '@core/agent/workspace'
 import { AttachmentService } from '@core/chat/attachment-service'
 import { ChatService } from '@core/chat/chat-service'
 import { ContextCompactionService } from '@core/chat/context-compaction'
@@ -58,6 +60,7 @@ interface CoreRuntimeOptions {
 
 export interface CoreRuntime {
   attachmentService: AttachmentService
+  agentWorkspaceService: AgentWorkspaceService
   chatService: ChatService
   configStore: ConfigStore
   cronManager: CronManager
@@ -66,6 +69,7 @@ export interface CoreRuntime {
   providerManager: ProviderManager
   sessionRepo: ChatSessionRepo
   skillManager: SkillManager
+  terminalService: TerminalService
   toolManagementService: ToolManagementService
   dispose: () => void
 }
@@ -93,6 +97,24 @@ export function createCoreRuntime(options: CoreRuntimeOptions): CoreRuntime {
     logger: coreLogger.child({ scope: 'config' }),
   })
   loadStartupConfig(configStore, options.lifecycleLogger)
+  const agentWorkspaceService = new AgentWorkspaceService({
+    userDataPath: options.app.getPath('userData'),
+    settings: () => configStore.get().tools.workspace,
+    sandboxLevel: () => configStore.get().tools.terminal.sandbox,
+    logger: coreLogger.child({ scope: 'agent.workspace' }),
+  })
+  const processSupervisor = new ProcessSupervisor({
+    maxForegroundProcesses: () => configStore.get().tools.terminal.maxForegroundProcesses,
+    maxBackgroundProcesses: () => configStore.get().tools.terminal.maxBackgroundProcesses,
+    backgroundMaxLifetimeMs: () => configStore.get().tools.terminal.backgroundMaxLifetimeMs,
+    logger: coreLogger.child({ scope: 'agent.process' }),
+  })
+  const terminalService = new TerminalService({
+    workspace: agentWorkspaceService,
+    supervisor: processSupervisor,
+    settings: () => configStore.get().tools.terminal,
+    logger: coreLogger.child({ scope: 'agent.terminal' }),
+  })
 
   const cronManager = new CronManager({
     tasks: cronTaskRepo,
@@ -223,6 +245,9 @@ export function createCoreRuntime(options: CoreRuntimeOptions): CoreRuntime {
     agentToolProfile: () => configStore.get().tools.agentToolProfile,
     disabledToolNames: () => toolManagementService.getDisabledToolNames(),
     mcpTools: () => mcpServerManager.getAgentTools(),
+    workspaceService: agentWorkspaceService,
+    terminalService,
+    toolSettings: () => configStore.get().tools,
     cronManager: () => cronManager,
     logger: coreLogger.child({ scope: 'chat' }),
   })
@@ -238,6 +263,9 @@ export function createCoreRuntime(options: CoreRuntimeOptions): CoreRuntime {
         attachments: attachmentService,
         skills: skillManager,
         cronManager: () => cronManager,
+        workspaceService: agentWorkspaceService,
+        terminalService,
+        toolSettings: () => configStore.get().tools,
         disabledToolNames: () => toolManagementService.getDisabledToolNames(),
         mcpTools: () => mcpServerManager.getAgentTools(),
       }),
@@ -252,6 +280,7 @@ export function createCoreRuntime(options: CoreRuntimeOptions): CoreRuntime {
 
   return {
     attachmentService,
+    agentWorkspaceService,
     chatService,
     configStore,
     cronManager,
@@ -260,6 +289,7 @@ export function createCoreRuntime(options: CoreRuntimeOptions): CoreRuntime {
     providerManager,
     sessionRepo,
     skillManager,
+    terminalService,
     toolManagementService,
     dispose: () => {
       cronManager.stop()

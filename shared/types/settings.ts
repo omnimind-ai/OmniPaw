@@ -1,4 +1,5 @@
 import type { ContextAttachmentPolicy, ToolProfile } from './chat'
+import type { LocalAgentTerminalSettings, LocalAgentWorkspaceSettings } from './local-agent'
 import type {
   ProviderApi,
   ProviderCapabilities,
@@ -91,6 +92,8 @@ export interface DesktopProvidersSettings {
 export interface DesktopToolSettings {
   agentToolProfile: ToolProfile
   enabledByName: Record<string, boolean>
+  workspace: LocalAgentWorkspaceSettings
+  terminal: LocalAgentTerminalSettings
 }
 
 export type ScheduledTaskMisfirePolicy = 'run_once' | 'skip'

@@ -1,7 +1,11 @@
+import type { TerminalExecRequest, TerminalService } from '@core/agent/terminal'
+import type { AgentWorkspaceService } from '@core/agent/workspace'
 import type { AttachmentService } from '@core/chat/attachment-service'
 import type { CronManager } from '@core/cron/cron-manager'
 import type { ChatMessageRepo } from '@core/db/repos'
 import type { SkillManager } from '@core/skill/skill-manager'
+import type { DesktopToolSettings } from '@shared/types/settings'
+import type { ToolPolicy } from './policy'
 import type { AgentTool, ToolProfile, ToolRisk } from './types'
 
 export interface BuiltinToolDefinition {
@@ -21,6 +25,10 @@ export interface BuiltinToolOptions {
   sessionId: string
   skills?: SkillManager
   cronManager?: CronManager
+  policy?: ToolPolicy
+  workspaceService?: AgentWorkspaceService
+  terminalService?: TerminalService
+  toolSettings?: () => DesktopToolSettings
   maxResultChars?: number
 }
 
@@ -43,6 +51,44 @@ export function createBuiltinTools(options: BuiltinToolOptions): AgentTool[] {
       execute: createFutureTaskExecutor(options),
     })
   }
+  if (options.workspaceService && (options.toolSettings?.().workspace.enabled ?? true)) {
+    tools.push({
+      ...BUILTIN_TOOL_DEFINITIONS.workspace_file,
+      localCapability: {
+        kind: 'workspace',
+      },
+      resolveRisk: resolveWorkspaceFileRisk,
+      approvalPlan: createWorkspaceFileApprovalPlan,
+      execute: createWorkspaceFileExecutor(options),
+    })
+  }
+  if (options.terminalService && (options.toolSettings?.().terminal.enabled ?? true)) {
+    tools.push({
+      ...BUILTIN_TOOL_DEFINITIONS.terminal_exec,
+      localCapability: {
+        kind: 'terminal',
+        sandboxLevel: options.toolSettings?.().terminal.sandbox,
+        fullAccess: options.policy?.profile === 'power',
+      },
+      resolveRisk: () => 'exec',
+      resolveTimeoutMs: (args) => {
+        const terminalArgs = asTerminalExecArgs(args)
+        const settings = options.toolSettings?.().terminal
+        if (terminalArgs.background) return 5_000
+        return Math.min(
+          (terminalArgs.timeoutMs ?? settings?.timeoutMs ?? 30_000) + 1_000,
+          24 * 60 * 60 * 1000
+        )
+      },
+      requiresApproval: (args, context, risk) =>
+        terminalRequiresApproval(args, context.policyProfile, risk, options),
+      approvalPlan: async (args, context) =>
+        options.terminalService?.createApprovalPlan(
+          toTerminalRequest(args, options, context.policyProfile, context.runId)
+        ),
+      execute: createTerminalExecExecutor(options),
+    })
+  }
   if (options.skills?.getActiveSkills().length) {
     tools.push({
       ...BUILTIN_TOOL_DEFINITIONS.skill_read,
@@ -59,6 +105,8 @@ export function listBuiltinToolDefinitions(): BuiltinToolDefinition[] {
     BUILTIN_TOOL_DEFINITIONS.attachment_text_read,
     BUILTIN_TOOL_DEFINITIONS.attachment_text_search,
     BUILTIN_TOOL_DEFINITIONS.future_task,
+    BUILTIN_TOOL_DEFINITIONS.workspace_file,
+    BUILTIN_TOOL_DEFINITIONS.terminal_exec,
     BUILTIN_TOOL_DEFINITIONS.skill_read,
   ].map((definition) => ({ ...definition }))
 }
@@ -187,6 +235,77 @@ const BUILTIN_TOOL_DEFINITIONS = {
           description: 'Supported five-field cron expression.',
         },
         enabled: { type: 'boolean' },
+      },
+      additionalProperties: false,
+    },
+  },
+  workspace_file: {
+    name: 'workspace_file',
+    label: 'Workspace file',
+    description:
+      'Work with files in the managed agent workspace. Use action=list/read/search for reads, write to create or replace a text file, and patch with oldText/newText to edit text.',
+    risk: 'read',
+    source: 'builtin',
+    profiles: ['assistant', 'power'],
+    parameters: {
+      type: 'object',
+      required: ['action'],
+      properties: {
+        action: {
+          type: 'string',
+          enum: ['list', 'read', 'write', 'search', 'patch'],
+        },
+        path: {
+          type: 'string',
+          description: 'Relative path inside the managed workspace.',
+        },
+        recursive: { type: 'boolean' },
+        maxEntries: { type: 'number' },
+        maxBytes: { type: 'number' },
+        content: { type: 'string' },
+        append: { type: 'boolean' },
+        query: { type: 'string' },
+        maxResults: { type: 'number' },
+        contextChars: { type: 'number' },
+        oldText: { type: 'string' },
+        newText: { type: 'string' },
+        replaceAll: { type: 'boolean' },
+      },
+      additionalProperties: false,
+    },
+  },
+  terminal_exec: {
+    name: 'terminal_exec',
+    label: 'Terminal exec',
+    description:
+      'Execute a local terminal command on the host machine. Defaults to the managed workspace as cwd; assistant mode asks for approval and power mode is full local access.',
+    risk: 'exec',
+    source: 'builtin',
+    profiles: ['assistant', 'power'],
+    parameters: {
+      type: 'object',
+      required: ['command'],
+      properties: {
+        command: {
+          type: 'string',
+          description: 'Command line to execute with the host shell.',
+        },
+        cwd: {
+          type: 'string',
+          description: 'Relative workspace directory, or absolute path only in power mode.',
+        },
+        timeoutMs: { type: 'number' },
+        maxOutputChars: { type: 'number' },
+        background: { type: 'boolean' },
+        pty: { type: 'boolean' },
+        env: {
+          type: 'object',
+          additionalProperties: { type: 'string' },
+        },
+        network: {
+          type: 'string',
+          enum: ['ask', 'allow', 'deny'],
+        },
       },
       additionalProperties: false,
     },
@@ -373,6 +492,33 @@ interface FutureTaskArgs {
   enabled?: boolean
 }
 
+interface WorkspaceFileArgs {
+  action?: 'list' | 'read' | 'write' | 'search' | 'patch'
+  path?: string
+  recursive?: boolean
+  maxEntries?: number
+  maxBytes?: number
+  content?: string
+  append?: boolean
+  query?: string
+  maxResults?: number
+  contextChars?: number
+  oldText?: string
+  newText?: string
+  replaceAll?: boolean
+}
+
+interface TerminalExecArgs {
+  command?: string
+  cwd?: string
+  timeoutMs?: number
+  maxOutputChars?: number
+  background?: boolean
+  pty?: boolean
+  env?: Record<string, string>
+  network?: 'ask' | 'allow' | 'deny'
+}
+
 function createFutureTaskExecutor(options: BuiltinToolOptions): AgentTool['execute'] {
   return async (_toolCallId, args, signal) => {
     throwIfAborted(signal)
@@ -444,6 +590,121 @@ function createFutureTaskExecutor(options: BuiltinToolOptions): AgentTool['execu
   }
 }
 
+function createWorkspaceFileExecutor(options: BuiltinToolOptions): AgentTool['execute'] {
+  return async (_toolCallId, args, signal) => {
+    throwIfAborted(signal)
+    if (!options.workspaceService) {
+      throw new Error('Workspace file service is not available.')
+    }
+    const workspaceArgs = asWorkspaceFileArgs(args)
+    if (workspaceArgs.action === 'list') {
+      const response = await options.workspaceService.listFiles({
+        sessionId: options.sessionId,
+        path: workspaceArgs.path,
+        recursive: workspaceArgs.recursive,
+        maxEntries: workspaceArgs.maxEntries,
+      })
+      return jsonToolResult(response)
+    }
+    if (workspaceArgs.action === 'read') {
+      if (!workspaceArgs.path) throw new Error('workspace_file read requires path.')
+      const response = await options.workspaceService.readFile({
+        sessionId: options.sessionId,
+        path: workspaceArgs.path,
+        maxBytes: Math.min(
+          workspaceArgs.maxBytes ?? options.toolSettings?.().workspace.maxToolResultChars ?? 20_000,
+          options.toolSettings?.().workspace.maxToolResultChars ?? 20_000
+        ),
+      })
+      return jsonToolResult(response)
+    }
+    if (workspaceArgs.action === 'write') {
+      if (!workspaceArgs.path) throw new Error('workspace_file write requires path.')
+      const entry = await options.workspaceService.writeFile({
+        sessionId: options.sessionId,
+        path: workspaceArgs.path,
+        content: workspaceArgs.content ?? '',
+        append: workspaceArgs.append,
+      })
+      return jsonToolResult({ ok: true, action: 'write', entry })
+    }
+    if (workspaceArgs.action === 'search') {
+      if (!workspaceArgs.query) throw new Error('workspace_file search requires query.')
+      const response = await options.workspaceService.searchFiles({
+        sessionId: options.sessionId,
+        query: workspaceArgs.query,
+        path: workspaceArgs.path,
+        maxResults: workspaceArgs.maxResults,
+        contextChars: workspaceArgs.contextChars,
+      })
+      return jsonToolResult(response)
+    }
+    if (workspaceArgs.action === 'patch') {
+      if (!workspaceArgs.path) throw new Error('workspace_file patch requires path.')
+      const entry = await options.workspaceService.patchFile({
+        sessionId: options.sessionId,
+        path: workspaceArgs.path,
+        oldText: workspaceArgs.oldText,
+        newText: workspaceArgs.newText,
+        replaceAll: workspaceArgs.replaceAll,
+      })
+      return jsonToolResult({ ok: true, action: 'patch', entry })
+    }
+    throw new Error('workspace_file action must be list, read, write, search, or patch.')
+  }
+}
+
+function createTerminalExecExecutor(options: BuiltinToolOptions): AgentTool['execute'] {
+  return async (toolCallId, args, signal, _onUpdate, context) => {
+    if (!options.terminalService) {
+      throw new Error('Terminal service is not available.')
+    }
+    const response = await options.terminalService.execute(
+      toTerminalRequest(args, options, context?.policyProfile ?? 'assistant', context?.runId, {
+        toolCallId,
+        signal,
+      })
+    )
+    return jsonToolResult({
+      status: response.process.status,
+      processId: response.process.id,
+      exitCode: response.exitCode,
+      signal: response.signal,
+      timedOut: response.timedOut,
+      aborted: response.aborted,
+      truncated: response.truncated,
+      stdout: response.stdout,
+      stderr: response.stderr,
+      sandbox: response.plan.sandbox,
+      fullAccess: response.plan.fullAccess,
+      background: response.plan.background,
+    })
+  }
+}
+
+function resolveWorkspaceFileRisk(args: unknown): ToolRisk {
+  const action = asWorkspaceFileArgs(args).action
+  return action === 'write' || action === 'patch' ? 'write' : 'read'
+}
+
+function createWorkspaceFileApprovalPlan(args: unknown) {
+  const workspaceArgs = asWorkspaceFileArgs(args)
+  if (workspaceArgs.action !== 'write' && workspaceArgs.action !== 'patch') {
+    return undefined
+  }
+  return {
+    kind: 'workspace' as const,
+    action: workspaceArgs.action,
+    targetPath: workspaceArgs.path ?? '',
+    scope: 'managed-workspace' as const,
+    sizeBytes:
+      workspaceArgs.action === 'write'
+        ? Buffer.byteLength(workspaceArgs.content ?? '', 'utf8')
+        : undefined,
+    writeScope: workspaceArgs.action === 'patch' ? 'replace text range' : 'file content',
+  }
+}
+
 function asRecord(value: unknown, toolName: string): Record<string, unknown> {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
     throw new Error(`${toolName} arguments must be an object.`)
@@ -507,6 +768,94 @@ function asFutureTaskArgs(value: unknown): FutureTaskArgs {
   }
 }
 
+function asWorkspaceFileArgs(value: unknown): WorkspaceFileArgs {
+  const args = asRecord(value, 'workspace_file')
+  return {
+    action:
+      args.action === 'list' ||
+      args.action === 'read' ||
+      args.action === 'write' ||
+      args.action === 'search' ||
+      args.action === 'patch'
+        ? args.action
+        : undefined,
+    path: typeof args.path === 'string' ? args.path : undefined,
+    recursive: typeof args.recursive === 'boolean' ? args.recursive : undefined,
+    maxEntries: isFiniteNumber(args.maxEntries) ? args.maxEntries : undefined,
+    maxBytes: isFiniteNumber(args.maxBytes) ? args.maxBytes : undefined,
+    content: typeof args.content === 'string' ? args.content : undefined,
+    append: typeof args.append === 'boolean' ? args.append : undefined,
+    query: typeof args.query === 'string' ? args.query : undefined,
+    maxResults: isFiniteNumber(args.maxResults) ? args.maxResults : undefined,
+    contextChars: isFiniteNumber(args.contextChars) ? args.contextChars : undefined,
+    oldText: typeof args.oldText === 'string' ? args.oldText : undefined,
+    newText: typeof args.newText === 'string' ? args.newText : undefined,
+    replaceAll: typeof args.replaceAll === 'boolean' ? args.replaceAll : undefined,
+  }
+}
+
+function asTerminalExecArgs(value: unknown): TerminalExecArgs {
+  const args = asRecord(value, 'terminal_exec')
+  const env = isStringRecord(args.env) ? args.env : undefined
+  return {
+    command: typeof args.command === 'string' ? args.command : undefined,
+    cwd: typeof args.cwd === 'string' ? args.cwd : undefined,
+    timeoutMs: isFiniteNumber(args.timeoutMs) ? args.timeoutMs : undefined,
+    maxOutputChars: isFiniteNumber(args.maxOutputChars) ? args.maxOutputChars : undefined,
+    background: typeof args.background === 'boolean' ? args.background : undefined,
+    pty: typeof args.pty === 'boolean' ? args.pty : undefined,
+    env,
+    network:
+      args.network === 'ask' || args.network === 'allow' || args.network === 'deny'
+        ? args.network
+        : undefined,
+  }
+}
+
+function toTerminalRequest(
+  args: unknown,
+  options: BuiltinToolOptions,
+  profile: ToolProfile,
+  runId?: string,
+  extra: { toolCallId?: string; signal?: AbortSignal } = {}
+): TerminalExecRequest {
+  const terminalArgs = asTerminalExecArgs(args)
+  return {
+    sessionId: options.sessionId,
+    runId,
+    toolCallId: extra.toolCallId,
+    profile,
+    command: terminalArgs.command ?? '',
+    cwd: terminalArgs.cwd,
+    timeoutMs: terminalArgs.timeoutMs,
+    maxOutputChars: terminalArgs.maxOutputChars,
+    background: terminalArgs.background,
+    pty: terminalArgs.pty,
+    env: terminalArgs.env,
+    network: terminalArgs.network,
+    signal: extra.signal,
+  }
+}
+
+function terminalRequiresApproval(
+  args: unknown,
+  profile: ToolProfile,
+  risk: ToolRisk,
+  options: BuiltinToolOptions
+): boolean {
+  if (risk !== 'exec') return false
+  if (profile === 'power') return false
+  const settings = options.toolSettings?.().terminal
+  const terminalArgs = asTerminalExecArgs(args)
+  if (!settings || settings.assistant.approval === 'ask') {
+    return !matchesAnyPattern(terminalArgs.command ?? '', settings?.assistant.commandAllowPatterns)
+  }
+  if (settings.assistant.approval === 'deny') {
+    return true
+  }
+  return false
+}
+
 function parseToolRunAt(value: string | number | undefined): number | undefined {
   if (value === undefined) {
     return undefined
@@ -542,6 +891,10 @@ function summarizeCronTaskForTool(task: ReturnType<CronManager['list']>['tasks']
 }
 
 function futureTaskResult(value: unknown): ReturnType<AgentTool['execute']> {
+  return Promise.resolve({ content: [{ type: 'text', text: JSON.stringify(value) }] })
+}
+
+function jsonToolResult(value: unknown): ReturnType<AgentTool['execute']> {
   return Promise.resolve({ content: [{ type: 'text', text: JSON.stringify(value) }] })
 }
 
@@ -753,6 +1106,24 @@ function isNonEmptyString(value: unknown): value is string {
 
 function isFiniteNumber(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value)
+}
+
+function isStringRecord(value: unknown): value is Record<string, string> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return false
+  }
+  return Object.values(value).every((item) => typeof item === 'string')
+}
+
+function matchesAnyPattern(command: string, patterns: string[] | undefined): boolean {
+  return Boolean(patterns?.some((pattern) => commandMatchesPattern(command, pattern)))
+}
+
+function commandMatchesPattern(command: string, pattern: string): boolean {
+  const trimmed = pattern.trim()
+  if (!trimmed) return false
+  const escaped = trimmed.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*')
+  return new RegExp(`^${escaped}$`).test(command)
 }
 
 function escapeAttribute(value: string): string {

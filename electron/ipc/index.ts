@@ -7,8 +7,10 @@ import { registerPersonaIpcHandlers } from './persona'
 import { registerProviderIpcHandlers } from './provider'
 import { registerSettingsIpcHandlers } from './settings'
 import { registerSkillIpcHandlers } from './skill'
+import { registerTerminalProcessIpcHandlers } from './terminal-process'
 import { registerToolIpcHandlers } from './tools'
 import type { IpcHandlerOptions } from './types'
+import { registerWorkspaceIpcHandlers } from './workspace'
 
 export function registerIpcHandlers(options: IpcHandlerOptions): void {
   registerLoggingIpcHandlers(options)
@@ -20,6 +22,8 @@ export function registerIpcHandlers(options: IpcHandlerOptions): void {
   registerSkillIpcHandlers(options)
   registerCronIpcHandlers(options)
   registerToolIpcHandlers(options)
+  registerWorkspaceIpcHandlers(options)
+  registerTerminalProcessIpcHandlers(options)
   registerMcpIpcHandlers(options)
 }
 

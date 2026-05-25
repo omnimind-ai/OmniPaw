@@ -121,12 +121,12 @@ export function useChatWorkspaceController() {
     {
       value: 'assistant',
       label: '助手',
-      description: '默认等级，允许常用助手工具。',
+      description: '默认等级，本地写入和 terminal 逐条授权。',
     },
     {
       value: 'power',
       label: '高级',
-      description: '暴露更完整的工具清单，高风险工具仍需要授权。',
+      description: 'Full local access，不按命令内容拦截。',
     },
   ]
 

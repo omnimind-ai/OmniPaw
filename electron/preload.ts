@@ -17,6 +17,17 @@ import type {
   UpsertProviderSourceRequest,
 } from '@shared/types/bridge'
 import type {
+  AgentWorkspaceStatus,
+  CleanupWorkspaceResponse,
+  DeleteWorkspaceFileResponse,
+  ExportWorkspaceFileResponse,
+  KillLocalProcessResponse,
+  ListWorkspaceFilesResponse,
+  LocalAgentOperationError,
+  LocalProcessSummary,
+  ReadWorkspaceFileResponse,
+} from '@shared/types/local-agent'
+import type {
   LoggerHealthStatus,
   LoggerWriteResponse,
   RendererLogRequest,
@@ -108,6 +119,26 @@ async function invokeMcp<T>(channel: string, payload?: unknown): Promise<T> {
       details?: unknown
     }
     error.name = 'McpOperationError'
+    error.details = response.error
+    throw error
+  }
+
+  return response?.ok === true ? (response.value as T) : (response as T)
+}
+
+async function invokeLocal<T>(channel: string, payload?: unknown): Promise<T> {
+  const response =
+    payload === undefined
+      ? await ipcRenderer.invoke(channel)
+      : await ipcRenderer.invoke(channel, payload)
+
+  if (response?.ok === false) {
+    const error = new Error(
+      response.error?.message || 'Local capability operation failed.'
+    ) as Error & {
+      details?: LocalAgentOperationError
+    }
+    error.name = 'LocalCapabilityOperationError'
     error.details = response.error
     throw error
   }
@@ -372,6 +403,27 @@ const bridge: OpenOmniClawBridge = {
   tools: {
     list: () => ipcRenderer.invoke(IPC_CHANNELS.tools.list),
     setEnabled: (request) => ipcRenderer.invoke(IPC_CHANNELS.tools.setEnabled, request),
+  },
+  workspace: {
+    status: (request) => invokeLocal<AgentWorkspaceStatus>(IPC_CHANNELS.workspace.status, request),
+    listFiles: (request) =>
+      invokeLocal<ListWorkspaceFilesResponse>(IPC_CHANNELS.workspace.listFiles, request),
+    readFile: (request) =>
+      invokeLocal<ReadWorkspaceFileResponse>(IPC_CHANNELS.workspace.readFile, request),
+    exportFile: (request) =>
+      invokeLocal<ExportWorkspaceFileResponse>(IPC_CHANNELS.workspace.exportFile, request),
+    deleteFile: (request) =>
+      invokeLocal<DeleteWorkspaceFileResponse>(IPC_CHANNELS.workspace.deleteFile, request),
+    cleanup: (request) =>
+      invokeLocal<CleanupWorkspaceResponse>(IPC_CHANNELS.workspace.cleanup, request),
+  },
+  terminalProcess: {
+    list: (request) =>
+      invokeLocal<LocalProcessSummary[]>(IPC_CHANNELS.terminalProcess.list, request),
+    get: (request) =>
+      invokeLocal<LocalProcessSummary | null>(IPC_CHANNELS.terminalProcess.get, request),
+    kill: (request) =>
+      invokeLocal<KillLocalProcessResponse>(IPC_CHANNELS.terminalProcess.kill, request),
   },
   mcp: {
     listServers: () => invokeMcp(IPC_CHANNELS.mcp.listServers),

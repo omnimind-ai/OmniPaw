@@ -63,6 +63,20 @@ export async function prepareAgentRun(
       source: tool.source,
       serverId: tool.serverId,
     })),
+    localCapabilities: {
+      enabled: agentTools.some((tool) => Boolean(tool.localCapability)),
+      providerFacingToolNames: agentTools
+        .filter((tool) => Boolean(tool.localCapability))
+        .map((tool) => tool.providerName ?? tool.name),
+      profile: toolProfile,
+      sandboxLevel: agentTools.find((tool) => tool.localCapability?.sandboxLevel)?.localCapability
+        ?.sandboxLevel,
+      fullAccess: agentTools.some((tool) => tool.localCapability?.fullAccess),
+      hiddenReasons:
+        toolProfile === 'minimal'
+          ? ['minimal_profile_hides_local_write_and_terminal_tools']
+          : undefined,
+    },
     skills: skillSnapshot(skillPrompt),
     maxSteps,
     fallbackReason,

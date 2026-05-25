@@ -1,3 +1,5 @@
+import type { LocalCommandSandbox, LocalToolApprovalPlan } from './local-agent'
+
 export type ID = string
 export type UnixMs = number
 
@@ -37,6 +39,9 @@ export interface ToolCallApprovalDisplay {
   state: ToolApprovalState
   risk?: ToolRisk
   reason?: string
+  plan?: LocalToolApprovalPlan
+  sandbox?: LocalCommandSandbox
+  fullAccess?: boolean
 }
 
 export interface ToolApprovalRequest {
@@ -391,6 +396,14 @@ export interface ProviderRequestSnapshot {
     source: 'builtin' | 'mcp' | 'skill'
     serverId?: string
   }>
+  localCapabilities?: {
+    enabled: boolean
+    providerFacingToolNames: string[]
+    profile: ToolProfile
+    sandboxLevel?: string
+    fullAccess?: boolean
+    hiddenReasons?: string[]
+  }
   skills?: {
     enabledSkillIds: string[]
     injected: boolean

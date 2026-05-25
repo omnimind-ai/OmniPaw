@@ -186,6 +186,27 @@ function createJsonRpcSession(server: McpServerRecord): JsonRpcSession {
   return new StreamableHttpJsonRpcSession(server as HttpMcpServerRecord)
 }
 
+function minimalStdioEnv(explicitEnv: Record<string, string>): NodeJS.ProcessEnv {
+  const env: NodeJS.ProcessEnv = {}
+  if (process.env.PATH) {
+    env.PATH = process.env.PATH
+  }
+  if (process.env.SystemRoot) {
+    env.SystemRoot = process.env.SystemRoot
+  }
+  if (process.env.ComSpec) {
+    env.ComSpec = process.env.ComSpec
+  }
+  for (const [key, value] of Object.entries(explicitEnv)) {
+    env[key] = value
+  }
+  return env
+}
+
+function missingEnvHint(): string {
+  return ' If this server depended on inherited environment variables, configure them explicitly in the MCP server settings.'
+}
+
 class StdioJsonRpcSession implements JsonRpcSession {
   readonly protocolVersion = STDIO_PROTOCOL_VERSION
   private child: ChildProcessWithoutNullStreams | undefined
@@ -200,10 +221,7 @@ class StdioJsonRpcSession implements JsonRpcSession {
   start(signal?: AbortSignal): void {
     const child = spawn(this.server.transport.command, this.server.transport.args, {
       cwd: this.server.transport.cwd,
-      env: {
-        ...process.env,
-        ...this.server.transport.env,
-      },
+      env: minimalStdioEnv(this.server.transport.env),
       stdio: ['pipe', 'pipe', 'pipe'],
       shell: false,
     })
@@ -217,7 +235,7 @@ class StdioJsonRpcSession implements JsonRpcSession {
       this.failAll(
         new McpClientError(
           'mcp_io_error',
-          `Failed to start MCP server "${this.server.name}": ${error.message}`,
+          `Failed to start MCP server "${this.server.name}": ${error.message}${missingEnvHint()}`,
           { recoverable: true, cause: error }
         )
       )
@@ -230,7 +248,7 @@ class StdioJsonRpcSession implements JsonRpcSession {
       this.failAll(
         new McpClientError(
           'mcp_io_error',
-          `MCP server "${this.server.name}" exited before completing the request (${signalName ?? code ?? 'unknown'}).${suffix}`,
+          `MCP server "${this.server.name}" exited before completing the request (${signalName ?? code ?? 'unknown'}).${missingEnvHint()}${suffix}`,
           { recoverable: true }
         )
       )
@@ -283,7 +301,7 @@ class StdioJsonRpcSession implements JsonRpcSession {
         reject(
           new McpClientError(
             errorCode,
-            `MCP request "${method}" timed out after ${timeoutMs}ms.${this.stderrPreview()}`,
+            `MCP request "${method}" timed out after ${timeoutMs}ms.${missingEnvHint()}${this.stderrPreview()}`,
             { recoverable: true }
           )
         )

@@ -63,6 +63,9 @@ export interface ToolCall {
     state?: 'pending' | 'approved' | 'rejected' | string
     risk?: string
     reason?: string
+    plan?: unknown
+    sandbox?: unknown
+    fullAccess?: boolean
   }
   status?: ToolCallStatus
   state?: ToolCallStatus

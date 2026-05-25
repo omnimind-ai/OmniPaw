@@ -16,6 +16,7 @@
     "persona-registry:smoke": "node scripts/run-electron-node.mjs scripts/persona-registry-smoke.ts",
     "db:smoke": "node scripts/run-electron-node.mjs scripts/db-smoke.ts",
     "chat-core:smoke": "node scripts/run-electron-node.mjs scripts/chat-core-smoke.ts",
+    "local-agent:smoke": "node scripts/run-electron-node.mjs scripts/local-agent-smoke.ts",
     "logging:smoke": "node scripts/run-electron-node.mjs scripts/logging-smoke.ts",
     "pack": "pnpm rebuild:electron && pnpm build && electron-builder --dir",
     "dist": "pnpm rebuild:electron && pnpm build && electron-builder",

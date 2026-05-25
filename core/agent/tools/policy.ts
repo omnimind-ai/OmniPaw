@@ -29,6 +29,8 @@ const PROFILE_TOOLS: Record<ToolProfile, string[]> = {
     'attachment_text_search',
     'future_task',
     'skill_read',
+    'workspace_file',
+    'terminal_exec',
   ],
   power: [
     'system_time',
@@ -37,6 +39,8 @@ const PROFILE_TOOLS: Record<ToolProfile, string[]> = {
     'attachment_text_search',
     'future_task',
     'skill_read',
+    'workspace_file',
+    'terminal_exec',
   ],
 }
 
@@ -44,11 +48,15 @@ export function defaultToolPolicy(profile: ToolProfile = 'minimal'): ToolPolicy 
   return {
     enabled: true,
     profile,
-    requireApprovalForRisk: ['write', 'network', 'exec'],
+    requireApprovalForRisk: profile === 'power' ? [] : ['write', 'network', 'exec'],
   }
 }
 
-export function decideToolUse(tool: AgentTool | undefined, policy: ToolPolicy): ToolPolicyDecision {
+export function decideToolUse(
+  tool: AgentTool | undefined,
+  policy: ToolPolicy,
+  options: { risk?: ToolRisk } = {}
+): ToolPolicyDecision {
   if (!policy.enabled) {
     return { allowed: false, reason: 'Tool use is disabled for this run.' }
   }
@@ -80,16 +88,17 @@ export function decideToolUse(tool: AgentTool | undefined, policy: ToolPolicy): 
     return { allowed: false, reason: `Tool "${tool.name}" is not in the allow list.` }
   }
 
-  if (policy.requireApprovalForRisk?.includes(tool.risk)) {
+  const risk = options.risk ?? tool.risk
+  if (policy.requireApprovalForRisk?.includes(risk)) {
     return {
       allowed: false,
       approvalRequired: true,
-      reason: `Tool "${tool.name}" requires approval for ${tool.risk} risk.`,
+      reason: `Tool "${tool.name}" requires approval for ${risk} risk.`,
     }
   }
 
-  if (policy.profile === 'minimal' && !['safe', 'read'].includes(tool.risk)) {
-    return { allowed: false, reason: `Minimal profile cannot execute ${tool.risk} risk tools.` }
+  if (policy.profile === 'minimal' && !['safe', 'read'].includes(risk)) {
+    return { allowed: false, reason: `Minimal profile cannot execute ${risk} risk tools.` }
   }
 
   return { allowed: true }

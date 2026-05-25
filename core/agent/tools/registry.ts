@@ -1,9 +1,12 @@
+import type { TerminalService } from '@core/agent/terminal'
+import type { AgentWorkspaceService } from '@core/agent/workspace'
 import type { AttachmentService } from '@core/chat/attachment-service'
 import type { CronManager } from '@core/cron/cron-manager'
 import type { ChatMessageRepo } from '@core/db/repos'
 import type { ProviderTool } from '@core/provider/base-provider'
 import type { SkillManager } from '@core/skill/skill-manager'
 import type { ToolProfile } from '@shared/types/chat'
+import type { DesktopToolSettings } from '@shared/types/settings'
 import { createBuiltinTools } from './builtin-tools'
 import { allowedToolNamesForProfile, type ToolPolicy } from './policy'
 import type { AgentTool } from './types'
@@ -14,6 +17,9 @@ export interface ToolRegistryOptions {
   attachments: AttachmentService
   skills?: SkillManager
   cronManager?: () => CronManager
+  workspaceService?: AgentWorkspaceService
+  terminalService?: TerminalService
+  toolSettings?: () => DesktopToolSettings
   disabledToolNames?: () => Iterable<string>
   mcpTools?: (input: ToolResolutionInput) => AgentTool[] | Promise<AgentTool[]>
 }
@@ -38,6 +44,10 @@ export class ToolRegistry {
       sessionId: input.sessionId,
       skills: this.options.skills,
       cronManager: this.options.cronManager?.(),
+      policy: input.policy,
+      workspaceService: this.options.workspaceService,
+      terminalService: this.options.terminalService,
+      toolSettings: this.options.toolSettings,
     })
     const profileNames = new Set(allowedToolNamesForProfile(input.policy.profile as ToolProfile))
     const builtins = builtinTools.filter(
