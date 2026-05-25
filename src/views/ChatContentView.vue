@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { ArrowDownIcon } from 'lucide-vue-next'
 
-import AgentWorkspacePanel from '@/components/chat/AgentWorkspacePanel.vue'
 import ChatComposerDock from '@/components/chat/ChatComposerDock.vue'
 import ChatMessageList from '@/components/chat/ChatMessageList.vue'
 import { useChatWorkspaceContext } from '@/components/chat/chat-workspace-context'
@@ -69,6 +68,5 @@ const {
     </Button>
   </div>
 
-  <AgentWorkspacePanel />
   <ChatComposerDock />
 </template>

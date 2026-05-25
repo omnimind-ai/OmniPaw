@@ -1,13 +1,14 @@
 <script setup lang="ts">
 import type { AgentWorkspaceFileEntry, AgentWorkspaceStatus } from '@shared/types/local-agent'
 import {
+  ChevronDownIcon,
   DownloadIcon,
   FileTextIcon,
   FolderOpenIcon,
   RefreshCwIcon,
   Trash2Icon,
 } from 'lucide-vue-next'
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, type HTMLAttributes, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { appBridge } from '@/bridge/app'
 import { Badge } from '@/components/ui/badge'
@@ -19,6 +20,9 @@ import { errorToText, useToast } from '@/utils/toast'
 
 const route = useRoute()
 const toast = useToast()
+const props = defineProps<{
+  class?: HTMLAttributes['class']
+}>()
 const open = ref(false)
 const loading = ref(false)
 const error = ref('')
@@ -35,6 +39,9 @@ const visibleFiles = computed(() =>
   files.value
     .filter((file) => file.kind === 'file')
     .sort((first, second) => second.updatedAt - first.updatedAt)
+)
+const shouldShow = computed(
+  () => available.value && Boolean(error.value || visibleFiles.value.length || open.value)
 )
 
 onMounted(() => {
@@ -110,17 +117,19 @@ function formatBytes(value: number) {
 
 <template>
   <Collapsible
-    v-if="available"
+    v-if="shouldShow"
     v-model:open="open"
-    class="border-t bg-background"
+    :class="cn('overflow-hidden rounded-xl border bg-background/95 shadow-sm backdrop-blur', props.class)"
   >
-    <div class="flex items-center justify-between gap-3 px-4 py-2">
+    <div class="flex items-center justify-between gap-3 px-3 py-2">
       <div class="flex min-w-0 items-center gap-2">
-        <FolderOpenIcon class="shrink-0 text-muted-foreground" />
+        <div class="flex size-8 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
+          <FolderOpenIcon aria-hidden="true" />
+        </div>
         <div class="min-w-0">
-          <p class="truncate text-sm font-medium">Workspace 文件</p>
+          <p class="truncate text-sm font-medium">Workspace</p>
           <p class="truncate text-xs text-muted-foreground">
-            {{ status ? `${status.fileCount} 个文件 · ${formatBytes(status.sizeBytes)}` : '按会话隔离的托管目录' }}
+            {{ status ? `${visibleFiles.length} 个文件 · ${formatBytes(status.sizeBytes)}` : '生成文件' }}
           </p>
         </div>
       </div>
@@ -129,29 +138,34 @@ function formatBytes(value: number) {
         <Badge
           v-if="status"
           variant="outline"
+          class="hidden sm:inline-flex"
         >
           {{ status.policy.sandbox }}
         </Badge>
         <Button
           type="button"
-          variant="outline"
-          size="sm"
+          variant="ghost"
+          size="icon-sm"
           :disabled="loading"
+          aria-label="刷新 workspace 文件"
           @click="refresh"
         >
           <RefreshCwIcon
             data-icon="inline-start"
             :class="cn(loading && 'animate-spin')"
           />
-          刷新
         </Button>
         <CollapsibleTrigger as-child>
           <Button
             type="button"
             variant="ghost"
-            size="sm"
+            size="icon-sm"
+            :aria-label="open ? '收起 workspace 文件' : '展开 workspace 文件'"
           >
-            {{ open ? '收起' : '查看' }}
+            <ChevronDownIcon
+              data-icon="inline-start"
+              :class="cn('transition-transform', open && 'rotate-180')"
+            />
           </Button>
         </CollapsibleTrigger>
       </div>
@@ -160,14 +174,14 @@ function formatBytes(value: number) {
     <CollapsibleContent>
       <div
         v-if="error"
-        class="border-t px-4 py-3 text-sm text-destructive"
+        class="border-t px-3 py-3 text-sm text-destructive"
       >
         {{ error }}
       </div>
 
       <div
         v-else-if="loading"
-        class="flex flex-col gap-2 border-t px-4 py-3"
+        class="flex flex-col gap-2 border-t px-3 py-3"
       >
         <Skeleton class="h-10 w-full" />
         <Skeleton class="h-10 w-full" />
@@ -175,7 +189,7 @@ function formatBytes(value: number) {
 
       <div
         v-else-if="!visibleFiles.length"
-        class="border-t px-4 py-4 text-sm text-muted-foreground"
+        class="border-t px-3 py-4 text-sm text-muted-foreground"
       >
         当前会话还没有生成的 workspace 文件。
       </div>
@@ -187,7 +201,7 @@ function formatBytes(value: number) {
         <li
           v-for="file in visibleFiles"
           :key="file.path"
-          class="flex items-center justify-between gap-3 border-b px-4 py-2 last:border-b-0"
+          class="flex items-center justify-between gap-3 border-b px-3 py-2 last:border-b-0"
         >
           <div class="flex min-w-0 items-center gap-2">
             <FileTextIcon class="shrink-0 text-muted-foreground" />

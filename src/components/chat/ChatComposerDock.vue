@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import AgentWorkspacePanel from '@/components/chat/AgentWorkspacePanel.vue'
 import ChatComposer from '@/components/chat/ChatComposer.vue'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -80,6 +81,8 @@ const {
           打开设置
         </Button>
       </div>
+
+      <AgentWorkspacePanel class="mb-2" />
 
       <ChatComposer
         v-model="draft"
