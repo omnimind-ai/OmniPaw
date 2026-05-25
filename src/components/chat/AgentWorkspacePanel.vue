@@ -11,7 +11,6 @@ import {
 import { computed, type HTMLAttributes, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { appBridge } from '@/bridge/app'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -135,13 +134,6 @@ function formatBytes(value: number) {
       </div>
 
       <div class="flex shrink-0 items-center gap-2">
-        <Badge
-          v-if="status"
-          variant="outline"
-          class="hidden sm:inline-flex"
-        >
-          {{ status.policy.sandbox }}
-        </Badge>
         <Button
           type="button"
           variant="ghost"

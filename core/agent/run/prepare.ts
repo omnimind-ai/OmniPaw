@@ -69,8 +69,6 @@ export async function prepareAgentRun(
         .filter((tool) => Boolean(tool.localCapability))
         .map((tool) => tool.providerName ?? tool.name),
       profile: toolProfile,
-      sandboxLevel: agentTools.find((tool) => tool.localCapability?.sandboxLevel)?.localCapability
-        ?.sandboxLevel,
       fullAccess: agentTools.some((tool) => tool.localCapability?.fullAccess),
       hiddenReasons:
         toolProfile === 'minimal'

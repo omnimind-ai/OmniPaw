@@ -327,7 +327,6 @@ function approvalDisplay(
       risk,
       reason,
       plan,
-      sandbox: plan?.kind === 'terminal' ? plan.sandbox : undefined,
       fullAccess: plan?.kind === 'terminal' ? plan.fullAccess : undefined,
     },
   }

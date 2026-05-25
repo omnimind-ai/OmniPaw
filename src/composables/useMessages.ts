@@ -64,7 +64,6 @@ export interface ToolCall {
     risk?: string
     reason?: string
     plan?: unknown
-    sandbox?: unknown
     fullAccess?: boolean
   }
   status?: ToolCallStatus

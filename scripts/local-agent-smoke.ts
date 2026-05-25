@@ -18,7 +18,6 @@ try {
   const workspace = new AgentWorkspaceService({
     userDataPath: tempDir,
     settings: () => config.tools.workspace,
-    sandboxLevel: () => config.tools.terminal.sandbox,
   })
   const supervisor = new ProcessSupervisor({
     maxForegroundProcesses: () => config.tools.terminal.maxForegroundProcesses,
@@ -77,7 +76,6 @@ try {
   })
   assert.equal(envResult.stdout, '')
   assert.equal(envResult.plan.fullAccess, true)
-  assert.equal(envResult.plan.sandbox.level, 'non-sandboxed')
 
   const timeoutResult = await terminal.execute({
     sessionId: 'session-1',

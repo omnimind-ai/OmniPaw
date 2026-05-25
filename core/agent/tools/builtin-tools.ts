@@ -67,7 +67,6 @@ export function createBuiltinTools(options: BuiltinToolOptions): AgentTool[] {
       ...BUILTIN_TOOL_DEFINITIONS.terminal_exec,
       localCapability: {
         kind: 'terminal',
-        sandboxLevel: options.toolSettings?.().terminal.sandbox,
         fullAccess: options.policy?.profile === 'power',
       },
       resolveRisk: () => 'exec',
@@ -675,7 +674,6 @@ function createTerminalExecExecutor(options: BuiltinToolOptions): AgentTool['exe
       truncated: response.truncated,
       stdout: response.stdout,
       stderr: response.stderr,
-      sandbox: response.plan.sandbox,
       fullAccess: response.plan.fullAccess,
       background: response.plan.background,
     })

@@ -1,10 +1,6 @@
 import { type ChildProcess, spawn } from 'node:child_process'
 import type { Logger } from '@core/logging'
-import type {
-  LocalCommandSandbox,
-  LocalProcessStatus,
-  LocalProcessSummary,
-} from '@shared/types/local-agent'
+import type { LocalProcessStatus, LocalProcessSummary } from '@shared/types/local-agent'
 
 export interface ProcessExecutionRequest {
   sessionId: string
@@ -17,7 +13,6 @@ export interface ProcessExecutionRequest {
   timeoutMs: number
   maxOutputChars: number
   background: boolean
-  sandbox: LocalCommandSandbox
   signal?: AbortSignal
 }
 
@@ -189,7 +184,6 @@ export class ProcessSupervisor {
         cwd: input.cwd,
         status: 'running',
         background,
-        sandbox: input.sandbox,
         startedAt: now,
         stdoutTail: '',
         stderrTail: '',
@@ -222,7 +216,6 @@ export class ProcessSupervisor {
         processId,
         sessionId: input.sessionId,
         background,
-        sandboxLevel: input.sandbox.level,
       })
     } catch (error) {
       this.finishRecord(record, 'failed', {})
@@ -258,7 +251,6 @@ export class ProcessSupervisor {
       durationMs: record.summary.durationMs,
       exitCode: exit.exitCode,
       signal: exit.signal,
-      sandboxLevel: record.summary.sandbox.level,
     })
   }
 

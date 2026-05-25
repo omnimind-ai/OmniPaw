@@ -20,14 +20,12 @@ import type {
   ListWorkspaceFilesResponse,
   LocalAgentOperationError,
   LocalAgentWorkspaceSettings,
-  LocalCommandSandboxLevel,
   ReadWorkspaceFileResponse,
 } from '@shared/types/local-agent'
 
 export interface AgentWorkspaceServiceOptions {
   userDataPath: string
   settings: () => LocalAgentWorkspaceSettings
-  sandboxLevel?: () => LocalCommandSandboxLevel
   logger?: Logger
 }
 
@@ -137,7 +135,6 @@ export class AgentWorkspaceService {
         rootStrategy: this.settings().rootStrategy,
         maxFileBytes: this.settings().maxFileBytes,
         maxReadBytes: this.settings().maxReadBytes,
-        sandbox: this.options.sandboxLevel?.() ?? 'policy-only',
       },
     }
   }

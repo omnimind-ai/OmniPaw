@@ -100,7 +100,6 @@ export function createCoreRuntime(options: CoreRuntimeOptions): CoreRuntime {
   const agentWorkspaceService = new AgentWorkspaceService({
     userDataPath: options.app.getPath('userData'),
     settings: () => configStore.get().tools.workspace,
-    sandboxLevel: () => configStore.get().tools.terminal.sandbox,
     logger: coreLogger.child({ scope: 'agent.workspace' }),
   })
   const processSupervisor = new ProcessSupervisor({

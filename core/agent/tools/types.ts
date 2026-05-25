@@ -25,7 +25,6 @@ export interface AgentTool<TDetails = unknown> {
   timeoutMs?: number
   localCapability?: {
     kind: 'workspace' | 'terminal'
-    sandboxLevel?: string
     fullAccess?: boolean
   }
   resolveRisk?: (args: unknown, context: AgentToolContext) => ToolRisk

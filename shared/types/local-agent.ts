@@ -1,23 +1,5 @@
 import type { ToolProfile } from './chat'
 
-export type LocalCommandSandboxLevel =
-  | 'policy-only'
-  | 'non-sandboxed'
-  | 'macos-seatbelt'
-  | 'linux-bubblewrap'
-  | 'windows-restricted'
-
-export interface LocalCommandSandbox {
-  level: LocalCommandSandboxLevel
-  label: string
-  enforced: boolean
-  fullAccess?: boolean
-  protections?: {
-    filesystem?: 'workspace-only' | 'external-grants' | 'full-access'
-    network?: 'deny' | 'ask' | 'allow'
-  }
-}
-
 export type LocalPermissionMode = 'ask' | 'allow' | 'deny'
 export type LocalNetworkPolicy = 'ask' | 'allow' | 'deny'
 export type WorkspaceRootStrategy = 'managed-user-data'
@@ -50,8 +32,7 @@ export interface LocalAgentWorkspaceSettings {
   externalRoots: ExternalRootGrant[]
 }
 
-export interface LocalTerminalProfileSettings {
-  approval: LocalPermissionMode
+export interface LocalTerminalBaseProfileSettings {
   network: LocalNetworkPolicy
   allowBackground: boolean
   allowPty: boolean
@@ -60,17 +41,22 @@ export interface LocalTerminalProfileSettings {
   commandDenyPatterns: string[]
 }
 
+export interface LocalAssistantTerminalProfileSettings extends LocalTerminalBaseProfileSettings {
+  approval: LocalPermissionMode
+}
+
+export type LocalPowerTerminalProfileSettings = LocalTerminalBaseProfileSettings
+
 export interface LocalAgentTerminalSettings {
   enabled: boolean
-  sandbox: LocalCommandSandboxLevel
   timeoutMs: number
   maxOutputChars: number
   maxForegroundProcesses: number
   maxBackgroundProcesses: number
   backgroundMaxLifetimeMs: number
   minimalEnvKeys: string[]
-  assistant: LocalTerminalProfileSettings
-  power: LocalTerminalProfileSettings
+  assistant: LocalAssistantTerminalProfileSettings
+  power: LocalPowerTerminalProfileSettings
 }
 
 export type LocalToolApprovalPlan =
@@ -90,7 +76,6 @@ export type LocalToolApprovalPlan =
       background: boolean
       pty: boolean
       network: LocalNetworkPolicy
-      sandbox: LocalCommandSandbox
       envKeys: string[]
       accessScope: 'managed-workspace' | 'full-local-access'
       fullAccess: boolean
@@ -129,7 +114,6 @@ export interface AgentWorkspaceStatus {
     rootStrategy: WorkspaceRootStrategy
     maxFileBytes: number
     maxReadBytes: number
-    sandbox: LocalCommandSandboxLevel
   }
 }
 
@@ -216,7 +200,6 @@ export interface LocalProcessSummary {
   cwd: string
   status: LocalProcessStatus
   background: boolean
-  sandbox: LocalCommandSandbox
   startedAt: number
   finishedAt?: number
   durationMs?: number

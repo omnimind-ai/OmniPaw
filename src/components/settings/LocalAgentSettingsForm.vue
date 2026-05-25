@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { FolderCogIcon, ShieldAlertIcon, TerminalIcon } from 'lucide-vue-next'
+import { FolderCogIcon, TerminalIcon } from 'lucide-vue-next'
 import { computed } from 'vue'
 import type { BridgeDesktopSettingsConfig } from '@/bridge/app'
 import SettingsSection from '@/components/settings/SettingsSection.vue'
@@ -12,14 +12,6 @@ import {
   FieldLabel,
 } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 
@@ -68,28 +60,6 @@ const assistantApproval = computed({
   set: (value: string | string[] | undefined) => {
     if (value === 'ask' || value === 'allow' || value === 'deny') {
       props.draft.tools.terminal.assistant.approval = value
-    }
-  },
-})
-const powerApproval = computed({
-  get: () => props.draft.tools.terminal.power.approval,
-  set: (value: string | string[] | undefined) => {
-    if (value === 'ask' || value === 'allow' || value === 'deny') {
-      props.draft.tools.terminal.power.approval = value
-    }
-  },
-})
-const sandbox = computed({
-  get: () => props.draft.tools.terminal.sandbox,
-  set: (value: string) => {
-    if (
-      value === 'policy-only' ||
-      value === 'non-sandboxed' ||
-      value === 'macos-seatbelt' ||
-      value === 'linux-bubblewrap' ||
-      value === 'windows-restricted'
-    ) {
-      props.draft.tools.terminal.sandbox = value
     }
   },
 })
@@ -176,44 +146,9 @@ function kbToChars(value: string | number, min: number, max: number) {
         class="border-b px-4 py-3"
       >
         <FieldContent>
-          <FieldLabel for="local-sandbox-level">
-            <ShieldAlertIcon data-icon="inline-start" />
-            Sandbox level
-          </FieldLabel>
-          <FieldDescription>
-            当前 MVP 使用产品策略边界；无 OS sandbox 时会显式标记。
-          </FieldDescription>
-        </FieldContent>
-        <Select
-          v-model="sandbox"
-          class="w-full md:w-56"
-        >
-          <SelectTrigger
-            id="local-sandbox-level"
-            class="w-full md:w-56"
-          >
-            <SelectValue placeholder="选择 sandbox level" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectGroup>
-              <SelectItem value="policy-only">policy-only</SelectItem>
-              <SelectItem value="non-sandboxed">non-sandboxed</SelectItem>
-              <SelectItem value="macos-seatbelt">macos-seatbelt</SelectItem>
-              <SelectItem value="linux-bubblewrap">linux-bubblewrap</SelectItem>
-              <SelectItem value="windows-restricted">windows-restricted</SelectItem>
-            </SelectGroup>
-          </SelectContent>
-        </Select>
-      </Field>
-
-      <Field
-        orientation="responsive"
-        class="border-b px-4 py-3"
-      >
-        <FieldContent>
           <FieldLabel>Assistant terminal approval</FieldLabel>
           <FieldDescription>
-            默认逐条审批 terminal；allow/deny 只影响 assistant，power 不套用命令规则。
+            默认逐条审批 terminal；power 模式固定为无需审批的 full local access。
           </FieldDescription>
         </FieldContent>
         <ToggleGroup
@@ -224,28 +159,6 @@ function kbToChars(value: string | number, min: number, max: number) {
         >
           <ToggleGroupItem value="ask" class="flex-1 md:flex-none">Ask</ToggleGroupItem>
           <ToggleGroupItem value="allow" class="flex-1 md:flex-none">Allow</ToggleGroupItem>
-          <ToggleGroupItem value="deny" class="flex-1 md:flex-none">Deny</ToggleGroupItem>
-        </ToggleGroup>
-      </Field>
-
-      <Field
-        orientation="responsive"
-        class="border-b px-4 py-3"
-      >
-        <FieldContent>
-          <FieldLabel>Power terminal approval</FieldLabel>
-          <FieldDescription>
-            power 默认直接执行本地命令，但仍保留超时、输出上限和 abort。
-          </FieldDescription>
-        </FieldContent>
-        <ToggleGroup
-          v-model="powerApproval"
-          type="single"
-          variant="outline"
-          class="w-full md:w-auto"
-        >
-          <ToggleGroupItem value="allow" class="flex-1 md:flex-none">Allow</ToggleGroupItem>
-          <ToggleGroupItem value="ask" class="flex-1 md:flex-none">Ask</ToggleGroupItem>
           <ToggleGroupItem value="deny" class="flex-1 md:flex-none">Deny</ToggleGroupItem>
         </ToggleGroup>
       </Field>

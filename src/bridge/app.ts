@@ -272,7 +272,6 @@ export interface BridgeToolCall {
     risk?: string
     reason?: string
     plan?: unknown
-    sandbox?: unknown
     fullAccess?: boolean
   }
   status?: BridgeToolCallStatus
@@ -1646,7 +1645,6 @@ function fallbackSettingsConfig(): BridgeDesktopSettingsConfig {
       },
       terminal: {
         enabled: true,
-        sandbox: 'policy-only',
         timeoutMs: 30_000,
         maxOutputChars: 20_000,
         maxForegroundProcesses: 4,
@@ -1663,7 +1661,6 @@ function fallbackSettingsConfig(): BridgeDesktopSettingsConfig {
           commandDenyPatterns: [],
         },
         power: {
-          approval: 'allow',
           network: 'allow',
           allowBackground: true,
           allowPty: true,

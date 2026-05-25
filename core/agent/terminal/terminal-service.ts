@@ -3,7 +3,6 @@ import type { Logger } from '@core/logging'
 import type { ToolProfile } from '@shared/types/chat'
 import type {
   LocalAgentTerminalSettings,
-  LocalCommandSandbox,
   LocalNetworkPolicy,
   LocalProcessSummary,
   LocalToolApprovalPlan,
@@ -44,7 +43,6 @@ export interface TerminalExecutionPlan {
   network: LocalNetworkPolicy
   env: Record<string, string>
   envKeys: string[]
-  sandbox: LocalCommandSandbox
   fullAccess: boolean
   accessScope: 'managed-workspace' | 'full-local-access'
 }
@@ -80,7 +78,6 @@ export class TerminalService {
       timeoutMs: plan.timeoutMs,
       maxOutputChars: plan.maxOutputChars,
       background: plan.background,
-      sandbox: plan.sandbox,
       signal: input.signal,
     })
     this.logger?.info('Terminal command completed.', {
@@ -89,7 +86,6 @@ export class TerminalService {
       profile: input.profile,
       background: plan.background,
       status: result.process.status,
-      sandboxLevel: plan.sandbox.level,
       fullAccess: plan.fullAccess,
       durationMs: result.process.durationMs,
     })
@@ -118,7 +114,6 @@ export class TerminalService {
       background: plan.background,
       pty: plan.pty,
       network: plan.network,
-      sandbox: plan.sandbox,
       envKeys: plan.envKeys,
       accessScope: plan.accessScope,
       fullAccess: plan.fullAccess,
@@ -150,7 +145,7 @@ export class TerminalService {
     if (input.profile === 'minimal') {
       throw new Error('Terminal execution is not available in minimal profile.')
     }
-    if (profileSettings.approval === 'deny') {
+    if (input.profile === 'assistant' && settings.assistant.approval === 'deny') {
       throw new Error('Terminal execution is denied by the active profile settings.')
     }
     const fullAccess = input.profile === 'power' || profileSettings.fullAccess
@@ -169,7 +164,6 @@ export class TerminalService {
     const background = input.background === true
     const pty = input.pty === true
     const network = input.network ?? profileSettings.network
-    const sandbox = this.sandboxFor(settings, fullAccess, network)
     const env = buildMinimalEnv({
       keys: settings.minimalEnvKeys,
       workspaceRoot: workspace.root,
@@ -186,7 +180,6 @@ export class TerminalService {
       network,
       env,
       envKeys: Object.keys(env).sort(),
-      sandbox,
       fullAccess,
       accessScope: fullAccess ? 'full-local-access' : 'managed-workspace',
     }
@@ -204,24 +197,6 @@ export class TerminalService {
       return resolve(process.cwd(), requested)
     }
     return this.options.workspace.resolveCwd(input.sessionId, requested)
-  }
-
-  private sandboxFor(
-    settings: LocalAgentTerminalSettings,
-    fullAccess: boolean,
-    network: LocalNetworkPolicy
-  ): LocalCommandSandbox {
-    const level = fullAccess ? 'non-sandboxed' : settings.sandbox
-    return {
-      level,
-      label: fullAccess ? 'Full local access' : level,
-      enforced: level !== 'policy-only' && level !== 'non-sandboxed',
-      fullAccess,
-      protections: {
-        filesystem: fullAccess ? 'full-access' : 'workspace-only',
-        network,
-      },
-    }
   }
 }
 

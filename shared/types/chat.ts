@@ -1,4 +1,4 @@
-import type { LocalCommandSandbox, LocalToolApprovalPlan } from './local-agent'
+import type { LocalToolApprovalPlan } from './local-agent'
 
 export type ID = string
 export type UnixMs = number
@@ -40,7 +40,6 @@ export interface ToolCallApprovalDisplay {
   risk?: ToolRisk
   reason?: string
   plan?: LocalToolApprovalPlan
-  sandbox?: LocalCommandSandbox
   fullAccess?: boolean
 }
 
@@ -400,7 +399,6 @@ export interface ProviderRequestSnapshot {
     enabled: boolean
     providerFacingToolNames: string[]
     profile: ToolProfile
-    sandboxLevel?: string
     fullAccess?: boolean
     hiddenReasons?: string[]
   }

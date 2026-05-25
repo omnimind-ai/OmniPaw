@@ -4,7 +4,6 @@ import type {
   ExternalRootGrant,
   LocalAgentTerminalSettings,
   LocalAgentWorkspaceSettings,
-  LocalCommandSandboxLevel,
   LocalNetworkPolicy,
   LocalPermissionMode,
   WorkspaceRootStrategy,
@@ -118,7 +117,6 @@ export const defaultConfig: DesktopSettingsConfig = {
     },
     terminal: {
       enabled: true,
-      sandbox: 'policy-only',
       timeoutMs: 30_000,
       maxOutputChars: 20_000,
       maxForegroundProcesses: 4,
@@ -135,7 +133,6 @@ export const defaultConfig: DesktopSettingsConfig = {
         commandDenyPatterns: [],
       },
       power: {
-        approval: 'allow',
         network: 'allow',
         allowBackground: true,
         allowPty: true,
@@ -933,13 +930,6 @@ function validateTerminalSettings(
       code: 'invalid_type',
     })
   }
-  if (!isSandboxLevel(settings.sandbox)) {
-    issues.push({
-      path: `${path}.sandbox`,
-      message: 'Sandbox level is invalid.',
-      code: 'invalid_enum',
-    })
-  }
   validateIntegerRange(settings.timeoutMs, `${path}.timeoutMs`, 1000, 24 * 60 * 60 * 1000, issues)
   validateIntegerRange(settings.maxOutputChars, `${path}.maxOutputChars`, 1000, 1_000_000, issues)
   validateIntegerRange(
@@ -970,12 +960,30 @@ function validateTerminalSettings(
       code: 'invalid_type',
     })
   }
-  validateTerminalProfileSettings(settings.assistant, `${path}.assistant`, issues)
+  validateAssistantTerminalProfileSettings(settings.assistant, `${path}.assistant`, issues)
   validateTerminalProfileSettings(settings.power, `${path}.power`, issues)
 }
 
-function validateTerminalProfileSettings(
+function validateAssistantTerminalProfileSettings(
   settings: LocalAgentTerminalSettings['assistant'],
+  path: string,
+  issues: SettingsValidationIssue[]
+): void {
+  validateTerminalProfileSettings(settings, path, issues)
+  if (!isPlainObject(settings)) {
+    return
+  }
+  if (!isPermissionMode(settings.approval)) {
+    issues.push({
+      path: `${path}.approval`,
+      message: 'Approval policy must be ask, allow, or deny.',
+      code: 'invalid_enum',
+    })
+  }
+}
+
+function validateTerminalProfileSettings(
+  settings: LocalAgentTerminalSettings['power'],
   path: string,
   issues: SettingsValidationIssue[]
 ): void {
@@ -986,13 +994,6 @@ function validateTerminalProfileSettings(
       code: 'invalid_type',
     })
     return
-  }
-  if (!isPermissionMode(settings.approval)) {
-    issues.push({
-      path: `${path}.approval`,
-      message: 'Approval policy must be ask, allow, or deny.',
-      code: 'invalid_enum',
-    })
   }
   if (!isNetworkPolicy(settings.network)) {
     issues.push({
@@ -1285,7 +1286,6 @@ function normalizeTerminalSettings(rawValue: unknown): LocalAgentTerminalSetting
 
   return {
     enabled: typeof rawValue.enabled === 'boolean' ? rawValue.enabled : defaults.enabled,
-    sandbox: isSandboxLevel(rawValue.sandbox) ? rawValue.sandbox : defaults.sandbox,
     timeoutMs: integerOrDefault(rawValue.timeoutMs, defaults.timeoutMs),
     maxOutputChars: integerOrDefault(rawValue.maxOutputChars, defaults.maxOutputChars),
     maxForegroundProcesses: integerOrDefault(
@@ -1301,12 +1301,12 @@ function normalizeTerminalSettings(rawValue: unknown): LocalAgentTerminalSetting
       defaults.backgroundMaxLifetimeMs
     ),
     minimalEnvKeys: normalizeStringArray(rawValue.minimalEnvKeys, defaults.minimalEnvKeys),
-    assistant: normalizeTerminalProfileSettings(rawValue.assistant, defaults.assistant),
+    assistant: normalizeAssistantTerminalProfileSettings(rawValue.assistant, defaults.assistant),
     power: normalizeTerminalProfileSettings(rawValue.power, defaults.power),
   }
 }
 
-function normalizeTerminalProfileSettings(
+function normalizeAssistantTerminalProfileSettings(
   rawValue: unknown,
   defaults: LocalAgentTerminalSettings['assistant']
 ): LocalAgentTerminalSettings['assistant'] {
@@ -1314,7 +1314,19 @@ function normalizeTerminalProfileSettings(
     return cloneUnknown(defaults)
   }
   return {
+    ...normalizeTerminalProfileSettings(rawValue, defaults),
     approval: isPermissionMode(rawValue.approval) ? rawValue.approval : defaults.approval,
+  }
+}
+
+function normalizeTerminalProfileSettings(
+  rawValue: unknown,
+  defaults: LocalAgentTerminalSettings['power']
+): LocalAgentTerminalSettings['power'] {
+  if (!isPlainObject(rawValue)) {
+    return cloneUnknown(defaults)
+  }
+  return {
     network: isNetworkPolicy(rawValue.network) ? rawValue.network : defaults.network,
     allowBackground:
       typeof rawValue.allowBackground === 'boolean'
@@ -1415,16 +1427,6 @@ function isNonEmptyString(value: unknown): value is string {
 
 function isWorkspaceRootStrategy(value: unknown): value is WorkspaceRootStrategy {
   return value === 'managed-user-data'
-}
-
-function isSandboxLevel(value: unknown): value is LocalCommandSandboxLevel {
-  return (
-    value === 'policy-only' ||
-    value === 'non-sandboxed' ||
-    value === 'macos-seatbelt' ||
-    value === 'linux-bubblewrap' ||
-    value === 'windows-restricted'
-  )
 }
 
 function isPermissionMode(value: unknown): value is LocalPermissionMode {
