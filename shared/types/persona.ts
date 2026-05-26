@@ -7,7 +7,6 @@ export interface PersonaProfile {
   name: string
   description?: string
   prompt: string
-  enabled: boolean
   createdAt: UnixMs
   updatedAt: UnixMs
 }
@@ -26,7 +25,6 @@ export type PersonaRegistryErrorCode =
   | 'save_failed'
   | 'not_found'
   | 'validation'
-  | 'disabled'
 
 export interface PersonaRegistryValidationIssue {
   path: string
@@ -65,7 +63,6 @@ export type PersonaRegistryChangeReason =
   | 'update'
   | 'delete'
   | 'default'
-  | 'enable'
 
 export interface PersonaRegistryMutationResult extends PersonaRegistryLoadResponse {
   ok?: boolean
@@ -82,7 +79,6 @@ export interface PersonaProfileDraft {
   name: string
   description?: string
   prompt: string
-  enabled?: boolean
 }
 
 export interface CreatePersonaRequest {
@@ -96,11 +92,6 @@ export interface UpdatePersonaRequest {
 
 export interface DeletePersonaRequest {
   id: ID
-}
-
-export interface SetPersonaEnabledRequest {
-  id: ID
-  enabled: boolean
 }
 
 export interface SetDefaultPersonaRequest {

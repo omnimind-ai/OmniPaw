@@ -36,7 +36,6 @@ import type {
   CreatePersonaRequest,
   DeletePersonaRequest,
   SetDefaultPersonaRequest,
-  SetPersonaEnabledRequest,
   UpdatePersonaRequest,
 } from '@shared/types/persona'
 import type {
@@ -442,8 +441,6 @@ const bridge: OpenOmniClawBridge = {
     update: (request: UpdatePersonaRequest) => invokePersona(IPC_CHANNELS.persona.update, request),
     delete: (request: DeletePersonaRequest | string) =>
       invokePersona(IPC_CHANNELS.persona.delete, request),
-    setEnabled: (request: SetPersonaEnabledRequest) =>
-      invokePersona(IPC_CHANNELS.persona.setEnabled, request),
     setDefault: (request: SetDefaultPersonaRequest) =>
       invokePersona(IPC_CHANNELS.persona.setDefault, request),
     onChanged: (callback) => createUnsubscriber(IPC_CHANNELS.persona.changed, callback),

@@ -288,28 +288,19 @@ function normalizeContextUsage(value: unknown): SessionContextUsage | undefined 
     nested(record.tokenBudget, 'usableInputTokens'),
     nested(record.tokenBudget, 'maxInputTokens')
   )
-  const rawWindowPercentage = firstNumber(
-    record.windowPercentage,
-    record.windowUsagePercent,
-    record.windowPercent
+  const derivedWindowPercentage =
+    inputTokens !== undefined && windowTokens ? (inputTokens / windowTokens) * 100 : undefined
+  const rawWindowPercentage = normalizePercentage(
+    firstNumber(record.windowPercentage, record.windowUsagePercent, record.windowPercent)
   )
   const windowPercentage =
-    rawWindowPercentage !== undefined
-      ? rawWindowPercentage > 1
-        ? rawWindowPercentage
-        : rawWindowPercentage * 100
-      : inputTokens !== undefined && windowTokens
-        ? (inputTokens / windowTokens) * 100
-        : undefined
-  const rawPercentage = firstNumber(record.percentage, record.percent, record.usagePercent)
-  const percentage =
-    rawPercentage !== undefined
-      ? rawPercentage > 1
-        ? rawPercentage
-        : rawPercentage * 100
-      : inputTokens !== undefined && budgetTokens
-        ? (inputTokens / budgetTokens) * 100
-        : undefined
+    derivedWindowPercentage !== undefined ? derivedWindowPercentage : rawWindowPercentage
+  const derivedPercentage =
+    inputTokens !== undefined && budgetTokens ? (inputTokens / budgetTokens) * 100 : undefined
+  const rawPercentage = normalizePercentage(
+    firstNumber(record.percentage, record.percent, record.usagePercent)
+  )
+  const percentage = derivedPercentage !== undefined ? derivedPercentage : rawPercentage
   const source = firstString(record.source, record.usageSource, record.usage_source)
   const updatedAt = firstNumber(record.updatedAt, record.lastUpdatedAt, record.createdAt)
 
@@ -347,6 +338,11 @@ function firstNumber(...values: unknown[]): number | undefined {
     if (typeof value === 'number' && Number.isFinite(value)) return value
   }
   return undefined
+}
+
+function normalizePercentage(value: number | undefined): number | undefined {
+  if (value === undefined) return undefined
+  return value > 0 && value < 1 ? value * 100 : value
 }
 
 function firstString(...values: unknown[]): string | undefined {

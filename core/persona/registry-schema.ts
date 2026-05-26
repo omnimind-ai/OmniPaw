@@ -175,7 +175,6 @@ function normalizeProfileRecord(
     name: stringValue(raw.name),
     description: typeof raw.description === 'string' ? raw.description : undefined,
     prompt,
-    enabled: typeof raw.enabled === 'boolean' ? raw.enabled : true,
     createdAt: typeof raw.createdAt === 'number' ? raw.createdAt : now,
     updatedAt: typeof raw.updatedAt === 'number' ? raw.updatedAt : now,
   }
@@ -220,18 +219,11 @@ function validateRegistryShape(
         code: 'invalid_type',
       })
     }
-    if (typeof profile.enabled !== 'boolean') {
-      issues.push({
-        path: `${path}.enabled`,
-        message: 'Profile enabled flag must be boolean.',
-        code: 'invalid_type',
-      })
-    }
   }
   if (registry.defaultPersonaId && !ids.has(registry.defaultPersonaId)) {
     issues.push({
       path: 'defaultPersonaId',
-      message: 'Default persona must reference an existing profile.',
+      message: 'Active persona must reference an existing profile.',
       code: 'missing_reference',
     })
   }
@@ -256,7 +248,6 @@ function defaultProfileRecord(): PersonaProfile {
     name: '',
     description: undefined,
     prompt: '',
-    enabled: true,
     createdAt: now,
     updatedAt: now,
   }

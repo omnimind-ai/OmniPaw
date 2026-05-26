@@ -37,7 +37,7 @@ export function buildSystemUnits(
     id: 'system:persona',
     kind: 'persona',
     source: systemContext?.persona?.refId ?? 'session.persona',
-    text: systemContext?.persona?.enabled === false ? undefined : systemContext?.persona?.text,
+    text: systemContext?.persona?.text,
     priority: 970,
     required: true,
     refId: systemContext?.persona?.refId,

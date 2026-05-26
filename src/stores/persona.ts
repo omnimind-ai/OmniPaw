@@ -10,7 +10,6 @@ import {
   type BridgePersonaRegistryChangedEvent,
   type BridgePersonaRegistryStatus,
   type BridgeSetDefaultPersonaRequest,
-  type BridgeSetPersonaEnabledRequest,
   type BridgeUnsubscribe,
   type BridgeUpdatePersonaRequest,
   ensureElectronBridge,
@@ -28,11 +27,10 @@ export const usePersonaStore = defineStore('persona', () => {
 
   const persistenceAvailable = computed(() => !isFallbackBridge)
   const profiles = computed<BridgePersonaProfile[]>(() => registry.value?.profiles ?? [])
-  const enabledProfiles = computed(() => profiles.value.filter((profile) => profile.enabled))
-  const defaultPersonaId = computed(() => registry.value?.defaultPersonaId)
-  const defaultPersona = computed(() =>
-    defaultPersonaId.value
-      ? (profiles.value.find((profile) => profile.id === defaultPersonaId.value) ?? null)
+  const activePersonaId = computed(() => registry.value?.defaultPersonaId)
+  const activePersona = computed(() =>
+    activePersonaId.value
+      ? (profiles.value.find((profile) => profile.id === activePersonaId.value) ?? null)
       : null
   )
   const recoverable = computed(() => status.value?.recoverable ?? false)
@@ -105,13 +103,7 @@ export const usePersonaStore = defineStore('persona', () => {
     await runMutation((bridge) => bridge.delete({ id } as BridgeDeletePersonaRequest))
   }
 
-  async function setEnabled(id: string, enabled: boolean): Promise<void> {
-    await runMutation((bridge) =>
-      bridge.setEnabled({ id, enabled } as BridgeSetPersonaEnabledRequest)
-    )
-  }
-
-  async function setDefault(id: string | undefined): Promise<void> {
+  async function setActivePersona(id: string | undefined): Promise<void> {
     await runMutation((bridge) => bridge.setDefault({ id } as BridgeSetDefaultPersonaRequest))
   }
 
@@ -160,9 +152,8 @@ export const usePersonaStore = defineStore('persona', () => {
     registry,
     status,
     profiles,
-    enabledProfiles,
-    defaultPersona,
-    defaultPersonaId,
+    activePersona,
+    activePersonaId,
     persistenceAvailable,
     recoverable,
     recoveryError,
@@ -175,8 +166,7 @@ export const usePersonaStore = defineStore('persona', () => {
     createProfile,
     updateProfile,
     deleteProfile,
-    setEnabled,
-    setDefault,
+    setActivePersona,
     stopSubscription,
   }
 })

@@ -136,7 +136,6 @@ export const IPC_CHANNELS = {
     create: 'persona:create',
     update: 'persona:update',
     delete: 'persona:delete',
-    setEnabled: 'persona:set-enabled',
     setDefault: 'persona:set-default',
     changed: 'persona:changed',
   },

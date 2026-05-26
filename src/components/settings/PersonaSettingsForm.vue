@@ -23,7 +23,6 @@ import {
 } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
 import { useDelayedFlag } from '@/composables/useDelayedFlag'
 import { cn } from '@/lib/utils'
@@ -38,11 +37,10 @@ interface DraftState {
   name: string
   description: string
   prompt: string
-  enabled: boolean
 }
 
 const profiles = computed(() => personaStore.profiles)
-const defaultPersonaId = computed(() => personaStore.defaultPersonaId)
+const activePersonaId = computed(() => personaStore.activePersonaId)
 const recoveryError = computed(() => personaStore.recoveryError)
 const persistenceAvailable = computed(() => personaStore.persistenceAvailable)
 const isEmpty = computed(() => personaStore.isEmpty)
@@ -79,7 +77,6 @@ function createEmptyDraft(): DraftState {
     name: '',
     description: '',
     prompt: '',
-    enabled: true,
   }
 }
 
@@ -100,7 +97,6 @@ function openEditDraft(profile: BridgePersonaProfile): void {
   draft.name = profile.name
   draft.description = profile.description ?? ''
   draft.prompt = profile.prompt
-  draft.enabled = profile.enabled
   validationError.value = ''
   draftOpen.value = true
 }
@@ -137,7 +133,6 @@ async function saveDraft(): Promise<void> {
     name: draft.name.trim(),
     description: draft.description.trim() || undefined,
     prompt: draft.prompt,
-    enabled: draft.enabled,
   }
 
   try {
@@ -158,41 +153,26 @@ async function saveDraft(): Promise<void> {
   }
 }
 
-async function toggleEnabled(profile: BridgePersonaProfile, enabled: boolean): Promise<void> {
+async function activatePersona(profile: BridgePersonaProfile): Promise<void> {
   pendingId.value = profile.id
   try {
-    await personaStore.setEnabled(profile.id, enabled)
+    await personaStore.setActivePersona(profile.id)
+    toast.success(`已启用人格 "${profile.name}"。`)
   } catch (error) {
-    toast.error(errorToText(error, '人格状态切换失败。'))
+    toast.error(errorToText(error, '启用人格失败。'))
   } finally {
     pendingId.value = ''
   }
 }
 
-async function setAsDefault(profile: BridgePersonaProfile): Promise<void> {
-  if (!profile.enabled) {
-    toast.error('禁用的人格无法设为默认。')
-    return
-  }
-  pendingId.value = profile.id
-  try {
-    await personaStore.setDefault(profile.id)
-    toast.success(`已将 "${profile.name}" 设为默认人格。`)
-  } catch (error) {
-    toast.error(errorToText(error, '设置默认人格失败。'))
-  } finally {
-    pendingId.value = ''
-  }
-}
-
-async function clearDefault(): Promise<void> {
-  if (!defaultPersonaId.value) return
+async function deactivatePersona(): Promise<void> {
+  if (!activePersonaId.value) return
   pendingId.value = 'clear-default'
   try {
-    await personaStore.setDefault(undefined)
-    toast.success('已清除默认人格。')
+    await personaStore.setActivePersona(undefined)
+    toast.success('已停用人格。')
   } catch (error) {
-    toast.error(errorToText(error, '清除默认人格失败。'))
+    toast.error(errorToText(error, '停用人格失败。'))
   } finally {
     pendingId.value = ''
   }
@@ -241,7 +221,7 @@ function profileIsPending(profile: BridgePersonaProfile): boolean {
   <div class="flex flex-col gap-4">
     <SettingsSection
       title="人格"
-      description="管理对话使用的人格 profile。每个人格的 prompt 都不会写入聊天历史。"
+      description="管理对话使用的人格 profile。当前启用的人格会应用到新会话。"
     >
       <template #actions>
         <Button
@@ -250,7 +230,7 @@ function profileIsPending(profile: BridgePersonaProfile): boolean {
           :disabled="!persistenceAvailable || isSaving"
           @click="openCreateDraft"
         >
-          <PlusIcon class="size-4" />
+          <PlusIcon data-icon="inline-start" />
           新建人格
         </Button>
       </template>
@@ -291,7 +271,7 @@ function profileIsPending(profile: BridgePersonaProfile): boolean {
             size="sm"
             @click="openCreateDraft"
           >
-            <PlusIcon class="size-4" />
+            <PlusIcon data-icon="inline-start" />
             创建第一个人格
           </Button>
         </div>
@@ -310,16 +290,10 @@ function profileIsPending(profile: BridgePersonaProfile): boolean {
                 <div class="flex flex-wrap items-center gap-2">
                   <span class="text-sm font-medium">{{ profile.name }}</span>
                   <Badge
-                    v-if="defaultPersonaId === profile.id"
+                    v-if="activePersonaId === profile.id"
                     variant="default"
                   >
-                    默认
-                  </Badge>
-                  <Badge
-                    v-if="!profile.enabled"
-                    variant="outline"
-                  >
-                    已禁用
+                    当前启用
                   </Badge>
                 </div>
                 <p
@@ -330,32 +304,29 @@ function profileIsPending(profile: BridgePersonaProfile): boolean {
                 </p>
               </div>
               <div class="flex items-center gap-1">
-                <Switch
-                  :model-value="profile.enabled"
-                  :disabled="!persistenceAvailable || profileIsPending(profile)"
-                  @update:model-value="(value: boolean) => toggleEnabled(profile, value)"
-                />
                 <Button
-                  v-if="defaultPersonaId !== profile.id"
+                  v-if="activePersonaId !== profile.id"
                   type="button"
                   variant="ghost"
-                  size="icon-sm"
-                  :disabled="!persistenceAvailable || !profile.enabled || profileIsPending(profile)"
-                  aria-label="设为默认"
-                  @click="setAsDefault(profile)"
+                  size="sm"
+                  :disabled="!persistenceAvailable || profileIsPending(profile)"
+                  aria-label="启用人格"
+                  @click="activatePersona(profile)"
                 >
-                  <StarIcon class="size-4" />
+                  <StarIcon data-icon="inline-start" />
+                  启用
                 </Button>
                 <Button
                   v-else
                   type="button"
                   variant="ghost"
-                  size="icon-sm"
+                  size="sm"
                   :disabled="!persistenceAvailable || pendingId === 'clear-default'"
-                  aria-label="清除默认"
-                  @click="clearDefault"
+                  aria-label="停用人格"
+                  @click="deactivatePersona"
                 >
-                  <CheckCircle2Icon class="size-4 text-amber-500" />
+                  <CheckCircle2Icon data-icon="inline-start" />
+                  停用
                 </Button>
                 <Button
                   type="button"
@@ -374,7 +345,7 @@ function profileIsPending(profile: BridgePersonaProfile): boolean {
                   aria-label="删除"
                   @click="openDeleteDialog(profile)"
                 >
-                  <Trash2Icon class="size-4 text-destructive" />
+                  <Trash2Icon data-icon />
                 </Button>
               </div>
             </div>
@@ -391,7 +362,7 @@ function profileIsPending(profile: BridgePersonaProfile): boolean {
         <DialogHeader>
           <DialogTitle>{{ isEditing ? '编辑人格' : '新建人格' }}</DialogTitle>
           <DialogDescription>
-            人格 prompt 仅作为对话头部上下文注入，不会写入聊天消息、日志或请求快照。
+            当前启用的人格 prompt 仅作为对话头部上下文注入，不会写入聊天消息、日志或请求快照。
           </DialogDescription>
         </DialogHeader>
 
@@ -435,17 +406,6 @@ function profileIsPending(profile: BridgePersonaProfile): boolean {
                   此 prompt 仅作为对话头部上下文，不会写入聊天消息或日志。
                 </FieldDescription>
               </FieldContent>
-            </Field>
-
-            <Field orientation="horizontal">
-              <FieldContent>
-                <FieldLabel>启用此人格</FieldLabel>
-                <FieldDescription>禁用时新会话不会自动套用，已有会话快照不变。</FieldDescription>
-              </FieldContent>
-              <Switch
-                v-model="draft.enabled"
-                :disabled="isSaving"
-              />
             </Field>
 
             <p

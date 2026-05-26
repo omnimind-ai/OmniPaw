@@ -10,7 +10,6 @@ import type {
   PersonaRegistryMutationResult,
   PersonaRegistryStatus,
   SetDefaultPersonaRequest,
-  SetPersonaEnabledRequest,
   UpdatePersonaRequest,
 } from '@shared/types/persona'
 import {
@@ -48,11 +47,10 @@ export class PersonaManager {
     return this.registryStore.status()
   }
 
-  getDefaultProfile(): PersonaProfile | undefined {
+  getActiveProfile(): PersonaProfile | undefined {
     const registry = this.registryStore.get()
     if (!registry.defaultPersonaId) return undefined
-    const profile = registry.profiles.find((item) => item.id === registry.defaultPersonaId)
-    return profile?.enabled ? profile : undefined
+    return registry.profiles.find((item) => item.id === registry.defaultPersonaId)
   }
 
   create(request: CreatePersonaRequest): PersonaRegistryMutationResult {
@@ -79,7 +77,6 @@ export class PersonaManager {
       name: request.profile.name.trim(),
       description: request.profile.description?.trim() || undefined,
       prompt: request.profile.prompt,
-      enabled: request.profile.enabled !== false,
       createdAt: now,
       updatedAt: now,
     }
@@ -89,10 +86,7 @@ export class PersonaManager {
       updatedAt: now,
     }
     const saved = this.registryStore.save(next)
-    this.logger?.info('Persona created.', {
-      personaId: profile.id,
-      enabled: profile.enabled,
-    })
+    this.logger?.info('Persona created.', { personaId: profile.id })
     return this.mutationResult(saved, 'create', profile)
   }
 
@@ -116,7 +110,6 @@ export class PersonaManager {
       name: request.profile.name.trim(),
       description: request.profile.description?.trim() || undefined,
       prompt: request.profile.prompt,
-      enabled: request.profile.enabled ?? existing.enabled,
       createdAt: existing.createdAt,
       updatedAt: now,
     }
@@ -126,10 +119,7 @@ export class PersonaManager {
       updatedAt: now,
     }
     const saved = this.registryStore.save(next)
-    this.logger?.info('Persona updated.', {
-      personaId: updated.id,
-      enabled: updated.enabled,
-    })
+    this.logger?.info('Persona updated.', { personaId: updated.id })
     return this.mutationResult(saved, 'update', updated)
   }
 
@@ -152,33 +142,6 @@ export class PersonaManager {
     return this.mutationResult(saved, 'delete')
   }
 
-  setEnabled(request: SetPersonaEnabledRequest): PersonaRegistryMutationResult {
-    const registry = this.registryStore.get()
-    const existing = registry.profiles.find((profile) => profile.id === request.id)
-    if (!existing) {
-      throw new PersonaRegistryValidationError(
-        personaRegistryError('not_found', `Persona not found: ${request.id}.`)
-      )
-    }
-    const now = Date.now()
-    const updated: PersonaProfile = {
-      ...existing,
-      enabled: request.enabled,
-      updatedAt: now,
-    }
-    const next: PersonaRegistry = {
-      ...registry,
-      profiles: registry.profiles.map((profile) => (profile.id === updated.id ? updated : profile)),
-      updatedAt: now,
-    }
-    const saved = this.registryStore.save(next)
-    this.logger?.info('Persona enabled state changed.', {
-      personaId: updated.id,
-      enabled: updated.enabled,
-    })
-    return this.mutationResult(saved, 'enable', updated)
-  }
-
   setDefault(request: SetDefaultPersonaRequest): PersonaRegistryMutationResult {
     const registry = this.registryStore.get()
     const now = Date.now()
@@ -189,7 +152,7 @@ export class PersonaManager {
         updatedAt: now,
       }
       const saved = this.registryStore.save(next)
-      this.logger?.info('Default persona cleared.')
+      this.logger?.info('Active persona cleared.')
       return this.mutationResult(saved, 'default')
     }
     const target = registry.profiles.find((profile) => profile.id === request.id)
@@ -198,18 +161,13 @@ export class PersonaManager {
         personaRegistryError('not_found', `Persona not found: ${request.id}.`)
       )
     }
-    if (!target.enabled) {
-      throw new PersonaRegistryValidationError(
-        personaRegistryError('disabled', `Default persona must be enabled: ${request.id}.`)
-      )
-    }
     const next: PersonaRegistry = {
       ...registry,
       defaultPersonaId: request.id,
       updatedAt: now,
     }
     const saved = this.registryStore.save(next)
-    this.logger?.info('Default persona set.', { personaId: request.id })
+    this.logger?.info('Active persona set.', { personaId: request.id })
     return this.mutationResult(saved, 'default', target)
   }
 

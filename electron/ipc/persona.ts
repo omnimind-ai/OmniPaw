@@ -10,7 +10,6 @@ import type {
   PersonaRegistryOperationError,
   PersonaRegistryStatus,
   SetDefaultPersonaRequest,
-  SetPersonaEnabledRequest,
   UpdatePersonaRequest,
 } from '@shared/types/persona'
 import { registerLoggedIpcHandler } from './common'
@@ -76,18 +75,6 @@ export function registerPersonaIpcHandlers(options: IpcHandlerOptions): void {
       const result = safe(() => runtime.personaManager.delete(request))
       if (result.ok && result.value) {
         emitPersonaChanged(event, 'delete', result.value)
-      }
-      return result
-    }
-  )
-
-  registerLoggedIpcHandler(
-    options,
-    IPC_CHANNELS.persona.setEnabled,
-    async (event, request: SetPersonaEnabledRequest) => {
-      const result = safe(() => runtime.personaManager.setEnabled(request))
-      if (result.ok && result.value) {
-        emitPersonaChanged(event, 'enable', result.value)
       }
       return result
     }

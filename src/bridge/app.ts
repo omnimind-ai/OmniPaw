@@ -961,9 +961,6 @@ export interface RendererOpenOmniClawBridge {
     delete: (
       request: BridgeDeletePersonaRequest | string
     ) => Promise<BridgePersonaRegistryMutationResult>
-    setEnabled: (
-      request: BridgeSetPersonaEnabledRequest
-    ) => Promise<BridgePersonaRegistryMutationResult>
     setDefault: (
       request: BridgeSetDefaultPersonaRequest
     ) => Promise<BridgePersonaRegistryMutationResult>
@@ -976,7 +973,6 @@ export interface BridgePersonaProfile {
   name: string
   description?: string
   prompt: string
-  enabled: boolean
   createdAt: number
   updatedAt: number
 }
@@ -1022,7 +1018,6 @@ export type BridgePersonaRegistryChangeReason =
   | 'update'
   | 'delete'
   | 'default'
-  | 'enable'
 
 export interface BridgePersonaRegistryChangedEvent extends BridgePersonaRegistryLoadResponse {
   reason: BridgePersonaRegistryChangeReason
@@ -1034,7 +1029,6 @@ export interface BridgePersonaProfileDraft {
   name: string
   description?: string
   prompt: string
-  enabled?: boolean
 }
 
 export interface BridgeCreatePersonaRequest {
@@ -1048,11 +1042,6 @@ export interface BridgeUpdatePersonaRequest {
 
 export interface BridgeDeletePersonaRequest {
   id: string
-}
-
-export interface BridgeSetPersonaEnabledRequest {
-  id: string
-  enabled: boolean
 }
 
 export interface BridgeSetDefaultPersonaRequest {
@@ -1569,8 +1558,6 @@ const fallbackBridge: RendererOpenOmniClawBridge = {
     create: () => rejectFallbackPersistence<BridgePersonaRegistryMutationResult>('persona.create'),
     update: () => rejectFallbackPersistence<BridgePersonaRegistryMutationResult>('persona.update'),
     delete: () => rejectFallbackPersistence<BridgePersonaRegistryMutationResult>('persona.delete'),
-    setEnabled: () =>
-      rejectFallbackPersistence<BridgePersonaRegistryMutationResult>('persona.setEnabled'),
     setDefault: () =>
       rejectFallbackPersistence<BridgePersonaRegistryMutationResult>('persona.setDefault'),
     onChanged: () => () => {},

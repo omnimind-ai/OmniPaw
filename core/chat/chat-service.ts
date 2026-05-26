@@ -185,7 +185,7 @@ export class ChatService {
 
   private buildDefaultSystemContext(): ChatSystemContextConfig | undefined {
     const defaults = this.options.systemContextDefaults?.()
-    const personaProfile = this.options.personaManager?.getDefaultProfile()
+    const personaProfile = this.options.personaManager?.getActiveProfile()
 
     const baseSystemPrompt = defaults?.baseSystemPrompt?.trim() || undefined
     const maskInput = defaults?.mask
@@ -202,7 +202,6 @@ export class ChatService {
           refId: personaProfile.id,
           label: personaProfile.name,
           text: personaProfile.prompt,
-          enabled: true,
         }
       : undefined
 

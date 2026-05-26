@@ -97,7 +97,6 @@ import type {
   PersonaRegistryMutationResult,
   PersonaRegistryStatus,
   SetDefaultPersonaRequest,
-  SetPersonaEnabledRequest,
   UpdatePersonaRequest,
 } from './persona'
 import type {
@@ -450,7 +449,6 @@ export interface OpenOmniClawBridge {
     create: (request: CreatePersonaRequest) => Promise<PersonaRegistryMutationResult>
     update: (request: UpdatePersonaRequest) => Promise<PersonaRegistryMutationResult>
     delete: (request: DeletePersonaRequest | string) => Promise<PersonaRegistryMutationResult>
-    setEnabled: (request: SetPersonaEnabledRequest) => Promise<PersonaRegistryMutationResult>
     setDefault: (request: SetDefaultPersonaRequest) => Promise<PersonaRegistryMutationResult>
     onChanged: (callback: (event: PersonaRegistryChangedEvent) => void) => Unsubscribe
   }

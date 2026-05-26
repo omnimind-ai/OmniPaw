@@ -48,17 +48,10 @@ try {
   assert.equal(updated.profile?.prompt, 'You are a calm and helpful assistant.')
   assert.equal(updated.profile?.createdAt, created.profile?.createdAt)
 
-  // 4. Default selection.
+  // 4. Active persona selection.
   const defaultSet = manager.setDefault({ id: personaId })
   assert.equal(defaultSet.registry.defaultPersonaId, personaId)
-
-  // Disable -> default still recorded but no default profile resolves.
-  manager.setEnabled({ id: personaId, enabled: false })
-  assert.equal(manager.getDefaultProfile(), undefined)
-
-  // Re-enable.
-  manager.setEnabled({ id: personaId, enabled: true })
-  assert.equal(manager.getDefaultProfile()?.id, personaId)
+  assert.equal(manager.getActiveProfile()?.id, personaId)
 
   // 5. Validation failure on empty name.
   assert.throws(
@@ -75,6 +68,25 @@ try {
   assert.equal(reloaded.profiles.length, 1)
   assert.equal(reloaded.profiles[0]?.id, personaId)
   assert.equal(reloaded.defaultPersonaId, personaId)
+
+  // Legacy enabled flags are ignored and stripped from the normalized registry.
+  writeFileSync(
+    registryPath,
+    JSON.stringify(
+      {
+        ...reloaded,
+        profiles: reloaded.profiles.map((profile) => ({ ...profile, enabled: false })),
+      },
+      null,
+      2
+    ),
+    'utf8'
+  )
+  const legacyStore = new PersonaRegistryStore({ appDataPath: tempDir, appName: 'TestApp' })
+  const legacyReloaded = legacyStore.load()
+  assert.equal('enabled' in (legacyReloaded.profiles[0] as Record<string, unknown>), false)
+  const legacyManager = new PersonaManager({ registryStore: legacyStore })
+  assert.equal(legacyManager.getActiveProfile()?.id, personaId)
 
   // 7. Recovery from invalid JSON keeps file untouched.
   writeFileSync(registryPath, '{not-json', 'utf8')
