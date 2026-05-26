@@ -15,9 +15,12 @@ export function useChatWorkspaceScroll({ isHomeMode, hasMessages }: UseChatWorks
   const showScrollToBottom = ref(false)
 
   let messagesScrollViewport: HTMLElement | null = null
+  let messagesResizeObserver: ResizeObserver | null = null
+  let observedMessagesContent: Element | null = null
   let autoScrollFrame = 0
   let programmaticScrollUntil = 0
   let scrollStateTimer = 0
+  let lastKnownScrollHeight = 0
 
   onBeforeUnmount(() => {
     cleanupMessageScroll()
@@ -37,6 +40,7 @@ export function useChatWorkspaceScroll({ isHomeMode, hasMessages }: UseChatWorks
   function attachMessageScrollViewport() {
     const nextViewport = resolveMessageScrollViewport()
     if (nextViewport === messagesScrollViewport) {
+      attachMessagesResizeObserver()
       updateScrollFollowState()
       return
     }
@@ -44,12 +48,35 @@ export function useChatWorkspaceScroll({ isHomeMode, hasMessages }: UseChatWorks
     detachMessageScrollViewport()
     messagesScrollViewport = nextViewport
     messagesScrollViewport?.addEventListener('scroll', updateScrollFollowState, { passive: true })
+    attachMessagesResizeObserver()
     updateScrollFollowState()
   }
 
   function detachMessageScrollViewport() {
     messagesScrollViewport?.removeEventListener('scroll', updateScrollFollowState)
     messagesScrollViewport = null
+    detachMessagesResizeObserver()
+    lastKnownScrollHeight = 0
+  }
+
+  function attachMessagesResizeObserver() {
+    const content = messagesScrollViewport?.firstElementChild ?? null
+    if (content === observedMessagesContent) return
+
+    detachMessagesResizeObserver()
+    observedMessagesContent = content
+    if (!content || typeof ResizeObserver === 'undefined') return
+
+    messagesResizeObserver = new ResizeObserver(() => {
+      updateScrollFollowState()
+    })
+    messagesResizeObserver.observe(content)
+  }
+
+  function detachMessagesResizeObserver() {
+    messagesResizeObserver?.disconnect()
+    messagesResizeObserver = null
+    observedMessagesContent = null
   }
 
   function scheduleScrollToLatest(behavior: ScrollBehavior = 'auto', force = false) {
@@ -58,11 +85,18 @@ export function useChatWorkspaceScroll({ isHomeMode, hasMessages }: UseChatWorks
       return
     }
 
+    followingLatestMessage.value = true
+    showScrollToBottom.value = false
+    programmaticScrollUntil = Math.max(
+      programmaticScrollUntil,
+      performance.now() + programmaticScrollDuration(behavior)
+    )
+
     if (autoScrollFrame) cancelAnimationFrame(autoScrollFrame)
     autoScrollFrame = requestAnimationFrame(() => {
       autoScrollFrame = requestAnimationFrame(() => {
         autoScrollFrame = 0
-        scrollToLatestMessage(behavior, force)
+        scrollToLatestMessage(behavior, true)
       })
     })
   }
@@ -72,7 +106,7 @@ export function useChatWorkspaceScroll({ isHomeMode, hasMessages }: UseChatWorks
     const viewport = messagesScrollViewport
     if (!viewport || (!force && !followingLatestMessage.value)) return
 
-    programmaticScrollUntil = performance.now() + (behavior === 'smooth' ? 1200 : 120)
+    programmaticScrollUntil = performance.now() + programmaticScrollDuration(behavior)
     followingLatestMessage.value = true
     showScrollToBottom.value = false
     viewport.scrollTo({
@@ -130,16 +164,31 @@ export function useChatWorkspaceScroll({ isHomeMode, hasMessages }: UseChatWorks
     )
   }
 
+  function programmaticScrollDuration(behavior: ScrollBehavior) {
+    return behavior === 'smooth' ? 1200 : 120
+  }
+
   function updateScrollFollowState() {
     const viewport = messagesScrollViewport
     if (!viewport) {
       followingLatestMessage.value = true
       showScrollToBottom.value = false
+      lastKnownScrollHeight = 0
       return
     }
 
     const nearBottom = isNearMessageBottom(viewport)
+    const currentScrollHeight = viewport.scrollHeight
+    const contentGrew = currentScrollHeight > lastKnownScrollHeight
+    lastKnownScrollHeight = currentScrollHeight
+
     if (!nearBottom && performance.now() < programmaticScrollUntil) return
+
+    if (!nearBottom && contentGrew && followingLatestMessage.value) {
+      showScrollToBottom.value = false
+      scheduleScrollToLatest('auto', true)
+      return
+    }
 
     followingLatestMessage.value = nearBottom
     showScrollToBottom.value = hasMessages.value && !nearBottom
