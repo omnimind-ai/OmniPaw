@@ -86,6 +86,7 @@
 |------|------|
 | 配置默认值、迁移、校验、序列化 | `core/config/schema.ts` |
 | 配置文件读写、备份、原子写入 | `core/config/store.ts` |
+| 统一数据根与路径解析 | `core/utils/data-paths.ts` |
 | 工具开关配置适配 | `core/config/tool-settings-store.ts` |
 | 设置共享类型 | `shared/types/settings.ts` |
 | Provider 共享类型 | `shared/types/provider.ts` |

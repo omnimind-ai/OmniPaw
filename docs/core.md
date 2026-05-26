@@ -19,7 +19,7 @@
 - MUST：跨层类型来自 `shared/types/*`，不要在 core 内定义另一套对外契约。
 - MUST：DB、文件、Provider 网络请求、附件读写只在 main/core 侧发生。
 - MUST：本地 workspace、terminal、进程管理只在 main/core 侧发生，renderer 只能通过 bridge 请求受限能力。
-- MUST：对用户数据路径使用 Electron `app.getPath('userData')` 或已有路径解析函数，不散落硬编码路径。
+- MUST：对用户数据路径使用 `core/utils/data-paths.ts` 的统一 resolver，不散落硬编码路径。
 - SHOULD：让 core 代码可被 smoke script 在 Electron Node 环境中运行。
 
 ## 依赖注入与初始化
@@ -52,6 +52,12 @@
 ## 配置
 
 配置主落点是 `core/config/`，renderer 侧草稿与表单约束见 [frontend.md](frontend.md)。
+
+### 数据根
+
+- MUST：Electron 业务数据统一从 `<appData>/openomniclaw/` 派生，路径解析集中在 `core/utils/data-paths.ts`。
+- MUST：配置、Provider registry、Persona registry 和 MCP registry 位于统一数据根的 `config/` 子目录；SQLite、skill state、skills、附件、agent workspace 和业务日志位于同一数据根下的各自子路径。
+- SHOULD：内部开发阶段以当前统一数据根为唯一真实来源，不做旧路径隐式迁移。
 
 ### 配置对象
 
@@ -105,7 +111,7 @@
 
 - MUST：使用 `DatabaseClient` 统一连接数据库。
 - MUST：保持 `foreign_keys = ON`、`journal_mode = WAL`、`busy_timeout = 5000` 初始化行为。
-- MUST：Electron 环境数据库路径保持在 `userData/openomniclaw.sqlite3`。
+- MUST：Electron 环境数据库路径保持在统一数据根下的 `openomniclaw.sqlite3`。
 
 ### Schema 与 Migration
 
