@@ -12,6 +12,9 @@
 | IPC 共享注册工具 | `electron/ipc/common.ts` |
 | IPC 注册依赖类型 | `electron/ipc/types.ts` |
 | IPC domain handler | `electron/ipc/<domain>.ts` |
+| Persona IPC | `electron/ipc/persona.ts` |
+| Workspace IPC | `electron/ipc/workspace.ts` |
+| Terminal process IPC | `electron/ipc/terminal-process.ts` |
 | 猫窗口和窗口专属 IPC | `electron/cat-window.ts` |
 | contextBridge 暴露、ipcRenderer 调用、事件订阅包装 | `electron/preload.ts` |
 | IPC channel 常量 | `shared/constants.ts` |
@@ -35,6 +38,8 @@
 | 设置页组件 | `src/components/settings/` |
 | Provider 设置子组件 | `src/components/settings/provider-settings/` |
 | Provider 删除确认弹窗 | `src/components/settings/provider-settings/ProviderDeleteModal.vue` |
+| Persona 设置 | `src/components/settings/PersonaSettingsForm.vue` |
+| 本地 Agent 设置 | `src/components/settings/LocalAgentSettingsForm.vue` |
 | shadcn-vue 组件 | `src/components/ui/` |
 | 聊天 composables | `src/composables/useSessions.ts`、`src/composables/useMessages.ts`、`src/composables/useMediaHandling.ts` |
 | Pinia stores | `src/stores/` |
@@ -59,6 +64,9 @@
 | 内置工具定义 | `core/agent/tools/builtin-tools.ts` |
 | 工具执行与超时 | `core/agent/tools/executor.ts` |
 | 工具策略 | `core/agent/tools/policy.ts` |
+| Agent workspace | `core/agent/workspace/service.ts` |
+| Terminal service | `core/agent/terminal/terminal-service.ts` |
+| Process supervisor | `core/agent/terminal/process-supervisor.ts` |
 | Provider 管理 | `core/provider/manager.ts` |
 | Provider registry schema | `core/provider/registry-schema.ts` |
 | Provider registry store | `core/provider/registry-store.ts` |
@@ -66,6 +74,9 @@
 | OpenAI 兼容 Provider | `core/provider/providers/openai.ts` |
 | Provider 凭据解析 | `core/provider/credentials.ts` |
 | Provider 错误归一化 | `core/provider/errors.ts` |
+| Persona 管理 | `core/persona/manager.ts` |
+| Persona registry schema | `core/persona/registry-schema.ts` |
+| Persona registry store | `core/persona/registry-store.ts` |
 | Skill 管理 | `core/skill/skill-manager.ts` |
 | Cron 管理 | `core/cron/cron-manager.ts` |
 
@@ -79,6 +90,8 @@
 | 设置共享类型 | `shared/types/settings.ts` |
 | Provider 共享类型 | `shared/types/provider.ts` |
 | Chat 共享类型 | `shared/types/chat.ts` |
+| Persona 共享类型 | `shared/types/persona.ts` |
+| 本地 Agent 共享类型 | `shared/types/local-agent.ts` |
 | 数据库连接和 migration 执行 | `core/db/client.ts` |
 | migration 列表 | `core/db/migrations.ts` |
 | repo 目录 | `core/db/repos/` |
@@ -94,8 +107,10 @@
 | Electron Node 脚本运行器 | `scripts/run-electron-node.mjs` |
 | 配置 smoke | `scripts/settings-config-smoke.ts` |
 | Provider registry smoke | `scripts/provider-registry-smoke.ts` |
+| Persona registry smoke | `scripts/persona-registry-smoke.ts` |
 | 数据库 smoke | `scripts/db-smoke.ts` |
 | 聊天 core smoke | `scripts/chat-core-smoke.ts` |
 | Agent runtime smoke | `scripts/agent-runtime-smoke.ts` |
 | Tool management smoke | `scripts/tool-management-smoke.ts` |
+| Local agent smoke | `scripts/local-agent-smoke.ts` |
 | Playwright 配置 | `playwright.config.js` |

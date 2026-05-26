@@ -5,11 +5,13 @@
 按任务类型展开：
 
 1. 聊天会话/消息/run：读 `聊天运行流`
-2. 附件：读 `附件`
-3. Provider/模型：读 `Provider`
-4. Agent/工具：读 `Agent 与工具`
-5. Skill/Cron：读 `Skill 与 Cron`
-6. 涉及 repo/schema：再读 [core.md](core.md) 的 `数据库`
+2. 系统上下文/人格：读 `系统上下文与 Persona`
+3. 附件：读 `附件`
+4. Provider/模型：读 `Provider`
+5. Agent/工具：读 `Agent 与工具`
+6. 本地 workspace/terminal：读 `本地 Workspace 与 Terminal`
+7. Skill/Cron：读 `Skill 与 Cron`
+8. 涉及 repo/schema：再读 [core.md](core.md) 的 `数据库`
 
 ---
 
@@ -25,10 +27,19 @@
 - SHOULD：为长运行任务记录 request snapshot，便于排查模式、工具、上下文和 fallback 原因。
 - SHOULD：UI 中的流式展示基于 `onStreamEvent`，legacy token/done 订阅只作为过渡。
 
+## 系统上下文与 Persona
+
+- MUST：基础 system prompt、mask、persona 作为会话 `systemContext` 进入上下文，不作为普通聊天消息持久化。
+- MUST：新会话创建时捕获当前默认系统上下文和 active persona；后续修改 persona 不隐式改写已有会话。
+- MUST：Persona registry 通过 `PersonaManager` 管理，renderer 只能通过 bridge/store 创建、更新、删除和设置默认人格。
+- MUST：persona prompt 与 mask text 视为用户指令类敏感内容，不写入日志、tool result、request snapshot 或 renderer debug context。
+- MUST：删除 active persona 时只清理 registry 默认引用；已创建会话保留创建时的 `systemContext`，除非显式更新会话。
+- SHOULD：上下文选择保持 base system、mask、persona 高于摘要、技能 inventory 和普通消息。
+
 ## 日志
 
 - MUST：聊天、Provider、Agent 和工具链路的日志只记录 sessionId、runId、providerId、modelId、tool name、status、duration、fallback reason、error code/message、retryable/recoverable 等结构化信息。
-- MUST：不得记录原始 prompt、system prompt、消息正文、附件内容、tool args/result、Provider 响应体、API key、凭据或 MCP 原始 env/header。
+- MUST：不得记录原始 prompt、system prompt、persona prompt、mask text、消息正文、附件内容、tool args/result、Provider 响应体、API key、凭据或 MCP 原始 env/header。
 - MUST：错误进入日志前先走已有归一化和脱敏流程，避免把原始异常对象和敏感上下文直接写出。
 - SHOULD：长运行或流式路径在 started、completed、failed、aborted 等节点补齐日志，便于追踪 run 生命周期。
 - SHOULD：debug 级上下文只保留最小可追踪信息。
@@ -71,11 +82,13 @@
 ## Agent 与工具
 
 - MUST：Agent 工具由 `ToolRegistry` 注册，由 `ToolExecutor` 执行，由 `ToolPolicy` 决策。
-- MUST：默认拒绝需要 approval 的 write、network、exec 风险工具，直到产品有明确授权流程。
+- MUST：非 power profile 的 write、network、exec 风险工具默认进入 approval 流程；未授权不得执行。
+- MUST：power profile 代表 full local access，入口、设置和日志上下文必须明确区分，不当作普通 assistant profile。
 - MUST：工具结果写回 assistant message 的 tool call part，并发出对应 stream event。
 - MUST：工具只能访问当前会话授权范围内的数据。
 - MUST：新增内置工具时同步工具定义、执行逻辑、管理列表、工具开关和策略可见性。
-- MUST：认清当前工具边界：内置工具只有 `system_time`、`calculator`、`attachment_text_read`、`attachment_text_search`；没有 shell、文件写入、任意网络访问工具。
+- MUST：tool profile 决定可见工具；`minimal` 只暴露 safe/read 工具，`assistant` 和 `power` 才能暴露任务、workspace 和 terminal 类工具。
+- MUST：认清当前内置工具边界：`system_time`、`calculator`、`attachment_text_read`、`attachment_text_search`、`future_task`、`skill_read`、`workspace_file`、`terminal_exec`。
 - MUST：工具和 Provider 错误在写日志前先归一化，不直接把原始异常、请求体或回包正文塞进日志上下文。
 - SHOULD：工具执行支持超时和 abort。
 - MAY：扩展 tool profile，但必须同步 policy、工具定义和 UI 管理。
@@ -86,14 +99,29 @@
 2. 更新 tool policy 的 profile 可见性。
 3. 更新 tool management 显示和开关。
 4. 确认风险等级和 approval 行为。
-5. 添加或运行 agent/tool smoke。
+5. 添加或运行 agent/tool/local-agent smoke。
+
+## 本地 Workspace 与 Terminal
+
+- MUST：`workspace_file` 只操作当前 session 的 managed workspace，禁止父目录穿越、符号链接逃逸、敏感路径和超过配置上限的读写。
+- MUST：workspace 写入和 patch 必须走工具风险决策和 approval plan；renderer 不能直接发起 agent 写盘能力。
+- MUST：workspace 导出、删除和清理必须是显式 bridge 操作，不能由聊天工具隐式触发。
+- MUST：`terminal_exec` 只能通过 Agent 工具链触发；renderer 只允许列出、查看、终止已登记进程，不提供任意命令 IPC。
+- MUST：assistant profile 的 terminal 默认 ask-first，并受 approval/allow/deny 和命令 allow/deny pattern 约束；power profile 是 full local access。
+- MUST：terminal cwd 默认限制在 managed workspace；只有 full access profile 才能使用本机绝对路径或外部路径。
+- MUST：terminal 环境变量采用最小白名单和显式 env，不把完整 `process.env`、凭据或原始 env 写入日志/request snapshot。
+- MUST：terminal stdout/stderr 只作为工具结果或进程尾部摘要按配置截断；日志只记录状态、耗时和 id。
+- MUST：后台进程必须受数量和生命周期上限控制，并支持 list/get/kill。
+- SHOULD：不要把 network/pty 配置标记当成系统级隔离；依赖真实 enforcement 前先补契约、实现和 smoke。
 
 ## Skill 与 Cron
 
-- MUST：Skill、Cron 当前能力保持轻量边界。
-- MUST：Cron 当前为空列表；新增真实执行能力前先补契约、存储和安全策略。
-- MUST：Skill 当前不是完整 agent 执行链；接入 agent 前先补加载、启用、权限和执行边界。
-- MAY：对 Skill/Cron 先提供只读列表，执行能力后续补齐。
+- MUST：Skill 与 Cron 保持会话边界和最小权限，不绕过 Provider、tool profile、approval 或 run 状态管理。
+- MUST：`skill_read` 只读取已启用 skill 的指令内容，不执行 skill 内任意代码或脚本。
+- MUST：Skill inventory 注入和 `skill_read` 内容不进入日志或 request snapshot。
+- MUST：`future_task` 只能管理当前聊天会话关联的任务，不跨会话创建、编辑或删除。
+- MUST：scheduled task 执行仍走既有 Agent/provider/tool policy，不直接调用工具实现或 Provider client。
+- MUST：`scheduledTasks.enabled` 默认关闭；开启执行能力时同步配置、UI、runner 状态和 smoke。
 
 ## 消息片段变更
 
@@ -113,6 +141,8 @@
 | 上下文 | `core/chat/context-manager.ts` |
 | run 管理 | `core/chat/run-manager.ts` |
 | 附件 | `core/chat/attachment-service.ts` |
+| Persona 管理 | `core/persona/manager.ts` |
+| Persona registry | `core/persona/registry-store.ts` |
 | Agent 运行入口 | `core/agent/agent-runner.ts` |
 | Agent step engine | `core/agent/step-engine.ts` |
 | Agent run 支撑模块 | `core/agent/run/` |
@@ -121,6 +151,9 @@
 | 工具注册 | `core/agent/tools/registry.ts` |
 | 工具执行 | `core/agent/tools/executor.ts` |
 | 工具策略 | `core/agent/tools/policy.ts` |
+| Agent workspace | `core/agent/workspace/service.ts` |
+| Terminal service | `core/agent/terminal/terminal-service.ts` |
+| Process supervisor | `core/agent/terminal/process-supervisor.ts` |
 | Provider 管理 | `core/provider/manager.ts` |
 | Provider 抽象 | `core/provider/base-provider.ts` |
 | OpenAI 兼容 Provider | `core/provider/providers/openai.ts` |
@@ -133,7 +166,9 @@
 
 - [ ] run、message、stream event 状态一致。
 - [ ] abort 路径更新 run 和 assistant message。
+- [ ] systemContext/persona 没有被误写入普通消息、日志或 request snapshot。
 - [ ] Provider 错误已归一化。
 - [ ] 工具风险等级和 policy 已核对。
+- [ ] workspace/terminal 的 profile、approval、full access 边界已核对。
 - [ ] 附件访问仅限当前会话可用范围。
-- [ ] 已运行相关 chat/agent/tool smoke 或说明未运行原因。
+- [ ] 已运行相关 chat/agent/tool/local-agent smoke 或说明未运行原因。

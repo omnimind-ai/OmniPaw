@@ -6,8 +6,9 @@
 
 1. 只改 main/core 依赖关系：先读 `Core 边界`、`依赖注入与初始化`
 2. 涉及配置文件、Provider 配置、工具开关：再读 `配置`
-3. 涉及 SQLite、repo、migration：再读 `数据库`
-4. 涉及聊天、Provider、Agent、工具：再读 [chat-provider-agent.md](chat-provider-agent.md)
+3. 涉及 Persona、本地 workspace、terminal：再读 `配置`
+4. 涉及 SQLite、repo、migration：再读 `数据库`
+5. 涉及聊天、Provider、Agent、工具：再读 [chat-provider-agent.md](chat-provider-agent.md)
 
 ---
 
@@ -17,6 +18,7 @@
 - MUST NOT：renderer 或 preload 直接导入 `@core/*`。
 - MUST：跨层类型来自 `shared/types/*`，不要在 core 内定义另一套对外契约。
 - MUST：DB、文件、Provider 网络请求、附件读写只在 main/core 侧发生。
+- MUST：本地 workspace、terminal、进程管理只在 main/core 侧发生，renderer 只能通过 bridge 请求受限能力。
 - MUST：对用户数据路径使用 Electron `app.getPath('userData')` 或已有路径解析函数，不散落硬编码路径。
 - SHOULD：让 core 代码可被 smoke script 在 Electron Node 环境中运行。
 
@@ -41,7 +43,7 @@
 
 - MUST：core / main 统一通过项目 logger 输出结构化日志，不直接使用 `console.*` 作为业务日志通道；`electron-log` 只允许出现在日志适配层。
 - MUST：logger 通过构造函数注入到 service / manager / repo 边界，子域通过 `child()` 派生 scope，不在业务方法里临时 new 另一个 logger。
-- MUST：日志只保留 id、status、duration、error code/message、retryable/recoverable、fallback reason 等结构化字段，不记录 prompt、附件正文、Provider 响应体、API key、凭据或 MCP 原始 env/header。
+- MUST：日志只保留 id、status、duration、error code/message、retryable/recoverable、fallback reason 等结构化字段，不记录 prompt、system prompt、persona prompt、mask text、附件正文、Provider 响应体、API key、凭据、terminal env 或 MCP 原始 env/header。
 - MUST：日志写入前必须经过现有脱敏和截断流程，sink 失败不得影响主流程，只能降级为丢弃或失败计数。
 - SHOULD：诊断信息优先写入 scope 和 context，避免把长文本 stack 或自由文本拼成不可检索字段。
 
@@ -67,7 +69,6 @@
 - MUST：同步更新 `core/config/schema.ts` 的默认值、normalize、validate、serialize 兼容逻辑。
 - MUST：同步更新 `src/bridge/app.ts` 的 bridge 配置类型。
 - MUST：同步更新 `src/stores/settings.ts` 和相关设置 UI。
-- SHOULD：检查 `settings-config-design.md` 是否仍代表当前设计。
 
 ### Provider 配置
 
@@ -79,6 +80,14 @@
 - MUST：保存 Provider 时处理 credential，不把 API key 回显到 renderer 的 provider registry、provider 列表或日志中。
 - MUST：认清 Provider 配置与 Provider 执行实现不是一回事；新增 preset 不代表该 Provider 已可执行。
 - SHOULD：Provider 模型、能力、compat 字段保持 registry、shared type、UI 三侧命名一致。
+
+### Persona Registry
+
+- MUST：Persona registry 来源于独立文件（默认 `personas.json`），不写入 `DesktopSettingsConfig` 或数据库表；会话 `systemContext` snapshot 不视为 registry 存储。
+- MUST：通过 `PersonaRegistryStore` 和 `PersonaManager` 读写，保持备份、原子写入、错误状态和 clone 语义。
+- MUST：`defaultPersonaId` 只能引用有效 profile；删除 profile 时在 core 侧清理默认引用。
+- MUST：persona prompt 视为用户指令类敏感内容，不写入日志、错误上下文、IPC 日志或 request snapshot。
+- SHOULD：Persona registry 版本由 schema 管理；不静默接受未来版本。
 
 ### 工具开关配置
 
@@ -144,6 +153,12 @@
 | 配置 schema | `core/config/schema.ts` |
 | 配置读写 | `core/config/store.ts` |
 | 工具配置适配 | `core/config/tool-settings-store.ts` |
+| Persona 管理 | `core/persona/manager.ts` |
+| Persona registry schema/store | `core/persona/registry-schema.ts`、`core/persona/registry-store.ts` |
+| 本地 workspace | `core/agent/workspace/service.ts` |
+| terminal service | `core/agent/terminal/terminal-service.ts` |
+| process supervisor | `core/agent/terminal/process-supervisor.ts` |
+| 本地 Agent 共享类型 | `shared/types/local-agent.ts` |
 | 数据库连接 | `core/db/client.ts` |
 | Migration | `core/db/migrations.ts` |
 | Repo | `core/db/repos/` |
@@ -156,5 +171,7 @@
 - [ ] 新能力通过 shared 类型跨层。
 - [ ] 依赖从 `electron/core-runtime.ts` 初始化链路进入。
 - [ ] 配置字段变更同步了 shared type、默认值、normalize、validate、UI/store。
+- [ ] Persona registry 变更没有混入桌面配置或数据库表。
+- [ ] workspace/terminal 变更保持 main/core 边界和 profile/approval 语义。
 - [ ] schema 变更有新 migration，repo 映射和 shared 类型已同步。
 - [ ] smoke script 可覆盖的路径已运行或说明未运行原因。

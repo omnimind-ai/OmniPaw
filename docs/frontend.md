@@ -6,10 +6,11 @@
 
 1. 页面/路由：读 `Renderer 边界`、`路由`
 2. 设置页/Provider 设置：读 `状态管理`、`设置页面`
-3. 组件/样式：读 `shadcn-vue 与样式`
-4. 错误提示/操作反馈：读 `错误与反馈`
-5. 聊天 UI：读 `聊天页面`
-6. 需要 main/core 能力：再读 [electron-ipc.md](electron-ipc.md)
+3. Persona 或本地 Agent 设置：读 `Persona 设置页面`、`本地 Agent 设置`
+4. 组件/样式：读 `shadcn-vue 与样式`
+5. 错误提示/操作反馈：读 `错误与反馈`
+6. 聊天 UI：读 `聊天页面`
+7. 需要 main/core 能力：再读 [electron-ipc.md](electron-ipc.md)
 
 ---
 
@@ -84,6 +85,22 @@
 - SHOULD：Provider 模型、能力、compat 字段保持 config、shared type、UI 三侧命名一致。
 - SHOULD：测试 Provider、刷新模型、保存、删除路径提供 loading/disabled/error 状态。
 
+## Persona 设置页面
+
+- MUST：Persona 列表、创建、编辑、删除和默认选择通过 `usePersonaStore` 和 bridge，不混入 settings draft。
+- MUST：Persona prompt 视为系统上下文敏感内容，不进入 renderer 日志、toast 详情、调试上下文或聊天消息正文。
+- MUST：默认 Persona 只影响新建会话；已创建会话的 `systemContext` 不随设置页修改隐式变化。
+- MUST：fallback bridge 下禁用 Persona 保存类操作，不假成功。
+- SHOULD：加载、保存、删除、启用和停用路径提供 loading/disabled/error 状态。
+
+## 本地 Agent 设置
+
+- MUST：workspace/terminal 开关和限制走 settings draft/autosave，不绕过 settings store。
+- MUST：UI 文案区分 assistant ask-first 与 power full local access；power 不伪装成普通开关或低风险模式。
+- MUST：Workspace 文件状态和 terminal process 操作通过 bridge，不在 renderer 直接访问 Node、文件系统或 shell。
+- MUST：不要在 UI 日志或 toast 详情里回显完整 env、未截断 stdout/stderr、敏感路径或凭据。
+- SHOULD：删除、导出、终止进程等操作使用明确用户动作和可恢复反馈。
+
 ## shadcn-vue 与样式
 
 - MUST：优先复用 `src/components/ui/` 已落地的 shadcn-vue/Reka UI 组件，如有必要可参考 shadcn vue相关skill中的约束添加ui。
@@ -122,10 +139,13 @@
 | 设置表单 | `src/components/settings/` |
 | Provider 设置子组件 | `src/components/settings/provider-settings/` |
 | Provider 设置弹窗 | `src/components/settings/provider-settings/ProviderDeleteModal.vue` |
+| Persona 设置 | `src/components/settings/PersonaSettingsForm.vue` |
+| 本地 Agent 设置 | `src/components/settings/LocalAgentSettingsForm.vue` |
 | 基础 UI | `src/components/ui/` |
 | 聊天状态 | `src/stores/chat.ts` |
 | 设置状态 | `src/stores/settings.ts` |
 | Provider 状态 | `src/stores/provider.ts` |
+| Persona 状态 | `src/stores/persona.ts` |
 | bridge | `src/bridge/app.ts` |
 
 ## 自检清单
@@ -133,6 +153,7 @@
 - [ ] renderer 没有直接访问 Node、Electron main、数据库或文件系统。
 - [ ] 新增 UI 复用了现有 shadcn-vue 组件和语义 token。
 - [ ] 设置和 Provider 表单没有破坏 draft/autosave。
+- [ ] Persona 与本地 Agent 设置没有绕过对应 store/bridge 边界。
 - [ ] 用户可见错误和操作反馈使用现有 toast 封装。
 - [ ] 所有 bridge payload 使用 shared 类型。
 - [ ] 事件订阅、计时器、媒体 URL 已清理。

@@ -22,9 +22,12 @@
 - SHOULD 常规 TS/Vue 改动运行 `pnpm typecheck`。
 - SHOULD main/preload/build 配置改动运行 `pnpm build`。
 - SHOULD 配置改动运行 `pnpm settings-config:smoke`。
+- SHOULD Provider registry 改动运行 `pnpm provider-registry:smoke`。
+- SHOULD Persona registry 改动运行 `pnpm persona-registry:smoke`。
 - SHOULD 数据库改动运行 `pnpm db:smoke`。
 - SHOULD 聊天 core 改动运行 `pnpm chat-core:smoke`。
 - SHOULD Agent/tool 改动运行 `pnpm chat-core:smoke`、`node scripts/run-electron-node.mjs scripts/tool-management-smoke.ts` 或相关 agent smoke。
+- SHOULD 本地 workspace/terminal 改动运行 `pnpm local-agent:smoke`。
 - SHOULD logger / 日志系统改动运行 `pnpm logging:smoke`；如果同时影响 main、preload 或打包链路，再补 `pnpm build`。
 - SHOULD UI 行为改动在需要时运行 Playwright；运行前先核对现有测试是否与当前 UI 同步。
 
@@ -40,10 +43,13 @@
 | TypeScript / Vue 类型 | `pnpm typecheck` |
 | 完整构建 | `pnpm build` |
 | 配置 | `pnpm settings-config:smoke` |
+| Provider registry | `pnpm provider-registry:smoke` |
+| Persona registry | `pnpm persona-registry:smoke` |
 | 数据库 | `pnpm db:smoke` |
 | 聊天 core | `pnpm chat-core:smoke` |
 | Agent runtime | `node scripts/run-electron-node.mjs scripts/agent-runtime-smoke.ts` |
 | Tool management | `node scripts/run-electron-node.mjs scripts/tool-management-smoke.ts` |
+| 本地 workspace/terminal | `pnpm local-agent:smoke` |
 | 日志系统 | `pnpm logging:smoke` |
 | 本地开发 | `pnpm dev` |
 | 打包目录 | `pnpm pack` |
@@ -68,6 +74,7 @@
 ### 配置
 
 - [ ] shared type、默认值、normalize、validate、UI/store 已同步。
+- [ ] Provider/Persona registry 没有混入桌面配置或数据库表。
 - [ ] autosave 和 fallback bridge 行为已核对。
 - [ ] 秘密信息没有回显。
 
@@ -89,3 +96,4 @@
 - [ ] abort 路径可结束。
 - [ ] Provider 错误归一化。
 - [ ] 工具风险和权限边界已核对。
+- [ ] workspace/terminal profile、approval、full access 边界已核对。
