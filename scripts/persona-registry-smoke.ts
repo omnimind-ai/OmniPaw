@@ -5,7 +5,7 @@ import { join } from 'node:path'
 
 import { PersonaManager } from '../core/persona/manager'
 import { PersonaRegistryValidationError } from '../core/persona/registry-schema'
-import { PersonaRegistryStore, resolvePersonaRegistryPath } from '../core/persona/registry-store'
+import { PersonaRegistryStore } from '../core/persona/registry-store'
 
 const tempDir = mkdtempSync(join(tmpdir(), 'openomniclaw-persona-registry-smoke-'))
 
@@ -16,7 +16,7 @@ try {
   assert.equal(initial.version, 1)
   assert.equal(initial.profiles.length, 0)
   assert.equal(initial.defaultPersonaId, undefined)
-  const registryPath = resolvePersonaRegistryPath(tempDir, 'TestApp')
+  const registryPath = store.registryPath
   assert.equal(existsSync(registryPath), true)
 
   const manager = new PersonaManager({

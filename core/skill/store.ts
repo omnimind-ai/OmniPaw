@@ -11,6 +11,7 @@ import {
   writeFileSync,
 } from 'node:fs'
 import { dirname, join } from 'node:path'
+import { resolveOpenOmniClawDataRoot } from '@core/utils/data-paths'
 
 import type { SkillOperationError, SkillState, SkillStateStatus } from '@shared/types/skill'
 import {
@@ -25,8 +26,10 @@ import {
 } from './schema'
 
 export interface SkillStateStoreOptions {
-  userDataPath: string
+  userDataPath?: string
+  dataRootPath?: string
   fileName?: string
+  statePath?: string
 }
 
 export class SkillStateStore {
@@ -36,7 +39,8 @@ export class SkillStateStore {
   private lastError: SkillOperationError | undefined
 
   constructor(options: SkillStateStoreOptions) {
-    this.statePath = resolveSkillStatePath(options.userDataPath, options.fileName)
+    this.statePath =
+      options.statePath ?? resolveSkillStatePath(resolveSkillDataRoot(options), options.fileName)
     this.backupPath = `${this.statePath}.bak`
   }
 
@@ -174,10 +178,16 @@ export class SkillStateStore {
 }
 
 export function resolveSkillStatePath(
-  userDataPath: string,
+  dataRootPath: string,
   fileName = SKILL_STATE_FILE_NAME
 ): string {
-  return join(userDataPath, fileName)
+  return join(dataRootPath, fileName)
+}
+
+function resolveSkillDataRoot(options: SkillStateStoreOptions): string {
+  return options.dataRootPath
+    ? resolveOpenOmniClawDataRoot({ dataRootPath: options.dataRootPath })
+    : (options.userDataPath ?? resolveOpenOmniClawDataRoot())
 }
 
 function atomicWriteJson(path: string, content: string, backupPath?: string): void {

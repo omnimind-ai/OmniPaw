@@ -11,6 +11,7 @@ import {
 } from 'node:fs'
 import { dirname, join } from 'node:path'
 import type { Logger } from '@core/logging'
+import { resolveStoreDataRoot } from '@core/utils/data-paths'
 import type {
   DesktopSettingsConfig,
   DesktopSettingsStatus,
@@ -26,8 +27,10 @@ import {
 } from './schema'
 
 export interface ConfigStoreOptions {
-  appDataPath: string
+  appDataPath?: string
   appName?: string
+  dataRootPath?: string
+  configPath?: string
   logger?: Logger
 }
 
@@ -39,7 +42,7 @@ export class ConfigStore {
   private lastError: SettingsOperationError | undefined
 
   constructor(options: ConfigStoreOptions) {
-    this.configPath = resolveDesktopConfigPath(options.appDataPath, options.appName)
+    this.configPath = options.configPath ?? resolveDesktopConfigPath(resolveStoreDataRoot(options))
     this.backupPath = `${this.configPath}.bak`
     this.logger = options.logger
     this.logger?.debug('Config store initialized.', { path: this.configPath })
@@ -186,8 +189,8 @@ export class ConfigStore {
   }
 }
 
-export function resolveDesktopConfigPath(appDataPath: string, appName = 'OpenOmniClaw'): string {
-  return join(appDataPath, appName, 'config.json')
+export function resolveDesktopConfigPath(dataRootPath: string): string {
+  return join(dataRootPath, 'config', 'config.json')
 }
 
 function atomicWriteJson(path: string, content: string, backupPath?: string): void {

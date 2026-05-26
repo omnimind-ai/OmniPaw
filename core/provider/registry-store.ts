@@ -10,6 +10,7 @@ import {
   writeFileSync,
 } from 'node:fs'
 import { dirname, join } from 'node:path'
+import { resolveStoreDataRoot } from '@core/utils/data-paths'
 
 import type {
   ProviderRegistry,
@@ -27,9 +28,11 @@ import {
 } from './registry-schema'
 
 export interface ProviderRegistryStoreOptions {
-  appDataPath: string
+  appDataPath?: string
   appName?: string
+  dataRootPath?: string
   fileName?: string
+  registryPath?: string
 }
 
 export class ProviderRegistryStore {
@@ -39,11 +42,9 @@ export class ProviderRegistryStore {
   private lastError: ProviderRegistryOperationError | undefined
 
   constructor(options: ProviderRegistryStoreOptions) {
-    this.registryPath = resolveProviderRegistryPath(
-      options.appDataPath,
-      options.appName,
-      options.fileName
-    )
+    this.registryPath =
+      options.registryPath ??
+      resolveProviderRegistryPath(resolveStoreDataRoot(options), options.fileName)
     this.backupPath = `${this.registryPath}.bak`
   }
 
@@ -166,11 +167,10 @@ export class ProviderRegistryStore {
 }
 
 export function resolveProviderRegistryPath(
-  appDataPath: string,
-  appName = 'OpenOmniClaw',
+  dataRootPath: string,
   fileName = PROVIDER_REGISTRY_FILE_NAME
 ): string {
-  return join(appDataPath, appName, fileName)
+  return join(dataRootPath, 'config', fileName)
 }
 
 function atomicWriteJson(path: string, content: string, backupPath?: string): void {

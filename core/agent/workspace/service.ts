@@ -13,6 +13,7 @@ import {
 } from 'node:fs/promises'
 import { basename, dirname, join, relative, resolve, sep } from 'node:path'
 import type { Logger } from '@core/logging'
+import { resolveOpenOmniClawDataRoot } from '@core/utils/data-paths'
 import type {
   AgentWorkspaceFileEntry,
   AgentWorkspaceStatus,
@@ -24,7 +25,9 @@ import type {
 } from '@shared/types/local-agent'
 
 export interface AgentWorkspaceServiceOptions {
-  userDataPath: string
+  userDataPath?: string
+  dataRootPath?: string
+  rootPath?: string
   settings: () => LocalAgentWorkspaceSettings
   logger?: Logger
 }
@@ -89,7 +92,8 @@ export class AgentWorkspaceService {
   private readonly logger?: Logger
 
   constructor(private readonly options: AgentWorkspaceServiceOptions) {
-    this.rootPath = join(options.userDataPath, 'agent-workspaces', 'sessions')
+    this.rootPath =
+      options.rootPath ?? join(resolveWorkspaceDataRoot(options), 'agent-workspaces', 'sessions')
     this.logger = options.logger
   }
 
@@ -651,6 +655,12 @@ function isInside(candidate: string, root: string): boolean {
 
 function normalizeOutputPath(path: string): string {
   return path.split(sep).join('/')
+}
+
+function resolveWorkspaceDataRoot(options: AgentWorkspaceServiceOptions): string {
+  return options.dataRootPath
+    ? resolveOpenOmniClawDataRoot({ dataRootPath: options.dataRootPath })
+    : (options.userDataPath ?? resolveOpenOmniClawDataRoot())
 }
 
 function safeWorkspaceId(sessionId: string): string {

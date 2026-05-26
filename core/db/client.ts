@@ -2,6 +2,7 @@ import { mkdirSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { dirname, join } from 'node:path'
 import type { Logger } from '@core/logging'
+import { resolveOpenOmniClawDataPaths } from '@core/utils/data-paths'
 import Database from 'better-sqlite3'
 import { migrations } from './migrations'
 
@@ -9,6 +10,7 @@ export type DatabaseConnection = Database.Database
 
 export interface DatabaseClientOptions {
   path?: string
+  dataRootPath?: string
   appName?: string
   logger?: Logger
 }
@@ -19,7 +21,7 @@ export class DatabaseClient {
   private readonly logger?: Logger
 
   constructor(options: DatabaseClientOptions = {}) {
-    this.path = options.path ?? resolveDatabasePath(options.appName)
+    this.path = options.path ?? resolveDatabasePath(options)
     this.logger = options.logger
   }
 
@@ -72,16 +74,30 @@ export class DatabaseClient {
   }
 }
 
-export function resolveDatabasePath(appName = 'OpenOmniClaw'): string {
+export function resolveDatabasePath(
+  options: { dataRootPath?: string; appName?: string } | string = {}
+): string {
+  const appName = typeof options === 'string' ? options : options.appName
+  const dataRootPath = typeof options === 'string' ? undefined : options.dataRootPath
+  if (dataRootPath) {
+    return resolveOpenOmniClawDataPaths({ dataRootPath }).database
+  }
+
   const electronApp = getElectronApp()
   if (electronApp?.isReady?.()) {
-    return join(electronApp.getPath('userData'), 'openomniclaw.sqlite3')
+    return resolveOpenOmniClawDataPaths({ appDataPath: electronApp.getPath('appData') }).database
+  }
+
+  if (process.env.OPENOMNICLAW_DB_DIR) {
+    return join(process.env.OPENOMNICLAW_DB_DIR, 'openomniclaw.sqlite3')
+  }
+
+  if (!appName) {
+    return resolveOpenOmniClawDataPaths().database
   }
 
   const base =
-    process.env.OPENOMNICLAW_DB_DIR ??
-    process.env.XDG_DATA_HOME ??
-    join(process.env.HOME ?? process.cwd(), '.local', 'share')
+    process.env.XDG_DATA_HOME ?? join(process.env.HOME ?? process.cwd(), '.local', 'share')
 
   return join(base, appName, 'openomniclaw.sqlite3')
 }

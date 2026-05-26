@@ -1,6 +1,7 @@
 import { join } from 'node:path'
 
 import type { Logger } from '@core/logging'
+import { resolveOpenOmniClawDataRoot } from '@core/utils/data-paths'
 import type {
   ImportSkillRequest,
   ImportSkillResponse,
@@ -25,7 +26,8 @@ import {
 import { SkillStateStore } from './store'
 
 export interface SkillManagerOptions {
-  userDataPath: string
+  userDataPath?: string
+  dataRootPath?: string
   store?: SkillStateStore
   loader?: SkillLoader
   roots?: SkillRoot[]
@@ -48,12 +50,13 @@ export class SkillManager {
   private readSkillIds = new Set<string>()
 
   constructor(private readonly options: SkillManagerOptions) {
-    this.store = options.store ?? new SkillStateStore({ userDataPath: options.userDataPath })
+    const dataRootPath = resolveSkillManagerDataRoot(options)
+    this.store = options.store ?? new SkillStateStore({ dataRootPath })
     this.loader = options.loader ?? new SkillLoader()
     this.roots = options.roots ?? [
       {
         name: 'local',
-        path: join(options.userDataPath, SKILL_ROOT_DIRECTORY_NAME),
+        path: join(dataRootPath, SKILL_ROOT_DIRECTORY_NAME),
       },
     ]
     this.logger = options.logger
@@ -296,4 +299,10 @@ export class SkillManager {
       status: this.store.status(),
     })
   }
+}
+
+function resolveSkillManagerDataRoot(options: SkillManagerOptions): string {
+  return options.dataRootPath
+    ? resolveOpenOmniClawDataRoot({ dataRootPath: options.dataRootPath })
+    : (options.userDataPath ?? resolveOpenOmniClawDataRoot())
 }

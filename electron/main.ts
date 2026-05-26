@@ -1,6 +1,7 @@
 import { join } from 'node:path'
 
 import { createElectronLogSink, createProjectLogger } from '@core/logging'
+import { resolveOpenOmniClawDataPaths } from '@core/utils/data-paths'
 import { APP_NAME, IPC_CHANNELS } from '@shared/constants'
 import type { ChatSession } from '@shared/types/chat'
 import type { CronTaskChangedEvent } from '@shared/types/cron'
@@ -64,13 +65,12 @@ registerProcessDiagnostics()
 
 function resolveAppLogsPath(): string {
   try {
-    app.setAppLogsPath()
-    return app.getPath('logs')
+    return resolveOpenOmniClawDataPaths({ appDataPath: app.getPath('appData') }).logs
   } catch {
     try {
-      return join(app.getPath('userData'), 'logs')
+      return resolveOpenOmniClawDataPaths().logs
     } catch {
-      return join(process.cwd(), 'logs')
+      return join(process.cwd(), 'openomniclaw', 'logs')
     }
   }
 }

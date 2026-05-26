@@ -10,6 +10,7 @@ import {
   writeFileSync,
 } from 'node:fs'
 import { dirname, join } from 'node:path'
+import { resolveStoreDataRoot } from '@core/utils/data-paths'
 
 import type {
   PersonaRegistry,
@@ -27,9 +28,11 @@ import {
 } from './registry-schema'
 
 export interface PersonaRegistryStoreOptions {
-  appDataPath: string
+  appDataPath?: string
   appName?: string
+  dataRootPath?: string
   fileName?: string
+  registryPath?: string
 }
 
 export class PersonaRegistryStore {
@@ -39,11 +42,9 @@ export class PersonaRegistryStore {
   private lastError: PersonaRegistryOperationError | undefined
 
   constructor(options: PersonaRegistryStoreOptions) {
-    this.registryPath = resolvePersonaRegistryPath(
-      options.appDataPath,
-      options.appName,
-      options.fileName
-    )
+    this.registryPath =
+      options.registryPath ??
+      resolvePersonaRegistryPath(resolveStoreDataRoot(options), options.fileName)
     this.backupPath = `${this.registryPath}.bak`
   }
 
@@ -165,11 +166,10 @@ export class PersonaRegistryStore {
 }
 
 export function resolvePersonaRegistryPath(
-  appDataPath: string,
-  appName = 'OpenOmniClaw',
+  dataRootPath: string,
   fileName = PERSONA_REGISTRY_FILE_NAME
 ): string {
-  return join(appDataPath, appName, fileName)
+  return join(dataRootPath, 'config', fileName)
 }
 
 function atomicWriteJson(path: string, content: string, backupPath?: string): void {

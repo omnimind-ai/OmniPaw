@@ -11,6 +11,7 @@ import {
   writeFileSync,
 } from 'node:fs'
 import { dirname, join } from 'node:path'
+import { resolveOpenOmniClawDataRoot } from '@core/utils/data-paths'
 
 import type {
   McpOperationError,
@@ -29,8 +30,10 @@ import {
 } from './schema'
 
 export interface McpRegistryStoreOptions {
-  userDataPath: string
+  userDataPath?: string
+  dataRootPath?: string
   fileName?: string
+  registryPath?: string
 }
 
 export class McpRegistryStore {
@@ -40,7 +43,8 @@ export class McpRegistryStore {
   private lastError: McpOperationError | undefined
 
   constructor(options: McpRegistryStoreOptions) {
-    this.registryPath = resolveMcpRegistryPath(options.userDataPath, options.fileName)
+    this.registryPath =
+      options.registryPath ?? resolveMcpRegistryPath(resolveMcpDataRoot(options), options.fileName)
     this.backupPath = `${this.registryPath}.bak`
   }
 
@@ -213,10 +217,16 @@ export class McpRegistryStore {
 }
 
 export function resolveMcpRegistryPath(
-  userDataPath: string,
+  dataRootPath: string,
   fileName = MCP_REGISTRY_FILE_NAME
 ): string {
-  return join(userDataPath, fileName)
+  return join(dataRootPath, 'config', fileName)
+}
+
+function resolveMcpDataRoot(options: McpRegistryStoreOptions): string {
+  return options.dataRootPath
+    ? resolveOpenOmniClawDataRoot({ dataRootPath: options.dataRootPath })
+    : (options.userDataPath ?? resolveOpenOmniClawDataRoot())
 }
 
 function atomicWriteJson(path: string, content: string, backupPath?: string): void {

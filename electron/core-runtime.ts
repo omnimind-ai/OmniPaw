@@ -33,6 +33,7 @@ import { ProviderManager } from '@core/provider/manager'
 import { ProviderRegistryValidationError } from '@core/provider/registry-schema'
 import { ProviderRegistryStore } from '@core/provider/registry-store'
 import { SkillManager, SkillValidationError } from '@core/skill'
+import { resolveOpenOmniClawDataPaths } from '@core/utils/data-paths'
 import { SYSTEM_SESSION_IDS } from '@shared/constants'
 import type { ChatSession } from '@shared/types/chat'
 import type { CronTaskChangedEvent } from '@shared/types/cron'
@@ -79,7 +80,13 @@ export function createCoreRuntime(options: CoreRuntimeOptions): CoreRuntime {
   const startedAt = Date.now()
   coreLogger.info('Core initialization started.')
 
-  const dbClient = new DatabaseClient({ logger: coreLogger.child({ scope: 'db' }) })
+  const appDataPath = options.app.getPath('appData')
+  const dataPaths = resolveOpenOmniClawDataPaths({ appDataPath })
+
+  const dbClient = new DatabaseClient({
+    path: dataPaths.database,
+    logger: coreLogger.child({ scope: 'db' }),
+  })
   const db = dbClient.connect()
   seedDefaultChatData(db)
   coreLogger.debug('Default chat seed checked.')
@@ -92,13 +99,12 @@ export function createCoreRuntime(options: CoreRuntimeOptions): CoreRuntime {
   const cronTaskRepo = new CronTaskRepo(db)
   const cronRunRepo = new CronRunRepo(db)
   const configStore = new ConfigStore({
-    appDataPath: options.app.getPath('appData'),
-    appName: options.appName,
+    dataRootPath: dataPaths.root,
     logger: coreLogger.child({ scope: 'config' }),
   })
   loadStartupConfig(configStore, options.lifecycleLogger)
   const agentWorkspaceService = new AgentWorkspaceService({
-    userDataPath: options.app.getPath('userData'),
+    dataRootPath: dataPaths.root,
     settings: () => configStore.get().tools.workspace,
     logger: coreLogger.child({ scope: 'agent.workspace' }),
   })
@@ -128,7 +134,7 @@ export function createCoreRuntime(options: CoreRuntimeOptions): CoreRuntime {
   })
 
   const mcpServerManager = new McpServerManager({
-    store: new McpRegistryStore({ userDataPath: options.app.getPath('userData') }),
+    store: new McpRegistryStore({ dataRootPath: dataPaths.root }),
     reservedToolNames: listBuiltinToolDefinitions().map((tool) => tool.name),
     onChanged: options.onMcpChanged,
     logger: coreLogger.child({ scope: 'mcp' }),
@@ -136,7 +142,7 @@ export function createCoreRuntime(options: CoreRuntimeOptions): CoreRuntime {
   loadStartupMcp(mcpServerManager, options.lifecycleLogger)
 
   const skillManager = new SkillManager({
-    userDataPath: options.app.getPath('userData'),
+    dataRootPath: dataPaths.root,
     onChanged: options.onSkillChanged,
     logger: coreLogger.child({ scope: 'skill' }),
   })
@@ -166,8 +172,7 @@ export function createCoreRuntime(options: CoreRuntimeOptions): CoreRuntime {
 
   const personaManager = new PersonaManager({
     registryStore: new PersonaRegistryStore({
-      appDataPath: options.app.getPath('appData'),
-      appName: options.appName,
+      dataRootPath: dataPaths.root,
     }),
     logger: coreLogger.child({ scope: 'persona' }),
   })
@@ -176,8 +181,7 @@ export function createCoreRuntime(options: CoreRuntimeOptions): CoreRuntime {
   const providerManager = new ProviderManager({
     configStore,
     registryStore: new ProviderRegistryStore({
-      appDataPath: options.app.getPath('appData'),
-      appName: options.appName,
+      dataRootPath: dataPaths.root,
     }),
     onConfigSaved: (saved) => options.onSettingsChanged('save', saved),
     logger: coreLogger.child({ scope: 'provider' }),
@@ -219,7 +223,10 @@ export function createCoreRuntime(options: CoreRuntimeOptions): CoreRuntime {
     },
   })
   loadStartupProviderRegistry(providerManager, options.lifecycleLogger)
-  const attachmentService = new AttachmentService({ repo: attachmentRepo })
+  const attachmentService = new AttachmentService({
+    repo: attachmentRepo,
+    rootDir: dataPaths.attachments,
+  })
   const contextBuilder = new ContextBuilder(attachmentService, {
     summaries: contextSummaryRepo,
     contextDefaults: () => configStore.get().app.chatContext,

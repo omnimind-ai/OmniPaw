@@ -1,9 +1,9 @@
 import { createHash } from 'node:crypto'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
-import { createRequire } from 'node:module'
 import { basename, extname, join } from 'node:path'
 
 import type { AttachmentRepo } from '@core/db/repos'
+import { resolveOpenOmniClawDataPaths } from '@core/utils/data-paths'
 import { inferComplexDocumentMimeType } from '@shared/attachment-documents'
 import type {
   Attachment,
@@ -32,7 +32,7 @@ export class AttachmentService {
 
   constructor(options: AttachmentServiceOptions) {
     this.repo = options.repo
-    this.rootDir = options.rootDir ?? join(resolveUserDataPath(), 'attachments')
+    this.rootDir = options.rootDir ?? resolveOpenOmniClawDataPaths().attachments
     this.maxAttachmentsPerMessage = options.maxAttachmentsPerMessage ?? 12
     this.maxFileBytes = options.maxFileBytes ?? 25 * 1024 * 1024
     this.maxExtractedChars = options.maxExtractedChars ?? 100_000
@@ -157,21 +157,6 @@ export class AttachmentService {
     const bytes = await readFile(attachment.storagePath)
     return `data:${attachment.mimeType};base64,${bytes.toString('base64')}`
   }
-}
-
-function resolveUserDataPath(): string {
-  try {
-    const require = createRequire(import.meta.url)
-    const electron = require('electron') as { app?: { getPath: (name: 'userData') => string } }
-    const userData = electron.app?.getPath?.('userData')
-    if (userData) {
-      return userData
-    }
-  } catch {
-    // Running smoke scripts outside Electron falls back below.
-  }
-
-  return join(process.env.OPENOMNICLAW_DATA_DIR ?? process.cwd(), '.openomniclaw')
 }
 
 export function attachmentIdFromPart(part: ChatMessagePart): string | undefined {
