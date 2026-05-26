@@ -4,6 +4,7 @@ import { createRequire } from 'node:module'
 import { basename, extname, join } from 'node:path'
 
 import type { AttachmentRepo } from '@core/db/repos'
+import { inferComplexDocumentMimeType } from '@shared/attachment-documents'
 import type {
   Attachment,
   AttachmentKind,
@@ -96,6 +97,18 @@ export class AttachmentService {
 
   get(id: string): InternalAttachmentRecord | undefined {
     return this.repo.get(id)
+  }
+
+  getLimits(): {
+    maxAttachmentsPerMessage: number
+    maxFileBytes: number
+    maxExtractedChars: number
+  } {
+    return {
+      maxAttachmentsPerMessage: this.maxAttachmentsPerMessage,
+      maxFileBytes: this.maxFileBytes,
+      maxExtractedChars: this.maxExtractedChars,
+    }
   }
 
   async getPreview(
@@ -217,6 +230,8 @@ function inferMimeType(name: string): string {
   if (ext === '.md') return 'text/markdown'
   if (ext === '.csv') return 'text/csv'
   if (ext === '.txt' || ext === '.log') return 'text/plain'
+  const complexDocumentMimeType = inferComplexDocumentMimeType(name)
+  if (complexDocumentMimeType) return complexDocumentMimeType
   return 'application/octet-stream'
 }
 

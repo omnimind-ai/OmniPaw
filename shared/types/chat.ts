@@ -382,6 +382,55 @@ export interface MessageAttachment {
   role: 'input' | 'output'
 }
 
+export interface WorkspaceStagedAttachmentMetadata {
+  attachmentId: ID
+  originalName: string
+  mimeType: string
+  sizeBytes: number
+  workspaceRelativePath: string
+}
+
+export type ComplexDocumentAttachmentRejectionReason =
+  | 'fast_chat_mode'
+  | 'minimal_profile'
+  | 'model_does_not_support_tools'
+  | 'workspace_disabled'
+  | 'terminal_disabled'
+  | 'workspace_tool_disabled'
+  | 'terminal_tool_disabled'
+  | 'workspace_tool_unavailable'
+  | 'terminal_tool_unavailable'
+  | 'attachment_not_authorized'
+  | 'attachment_not_found'
+  | 'attachment_size_limit'
+  | 'workspace_size_limit'
+  | 'staging_failed'
+
+export interface ComplexDocumentAttachmentRejection {
+  attachmentId?: ID
+  originalName?: string
+  mimeType?: string
+  sizeBytes?: number
+  reason: ComplexDocumentAttachmentRejectionReason
+  message: string
+}
+
+export interface ComplexDocumentAttachmentRunDiagnostic {
+  complexCount: number
+  stagedCount: number
+  rejectedCount: number
+  stagingStatus: 'none' | 'staged' | 'rejected'
+  requestedMode?: ChatRunMode
+  mode?: ChatRunMode
+  toolProfile?: ToolProfile
+  supportsTools: boolean
+  requiredTools: string[]
+  availableTools: string[]
+  providerFacingToolNames: string[]
+  staged?: WorkspaceStagedAttachmentMetadata[]
+  rejections?: ComplexDocumentAttachmentRejection[]
+}
+
 export interface ProviderRequestSnapshot {
   api: string
   baseUrlHost?: string
@@ -409,6 +458,7 @@ export interface ProviderRequestSnapshot {
     readSkillIds?: string[]
   }
   maxSteps?: number
+  complexDocumentAttachments?: ComplexDocumentAttachmentRunDiagnostic
   fallbackReason?: string
   fallbackReasons?: string[]
   messageCount: number

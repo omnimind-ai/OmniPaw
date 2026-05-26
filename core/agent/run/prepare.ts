@@ -1,9 +1,12 @@
 import type { BaseProvider } from '@core/provider/base-provider'
-import type { ChatRunMode } from '@shared/types/chat'
+import { throwProviderError } from '@core/provider/errors'
+import type { ChatRunMode, ToolProfile } from '@shared/types/chat'
 import type { SkillPromptContext } from '@shared/types/skill'
 import type { AgentRunInput, AgentRunnerOptions } from '../agent-runner'
 import { defaultToolPolicy } from '../tools/policy'
 import { providerToolsFromAgentTools } from '../tools/registry'
+import type { AgentTool } from '../tools/types'
+import { prepareRunDocumentAttachments } from './document-attachments'
 import { clampMaxSteps, injectToolInventory, providerSupportsTools } from './helpers'
 import { AgentRunState } from './state'
 
@@ -26,7 +29,7 @@ export async function prepareAgentRun(
     requestedMode === 'assistant' && !supportsTools
       ? 'provider_or_model_does_not_support_tools'
       : undefined
-  const sourceMessages = options.messages.listBySession(input.session.id)
+  let sourceMessages = options.messages.listBySession(input.session.id)
   const skillPrompt = options.skills?.buildPromptInventory({
     compact: options.compactSkillDescriptions?.() ?? true,
     supportsSystemRole: input.model.compat?.supportsSystemRole !== false,
@@ -37,6 +40,45 @@ export async function prepareAgentRun(
     mode === 'assistant'
       ? await options.toolRegistry.resolve({ sessionId: input.session.id, policy })
       : []
+  const documentAttachments = await prepareRunDocumentAttachments({
+    options,
+    input,
+    sourceMessages,
+    requestedMode,
+    mode,
+    supportsTools,
+    toolProfile,
+    agentTools,
+  })
+  sourceMessages = documentAttachments.sourceMessages
+  if (documentAttachments.rejectionMessage) {
+    const snapshot = {
+      api: input.provider.api ?? 'openai-chat-completions',
+      baseUrlHost: hostFromUrl(input.provider.baseUrl),
+      model: input.model.remoteId ?? input.model.id,
+      mode,
+      toolProfile,
+      availableTools: agentTools.map((tool) => tool.providerName ?? tool.name),
+      toolSources: agentTools.map((tool) => ({
+        name: tool.providerName ?? tool.name,
+        source: tool.source,
+        serverId: tool.serverId,
+      })),
+      localCapabilities: localCapabilitiesSnapshot(agentTools, toolProfile),
+      skills: skillSnapshot(skillPrompt),
+      maxSteps,
+      fallbackReason,
+      messageCount: 0,
+      attachmentCount: documentAttachments.diagnostic?.complexCount ?? 0,
+      complexDocumentAttachments: documentAttachments.diagnostic,
+    }
+    options.runs.save({ ...input.run, requestSnapshot: snapshot, updatedAt: Date.now() })
+    throwProviderError({
+      code: 'provider_bad_request',
+      message: documentAttachments.rejectionMessage,
+      retryable: false,
+    })
+  }
   const context = await options.contextBuilder.build({
     session: input.session,
     messages: sourceMessages,
@@ -64,19 +106,11 @@ export async function prepareAgentRun(
       serverId: tool.serverId,
     })),
     localCapabilities: {
-      enabled: agentTools.some((tool) => Boolean(tool.localCapability)),
-      providerFacingToolNames: agentTools
-        .filter((tool) => Boolean(tool.localCapability))
-        .map((tool) => tool.providerName ?? tool.name),
-      profile: toolProfile,
-      fullAccess: agentTools.some((tool) => tool.localCapability?.fullAccess),
-      hiddenReasons:
-        toolProfile === 'minimal'
-          ? ['minimal_profile_hides_local_write_and_terminal_tools']
-          : undefined,
+      ...localCapabilitiesSnapshot(agentTools, toolProfile),
     },
     skills: skillSnapshot(skillPrompt),
     maxSteps,
+    complexDocumentAttachments: documentAttachments.diagnostic,
     fallbackReason,
   }
   options.runs.save({ ...input.run, requestSnapshot: snapshot, updatedAt: Date.now() })
@@ -112,4 +146,27 @@ function skillSnapshot(skillPrompt: SkillPromptContext | undefined) {
         omittedReason: skillPrompt.omittedReason,
       }
     : undefined
+}
+
+function localCapabilitiesSnapshot(agentTools: AgentTool[], toolProfile: ToolProfile) {
+  return {
+    enabled: agentTools.some((tool) => Boolean(tool.localCapability)),
+    providerFacingToolNames: agentTools
+      .filter((tool) => Boolean(tool.localCapability))
+      .map((tool) => tool.providerName ?? tool.name),
+    profile: toolProfile,
+    fullAccess: agentTools.some((tool) => tool.localCapability?.fullAccess),
+    hiddenReasons:
+      toolProfile === 'minimal'
+        ? ['minimal_profile_hides_local_write_and_terminal_tools']
+        : undefined,
+  }
+}
+
+function hostFromUrl(value: string): string | undefined {
+  try {
+    return new URL(value).host
+  } catch {
+    return undefined
+  }
 }

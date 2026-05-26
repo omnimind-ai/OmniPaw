@@ -180,6 +180,33 @@ try {
   })
   assert.equal(terminalReject.result.status, 'denied')
 
+  const terminalFailure = await executor.execute({
+    toolCall: {
+      id: 'tool-3',
+      type: 'function',
+      function: {
+        name: 'terminal_exec',
+        arguments: JSON.stringify({
+          command: `node -e "process.stderr.write('missing converter'); process.exit(2)"`,
+        }),
+      },
+    },
+    tools,
+    policy: defaultToolPolicy('assistant'),
+    sessionId: 'session-1',
+    runId: 'run-1',
+    approval: {
+      request: async (display) => {
+        assert.equal(display.approval?.plan?.kind, 'terminal')
+        return true
+      },
+      update: () => {},
+    },
+  })
+  assert.equal(terminalFailure.result.status, 'complete')
+  assert.match(terminalFailure.result.resultText, /"status":"failed"/)
+  assert.match(terminalFailure.result.resultText, /missing converter/)
+
   await writeFile(join(status.filesPath, 'binary.bin'), Buffer.from([0, 1, 2, 3]))
   const binary = await workspace.readFile({ sessionId: 'session-1', path: 'binary.bin' })
   assert.equal(binary.binary, true)

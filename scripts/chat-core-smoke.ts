@@ -1,10 +1,19 @@
 import assert from 'node:assert/strict'
 import { mkdtempSync, rmSync } from 'node:fs'
+import { readFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { evaluateComplexDocumentAttachmentAdmission } from '../core/agent/run/document-attachments'
 import { ToolRegistry } from '../core/agent/tools/registry'
+import type { AgentTool } from '../core/agent/tools/types'
+import { AgentWorkspaceService } from '../core/agent/workspace'
 import { AttachmentService } from '../core/chat/attachment-service'
 import { ContextBuilder } from '../core/chat/context-manager'
+import {
+  stageWorkspaceDocumentAttachments,
+  withWorkspaceDocumentAttachmentsMetadata,
+} from '../core/chat/workspace-document-attachments'
+import { cloneDefaultConfig } from '../core/config/schema'
 import { ScheduledTaskAgentExecutor } from '../core/cron/scheduled-task-executor'
 import { DatabaseClient } from '../core/db/client'
 import { AttachmentRepo, ChatMessageRepo, ChatSessionRepo } from '../core/db/repos'
@@ -39,6 +48,14 @@ try {
     mimeType: 'image/png',
     bytes: Uint8Array.from([137, 80, 78, 71]).buffer,
   })
+  const docBytes = Uint8Array.from([0x50, 0x4b, 0x03, 0x04, 0, 1, 2, 3])
+  const docUpload = await attachments.upload({
+    name: 'Report Q1.docx',
+    mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    bytes: docBytes.buffer,
+  })
+  assert.equal(docUpload.attachment.kind, 'file')
+  assert.equal(docUpload.attachment.extractedTextStatus, 'none')
 
   const provider: ProviderConfig = {
     id: 'openai-compatible',
@@ -96,6 +113,187 @@ try {
   assert.equal(context.snapshot.attachmentCount, 2)
   assert.match(JSON.stringify(context.messages), /image_url/)
   assert.match(JSON.stringify(context.messages), /hello from file/)
+
+  const config = cloneDefaultConfig()
+  const workspace = new AgentWorkspaceService({
+    userDataPath: tempDir,
+    settings: () => config.tools.workspace,
+  })
+  const docMessage: ChatMessage = {
+    id: 'user-doc',
+    sessionId: 'session-doc',
+    role: 'user',
+    status: 'complete',
+    parts: [
+      { type: 'plain', text: 'read this document' },
+      { type: 'file', attachmentId: docUpload.attachment.id, filename: 'Report Q1.docx' },
+    ],
+    createdAt: 2,
+    updatedAt: 2,
+  }
+  const staged = await stageWorkspaceDocumentAttachments({
+    sessionId: 'session-doc',
+    messageId: docMessage.id,
+    parts: docMessage.parts,
+    attachmentIds: [docUpload.attachment.id],
+    attachments,
+    workspace,
+    attachmentMaxFileBytes: attachments.getLimits().maxFileBytes,
+    workspaceMaxFileBytes: config.tools.workspace.maxFileBytes,
+  })
+  const stagedAgain = await stageWorkspaceDocumentAttachments({
+    sessionId: 'session-doc',
+    messageId: docMessage.id,
+    parts: docMessage.parts,
+    attachmentIds: [docUpload.attachment.id],
+    attachments,
+    workspace,
+    attachmentMaxFileBytes: attachments.getLimits().maxFileBytes,
+    workspaceMaxFileBytes: config.tools.workspace.maxFileBytes,
+  })
+  assert.match(staged[0]?.workspaceRelativePath ?? '', /^attachments\/user-doc\/Report Q1\.docx$/)
+  assert.notEqual(staged[0]?.workspaceRelativePath, stagedAgain[0]?.workspaceRelativePath)
+  const stagedDocument = staged[0]
+  assert.ok(stagedDocument)
+  const workspaceStatus = await workspace.getStatus('session-doc')
+  assert.deepEqual(
+    await readFile(join(workspaceStatus.filesPath, stagedDocument.workspaceRelativePath)),
+    Buffer.from(docBytes)
+  )
+
+  const docContext = await new ContextBuilder(attachments).build({
+    session: {
+      id: 'session-doc',
+      title: 'Doc smoke',
+      status: 'active',
+      contextPolicy: {
+        mode: 'recent-turns',
+        maxMessages: 10,
+        includeAttachments: 'current-only',
+      },
+      createdAt: 2,
+      updatedAt: 2,
+    },
+    messages: [
+      {
+        ...docMessage,
+        metadata: withWorkspaceDocumentAttachmentsMetadata(docMessage.metadata, staged),
+      },
+    ],
+    currentUserMessageId: docMessage.id,
+    provider,
+    model: { ...model, supportsTools: true },
+  })
+  const docPrompt = JSON.stringify(docContext.messages)
+  assert.match(docPrompt, /workspace_attachment/)
+  assert.match(docPrompt, /attachments\/user-doc\/Report Q1\.docx/)
+  assert.doesNotMatch(docPrompt, new RegExp(escapeRegExp(tempDir)))
+  assert.doesNotMatch(docPrompt, /base64|UEsDB/)
+
+  const metadataOnlyContext = await new ContextBuilder(attachments).build({
+    session: {
+      id: 'session-doc',
+      title: 'Doc smoke',
+      status: 'active',
+      contextPolicy: {
+        mode: 'recent-turns',
+        maxMessages: 10,
+        includeAttachments: 'current-only',
+      },
+      createdAt: 2,
+      updatedAt: 2,
+    },
+    messages: [docMessage],
+    currentUserMessageId: docMessage.id,
+    provider,
+    model,
+  })
+  const metadataOnlyPrompt = JSON.stringify(metadataOnlyContext.messages)
+  assert.match(metadataOnlyPrompt, /has not been staged/)
+  assert.doesNotMatch(metadataOnlyPrompt, /workspace_attachment/)
+
+  const documentTools = [fakeAgentTool('workspace_file'), fakeAgentTool('terminal_exec')]
+  const documentRecord = attachments.get(docUpload.attachment.id)
+  assert.ok(documentRecord)
+  assert.equal(
+    evaluateComplexDocumentAttachmentAdmission({
+      documents: [documentRecord],
+      requestedMode: 'assistant',
+      mode: 'assistant',
+      supportsTools: true,
+      toolProfile: 'minimal',
+      agentTools: [],
+      workspaceServiceAvailable: true,
+      toolSettings: config.tools,
+      attachmentMaxFileBytes: attachments.getLimits().maxFileBytes,
+      workspaceMaxFileBytes: config.tools.workspace.maxFileBytes,
+    }).some((item) => item.reason === 'minimal_profile'),
+    true
+  )
+  assert.equal(
+    evaluateComplexDocumentAttachmentAdmission({
+      documents: [documentRecord],
+      requestedMode: 'assistant',
+      mode: 'fast_chat',
+      supportsTools: false,
+      toolProfile: 'assistant',
+      agentTools: [],
+      workspaceServiceAvailable: true,
+      toolSettings: config.tools,
+      attachmentMaxFileBytes: attachments.getLimits().maxFileBytes,
+      workspaceMaxFileBytes: config.tools.workspace.maxFileBytes,
+    }).some((item) => item.reason === 'model_does_not_support_tools'),
+    true
+  )
+  const disabledWorkspaceConfig = cloneDefaultConfig()
+  disabledWorkspaceConfig.tools.workspace.enabled = false
+  assert.equal(
+    evaluateComplexDocumentAttachmentAdmission({
+      documents: [documentRecord],
+      requestedMode: 'assistant',
+      mode: 'assistant',
+      supportsTools: true,
+      toolProfile: 'assistant',
+      agentTools: documentTools,
+      workspaceServiceAvailable: true,
+      toolSettings: disabledWorkspaceConfig.tools,
+      attachmentMaxFileBytes: attachments.getLimits().maxFileBytes,
+      workspaceMaxFileBytes: disabledWorkspaceConfig.tools.workspace.maxFileBytes,
+    }).some((item) => item.reason === 'workspace_disabled'),
+    true
+  )
+  const disabledTerminalConfig = cloneDefaultConfig()
+  disabledTerminalConfig.tools.terminal.enabled = false
+  assert.equal(
+    evaluateComplexDocumentAttachmentAdmission({
+      documents: [documentRecord],
+      requestedMode: 'assistant',
+      mode: 'assistant',
+      supportsTools: true,
+      toolProfile: 'assistant',
+      agentTools: documentTools,
+      workspaceServiceAvailable: true,
+      toolSettings: disabledTerminalConfig.tools,
+      attachmentMaxFileBytes: attachments.getLimits().maxFileBytes,
+      workspaceMaxFileBytes: disabledTerminalConfig.tools.workspace.maxFileBytes,
+    }).some((item) => item.reason === 'terminal_disabled'),
+    true
+  )
+  const disabledToolReasons = evaluateComplexDocumentAttachmentAdmission({
+    documents: [documentRecord],
+    requestedMode: 'assistant',
+    mode: 'assistant',
+    supportsTools: true,
+    toolProfile: 'assistant',
+    agentTools: documentTools,
+    workspaceServiceAvailable: true,
+    toolSettings: config.tools,
+    disabledToolNames: ['workspace_file', 'terminal_exec'],
+    attachmentMaxFileBytes: attachments.getLimits().maxFileBytes,
+    workspaceMaxFileBytes: config.tools.workspace.maxFileBytes,
+  }).map((item) => item.reason)
+  assert.equal(disabledToolReasons.includes('workspace_tool_disabled'), true)
+  assert.equal(disabledToolReasons.includes('terminal_tool_disabled'), true)
 
   const stream = new ReadableStream<Uint8Array>({
     start(controller) {
@@ -214,4 +412,22 @@ try {
 } finally {
   client.close()
   rmSync(tempDir, { recursive: true, force: true })
+}
+
+function fakeAgentTool(name: 'workspace_file' | 'terminal_exec'): AgentTool {
+  return {
+    name,
+    description: name,
+    parameters: { type: 'object' },
+    risk: name === 'terminal_exec' ? 'exec' : 'read',
+    source: 'builtin',
+    localCapability: {
+      kind: name === 'terminal_exec' ? 'terminal' : 'workspace',
+    },
+    execute: async () => ({ content: [{ type: 'text', text: '{}' }] }),
+  }
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
 }

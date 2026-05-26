@@ -1,3 +1,4 @@
+import { isComplexDocumentAttachment } from '@shared/attachment-documents'
 import type { ToolProfile } from '@shared/types/chat'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
@@ -85,6 +86,40 @@ export function useChatWorkspaceController() {
     )
     if (oversized) {
       return `${oversized.filename} 超过 ${formatBytes(ATTACHMENT_LIMITS.maxFileBytes)}。`
+    }
+    const complexDocument = media.stagedFiles.value.find((file) =>
+      isComplexDocumentAttachment({
+        filename: file.filename,
+        originalName: file.original_name,
+        mimeType: file.mimeType,
+      })
+    )
+    if (complexDocument) {
+      const tools = settingsStore.draft?.tools ?? settingsStore.config?.tools
+      if (
+        tools?.workspace?.maxFileBytes &&
+        Number(complexDocument.size || 0) > tools.workspace.maxFileBytes
+      ) {
+        return `${complexDocument.filename} 超过 workspace 文件限制 ${formatBytes(tools.workspace.maxFileBytes)}。`
+      }
+      if (agentToolProfile.value === 'minimal') {
+        return '最小工具模式无法读取 Office 文档，请切换到助手或高级权限。'
+      }
+      if (model.selectedModel.value?.toolCallingDisabled) {
+        return `${model.selectedModel.value.modelName} 当前配置不支持工具调用，无法读取 Office 文档。`
+      }
+      if (tools?.workspace?.enabled === false) {
+        return 'Workspace 能力已关闭，无法安全提供 Office 文档路径给 Agent。'
+      }
+      if (tools?.terminal?.enabled === false) {
+        return 'Terminal 能力已关闭，无法转换或读取 Office 文档。'
+      }
+      if (tools?.enabledByName?.workspace_file === false) {
+        return 'workspace_file 工具已禁用，无法提供 Office 文档路径给 Agent。'
+      }
+      if (tools?.enabledByName?.terminal_exec === false) {
+        return 'terminal_exec 工具已禁用，无法处理 Office 文档。'
+      }
     }
     const unsupported = media.stagedFiles.value.find(
       (file) => !model.modelSupportsAttachment(file.type)

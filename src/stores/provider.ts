@@ -63,6 +63,7 @@ export interface ProviderModelOption {
   input: Array<'text' | 'image' | 'audio' | 'file'>
   supportsStreaming: boolean
   supportsTools: boolean
+  toolCallingDisabled?: boolean
   supportsReasoning: boolean
   contextWindow?: number
   maxOutputTokens?: number
@@ -126,6 +127,10 @@ export const useProviderStore = defineStore('provider', () => {
     registryModels.value.map((model) => {
       const provider = rawProviders.value.find((source) => source.id === model.providerId)
       const input = modelInputModalities(model) as Array<'text' | 'image' | 'audio' | 'file'>
+      const toolCallingDisabled =
+        provider?.capabilities?.tools === false ||
+        model.capabilities?.tools === false ||
+        model.capabilities?.toolCall === false
       const supportsTools = Boolean(
         model.supportsTools || model.capabilities?.tools || model.capabilities?.toolCall
       )
@@ -144,7 +149,8 @@ export const useProviderStore = defineStore('provider', () => {
         enabled: provider?.enabled !== false && model.enabled !== false,
         input,
         supportsStreaming: model.supportsStreaming !== false,
-        supportsTools,
+        supportsTools: toolCallingDisabled ? false : supportsTools,
+        toolCallingDisabled,
         supportsReasoning,
         contextWindow: model.contextWindow,
         maxOutputTokens: model.maxOutputTokens,
@@ -216,7 +222,7 @@ export const useProviderStore = defineStore('provider', () => {
 
     const refreshedModels = await appBridge.provider.refreshModels(providerId)
     await loadProviders()
-    return refreshedModels
+    return refreshedModels.map((model) => normalizeBridgeProviderModel(model, providerId))
   }
 
   async function saveProvider(request: SaveProviderRequest): Promise<ProviderConfig | undefined> {
@@ -319,7 +325,8 @@ export const useProviderStore = defineStore('provider', () => {
   }
 
   async function listModels(providerId: string): Promise<ProviderModel[]> {
-    return (await appBridge.provider.listModels?.(providerId)) ?? []
+    const models = (await appBridge.provider.listModels?.(providerId)) ?? []
+    return models.map((model) => normalizeBridgeProviderModel(model, providerId))
   }
 
   async function setSessionModel(request: SetSessionModelRequest) {
@@ -522,6 +529,34 @@ function mapBridgeProvider(provider: BridgeProviderConfig): ProviderConfig[] {
       },
     } as ProviderConfig
   })
+}
+
+function normalizeBridgeProviderModel(
+  model: BridgeProviderModel,
+  providerId?: string
+): ProviderModel {
+  const input = modelInputModalities(model) as Array<'text' | 'image' | 'audio' | 'file'>
+  const supportsTools = Boolean(
+    model.supportsTools || model.capabilities?.tools || model.capabilities?.toolCall
+  )
+  const supportsReasoning = Boolean(model.supportsReasoning || model.capabilities?.reasoning)
+
+  return {
+    id: model.id,
+    providerId,
+    name: model.displayName || model.name || model.id,
+    remoteId: model.remoteId || model.id,
+    enabled: model.enabled !== false,
+    input,
+    supportsStreaming: model.supportsStreaming !== false,
+    supportsTools,
+    supportsReasoning,
+    contextWindow: model.contextWindow,
+    maxOutputTokens: model.maxOutputTokens,
+    compat: model.compat,
+    displayName: model.displayName,
+    capabilities: model.capabilities,
+  }
 }
 
 function attachModelsToSources(

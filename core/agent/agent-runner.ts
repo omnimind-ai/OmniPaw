@@ -1,3 +1,4 @@
+import type { AttachmentService } from '@core/chat/attachment-service'
 import type { ContextCompactionService } from '@core/chat/context-compaction'
 import type { ContextBuilder } from '@core/chat/context-manager'
 import type { RunManager } from '@core/chat/run-manager'
@@ -7,22 +8,27 @@ import type { ProviderManager } from '@core/provider/manager'
 import type { SkillManager } from '@core/skill/skill-manager'
 import type { ChatRun, ChatRunMode, ChatSession, ToolProfile } from '@shared/types/chat'
 import type { ProviderConfig, ProviderModel } from '@shared/types/provider'
-import type { DesktopChatContextSettings } from '@shared/types/settings'
+import type { DesktopChatContextSettings, DesktopToolSettings } from '@shared/types/settings'
 import { AgentRunFinalizer } from './run/finalize'
 import { prepareAgentRun } from './run/prepare'
 import type { AgentRunState } from './run/state'
 import { AgentStepEngine } from './step-engine'
 import { ToolExecutor } from './tools/executor'
 import type { ToolRegistry } from './tools/registry'
+import type { AgentWorkspaceService } from './workspace'
 
 export interface AgentRunnerOptions {
   messages: ChatMessageRepo
   runs: ChatRunRepo
+  attachments?: AttachmentService
   providers: ProviderManager
   contextBuilder: ContextBuilder
   contextCompaction?: ContextCompactionService
   runManager: RunManager
   toolRegistry: ToolRegistry
+  workspaceService?: AgentWorkspaceService
+  toolSettings?: () => DesktopToolSettings
+  disabledToolNames?: () => Iterable<string>
   skills?: SkillManager
   compactSkillDescriptions?: () => boolean
   contextDefaults?: () => DesktopChatContextSettings

@@ -104,10 +104,14 @@ export class ChatService {
       new AgentRunner({
         messages: options.messages,
         runs: options.runs,
+        attachments: options.attachments,
         providers: options.providers,
         contextBuilder: options.contextBuilder,
         contextCompaction: options.contextCompaction,
         runManager: options.runManager,
+        workspaceService: options.workspaceService,
+        toolSettings: options.toolSettings,
+        disabledToolNames: options.disabledToolNames,
         skills: options.skills,
         compactSkillDescriptions: options.compactSkillDescriptions,
         contextDefaults: options.contextDefaults,
@@ -161,7 +165,7 @@ export class ChatService {
       status: 'active',
       defaultProviderId: modelRef?.providerId,
       defaultModelId: modelRef?.modelId,
-      systemPrompt: baseSystemPrompt && baseSystemPrompt.trim() ? baseSystemPrompt : undefined,
+      systemPrompt: baseSystemPrompt?.trim() ? baseSystemPrompt : undefined,
       systemContext,
       messageCount: 0,
       contextPolicy: {
@@ -189,14 +193,13 @@ export class ChatService {
 
     const baseSystemPrompt = defaults?.baseSystemPrompt?.trim() || undefined
     const maskInput = defaults?.mask
-    const mask: SessionContextInstruction | undefined =
-      maskInput && maskInput.text?.trim()
-        ? {
-            label: maskInput.label,
-            text: maskInput.text,
-            enabled: maskInput.enabled !== false,
-          }
-        : undefined
+    const mask: SessionContextInstruction | undefined = maskInput?.text?.trim()
+      ? {
+          label: maskInput.label,
+          text: maskInput.text,
+          enabled: maskInput.enabled !== false,
+        }
+      : undefined
     const persona: SessionContextInstruction | undefined = personaProfile
       ? {
           refId: personaProfile.id,

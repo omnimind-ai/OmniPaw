@@ -9,10 +9,8 @@ import { compileToolCallMessages } from './context/tool-calls'
 import type {
   BuildContextInput,
   BuildContextResult,
-  ChatContextDefaults,
   ContextBudget,
   ContextBuilderOptions,
-  ContextSummaryStore,
   ContextUnit,
 } from './context/types'
 import {
@@ -25,6 +23,7 @@ import {
   trimMessageUnit,
   unitKindForMessage,
 } from './context/units'
+import { workspaceDocumentAttachmentsFromMetadata } from './workspace-document-attachments'
 
 export type {
   BuildContextInput,
@@ -170,6 +169,7 @@ export class ContextBuilder {
 
     if (message.role === 'assistant') {
       const textContent = await this.partsToProviderContent(
+        message,
         message.parts.filter((part) => part.type !== 'tool_call'),
         input.model,
         includeAttachmentPayloads,
@@ -190,6 +190,7 @@ export class ContextBuilder {
     }
 
     const content = await this.partsToProviderContent(
+      message,
       message.parts,
       input.model,
       includeAttachmentPayloads,
@@ -217,6 +218,7 @@ export class ContextBuilder {
   }
 
   private partsToProviderContent(
+    message: ChatMessage,
     parts: ChatMessagePart[],
     model: ProviderModel,
     includeAttachmentPayloads: boolean,
@@ -227,7 +229,10 @@ export class ContextBuilder {
       parts,
       model,
       includeAttachmentPayloads,
-      neverIncludeAttachments
+      neverIncludeAttachments,
+      {
+        workspaceDocumentAttachments: workspaceDocumentAttachmentsFromMetadata(message.metadata),
+      }
     )
   }
 }
