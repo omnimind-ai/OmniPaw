@@ -52,6 +52,15 @@ export class AttachmentService {
     const now = Date.now()
     const originalName = basename(request.name || 'attachment')
     const mimeType = request.mimeType || inferMimeType(originalName)
+
+    // TODO：目前先禁止上传 PDF、音频和视频文件，因为它们可能需要特殊处理（如生成预览图、提取元数据等），后续可以根据需要添加支持
+    if (isPdfFile(originalName, mimeType)) {
+      throw new Error('PDF attachments are not supported yet.')
+    }
+    if (isAudioVideoFile(originalName, mimeType)) {
+      throw new Error('Audio and video attachments are not supported yet.')
+    }
+
     const kind = inferKind(mimeType, originalName)
     const ext = safeExtension(originalName, mimeType)
     const storedName = `${sha256}${ext}`
@@ -181,6 +190,18 @@ function inferKind(mimeType: string, name: string): AttachmentKind {
   if (mimeType.startsWith('video/')) return 'video'
   if (mimeType.startsWith('text/') || /\.(md|txt|json|csv|log)$/i.test(name)) return 'text'
   return 'file'
+}
+
+function isPdfFile(name: string, mimeType: string): boolean {
+  return mimeType === 'application/pdf' || /\.pdf$/i.test(name)
+}
+
+function isAudioVideoFile(name: string, mimeType: string): boolean {
+  return (
+    mimeType.startsWith('audio/') ||
+    mimeType.startsWith('video/') ||
+    /\.(aac|avi|flac|m4a|m4v|mkv|mov|mp3|mp4|mpeg|mpg|oga|ogg|opus|wav|webm|wmv)$/i.test(name)
+  )
 }
 
 function inferMimeType(name: string): string {

@@ -96,7 +96,19 @@ export function useMediaHandling() {
     }
   }
 
+  // TODO: 这个函数目前和 processAndUploadImage 没有区别，后续可以根据需要添加针对非图片文件的特殊处理逻辑
   async function uploadStagedFile(file: File) {
+    if (isPdfFile(file.name, file.type)) {
+      addFailedUploadItem(file, '当前暂不支持 PDF 附件。')
+      return
+    }
+
+    const unsupportedMediaType = unsupportedAudioVideoType(file.name, file.type)
+    if (unsupportedMediaType) {
+      addFailedUploadItem(file, `当前暂不支持${unsupportedMediaType}附件。`)
+      return
+    }
+
     if (file.size > ATTACHMENT_LIMITS.maxFileBytes) {
       addFailedUploadItem(file, `单个附件不能超过 ${formatBytes(ATTACHMENT_LIMITS.maxFileBytes)}。`)
       return
@@ -385,6 +397,26 @@ function mapAttachmentKind(kind?: string, mimeType?: string): StagedAttachmentTy
   if (mimeType?.startsWith('audio/')) return 'record'
   if (mimeType?.startsWith('video/')) return 'video'
   return 'file'
+}
+
+function isPdfFile(name?: string, mimeType?: string): boolean {
+  return mimeType === 'application/pdf' || /\.pdf$/i.test(name || '')
+}
+
+function unsupportedAudioVideoType(name?: string, mimeType?: string): '音频' | '视频' | '' {
+  if (
+    mimeType?.startsWith('audio/') ||
+    /\.(aac|flac|m4a|mp3|oga|ogg|opus|wav)$/i.test(name || '')
+  ) {
+    return '音频'
+  }
+  if (
+    mimeType?.startsWith('video/') ||
+    /\.(avi|m4v|mkv|mov|mp4|mpeg|mpg|webm|wmv)$/i.test(name || '')
+  ) {
+    return '视频'
+  }
+  return ''
 }
 
 function createPreviewUrl(file: File) {
