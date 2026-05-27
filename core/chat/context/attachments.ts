@@ -1,3 +1,4 @@
+import { ATTACHMENT_PROMPTS } from '@core/prompts'
 import { isComplexDocumentAttachment } from '@shared/attachment-documents'
 import type { ChatMessagePart, WorkspaceStagedAttachmentMetadata } from '@shared/types/chat'
 import type { ProviderMessage, ProviderModel } from '@shared/types/provider'
@@ -34,7 +35,7 @@ export async function partsToProviderContent(
     }
     const attachment = attachments.get(attachmentId)
     if (!attachment) {
-      content.push({ type: 'text', text: `[Missing attachment: ${attachmentId}]` })
+      content.push({ type: 'text', text: ATTACHMENT_PROMPTS.missingAttachment(attachmentId) })
       continue
     }
 
@@ -72,7 +73,11 @@ export async function partsToProviderContent(
     ) {
       content.push({
         type: 'text',
-        text: `<attachment name="${escapeAttribute(attachment.originalName)}" mime="${escapeAttribute(attachment.mimeType)}">\n${attachment.extractedText}\n</attachment>`,
+        text: ATTACHMENT_PROMPTS.extractedText({
+          name: attachment.originalName,
+          mimeType: attachment.mimeType,
+          text: attachment.extractedText,
+        }),
       })
       continue
     }
@@ -85,14 +90,22 @@ export async function partsToProviderContent(
     ) {
       content.push({
         type: 'text',
-        text: `[Workspace Document Attachment: name=${attachment.originalName}, mime=${attachment.mimeType}, size=${attachment.sizeBytes}; content has not been staged into the managed workspace for this context, so it has not been read.]`,
+        text: ATTACHMENT_PROMPTS.unstagedWorkspaceDocument({
+          name: attachment.originalName,
+          mimeType: attachment.mimeType,
+          sizeBytes: attachment.sizeBytes,
+        }),
       })
       continue
     }
 
     content.push({
       type: 'text',
-      text: `[File Attachment: name=${attachment.originalName}, mime=${attachment.mimeType}, size=${attachment.sizeBytes}]`,
+      text: ATTACHMENT_PROMPTS.file({
+        name: attachment.originalName,
+        mimeType: attachment.mimeType,
+        sizeBytes: attachment.sizeBytes,
+      }),
     })
   }
 
@@ -107,28 +120,14 @@ export function countAttachmentParts(parts: ChatMessagePart[]): number {
   return parts.reduce((count, part) => count + (attachmentIdFromPart(part) ? 1 : 0), 0)
 }
 
-function escapeAttribute(value: string): string {
-  return value.replace(
-    /["&<>]/g,
-    (char) =>
-      ({
-        '"': '&quot;',
-        '&': '&amp;',
-        '<': '&lt;',
-        '>': '&gt;',
-      })[char] ?? char
-  )
-}
-
 function formatWorkspaceDocumentAttachmentBlock(
   attachment: WorkspaceStagedAttachmentMetadata
 ): string {
-  return [
-    'Uploaded document attachments have been copied into the managed workspace.',
-    'Do not claim that you have read a document until you inspect it with available tools.',
-    'Check available tools and skills first; use skill_read before following a relevant enabled skill.',
-    'workspace_file.read may only report binary metadata for Office documents; conversion may require terminal_exec, but do not assume any specific converter or library exists.',
-    'If no suitable tool, skill, dependency, approval, or command result is available, say that the current environment cannot read the file.',
-    `<workspace_attachment attachment_id="${escapeAttribute(attachment.attachmentId)}" name="${escapeAttribute(attachment.originalName)}" mime="${escapeAttribute(attachment.mimeType)}" size="${attachment.sizeBytes}" path="${escapeAttribute(attachment.workspaceRelativePath)}" />`,
-  ].join('\n')
+  return ATTACHMENT_PROMPTS.workspaceDocument({
+    attachmentId: attachment.attachmentId,
+    name: attachment.originalName,
+    mimeType: attachment.mimeType,
+    sizeBytes: attachment.sizeBytes,
+    path: attachment.workspaceRelativePath,
+  })
 }

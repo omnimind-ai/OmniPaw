@@ -1,6 +1,7 @@
 import { join } from 'node:path'
 
 import type { Logger } from '@core/logging'
+import { SKILL_PROMPTS } from '@core/prompts'
 import { resolveOpenOmniClawDataRoot } from '@core/utils/data-paths'
 import type {
   ImportSkillRequest,
@@ -185,7 +186,7 @@ export class SkillManager {
     const maxDescription = options.compact ? MAX_COMPACT_SKILL_DESCRIPTION_CHARS : 240
     const lines = activeSkills.map((skill) => {
       const description = truncateText(
-        skill.description || 'No description provided.',
+        skill.description || SKILL_PROMPTS.noDescription,
         maxDescription
       )
       return options.compact
@@ -196,11 +197,7 @@ export class SkillManager {
     return {
       enabledSkillIds: activeSkills.map((skill) => skill.id),
       injected: true,
-      content: [
-        'Available local skills are listed below.',
-        'Use the skill_read tool with a skillId before following a skill. Skills are instructions only and do not grant new tools or permissions.',
-        ...lines,
-      ].join('\n'),
+      content: SKILL_PROMPTS.inventory(lines),
     }
   }
 

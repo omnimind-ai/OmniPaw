@@ -1,3 +1,4 @@
+import { CONTEXT_PROMPTS } from '@core/prompts'
 import type {
   ChatContextSummary,
   ChatMessage,
@@ -57,7 +58,7 @@ export function buildSystemUnits(
 }
 
 export function summaryUnit(summary: ChatContextSummary): ContextUnit {
-  const text = `Conversation summary:\n${summary.summary}`
+  const text = CONTEXT_PROMPTS.conversationSummary(summary.summary)
   const messages: ProviderMessage[] = [{ role: 'system', content: text }]
   return {
     id: `summary:${summary.id}`,

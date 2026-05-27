@@ -1443,7 +1443,6 @@ const fallbackBridge: RendererOpenOmniClawBridge = {
         status: 'active',
         defaultProviderId: 'omniinfer-local',
         defaultModelId: 'local-small-model',
-        systemPrompt: '你是 OpenOmniClaw，本地优先的桌面 AI 助手。',
         createdAt: now,
         updatedAt: now,
       }

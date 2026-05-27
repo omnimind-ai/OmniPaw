@@ -1,4 +1,5 @@
 import type { ChatContextSummaryRepo } from '@core/db/repos'
+import { CONTEXT_PROMPTS } from '@core/prompts'
 import type { ChatContextSummary, ChatMessage, ProviderRequestSnapshot } from '@shared/types/chat'
 import type { ProviderConfig, ProviderModel } from '@shared/types/provider'
 import type { DesktopChatContextSettings } from '@shared/types/settings'
@@ -117,26 +118,10 @@ function buildStructuredSummary(messages: ChatMessage[], previous?: ChatContextS
     .map((message) => `${message.role}: ${messageText(message)}`)
     .filter((line) => line.trim().length > 0)
   const clipped = softClip(lines.join('\n'), 6000)
-  const previousText = previous?.summary
-    ? `\n\nPrevious summary:\n${softClip(previous.summary, 1800)}`
-    : ''
-
-  return [
-    'Goal',
-    '- Preserve the important prior conversation context for future turns.',
-    '',
-    'Constraints & Preferences',
-    '- Keep user-stated requirements, preferences, and unresolved constraints.',
-    '',
-    'Progress',
-    clipped || '- No prior text content was available.',
-    previousText,
-    '',
-    'Next Steps',
-    '- Continue from the latest visible messages after this summary boundary.',
-  ]
-    .filter(Boolean)
-    .join('\n')
+  return CONTEXT_PROMPTS.structuredSummary({
+    clippedMessages: clipped,
+    previousSummary: previous?.summary ? softClip(previous.summary, 1800) : undefined,
+  })
 }
 
 function messageText(message: ChatMessage): string {

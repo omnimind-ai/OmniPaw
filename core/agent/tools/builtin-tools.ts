@@ -4,6 +4,7 @@ import type { AttachmentService } from '@core/chat/attachment-service'
 import type { CronManager } from '@core/cron/cron-manager'
 import type { ChatMessageRepo } from '@core/db/repos'
 import type { ObservationManager } from '@core/observation'
+import { ATTACHMENT_PROMPTS, BUILTIN_TOOL_PROMPTS, SKILL_PROMPTS } from '@core/prompts'
 import type { SkillManager } from '@core/skill/skill-manager'
 import type { DesktopToolSettings } from '@shared/types/settings'
 import type { ToolPolicy } from './policy'
@@ -124,8 +125,8 @@ const MINIMAL_PROFILES: ToolProfile[] = ['minimal', 'assistant', 'power']
 const BUILTIN_TOOL_DEFINITIONS = {
   system_time: {
     name: 'system_time',
-    label: 'System time',
-    description: 'Get the current local time, timezone, and UTC offset.',
+    label: BUILTIN_TOOL_PROMPTS.systemTime.label,
+    description: BUILTIN_TOOL_PROMPTS.systemTime.description,
     risk: 'safe',
     source: 'builtin',
     profiles: MINIMAL_PROFILES,
@@ -137,9 +138,8 @@ const BUILTIN_TOOL_DEFINITIONS = {
   },
   calculator: {
     name: 'calculator',
-    label: 'Calculator',
-    description:
-      'Evaluate basic arithmetic. Use expression for +, -, *, /, %, ^ and parentheses, or operation with numeric operands.',
+    label: BUILTIN_TOOL_PROMPTS.calculator.label,
+    description: BUILTIN_TOOL_PROMPTS.calculator.description,
     risk: 'safe',
     source: 'builtin',
     profiles: MINIMAL_PROFILES,
@@ -148,7 +148,7 @@ const BUILTIN_TOOL_DEFINITIONS = {
       properties: {
         expression: {
           type: 'string',
-          description: 'Arithmetic expression using numbers, +, -, *, /, %, ^, and parentheses.',
+          description: BUILTIN_TOOL_PROMPTS.calculator.expressionDescription,
         },
         operation: {
           type: 'string',
@@ -164,8 +164,8 @@ const BUILTIN_TOOL_DEFINITIONS = {
   },
   attachment_text_read: {
     name: 'attachment_text_read',
-    label: 'Read attachment text',
-    description: 'Read extracted text from attachments uploaded in the current chat session.',
+    label: BUILTIN_TOOL_PROMPTS.attachmentTextRead.label,
+    description: BUILTIN_TOOL_PROMPTS.attachmentTextRead.description,
     risk: 'read',
     source: 'builtin',
     profiles: MINIMAL_PROFILES,
@@ -181,8 +181,8 @@ const BUILTIN_TOOL_DEFINITIONS = {
   },
   attachment_text_search: {
     name: 'attachment_text_search',
-    label: 'Search attachment text',
-    description: 'Search extracted text from attachments uploaded in the current chat session.',
+    label: BUILTIN_TOOL_PROMPTS.attachmentTextSearch.label,
+    description: BUILTIN_TOOL_PROMPTS.attachmentTextSearch.description,
     risk: 'read',
     source: 'builtin',
     profiles: MINIMAL_PROFILES,
@@ -199,8 +199,8 @@ const BUILTIN_TOOL_DEFINITIONS = {
   },
   skill_read: {
     name: 'skill_read',
-    label: 'Read local skill',
-    description: 'Read the SKILL.md instructions for an enabled local skill before applying it.',
+    label: BUILTIN_TOOL_PROMPTS.skillRead.label,
+    description: BUILTIN_TOOL_PROMPTS.skillRead.description,
     risk: 'read',
     source: 'builtin',
     profiles: MINIMAL_PROFILES,
@@ -210,7 +210,7 @@ const BUILTIN_TOOL_DEFINITIONS = {
       properties: {
         skillId: {
           type: 'string',
-          description: 'The local skill id from the available skills inventory.',
+          description: BUILTIN_TOOL_PROMPTS.skillRead.skillIdDescription,
         },
       },
       additionalProperties: false,
@@ -218,8 +218,8 @@ const BUILTIN_TOOL_DEFINITIONS = {
   },
   future_task: {
     name: 'future_task',
-    label: 'Future task',
-    description: 'Create, edit, delete, or list scheduled tasks for the current chat session only.',
+    label: BUILTIN_TOOL_PROMPTS.futureTask.label,
+    description: BUILTIN_TOOL_PROMPTS.futureTask.description,
     risk: 'write',
     source: 'builtin',
     profiles: ['assistant', 'power'],
@@ -236,11 +236,11 @@ const BUILTIN_TOOL_DEFINITIONS = {
         note: { type: 'string' },
         runAt: {
           anyOf: [{ type: 'number' }, { type: 'string' }],
-          description: 'Unix milliseconds or an ISO-like date/time parseable by the host.',
+          description: BUILTIN_TOOL_PROMPTS.futureTask.runAtDescription,
         },
         cronExpression: {
           type: 'string',
-          description: 'Supported five-field cron expression.',
+          description: BUILTIN_TOOL_PROMPTS.futureTask.cronExpressionDescription,
         },
         enabled: { type: 'boolean' },
       },
@@ -249,9 +249,8 @@ const BUILTIN_TOOL_DEFINITIONS = {
   },
   screen_observe: {
     name: 'screen_observe',
-    label: 'Screen observe',
-    description:
-      'Capture one user-authorized screen observation for the current session. Only works while an ObservationRun is active.',
+    label: BUILTIN_TOOL_PROMPTS.screenObserve.label,
+    description: BUILTIN_TOOL_PROMPTS.screenObserve.description,
     risk: 'read',
     source: 'builtin',
     profiles: ['assistant', 'power'],
@@ -260,7 +259,7 @@ const BUILTIN_TOOL_DEFINITIONS = {
       properties: {
         reason: {
           type: 'string',
-          description: 'Why the screen observation is needed.',
+          description: BUILTIN_TOOL_PROMPTS.screenObserve.reasonDescription,
         },
       },
       additionalProperties: false,
@@ -268,9 +267,8 @@ const BUILTIN_TOOL_DEFINITIONS = {
   },
   workspace_file: {
     name: 'workspace_file',
-    label: 'Workspace file',
-    description:
-      'Work with files in the managed agent workspace. Use action=list/read/search for reads, write to create or replace a text file, and patch with oldText/newText to edit text.',
+    label: BUILTIN_TOOL_PROMPTS.workspaceFile.label,
+    description: BUILTIN_TOOL_PROMPTS.workspaceFile.description,
     risk: 'read',
     source: 'builtin',
     profiles: ['assistant', 'power'],
@@ -284,7 +282,7 @@ const BUILTIN_TOOL_DEFINITIONS = {
         },
         path: {
           type: 'string',
-          description: 'Relative path inside the managed workspace.',
+          description: BUILTIN_TOOL_PROMPTS.workspaceFile.pathDescription,
         },
         recursive: { type: 'boolean' },
         maxEntries: { type: 'number' },
@@ -303,9 +301,8 @@ const BUILTIN_TOOL_DEFINITIONS = {
   },
   terminal_exec: {
     name: 'terminal_exec',
-    label: 'Terminal exec',
-    description:
-      'Execute a local terminal command on the host machine. Defaults to the managed workspace as cwd; assistant mode asks for approval and power mode is full local access.',
+    label: BUILTIN_TOOL_PROMPTS.terminalExec.label,
+    description: BUILTIN_TOOL_PROMPTS.terminalExec.description,
     risk: 'exec',
     source: 'builtin',
     profiles: ['assistant', 'power'],
@@ -315,11 +312,11 @@ const BUILTIN_TOOL_DEFINITIONS = {
       properties: {
         command: {
           type: 'string',
-          description: 'Command line to execute with the host shell.',
+          description: BUILTIN_TOOL_PROMPTS.terminalExec.commandDescription,
         },
         cwd: {
           type: 'string',
-          description: 'Relative workspace directory, or absolute path only in power mode.',
+          description: BUILTIN_TOOL_PROMPTS.terminalExec.cwdDescription,
         },
         timeoutMs: { type: 'number' },
         maxOutputChars: { type: 'number' },
@@ -502,7 +499,11 @@ function createSkillReadExecutor(skills: SkillManager): AgentTool['execute'] {
       content: [
         {
           type: 'text',
-          text: `<skill id="${escapeXml(result.skillId)}" name="${escapeXml(result.name)}">\n${result.content}\n</skill>`,
+          text: SKILL_PROMPTS.contentBlock({
+            skillId: result.skillId,
+            name: result.name,
+            content: result.content,
+          }),
         },
       ],
     }
@@ -1115,26 +1116,13 @@ function truncateText(text: string, maxChars: number): string {
 }
 
 function formatAttachmentBlock(filename: string, text: string): string {
-  return `<attachment name="${escapeAttribute(filename)}">\n${text}\n</attachment>`
+  return ATTACHMENT_PROMPTS.extractedTextWithoutMime({ name: filename, text })
 }
 
 function makeSnippet(text: string, index: number, length: number, contextChars: number): string {
   const start = Math.max(0, index - contextChars)
   const end = Math.min(text.length, index + length + contextChars)
   return `${start > 0 ? '...' : ''}${text.slice(start, end)}${end < text.length ? '...' : ''}`
-}
-
-function escapeXml(value: string): string {
-  return value.replace(
-    /[&<>"]/g,
-    (char) =>
-      ({
-        '&': '&amp;',
-        '<': '&lt;',
-        '>': '&gt;',
-        '"': '&quot;',
-      })[char] ?? char
-  )
 }
 
 function isNonEmptyString(value: unknown): value is string {
@@ -1161,19 +1149,6 @@ function commandMatchesPattern(command: string, pattern: string): boolean {
   if (!trimmed) return false
   const escaped = trimmed.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*')
   return new RegExp(`^${escaped}$`).test(command)
-}
-
-function escapeAttribute(value: string): string {
-  return value.replace(
-    /["&<>]/g,
-    (char) =>
-      ({
-        '"': '&quot;',
-        '&': '&amp;',
-        '<': '&lt;',
-        '>': '&gt;',
-      })[char] ?? char
-  )
 }
 
 function throwIfAborted(signal?: AbortSignal): void {

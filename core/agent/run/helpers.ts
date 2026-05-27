@@ -1,3 +1,4 @@
+import { TOOL_INVENTORY_PROMPTS } from '@core/prompts'
 import type { ChatError, ProviderMessage, ProviderToolCall } from '@core/provider/base-provider'
 import type { ChatMessagePart } from '@shared/types/chat'
 import type { ProviderConfig, ProviderModel } from '@shared/types/provider'
@@ -186,15 +187,10 @@ function buildToolInventoryPrompt(tools: AgentTool[]): string | undefined {
 
   const omittedCount = Math.max(0, tools.length - lines.length)
   if (omittedCount) {
-    lines.push(`- ... ${omittedCount} additional tools omitted from this summary.`)
+    lines.push(TOOL_INVENTORY_PROMPTS.omittedTools(omittedCount))
   }
 
-  return [
-    'Available tools for this chat run are listed below. Tool parameter schemas are provided separately through the tool API.',
-    'If the user asks which MCP tools are available, answer from entries marked with [mcp] and use the exact tool names shown here.',
-    'If no entries are marked [mcp], say that no MCP tools are currently available in this run.',
-    ...lines,
-  ].join('\n')
+  return TOOL_INVENTORY_PROMPTS.inventory(lines)
 }
 
 function appendTextContent(

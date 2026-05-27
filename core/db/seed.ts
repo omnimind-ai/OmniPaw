@@ -1,3 +1,4 @@
+import { DEFAULT_CHAT_SYSTEM_PROMPT } from '@core/prompts'
 import type { DatabaseConnection } from './client'
 import { ChatSessionRepo } from './repos'
 import type { ChatSession } from './types'
@@ -28,7 +29,7 @@ export function defaultChatSession(now = Date.now()): ChatSession {
     status: 'active',
     defaultProviderId: 'openai-compatible',
     defaultModelId: 'gpt-4o-mini',
-    systemPrompt: 'You are OpenOmniClaw, a local-first desktop AI assistant.',
+    systemPrompt: DEFAULT_CHAT_SYSTEM_PROMPT,
     pinned: false,
     messageCount: 0,
     contextPolicy: defaultContextPolicy,

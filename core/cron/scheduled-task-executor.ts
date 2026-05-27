@@ -6,6 +6,7 @@ import type { AgentTool, NormalizedToolResult } from '@core/agent/tools/types'
 import type { ContextBuilder } from '@core/chat/context-manager'
 import type { ChatMessageRepo, ChatSessionRepo } from '@core/db/repos'
 import type { Logger } from '@core/logging'
+import { SCHEDULED_TASK_PROMPTS } from '@core/prompts'
 import type {
   BaseProvider,
   ChatCompletionChunk,
@@ -297,16 +298,12 @@ function createScheduledInstructionMessage(task: CronTask, run: CronRun): ChatMe
     parts: [
       {
         type: 'plain',
-        text: [
-          'This is an internal scheduled task execution.',
-          `Task ID: ${task.id}`,
-          `Run ID: ${run.id}`,
-          `Run reason: ${run.reason}`,
-          'Use the task note below to produce a concise final result for the user.',
-          '<scheduled_task_note>',
-          task.note,
-          '</scheduled_task_note>',
-        ].join('\n'),
+        text: SCHEDULED_TASK_PROMPTS.instruction({
+          taskId: task.id,
+          runId: run.id,
+          runReason: run.reason,
+          note: task.note,
+        }),
       },
     ],
     metadata: {

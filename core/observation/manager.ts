@@ -1,5 +1,6 @@
 import type { ChatMessageRepo, ChatSessionRepo } from '@core/db/repos'
 import type { Logger } from '@core/logging'
+import { OBSERVATION_PROMPTS } from '@core/prompts'
 import type { BaseProvider, ProviderMessage } from '@core/provider/base-provider'
 import type { ProviderManager, ProviderModelRecord, ProviderRecord } from '@core/provider/manager'
 import type { ChatMessage, ChatMessagePart, ChatSession, ID, UnixMs } from '@shared/types/chat'
@@ -344,21 +345,19 @@ export class ObservationManager {
       messages: [
         {
           role: 'system',
-          content:
-            'You describe a user-authorized desktop screenshot. Return a concise factual summary. Do not include secrets or credentials verbatim.',
+          content: OBSERVATION_PROMPTS.visionSummarySystem,
         },
         {
           role: 'user',
           content: [
             {
               type: 'text',
-              text: 'Summarize the visible screen state in 3 short bullet points. Treat OCR text as sensitive and avoid full transcription.',
+              text: OBSERVATION_PROMPTS.visionSummaryUser,
             },
             { type: 'image_url', image_url: { url: dataUrl } },
           ],
         },
       ],
-      maxOutputTokens: 220,
     })
     return text.trim()
   }
@@ -375,15 +374,17 @@ export class ObservationManager {
       messages: [
         {
           role: 'system',
-          content:
-            'You are a quiet desktop companion. Based on a sensitive screen summary, produce a short helpful reaction. Return JSON with text and optional mode.',
+          content: OBSERVATION_PROMPTS.splitReactionSystem,
         },
         {
           role: 'user',
-          content: `Target session: ${session.kind ?? 'chat'} / ${session.title}\nObservation summary:\n${summary}\n\nReturn {"text":"...","mode":"ambient|chat|ask|silent","reason":"..."}. Keep text under 80 Chinese characters or 30 English words.`,
+          content: OBSERVATION_PROMPTS.splitReactionUser({
+            sessionKind: session.kind,
+            sessionTitle: session.title,
+            summary,
+          }),
         },
       ],
-      maxOutputTokens: 180,
     })
     return parseCandidate(text)
   }
@@ -400,21 +401,22 @@ export class ObservationManager {
       messages: [
         {
           role: 'system',
-          content:
-            'You are a quiet desktop companion. The user explicitly authorized a screenshot observation. Produce one short helpful reaction and avoid copying sensitive text.',
+          content: OBSERVATION_PROMPTS.singleModelReactionSystem,
         },
         {
           role: 'user',
           content: [
             {
               type: 'text',
-              text: `Target session: ${session.kind ?? 'chat'} / ${session.title}. Return {"text":"...","mode":"ambient|chat|ask|silent","reason":"..."}. Keep text brief.`,
+              text: OBSERVATION_PROMPTS.singleModelReactionUser({
+                sessionKind: session.kind,
+                sessionTitle: session.title,
+              }),
             },
             { type: 'image_url', image_url: { url: dataUrl } },
           ],
         },
       ],
-      maxOutputTokens: 180,
     })
     return parseCandidate(text)
   }
@@ -423,7 +425,6 @@ export class ObservationManager {
     resolved: ResolvedModel
     messages: ProviderMessage[]
     signal: AbortSignal
-    maxOutputTokens: number
   }): Promise<string> {
     const client: BaseProvider = await this.providers.createProviderClient(
       input.resolved.provider.id
@@ -433,7 +434,6 @@ export class ObservationManager {
       modelId: input.resolved.model.remoteId ?? input.resolved.model.id,
       messages: input.messages,
       temperature: 0.3,
-      maxOutputTokens: input.maxOutputTokens,
       abortSignal: input.signal,
     })) {
       if (chunk.type === 'delta' && chunk.content) {

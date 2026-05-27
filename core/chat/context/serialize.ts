@@ -1,3 +1,4 @@
+import { ATTACHMENT_PROMPTS, CONTEXT_PROMPTS } from '@core/prompts'
 import type { ChatMessagePart } from '@shared/types/chat'
 import type { ProviderMessage } from '@shared/types/provider'
 import type { ContextUnit } from './types'
@@ -20,7 +21,10 @@ export function serializeUnits(
   if (!systemText) {
     return rest
   }
-  return [{ role: 'user', content: `System instructions:\n${systemText}` }, ...rest]
+  return [
+    { role: 'user', content: CONTEXT_PROMPTS.systemInstructionsFallback(systemText) },
+    ...rest,
+  ]
 }
 
 export function mergeAdjacentSystemMessages(messages: ProviderMessage[]): ProviderMessage[] {
@@ -60,9 +64,9 @@ export function contentToText(content: ProviderMessage['content']): string {
         return part.text
       }
       if (part.type === 'image_url') {
-        return '[Image attachment]'
+        return ATTACHMENT_PROMPTS.imageAttachment
       }
-      return '[Attachment]'
+      return ATTACHMENT_PROMPTS.genericAttachment
     })
     .join('\n')
 }
