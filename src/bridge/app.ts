@@ -1,6 +1,9 @@
 import type { OpenChatSessionRequest } from '@shared/types/app'
 import type {
   CatBounds,
+  CatBubbleDismissRequest,
+  CatBubbleEvent,
+  CatBubbleShowRequest,
   CatCommandEvent,
   CatDraftChangedEvent,
   CatDraftClearRequest,
@@ -829,6 +832,10 @@ export interface RendererOpenOmniClawBridge {
       callback: (event: ObservationReactionEvent) => void
     ) => BridgeUnsubscribe
     openObservationSource?: (event: ObservationReactionEvent) => Promise<void>
+    showBubble?: (request: CatBubbleShowRequest | string) => Promise<CatBubbleEvent | null>
+    dismissBubble?: (request?: CatBubbleDismissRequest | string) => Promise<void>
+    onBubbleEvent?: (callback: (event: CatBubbleEvent) => void) => BridgeUnsubscribe
+    onBubblePlacement?: (callback: (event: CatPanelPlacement) => void) => BridgeUnsubscribe
   }
   catPanel: {
     onPlacement: (callback: (event: CatPanelPlacement) => void) => BridgeUnsubscribe
@@ -1290,6 +1297,34 @@ const fallbackBridge: RendererOpenOmniClawBridge = {
         fallbackCatPanelSide = 'right'
       }
     },
+    showBubble: async (request) => {
+      const text = typeof request === 'string' ? request : request.text
+      if (!text.trim()) {
+        return null
+      }
+      return {
+        id:
+          typeof request === 'string'
+            ? `fallback:${Date.now()}`
+            : request.id || `fallback:${Date.now()}`,
+        text,
+        kind: typeof request === 'string' ? 'status' : request.kind || 'status',
+        visible: true,
+        ...(typeof request === 'string'
+          ? {}
+          : {
+              ...(request.observationReaction
+                ? { observationReaction: request.observationReaction }
+                : {}),
+              ...(request.autoDismissMs ? { autoDismissMs: request.autoDismissMs } : {}),
+              ...(request.source ? { source: request.source } : {}),
+            }),
+        createdAt: Date.now(),
+      }
+    },
+    dismissBubble: async () => {},
+    onBubbleEvent: () => () => {},
+    onBubblePlacement: () => () => {},
   },
   catPanel: {
     onPlacement: () => () => {},

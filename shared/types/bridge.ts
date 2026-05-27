@@ -1,6 +1,9 @@
 import type { AppInfo, OpenChatSessionRequest } from './app'
 import type {
   CatBounds,
+  CatBubbleDismissRequest,
+  CatBubbleEvent,
+  CatBubbleShowRequest,
   CatCommandEvent,
   CatDraftChangedEvent,
   CatDraftClearRequest,
@@ -320,6 +323,10 @@ export interface OpenOmniClawBridge {
     dragEnd: () => Promise<CatBounds | null>
     onObservationReaction: (callback: (event: ObservationReactionEvent) => void) => Unsubscribe
     openObservationSource: (event: ObservationReactionEvent) => Promise<void>
+    showBubble: (request: CatBubbleShowRequest | string) => Promise<CatBubbleEvent | null>
+    dismissBubble: (request?: CatBubbleDismissRequest | string) => Promise<void>
+    onBubbleEvent: (callback: (event: CatBubbleEvent) => void) => Unsubscribe
+    onBubblePlacement: (callback: (placement: CatPanelPlacement) => void) => Unsubscribe
   }
   catPanel: {
     onPlacement: (callback: (placement: CatPanelPlacement) => void) => Unsubscribe

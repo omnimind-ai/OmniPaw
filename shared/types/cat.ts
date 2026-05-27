@@ -1,4 +1,5 @@
 import type { AttachmentKind, ID, UnixMs } from './chat'
+import type { ObservationReactionEvent } from './observation'
 
 export type CatTaskState = 'idle' | 'preparing' | 'running' | 'completed'
 
@@ -24,6 +25,42 @@ export interface CatStatus {
 
 export interface CatCommandEvent {
   state: CatWindowState
+  source?: string
+}
+
+export type CatBubbleKind = 'status' | 'observation'
+
+export type CatBubbleDismissReason =
+  | 'timeout'
+  | 'close'
+  | 'source-opened'
+  | 'cat-hidden'
+  | 'state-hidden'
+  | 'replaced'
+
+export interface CatBubbleShowRequest {
+  id?: ID
+  text: string
+  kind?: CatBubbleKind
+  observationReaction?: ObservationReactionEvent
+  autoDismissMs?: number
+  source?: string
+}
+
+export interface CatBubbleEvent {
+  id: ID
+  text: string
+  kind: CatBubbleKind
+  visible: boolean
+  observationReaction?: ObservationReactionEvent
+  autoDismissMs?: number
+  source?: string
+  createdAt: UnixMs
+}
+
+export interface CatBubbleDismissRequest {
+  id?: ID
+  reason?: CatBubbleDismissReason
   source?: string
 }
 

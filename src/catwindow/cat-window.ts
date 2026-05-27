@@ -1,5 +1,4 @@
 import type { CatCommandEvent, CatDraftAttachment, CatWindowState } from '@shared/types/cat'
-import type { ObservationReactionEvent } from '@shared/types/observation'
 import doTaskImage from '@/asserts/cat/anim_cat_doing_task.webp'
 import draggedImage from '@/asserts/cat/anim_cat_dragging.webp'
 import endTaskImage from '@/asserts/cat/anim_cat_end_doing.webp'
@@ -15,7 +14,6 @@ import { appBridge } from '@/bridge/app'
 const surface = document.querySelector<HTMLElement>('.cat-surface')
 const stage = document.querySelector<HTMLButtonElement>('#cat-stage')
 const image = document.querySelector<HTMLImageElement>('#cat-image')
-const bubble = document.querySelector<HTMLElement>('#cat-bubble')
 
 const states = Object.freeze({
   HIDDEN: 'hidden',
@@ -75,10 +73,6 @@ let previousStableState: CatWindowState = states.IDLE
 let firstShow = true
 let fileDragDepth = 0
 let stateTimer: ReturnType<typeof window.setTimeout> | null = null
-let observationBubbleTimer: ReturnType<typeof window.setTimeout> | null = null
-let observationBubbleRemainingMs = 0
-let observationBubbleHideAt = 0
-let activeObservationReaction: ObservationReactionEvent | null = null
 let suppressNextImageError = false
 let dragSession:
   | {
@@ -97,31 +91,21 @@ function clearStateTimer() {
   }
 }
 
-function clearObservationBubbleTimer() {
-  if (observationBubbleTimer) {
-    window.clearTimeout(observationBubbleTimer)
-    observationBubbleTimer = null
-  }
-}
-
 function reportState(state: CatWindowState) {
   appBridge.cat.reportState(state)
 }
 
-function setBubble(text: string, visible = true, observation = false) {
-  if (!bubble) return
-  bubble.textContent = text
-  bubble.classList.toggle('is-visible', visible && text.length > 0)
-  bubble.classList.toggle('is-observation', observation)
-  if (observation) {
-    bubble.tabIndex = 0
-    bubble.setAttribute('role', 'button')
-    bubble.setAttribute('aria-label', '查看观察反应来源')
-  } else {
-    bubble.removeAttribute('tabindex')
-    bubble.removeAttribute('role')
-    bubble.removeAttribute('aria-label')
+function setBubble(text: string, visible = true) {
+  if (!visible || text.length === 0) {
+    void appBridge.cat.dismissBubble?.({ reason: 'state-hidden', source: 'cat-window' })
+    return
   }
+
+  void appBridge.cat.showBubble?.({
+    text,
+    kind: 'status',
+    source: 'cat-window',
+  })
 }
 
 function setSurfaceState(state: CatWindowState) {
@@ -222,64 +206,6 @@ function handleCommand(payload: CatCommandEvent) {
   }
 
   enterState(nextState)
-}
-
-function showObservationReaction(event: ObservationReactionEvent) {
-  const text = sanitizeReactionText(event.text)
-  if (!text) return
-
-  activeObservationReaction = {
-    ...event,
-    text,
-  }
-  clearObservationBubbleTimer()
-  setBubble(text, true, true)
-  scheduleObservationBubbleHide(7000)
-}
-
-function hideObservationReaction() {
-  clearObservationBubbleTimer()
-  activeObservationReaction = null
-  observationBubbleRemainingMs = 0
-  setBubble(copy[currentState], currentState !== states.HIDDEN)
-}
-
-function scheduleObservationBubbleHide(delayMs: number) {
-  clearObservationBubbleTimer()
-  observationBubbleRemainingMs = Math.max(0, delayMs)
-  observationBubbleHideAt = Date.now() + observationBubbleRemainingMs
-  observationBubbleTimer = window.setTimeout(() => {
-    if (activeObservationReaction) {
-      hideObservationReaction()
-    }
-  }, observationBubbleRemainingMs)
-}
-
-function pauseObservationBubbleHide() {
-  if (!activeObservationReaction || !observationBubbleTimer) return
-  observationBubbleRemainingMs = Math.max(1200, observationBubbleHideAt - Date.now())
-  clearObservationBubbleTimer()
-}
-
-function resumeObservationBubbleHide() {
-  if (!activeObservationReaction || observationBubbleTimer) return
-  scheduleObservationBubbleHide(observationBubbleRemainingMs || 2400)
-}
-
-async function openObservationReactionSource() {
-  if (!activeObservationReaction) return
-  const event = activeObservationReaction
-  hideObservationReaction()
-  await appBridge.cat.openObservationSource?.(event)
-}
-
-function sanitizeReactionText(value: unknown): string {
-  if (typeof value !== 'string') return ''
-  return value
-    .replace(/\p{Cc}/gu, ' ')
-    .replace(/\s+/g, ' ')
-    .trim()
-    .slice(0, 180)
 }
 
 function hasDraggedFiles(event: DragEvent) {
@@ -527,28 +453,6 @@ for (const target of [surface, stage]) {
 }
 
 appBridge.cat.onCommand(handleCommand)
-appBridge.cat.onObservationReaction?.(showObservationReaction)
-
-bubble?.addEventListener('mouseenter', pauseObservationBubbleHide)
-bubble?.addEventListener('mouseleave', resumeObservationBubbleHide)
-bubble?.addEventListener('focusin', pauseObservationBubbleHide)
-bubble?.addEventListener('focusout', resumeObservationBubbleHide)
-bubble?.addEventListener('click', (event) => {
-  if (!activeObservationReaction) return
-  event.preventDefault()
-  void openObservationReactionSource()
-})
-bubble?.addEventListener('keydown', (event) => {
-  if (!activeObservationReaction) return
-  if (event.key === 'Enter' || event.key === ' ') {
-    event.preventDefault()
-    void openObservationReactionSource()
-  }
-  if (event.key === 'Escape') {
-    event.preventDefault()
-    hideObservationReaction()
-  }
-})
 
 if (image) {
   image.src = idleImage

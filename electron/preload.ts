@@ -256,6 +256,10 @@ const bridge: OpenOmniClawBridge = {
       createUnsubscriber(IPC_CHANNELS.cat.observationReaction, callback),
     openObservationSource: (event) =>
       ipcRenderer.invoke(IPC_CHANNELS.cat.openObservationSource, event),
+    showBubble: (request) => ipcRenderer.invoke(IPC_CHANNELS.cat.showBubble, request),
+    dismissBubble: (request) => ipcRenderer.invoke(IPC_CHANNELS.cat.dismissBubble, request),
+    onBubbleEvent: (callback) => createUnsubscriber(IPC_CHANNELS.cat.bubbleEvent, callback),
+    onBubblePlacement: (callback) => createUnsubscriber(IPC_CHANNELS.cat.bubblePlacement, callback),
   },
   catPanel: {
     onPlacement: (callback) => createUnsubscriber(IPC_CHANNELS.catPanel.placement, callback),

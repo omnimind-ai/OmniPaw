@@ -27,6 +27,10 @@ export const IPC_CHANNELS = {
     commandState: 'cat:state-changed',
     observationReaction: 'cat:observation-reaction',
     openObservationSource: 'cat:open-observation-source',
+    showBubble: 'cat:show-bubble',
+    dismissBubble: 'cat:dismiss-bubble',
+    bubbleEvent: 'cat:bubble-event',
+    bubblePlacement: 'cat:bubble-placement',
   },
   catPanel: {
     placement: 'cat-panel:placement',

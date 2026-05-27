@@ -4,8 +4,6 @@
   --muted: #66707a;
   --line: rgb(31 38 44 / 0.16);
   --paper: rgba(255 255 255 / 0.94);
-  --bubble: rgba(255 255 255 / 0.96);
-  --bubble-line: rgb(31 38 44 / 0.15);
   --accent: #e05237;
   font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
@@ -83,64 +81,6 @@ button {
   object-fit: contain;
   pointer-events: none;
   transform-origin: center;
-}
-
-.cat-bubble {
-  position: absolute;
-  top: 8px;
-  left: 50%;
-  max-width: 128px;
-  min-width: 62px;
-  min-height: 28px;
-  padding: 6px 10px;
-  border: 1px solid var(--bubble-line);
-  border-radius: 8px;
-  color: var(--ink);
-  background: var(--bubble);
-  box-shadow: 0 10px 28px rgb(31 38 44 / 0.16);
-  font-size: 12px;
-  font-weight: 800;
-  line-height: 1.2;
-  text-align: center;
-  transform: translateX(-50%) translateY(-2px);
-  opacity: 0;
-  transition:
-    opacity 160ms ease,
-    transform 160ms ease;
-  pointer-events: none;
-}
-
-.cat-bubble::after {
-  content: "";
-  position: absolute;
-  left: 50%;
-  bottom: -6px;
-  width: 10px;
-  height: 10px;
-  border-right: 1px solid var(--bubble-line);
-  border-bottom: 1px solid var(--bubble-line);
-  background: var(--bubble);
-  transform: translateX(-50%) rotate(45deg);
-}
-
-.cat-bubble.is-visible {
-  opacity: 1;
-  transform: translateX(-50%) translateY(0);
-}
-
-.cat-bubble.is-observation {
-  max-width: 136px;
-  min-width: 84px;
-  color: var(--ink);
-  background: rgb(255 250 244 / 0.98);
-  font-weight: 760;
-  pointer-events: auto;
-  cursor: pointer;
-}
-
-.cat-bubble.is-observation:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
 }
 
 .cat-surface.is-dragging .cat-stage img {

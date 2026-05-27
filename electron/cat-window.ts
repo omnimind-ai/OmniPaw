@@ -4,6 +4,9 @@ import type { Logger } from '@core/logging'
 import { IPC_CHANNELS } from '@shared/constants'
 import type {
   CatBounds,
+  CatBubbleDismissRequest,
+  CatBubbleEvent,
+  CatBubbleShowRequest,
   CatCommandEvent,
   CatDraftAttachment,
   CatDraftChangedEvent,
@@ -68,8 +71,15 @@ const catPanelSize = {
   height: 560,
 }
 
+const catBubbleSize = {
+  width: 320,
+  height: 116,
+}
+
 const catPanelGap = 2
 const catPanelCardInset = 20
+const catBubbleCardInset = 14
+const catBubbleAutoDismissMs = 7_000
 
 const catStageVisualBounds = {
   x: 31,
@@ -80,11 +90,14 @@ const catStageVisualBounds = {
 
 let catWindow: BrowserWindow | null = null
 let catPanelWindow: BrowserWindow | null = null
+let catBubbleWindow: BrowserWindow | null = null
 let catSnapTimer: ReturnType<typeof setInterval> | null = null
 let catState: CatWindowState = 'hidden'
 let catVisible = false
 let catPanelVisible = false
 let catPanelSide: CatPanelPlacement['side'] | null = null
+let catBubbleVisible = false
+let activeCatBubbleEvent: CatBubbleEvent | null = null
 let catLogger: Logger | undefined
 let activeCatSessionId: string | null = null
 let activeCatSessionUpdatedAt = Date.now()
@@ -263,13 +276,47 @@ function sendToCatWindow(channel: string, payload: unknown): void {
   }
 }
 
+function sendToCatBubble(channel: string, payload: unknown): void {
+  if (!catBubbleWindow || catBubbleWindow.isDestroyed()) {
+    return
+  }
+
+  const send = () => {
+    if (catBubbleWindow && !catBubbleWindow.isDestroyed()) {
+      catBubbleWindow.webContents.send(channel, payload)
+    }
+  }
+
+  if (catBubbleWindow.webContents.isLoading()) {
+    catBubbleWindow.webContents.once('did-finish-load', send)
+  } else {
+    send()
+  }
+}
+
 function sendCatPanelPlacement(placement: CatPanelPlacement): void {
   sendToCatPanel(IPC_CHANNELS.catPanel.placement, placement)
 }
 
+function sendCatBubblePlacement(placement: CatPanelPlacement): void {
+  sendToCatBubble(IPC_CHANNELS.cat.bubblePlacement, placement)
+}
+
+function sendCatBubbleEvent(event: CatBubbleEvent): void {
+  sendToCatBubble(IPC_CHANNELS.cat.bubbleEvent, event)
+}
+
 function sendCatObservationReaction(event: ObservationReactionEvent): void {
   showCatWindow()
-  sendToCatWindow(IPC_CHANNELS.cat.observationReaction, sanitizeObservationReactionEvent(event))
+  const reaction = sanitizeObservationReactionEvent(event)
+  showCatBubble({
+    id: reaction.id,
+    text: reaction.text,
+    kind: 'observation',
+    observationReaction: reaction,
+    autoDismissMs: catBubbleAutoDismissMs,
+    source: 'observation',
+  })
 }
 
 function notifyActiveCatSessionChanged(source = 'main'): void {
@@ -486,17 +533,7 @@ function sendCatCommand(state: CatWindowState, source = 'main'): void {
       source,
     }
 
-    const send = () => {
-      if (catWindow && !catWindow.isDestroyed()) {
-        catWindow.webContents.send(IPC_CHANNELS.cat.commandState, payload)
-      }
-    }
-
-    if (catWindow.webContents.isLoading()) {
-      catWindow.webContents.once('did-finish-load', send)
-    } else {
-      send()
-    }
+    sendToCatWindow(IPC_CHANNELS.cat.commandState, payload)
   }
 }
 
@@ -548,6 +585,7 @@ function createCatWindow(): BrowserWindow {
     catVisible = false
     catState = 'hidden'
     closeCatPanelWindow()
+    closeCatBubbleWindow()
   })
 
   return catWindow
@@ -594,6 +632,47 @@ function createCatPanelWindow(placement: CatPanelPlacement): BrowserWindow {
   return catPanelWindow
 }
 
+function createCatBubbleWindow(placement: CatPanelPlacement): BrowserWindow {
+  if (catBubbleWindow && !catBubbleWindow.isDestroyed()) {
+    return catBubbleWindow
+  }
+
+  catBubbleWindow = new BrowserWindow({
+    ...placement.bounds,
+    title: 'OpenOmniClaw Cat Bubble',
+    frame: false,
+    transparent: true,
+    resizable: false,
+    maximizable: false,
+    minimizable: false,
+    fullscreenable: false,
+    skipTaskbar: true,
+    alwaysOnTop: true,
+    hasShadow: false,
+    show: false,
+    backgroundColor: '#00000000',
+    webPreferences: {
+      preload: join(__dirname, '../preload/preload.cjs'),
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
+    },
+  })
+
+  attachCatDiagnostics(catBubbleWindow, 'bubble')
+  catBubbleWindow.setAlwaysOnTop(true, 'floating')
+  catBubbleWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
+  loadRendererEntry(catBubbleWindow, 'cat-bubble.html')
+
+  catBubbleWindow.on('closed', () => {
+    catBubbleWindow = null
+    catBubbleVisible = false
+    activeCatBubbleEvent = null
+  })
+
+  return catBubbleWindow
+}
+
 function attachCatDiagnostics(window: BrowserWindow, windowName: string): void {
   const logger = catLogger?.child({ scope: windowName })
   window.webContents.on('preload-error', (_event, preloadPath, error) => {
@@ -623,9 +702,44 @@ function closeCatPanelWindow(): void {
   }
 }
 
+function hideCatBubbleWindow(request: CatBubbleDismissRequest | string = {}): void {
+  const dismissRequest = normalizeCatBubbleDismissRequest(request)
+  if (dismissRequest.id && activeCatBubbleEvent && dismissRequest.id !== activeCatBubbleEvent.id) {
+    return
+  }
+
+  const hiddenEvent = activeCatBubbleEvent
+    ? {
+        ...activeCatBubbleEvent,
+        visible: false,
+      }
+    : null
+
+  activeCatBubbleEvent = null
+  catBubbleVisible = false
+
+  if (hiddenEvent) {
+    sendCatBubbleEvent(hiddenEvent)
+  }
+
+  if (catBubbleWindow && !catBubbleWindow.isDestroyed()) {
+    catBubbleWindow.hide()
+  }
+}
+
+function closeCatBubbleWindow(): void {
+  activeCatBubbleEvent = null
+  catBubbleVisible = false
+
+  if (catBubbleWindow && !catBubbleWindow.isDestroyed()) {
+    catBubbleWindow.close()
+  }
+}
+
 function closeCatWindow(): void {
   cancelCatSnapAnimation()
   closeCatPanelWindow()
+  closeCatBubbleWindow()
 
   catVisible = false
   catState = 'hidden'
@@ -691,17 +805,23 @@ function animateCatBounds(targetBounds: CatBounds, duration = 260): Promise<CatB
       }
 
       catWindow.setBounds(nextBounds)
+      repositionCatBubbleWindow()
 
       if (progress >= 1) {
         cancelCatSnapAnimation()
         catWindow.setBounds(targetBounds)
+        repositionCatBubbleWindow()
         resolve(targetBounds)
       }
     }, 16)
   })
 }
 
-function getCatPanelPlacement(catBounds: CatBounds): CatPanelPlacement {
+function getCatAnchoredPlacement(
+  catBounds: CatBounds,
+  size: { width: number; height: number },
+  cardInset: number
+): CatPanelPlacement {
   const display = getDisplay(catBounds)
   const workArea = display.workArea
   const visibleCatBounds: CatBounds = {
@@ -713,25 +833,127 @@ function getCatPanelPlacement(catBounds: CatBounds): CatPanelPlacement {
   const leftSpace = visibleCatBounds.x - workArea.x - catPanelGap
   const rightSpace =
     workArea.x + workArea.width - (visibleCatBounds.x + visibleCatBounds.width) - catPanelGap
-  const requiredPanelSpace = catPanelSize.width - catPanelCardInset
+  const requiredPanelSpace = size.width - cardInset
   const side: CatPanelPlacement['side'] =
     rightSpace >= requiredPanelSpace || rightSpace >= leftSpace ? 'right' : 'left'
   const preferredX =
     side === 'right'
-      ? visibleCatBounds.x + visibleCatBounds.width + catPanelGap - catPanelCardInset
-      : visibleCatBounds.x - (catPanelSize.width - catPanelCardInset) - catPanelGap
-  const centeredY =
-    visibleCatBounds.y + Math.round((visibleCatBounds.height - catPanelSize.height) / 2)
+      ? visibleCatBounds.x + visibleCatBounds.width + catPanelGap - cardInset
+      : visibleCatBounds.x - (size.width - cardInset) - catPanelGap
+  const centeredY = visibleCatBounds.y + Math.round((visibleCatBounds.height - size.height) / 2)
 
   return {
     side,
     bounds: {
-      width: catPanelSize.width,
-      height: catPanelSize.height,
-      x: clamp(preferredX, workArea.x + 8, workArea.x + workArea.width - catPanelSize.width - 8),
-      y: clamp(centeredY, workArea.y + 8, workArea.y + workArea.height - catPanelSize.height - 8),
+      width: size.width,
+      height: size.height,
+      x: clamp(preferredX, workArea.x + 8, workArea.x + workArea.width - size.width - 8),
+      y: clamp(centeredY, workArea.y + 8, workArea.y + workArea.height - size.height - 8),
     },
   }
+}
+
+function getCatPanelPlacement(catBounds: CatBounds): CatPanelPlacement {
+  return getCatAnchoredPlacement(catBounds, catPanelSize, catPanelCardInset)
+}
+
+function getCatBubblePlacement(catBounds: CatBounds): CatPanelPlacement {
+  return getCatAnchoredPlacement(catBounds, catBubbleSize, catBubbleCardInset)
+}
+
+function repositionCatBubbleWindow(): void {
+  if (
+    !catBubbleVisible ||
+    !catBubbleWindow ||
+    catBubbleWindow.isDestroyed() ||
+    !catWindow ||
+    catWindow.isDestroyed()
+  ) {
+    return
+  }
+
+  const placement = getCatBubblePlacement(catWindow.getBounds())
+  catBubbleWindow.setBounds(placement.bounds)
+  sendCatBubblePlacement(placement)
+}
+
+function normalizeCatBubbleDismissRequest(
+  request: CatBubbleDismissRequest | string | undefined
+): CatBubbleDismissRequest {
+  if (!request) {
+    return {}
+  }
+
+  if (typeof request === 'string') {
+    return { id: normalizeIdentifier(request) ?? undefined }
+  }
+
+  return {
+    ...(request.id ? { id: normalizeIdentifier(request.id) ?? undefined } : {}),
+    ...(request.reason ? { reason: request.reason } : {}),
+    ...(request.source ? { source: sanitizeBoundedText(request.source, 80) } : {}),
+  }
+}
+
+function normalizeCatBubbleShowRequest(
+  request: CatBubbleShowRequest | string
+): CatBubbleEvent | null {
+  const input: CatBubbleShowRequest = typeof request === 'string' ? { text: request } : request
+  const text = sanitizeBoundedText(input.text, input.kind === 'observation' ? 180 : 80)
+  if (!text) {
+    return null
+  }
+
+  const observationReaction = input.observationReaction
+    ? sanitizeObservationReactionEvent(input.observationReaction)
+    : undefined
+
+  return {
+    id: normalizeIdentifier(input.id) ?? observationReaction?.id ?? crypto.randomUUID(),
+    text,
+    kind: input.kind === 'observation' || observationReaction ? 'observation' : 'status',
+    visible: true,
+    ...(observationReaction ? { observationReaction } : {}),
+    ...(isFiniteNumber(input.autoDismissMs)
+      ? { autoDismissMs: clamp(Math.round(Number(input.autoDismissMs)), 1_000, 60_000) }
+      : {}),
+    ...(input.source ? { source: sanitizeBoundedText(input.source, 80) } : {}),
+    createdAt: Date.now(),
+  }
+}
+
+function showCatBubble(request: CatBubbleShowRequest | string): CatBubbleEvent | null {
+  if (!catWindow || catWindow.isDestroyed() || !catWindow.isVisible()) {
+    return null
+  }
+
+  const event = normalizeCatBubbleShowRequest(request)
+  if (!event) {
+    hideCatBubbleWindow({ reason: 'state-hidden', source: 'show-empty' })
+    return null
+  }
+  if (catPanelVisible && event.kind === 'status') {
+    return null
+  }
+  if (activeCatBubbleEvent?.kind === 'observation' && event.kind === 'status') {
+    return null
+  }
+
+  const placement = getCatBubblePlacement(catWindow.getBounds())
+  const window = createCatBubbleWindow(placement)
+  window.setBounds(placement.bounds)
+
+  activeCatBubbleEvent = event
+  catBubbleVisible = true
+
+  sendCatBubblePlacement(placement)
+  sendCatBubbleEvent(event)
+
+  if (!window.isVisible()) {
+    window.showInactive()
+  }
+
+  return event
 }
 
 function ensureCatWindow(): BrowserWindow {
@@ -762,6 +984,7 @@ function hideCatWindow(): CatStatus {
   }
 
   closeCatPanelWindow()
+  hideCatBubbleWindow({ reason: 'cat-hidden', source: 'main' })
 
   catVisible = false
   catState = 'hidden'
@@ -814,6 +1037,7 @@ function openCatPanelWindow(options: OpenCatPanelOptions = {}): CatPanelToggleRe
   panelWindow.showInactive()
   catPanelVisible = true
   catPanelSide = placement.side
+  hideCatBubbleWindow({ reason: 'replaced', source: 'panel' })
 
   notifyActiveCatSessionChanged(options.source ?? 'panel')
   if (activeCatSessionId) {
@@ -881,6 +1105,7 @@ function dragMove(payload: CatDragPayload): CatBounds | null {
   })
 
   catWindow.setBounds(nextBounds)
+  repositionCatBubbleWindow()
   return nextBounds
 }
 
@@ -905,6 +1130,15 @@ function registerCatWindowIpcHandlers(): void {
   ipcMain.handle(
     IPC_CHANNELS.cat.openObservationSource,
     (_event, event: ObservationReactionEvent) => openObservationSource(event)
+  )
+  ipcMain.handle(IPC_CHANNELS.cat.showBubble, (_event, request: CatBubbleShowRequest | string) =>
+    showCatBubble(request)
+  )
+  ipcMain.handle(
+    IPC_CHANNELS.cat.dismissBubble,
+    (_event, request?: CatBubbleDismissRequest | string) => {
+      hideCatBubbleWindow(request)
+    }
   )
   ipcMain.on(IPC_CHANNELS.cat.reportState, (_event, state: CatWindowState) => {
     reportCatState(state)
@@ -953,6 +1187,8 @@ function openObservationSource(event: ObservationReactionEvent): void {
   if (!sessionId) {
     return
   }
+
+  hideCatBubbleWindow({ id: activeCatBubbleEvent?.id, reason: 'source-opened', source: 'main' })
 
   if (event.targetSessionKind === 'cat') {
     setActiveCatSessionId(sessionId, 'observation')
