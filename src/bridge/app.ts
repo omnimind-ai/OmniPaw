@@ -245,6 +245,8 @@ export interface BridgeListSessionsRequest {
 export interface BridgeCreateSessionRequest {
   title?: string
   kind?: 'chat' | 'cat'
+  providerId?: string
+  modelId?: string
 }
 
 export interface BridgeChatSessionChangedEvent {
@@ -1470,8 +1472,8 @@ const fallbackBridge: RendererOpenOmniClawBridge = {
         title: request?.title || (request?.kind === 'cat' ? '小猫会话' : '新会话'),
         kind: request?.kind === 'cat' ? 'cat' : 'chat',
         status: 'active',
-        defaultProviderId: 'omniinfer-local',
-        defaultModelId: 'local-small-model',
+        defaultProviderId: request?.providerId || 'omniinfer-local',
+        defaultModelId: request?.modelId || 'local-small-model',
         createdAt: now,
         updatedAt: now,
       }

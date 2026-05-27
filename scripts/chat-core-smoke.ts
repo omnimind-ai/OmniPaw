@@ -4,11 +4,14 @@ import { readFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { evaluateComplexDocumentAttachmentAdmission } from '../core/agent/run/document-attachments'
+import { toolFallbackReasonForProviderError } from '../core/agent/run/helpers'
 import { ToolRegistry } from '../core/agent/tools/registry'
 import type { AgentTool } from '../core/agent/tools/types'
 import { AgentWorkspaceService } from '../core/agent/workspace'
 import { AttachmentService } from '../core/chat/attachment-service'
+import { ChatService } from '../core/chat/chat-service'
 import { ContextBuilder } from '../core/chat/context-manager'
+import { RunManager } from '../core/chat/run-manager'
 import {
   stageWorkspaceDocumentAttachments,
   withWorkspaceDocumentAttachmentsMetadata,
@@ -16,9 +19,9 @@ import {
 import { cloneDefaultConfig } from '../core/config/schema'
 import { ScheduledTaskAgentExecutor } from '../core/cron/scheduled-task-executor'
 import { DatabaseClient } from '../core/db/client'
-import { AttachmentRepo, ChatMessageRepo, ChatSessionRepo } from '../core/db/repos'
+import { AttachmentRepo, ChatMessageRepo, ChatRunRepo, ChatSessionRepo } from '../core/db/repos'
 import { seedDefaultChatData } from '../core/db/seed'
-import { normalizeProviderError } from '../core/provider/errors'
+import { errorFromResponse, normalizeProviderError } from '../core/provider/errors'
 import { parseSseStream } from '../core/provider/providers/openai'
 import type { ChatMessage } from '../shared/types/chat'
 import type { ProviderConfig, ProviderModel } from '../shared/types/provider'
@@ -30,8 +33,9 @@ try {
   const db = client.connect()
   seedDefaultChatData(db, 1000)
 
+  const attachmentRepo = new AttachmentRepo(db)
   const attachments = new AttachmentService({
-    repo: new AttachmentRepo(db),
+    repo: attachmentRepo,
     rootDir: join(tempDir, 'attachments'),
   })
   const sessionRepo = new ChatSessionRepo(db)
@@ -75,6 +79,46 @@ try {
     supportsStreaming: true,
     supportsTools: false,
   }
+  const mimoProvider: ProviderConfig = {
+    ...provider,
+    id: 'mimo-provider',
+    name: 'Mimo',
+    models: [{ ...model, id: 'mimo', providerId: 'mimo-provider', remoteId: 'mimo' }],
+  }
+  const kimiProvider: ProviderConfig = {
+    ...provider,
+    id: 'kimi-provider',
+    name: 'Kimi',
+    models: [{ ...model, id: 'kimi', providerId: 'kimi-provider', remoteId: 'kimi' }],
+  }
+  const sessionModelService = new ChatService({
+    sessions: sessionRepo,
+    messages: messageRepo,
+    runs: new ChatRunRepo(db),
+    attachments,
+    attachmentRepo,
+    providers: {
+      get: async (providerId: string) =>
+        providerId === kimiProvider.id
+          ? kimiProvider
+          : providerId === mimoProvider.id
+            ? mimoProvider
+            : undefined,
+      resolveDefaultProvider: async () => ({
+        provider: mimoProvider,
+        modelId: 'mimo',
+      }),
+    } as never,
+    contextBuilder: new ContextBuilder(attachments),
+    runManager: new RunManager(new ChatRunRepo(db)),
+  })
+  const selectedSession = await sessionModelService.createSession({
+    providerId: kimiProvider.id,
+    modelId: 'kimi',
+  })
+  assert.equal(selectedSession.defaultProviderId, kimiProvider.id)
+  assert.equal(selectedSession.defaultModelId, 'kimi')
+
   const messages: ChatMessage[] = [
     {
       id: 'user-1',
@@ -111,6 +155,7 @@ try {
   })
   assert.equal(context.messages[0]?.role, 'system')
   assert.equal(context.snapshot.attachmentCount, 2)
+  assert.equal(context.snapshot.imageInputCount, 1)
   assert.match(JSON.stringify(context.messages), /image_url/)
   assert.match(JSON.stringify(context.messages), /hello from file/)
 
@@ -311,6 +356,18 @@ try {
   assert.equal(events[1], '[DONE]')
 
   assert.equal(normalizeProviderError(new DOMException('stop', 'AbortError')).code, 'aborted')
+  const imageInputError = await errorFromResponse(
+    new Response(
+      'data:{"error":{"code":"404","message":"No endpoints found that support image input","param":"","type":""}}',
+      { status: 404, statusText: 'Not Found' }
+    )
+  )
+  assert.equal(imageInputError.code, 'provider_bad_request')
+  assert.match(imageInputError.message, /图片输入/)
+  assert.equal(
+    toolFallbackReasonForProviderError(imageInputError, [], [], false),
+    'provider_rejected_multimodal_tools'
+  )
 
   const scheduledProvider: ProviderConfig = {
     ...provider,

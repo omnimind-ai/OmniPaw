@@ -297,13 +297,17 @@ export function useCatPanelChatController() {
     upsertSession(created)
   }
 
-  async function createCatSession(options: { activate?: boolean } = {}) {
-    const { activate = true } = options
+  async function createCatSession(
+    options: { activate?: boolean; providerId?: string; modelId?: string } = {}
+  ) {
+    const { activate = true, providerId, modelId } = options
     creatingSession.value = true
     try {
       const created = await appBridge.chat.createSession({
         kind: 'cat',
         title: '小猫会话',
+        ...(providerId ? { providerId } : {}),
+        ...(modelId ? { modelId } : {}),
       })
       const session = mapBridgeSession({
         ...created,
@@ -556,27 +560,32 @@ export function useCatPanelChatController() {
       return
     }
 
+    const selectedModel = model.selectedModel.value
+    if (!selectedModel) return
+
     let sessionId = currSessionId.value
     if (!sessionId) {
-      const session = await createCatSession({ activate: true })
+      const session = await createCatSession({
+        activate: true,
+        providerId: selectedModel.providerId,
+        modelId: selectedModel.modelId,
+      })
       sessionId = session.id
     }
 
     const parts = buildOutgoingParts()
-    if (!parts.length || !sessionId || !model.selectedModel.value) return
+    if (!parts.length || !sessionId) return
 
     const messageId = crypto.randomUUID?.() || `${Date.now()}-${Math.random()}`
     messages.sending.value = true
 
     try {
-      await model.selectModel(model.selectedModel.value)
+      await model.selectModel(selectedModel)
       const { userRecord, botRecord } = messages.createLocalExchange({
         sessionId,
         messageId,
         parts,
       })
-      const selectedProvider = model.selectedModel.value.providerId
-      const selectedModel = model.selectedModel.value.modelId
 
       draft.value = ''
       replyTarget.value = null
@@ -589,8 +598,8 @@ export function useCatPanelChatController() {
         messageId,
         parts,
         transport: 'sse',
-        selectedProvider,
-        selectedModel,
+        selectedProvider: selectedModel.providerId,
+        selectedModel: selectedModel.modelId,
         toolProfile: agentToolProfile.value,
         enableStreaming: true,
         userRecord,

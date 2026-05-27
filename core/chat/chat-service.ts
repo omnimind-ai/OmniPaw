@@ -42,6 +42,7 @@ import type { AttachmentService } from './attachment-service'
 import type { ContextCompactionService } from './context-compaction'
 import type { ContextBuilder } from './context-manager'
 import { ChatRunOrchestrator } from './run/orchestrator'
+import { resolveSelectedProviderAndModel } from './run/provider-selector'
 import type { RunManager } from './run-manager'
 import { MessageEditor } from './support/message-editor'
 import { SessionSummaryUpdater } from './support/session-summary'
@@ -156,7 +157,7 @@ export class ChatService {
 
   async createSession(request: CreateSessionRequest = {}): Promise<ChatSession> {
     const now = Date.now()
-    const modelRef = await this.resolveInitialModelRef()
+    const modelRef = await this.resolveInitialModelRef(request)
     const kind = request.kind === 'cat' ? 'cat' : 'chat'
     const contextDefaults = this.options.contextDefaults?.()
     const systemContext = this.buildDefaultSystemContext()
@@ -308,9 +309,22 @@ export class ChatService {
     return session
   }
 
-  private async resolveInitialModelRef(): Promise<
-    { providerId: string; modelId: string } | undefined
-  > {
+  private async resolveInitialModelRef(
+    request: CreateSessionRequest
+  ): Promise<{ providerId: string; modelId: string } | undefined> {
+    if (request.providerId) {
+      const { provider, model } = await resolveSelectedProviderAndModel(
+        this.options.providers,
+        request.providerId,
+        request.modelId
+      )
+      return { providerId: provider.id, modelId: model.id }
+    }
+
+    if (request.modelId) {
+      throw new Error('Creating a session with a model override requires a providerId.')
+    }
+
     try {
       const { provider, modelId } = await this.options.providers.resolveDefaultProvider()
       return { providerId: provider.id, modelId }

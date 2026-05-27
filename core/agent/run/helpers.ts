@@ -32,6 +32,27 @@ export function providerSupportsTools(provider: ProviderConfig, model: ProviderM
   return true
 }
 
+export function toolFallbackReasonForProviderError(
+  chatError: ChatError,
+  stepParts: ChatMessagePart[],
+  stepToolCalls: ProviderToolCall[],
+  sawFinal: boolean
+): 'provider_rejected_tools' | 'provider_rejected_multimodal_tools' | undefined {
+  if (sawFinal || stepParts.length > 0 || stepToolCalls.length > 0) {
+    return undefined
+  }
+
+  const message = providerErrorSearchText(chatError)
+  if (isToolUnsupportedProviderErrorText(message)) {
+    return 'provider_rejected_tools'
+  }
+  if (isMultimodalToolRoutingErrorText(message)) {
+    return 'provider_rejected_multimodal_tools'
+  }
+
+  return undefined
+}
+
 export function canRetryWithoutTools(
   chatError: ChatError,
   stepParts: ChatMessagePart[],
@@ -39,10 +60,7 @@ export function canRetryWithoutTools(
   sawFinal: boolean
 ): boolean {
   return (
-    !sawFinal &&
-    stepParts.length === 0 &&
-    stepToolCalls.length === 0 &&
-    isToolUnsupportedProviderError(chatError)
+    toolFallbackReasonForProviderError(chatError, stepParts, stepToolCalls, sawFinal) !== undefined
   )
 }
 
@@ -116,8 +134,11 @@ export function injectToolInventory(
   return [{ role: 'user', content: prompt }, ...next]
 }
 
-function isToolUnsupportedProviderError(chatError: ChatError): boolean {
-  const message = `${chatError.message} ${chatError.providerBodyPreview ?? ''}`.toLowerCase()
+function providerErrorSearchText(chatError: ChatError): string {
+  return `${chatError.message} ${chatError.providerBodyPreview ?? ''}`.toLowerCase()
+}
+
+function isToolUnsupportedProviderErrorText(message: string): boolean {
   if (message.includes('function calling is not enabled')) {
     return true
   }
@@ -128,6 +149,15 @@ function isToolUnsupportedProviderError(chatError: ChatError): boolean {
     return true
   }
   return false
+}
+
+function isMultimodalToolRoutingErrorText(message: string): boolean {
+  return (
+    message.includes('image input') &&
+    (message.includes('no endpoint') ||
+      message.includes('no endpoints') ||
+      message.includes('support image input'))
+  )
 }
 
 function hasUnsupportedCapabilityText(message: string): boolean {

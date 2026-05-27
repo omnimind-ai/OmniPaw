@@ -420,6 +420,9 @@ export function useChatWorkspaceController() {
   async function handleSubmit() {
     if (!canSend.value) return
 
+    const selectedModel = model.selectedModel.value
+    if (!selectedModel) return
+
     const messageId = crypto.randomUUID?.() || `${Date.now()}-${Math.random()}`
     const parts = buildOutgoingParts()
     if (!parts.length) return
@@ -427,22 +430,26 @@ export function useChatWorkspaceController() {
     messages.sending.value = true
 
     try {
-      const sessionId = currSessionId.value || (await newSession({ navigate: !isHomeMode.value }))
+      const sessionId =
+        currSessionId.value ||
+        (await newSession({
+          navigate: !isHomeMode.value,
+          providerId: selectedModel.providerId,
+          modelId: selectedModel.modelId,
+        }))
       currSessionId.value = sessionId
       selectedSessions.value = [sessionId]
       chatStore.activeSessionId = sessionId
 
-      if (model.selectedModel.value) {
-        await model.selectModel(model.selectedModel.value)
-      }
+      await model.selectModel(selectedModel)
 
       if (isHomeMode.value) {
         chatStore.setPendingInitialMessage({
           sessionId,
           messageId,
           parts,
-          selectedProvider: model.selectedModel.value?.providerId || '',
-          selectedModel: model.selectedModel.value?.modelId || '',
+          selectedProvider: selectedModel.providerId,
+          selectedModel: selectedModel.modelId,
           toolProfile: agentToolProfile.value,
         })
 
@@ -470,8 +477,8 @@ export function useChatWorkspaceController() {
         messageId,
         parts,
         transport: 'sse',
-        selectedProvider: model.selectedModel.value?.providerId || '',
-        selectedModel: model.selectedModel.value?.modelId || '',
+        selectedProvider: selectedModel.providerId,
+        selectedModel: selectedModel.modelId,
         toolProfile: agentToolProfile.value,
         enableStreaming: true,
         userRecord,

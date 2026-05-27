@@ -4,7 +4,7 @@ import { normalizeProviderError } from '@core/provider/errors'
 import type { ChatMessagePart } from '@shared/types/chat'
 import { createAgentStepEvent } from './run/events'
 import type { AgentRunFinalizer } from './run/finalize'
-import { canRetryWithoutTools, throwIfAborted } from './run/helpers'
+import { throwIfAborted, toolFallbackReasonForProviderError } from './run/helpers'
 import type { AgentRunState } from './run/state'
 import type { AgentToolLoopOptions } from './tool-loop'
 import { executeAgentToolLoop } from './tool-loop'
@@ -92,11 +92,11 @@ export class AgentStepEngine {
           }
         } catch (error) {
           const chatError = normalizeProviderError(error)
-          if (
-            state.activeProviderTools.length &&
-            canRetryWithoutTools(chatError, stepParts, stepToolCalls, sawFinal)
-          ) {
-            state.disableToolsForFallback('provider_rejected_tools')
+          const toolFallbackReason = state.activeProviderTools.length
+            ? toolFallbackReasonForProviderError(chatError, stepParts, stepToolCalls, sawFinal)
+            : undefined
+          if (state.activeProviderTools.length && toolFallbackReason) {
+            state.disableToolsForFallback(toolFallbackReason)
             const currentRun = this.options.runs.get(input.run.id) ?? input.run
             this.options.runs.save({
               ...currentRun,
@@ -109,7 +109,7 @@ export class AgentStepEngine {
               modelId: input.model.id,
               errorCode: chatError.code,
               providerStatus: chatError.providerStatus,
-              fallbackReason: 'provider_rejected_tools',
+              fallbackReason: toolFallbackReason,
             })
             continue
           }

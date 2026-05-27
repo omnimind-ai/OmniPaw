@@ -463,6 +463,7 @@ export interface ProviderRequestSnapshot {
   fallbackReasons?: string[]
   messageCount: number
   attachmentCount: number
+  imageInputCount?: number
   tokenBudget?: {
     maxInputTokens?: number
     usableInputTokens?: number
@@ -526,6 +527,8 @@ export interface ListSessionsRequest {
 export interface CreateSessionRequest {
   title?: string
   kind?: Extract<ChatSessionKind, 'chat' | 'cat'>
+  providerId?: ID
+  modelId?: string
 }
 
 export interface ListMessagesRequest {

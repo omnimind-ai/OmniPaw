@@ -63,6 +63,7 @@ export class ContextBuilder {
       (count, unit) => count + (unit.attachmentCount ?? 0),
       0
     )
+    const imageInputCount = countProviderImageInputs(providerMessages)
     const estimatedInputTokens = estimateTokens(providerMessages)
 
     return {
@@ -84,6 +85,7 @@ export class ContextBuilder {
         summaryId: latestSummary?.id,
         messageCount: providerMessages.length,
         attachmentCount,
+        imageInputCount,
         estimatedInputTokens,
         skills: input.skillPrompt
           ? {
@@ -249,4 +251,14 @@ function hostFromUrl(value: string): string | undefined {
   } catch {
     return undefined
   }
+}
+
+function countProviderImageInputs(messages: ProviderMessage[]): number {
+  return messages.reduce((count, message) => {
+    if (!Array.isArray(message.content)) {
+      return count
+    }
+
+    return count + message.content.filter((part) => part.type === 'image_url').length
+  }, 0)
 }

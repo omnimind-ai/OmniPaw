@@ -31,6 +31,8 @@ export interface BatchDeleteResult {
 
 export interface NewSessionOptions {
   navigate?: boolean
+  providerId?: string
+  modelId?: string
 }
 
 const sessionsLogger = logger.child('chat.sessions')
@@ -64,9 +66,12 @@ export function useSessions(chatboxMode: boolean = false) {
 
   async function newSession(options: NewSessionOptions = {}) {
     try {
-      const { navigate = true } = options
+      const { navigate = true, providerId, modelId } = options
       const selectedConfigId = getStoredSelectedChatConfigId()
-      const session = await appBridge.chat.createSession()
+      const session = await appBridge.chat.createSession({
+        ...(providerId ? { providerId } : {}),
+        ...(modelId ? { modelId } : {}),
+      })
       const sessionId = session.id
       const platformId = 'webchat'
 

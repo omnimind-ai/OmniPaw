@@ -116,6 +116,8 @@ function normalizeCreateSessionRequest(request: unknown): CreateSessionRequest {
   return {
     ...(kind === 'cat' || kind === 'chat' ? { kind } : {}),
     ...(typeof request.title === 'string' ? { title: request.title } : {}),
+    ...(typeof request.providerId === 'string' ? { providerId: request.providerId } : {}),
+    ...(typeof request.modelId === 'string' ? { modelId: request.modelId } : {}),
   }
 }
 
