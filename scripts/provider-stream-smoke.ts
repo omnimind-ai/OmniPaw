@@ -1,12 +1,14 @@
 import assert from 'node:assert/strict'
 import type { ChatCompletionChunk, ChatCompletionRequest } from '../core/provider/base-provider'
 import { ProviderError } from '../core/provider/base-provider'
+import { OPENAI_COMPATIBLE_FALLBACK_CONTEXT_WINDOW } from '../core/provider/models-dev-metadata'
 import { OpenAICompatibleProvider } from '../core/provider/providers/openai'
 
 await testToolCallAggregation()
 await testTextDeltaAndUsageFinal()
 await testMalformedStreamJson()
 await testListModelsUsesConfiguredAuthHeader()
+await testListModelsParsesSsePayload()
 
 console.log('Provider stream smoke check passed')
 
@@ -241,17 +243,64 @@ async function testListModelsUsesConfiguredAuthHeader(): Promise<void> {
     baseUrl: 'https://example.test/v1',
     apiKey: 'test-key',
     authHeader: 'X-API-Key',
-    fetch: (async (_input, init) => {
-      requestHeaders = new Headers(init?.headers)
-      return Response.json({ data: [{ id: 'model-a' }] }, { status: 200 })
+    fetch: (async (input, init) => {
+      const url = requestUrl(input)
+      if (url === 'https://example.test/v1/models') {
+        requestHeaders = new Headers(init?.headers)
+        return Response.json({ data: [{ id: 'model-a' }] }, { status: 200 })
+      }
+      throw new Error(`Unexpected fetch URL: ${url}`)
     }) as typeof fetch,
   })
 
   const models = await provider.listModels()
 
   assert.equal(requestHeaders!.get('X-API-Key'), 'test-key')
+  assert.equal(requestHeaders!.get('Accept'), 'application/json')
   assert.equal(requestHeaders!.has('Authorization'), false)
-  assert.deepEqual(models, [{ id: 'model-a', name: 'model-a' }])
+  assert.equal(models[0]?.id, 'model-a')
+  assert.equal(models[0]?.name, 'model-a')
+  assert.equal(models[0]?.contextWindow, OPENAI_COMPATIBLE_FALLBACK_CONTEXT_WINDOW)
+}
+
+async function testListModelsParsesSsePayload(): Promise<void> {
+  const provider = new OpenAICompatibleProvider({
+    id: 'test',
+    baseUrl: 'https://example.test/v1',
+    apiKey: 'test-key',
+    fetch: (async (input) => {
+      const url = requestUrl(input)
+      if (url === 'https://example.test/v1/models') {
+        return new Response(
+          `data:${JSON.stringify({
+            object: 'list',
+            data: [
+              {
+                id: 'mimo-vl',
+                name: 'Mimo VL',
+                context_window: 32000,
+                tool_call: true,
+                modalities: { input: ['text', 'image'], output: ['text'] },
+              },
+            ],
+          })}\n\n`,
+          {
+            status: 200,
+            headers: { 'Content-Type': 'text/event-stream' },
+          }
+        )
+      }
+      throw new Error(`Unexpected fetch URL: ${url}`)
+    }) as typeof fetch,
+  })
+
+  const models = await provider.listModels()
+
+  assert.equal(models[0]?.id, 'mimo-vl')
+  assert.equal(models[0]?.name, 'Mimo VL')
+  assert.deepEqual(models[0]?.input, ['text', 'image'])
+  assert.equal(models[0]?.supportsTools, true)
+  assert.equal(models[0]?.contextWindow, 32000)
 }
 
 async function collect(stream: AsyncIterable<ChatCompletionChunk>): Promise<ChatCompletionChunk[]> {
@@ -264,6 +313,16 @@ async function collect(stream: AsyncIterable<ChatCompletionChunk>): Promise<Chat
 
 function sseStream(events: Array<Record<string, unknown> | '[DONE]'>): ReadableStream<Uint8Array> {
   return rawSseStream(events.map((event) => (event === '[DONE]' ? event : JSON.stringify(event))))
+}
+
+function requestUrl(input: Parameters<typeof fetch>[0]): string {
+  if (typeof input === 'string') {
+    return input
+  }
+  if (input instanceof URL) {
+    return input.toString()
+  }
+  return input.url
 }
 
 function rawSseStream(events: string[]): ReadableStream<Uint8Array> {

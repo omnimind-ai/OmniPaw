@@ -212,7 +212,7 @@ export class OpenAICompatibleProvider implements BaseProvider {
   async listModels(signal?: AbortSignal): Promise<ProviderModelCandidate[]> {
     const response = await this.fetchImpl(this.url('/models'), {
       method: 'GET',
-      headers: this.buildHeaders(false),
+      headers: this.buildHeaders(false, 'application/json'),
       signal,
     }).catch((error: unknown) => {
       throwProviderError(normalizeProviderError(error), error)
@@ -222,7 +222,10 @@ export class OpenAICompatibleProvider implements BaseProvider {
       throwProviderError(await errorFromResponse(response))
     }
 
-    const payload = (await response.json()) as unknown
+    const body = await response.text().catch((error: unknown) => {
+      throwProviderError(normalizeProviderError(error), error)
+    })
+    const payload = parseModelListPayload(body)
     if (!isRecord(payload) || !Array.isArray(payload.data)) {
       return []
     }
@@ -298,9 +301,9 @@ export class OpenAICompatibleProvider implements BaseProvider {
     return body
   }
 
-  private buildHeaders(includeJsonContentType: boolean): HeadersInit {
+  private buildHeaders(includeJsonContentType: boolean, accept = 'text/event-stream'): HeadersInit {
     const headers: Record<string, string> = {
-      Accept: 'text/event-stream',
+      Accept: accept,
       ...this.headers,
     }
 
@@ -409,6 +412,65 @@ function readSseLines(
   }
 
   return { events, pendingDataLines: dataLines }
+}
+
+function parseModelListPayload(body: string): unknown {
+  const trimmed = body.trim()
+  if (!trimmed) {
+    return undefined
+  }
+
+  const directJson = parseJsonValue(trimmed)
+  if (directJson.ok) {
+    return directJson.value
+  }
+
+  const events = parseSseTextEvents(trimmed)
+  for (const event of events) {
+    const eventText = event.trim()
+    if (!eventText || eventText === '[DONE]') {
+      continue
+    }
+
+    const eventJson = parseJsonValue(eventText)
+    if (!eventJson.ok) {
+      throwMalformedModelListPayload(eventJson.error, trimmed)
+    }
+
+    return eventJson.value
+  }
+
+  throwMalformedModelListPayload(directJson.error, trimmed)
+}
+
+function parseSseTextEvents(body: string): string[] {
+  const result = readSseLines(body.split(/\r?\n/), [])
+  return [
+    ...result.events,
+    ...(result.pendingDataLines.length ? [result.pendingDataLines.join('\n')] : []),
+  ]
+}
+
+function parseJsonValue(
+  text: string
+): { ok: true; value: unknown } | { ok: false; error: unknown } {
+  try {
+    return { ok: true, value: JSON.parse(text) as unknown }
+  } catch (error) {
+    return { ok: false, error }
+  }
+}
+
+function throwMalformedModelListPayload(error: unknown, body: string): never {
+  throwProviderError(
+    {
+      code: 'provider_bad_request',
+      message: 'Provider returned malformed model list JSON.',
+      retryable: false,
+      providerBodyPreview: body.slice(0, 1000),
+    },
+    error
+  )
 }
 
 function parseChunk(event: string): OpenAIStreamChunk {
