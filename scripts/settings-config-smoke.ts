@@ -79,8 +79,6 @@ try {
   assert.equal(normalized.observation.defaultScope, 'primary_display')
   assert.equal(normalized.observation.outputMode, 'ambient')
   assert.equal(normalized.observation.retention, 'ephemeral')
-  assert.equal(normalized.observation.allowRemoteProviders, false)
-  assert.equal(normalized.observation.localOnly, true)
   assert.equal(normalized.observation.defaultIntervalMs, 60_000)
   assert.equal(normalized.observation.defaultDurationMs, 5 * 60_000)
 

@@ -156,8 +156,6 @@ export const defaultConfig: DesktopSettingsConfig = {
     defaultScope: 'primary_display',
     outputMode: 'ambient',
     retention: 'ephemeral',
-    allowRemoteProviders: false,
-    localOnly: true,
     minIntervalMs: 15_000,
     minDurationMs: 60_000,
     maxDurationMs: 30 * 60_000,
@@ -1151,21 +1149,6 @@ function validateObservation(
       code: 'invalid_enum',
     })
   }
-  if (typeof settings.allowRemoteProviders !== 'boolean') {
-    issues.push({
-      path: 'observation.allowRemoteProviders',
-      message: 'Observation remote provider flag must be boolean.',
-      code: 'invalid_type',
-    })
-  }
-  if (typeof settings.localOnly !== 'boolean') {
-    issues.push({
-      path: 'observation.localOnly',
-      message: 'Observation local-only flag must be boolean.',
-      code: 'invalid_type',
-    })
-  }
-
   validateIntegerRange(
     settings.minIntervalMs,
     'observation.minIntervalMs',
@@ -1401,11 +1384,6 @@ function normalizeObservationSettings(rawValue: unknown): DesktopObservationSett
     retention: (rawValue.retention === undefined
       ? defaults.retention
       : rawValue.retention) as DesktopObservationSettings['retention'],
-    allowRemoteProviders:
-      typeof rawValue.allowRemoteProviders === 'boolean'
-        ? rawValue.allowRemoteProviders
-        : defaults.allowRemoteProviders,
-    localOnly: typeof rawValue.localOnly === 'boolean' ? rawValue.localOnly : defaults.localOnly,
     minIntervalMs: integerOrDefault(rawValue.minIntervalMs, defaults.minIntervalMs),
     minDurationMs: integerOrDefault(rawValue.minDurationMs, defaults.minDurationMs),
     maxDurationMs: integerOrDefault(rawValue.maxDurationMs, defaults.maxDurationMs),

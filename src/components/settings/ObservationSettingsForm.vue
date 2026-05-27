@@ -219,41 +219,6 @@ function clampInteger(value: string | number, min: number): number {
       </FieldGroup>
     </SettingsSection>
 
-    <SettingsSection title="隐私边界">
-      <FieldGroup class="gap-0">
-        <Field
-          orientation="responsive"
-          class="border-b px-4 py-3"
-        >
-          <FieldContent>
-            <FieldLabel for="observation-local-only">仅本地模型</FieldLabel>
-            <FieldDescription>开启时禁止视觉模型和 reaction 模型使用外部 Provider。</FieldDescription>
-          </FieldContent>
-          <Switch
-            id="observation-local-only"
-            v-model="observation.localOnly"
-            aria-label="仅本地模型"
-          />
-        </Field>
-
-        <Field
-          orientation="responsive"
-          class="px-4 py-3"
-        >
-          <FieldContent>
-            <FieldLabel for="observation-remote">允许外部 Provider</FieldLabel>
-            <FieldDescription>开启后仍会在启动观察前要求确认风险。</FieldDescription>
-          </FieldContent>
-          <Switch
-            id="observation-remote"
-            v-model="observation.allowRemoteProviders"
-            aria-label="允许外部 Provider"
-            :disabled="observation.localOnly"
-          />
-        </Field>
-      </FieldGroup>
-    </SettingsSection>
-
     <SettingsSection title="运行限制">
       <FieldGroup class="gap-0">
         <Field

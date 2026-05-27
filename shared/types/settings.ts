@@ -113,8 +113,6 @@ export interface DesktopObservationSettings {
   defaultScope: ObservationScope
   outputMode: ObservationOutputMode
   retention: ObservationRetention
-  allowRemoteProviders: boolean
-  localOnly: boolean
   minIntervalMs: number
   minDurationMs: number
   maxDurationMs: number

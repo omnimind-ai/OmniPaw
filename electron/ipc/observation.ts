@@ -74,23 +74,7 @@ function normalizeStartRequest(request: unknown): StartObservationRequest {
     ...(retentions.has(String(request.retention))
       ? { retention: request.retention as StartObservationRequest['retention'] }
       : {}),
-    ...(typeof request.allowRemoteProviders === 'boolean'
-      ? { allowRemoteProviders: request.allowRemoteProviders }
-      : {}),
-    ...(typeof request.localOnly === 'boolean' ? { localOnly: request.localOnly } : {}),
     ...(typeof request.sourceId === 'string' ? { sourceId: request.sourceId } : {}),
-    ...(isRecord(request.remoteRiskAccepted)
-      ? {
-          remoteRiskAccepted: {
-            ...(typeof request.remoteRiskAccepted.vision === 'boolean'
-              ? { vision: request.remoteRiskAccepted.vision }
-              : {}),
-            ...(typeof request.remoteRiskAccepted.reaction === 'boolean'
-              ? { reaction: request.remoteRiskAccepted.reaction }
-              : {}),
-          },
-        }
-      : {}),
   }
 }
 

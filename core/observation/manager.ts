@@ -69,8 +69,6 @@ interface ObservationTickResult {
   decision: ObservationReactionDecision
 }
 
-const localHostnames = new Set(['localhost', '127.0.0.1', '::1', '0.0.0.0'])
-
 export class ObservationManager {
   private readonly capture: DesktopCaptureAdapter
   private readonly providers: ProviderManager
@@ -119,8 +117,6 @@ export class ObservationManager {
     const intervalMs = this.normalizeInterval(request.intervalMs, settings)
     const outputMode = normalizeOutputMode(request.outputMode, settings.outputMode)
     const retention = normalizeRetention(request.retention, settings.retention)
-    const allowRemoteProviders = request.allowRemoteProviders ?? settings.allowRemoteProviders
-    const localOnly = request.localOnly ?? settings.localOnly
     const run: ObservationRun = {
       id: crypto.randomUUID(),
       targetSessionId: session.id,
@@ -135,14 +131,10 @@ export class ObservationManager {
       scope: normalizeScope(request.scope, settings.defaultScope),
       outputMode,
       retention,
-      allowRemoteProviders,
-      localOnly,
-      remoteRiskAccepted: request.remoteRiskAccepted,
       failureCount: 0,
     }
 
     const resolved = await this.resolveModelChain(session, run)
-    this.assertRemoteRisk(run, resolved)
     run.visionModelRef = resolved.chain.visionModelRef
     run.reactionModelRef = resolved.chain.reactionModelRef
     run.modelChainMode = resolved.chain.mode
@@ -163,10 +155,7 @@ export class ObservationManager {
       durationMs: run.durationMs,
       scope: run.scope,
       outputMode: run.outputMode,
-      localOnly: run.localOnly,
       modelChainMode: run.modelChainMode,
-      remoteVision: resolved.chain.remoteVision,
-      remoteReaction: resolved.chain.remoteReaction,
     })
     await this.emitChanged('started', run)
     return this.status()
@@ -299,7 +288,6 @@ export class ObservationManager {
     this.assertDailyLimit()
     const session = this.requireSession(state.run.targetSessionId, state.run.targetSessionKind)
     const resolved = await this.resolveModelChain(session, state.run)
-    this.assertRemoteRisk(state.run, resolved)
     const frame = await this.captureFrame(state)
     try {
       const summary =
@@ -641,44 +629,8 @@ export class ObservationManager {
       visionModelRef: { providerId: vision.provider.id, modelId: vision.model.id },
       reactionModelRef: { providerId: reaction.provider.id, modelId: reaction.model.id },
       mode,
-      remoteVision: !isLocalProvider(vision.provider),
-      remoteReaction: mode === 'split' && !isLocalProvider(reaction.provider),
     }
     return { chain, vision, reaction }
-  }
-
-  private assertRemoteRisk(run: ObservationRun, resolved: ResolvedChain): void {
-    if (run.localOnly && (resolved.chain.remoteVision || resolved.chain.remoteReaction)) {
-      throw this.observationError(
-        'remote_provider_blocked',
-        'localOnly 已开启，请切换到本地视觉和 reaction 模型。',
-        true
-      )
-    }
-    if (
-      !run.allowRemoteProviders &&
-      (resolved.chain.remoteVision || resolved.chain.remoteReaction)
-    ) {
-      throw this.observationError(
-        'remote_provider_blocked',
-        '当前观察设置不允许使用外部 Provider。',
-        true
-      )
-    }
-    if (resolved.chain.remoteVision && run.remoteRiskAccepted?.vision !== true) {
-      throw this.observationError(
-        'remote_vision_confirmation_required',
-        '截图会发送给外部视觉模型，需要先确认风险。',
-        true
-      )
-    }
-    if (resolved.chain.remoteReaction && run.remoteRiskAccepted?.reaction !== true) {
-      throw this.observationError(
-        'remote_reaction_confirmation_required',
-        '视觉摘要可能发送给外部 reaction 模型，需要先确认风险。',
-        true
-      )
-    }
   }
 
   private normalizeDuration(value: number | undefined, settings: DesktopObservationSettings) {
@@ -900,18 +852,6 @@ function normalizeObservationError(error: unknown): ObservationErrorInfo {
 function modelSupports(model: ProviderModelRecord, input: 'text' | 'image'): boolean {
   const inputs = model.input?.length ? model.input : ['text']
   return inputs.includes(input)
-}
-
-function isLocalProvider(provider: ProviderRecord): boolean {
-  if (provider.type === 'ollama' || provider.type === 'omniinfer') {
-    return true
-  }
-  try {
-    const url = new URL(provider.baseUrl)
-    return localHostnames.has(url.hostname)
-  } catch {
-    return false
-  }
 }
 
 function parseCandidate(raw: string): ObservationReactionCandidate {

@@ -17,8 +17,6 @@ const baseSettings: DesktopObservationSettings = {
   defaultScope: 'primary_display',
   outputMode: 'chat',
   retention: 'ephemeral',
-  allowRemoteProviders: false,
-  localOnly: true,
   minIntervalMs: 1_000,
   minDurationMs: 1_000,
   maxDurationMs: 10 * 60_000,
@@ -282,13 +280,12 @@ try {
     observationVisionModelRef: { providerId: 'remote', modelId: 'vision' },
     observationReactionModelRef: undefined,
   }
-  settings = { ...baseSettings, localOnly: false, allowRemoteProviders: true }
+  settings = { ...baseSettings }
   const remoteSingleState = await manager.start({
     targetSessionId: session.id,
     targetSessionKind: 'chat',
     durationMs: 60_000,
     intervalMs: 10 * 60_000,
-    remoteRiskAccepted: { vision: true },
   })
   assert.equal(remoteSingleState.activeRuns[0]?.modelChainMode, 'single_multimodal')
   await manager.stop({ targetSessionId: session.id })
@@ -299,39 +296,15 @@ try {
     observationVisionModelRef: { providerId: 'remote', modelId: 'vision' },
     observationReactionModelRef: { providerId: 'remote', modelId: 'vision' },
   }
-  settings = { ...baseSettings, localOnly: false, allowRemoteProviders: true }
-  await assert.rejects(
-    () =>
-      manager.start({
-        targetSessionId: session.id,
-        targetSessionKind: 'chat',
-        durationMs: 60_000,
-        intervalMs: 10 * 60_000,
-        remoteRiskAccepted: { vision: true },
-      }),
-    (error) =>
-      error instanceof ObservationRuntimeError &&
-      error.details.code === 'remote_reaction_confirmation_required'
-  )
-
-  registrySettings = {
-    fallbackModelRefs: [],
-    streaming: true,
-    observationVisionModelRef: { providerId: 'remote', modelId: 'vision' },
-    observationReactionModelRef: undefined,
-  }
-  settings = { ...baseSettings, localOnly: true, allowRemoteProviders: false }
-  await assert.rejects(
-    () =>
-      manager.start({
-        targetSessionId: session.id,
-        targetSessionKind: 'chat',
-        durationMs: 60_000,
-        intervalMs: 10 * 60_000,
-      }),
-    (error) =>
-      error instanceof ObservationRuntimeError && error.details.code === 'remote_provider_blocked'
-  )
+  settings = { ...baseSettings }
+  const remoteSplitState = await manager.start({
+    targetSessionId: session.id,
+    targetSessionKind: 'chat',
+    durationMs: 60_000,
+    intervalMs: 10 * 60_000,
+  })
+  assert.equal(remoteSplitState.activeRuns[0]?.modelChainMode, 'split')
+  await manager.stop({ targetSessionId: session.id })
 
   registrySettings = {
     fallbackModelRefs: [],
@@ -339,7 +312,7 @@ try {
     observationVisionModelRef: undefined,
     observationReactionModelRef: { providerId: 'local-text', modelId: 'reaction' },
   }
-  settings = { ...baseSettings, localOnly: true, allowRemoteProviders: false }
+  settings = { ...baseSettings }
   session.defaultProviderId = 'local-text'
   session.defaultModelId = 'reaction'
   providerRecords['local-vision'].models[0]!.input = ['text']

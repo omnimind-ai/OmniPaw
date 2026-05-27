@@ -181,8 +181,6 @@ export interface BridgeDesktopSettingsConfig {
     defaultScope: BridgeObservationScope
     outputMode: BridgeObservationOutputMode
     retention: BridgeObservationRetention
-    allowRemoteProviders: boolean
-    localOnly: boolean
     minIntervalMs: number
     minDurationMs: number
     maxDurationMs: number
@@ -1801,8 +1799,6 @@ function fallbackSettingsConfig(): BridgeDesktopSettingsConfig {
       defaultScope: 'primary_display',
       outputMode: 'ambient',
       retention: 'ephemeral',
-      allowRemoteProviders: false,
-      localOnly: true,
       minIntervalMs: 15_000,
       minDurationMs: 60_000,
       maxDurationMs: 30 * 60_000,

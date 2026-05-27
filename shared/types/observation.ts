@@ -30,11 +30,6 @@ export interface ObservationPermissionStatus {
   message?: string
 }
 
-export interface ObservationRemoteRiskAcceptance {
-  vision?: boolean
-  reaction?: boolean
-}
-
 export interface ObservationCaptureRequest {
   runId: ID
   scope: ObservationScope
@@ -61,8 +56,6 @@ export interface ObservationModelChain {
   visionModelRef: ProviderModelRef
   reactionModelRef: ProviderModelRef
   mode: 'single_multimodal' | 'split'
-  remoteVision: boolean
-  remoteReaction: boolean
 }
 
 export interface ObservationRun {
@@ -80,9 +73,6 @@ export interface ObservationRun {
   scope: ObservationScope
   outputMode: ObservationOutputMode
   retention: ObservationRetention
-  allowRemoteProviders: boolean
-  localOnly: boolean
-  remoteRiskAccepted?: ObservationRemoteRiskAcceptance
   visionModelRef?: ProviderModelRef
   reactionModelRef?: ProviderModelRef
   modelChainMode?: ObservationModelChain['mode']
@@ -102,10 +92,7 @@ export interface StartObservationRequest {
   scope?: ObservationScope
   outputMode?: ObservationOutputMode
   retention?: ObservationRetention
-  allowRemoteProviders?: boolean
-  localOnly?: boolean
   sourceId?: string
-  remoteRiskAccepted?: ObservationRemoteRiskAcceptance
 }
 
 export interface StopObservationRequest {
@@ -153,9 +140,6 @@ export type ObservationErrorCode =
   | 'capture_failed'
   | 'no_vision_model'
   | 'model_capability'
-  | 'remote_provider_blocked'
-  | 'remote_vision_confirmation_required'
-  | 'remote_reaction_confirmation_required'
   | 'provider_failed'
   | 'run_not_found'
   | 'run_busy'
