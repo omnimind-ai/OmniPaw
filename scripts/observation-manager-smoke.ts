@@ -50,11 +50,15 @@ let captureCount = 0
 let cleanupCount = 0
 let changedCount = 0
 let reactionCount = 0
+let captureShouldFail = false
 let settings = { ...baseSettings }
 
 const capture: DesktopCaptureAdapter = {
   permissionStatus: () => permission,
   capture: (): ObservationCapturedFrame => {
+    if (captureShouldFail) {
+      throw new Error('capture unavailable')
+    }
     captureCount += 1
     return {
       captureId: `capture-${captureCount}`,
@@ -238,9 +242,39 @@ try {
   assert.equal(toolResult.mimeType, 'image/png')
   assert.equal('dataUrl' in toolResult, false)
 
+  captureShouldFail = true
+  await assert.rejects(
+    () => manager.trigger({ targetSessionId: session.id }),
+    (error) => error instanceof ObservationRuntimeError && error.details.code === 'capture_failed'
+  )
+  captureShouldFail = false
+  await manager.trigger({ targetSessionId: session.id })
+  await waitFor(() => messages.length === 3)
+  assert.equal((await manager.status()).activeRuns[0]?.error, undefined)
+
   await manager.stop({ targetSessionId: session.id })
   assert.equal((await manager.status()).activeRuns.length, 0)
   assert.ok(cleanupCount > 0)
+
+  settings = { ...baseSettings, outputMode: 'ambient' }
+  registrySettings = {
+    fallbackModelRefs: [],
+    streaming: true,
+    observationVisionModelRef: { providerId: 'local-vision', modelId: 'vision' },
+    observationReactionModelRef: { providerId: 'local-text', modelId: 'reaction' },
+  }
+  await manager.start({
+    targetSessionId: session.id,
+    targetSessionKind: 'chat',
+    surface: 'chat',
+    durationMs: 60_000,
+    intervalMs: 10 * 60_000,
+  })
+  await waitFor(() => messages.length === 4)
+  assert.equal(messages[3]?.metadata?.source, 'observation')
+  assert.equal(messages[3]?.metadata?.decision, 'ambient')
+  assert.equal(reactionCount, 0)
+  await manager.stop({ targetSessionId: session.id })
 
   registrySettings = {
     fallbackModelRefs: [],

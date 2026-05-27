@@ -256,6 +256,7 @@ export class ObservationManager {
         run.lastReactionAt = result.decision.createdAt
       }
       run.failureCount = 0
+      run.error = undefined
       await this.dispatchDecision(run, result)
       await this.emitChanged(source === 'timer' ? 'tick' : 'updated', run)
     } catch (error) {
@@ -272,9 +273,15 @@ export class ObservationManager {
         })
         if (run.failureCount >= this.options.settings().consecutiveFailureLimit) {
           this.stopRun(run.id, 'failed', true, run.error)
+          if (source === 'manual') {
+            throw new ObservationRuntimeError(run.error)
+          }
           return
         }
         await this.emitChanged('failed', run, run.error)
+        if (source === 'manual') {
+          throw new ObservationRuntimeError(run.error)
+        }
       }
     } finally {
       state.busy = false
@@ -489,7 +496,7 @@ export class ObservationManager {
     if (decision.mode === 'silent' || !decision.text) {
       return
     }
-    if (decision.mode === 'chat') {
+    if (decision.mode === 'chat' || run.surface === 'chat') {
       this.appendChatMessage(run, decision)
       return
     }

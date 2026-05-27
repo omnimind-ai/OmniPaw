@@ -1,8 +1,13 @@
 <script setup lang="ts">
-import type { ObservationRemoteRiskAcceptance } from '@shared/types/observation'
+import type {
+  ObservationChangedEvent,
+  ObservationErrorInfo,
+  ObservationRemoteRiskAcceptance,
+  ObservationRun,
+} from '@shared/types/observation'
 import { EyeIcon, EyeOffIcon, Loader2Icon, RefreshCwIcon, TimerIcon } from 'lucide-vue-next'
 import { storeToRefs } from 'pinia'
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import ObservationRiskConfirmModal from '@/components/observation/ObservationRiskConfirmModal.vue'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -47,12 +52,14 @@ const { running, loading } = storeToRefs(observationStore)
 const now = ref(Date.now())
 const riskModalOpen = ref(false)
 const pendingRisk = ref<RemoteRisk>({ vision: false, reaction: false, blocked: false })
+const notifiedErrorKeys = new Set<string>()
 let clock: ReturnType<typeof window.setInterval> | undefined
 
 const settings = computed(
   () => settingsStore.draft?.observation ?? settingsStore.config?.observation
 )
 const activeRun = computed(() => observationStore.runForSession(props.sessionId))
+const latestSessionEvent = computed(() => eventForCurrentSession(observationStore.lastEvent))
 const enabled = computed(() => settings.value?.enabled === true)
 const busy = computed(() => running.value || loading.value)
 const remainingMs = computed(() =>
@@ -60,6 +67,8 @@ const remainingMs = computed(() =>
 )
 const statusLabel = computed(() => {
   if (activeRun.value) return formatRemaining(remainingMs.value)
+  if (latestSessionEvent.value?.reason === 'failed') return '观察失败'
+  if (latestSessionEvent.value?.reason === 'expired') return '已结束'
   if (!enabled.value) return '未启用'
   return '未观察'
 })
@@ -93,6 +102,13 @@ onBeforeUnmount(() => {
     clock = undefined
   }
 })
+
+watch(
+  () => observationStore.lastEvent,
+  (event) => {
+    handleObservationEvent(event)
+  }
+)
 
 async function handleStart(): Promise<void> {
   if (!props.sessionId) {
@@ -162,11 +178,78 @@ async function handleStop(): Promise<void> {
 async function handleTrigger(): Promise<void> {
   const run = activeRun.value
   if (!run) return
+  const triggeredAt = Date.now()
   try {
     await observationStore.trigger({ runId: run.id })
+    const active = observationStore.runForSession(props.sessionId)
+    if (
+      active?.id === run.id &&
+      active.lastDecision?.mode === 'silent' &&
+      active.lastDecision.createdAt >= triggeredAt
+    ) {
+      toast.info('本次观察已完成，模型未输出可见内容。')
+    }
   } catch (error) {
-    toast.error(errorToText(error, '立即观察失败。'))
+    const event = latestSessionEvent.value
+    const eventError = event?.run ? (event.error ?? event.run.error) : undefined
+    const active = observationStore.runForSession(props.sessionId)
+    const runError = active?.id === run.id ? active.error : undefined
+    if (event?.run && eventError) {
+      notifyObservationError(event.run, eventError, '立即观察失败。')
+    } else if (active && runError) {
+      notifyObservationError(active, runError, '立即观察失败。')
+    } else {
+      toast.error(errorToText(error, '立即观察失败。'))
+    }
   }
+}
+
+function handleObservationEvent(event: ObservationChangedEvent | null): void {
+  const sessionEvent = eventForCurrentSession(event)
+  if (!sessionEvent?.run) return
+
+  if (sessionEvent.reason === 'failed') {
+    const error = sessionEvent.error ?? sessionEvent.run.error
+    if (error) {
+      notifyObservationError(sessionEvent.run, error, '主动视觉观察失败。')
+    }
+    return
+  }
+
+  if (
+    sessionEvent.reason === 'expired' &&
+    !sessionEvent.run.lastDecision &&
+    sessionEvent.run.error
+  ) {
+    notifyObservationError(
+      sessionEvent.run,
+      sessionEvent.run.error,
+      '主动视觉观察已结束，期间没有成功完成观察。'
+    )
+  }
+}
+
+function eventForCurrentSession(
+  event: ObservationChangedEvent | null
+): ObservationChangedEvent | null {
+  if (!props.sessionId || !event?.run) return null
+  return event.run.targetSessionId === props.sessionId ? event : null
+}
+
+function notifyObservationError(
+  run: ObservationRun,
+  error: ObservationErrorInfo,
+  fallback: string
+): void {
+  const key = `${run.id}:${run.failureCount}:${run.status}:${error.code}:${error.message}`
+  if (notifiedErrorKeys.has(key)) {
+    return
+  }
+  if (notifiedErrorKeys.size > 30) {
+    notifiedErrorKeys.clear()
+  }
+  notifiedErrorKeys.add(key)
+  toast.error(errorToText(error, fallback), { description: '主动视觉观察' })
 }
 
 function resolveRemoteRisk(): RemoteRisk {
