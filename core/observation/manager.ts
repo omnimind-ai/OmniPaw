@@ -635,7 +635,7 @@ export class ObservationManager {
       reactionModelRef: { providerId: reaction.provider.id, modelId: reaction.model.id },
       mode,
       remoteVision: !isLocalProvider(vision.provider),
-      remoteReaction: !isLocalProvider(reaction.provider),
+      remoteReaction: mode === 'split' && !isLocalProvider(reaction.provider),
     }
     return { chain, vision, reaction }
   }

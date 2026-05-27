@@ -248,6 +248,44 @@ try {
     observationVisionModelRef: { providerId: 'remote', modelId: 'vision' },
     observationReactionModelRef: undefined,
   }
+  settings = { ...baseSettings, localOnly: false, allowRemoteProviders: true }
+  const remoteSingleState = await manager.start({
+    targetSessionId: session.id,
+    targetSessionKind: 'chat',
+    durationMs: 60_000,
+    intervalMs: 10 * 60_000,
+    remoteRiskAccepted: { vision: true },
+  })
+  assert.equal(remoteSingleState.activeRuns[0]?.modelChainMode, 'single_multimodal')
+  await manager.stop({ targetSessionId: session.id })
+
+  registrySettings = {
+    fallbackModelRefs: [],
+    streaming: true,
+    observationVisionModelRef: { providerId: 'remote', modelId: 'vision' },
+    observationReactionModelRef: { providerId: 'remote', modelId: 'vision' },
+  }
+  settings = { ...baseSettings, localOnly: false, allowRemoteProviders: true }
+  await assert.rejects(
+    () =>
+      manager.start({
+        targetSessionId: session.id,
+        targetSessionKind: 'chat',
+        durationMs: 60_000,
+        intervalMs: 10 * 60_000,
+        remoteRiskAccepted: { vision: true },
+      }),
+    (error) =>
+      error instanceof ObservationRuntimeError &&
+      error.details.code === 'remote_reaction_confirmation_required'
+  )
+
+  registrySettings = {
+    fallbackModelRefs: [],
+    streaming: true,
+    observationVisionModelRef: { providerId: 'remote', modelId: 'vision' },
+    observationReactionModelRef: undefined,
+  }
   settings = { ...baseSettings, localOnly: true, allowRemoteProviders: false }
   await assert.rejects(
     () =>
