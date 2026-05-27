@@ -7,6 +7,7 @@ import type { SessionContextUsage } from '@/stores/chat'
 import type { ProviderModelOption } from '@/stores/provider'
 
 export interface ChatWorkspaceContext {
+  currSessionId: Ref<string>
   showWelcome: ComputedRef<boolean>
   activeMessages: ComputedRef<ChatRecord[]>
   showMessageList: ComputedRef<boolean>

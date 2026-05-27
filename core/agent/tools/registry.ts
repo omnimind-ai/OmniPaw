@@ -3,6 +3,7 @@ import type { AgentWorkspaceService } from '@core/agent/workspace'
 import type { AttachmentService } from '@core/chat/attachment-service'
 import type { CronManager } from '@core/cron/cron-manager'
 import type { ChatMessageRepo } from '@core/db/repos'
+import type { ObservationManager } from '@core/observation'
 import type { ProviderTool } from '@core/provider/base-provider'
 import type { SkillManager } from '@core/skill/skill-manager'
 import type { ToolProfile } from '@shared/types/chat'
@@ -17,6 +18,7 @@ export interface ToolRegistryOptions {
   attachments: AttachmentService
   skills?: SkillManager
   cronManager?: () => CronManager
+  observationManager?: () => ObservationManager | undefined
   workspaceService?: AgentWorkspaceService
   terminalService?: TerminalService
   toolSettings?: () => DesktopToolSettings
@@ -44,6 +46,7 @@ export class ToolRegistry {
       sessionId: input.sessionId,
       skills: this.options.skills,
       cronManager: this.options.cronManager?.(),
+      observationManager: this.options.observationManager?.(),
       policy: input.policy,
       workspaceService: this.options.workspaceService,
       terminalService: this.options.terminalService,

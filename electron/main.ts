@@ -3,8 +3,10 @@ import { join } from 'node:path'
 import { createElectronLogSink, createProjectLogger } from '@core/logging'
 import { resolveOpenOmniClawDataPaths } from '@core/utils/data-paths'
 import { APP_NAME, IPC_CHANNELS } from '@shared/constants'
-import type { ChatSession } from '@shared/types/chat'
+import type { OpenChatSessionRequest } from '@shared/types/app'
+import type { ChatSession, ChatSessionChangedEvent } from '@shared/types/chat'
 import type { CronTaskChangedEvent } from '@shared/types/cron'
+import type { ObservationChangedEvent, ObservationReactionEvent } from '@shared/types/observation'
 import type {
   DesktopSettingsChangedEvent,
   DesktopSettingsConfig,
@@ -21,9 +23,11 @@ import {
   getCatWindowBounds,
   openCatPanelWindow,
   registerCatWindowIpcHandlers,
+  sendCatObservationReaction,
   setActiveCatSessionId,
   setCatSessionIdResolver,
   setCatWindowLogger,
+  setChatSessionOpener,
   showCatWindow,
 } from './cat-window'
 import {
@@ -131,6 +135,27 @@ function quitApp(): void {
 
 function showMainWindow(): void {
   mainWindowController?.show()
+}
+
+function openMainChatSession(sessionId: string): void {
+  showMainWindow()
+  const window = mainWindowController?.getWindow()
+  if (!window || window.isDestroyed()) {
+    return
+  }
+
+  const request: OpenChatSessionRequest = { sessionId }
+  const send = () => {
+    if (!window.isDestroyed()) {
+      window.webContents.send(IPC_CHANNELS.app.navigateToChat, request)
+    }
+  }
+
+  if (window.webContents.isLoading()) {
+    window.webContents.once('did-finish-load', send)
+  } else {
+    send()
+  }
 }
 
 function updateTrayMenu(): void {
@@ -261,6 +286,37 @@ function broadcastCronChanged(event: CronTaskChangedEvent): void {
   catNotificationController?.handleCronChanged(event)
 }
 
+function broadcastObservationChanged(event: ObservationChangedEvent): void {
+  for (const window of BrowserWindow.getAllWindows()) {
+    window.webContents.send(IPC_CHANNELS.observation.changed, event)
+  }
+
+  const sessionId = event.run?.targetSessionId
+  if (!sessionId) {
+    return
+  }
+
+  const session = runtime?.sessionRepo.get(sessionId)
+  if (!session) {
+    return
+  }
+
+  const chatEvent: ChatSessionChangedEvent = {
+    reason: 'observation',
+    sessionId,
+    session,
+  }
+  for (const window of BrowserWindow.getAllWindows()) {
+    window.webContents.send(IPC_CHANNELS.chat.sessionChanged, chatEvent)
+  }
+}
+
+function broadcastObservationReaction(event: ObservationReactionEvent): void {
+  if (event.surface === 'cat') {
+    sendCatObservationReaction(event)
+  }
+}
+
 app
   .whenReady()
   .then(() => {
@@ -278,10 +334,13 @@ app
       onCronChanged: broadcastCronChanged,
       onMcpChanged: broadcastMcpChanged,
       onSkillChanged: broadcastSkillChanged,
+      onObservationChanged: broadcastObservationChanged,
+      onObservationReaction: broadcastObservationReaction,
     })
     createControllers()
     setCatWindowLogger(mainLogger.child({ scope: 'cat' }))
     setCatSessionIdResolver(resolveRuntimeCatSessionId)
+    setChatSessionOpener(openMainChatSession)
     catNotificationController = createCatNotificationControllerForRuntime()
     catNotificationController.registerIpcHandlers()
     registerCatWindowIpcHandlers()
@@ -294,6 +353,7 @@ app
       platform: process.platform,
       runtime,
       onSettingsChanged: broadcastSettingsChanged,
+      openChatSession: openMainChatSession,
     })
     trayController?.create()
     mainWindowController?.create()

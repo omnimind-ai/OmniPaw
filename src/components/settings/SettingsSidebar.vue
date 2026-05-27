@@ -4,6 +4,7 @@ import {
   BookOpenIcon,
   BotIcon,
   CalendarClockIcon,
+  EyeIcon,
   InfoIcon,
   KeyboardIcon,
   PlugIcon,
@@ -40,6 +41,7 @@ export type SettingsTab =
   | 'skills'
   | 'personas'
   | 'schedule'
+  | 'observation'
   | 'about'
 
 interface SettingsNavItem {
@@ -69,6 +71,7 @@ const settingsItems: SettingsNavItem[] = [
 const capabilityItems: SettingsNavItem[] = [
   { value: 'personas', label: '人格', icon: UserIcon },
   { value: 'tools', label: '工具设置', icon: WrenchIcon },
+  { value: 'observation', label: '视觉观察', icon: EyeIcon },
   { value: 'skills', label: '技能', icon: BookOpenIcon },
   { value: 'schedule', label: '计划任务', icon: CalendarClockIcon },
 ]

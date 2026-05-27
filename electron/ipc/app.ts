@@ -1,5 +1,5 @@
 import { IPC_CHANNELS } from '@shared/constants'
-import { registerLoggedIpcHandler } from './common'
+import { isRecord, registerLoggedIpcHandler } from './common'
 import type { IpcHandlerOptions } from './types'
 
 export function registerAppIpcHandlers(options: IpcHandlerOptions): void {
@@ -8,4 +8,25 @@ export function registerAppIpcHandlers(options: IpcHandlerOptions): void {
     version: options.appVersion,
     platform: options.platform,
   }))
+  registerLoggedIpcHandler(
+    options,
+    IPC_CHANNELS.app.openChatSession,
+    (_event, request: unknown) => {
+      const sessionId = normalizeSessionId(request)
+      if (!sessionId) {
+        throw new Error('openChatSession requires sessionId.')
+      }
+      options.openChatSession?.(sessionId)
+    }
+  )
+}
+
+function normalizeSessionId(request: unknown): string {
+  if (typeof request === 'string') {
+    return request.trim()
+  }
+  if (isRecord(request) && typeof request.sessionId === 'string') {
+    return request.sessionId.trim()
+  }
+  return ''
 }

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import AgentWorkspacePanel from '@/components/chat/AgentWorkspacePanel.vue'
 import ChatComposer from '@/components/chat/ChatComposer.vue'
+import ObservationControls from '@/components/observation/ObservationControls.vue'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { useChatWorkspaceContext } from './chat-workspace-context'
@@ -15,6 +16,7 @@ const props = withDefaults(
 )
 
 const {
+  currSessionId,
   showWelcome,
   selectedModel,
   providersLoading,
@@ -83,6 +85,19 @@ const {
       </div>
 
       <AgentWorkspacePanel class="mb-2" />
+
+      <div
+        v-if="currSessionId"
+        class="mb-2 flex justify-end"
+      >
+        <ObservationControls
+          :session-id="currSessionId"
+          session-kind="chat"
+          surface="chat"
+          :fallback-model-key="selectedModelKey"
+          :disabled="currentSessionRunning"
+        />
+      </div>
 
       <ChatComposer
         v-model="draft"

@@ -26,6 +26,7 @@ import {
 import { defaultContextPolicy, seedDefaultChatData } from '@core/db/seed'
 import type { Logger } from '@core/logging'
 import { McpRegistryStore, McpServerManager, McpValidationError } from '@core/mcp'
+import { ObservationManager } from '@core/observation'
 import { PersonaManager } from '@core/persona/manager'
 import { PersonaRegistryValidationError } from '@core/persona/registry-schema'
 import { PersonaRegistryStore } from '@core/persona/registry-store'
@@ -37,8 +38,10 @@ import { resolveOpenOmniClawDataPaths } from '@core/utils/data-paths'
 import { SYSTEM_SESSION_IDS } from '@shared/constants'
 import type { ChatSession } from '@shared/types/chat'
 import type { CronTaskChangedEvent } from '@shared/types/cron'
+import type { ObservationChangedEvent, ObservationReactionEvent } from '@shared/types/observation'
 import type { DesktopSettingsConfig, SettingsChangeReason } from '@shared/types/settings'
 import type { app } from 'electron'
+import { ElectronDesktopCaptureAdapter } from './desktop-capture-adapter'
 
 export type McpChangedEvent = Parameters<
   NonNullable<ConstructorParameters<typeof McpServerManager>[0]['onChanged']>
@@ -57,6 +60,8 @@ interface CoreRuntimeOptions {
   onCronChanged: (event: CronTaskChangedEvent) => void
   onMcpChanged: (event: McpChangedEvent) => void
   onSkillChanged: (event: SkillChangedEvent) => void
+  onObservationChanged: (event: ObservationChangedEvent) => void
+  onObservationReaction: (event: ObservationReactionEvent) => void
 }
 
 export interface CoreRuntime {
@@ -66,6 +71,7 @@ export interface CoreRuntime {
   configStore: ConfigStore
   cronManager: CronManager
   mcpServerManager: McpServerManager
+  observationManager: ObservationManager
   personaManager: PersonaManager
   providerManager: ProviderManager
   sessionRepo: ChatSessionRepo
@@ -227,6 +233,20 @@ export function createCoreRuntime(options: CoreRuntimeOptions): CoreRuntime {
     repo: attachmentRepo,
     rootDir: dataPaths.attachments,
   })
+  const desktopCapture = new ElectronDesktopCaptureAdapter({
+    tempDir: dataPaths.observationTemp,
+  })
+  void desktopCapture.cleanupAll()
+  const observationManager = new ObservationManager({
+    capture: desktopCapture,
+    settings: () => configStore.get().observation,
+    providers: providerManager,
+    sessions: sessionRepo,
+    messages: messageRepo,
+    onChanged: options.onObservationChanged,
+    onReaction: options.onObservationReaction,
+    logger: coreLogger.child({ scope: 'observation' }),
+  })
   const contextBuilder = new ContextBuilder(attachmentService, {
     summaries: contextSummaryRepo,
     contextDefaults: () => configStore.get().app.chatContext,
@@ -255,6 +275,7 @@ export function createCoreRuntime(options: CoreRuntimeOptions): CoreRuntime {
     terminalService,
     toolSettings: () => configStore.get().tools,
     cronManager: () => cronManager,
+    observationManager: () => observationManager,
     logger: coreLogger.child({ scope: 'chat' }),
   })
 
@@ -269,6 +290,7 @@ export function createCoreRuntime(options: CoreRuntimeOptions): CoreRuntime {
         attachments: attachmentService,
         skills: skillManager,
         cronManager: () => cronManager,
+        observationManager: () => observationManager,
         workspaceService: agentWorkspaceService,
         terminalService,
         toolSettings: () => configStore.get().tools,
@@ -291,6 +313,7 @@ export function createCoreRuntime(options: CoreRuntimeOptions): CoreRuntime {
     configStore,
     cronManager,
     mcpServerManager,
+    observationManager,
     personaManager,
     providerManager,
     sessionRepo,
@@ -298,6 +321,7 @@ export function createCoreRuntime(options: CoreRuntimeOptions): CoreRuntime {
     terminalService,
     toolManagementService,
     dispose: () => {
+      observationManager.dispose('app_exit')
       cronManager.stop()
       dbClient.close()
     },

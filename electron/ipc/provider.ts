@@ -11,6 +11,7 @@ import type {
   ProviderRegistryStatus,
   SetDefaultProviderModelRequest,
   SetFallbackProviderModelsRequest,
+  SetObservationProviderModelsRequest,
   SetTitleProviderModelRequest,
   UpsertProviderModelRequest,
   UpsertProviderSourceRequest,
@@ -48,6 +49,9 @@ interface ProviderRegistryApi {
     request: SetFallbackProviderModelsRequest
   ) => Promise<ProviderRegistryMutationResult>
   setTitleModel?: (request: SetTitleProviderModelRequest) => Promise<ProviderRegistryMutationResult>
+  setObservationModels?: (
+    request: SetObservationProviderModelsRequest
+  ) => Promise<ProviderRegistryMutationResult>
   [method: string]: unknown
 }
 
@@ -155,6 +159,15 @@ export function registerProviderIpcHandlers(options: IpcHandlerOptions): void {
     async (event, request: SetTitleProviderModelRequest) => {
       const result = await callRegistryMutation(runtime, 'setTitleModel', request)
       emitProviderChanged(event, runtime, 'title', result)
+      return result
+    }
+  )
+  registerLoggedIpcHandler(
+    options,
+    IPC_CHANNELS.provider.setObservationModels,
+    async (event, request: SetObservationProviderModelsRequest) => {
+      const result = await callRegistryMutation(runtime, 'setObservationModels', request)
+      emitProviderChanged(event, runtime, 'observation', result)
       return result
     }
   )

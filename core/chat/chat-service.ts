@@ -7,6 +7,7 @@ import type { AgentWorkspaceService } from '@core/agent/workspace'
 import type { CronManager } from '@core/cron/cron-manager'
 import type { AttachmentRepo, ChatMessageRepo, ChatRunRepo, ChatSessionRepo } from '@core/db/repos'
 import type { Logger } from '@core/logging'
+import type { ObservationManager } from '@core/observation'
 import type { PersonaManager } from '@core/persona/manager'
 import type { ProviderManager } from '@core/provider/manager'
 import type { SkillManager } from '@core/skill/skill-manager'
@@ -62,6 +63,7 @@ export interface ChatServiceOptions {
   terminalService?: TerminalService
   toolSettings?: () => DesktopToolSettings
   cronManager?: () => CronManager
+  observationManager?: () => ObservationManager | undefined
   skills?: SkillManager
   compactSkillDescriptions?: () => boolean
   contextDefaults?: () => DesktopChatContextSettings
@@ -120,6 +122,7 @@ export class ChatService {
           attachments: options.attachments,
           skills: options.skills,
           cronManager: options.cronManager,
+          observationManager: options.observationManager,
           workspaceService: options.workspaceService,
           terminalService: options.terminalService,
           toolSettings: options.toolSettings,

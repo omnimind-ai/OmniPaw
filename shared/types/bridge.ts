@@ -1,4 +1,4 @@
-import type { AppInfo } from './app'
+import type { AppInfo, OpenChatSessionRequest } from './app'
 import type {
   CatBounds,
   CatCommandEvent,
@@ -90,6 +90,16 @@ import type {
   SetMcpServerEnabledRequest,
 } from './mcp'
 import type {
+  ObservationChangedEvent,
+  ObservationPermissionStatus,
+  ObservationReactionEvent,
+  ObservationState,
+  ObservationStatusRequest,
+  StartObservationRequest,
+  StopObservationRequest,
+  TriggerObservationRequest,
+} from './observation'
+import type {
   CreatePersonaRequest,
   DeletePersonaRequest,
   PersonaRegistryChangedEvent,
@@ -171,6 +181,8 @@ export interface ProviderRegistrySettings {
   defaultModelId?: string
   fallbackModelRefs: ProviderModelRef[]
   titleModelRef?: ProviderModelRef
+  observationVisionModelRef?: ProviderModelRef
+  observationReactionModelRef?: ProviderModelRef
   streaming: boolean
 }
 
@@ -208,6 +220,7 @@ export type ProviderRegistryChangeReason =
   | 'default'
   | 'fallback'
   | 'title'
+  | 'observation'
 
 export interface ProviderSelectionRef {
   providerId?: string
@@ -270,6 +283,11 @@ export interface SetTitleProviderModelRequest {
   modelId?: string
 }
 
+export interface SetObservationProviderModelsRequest {
+  observationVisionModelRef?: ProviderModelRef
+  observationReactionModelRef?: ProviderModelRef
+}
+
 export interface RefreshProviderRegistryModelsRequest {
   providerId: string
 }
@@ -282,6 +300,8 @@ export interface TestProviderRegistryRequest extends Omit<TestProviderRequest, '
 export interface OpenOmniClawBridge {
   app: {
     getInfo: () => Promise<AppInfo>
+    openChatSession: (request: OpenChatSessionRequest | string) => Promise<void>
+    onOpenChatSession: (callback: (request: OpenChatSessionRequest) => void) => Unsubscribe
   }
   logging: {
     write: (request: RendererLogRequest) => Promise<LoggerWriteResponse>
@@ -298,6 +318,8 @@ export interface OpenOmniClawBridge {
     dragStart: () => Promise<CatBounds | null>
     dragMove: (payload: CatDragPayload) => Promise<CatBounds | null>
     dragEnd: () => Promise<CatBounds | null>
+    onObservationReaction: (callback: (event: ObservationReactionEvent) => void) => Unsubscribe
+    openObservationSource: (event: ObservationReactionEvent) => Promise<void>
   }
   catPanel: {
     onPlacement: (callback: (placement: CatPanelPlacement) => void) => Unsubscribe
@@ -325,6 +347,14 @@ export interface OpenOmniClawBridge {
     reset: () => Promise<DesktopSettingsConfig>
     status: () => Promise<DesktopSettingsStatus>
     onChanged: (callback: (event: DesktopSettingsChangedEvent) => void) => Unsubscribe
+  }
+  observation: {
+    permissionStatus: () => Promise<ObservationPermissionStatus>
+    status: (request?: ObservationStatusRequest) => Promise<ObservationState>
+    start: (request: StartObservationRequest) => Promise<ObservationState>
+    stop: (request?: StopObservationRequest) => Promise<ObservationState>
+    trigger: (request?: TriggerObservationRequest) => Promise<ObservationState>
+    onChanged: (callback: (event: ObservationChangedEvent) => void) => Unsubscribe
   }
   chat: {
     listSessions: (request?: ListSessionsRequest) => Promise<ChatSession[]>
@@ -391,6 +421,9 @@ export interface OpenOmniClawBridge {
     ) => Promise<ProviderRegistryMutationResult>
     setTitleModel: (
       request: SetTitleProviderModelRequest
+    ) => Promise<ProviderRegistryMutationResult>
+    setObservationModels: (
+      request: SetObservationProviderModelsRequest
     ) => Promise<ProviderRegistryMutationResult>
     test: (
       ...args: [request: TestProviderRequest] | [providerId: string, modelId?: string]

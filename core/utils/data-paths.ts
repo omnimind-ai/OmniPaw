@@ -24,6 +24,7 @@ export interface OpenOmniClawDataPaths {
   agentWorkspaces: string
   agentWorkspaceSessions: string
   logs: string
+  observationTemp: string
 }
 
 export function resolveOpenOmniClawDataRoot(options: ResolveDataRootOptions = {}): string {
@@ -64,6 +65,7 @@ export function resolveOpenOmniClawDataPaths(
     agentWorkspaces: join(root, 'agent-workspaces'),
     agentWorkspaceSessions: join(root, 'agent-workspaces', 'sessions'),
     logs: join(root, 'logs'),
+    observationTemp: join(root, 'tmp', 'observations'),
   }
 }
 

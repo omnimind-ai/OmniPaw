@@ -23,6 +23,8 @@ export const defaultProviderRegistry: ProviderRegistry = {
   settings: {
     fallbackModelRefs: [],
     titleModelRef: undefined,
+    observationVisionModelRef: undefined,
+    observationReactionModelRef: undefined,
     streaming: true,
   },
 }
@@ -255,6 +257,16 @@ function normalizeSettings(
       issues
     ),
     titleModelRef: normalizeOptionalModelRef(raw.titleModelRef, 'settings.titleModelRef', issues),
+    observationVisionModelRef: normalizeOptionalModelRef(
+      raw.observationVisionModelRef,
+      'settings.observationVisionModelRef',
+      issues
+    ),
+    observationReactionModelRef: normalizeOptionalModelRef(
+      raw.observationReactionModelRef,
+      'settings.observationReactionModelRef',
+      issues
+    ),
     streaming: typeof raw.streaming === 'boolean' ? raw.streaming : true,
   }
 }
@@ -448,20 +460,58 @@ function validateSettings(
     fallbackKeys.add(key)
   }
   if (settings.titleModelRef) {
-    const key = modelKey(settings.titleModelRef.providerId, settings.titleModelRef.modelId)
-    if (!sourceIds.has(settings.titleModelRef.providerId) || !enabledModelKeys.has(key)) {
-      issues.push({
-        path: 'settings.titleModelRef',
-        message: 'Title summary model must reference an enabled provider model.',
-        code: 'missing_reference',
-      })
-    }
+    validateOptionalModelRef(
+      settings.titleModelRef,
+      'settings.titleModelRef',
+      'Title summary model must reference an enabled provider model.',
+      sourceIds,
+      enabledModelKeys,
+      issues
+    )
+  }
+  if (settings.observationVisionModelRef) {
+    validateOptionalModelRef(
+      settings.observationVisionModelRef,
+      'settings.observationVisionModelRef',
+      'Observation vision model must reference an enabled provider model.',
+      sourceIds,
+      enabledModelKeys,
+      issues
+    )
+  }
+  if (settings.observationReactionModelRef) {
+    validateOptionalModelRef(
+      settings.observationReactionModelRef,
+      'settings.observationReactionModelRef',
+      'Observation reaction model must reference an enabled provider model.',
+      sourceIds,
+      enabledModelKeys,
+      issues
+    )
   }
   if (typeof settings.streaming !== 'boolean') {
     issues.push({
       path: 'settings.streaming',
       message: 'Streaming setting must be boolean.',
       code: 'invalid_type',
+    })
+  }
+}
+
+function validateOptionalModelRef(
+  ref: ProviderModelRef,
+  path: string,
+  message: string,
+  sourceIds: Set<string>,
+  enabledModelKeys: Set<string>,
+  issues: ProviderRegistryValidationIssue[]
+): void {
+  const key = modelKey(ref.providerId, ref.modelId)
+  if (!sourceIds.has(ref.providerId) || !enabledModelKeys.has(key)) {
+    issues.push({
+      path,
+      message,
+      code: 'missing_reference',
     })
   }
 }
@@ -534,6 +584,12 @@ function sortRegistry(registry: ProviderRegistry): ProviderRegistry {
       fallbackModelRefs: registry.settings.fallbackModelRefs.map((ref) => ({ ...ref })),
       titleModelRef: registry.settings.titleModelRef
         ? { ...registry.settings.titleModelRef }
+        : undefined,
+      observationVisionModelRef: registry.settings.observationVisionModelRef
+        ? { ...registry.settings.observationVisionModelRef }
+        : undefined,
+      observationReactionModelRef: registry.settings.observationReactionModelRef
+        ? { ...registry.settings.observationReactionModelRef }
         : undefined,
     },
   }

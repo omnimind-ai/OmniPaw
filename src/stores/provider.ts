@@ -35,6 +35,8 @@ export interface ProviderRegistrySettings {
   defaultModelRef?: ProviderModelRef
   fallbackModelRefs: ProviderModelRef[]
   titleModelRef?: ProviderModelRef
+  observationVisionModelRef?: ProviderModelRef
+  observationReactionModelRef?: ProviderModelRef
   streaming: boolean
 }
 
@@ -98,6 +100,8 @@ const emptyRegistrySettings = (): ProviderRegistrySettings => ({
   defaultModelRef: undefined,
   fallbackModelRefs: [],
   titleModelRef: undefined,
+  observationVisionModelRef: undefined,
+  observationReactionModelRef: undefined,
   streaming: true,
 })
 
@@ -122,6 +126,12 @@ export const useProviderStore = defineStore('provider', () => {
     registrySettings.value.fallbackModelRefs.map(modelRefToKey).filter(Boolean)
   )
   const titleModelKey = computed(() => modelRefToKey(registrySettings.value.titleModelRef))
+  const observationVisionModelKey = computed(() =>
+    modelRefToKey(registrySettings.value.observationVisionModelRef)
+  )
+  const observationReactionModelKey = computed(() =>
+    modelRefToKey(registrySettings.value.observationReactionModelRef)
+  )
 
   const modelOptions = computed<ProviderModelOption[]>(() =>
     registryModels.value.map((model) => {
@@ -317,6 +327,23 @@ export const useProviderStore = defineStore('provider', () => {
     )
   }
 
+  async function setObservationModelKeys(visionKey: string, reactionKey: string): Promise<void> {
+    const observationVisionModelRef = parseModelKey(visionKey)
+    const observationReactionModelRef = parseModelKey(reactionKey)
+    const nextSettings: ProviderRegistrySettings = {
+      ...registrySettings.value,
+      observationVisionModelRef,
+      observationReactionModelRef,
+    }
+
+    await saveRegistrySettings(nextSettings, async () =>
+      providerBridge().setObservationModels?.({
+        observationVisionModelRef,
+        observationReactionModelRef,
+      })
+    )
+  }
+
   async function setStreaming(streaming: boolean): Promise<void> {
     await saveRegistrySettings({
       ...registrySettings.value,
@@ -381,6 +408,8 @@ export const useProviderStore = defineStore('provider', () => {
     defaultModelKey,
     fallbackModelKeys,
     titleModelKey,
+    observationVisionModelKey,
+    observationReactionModelKey,
     loading,
     presetsLoading,
     saving,
@@ -396,6 +425,7 @@ export const useProviderStore = defineStore('provider', () => {
     setDefaultModelKey,
     setFallbackModelKeys,
     setTitleModelKey,
+    setObservationModelKeys,
     setStreaming,
     listModels,
     setSessionModel,
@@ -593,6 +623,8 @@ function normalizeRegistrySettings(
     defaultModelRef,
     fallbackModelRefs: dedupeModelRefs(fallbackModelRefs),
     titleModelRef: normalizeSelection(value.titleModelRef),
+    observationVisionModelRef: normalizeSelection(value.observationVisionModelRef),
+    observationReactionModelRef: normalizeSelection(value.observationReactionModelRef),
     streaming: value.streaming !== false,
   }
 }

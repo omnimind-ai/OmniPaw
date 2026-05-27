@@ -1,3 +1,4 @@
+import type { OpenChatSessionRequest } from '@shared/types/app'
 import type {
   CatBounds,
   CatCommandEvent,
@@ -59,6 +60,16 @@ import type {
   LoggerWriteResponse,
   RendererLogRequest,
 } from '@shared/types/logging'
+import type {
+  ObservationChangedEvent,
+  ObservationPermissionStatus,
+  ObservationReactionEvent,
+  ObservationState,
+  ObservationStatusRequest,
+  StartObservationRequest,
+  StopObservationRequest,
+  TriggerObservationRequest,
+} from '@shared/types/observation'
 
 export type BridgeUnsubscribe = () => void
 
@@ -67,6 +78,9 @@ export type BridgeAppLanguage = 'system' | 'zh-CN' | 'en-US'
 export type BridgeToolProfile = 'minimal' | 'assistant' | 'power' | string
 export type BridgeContextUsageSource = 'actual' | 'estimated' | 'mixed' | 'provider' | string
 export type BridgeContextAttachmentPolicy = 'current-only' | 'recent' | 'never'
+export type BridgeObservationScope = 'primary_display' | 'selected_display' | 'selected_window'
+export type BridgeObservationOutputMode = 'silent' | 'ambient' | 'chat' | 'ask'
+export type BridgeObservationRetention = 'ephemeral' | 'save_to_chat'
 
 export interface BridgeChatContextSettings {
   recentMessages: number
@@ -157,6 +171,22 @@ export interface BridgeDesktopSettingsConfig {
     misfireGraceMs: number
     misfireStartupLimit: number
   }
+  observation: {
+    enabled: boolean
+    defaultIntervalMs: number
+    defaultDurationMs: number
+    defaultScope: BridgeObservationScope
+    outputMode: BridgeObservationOutputMode
+    retention: BridgeObservationRetention
+    allowRemoteProviders: boolean
+    localOnly: boolean
+    minIntervalMs: number
+    minDurationMs: number
+    maxDurationMs: number
+    dailyCaptureLimit: number
+    consecutiveFailureLimit: number
+    reactionCooldownMs: number
+  }
 }
 
 export interface BridgeSettingsOperationError {
@@ -215,7 +245,7 @@ export interface BridgeCreateSessionRequest {
 }
 
 export interface BridgeChatSessionChangedEvent {
-  reason: 'created' | 'updated' | 'deleted' | 'title_generated' | string
+  reason: 'created' | 'updated' | 'deleted' | 'title_generated' | 'observation' | string
   sessionId: string
   session?: BridgeChatSession
 }
@@ -479,6 +509,8 @@ export interface BridgeProviderRegistrySettings {
   defaultModelId?: string
   fallbackModelRefs: Array<{ providerId: string; modelId: string }>
   titleModelRef?: { providerId: string; modelId: string }
+  observationVisionModelRef?: { providerId: string; modelId: string }
+  observationReactionModelRef?: { providerId: string; modelId: string }
   streaming: boolean
 }
 
@@ -516,6 +548,7 @@ export type BridgeProviderRegistryChangeReason =
   | 'default'
   | 'fallback'
   | 'title'
+  | 'observation'
 
 export interface BridgeProviderRegistrySelection {
   providerId?: string
@@ -576,6 +609,11 @@ export interface BridgeSetFallbackProviderModelsRequest {
 export interface BridgeSetTitleProviderModelRequest {
   providerId?: string
   modelId?: string
+}
+
+export interface BridgeSetObservationProviderModelsRequest {
+  observationVisionModelRef?: { providerId: string; modelId: string }
+  observationReactionModelRef?: { providerId: string; modelId: string }
 }
 
 export interface BridgeManagedToolInfo {
@@ -769,6 +807,8 @@ export interface BridgeSkillChangedEvent {
 export interface RendererOpenOmniClawBridge {
   app: {
     getInfo: () => Promise<{ name: string; version: string; platform: string }>
+    openChatSession?: (request: OpenChatSessionRequest | string) => Promise<void>
+    onOpenChatSession?: (callback: (request: OpenChatSessionRequest) => void) => BridgeUnsubscribe
   }
   logging: {
     write: (request: RendererLogRequest) => Promise<LoggerWriteResponse>
@@ -785,6 +825,10 @@ export interface RendererOpenOmniClawBridge {
     dragStart: () => Promise<CatBounds | null>
     dragMove: (payload: CatDragPayload) => Promise<CatBounds | null>
     dragEnd: () => Promise<CatBounds | null>
+    onObservationReaction?: (
+      callback: (event: ObservationReactionEvent) => void
+    ) => BridgeUnsubscribe
+    openObservationSource?: (event: ObservationReactionEvent) => Promise<void>
   }
   catPanel: {
     onPlacement: (callback: (event: CatPanelPlacement) => void) => BridgeUnsubscribe
@@ -814,6 +858,14 @@ export interface RendererOpenOmniClawBridge {
     reset: () => Promise<BridgeDesktopSettingsConfig>
     status: () => Promise<BridgeDesktopSettingsStatus>
     onChanged: (callback: (event: BridgeDesktopSettingsChangedEvent) => void) => BridgeUnsubscribe
+  }
+  observation?: {
+    permissionStatus: () => Promise<ObservationPermissionStatus>
+    status: (request?: ObservationStatusRequest) => Promise<ObservationState>
+    start: (request: StartObservationRequest) => Promise<ObservationState>
+    stop: (request?: StopObservationRequest) => Promise<ObservationState>
+    trigger: (request?: TriggerObservationRequest) => Promise<ObservationState>
+    onChanged: (callback: (event: ObservationChangedEvent) => void) => BridgeUnsubscribe
   }
   chat: {
     listSessions: (request?: BridgeListSessionsRequest) => Promise<BridgeChatSession[]>
@@ -888,6 +940,9 @@ export interface RendererOpenOmniClawBridge {
     ) => Promise<BridgeProviderRegistryMutationResult>
     setTitleModel?: (
       request: BridgeSetTitleProviderModelRequest
+    ) => Promise<BridgeProviderRegistryMutationResult>
+    setObservationModels?: (
+      request: BridgeSetObservationProviderModelsRequest
     ) => Promise<BridgeProviderRegistryMutationResult>
     listModels?: (providerId: string) => Promise<BridgeProviderModel[]>
     refreshModels?: (providerId: string) => Promise<BridgeProviderModel[]>
@@ -1123,6 +1178,9 @@ function emptyProviderRegistry(): BridgeProviderRegistryConfig {
     settings: {
       defaultModelId: '',
       fallbackModelRefs: [],
+      titleModelRef: undefined,
+      observationVisionModelRef: undefined,
+      observationReactionModelRef: undefined,
       streaming: true,
     },
   }
@@ -1148,6 +1206,8 @@ const fallbackBridge: RendererOpenOmniClawBridge = {
       version: 'dev',
       platform: 'win32',
     }),
+    openChatSession: async () => {},
+    onOpenChatSession: () => () => {},
   },
   logging: {
     write: async () => ({
@@ -1222,6 +1282,14 @@ const fallbackBridge: RendererOpenOmniClawBridge = {
     dragStart: async () => null,
     dragMove: async () => null,
     dragEnd: async () => null,
+    onObservationReaction: () => () => {},
+    openObservationSource: async (event) => {
+      if (event.targetSessionKind === 'cat') {
+        fallbackActiveCatSessionId = event.targetSessionId
+        fallbackCatPanelVisible = true
+        fallbackCatPanelSide = 'right'
+      }
+    },
   },
   catPanel: {
     onPlacement: () => () => {},
@@ -1306,6 +1374,28 @@ const fallbackBridge: RendererOpenOmniClawBridge = {
       version: 1,
       recoverable: false,
     }),
+    onChanged: () => () => {},
+  },
+  observation: {
+    permissionStatus: async () => ({
+      platform: 'fallback',
+      screen: 'unsupported',
+      canPrompt: false,
+      message: 'Observation is only available in the Electron runtime.',
+    }),
+    status: async () => ({
+      activeRuns: [],
+      permission: {
+        platform: 'fallback',
+        screen: 'unsupported',
+        canPrompt: false,
+        message: 'Observation is only available in the Electron runtime.',
+      },
+      updatedAt: Date.now(),
+    }),
+    start: () => rejectFallbackPersistence<ObservationState>('observation.start'),
+    stop: () => rejectFallbackPersistence<ObservationState>('observation.stop'),
+    trigger: () => rejectFallbackPersistence<ObservationState>('observation.trigger'),
     onChanged: () => () => {},
   },
   chat: {
@@ -1459,6 +1549,10 @@ const fallbackBridge: RendererOpenOmniClawBridge = {
       rejectFallbackPersistence<BridgeProviderRegistryMutationResult>('provider.setFallbackModels'),
     setTitleModel: () =>
       rejectFallbackPersistence<BridgeProviderRegistryMutationResult>('provider.setTitleModel'),
+    setObservationModels: () =>
+      rejectFallbackPersistence<BridgeProviderRegistryMutationResult>(
+        'provider.setObservationModels'
+      ),
     listModels: async () => [],
     refreshModels: () => rejectFallbackPersistence<BridgeProviderModel[]>('provider.refreshModels'),
     test: () => rejectFallbackPersistence<{ ok: boolean; error?: unknown }>('provider.test'),
@@ -1663,6 +1757,22 @@ function fallbackSettingsConfig(): BridgeDesktopSettingsConfig {
       misfireGraceMs: 15 * 60 * 1000,
       misfireStartupLimit: 3,
     },
+    observation: {
+      enabled: false,
+      defaultIntervalMs: 60_000,
+      defaultDurationMs: 5 * 60_000,
+      defaultScope: 'primary_display',
+      outputMode: 'ambient',
+      retention: 'ephemeral',
+      allowRemoteProviders: false,
+      localOnly: true,
+      minIntervalMs: 15_000,
+      minDurationMs: 60_000,
+      maxDurationMs: 30 * 60_000,
+      dailyCaptureLimit: 200,
+      consecutiveFailureLimit: 3,
+      reactionCooldownMs: 90_000,
+    },
   }
 }
 
@@ -1673,6 +1783,32 @@ const exposedBridge =
 
 export const bridgeRuntime: BridgeRuntime = exposedBridge ? 'electron' : 'fallback'
 export const isFallbackBridge = bridgeRuntime === 'fallback'
+
+function createAppBridge(
+  bridge: RendererOpenOmniClawBridge['app'] | undefined
+): RendererOpenOmniClawBridge['app'] {
+  if (!bridge) {
+    return fallbackBridge.app
+  }
+
+  return {
+    ...fallbackBridge.app,
+    ...bridge,
+  }
+}
+
+function createCatBridge(
+  bridge: RendererOpenOmniClawBridge['cat'] | undefined
+): RendererOpenOmniClawBridge['cat'] {
+  if (!bridge) {
+    return fallbackBridge.cat
+  }
+
+  return {
+    ...fallbackBridge.cat,
+    ...bridge,
+  }
+}
 
 function createSettingsBridge(
   bridge: RendererOpenOmniClawBridge['settings'] | undefined
@@ -1701,6 +1837,19 @@ function createProviderBridge(
     load: bridge.load ?? fallbackBridge.provider.load,
     status: bridge.status ?? fallbackBridge.provider.status,
     onChanged: bridge.onChanged ?? fallbackBridge.provider.onChanged,
+  }
+}
+
+function createObservationBridge(
+  bridge: RendererOpenOmniClawBridge['observation'] | undefined
+): RendererOpenOmniClawBridge['observation'] {
+  if (!bridge) {
+    return fallbackBridge.observation
+  }
+
+  return {
+    ...fallbackBridge.observation,
+    ...bridge,
   }
 }
 
@@ -1737,8 +1886,11 @@ export const appBridge: RendererOpenOmniClawBridge = exposedBridge
   ? {
       ...fallbackBridge,
       ...exposedBridge,
+      app: createAppBridge(exposedBridge.app),
+      cat: createCatBridge(exposedBridge.cat),
       logging: exposedBridge.logging ?? fallbackBridge.logging,
       settings: createSettingsBridge(exposedBridge.settings),
+      observation: createObservationBridge(exposedBridge.observation),
       provider: createProviderBridge(exposedBridge.provider),
       cron: createCronBridge(exposedBridge.cron),
       persona: createPersonaBridge(exposedBridge.persona),

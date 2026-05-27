@@ -3,3 +3,7 @@ export interface AppInfo {
   version: string
   platform: string
 }
+
+export interface OpenChatSessionRequest {
+  sessionId: string
+}

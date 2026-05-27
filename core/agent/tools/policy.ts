@@ -31,6 +31,7 @@ const PROFILE_TOOLS: Record<ToolProfile, string[]> = {
     'skill_read',
     'workspace_file',
     'terminal_exec',
+    'screen_observe',
   ],
   power: [
     'system_time',
@@ -41,6 +42,7 @@ const PROFILE_TOOLS: Record<ToolProfile, string[]> = {
     'skill_read',
     'workspace_file',
     'terminal_exec',
+    'screen_observe',
   ],
 }
 

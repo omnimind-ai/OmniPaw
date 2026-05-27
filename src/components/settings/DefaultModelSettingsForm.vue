@@ -37,6 +37,8 @@ const {
   defaultModelKey,
   fallbackModelKeys,
   modelOptions,
+  observationReactionModelKey,
+  observationVisionModelKey,
   persistenceAvailable,
   registrySettings,
   saving,
@@ -46,6 +48,9 @@ const {
 const enabledOptions = computed(() => modelOptions.value.filter((option) => option.enabled))
 const enabledTextOptions = computed(() =>
   enabledOptions.value.filter((option) => option.input.includes('text'))
+)
+const enabledImageOptions = computed(() =>
+  enabledOptions.value.filter((option) => option.input.includes('image'))
 )
 const streaming = computed(() => registrySettings.value.streaming)
 const chatContext = computed(() => props.draft.app.chatContext)
@@ -85,6 +90,22 @@ function updateFallback(modelKey: string, checked: boolean | 'indeterminate') {
 function updateTitleModel(value: AcceptableValue) {
   const normalizedValue = typeof value === 'string' ? value : ''
   void providerStore.setTitleModelKey(normalizedValue === NONE_VALUE ? '' : normalizedValue)
+}
+
+function updateObservationVisionModel(value: AcceptableValue) {
+  const normalizedValue = typeof value === 'string' ? value : ''
+  void providerStore.setObservationModelKeys(
+    normalizedValue === NONE_VALUE ? '' : normalizedValue,
+    observationReactionModelKey.value
+  )
+}
+
+function updateObservationReactionModel(value: AcceptableValue) {
+  const normalizedValue = typeof value === 'string' ? value : ''
+  void providerStore.setObservationModelKeys(
+    observationVisionModelKey.value,
+    normalizedValue === NONE_VALUE ? '' : normalizedValue
+  )
 }
 
 function updateCompactModel(value: AcceptableValue) {
@@ -223,6 +244,92 @@ function modelLabel(option: ProviderModelOption) {
             :disabled="saving || !persistenceAvailable"
             @update:model-value="updateStreaming"
           />
+        </Field>
+      </FieldGroup>
+    </SettingsSection>
+
+    <SettingsSection title="主动视觉观察模型">
+      <FieldGroup class="gap-0">
+        <Field
+          orientation="responsive"
+          class="border-b px-4 py-3"
+        >
+          <FieldContent>
+            <FieldLabel for="settings-observation-vision-model">视觉观察模型</FieldLabel>
+            <FieldDescription>
+              用于理解截图。未选择时会从当前会话、默认模型和备用模型中寻找图片模型。
+            </FieldDescription>
+          </FieldContent>
+          <Select
+            :model-value="observationVisionModelKey || NONE_VALUE"
+            :disabled="saving || !enabledOptions.length || !persistenceAvailable"
+            @update:model-value="updateObservationVisionModel"
+          >
+            <SelectTrigger
+              id="settings-observation-vision-model"
+              class="w-full md:w-72"
+            >
+              <SelectValue placeholder="自动选择图片模型" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectGroup>
+                <SelectItem :value="NONE_VALUE">自动选择图片模型</SelectItem>
+                <SelectItem
+                  v-for="option in enabledImageOptions"
+                  :key="option.key"
+                  :value="option.key"
+                >
+                  {{ modelLabel(option) }}
+                </SelectItem>
+              </SelectGroup>
+            </SelectContent>
+          </Select>
+        </Field>
+
+        <Field
+          orientation="responsive"
+          class="border-b px-4 py-3"
+        >
+          <FieldContent>
+            <FieldLabel for="settings-observation-reaction-model">Reaction 模型</FieldLabel>
+            <FieldDescription>
+              用于把视觉摘要转成短反应。选择支持图片的模型时也可承担完整链路。
+            </FieldDescription>
+          </FieldContent>
+          <Select
+            :model-value="observationReactionModelKey || NONE_VALUE"
+            :disabled="saving || !enabledTextOptions.length || !persistenceAvailable"
+            @update:model-value="updateObservationReactionModel"
+          >
+            <SelectTrigger
+              id="settings-observation-reaction-model"
+              class="w-full md:w-72"
+            >
+              <SelectValue placeholder="复用视觉模型" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectGroup>
+                <SelectItem :value="NONE_VALUE">复用视觉模型</SelectItem>
+                <SelectItem
+                  v-for="option in enabledTextOptions"
+                  :key="option.key"
+                  :value="option.key"
+                >
+                  {{ modelLabel(option) }}
+                </SelectItem>
+              </SelectGroup>
+            </SelectContent>
+          </Select>
+        </Field>
+
+        <Field class="px-4 py-3">
+          <FieldDescription>
+            {{
+              enabledImageOptions.length
+                ? '只选择一个支持图片输入的模型时，它会承担截图理解和 reaction。'
+                : '还没有启用支持图片输入的模型。'
+            }}
+          </FieldDescription>
         </Field>
       </FieldGroup>
     </SettingsSection>

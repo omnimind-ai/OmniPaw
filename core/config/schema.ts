@@ -9,6 +9,7 @@ import type {
   WorkspaceRootStrategy,
 } from '@shared/types/local-agent'
 import type {
+  DesktopObservationSettings,
   DesktopProviderModel,
   DesktopProviderSource,
   DesktopSettingsConfig,
@@ -148,6 +149,22 @@ export const defaultConfig: DesktopSettingsConfig = {
     misfireGraceMs: 15 * 60 * 1000,
     misfireStartupLimit: 3,
   },
+  observation: {
+    enabled: false,
+    defaultIntervalMs: 60_000,
+    defaultDurationMs: 5 * 60_000,
+    defaultScope: 'primary_display',
+    outputMode: 'ambient',
+    retention: 'ephemeral',
+    allowRemoteProviders: false,
+    localOnly: true,
+    minIntervalMs: 15_000,
+    minDurationMs: 60_000,
+    maxDurationMs: 30 * 60_000,
+    dailyCaptureLimit: 200,
+    consecutiveFailureLimit: 3,
+    reactionCooldownMs: 90_000,
+  },
 }
 
 export class ConfigValidationError extends Error {
@@ -207,6 +224,7 @@ export function validateConfig(input: unknown): DesktopSettingsConfig {
   validateProviders(config, issues)
   validateTools(config, issues)
   validateScheduledTasks(config, issues)
+  validateObservation(config, issues)
 
   if (issues.length) {
     throwValidationError(issues)
@@ -301,6 +319,10 @@ function normalizeObject(defaultValue: unknown, rawValue: unknown, path: string)
 
   if (path === 'tools.terminal') {
     return normalizeTerminalSettings(rawValue)
+  }
+
+  if (path === 'observation') {
+    return normalizeObservationSettings(rawValue)
   }
 
   if (Array.isArray(defaultValue)) {
@@ -1087,6 +1109,143 @@ function validateScheduledTasks(
   }
 }
 
+function validateObservation(
+  config: DesktopSettingsConfig,
+  issues: SettingsValidationIssue[]
+): void {
+  const settings = config.observation
+  if (!isPlainObject(settings)) {
+    issues.push({
+      path: 'observation',
+      message: 'Observation settings must be an object.',
+      code: 'invalid_type',
+    })
+    return
+  }
+
+  if (typeof settings.enabled !== 'boolean') {
+    issues.push({
+      path: 'observation.enabled',
+      message: 'Observation enabled state must be boolean.',
+      code: 'invalid_type',
+    })
+  }
+  if (!isObservationScope(settings.defaultScope)) {
+    issues.push({
+      path: 'observation.defaultScope',
+      message: 'Observation scope is invalid.',
+      code: 'invalid_enum',
+    })
+  }
+  if (!isObservationOutputMode(settings.outputMode)) {
+    issues.push({
+      path: 'observation.outputMode',
+      message: 'Observation output mode is invalid.',
+      code: 'invalid_enum',
+    })
+  }
+  if (!isObservationRetention(settings.retention)) {
+    issues.push({
+      path: 'observation.retention',
+      message: 'Observation retention policy is invalid.',
+      code: 'invalid_enum',
+    })
+  }
+  if (typeof settings.allowRemoteProviders !== 'boolean') {
+    issues.push({
+      path: 'observation.allowRemoteProviders',
+      message: 'Observation remote provider flag must be boolean.',
+      code: 'invalid_type',
+    })
+  }
+  if (typeof settings.localOnly !== 'boolean') {
+    issues.push({
+      path: 'observation.localOnly',
+      message: 'Observation local-only flag must be boolean.',
+      code: 'invalid_type',
+    })
+  }
+
+  validateIntegerRange(
+    settings.minIntervalMs,
+    'observation.minIntervalMs',
+    5_000,
+    10 * 60_000,
+    issues
+  )
+  validateIntegerRange(
+    settings.defaultIntervalMs,
+    'observation.defaultIntervalMs',
+    5_000,
+    60 * 60_000,
+    issues
+  )
+  validateIntegerRange(
+    settings.minDurationMs,
+    'observation.minDurationMs',
+    10_000,
+    60 * 60_000,
+    issues
+  )
+  validateIntegerRange(
+    settings.defaultDurationMs,
+    'observation.defaultDurationMs',
+    10_000,
+    24 * 60 * 60_000,
+    issues
+  )
+  validateIntegerRange(
+    settings.maxDurationMs,
+    'observation.maxDurationMs',
+    60_000,
+    24 * 60 * 60_000,
+    issues
+  )
+  validateIntegerRange(
+    settings.dailyCaptureLimit,
+    'observation.dailyCaptureLimit',
+    1,
+    10_000,
+    issues
+  )
+  validateIntegerRange(
+    settings.consecutiveFailureLimit,
+    'observation.consecutiveFailureLimit',
+    1,
+    20,
+    issues
+  )
+  validateIntegerRange(
+    settings.reactionCooldownMs,
+    'observation.reactionCooldownMs',
+    0,
+    60 * 60_000,
+    issues
+  )
+
+  if (settings.defaultIntervalMs < settings.minIntervalMs) {
+    issues.push({
+      path: 'observation.defaultIntervalMs',
+      message: 'Observation interval must be at least the configured minimum interval.',
+      code: 'out_of_range',
+    })
+  }
+  if (settings.defaultDurationMs < settings.minDurationMs) {
+    issues.push({
+      path: 'observation.defaultDurationMs',
+      message: 'Observation duration must be at least the configured minimum duration.',
+      code: 'out_of_range',
+    })
+  }
+  if (settings.defaultDurationMs > settings.maxDurationMs) {
+    issues.push({
+      path: 'observation.defaultDurationMs',
+      message: 'Observation duration must not exceed the configured maximum duration.',
+      code: 'out_of_range',
+    })
+  }
+}
+
 function throwValidationError(issues: SettingsValidationIssue[]): never {
   throw new ConfigValidationError(
     configError('invalid_config', 'Desktop settings config is invalid.', {
@@ -1131,6 +1290,20 @@ function isToolProfile(value: unknown): value is ToolProfile {
 
 function isContextAttachmentPolicy(value: unknown): value is ContextAttachmentPolicy {
   return value === 'current-only' || value === 'recent' || value === 'never'
+}
+
+function isObservationScope(value: unknown): value is DesktopObservationSettings['defaultScope'] {
+  return value === 'primary_display' || value === 'selected_display' || value === 'selected_window'
+}
+
+function isObservationOutputMode(
+  value: unknown
+): value is DesktopObservationSettings['outputMode'] {
+  return value === 'silent' || value === 'ambient' || value === 'chat' || value === 'ask'
+}
+
+function isObservationRetention(value: unknown): value is DesktopObservationSettings['retention'] {
+  return value === 'ephemeral' || value === 'save_to_chat'
 }
 
 function normalizeChatContextSettings(
@@ -1197,6 +1370,51 @@ function normalizeSystemContextSettings(
   return {
     baseSystemPrompt,
     mask,
+  }
+}
+
+function normalizeObservationSettings(rawValue: unknown): DesktopObservationSettings {
+  const defaults = defaultConfig.observation
+  if (rawValue === undefined || rawValue === null) {
+    return cloneUnknown(defaults)
+  }
+  if (!isPlainObject(rawValue)) {
+    throwValidationError([
+      {
+        path: 'observation',
+        message: 'Observation settings must be an object.',
+        code: 'invalid_type',
+      },
+    ])
+  }
+
+  return {
+    enabled: typeof rawValue.enabled === 'boolean' ? rawValue.enabled : defaults.enabled,
+    defaultIntervalMs: integerOrDefault(rawValue.defaultIntervalMs, defaults.defaultIntervalMs),
+    defaultDurationMs: integerOrDefault(rawValue.defaultDurationMs, defaults.defaultDurationMs),
+    defaultScope: (rawValue.defaultScope === undefined
+      ? defaults.defaultScope
+      : rawValue.defaultScope) as DesktopObservationSettings['defaultScope'],
+    outputMode: (rawValue.outputMode === undefined
+      ? defaults.outputMode
+      : rawValue.outputMode) as DesktopObservationSettings['outputMode'],
+    retention: (rawValue.retention === undefined
+      ? defaults.retention
+      : rawValue.retention) as DesktopObservationSettings['retention'],
+    allowRemoteProviders:
+      typeof rawValue.allowRemoteProviders === 'boolean'
+        ? rawValue.allowRemoteProviders
+        : defaults.allowRemoteProviders,
+    localOnly: typeof rawValue.localOnly === 'boolean' ? rawValue.localOnly : defaults.localOnly,
+    minIntervalMs: integerOrDefault(rawValue.minIntervalMs, defaults.minIntervalMs),
+    minDurationMs: integerOrDefault(rawValue.minDurationMs, defaults.minDurationMs),
+    maxDurationMs: integerOrDefault(rawValue.maxDurationMs, defaults.maxDurationMs),
+    dailyCaptureLimit: integerOrDefault(rawValue.dailyCaptureLimit, defaults.dailyCaptureLimit),
+    consecutiveFailureLimit: integerOrDefault(
+      rawValue.consecutiveFailureLimit,
+      defaults.consecutiveFailureLimit
+    ),
+    reactionCooldownMs: integerOrDefault(rawValue.reactionCooldownMs, defaults.reactionCooldownMs),
   }
 }
 

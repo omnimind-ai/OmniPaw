@@ -551,7 +551,7 @@ export interface DeleteSessionRequest {
 }
 
 export interface ChatSessionChangedEvent {
-  reason: 'created' | 'updated' | 'deleted' | 'title_generated'
+  reason: 'created' | 'updated' | 'deleted' | 'title_generated' | 'observation'
   sessionId: ID
   session?: ChatSession
 }

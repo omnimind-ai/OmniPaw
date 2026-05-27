@@ -3,6 +3,7 @@ import type { AgentWorkspaceService } from '@core/agent/workspace'
 import type { AttachmentService } from '@core/chat/attachment-service'
 import type { CronManager } from '@core/cron/cron-manager'
 import type { ChatMessageRepo } from '@core/db/repos'
+import type { ObservationManager } from '@core/observation'
 import type { SkillManager } from '@core/skill/skill-manager'
 import type { DesktopToolSettings } from '@shared/types/settings'
 import type { ToolPolicy } from './policy'
@@ -25,6 +26,7 @@ export interface BuiltinToolOptions {
   sessionId: string
   skills?: SkillManager
   cronManager?: CronManager
+  observationManager?: ObservationManager
   policy?: ToolPolicy
   workspaceService?: AgentWorkspaceService
   terminalService?: TerminalService
@@ -49,6 +51,12 @@ export function createBuiltinTools(options: BuiltinToolOptions): AgentTool[] {
     tools.push({
       ...BUILTIN_TOOL_DEFINITIONS.future_task,
       execute: createFutureTaskExecutor(options),
+    })
+  }
+  if (options.observationManager) {
+    tools.push({
+      ...BUILTIN_TOOL_DEFINITIONS.screen_observe,
+      execute: createScreenObserveExecutor(options),
     })
   }
   if (options.workspaceService && (options.toolSettings?.().workspace.enabled ?? true)) {
@@ -104,6 +112,7 @@ export function listBuiltinToolDefinitions(): BuiltinToolDefinition[] {
     BUILTIN_TOOL_DEFINITIONS.attachment_text_read,
     BUILTIN_TOOL_DEFINITIONS.attachment_text_search,
     BUILTIN_TOOL_DEFINITIONS.future_task,
+    BUILTIN_TOOL_DEFINITIONS.screen_observe,
     BUILTIN_TOOL_DEFINITIONS.workspace_file,
     BUILTIN_TOOL_DEFINITIONS.terminal_exec,
     BUILTIN_TOOL_DEFINITIONS.skill_read,
@@ -234,6 +243,25 @@ const BUILTIN_TOOL_DEFINITIONS = {
           description: 'Supported five-field cron expression.',
         },
         enabled: { type: 'boolean' },
+      },
+      additionalProperties: false,
+    },
+  },
+  screen_observe: {
+    name: 'screen_observe',
+    label: 'Screen observe',
+    description:
+      'Capture one user-authorized screen observation for the current session. Only works while an ObservationRun is active.',
+    risk: 'read',
+    source: 'builtin',
+    profiles: ['assistant', 'power'],
+    parameters: {
+      type: 'object',
+      properties: {
+        reason: {
+          type: 'string',
+          description: 'Why the screen observation is needed.',
+        },
       },
       additionalProperties: false,
     },
@@ -586,6 +614,17 @@ function createFutureTaskExecutor(options: BuiltinToolOptions): AgentTool['execu
       })
     }
     return futureTaskError('unsupported_action', 'action must be create, edit, delete, or list.')
+  }
+}
+
+function createScreenObserveExecutor(options: BuiltinToolOptions): AgentTool['execute'] {
+  return async (_toolCallId, _args, signal) => {
+    throwIfAborted(signal)
+    if (!options.observationManager) {
+      throw new Error('Screen observation is not available.')
+    }
+    const result = await options.observationManager.captureForTool(options.sessionId)
+    return jsonToolResult(result)
   }
 }
 

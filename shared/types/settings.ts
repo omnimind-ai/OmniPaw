@@ -1,5 +1,6 @@
 import type { ContextAttachmentPolicy, ToolProfile } from './chat'
 import type { LocalAgentTerminalSettings, LocalAgentWorkspaceSettings } from './local-agent'
+import type { ObservationOutputMode, ObservationRetention, ObservationScope } from './observation'
 import type {
   ProviderApi,
   ProviderCapabilities,
@@ -105,12 +106,30 @@ export interface DesktopScheduledTaskSettings {
   misfireStartupLimit: number
 }
 
+export interface DesktopObservationSettings {
+  enabled: boolean
+  defaultIntervalMs: number
+  defaultDurationMs: number
+  defaultScope: ObservationScope
+  outputMode: ObservationOutputMode
+  retention: ObservationRetention
+  allowRemoteProviders: boolean
+  localOnly: boolean
+  minIntervalMs: number
+  minDurationMs: number
+  maxDurationMs: number
+  dailyCaptureLimit: number
+  consecutiveFailureLimit: number
+  reactionCooldownMs: number
+}
+
 export interface DesktopSettingsConfig {
   version: DesktopSettingsVersion
   app: DesktopBaseSettings
   providers: DesktopProvidersSettings
   tools: DesktopToolSettings
   scheduledTasks: DesktopScheduledTaskSettings
+  observation: DesktopObservationSettings
 }
 
 export interface SettingsValidationIssue {

@@ -7,6 +7,8 @@ export const SYSTEM_SESSION_IDS = {
 export const IPC_CHANNELS = {
   app: {
     getInfo: 'app:get-info',
+    openChatSession: 'app:open-chat-session',
+    navigateToChat: 'app:navigate-to-chat',
   },
   logging: {
     write: 'logging:write',
@@ -23,6 +25,8 @@ export const IPC_CHANNELS = {
     dragEnd: 'cat:drag-end',
     reportState: 'cat:renderer-state',
     commandState: 'cat:state-changed',
+    observationReaction: 'cat:observation-reaction',
+    openObservationSource: 'cat:open-observation-source',
   },
   catPanel: {
     placement: 'cat-panel:placement',
@@ -46,6 +50,14 @@ export const IPC_CHANNELS = {
     reset: 'settings:reset',
     status: 'settings:status',
     changed: 'settings:changed',
+  },
+  observation: {
+    permissionStatus: 'observation:permission-status',
+    status: 'observation:status',
+    start: 'observation:start',
+    stop: 'observation:stop',
+    trigger: 'observation:trigger',
+    changed: 'observation:changed',
   },
   chat: {
     listSessions: 'chat:list-sessions',
@@ -81,6 +93,7 @@ export const IPC_CHANNELS = {
     setDefaultModel: 'provider:set-default-model',
     setFallbackModels: 'provider:set-fallback-models',
     setTitleModel: 'provider:set-title-model',
+    setObservationModels: 'provider:set-observation-models',
     test: 'provider:test',
     listModels: 'provider:list-models',
     refreshModels: 'provider:refresh-models',

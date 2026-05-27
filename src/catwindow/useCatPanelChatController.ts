@@ -158,6 +158,7 @@ export function useCatPanelChatController() {
   let stopSessionChanged: BridgeUnsubscribe | undefined
   let stopActiveSessionChanged: BridgeUnsubscribe | undefined
   let stopDraftChanged: BridgeUnsubscribe | undefined
+  let stopObservationChanged: BridgeUnsubscribe | undefined
   let selectionVersion = 0
 
   function upsertSession(session: Session) {
@@ -202,6 +203,12 @@ export function useCatPanelChatController() {
       void activateExternalSession(event.sessionId)
     })
     stopDraftChanged = appBridge.catPanel.onDraftChanged?.(handleDraftChanged)
+    stopObservationChanged = appBridge.observation?.onChanged?.((event) => {
+      if (!event.run || event.run.targetSessionId !== currSessionId.value) return
+      if (event.reason === 'tick' || event.reason === 'updated') {
+        void messages.loadSessionMessages(event.run.targetSessionId)
+      }
+    })
 
     await nextTick()
     scroll.attachMessageScrollViewport()
@@ -212,6 +219,7 @@ export function useCatPanelChatController() {
     stopSessionChanged?.()
     stopActiveSessionChanged?.()
     stopDraftChanged?.()
+    stopObservationChanged?.()
     saveActiveDraft()
     revokeStoredDraftUrls()
     media.clearStaged({ revokeUrls: false })

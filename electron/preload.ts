@@ -11,6 +11,7 @@ import type {
   OpenOmniClawBridge,
   SetDefaultProviderModelRequest,
   SetFallbackProviderModelsRequest,
+  SetObservationProviderModelsRequest,
   SetTitleProviderModelRequest,
   Unsubscribe,
   UpsertProviderModelRequest,
@@ -223,6 +224,8 @@ async function getLoggingStatus(): Promise<LoggerHealthStatus> {
 const bridge: OpenOmniClawBridge = {
   app: {
     getInfo: () => ipcRenderer.invoke(IPC_CHANNELS.app.getInfo),
+    openChatSession: (request) => ipcRenderer.invoke(IPC_CHANNELS.app.openChatSession, request),
+    onOpenChatSession: (callback) => createUnsubscriber(IPC_CHANNELS.app.navigateToChat, callback),
   },
   logging: {
     write: writeRendererLog,
@@ -249,6 +252,10 @@ const bridge: OpenOmniClawBridge = {
     dragStart: () => ipcRenderer.invoke(IPC_CHANNELS.cat.dragStart),
     dragMove: (payload) => ipcRenderer.invoke(IPC_CHANNELS.cat.dragMove, payload),
     dragEnd: () => ipcRenderer.invoke(IPC_CHANNELS.cat.dragEnd),
+    onObservationReaction: (callback) =>
+      createUnsubscriber(IPC_CHANNELS.cat.observationReaction, callback),
+    openObservationSource: (event) =>
+      ipcRenderer.invoke(IPC_CHANNELS.cat.openObservationSource, event),
   },
   catPanel: {
     onPlacement: (callback) => createUnsubscriber(IPC_CHANNELS.catPanel.placement, callback),
@@ -276,6 +283,14 @@ const bridge: OpenOmniClawBridge = {
     reset: () => invokeSettings(IPC_CHANNELS.settings.reset),
     status: () => invokeSettings(IPC_CHANNELS.settings.status),
     onChanged: (callback) => createUnsubscriber(IPC_CHANNELS.settings.changed, callback),
+  },
+  observation: {
+    permissionStatus: () => ipcRenderer.invoke(IPC_CHANNELS.observation.permissionStatus),
+    status: (request) => ipcRenderer.invoke(IPC_CHANNELS.observation.status, request),
+    start: (request) => ipcRenderer.invoke(IPC_CHANNELS.observation.start, request),
+    stop: (request) => ipcRenderer.invoke(IPC_CHANNELS.observation.stop, request),
+    trigger: (request) => ipcRenderer.invoke(IPC_CHANNELS.observation.trigger, request),
+    onChanged: (callback) => createUnsubscriber(IPC_CHANNELS.observation.changed, callback),
   },
   chat: {
     listSessions: (request) => ipcRenderer.invoke(IPC_CHANNELS.chat.listSessions, request),
@@ -368,6 +383,8 @@ const bridge: OpenOmniClawBridge = {
       ipcRenderer.invoke(IPC_CHANNELS.provider.setFallbackModels, request),
     setTitleModel: (request: SetTitleProviderModelRequest) =>
       ipcRenderer.invoke(IPC_CHANNELS.provider.setTitleModel, request),
+    setObservationModels: (request: SetObservationProviderModelsRequest) =>
+      ipcRenderer.invoke(IPC_CHANNELS.provider.setObservationModels, request),
     test: (...args: [request: TestProviderRequest] | [providerId: string, modelId?: string]) => {
       const request =
         typeof args[0] === 'string'

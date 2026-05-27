@@ -12,6 +12,7 @@ import {
 
 import ChatComposer from '@/components/chat/ChatComposer.vue'
 import ChatMessageList from '@/components/chat/ChatMessageList.vue'
+import ObservationControls from '@/components/observation/ObservationControls.vue'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -123,6 +124,16 @@ const {
       >
         {{ sideLabel }}
       </Badge>
+
+      <ObservationControls
+        v-if="currSessionId"
+        :session-id="currSessionId"
+        session-kind="cat"
+        surface="cat"
+        :fallback-model-key="selectedModelKey"
+        :disabled="currentSessionRunning || initializing"
+        compact
+      />
 
       <DropdownMenu>
         <DropdownMenuTrigger as-child>

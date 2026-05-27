@@ -75,6 +75,14 @@ try {
   assert.equal(normalized.scheduledTasks.misfireGraceMs, 120000)
   assert.equal(normalized.scheduledTasks.misfireStartupLimit, 3)
   assert.equal('tasks' in normalized.scheduledTasks, false)
+  assert.equal(normalized.observation.enabled, false)
+  assert.equal(normalized.observation.defaultScope, 'primary_display')
+  assert.equal(normalized.observation.outputMode, 'ambient')
+  assert.equal(normalized.observation.retention, 'ephemeral')
+  assert.equal(normalized.observation.allowRemoteProviders, false)
+  assert.equal(normalized.observation.localOnly, true)
+  assert.equal(normalized.observation.defaultIntervalMs, 60_000)
+  assert.equal(normalized.observation.defaultDurationMs, 5 * 60_000)
 
   assert.throws(
     () => normalizeConfig({ ...cloneDefaultConfig(), version: 999 }),
@@ -142,6 +150,39 @@ try {
       }),
     ConfigValidationError
   )
+  assert.throws(
+    () =>
+      normalizeConfig({
+        ...cloneDefaultConfig(),
+        observation: {
+          ...cloneDefaultConfig().observation,
+          defaultIntervalMs: 1_000,
+        },
+      }),
+    ConfigValidationError
+  )
+  assert.throws(
+    () =>
+      normalizeConfig({
+        ...cloneDefaultConfig(),
+        observation: {
+          ...cloneDefaultConfig().observation,
+          defaultDurationMs: 31 * 60_000,
+        },
+      }),
+    ConfigValidationError
+  )
+  assert.throws(
+    () =>
+      normalizeConfig({
+        ...cloneDefaultConfig(),
+        observation: {
+          ...cloneDefaultConfig().observation,
+          outputMode: 'loud',
+        },
+      }),
+    ConfigValidationError
+  )
 
   const store = new ConfigStore({ appDataPath: tempDir })
   const firstLoad = store.load()
@@ -153,6 +194,7 @@ try {
   assert.equal(saved.app.theme, 'light')
   assert.equal(store.status().backupExists, true)
   assert.match(readFileSync(store.configPath, 'utf8'), /"scheduledTasks"/)
+  assert.match(readFileSync(store.configPath, 'utf8'), /"observation"/)
 
   const providerStore = new ConfigStore({ appDataPath: tempDir, appName: 'providers' })
   providerStore.save(normalized)

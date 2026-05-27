@@ -215,6 +215,19 @@ try {
     { providerId: 'omniinfer-local_1', modelId: 'local-small-model' },
   ])
 
+  await providers.setObservationModels({
+    observationVisionModelRef: { providerId: 'custom-openai', modelId: 'gpt-4o-mini' },
+    observationReactionModelRef: { providerId: 'omniinfer-local', modelId: 'local-small-model' },
+  })
+  assert.deepEqual(registryStore.get().settings.observationVisionModelRef, {
+    providerId: 'custom-openai',
+    modelId: 'gpt-4o-mini',
+  })
+  assert.deepEqual(registryStore.get().settings.observationReactionModelRef, {
+    providerId: 'omniinfer-local',
+    modelId: 'local-small-model',
+  })
+
   const refreshed = await providers.refreshModels('omniinfer-local')
   assert.equal(refreshed.length, 1)
   assert.equal(refreshed[0]?.id, 'local-small-model')
@@ -236,10 +249,21 @@ try {
   })
   assert.equal(registryStore.get().settings.defaultProviderId, undefined)
   assert.equal(registryStore.get().settings.defaultModelId, undefined)
+  assert.equal(registryStore.get().settings.observationVisionModelRef, undefined)
+  assert.deepEqual(registryStore.get().settings.observationReactionModelRef, {
+    providerId: 'omniinfer-local',
+    modelId: 'local-small-model',
+  })
   assert.deepEqual(registryStore.get().settings.fallbackModelRefs, [
     { providerId: 'omniinfer-local', modelId: 'local-small-model' },
     { providerId: 'omniinfer-local_1', modelId: 'local-small-model' },
   ])
+
+  await providers.setObservationModels({
+    observationReactionModelRef: { providerId: 'omniinfer-local_1', modelId: 'local-small-model' },
+  })
+  await providers.deleteModel({ providerId: 'omniinfer-local_1', modelId: 'local-small-model' })
+  assert.equal(registryStore.get().settings.observationReactionModelRef, undefined)
 
   const runtimeFallback = await providers.resolveDefaultProvider()
   assert.equal(runtimeFallback.provider.id, 'omniinfer-local')

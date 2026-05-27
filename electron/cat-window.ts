@@ -21,11 +21,13 @@ import type {
   CatTaskState,
   CatWindowState,
 } from '@shared/types/cat'
+import type { ObservationReactionEvent } from '@shared/types/observation'
 import { BrowserWindow, ipcMain, screen } from 'electron'
 
 type CatSessionIdResolver = (
   preferredSessionId?: string | null
 ) => string | null | Promise<string | null>
+type ChatSessionOpener = (sessionId: string) => void
 
 interface OpenCatPanelOptions {
   sessionId?: string | null
@@ -87,6 +89,7 @@ let catLogger: Logger | undefined
 let activeCatSessionId: string | null = null
 let activeCatSessionUpdatedAt = Date.now()
 let catSessionIdResolver: CatSessionIdResolver | undefined
+let chatSessionOpener: ChatSessionOpener | undefined
 const catDrafts = new Map<string, CatDraftState>()
 
 function setCatWindowLogger(logger: Logger): void {
@@ -95,6 +98,10 @@ function setCatWindowLogger(logger: Logger): void {
 
 function setCatSessionIdResolver(resolver: CatSessionIdResolver | undefined): void {
   catSessionIdResolver = resolver
+}
+
+function setChatSessionOpener(opener: ChatSessionOpener | undefined): void {
+  chatSessionOpener = opener
 }
 
 function clamp(value: number, min: number, max: number): number {
@@ -238,8 +245,31 @@ function sendToCatPanel(channel: string, payload: unknown): void {
   }
 }
 
+function sendToCatWindow(channel: string, payload: unknown): void {
+  if (!catWindow || catWindow.isDestroyed()) {
+    return
+  }
+
+  const send = () => {
+    if (catWindow && !catWindow.isDestroyed()) {
+      catWindow.webContents.send(channel, payload)
+    }
+  }
+
+  if (catWindow.webContents.isLoading()) {
+    catWindow.webContents.once('did-finish-load', send)
+  } else {
+    send()
+  }
+}
+
 function sendCatPanelPlacement(placement: CatPanelPlacement): void {
   sendToCatPanel(IPC_CHANNELS.catPanel.placement, placement)
+}
+
+function sendCatObservationReaction(event: ObservationReactionEvent): void {
+  showCatWindow()
+  sendToCatWindow(IPC_CHANNELS.cat.observationReaction, sanitizeObservationReactionEvent(event))
 }
 
 function notifyActiveCatSessionChanged(source = 'main'): void {
@@ -872,6 +902,10 @@ function registerCatWindowIpcHandlers(): void {
   ipcMain.handle(IPC_CHANNELS.cat.dragStart, () => dragStart())
   ipcMain.handle(IPC_CHANNELS.cat.dragMove, (_event, payload: CatDragPayload) => dragMove(payload))
   ipcMain.handle(IPC_CHANNELS.cat.dragEnd, () => dragEnd())
+  ipcMain.handle(
+    IPC_CHANNELS.cat.openObservationSource,
+    (_event, event: ObservationReactionEvent) => openObservationSource(event)
+  )
   ipcMain.on(IPC_CHANNELS.cat.reportState, (_event, state: CatWindowState) => {
     reportCatState(state)
   })
@@ -914,6 +948,38 @@ function registerCatWindowIpcHandlers(): void {
   )
 }
 
+function openObservationSource(event: ObservationReactionEvent): void {
+  const sessionId = normalizeIdentifier(event?.targetSessionId)
+  if (!sessionId) {
+    return
+  }
+
+  if (event.targetSessionKind === 'cat') {
+    setActiveCatSessionId(sessionId, 'observation')
+    openCatPanelWindow({ sessionId, source: 'observation' })
+    return
+  }
+
+  chatSessionOpener?.(sessionId)
+}
+
+function sanitizeObservationReactionEvent(
+  event: ObservationReactionEvent
+): ObservationReactionEvent {
+  const captureId = event.captureId ? normalizeIdentifier(event.captureId) : null
+  return {
+    id: normalizeIdentifier(event.id) ?? crypto.randomUUID(),
+    observationRunId: normalizeIdentifier(event.observationRunId) ?? '',
+    targetSessionId: normalizeIdentifier(event.targetSessionId) ?? '',
+    targetSessionKind: event.targetSessionKind === 'cat' ? 'cat' : 'chat',
+    surface: event.surface === 'cat' ? 'cat' : event.surface === 'chat' ? 'chat' : 'none',
+    decision: event.decision === 'chat' || event.decision === 'ask' ? event.decision : 'ambient',
+    text: sanitizeBoundedText(event.text, 240) ?? '',
+    ...(captureId ? { captureId } : {}),
+    createdAt: Number.isFinite(event.createdAt) ? event.createdAt : Date.now(),
+  }
+}
+
 export {
   clearCatDraft,
   closeCatPanelWindow,
@@ -927,10 +993,12 @@ export {
   hideCatWindow,
   openCatPanelWindow,
   registerCatWindowIpcHandlers,
+  sendCatObservationReaction,
   setActiveCatSessionId,
   setCatSessionIdResolver,
   setCatState,
   setCatWindowLogger,
+  setChatSessionOpener,
   showCatWindow,
   stageCatDraftAttachments,
   toggleCatPanelWindow,

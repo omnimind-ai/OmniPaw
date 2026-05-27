@@ -8,6 +8,7 @@ import DefaultModelSettingsForm from '@/components/settings/DefaultModelSettings
 import GeneralSettingsForm from '@/components/settings/GeneralSettingsForm.vue'
 import LocalAgentSettingsForm from '@/components/settings/LocalAgentSettingsForm.vue'
 import McpServerSettingsForm from '@/components/settings/McpServerSettingsForm.vue'
+import ObservationSettingsForm from '@/components/settings/ObservationSettingsForm.vue'
 import PersonaSettingsForm from '@/components/settings/PersonaSettingsForm.vue'
 import ProviderSettingsForm from '@/components/settings/ProviderSettingsForm.vue'
 import ScheduledTaskSettingsForm from '@/components/settings/ScheduledTaskSettingsForm.vue'
@@ -222,6 +223,11 @@ async function autosave() {
               <SkillSettingsForm v-else-if="activeTab === 'skills'" />
 
               <PersonaSettingsForm v-else-if="activeTab === 'personas'" />
+
+              <ObservationSettingsForm
+                v-else-if="activeTab === 'observation'"
+                :draft="draft"
+              />
 
               <ScheduledTaskSettingsForm
                 v-else-if="activeTab === 'schedule'"

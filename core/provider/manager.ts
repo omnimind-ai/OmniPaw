@@ -9,6 +9,7 @@ import type {
   ProviderPreset,
   ProviderRegistry,
   ProviderRegistryModel,
+  ProviderRegistrySettings,
   ProviderRegistrySource,
   ProviderRegistryStatus,
   ProviderType,
@@ -643,6 +644,29 @@ export class ProviderManager {
     })
   }
 
+  async setObservationModels(
+    request: Pick<
+      ProviderRegistrySettings,
+      'observationVisionModelRef' | 'observationReactionModelRef'
+    >
+  ): Promise<ProviderRegistryMutationResult> {
+    const registry = this.requireRegistryStore().get()
+    const nextSettings = { ...registry.settings }
+    nextSettings.observationVisionModelRef = this.normalizeOptionalEnabledModelRef(
+      registry,
+      request.observationVisionModelRef,
+      'Observation vision model'
+    )
+    nextSettings.observationReactionModelRef = this.normalizeOptionalEnabledModelRef(
+      registry,
+      request.observationReactionModelRef,
+      'Observation reaction model'
+    )
+    return this.registryResult(this.saveRegistry({ ...registry, settings: nextSettings }), {
+      ok: true,
+    })
+  }
+
   async test(
     providerId: string,
     modelId?: string,
@@ -1086,6 +1110,29 @@ export class ProviderManager {
       fallbackReason: 'first_enabled_provider_model',
     }
   }
+
+  private normalizeOptionalEnabledModelRef(
+    registry: ProviderRegistry,
+    selection: Partial<ProviderModelRef> | undefined,
+    label: string
+  ): ProviderModelRef | undefined {
+    if (!selection?.providerId || !selection.modelId) {
+      return undefined
+    }
+
+    const selectedRef = {
+      providerId: selection.providerId,
+      modelId: selection.modelId,
+    }
+    if (!findEnabledRegistryModel(registry, selectedRef.providerId, selectedRef.modelId)) {
+      throw new ProviderSelectionError({
+        code: 'validation',
+        message: `${label} is not enabled or does not exist: ${selectedRef.providerId}/${selectedRef.modelId}.`,
+        retryable: false,
+      })
+    }
+    return selectedRef
+  }
 }
 
 export class ProviderSelectionError extends Error {
@@ -1306,6 +1353,16 @@ function cleanupRegistryReferences(registry: ProviderRegistry): ProviderRegistry
       enabledModelRefs.has(modelRefKey(registry.settings.titleModelRef))
         ? { ...registry.settings.titleModelRef }
         : undefined,
+    observationVisionModelRef:
+      registry.settings.observationVisionModelRef &&
+      enabledModelRefs.has(modelRefKey(registry.settings.observationVisionModelRef))
+        ? { ...registry.settings.observationVisionModelRef }
+        : undefined,
+    observationReactionModelRef:
+      registry.settings.observationReactionModelRef &&
+      enabledModelRefs.has(modelRefKey(registry.settings.observationReactionModelRef))
+        ? { ...registry.settings.observationReactionModelRef }
+        : undefined,
   }
 
   return {
@@ -1426,6 +1483,12 @@ function sanitizeRegistry(registry: ProviderRegistry): ProviderRegistry {
       fallbackModelRefs: registry.settings.fallbackModelRefs.map((ref) => ({ ...ref })),
       titleModelRef: registry.settings.titleModelRef
         ? { ...registry.settings.titleModelRef }
+        : undefined,
+      observationVisionModelRef: registry.settings.observationVisionModelRef
+        ? { ...registry.settings.observationVisionModelRef }
+        : undefined,
+      observationReactionModelRef: registry.settings.observationReactionModelRef
+        ? { ...registry.settings.observationReactionModelRef }
         : undefined,
     },
   }
