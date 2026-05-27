@@ -9,6 +9,8 @@ export const ATTACHMENT_LIMITS = {
   maxFilesPerMessage: 12,
 } as const
 
+const UPLOAD_TIMEOUT_MS = 60_000
+
 export type StagedAttachmentType = 'image' | 'record' | 'file' | 'video'
 export type StagedUploadStatus = 'pending' | 'uploaded' | 'failed'
 
@@ -50,17 +52,21 @@ export function useMediaHandling() {
   const mediaCache = ref<Record<string, string>>({})
   const pendingFileSignatures = new Set<string>()
 
-  async function getFileSignature(file: File): Promise<string> {
-    if (crypto?.subtle) {
-      const buffer = await file.arrayBuffer()
-      const digest = await crypto.subtle.digest('SHA-256', buffer)
+  async function readUploadPayload(file: File): Promise<{ bytes: ArrayBuffer; signature: string }> {
+    const bytes = await withTimeout(file.arrayBuffer(), UPLOAD_TIMEOUT_MS, '附件读取超时，请重试。')
+
+    if (typeof crypto !== 'undefined' && crypto.subtle) {
+      const digest = await crypto.subtle.digest('SHA-256', bytes)
       const hash = Array.from(new Uint8Array(digest))
         .map((byte) => byte.toString(16).padStart(2, '0'))
         .join('')
-      return `sha256:${hash}`
+      return { bytes, signature: `sha256:${hash}` }
     }
 
-    return `meta:${file.name}:${file.size}:${file.type}:${file.lastModified}`
+    return {
+      bytes,
+      signature: `meta:${file.name}:${file.size}:${file.type}:${file.lastModified}`,
+    }
   }
 
   function isDuplicateFile(signature: string) {
@@ -119,7 +125,15 @@ export function useMediaHandling() {
       return
     }
 
-    const signature = await getFileSignature(file)
+    let payload: { bytes: ArrayBuffer; signature: string }
+    try {
+      payload = await readUploadPayload(file)
+    } catch (err) {
+      addFailedUploadItem(file, errorToText(err))
+      return
+    }
+
+    const { bytes, signature } = payload
     if (isDuplicateFile(signature)) {
       addFailedUploadItem(file, '已添加相同附件。', signature)
       return
@@ -135,12 +149,17 @@ export function useMediaHandling() {
     stagedUploadItems.value.push(uploadItem)
 
     try {
-      const attachment = await appBridge.attachment?.upload({
+      const uploadPromise = appBridge.attachment?.upload({
         name: file.name,
         type: file.type || 'application/octet-stream',
         size: file.size,
-        bytes: await file.arrayBuffer(),
+        bytes,
       })
+      const attachment = await withTimeout(
+        uploadPromise ?? Promise.resolve(undefined),
+        UPLOAD_TIMEOUT_MS,
+        '附件上传超时，请重试。'
+      )
       if (!attachment) {
         throw new Error('Attachment upload is not available.')
       }
@@ -161,26 +180,28 @@ export function useMediaHandling() {
         status: 'uploaded',
       }
 
+      if (!hasUploadItem(uploadItem.id)) {
+        revokeUrl(localUrl)
+        return
+      }
+
       stagedFiles.value.push(stagedFile)
-      Object.assign(uploadItem, stagedFile, {
-        id: uploadItem.id,
-        size: stagedFile.size || file.size,
-        mimeType: stagedFile.mimeType || file.type || 'application/octet-stream',
-        status: 'uploaded' as const,
-        error: undefined,
-      })
+      removeUploadItemById(uploadItem.id)
       if (stagedFile.url !== localUrl) {
         revokeUrl(localUrl)
       }
     } catch (err) {
+      const errorMessage = errorToText(err)
       mediaLogger.error('Failed to upload attachment.', {
         fileName: file.name,
         mimeType: file.type || 'application/octet-stream',
         size: file.size,
         error: err,
       })
-      uploadItem.status = 'failed'
-      uploadItem.error = errorToText(err)
+      updateUploadItem(uploadItem.id, {
+        status: 'failed',
+        error: errorMessage,
+      })
       removeStagedFileBySignature(signature, false)
       toast.error(err, { description: '附件上传失败' })
     } finally {
@@ -257,6 +278,30 @@ export function useMediaHandling() {
     } else {
       revokeUrl(item.url)
     }
+  }
+
+  function hasUploadItem(id: string) {
+    return uploadItemIndex(id) !== -1
+  }
+
+  function updateUploadItem(id: string, patch: Partial<StagedUploadItem>) {
+    const index = uploadItemIndex(id)
+    if (index === -1) return
+    stagedUploadItems.value.splice(index, 1, {
+      ...stagedUploadItems.value[index],
+      ...patch,
+    })
+  }
+
+  function removeUploadItemById(id: string) {
+    const index = uploadItemIndex(id)
+    if (index !== -1) {
+      stagedUploadItems.value.splice(index, 1)
+    }
+  }
+
+  function uploadItemIndex(id: string) {
+    return stagedUploadItems.value.findIndex((item) => item.id === id)
   }
 
   function clearStaged(options: { revokeUrls?: boolean } = {}) {
@@ -434,6 +479,25 @@ function revokeUrl(url?: string) {
   if (url?.startsWith('blob:')) {
     URL.revokeObjectURL(url)
   }
+}
+
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = window.setTimeout(() => {
+      reject(new Error(message))
+    }, timeoutMs)
+
+    promise.then(
+      (value) => {
+        window.clearTimeout(timer)
+        resolve(value)
+      },
+      (error) => {
+        window.clearTimeout(timer)
+        reject(error)
+      }
+    )
+  })
 }
 
 export function formatBytes(bytes: number) {

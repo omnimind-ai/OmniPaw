@@ -94,7 +94,7 @@ const textareaValue = computed({
 const uploadItems = computed(() => props.stagedUploadItems || [])
 const attachmentCount = computed(
   () =>
-    uploadItems.value.filter((item) => item.status !== 'failed').length || props.stagedFiles.length
+    props.stagedFiles.length + uploadItems.value.filter((item) => item.status !== 'failed').length
 )
 const limitsText = computed(
   () =>
@@ -350,7 +350,7 @@ function handleDrop(event: DragEvent) {
             </div>
 
             <div
-              v-else-if="stagedFiles.length"
+              v-if="stagedFiles.length"
               class="flex w-full flex-wrap items-center gap-2"
             >
               <Badge
