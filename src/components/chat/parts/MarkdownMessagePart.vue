@@ -552,14 +552,10 @@ function findListItemOpen(tokens: Array<{ type: string }>, startIndex: number) {
 }
 
 .chat-markdown :deep(h1) {
-  padding-bottom: 0.35em;
-  border-bottom: 1px solid var(--border);
   font-size: 1.45em;
 }
 
 .chat-markdown :deep(h2) {
-  padding-bottom: 0.3em;
-  border-bottom: 1px solid var(--border);
   font-size: 1.25em;
 }
 

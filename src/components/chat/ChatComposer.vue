@@ -518,17 +518,18 @@ function handleDrop(event: DragEvent) {
                 <InputGroupButton
                   size="icon-sm"
                   variant="default"
+                  class="grid place-items-center"
                   :aria-label="primaryActionLabel"
                   :disabled="!canUsePrimaryAction"
                   @click="handlePrimaryAction"
                 >
                   <SquareIcon
                     v-if="running"
-                    data-icon="inline-start"
+                    data-icon
                   />
                   <ArrowUpIcon
                     v-else
-                    data-icon="inline-start"
+                    data-icon
                   />
                 </InputGroupButton>
               </div>
