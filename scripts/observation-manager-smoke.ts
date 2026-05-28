@@ -173,6 +173,7 @@ const manager = new ObservationManager({
   onReaction: (event) => {
     reactions.push(event)
   },
+  devMode: true,
   random: () => 0.99,
 })
 
@@ -313,6 +314,21 @@ try {
   assert.equal(thirdReactionPrompt?.type, 'plain')
   assert.match((thirdReactionPrompt as { text?: string }).text ?? '', /本次倾向：已启用/)
   assert.equal(reactions.length, 2)
+  await manager.stop({ visionSessionId })
+
+  settings = {
+    ...baseSettings,
+    captureProbability: 1,
+    minCaptureIntervalMs: 0,
+    notificationCooldownMs: 0,
+  }
+  chatService.reset('{"mode":"ambient","text":"Dev bubble test.","reason":"dev"}')
+  await manager.start({ visionSessionId })
+  await manager.trigger({ visionSessionId, devForceReaction: true })
+  const devReactionPrompt = chatService.calls[1]?.parts[0]
+  assert.equal(devReactionPrompt?.type, 'plain')
+  assert.match((devReactionPrompt as { text?: string }).text ?? '', /开发验证已启用/)
+  assert.equal(reactions.length, 3)
   await manager.stop({ visionSessionId })
 
   settings = { ...baseSettings, captureProbability: 1, minCaptureIntervalMs: 5_000 }

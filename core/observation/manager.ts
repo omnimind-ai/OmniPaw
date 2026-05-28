@@ -44,6 +44,7 @@ export interface ObservationManagerOptions {
   onReaction?: (event: ObservationReactionEvent) => void
   logger?: Logger
   random?: () => number
+  devMode?: boolean | (() => boolean)
 }
 
 interface ActiveRunState {
@@ -84,6 +85,7 @@ interface ReactionPromptContext {
   nudgeActive: boolean
   nudgeProbability: number
   nudgeThreshold: number
+  devForceReaction: boolean
 }
 
 const visionTitle = '主动视觉'
@@ -239,7 +241,16 @@ export class ObservationManager {
     if (!state) {
       throw this.observationError('run_not_found', '没有正在运行的主动视觉。', true)
     }
-    await this.executeCapture(state, 'manual')
+    if (request.devForceReaction && !this.isDevMode()) {
+      throw this.observationError(
+        'invalid_request',
+        '开发测试 reaction 只能在 dev 运行态使用。',
+        true
+      )
+    }
+    await this.executeCapture(state, 'manual', {
+      devForceReaction: request.devForceReaction === true,
+    })
     return this.status()
   }
 
@@ -313,7 +324,8 @@ export class ObservationManager {
 
   private skipReasonForEvaluation(
     state: ActiveRunState,
-    manual: boolean
+    manual: boolean,
+    options: { devForceReaction?: boolean } = {}
   ): ObservationRun['rule']['skippedReason'] | undefined {
     const run = state.run
     if (state.busy) {
@@ -324,6 +336,7 @@ export class ObservationManager {
       return 'daily_limit'
     }
     if (
+      !(options.devForceReaction && this.isDevMode()) &&
       run.rule.lastAcceptedAt &&
       Date.now() - run.rule.lastAcceptedAt < this.options.settings().minCaptureIntervalMs
     ) {
@@ -335,7 +348,11 @@ export class ObservationManager {
     return undefined
   }
 
-  private async executeCapture(state: ActiveRunState, source: 'timer' | 'manual'): Promise<void> {
+  private async executeCapture(
+    state: ActiveRunState,
+    source: 'timer' | 'manual',
+    options: { devForceReaction?: boolean } = {}
+  ): Promise<void> {
     const run = state.run
     if (run.status !== 'active') {
       return
@@ -352,7 +369,7 @@ export class ObservationManager {
       throw this.observationError('run_busy', '观察正在执行中，请稍后再试。', true)
     }
 
-    const skipReason = this.skipReasonForEvaluation(state, source === 'manual')
+    const skipReason = this.skipReasonForEvaluation(state, source === 'manual', options)
     if (skipReason) {
       run.rule.skippedReason = skipReason
       await this.emitChanged(source === 'manual' ? 'updated' : 'evaluated', run)
@@ -375,7 +392,7 @@ export class ObservationManager {
     state.abortController = new AbortController()
     run.rule.skippedReason = undefined
     try {
-      const result = await this.performObservation(state, state.abortController.signal)
+      const result = await this.performObservation(state, state.abortController.signal, options)
       run.lastCapture = result.frame.metadata
       run.lastDecision = result.decision
       run.lastRunId = result.terminal.runId
@@ -440,12 +457,13 @@ export class ObservationManager {
 
   private async performObservation(
     state: ActiveRunState,
-    signal: AbortSignal
+    signal: AbortSignal,
+    options: { devForceReaction?: boolean } = {}
   ): Promise<ObservationTickResult> {
     await this.assertModelPolicyBeforeCapture()
     const resolved = await this.resolveModelChain(state.run)
     const frame = await this.captureFrame(state)
-    const reactionContext = this.reactionPromptContext(state)
+    const reactionContext = this.reactionPromptContext(state, options)
     try {
       const result =
         resolved.chain.mode === 'split'
@@ -767,19 +785,28 @@ export class ObservationManager {
     this.options.onReaction?.(event)
   }
 
-  private reactionPromptContext(state: ActiveRunState): ReactionPromptContext {
+  private reactionPromptContext(
+    state: ActiveRunState,
+    options: { devForceReaction?: boolean } = {}
+  ): ReactionPromptContext {
     const settings = this.options.settings()
     const threshold = Math.max(1, Math.floor(settings.reactionNudgeAfterSilentCaptures ?? 3))
     const baseProbability = clampProbability(settings.reactionNudgeProbability ?? 0.35)
     const silentCount = state.consecutiveNoVisibleReactions
     const nudgeStep = silentCount - threshold + 1
-    const nudgeProbability = nudgeStep > 0 ? Math.min(1, baseProbability * nudgeStep) : 0
+    const forced = options.devForceReaction === true && this.isDevMode()
+    const nudgeProbability = forced
+      ? 1
+      : nudgeStep > 0
+        ? Math.min(1, baseProbability * nudgeStep)
+        : 0
 
     return {
       consecutiveNoVisibleReactions: silentCount,
-      nudgeActive: nudgeProbability > 0 && this.random() < nudgeProbability,
+      nudgeActive: forced || (nudgeProbability > 0 && this.random() < nudgeProbability),
       nudgeProbability,
       nudgeThreshold: threshold,
+      devForceReaction: forced,
     }
   }
 
@@ -790,6 +817,11 @@ export class ObservationManager {
     const visible =
       decision.decision !== 'silent' && !decision.notificationSuppressed && Boolean(decision.text)
     state.consecutiveNoVisibleReactions = visible ? 0 : state.consecutiveNoVisibleReactions + 1
+  }
+
+  private isDevMode(): boolean {
+    const devMode = this.options.devMode
+    return typeof devMode === 'function' ? devMode() : devMode === true
   }
 
   private async resolveModelChain(run: ObservationRun): Promise<ResolvedChain> {

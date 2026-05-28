@@ -259,6 +259,7 @@ export function createCoreRuntime(options: CoreRuntimeOptions): CoreRuntime {
     onChanged: options.onObservationChanged,
     onReaction: options.onObservationReaction,
     logger: coreLogger.child({ scope: 'observation' }),
+    devMode: () => !options.app.isPackaged,
   })
   chatService = new ChatService({
     sessions: sessionRepo,

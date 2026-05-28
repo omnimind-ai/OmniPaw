@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { MessageCircleIcon } from 'lucide-vue-next'
 import { computed, onMounted } from 'vue'
 import type { BridgeDesktopSettingsConfig } from '@/bridge/app'
 import SettingsSection from '@/components/settings/SettingsSection.vue'
@@ -32,6 +33,8 @@ const observationStore = useObservationStore()
 const toast = useToast()
 const observation = computed(() => props.draft.observation)
 const runtime = computed(() => observationStore.runtime)
+const activeRun = computed(() => observationStore.activeRun)
+const showDevReactionTrigger = import.meta.env.DEV
 const runtimeEnabled = computed({
   get: () => runtime.value?.active === true,
   set: (enabled: boolean) => {
@@ -103,6 +106,26 @@ async function toggleRuntime(enabled: boolean): Promise<void> {
   }
 }
 
+async function triggerDevReaction(): Promise<void> {
+  try {
+    let run = activeRun.value
+    if (!run) {
+      const next = await observationStore.start({
+        durationMs: observation.value.defaultDurationMs,
+        scope: observation.value.defaultScope,
+        screenshotRetention: observation.value.screenshotRetention,
+      })
+      run = next.activeRuns.find((item) => item.status === 'active')
+    }
+    await observationStore.trigger({
+      ...(run ? { runId: run.id } : {}),
+      devForceReaction: true,
+    })
+  } catch (error) {
+    toast.error(errorToText(error, '开发测试气泡触发失败。'))
+  }
+}
+
 function clampInteger(value: string | number, min: number, max = Number.MAX_SAFE_INTEGER): number {
   const next = Math.round(Number(value))
   if (!Number.isFinite(next)) return min
@@ -154,6 +177,17 @@ function clampInteger(value: string | number, min: number, max = Number.MAX_SAFE
               @click="observationStore.trigger()"
             >
               立即观察
+            </Button>
+            <Button
+              v-if="showDevReactionTrigger"
+              type="button"
+              variant="outline"
+              size="sm"
+              :disabled="observationStore.running"
+              @click="triggerDevReaction"
+            >
+              <MessageCircleIcon data-icon="inline-start" />
+              测试气泡
             </Button>
           </div>
         </Field>

@@ -126,6 +126,7 @@ export interface StopObservationRequest {
 export interface TriggerObservationRequest {
   runId?: ID
   visionSessionId?: ID
+  devForceReaction?: boolean
 }
 
 export interface ObservationStatusRequest {

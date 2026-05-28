@@ -16,6 +16,7 @@ interface ObservationReactionPromptContext {
   nudgeActive?: boolean
   nudgeProbability?: number
   nudgeThreshold?: number
+  devForceReaction?: boolean
 }
 
 const OBSERVATION_REACTION_POLICY = [
@@ -56,14 +57,20 @@ function observationReactionRuntimeContext(input?: ObservationReactionPromptCont
   const nudgeThreshold = Math.max(1, Math.floor(input?.nudgeThreshold ?? 3))
   const nudgeProbability = Math.round(Math.max(0, Math.min(1, input?.nudgeProbability ?? 0)) * 100)
   const nudgeLabel = input?.nudgeActive ? '已启用' : '未启用'
+  const devForceLine = input?.devForceReaction
+    ? '- 开发验证已启用：本次观察用于测试小猫气泡链路；只要不违反隐私、安全、专注和低打扰原则，优先输出一条短 ambient reaction，不要选择 silent。'
+    : undefined
 
   return [
     '# 运行态节奏',
     `- 连续 ${silentCount} 次观察没有产生可见 reaction。`,
     `- 连续静默达到 ${nudgeThreshold} 次后，会按概率提高主动寒暄倾向；本次倾向：${nudgeLabel}（当前概率 ${nudgeProbability}%）。`,
+    devForceLine,
     '- 如果本次倾向已启用，可以更积极地选择一句短问候、陪伴式评论或轻量提问；但仍不能突破隐私、安全、专注和低打扰原则。',
     '- 如果本次倾向未启用，按常规阈值判断。',
-  ].join('\n')
+  ]
+    .filter(Boolean)
+    .join('\n')
 }
 
 export const OBSERVATION_PROMPTS = {
