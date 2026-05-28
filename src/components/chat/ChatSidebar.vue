@@ -210,7 +210,8 @@ function clearSearch() {
   searchQuery.value = ''
 }
 
-function updateSessionKindFilter(value: string) {
+function updateSessionKindFilter(value: unknown) {
+  if (!value || typeof value !== 'string') return
   if (value !== 'chat' && value !== 'cat' && value !== 'vision') return
   emit('updateSessionKindFilter', value)
 }
@@ -219,7 +220,7 @@ function updateSessionKindFilter(value: string) {
 <template>
   <Sidebar
     collapsible="icon"
-    class="group-data-[collapsible=icon]:border-r-0! group-data-[collapsible=icon]:[&>[data-slot=sidebar-inner]]:bg-transparent"
+    class="group-data-[collapsible=icon]:border-r-0! group-data-[collapsible=icon]:*:data-[slot=sidebar-inner]:bg-transparent"
   >
     <SidebarHeader>
       <div class="flex items-center gap-2">

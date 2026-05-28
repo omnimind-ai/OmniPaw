@@ -173,7 +173,7 @@ async function selectProvider(providerId: string) {
   if (!saved) return
 
   activeProviderId.value = providerId
-  loadProviderDraft(providerId)
+  loadProviderDraft(providerId, { resetTab: true })
 }
 
 async function selectProviderSidebarItem(provider: ProviderSidebarItem) {
@@ -205,12 +205,14 @@ async function startProviderFromPreset(preset: BridgeProviderPreset) {
   clearMessages()
 }
 
-function loadProviderDraft(providerId: string) {
+function loadProviderDraft(providerId: string, options: { resetTab?: boolean } = {}) {
   const provider = rawProviders.value.find((item) => item.id === providerId)
   if (!provider) return
 
   loadProviderDraftState(provider)
-  providerTab.value = 'basic'
+  if (options.resetTab) {
+    providerTab.value = 'basic'
+  }
   clearMessages()
 }
 
