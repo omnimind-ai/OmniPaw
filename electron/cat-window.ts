@@ -61,9 +61,11 @@ const allowedWindowStates = new Set<CatWindowState>([
 ])
 
 const catWindowSize = {
-  width: 148,
-  height: 132,
+  width: 86,
+  height: 86,
 }
+
+const catEdgeOverflow = 16
 
 const catPanelSize = {
   width: 420,
@@ -81,10 +83,10 @@ const catBubbleCardInset = 14
 const catBubbleAutoDismissMs = 7_000
 
 const catStageVisualBounds = {
-  x: 31,
-  y: 36,
-  width: 86,
-  height: 86,
+  x: 5,
+  y: 5,
+  width: 76,
+  height: 76,
 }
 
 let catWindow: BrowserWindow | null = null
@@ -343,7 +345,7 @@ function notifyCatDraftChanged(snapshot: CatDraftState | null, source = 'main'):
 function getInitialCatBounds(): CatBounds {
   const primaryDisplay = screen.getPrimaryDisplay()
   const workArea = primaryDisplay.workArea
-  const x = workArea.x + workArea.width - Math.round(catWindowSize.width * 0.68)
+  const x = workArea.x + workArea.width - catWindowSize.width + catEdgeOverflow
   const y = workArea.y + Math.round((workArea.height - catWindowSize.height) / 2)
 
   return {
@@ -717,7 +719,7 @@ function hideCatBubbleWindow(request: CatBubbleDismissRequest | string = {}): vo
   }
 
   if (catBubbleWindow && !catBubbleWindow.isDestroyed()) {
-    catBubbleWindow.hide()
+    catBubbleWindow.close()
   }
 }
 
@@ -762,8 +764,8 @@ function getSnapTargetBounds(): CatBounds | null {
   const displayCenterX = workArea.x + workArea.width / 2
   const isRight = centerX > displayCenterX
   const targetX = isRight
-    ? workArea.x + workArea.width - Math.round(bounds.width * 0.68)
-    : workArea.x - Math.round(bounds.width * 0.32)
+    ? workArea.x + workArea.width - bounds.width + catEdgeOverflow
+    : workArea.x - catEdgeOverflow
 
   return constrainCatBounds({
     ...bounds,
@@ -936,6 +938,7 @@ function showCatBubble(request: CatBubbleShowRequest | string): CatBubbleEvent |
   const placement = getCatBubblePlacement(catWindow.getBounds())
   const window = createCatBubbleWindow(placement)
   window.setBounds(placement.bounds)
+  window.setIgnoreMouseEvents(event.kind !== 'observation', { forward: true })
 
   activeCatBubbleEvent = event
   catBubbleVisible = true
