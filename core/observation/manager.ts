@@ -197,7 +197,7 @@ export class ObservationManager {
 
   private async permissionStatusForStart(): Promise<ObservationPermissionStatus> {
     const permission = await this.permissionStatus()
-    if (permission.screen !== 'not-determined' || !this.capture.probeScreenPermission) {
+    if (!shouldProbeScreenPermission(permission) || !this.capture.probeScreenPermission) {
       return permission
     }
 
@@ -1139,6 +1139,13 @@ function normalizeObservationError(error: unknown): ObservationErrorInfo {
     message: error instanceof Error ? error.message : '主动视觉观察失败。',
     recoverable: true,
   }
+}
+
+function shouldProbeScreenPermission(permission: ObservationPermissionStatus): boolean {
+  return (
+    permission.platform === 'darwin' &&
+    (permission.screen === 'not-determined' || permission.screen === 'denied')
+  )
 }
 
 function modelSupports(model: ProviderModelRecord, input: 'text' | 'image'): boolean {

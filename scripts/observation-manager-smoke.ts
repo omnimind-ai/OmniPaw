@@ -196,6 +196,23 @@ try {
   assert.equal(captureCount, 0)
   await manager.stop()
   permission = {
+    platform: 'darwin',
+    screen: 'denied',
+    canPrompt: false,
+    message: 'macOS 需要在系统设置中开启屏幕录制权限。',
+  }
+  capture.probeScreenPermission = () => {
+    permissionProbeCount += 1
+    return permission
+  }
+  await assert.rejects(
+    () => manager.start(),
+    (error) =>
+      error instanceof ObservationRuntimeError && error.details.code === 'permission_denied'
+  )
+  assert.equal(permissionProbeCount, 2)
+  assert.equal(captureCount, 0)
+  permission = {
     platform: 'smoke',
     screen: 'granted',
     canPrompt: false,

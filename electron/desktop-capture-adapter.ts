@@ -8,7 +8,7 @@ import type {
   ObservationPermissionState,
   ObservationPermissionStatus,
 } from '@shared/types/observation'
-import { desktopCapturer, screen, systemPreferences } from 'electron'
+import { app, desktopCapturer, screen, shell, systemPreferences } from 'electron'
 
 export interface ElectronDesktopCaptureAdapterOptions {
   tempDir: string
@@ -41,10 +41,7 @@ export class ElectronDesktopCaptureAdapter implements DesktopCaptureAdapter {
       platform: process.platform,
       screen: status,
       canPrompt: false,
-      message:
-        status === 'granted'
-          ? undefined
-          : 'macOS 需要在系统设置中为 OpenOmniClaw 开启屏幕录制权限。',
+      message: status === 'granted' ? undefined : macScreenPermissionMessage(),
     }
   }
 
@@ -53,12 +50,20 @@ export class ElectronDesktopCaptureAdapter implements DesktopCaptureAdapter {
       return this.permissionStatus()
     }
 
-    await desktopCapturer.getSources({
-      types: ['screen'],
-      thumbnailSize: { width: 1, height: 1 },
-      fetchWindowIcons: false,
-    })
-    return this.permissionStatus()
+    try {
+      await desktopCapturer.getSources({
+        types: ['screen'],
+        thumbnailSize: { width: 1, height: 1 },
+        fetchWindowIcons: false,
+      })
+    } catch {
+      // Permission probing must fall through to the status check and settings handoff.
+    }
+    const status = await this.permissionStatus()
+    if (status.screen !== 'granted') {
+      await openMacScreenRecordingSettings()
+    }
+    return status
   }
 
   async capture(request: ObservationCaptureRequest): Promise<ObservationCapturedFrame> {
@@ -170,4 +175,33 @@ function safeMacScreenStatus(): ObservationPermissionState {
   } catch {
     return 'unknown'
   }
+}
+
+function macScreenPermissionMessage(): string {
+  const appName = app.getName() || 'Electron'
+  const bundlePath = currentMacBundlePath()
+  const devHint = bundlePath
+    ? `开发模式下请授权 ${bundlePath}，而不是查找 OpenOmniClaw。`
+    : '开发模式下可能需要授权 Electron、Terminal、iTerm 或 VS Code。'
+  return `macOS 需要在系统设置 > 隐私与安全性 > 屏幕与系统音频录制中为 ${appName} 开启权限。${devHint}`
+}
+
+function currentMacBundlePath(): string | undefined {
+  try {
+    const exePath = app.getPath('exe')
+    const marker = '.app/Contents/MacOS/'
+    const markerIndex = exePath.indexOf(marker)
+    if (markerIndex === -1) {
+      return exePath || undefined
+    }
+    return exePath.slice(0, markerIndex + '.app'.length)
+  } catch {
+    return undefined
+  }
+}
+
+async function openMacScreenRecordingSettings(): Promise<void> {
+  await shell.openExternal(
+    'x-apple.systempreferences:com.apple.preference.security?Privacy_ScreenCapture'
+  )
 }
