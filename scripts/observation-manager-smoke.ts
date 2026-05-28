@@ -90,7 +90,7 @@ const baseSettings: DesktopObservationSettings = {
   notificationCooldownMs: 1_000,
 }
 
-const permission: ObservationPermissionStatus = {
+let permission: ObservationPermissionStatus = {
   platform: 'smoke',
   screen: 'granted',
   canPrompt: false,
@@ -105,12 +105,17 @@ let settings = { ...baseSettings }
 let registry = registryWithRefs()
 let captureCount = 0
 let cleanupCount = 0
+let permissionProbeCount = 0
 let captureShouldFail = false
 let changedCount = 0
 const reactions: ObservationReactionEvent[] = []
 
 const capture: DesktopCaptureAdapter = {
   permissionStatus: () => permission,
+  probeScreenPermission: () => {
+    permissionProbeCount += 1
+    return permission
+  },
   capture: async (request): Promise<ObservationCapturedFrame> => {
     if (captureShouldFail) {
       throw new Error('capture unavailable')
@@ -170,6 +175,36 @@ const manager = new ObservationManager({
 })
 
 try {
+  permission = {
+    platform: 'darwin',
+    screen: 'not-determined',
+    canPrompt: false,
+    message: 'macOS 需要在系统设置中为 OpenOmniClaw 开启屏幕录制权限。',
+  }
+  capture.probeScreenPermission = () => {
+    permissionProbeCount += 1
+    permission = {
+      platform: 'darwin',
+      screen: 'granted',
+      canPrompt: false,
+    }
+    return permission
+  }
+  await manager.start()
+  assert.equal(permissionProbeCount, 1)
+  assert.equal((await manager.status()).runtime.active, true)
+  assert.equal(captureCount, 0)
+  await manager.stop()
+  permission = {
+    platform: 'smoke',
+    screen: 'granted',
+    canPrompt: false,
+  }
+  capture.probeScreenPermission = () => {
+    permissionProbeCount += 1
+    return permission
+  }
+
   await assert.rejects(
     () =>
       manager.start({

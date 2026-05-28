@@ -48,6 +48,19 @@ export class ElectronDesktopCaptureAdapter implements DesktopCaptureAdapter {
     }
   }
 
+  async probeScreenPermission(): Promise<ObservationPermissionStatus> {
+    if (process.platform !== 'darwin') {
+      return this.permissionStatus()
+    }
+
+    await desktopCapturer.getSources({
+      types: ['screen'],
+      thumbnailSize: { width: 1, height: 1 },
+      fetchWindowIcons: false,
+    })
+    return this.permissionStatus()
+  }
+
   async capture(request: ObservationCaptureRequest): Promise<ObservationCapturedFrame> {
     const permission = await this.permissionStatus()
     if (permission.screen !== 'granted' && permission.screen !== 'unknown') {

@@ -1,5 +1,6 @@
 import { SYSTEM_SESSION_IDS } from '@shared/constants'
 import type { CronRun, CronSchedule, CronTask } from '@shared/types/cron'
+import type { BadgeVariants } from '@/components/ui/badge'
 
 export function scheduleSummary(schedule: CronSchedule): string {
   if (schedule.kind === 'at') {
@@ -22,6 +23,13 @@ export function statusLabel(task: CronTask): string {
   if (task.lastStatus === 'complete') return '已完成'
   if (task.nextRunAt) return '等待中'
   return '空闲'
+}
+
+export function statusVariant(task: CronTask): BadgeVariants['variant'] {
+  if (!task.enabled) return 'outline'
+  if (task.state === 'running') return 'secondary'
+  if (task.lastStatus === 'failed') return 'destructive'
+  return 'secondary'
 }
 
 export function runStatusLabel(run: CronRun): string {

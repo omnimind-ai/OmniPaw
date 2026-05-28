@@ -9,6 +9,7 @@ import ScheduledTaskEditModal from '@/components/settings/scheduled-task-setting
 import ScheduledTaskList from '@/components/settings/scheduled-task-settings/ScheduledTaskList.vue'
 import ScheduledTaskPolicySection from '@/components/settings/scheduled-task-settings/ScheduledTaskPolicySection.vue'
 import type { ScheduledTaskSubmitPayload } from '@/components/settings/scheduled-task-settings/types'
+import { useDelayedFlag } from '@/composables/useDelayedFlag'
 import { useCronStore } from '@/stores/cron'
 import { errorToText, useToast } from '@/utils/toast'
 
@@ -34,6 +35,7 @@ const auditTask = computed(() => findTaskById(auditTaskId.value))
 const auditRuns = computed<CronRun[]>(() =>
   auditTaskId.value ? (runsByTaskId.value[auditTaskId.value] ?? []) : []
 )
+const showTaskListSkeleton = useDelayedFlag(() => loading.value)
 
 watch(editModalOpen, (isOpen) => {
   if (!isOpen) {
@@ -138,6 +140,15 @@ async function runTask(task: CronTask): Promise<void> {
   }
 }
 
+async function setTaskEnabled(task: CronTask, enabled: boolean): Promise<void> {
+  confirmDeleteTaskId.value = undefined
+  try {
+    await cronStore.updateTask({ taskId: task.id, enabled })
+  } catch (error) {
+    toast.error(errorToText(error, '计划任务状态更新失败。'))
+  }
+}
+
 async function deleteTask(task: CronTask): Promise<void> {
   if (confirmDeleteTaskId.value !== task.id) {
     confirmDeleteTaskId.value = task.id
@@ -173,12 +184,14 @@ function closeTaskSurfaces(taskId: string): void {
       :tasks="tasks"
       :loading="loading"
       :saving="saving"
+      :show-skeleton="showTaskListSkeleton"
       :confirm-delete-task-id="confirmDeleteTaskId"
       @create="openCreateTask"
       @detail="openTaskDetail"
       @audit="openTaskAudit"
       @run="runTask"
       @edit="openEditTask"
+      @enable="setTaskEnabled"
       @delete="deleteTask"
     />
 

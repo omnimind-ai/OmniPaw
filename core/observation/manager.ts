@@ -119,7 +119,7 @@ export class ObservationManager {
       )
     }
 
-    const permission = await this.permissionStatus()
+    const permission = await this.permissionStatusForStart()
     if (permission.screen !== 'granted' && permission.screen !== 'unknown') {
       throw this.observationError(
         'permission_denied',
@@ -193,6 +193,24 @@ export class ObservationManager {
     })
     await this.emitChanged('started', run)
     return this.status()
+  }
+
+  private async permissionStatusForStart(): Promise<ObservationPermissionStatus> {
+    const permission = await this.permissionStatus()
+    if (permission.screen !== 'not-determined' || !this.capture.probeScreenPermission) {
+      return permission
+    }
+
+    try {
+      return await this.capture.probeScreenPermission()
+    } catch (error) {
+      this.logger?.warn('Observation screen permission probe failed.', {
+        platform: permission.platform,
+        screen: permission.screen,
+        error,
+      })
+      return permission
+    }
   }
 
   async stop(request: StopObservationRequest = {}): Promise<ObservationState> {

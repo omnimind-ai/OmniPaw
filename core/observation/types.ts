@@ -6,6 +6,7 @@ import type {
 
 export interface DesktopCaptureAdapter {
   permissionStatus: () => Promise<ObservationPermissionStatus> | ObservationPermissionStatus
+  probeScreenPermission?: () => Promise<ObservationPermissionStatus> | ObservationPermissionStatus
   capture: (request: ObservationCaptureRequest) => Promise<ObservationCapturedFrame>
   cleanupCapture?: (captureId: string) => Promise<void> | void
   cleanupAll?: () => Promise<void> | void
