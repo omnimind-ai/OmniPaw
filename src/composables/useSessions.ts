@@ -1,4 +1,4 @@
-import type { ChatSession } from '@shared/types/chat'
+import type { ChatSession, ListSessionsRequest } from '@shared/types/chat'
 import { type ComputedRef, computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { appBridge, type BridgeChatSession } from '@/bridge/app'
@@ -54,9 +54,9 @@ export function useSessions(chatboxMode: boolean = false) {
     return sessions.value.find((s) => s.id === currSessionId.value) ?? null
   })
 
-  async function getSessions() {
+  async function getSessions(request?: ListSessionsRequest) {
     try {
-      const bridgeSessions = await appBridge.chat.listSessions()
+      const bridgeSessions = await appBridge.chat.listSessions(request)
       sessions.value = bridgeSessions.map(mapBridgeSession)
     } catch (err: unknown) {
       sessionsLogger.error('Failed to load sessions.', { error: err })

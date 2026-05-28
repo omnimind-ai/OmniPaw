@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import {
   CatIcon,
+  EyeIcon,
   MessageSquareIcon,
   MoreHorizontalIcon,
   PencilIcon,
@@ -26,6 +27,9 @@ import {
   DropdownMenuContent,
   DropdownMenuGroup,
   DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Field, FieldGroup, FieldLabel } from '@/components/ui/field'
@@ -54,14 +58,18 @@ import {
 import type { Session } from '@/composables/useSessions'
 import { cn } from '@/lib/utils'
 
+type SessionKindFilter = 'chat' | 'cat' | 'vision'
+
 const props = withDefaults(
   defineProps<{
     sessions: Session[]
     activeSessionId?: string
+    sessionKindFilter?: SessionKindFilter
     creating?: boolean
     runningSessionIds?: string[]
   }>(),
   {
+    sessionKindFilter: 'chat',
     runningSessionIds: () => [],
   }
 )
@@ -69,6 +77,7 @@ const props = withDefaults(
 const emit = defineEmits<{
   newChat: []
   selectSession: [sessionId: string]
+  updateSessionKindFilter: [kind: SessionKindFilter]
   openSettings: []
   toggleCat: []
   renameSession: [sessionId: string, title: string]
@@ -82,9 +91,24 @@ const renameTitleDraft = ref('')
 const deleteDialogOpen = ref(false)
 const deleteSessionId = ref<string | null>(null)
 
+const sessionKindOptions: Array<{
+  value: SessionKindFilter
+  label: string
+  icon: typeof MessageSquareIcon
+}> = [
+  { value: 'chat', label: '普通对话', icon: MessageSquareIcon },
+  { value: 'cat', label: '小猫会话', icon: CatIcon },
+  { value: 'vision', label: '视觉会话', icon: EyeIcon },
+]
+
 const normalizedSearchQuery = computed(() => searchQuery.value.trim().toLowerCase())
 const hasSearchQuery = computed(() => normalizedSearchQuery.value.length > 0)
 const runningSessionIdSet = computed(() => new Set(props.runningSessionIds))
+const activeSessionKindOption = computed(
+  () =>
+    sessionKindOptions.find((option) => option.value === props.sessionKindFilter) ||
+    sessionKindOptions[0]
+)
 
 const filteredSessions = computed(() => {
   const query = normalizedSearchQuery.value
@@ -185,6 +209,11 @@ function confirmDelete() {
 function clearSearch() {
   searchQuery.value = ''
 }
+
+function updateSessionKindFilter(value: string) {
+  if (value !== 'chat' && value !== 'cat' && value !== 'vision') return
+  emit('updateSessionKindFilter', value)
+}
 </script>
 
 <template>
@@ -217,7 +246,7 @@ function clearSearch() {
       <SidebarGroup class="group-data-[collapsible=icon]:hidden">
         <SidebarGroupLabel>Sessions</SidebarGroupLabel>
         <SidebarGroupContent>
-          <div class="group-data-[collapsible=icon]:hidden mb-2">
+          <div class="group-data-[collapsible=icon]:hidden mb-2 flex items-center gap-2">
             <InputGroup>
               <InputGroupAddon>
                 <SearchIcon />
@@ -240,6 +269,43 @@ function clearSearch() {
                 </InputGroupButton>
               </InputGroupAddon>
             </InputGroup>
+
+            <DropdownMenu>
+              <DropdownMenuTrigger as-child>
+                <Button
+                  variant="outline"
+                  size="icon"
+                  :aria-label="`筛选${activeSessionKindOption.label}`"
+                >
+                  <component
+                    :is="activeSessionKindOption.icon"
+                    data-icon="inline-start"
+                  />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent
+                align="end"
+                class="w-36"
+              >
+                <DropdownMenuLabel>会话类型</DropdownMenuLabel>
+                <DropdownMenuRadioGroup
+                  :model-value="sessionKindFilter"
+                  @update:model-value="updateSessionKindFilter"
+                >
+                  <DropdownMenuRadioItem
+                    v-for="option in sessionKindOptions"
+                    :key="option.value"
+                    :value="option.value"
+                  >
+                    <component
+                      :is="option.icon"
+                      data-icon="inline-start"
+                    />
+                    {{ option.label }}
+                  </DropdownMenuRadioItem>
+                </DropdownMenuRadioGroup>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
 
           <SidebarMenu>
@@ -253,7 +319,6 @@ function clearSearch() {
                 :class="cn(isSessionRunning(session.id) && 'pr-12')"
                 @click="emit('selectSession', session.id)"
               >
-                <MessageSquareIcon />
                 <span
                   v-if="isSessionRunning(session.id)"
                   class="size-1.5 shrink-0 rounded-full bg-primary"

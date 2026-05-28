@@ -10,12 +10,14 @@ const {
   workspaceContext,
   sessions,
   currSessionId,
+  sessionKindFilter,
   creatingSession,
   runningSessionIds,
   sidebarOpen,
   setSidebarOpen,
   handleNewChat,
   handleSelectSession,
+  handleSessionKindFilterChange,
   openSettings,
   toggleCatVisibility,
   handleRenameSession,
@@ -33,10 +35,12 @@ provide(chatWorkspaceContextKey, workspaceContext)
     <ChatSidebar
       :sessions="sessions"
       :active-session-id="currSessionId"
+      :session-kind-filter="sessionKindFilter"
       :creating="creatingSession"
       :running-session-ids="runningSessionIds"
       @new-chat="handleNewChat"
       @select-session="handleSelectSession"
+      @update-session-kind-filter="handleSessionKindFilterChange"
       @open-settings="openSettings"
       @toggle-cat="toggleCatVisibility"
       @rename-session="handleRenameSession"

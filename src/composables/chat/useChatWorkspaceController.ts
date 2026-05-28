@@ -1,5 +1,5 @@
 import { isComplexDocumentAttachment } from '@shared/attachment-documents'
-import type { ToolProfile } from '@shared/types/chat'
+import type { ChatSessionKind, ToolProfile } from '@shared/types/chat'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { appBridge } from '@/bridge/app'
@@ -41,6 +41,7 @@ export function useChatWorkspaceController() {
 
   const media = useMediaHandling()
   const draft = ref(chatStore.draft || '')
+  const sessionKindFilter = ref<Extract<ChatSessionKind, 'chat' | 'cat' | 'vision'>>('chat')
   const fileInput = ref<HTMLInputElement | null>(null)
   const creatingSession = ref(false)
   const toolProfileSaving = ref(false)
@@ -48,7 +49,7 @@ export function useChatWorkspaceController() {
   const highlightedMessageId = ref('')
   const messages = useMessages({
     currentSessionId: currSessionId,
-    onSessionsChanged: getSessions,
+    onSessionsChanged: getFilteredSessions,
     onStreamUpdate: handleStreamUpdate,
     onContextUsageUpdate: chatStore.updateContextUsageFromStreamEvent,
     onMessagesLoaded: chatStore.updateContextUsageFromMessages,
@@ -292,14 +293,14 @@ export function useChatWorkspaceController() {
       if (event.session) {
         chatStore.reconcileContextUsageFromSessions([event.session])
       }
-      void getSessions()
+      void getFilteredSessions()
     })
     await nextTick()
     scroll.attachMessageScrollViewport()
     scroll.scheduleScrollToLatest('auto', true)
 
     const results = await Promise.allSettled([
-      getSessions(),
+      getFilteredSessions(),
       model.loadProviders(),
       settingsStore.load(),
     ])
@@ -324,6 +325,19 @@ export function useChatWorkspaceController() {
 
   function handleStreamUpdate(sessionId: string) {
     if (sessionId === currSessionId.value) scroll.scheduleScrollToLatest()
+  }
+
+  async function getFilteredSessions() {
+    await getSessions({ kind: sessionKindFilter.value })
+  }
+
+  async function handleSessionKindFilterChange(
+    kind: Extract<ChatSessionKind, 'chat' | 'cat' | 'vision'>
+  ) {
+    if (!['chat', 'cat', 'vision'].includes(kind)) return
+    if (sessionKindFilter.value === kind) return
+    sessionKindFilter.value = kind
+    await getFilteredSessions()
   }
 
   function routeSessionId() {
@@ -629,7 +643,7 @@ export function useChatWorkspaceController() {
   async function handleRenameSession(sessionId: string, title: string) {
     try {
       await updateSessionTitle(sessionId, title)
-      await getSessions()
+      await getFilteredSessions()
     } catch (error) {
       toast.error(error, { description: '重命名会话失败' })
     }
@@ -640,6 +654,7 @@ export function useChatWorkspaceController() {
     try {
       const deleted = await deleteSession(sessionId)
       if (!deleted) return
+      await getFilteredSessions()
       if (deletingCurrentSession) {
         currSessionId.value = ''
         selectedSessions.value = []
@@ -655,12 +670,14 @@ export function useChatWorkspaceController() {
     workspaceContext,
     sessions,
     currSessionId,
+    sessionKindFilter,
     creatingSession,
     runningSessionIds: messages.runningSessionIds,
     sidebarOpen,
     setSidebarOpen,
     handleNewChat,
     handleSelectSession,
+    handleSessionKindFilterChange,
     openSettings,
     toggleCatVisibility,
     handleRenameSession,
