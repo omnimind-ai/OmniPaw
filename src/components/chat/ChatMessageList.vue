@@ -4,17 +4,24 @@ import { computed, ref } from 'vue'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Textarea } from '@/components/ui/textarea'
-import type { ChatContent, ChatRecord, MessageDisplayBlock } from '@/composables/useMessages'
+import type {
+  ChatContent,
+  ChatRecord,
+  MessageDisplayBlock,
+  MessagePart,
+} from '@/composables/useMessages'
 import { cn } from '@/lib/utils'
 import type { RefItem } from './chat-display'
 import {
   contentText,
   formatTime,
+  isAttachmentPart,
   isRecordAborted,
   isRecordErrored,
   recordErrorText,
   recordId,
 } from './chat-display'
+import MessageAttachmentGrid from './parts/MessageAttachmentGrid.vue'
 import MessagePartRenderer from './parts/MessagePartRenderer.vue'
 import MessageToolbar from './parts/MessageToolbar.vue'
 import ReasoningBlock from './parts/ReasoningBlock.vue'
@@ -48,8 +55,39 @@ const selectedRefs = ref<RefItem[]>([])
 
 const hasMessages = computed(() => props.messages.length > 0)
 
+type MessageRenderSegment = {
+  kind: 'thinking' | 'content' | 'attachments'
+  parts: MessagePart[]
+}
+
 function blocks(record: ChatRecord) {
   return props.messageBlocks(props.messageContent(record))
+}
+
+function renderSegments(record: ChatRecord): MessageRenderSegment[] {
+  const segments: MessageRenderSegment[] = []
+
+  for (const block of blocks(record)) {
+    if (block.kind === 'thinking') {
+      segments.push({
+        kind: 'thinking',
+        parts: block.parts,
+      })
+      continue
+    }
+
+    let current: MessageRenderSegment | null = null
+    for (const part of block.parts) {
+      const kind: MessageRenderSegment['kind'] = isAttachmentPart(part) ? 'attachments' : 'content'
+      if (!current || current.kind !== kind) {
+        current = { kind, parts: [] }
+        segments.push(current)
+      }
+      current.parts.push(part)
+    }
+  }
+
+  return segments
 }
 
 function hasDisplayBlocks(record: ChatRecord) {
@@ -137,11 +175,11 @@ function messageContentClass(record: ChatRecord) {
   )
 }
 
-function messageContentStackClass(record: ChatRecord) {
+function messageStatusClass(record: ChatRecord) {
+  const user = props.isUserMessage(record)
   return cn(
-    'flex min-w-0 flex-col',
-    props.isUserMessage(record) ? 'items-start' : 'items-stretch',
-    props.isUserMessage(record) ? 'gap-1' : 'gap-3'
+    'text-sm',
+    user ? 'rounded-xl bg-muted px-4 py-2 leading-6 shadow-sm' : 'px-1 py-1 leading-6'
   )
 }
 </script>
@@ -162,11 +200,11 @@ function messageContentStackClass(record: ChatRecord) {
       :class="messageClass(record, recordIndex)"
     >
       <div :class="messageShellClass(record)">
-        <div :class="messageContentClass(record)">
-          <div
-            v-if="editingRecordId === recordId(record)"
-            class="flex flex-col gap-2"
-          >
+        <div
+          v-if="editingRecordId === recordId(record)"
+          :class="messageContentClass(record)"
+        >
+          <div class="flex flex-col gap-2">
             <Textarea
               v-model="editingText"
               rows="4"
@@ -190,55 +228,64 @@ function messageContentStackClass(record: ChatRecord) {
               </Button>
             </div>
           </div>
+        </div>
 
-          <template v-else>
-            <template
-              v-for="(block, blockIndex) in blocks(record)"
-              :key="`${recordId(record)}-block-${blockIndex}-${block.kind}`"
-            >
-              <ReasoningBlock
-                v-if="block.kind === 'thinking'"
-                :parts="block.parts"
-                :streaming="isMessageStreaming(record, recordIndex)"
-                @copy-code="emit('copyCode', $event)"
-              />
+        <template v-else>
+          <template
+            v-for="(segment, segmentIndex) in renderSegments(record)"
+            :key="`${recordId(record)}-segment-${segmentIndex}-${segment.kind}`"
+          >
+            <ReasoningBlock
+              v-if="segment.kind === 'thinking'"
+              :parts="segment.parts"
+              :streaming="isMessageStreaming(record, recordIndex)"
+              @copy-code="emit('copyCode', $event)"
+            />
 
-              <div
-                v-else
-                :class="messageContentStackClass(record)"
-              >
-                <MessagePartRenderer
-                  v-for="(part, partIndex) in block.parts"
-                  :key="`${recordId(record)}-part-${blockIndex}-${part.type}-${partIndex}`"
-                  :part="part"
-                  :user="isUserMessage(record)"
-                  @jump-message="emit('jumpMessage', $event)"
-                  @open-refs="openRefs"
-                  @copy-code="emit('copyCode', $event)"
-                />
-              </div>
-            </template>
+            <MessageAttachmentGrid
+              v-else-if="segment.kind === 'attachments'"
+              :parts="segment.parts"
+              :user="isUserMessage(record)"
+              @jump-message="emit('jumpMessage', $event)"
+              @open-refs="openRefs"
+              @copy-code="emit('copyCode', $event)"
+            />
 
             <div
-              v-if="isRecordErrored(record) && errorText(record)"
-              class="mt-1 px-1 py-1 text-sm text-destructive"
+              v-else
+              :class="messageContentClass(record)"
             >
-              <p class="font-medium">
-                生成失败
-              </p>
-              <p class="mt-1 whitespace-pre-wrap break-words leading-6">
-                {{ errorText(record) }}
-              </p>
+              <MessagePartRenderer
+                v-for="(part, partIndex) in segment.parts"
+                :key="`${recordId(record)}-part-${segmentIndex}-${part.type}-${partIndex}`"
+                :part="part"
+                :user="isUserMessage(record)"
+                @jump-message="emit('jumpMessage', $event)"
+                @open-refs="openRefs"
+                @copy-code="emit('copyCode', $event)"
+              />
             </div>
-
-            <span
-              v-else-if="showThinkingFallback(record, recordIndex)"
-              class="text-muted-foreground"
-            >
-              正在思考...
-            </span>
           </template>
-        </div>
+
+          <div
+            v-if="isRecordErrored(record) && errorText(record)"
+            :class="cn(messageStatusClass(record), 'text-destructive')"
+          >
+            <p class="font-medium">
+              生成失败
+            </p>
+            <p class="mt-1 whitespace-pre-wrap break-words">
+              {{ errorText(record) }}
+            </p>
+          </div>
+
+          <span
+            v-else-if="showThinkingFallback(record, recordIndex)"
+            :class="cn(messageStatusClass(record), 'text-muted-foreground')"
+          >
+            正在思考...
+          </span>
+        </template>
 
         <MessageToolbar
           :time="messageDisplayTime(record)"

@@ -561,9 +561,11 @@ export function useMessages(options: UseMessagesOptions) {
       }
       if (response.userMessage && userRecord) {
         Object.assign(userRecord, mapBridgeMessageToRecord(response.userMessage))
+        await resolveRecordMedia([userRecord])
       }
       if (response.assistantMessage) {
         Object.assign(botRecord, mapBridgeMessageToRecord(response.assistantMessage))
+        await resolveRecordMedia([botRecord])
       }
     } catch (error) {
       unsubscribe?.()

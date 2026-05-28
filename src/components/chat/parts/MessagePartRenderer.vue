@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { ExternalLinkIcon, FileDownIcon, ReplyIcon } from 'lucide-vue-next'
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import type { MessagePart } from '@/composables/useMessages'
+import { cn } from '@/lib/utils'
 import {
   attachmentIcon,
   attachmentLabel,
@@ -17,6 +18,7 @@ import {
   toolCalls,
   visionCaptureLabel,
 } from '../chat-display'
+import ImageViewerModal from './ImageViewerModal.vue'
 import MarkdownMessagePart from './MarkdownMessagePart.vue'
 import ToolCallCard from './ToolCallCard.vue'
 
@@ -24,9 +26,11 @@ const props = withDefaults(
   defineProps<{
     part: MessagePart
     user?: boolean
+    compactAttachment?: boolean
   }>(),
   {
     user: false,
+    compactAttachment: false,
   }
 )
 
@@ -38,10 +42,23 @@ const emit = defineEmits<{
 
 const url = computed(() => partUrl(props.part))
 const refs = computed(() => refsFromPart(props.part))
+const viewerOpen = ref(false)
+
+const attachmentTileClass = computed(() =>
+  cn(
+    'group/attachment relative flex size-24 shrink-0 flex-col items-center justify-center gap-1 overflow-hidden rounded-lg border bg-background text-center text-xs shadow-sm transition-colors',
+    'hover:bg-accent hover:text-accent-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none',
+    props.user && 'bg-background'
+  )
+)
 
 function jumpReply() {
   const messageId = replyMessageId(props.part)
   if (messageId) emit('jumpMessage', messageId)
+}
+
+function openImageViewer() {
+  if (url.value) viewerOpen.value = true
 }
 </script>
 
@@ -68,24 +85,29 @@ function jumpReply() {
   <button
     v-else-if="part.type === 'image' && url"
     type="button"
-    class="max-w-full overflow-hidden rounded-md border bg-background"
+    :class="cn(attachmentTileClass, 'cursor-zoom-in')"
+    :aria-label="`预览图片：${attachmentLabel(part)}`"
+    @click="openImageViewer"
   >
     <img
       :src="url"
       :alt="attachmentLabel(part)"
-      class="max-h-80 max-w-full object-contain"
+      class="size-full object-cover"
     >
+    <span class="absolute inset-x-1 bottom-1 truncate rounded-md bg-background/90 px-1 py-0.5 text-[0.65rem] leading-4 opacity-0 shadow-sm transition-opacity group-hover/attachment:opacity-100">
+      {{ attachmentLabel(part) }}
+    </span>
   </button>
 
   <audio
-    v-else-if="part.type === 'record' && url"
+    v-else-if="part.type === 'record' && url && !compactAttachment"
     class="w-full max-w-md"
     controls
     :src="url"
   />
 
   <video
-    v-else-if="part.type === 'video' && url"
+    v-else-if="part.type === 'video' && url && !compactAttachment"
     class="max-h-80 max-w-full rounded-md border bg-background"
     controls
     :src="url"
@@ -95,11 +117,23 @@ function jumpReply() {
     v-else-if="part.type === 'file' && url"
     :href="url"
     :download="attachmentLabel(part)"
-    class="inline-flex max-w-full items-center gap-2 rounded-md border bg-background px-3 py-2 text-sm hover:bg-accent hover:text-accent-foreground"
+    :class="attachmentTileClass"
   >
     <FileDownIcon aria-hidden="true" />
-    <span class="truncate">{{ attachmentLabel(part) }}</span>
+    <span class="line-clamp-2 max-w-full break-all px-1 leading-4">{{ attachmentLabel(part) }}</span>
   </a>
+
+  <div
+    v-else-if="isAttachmentPart(part) && compactAttachment"
+    :class="attachmentTileClass"
+    :title="attachmentLabel(part)"
+  >
+    <component
+      :is="attachmentIcon(part)"
+      aria-hidden="true"
+    />
+    <span class="line-clamp-2 max-w-full break-all px-1 leading-4">{{ attachmentLabel(part) }}</span>
+  </div>
 
   <Badge
     v-else-if="part.type === 'vision_capture'"
@@ -175,4 +209,12 @@ function jumpReply() {
     v-else
     class="max-h-64 max-w-full overflow-auto rounded-md border bg-muted p-2 text-xs leading-5 text-muted-foreground"
   >{{ formatJson(part) }}</pre>
+
+  <ImageViewerModal
+    v-if="part.type === 'image' && url"
+    v-model:open="viewerOpen"
+    :src="url"
+    :title="attachmentLabel(part)"
+    :alt="attachmentLabel(part)"
+  />
 </template>
