@@ -179,7 +179,6 @@ export interface BridgeDesktopSettingsConfig {
     reactionNudgeAfterSilentCaptures: number
     reactionNudgeProbability: number
     minCaptureIntervalMs: number
-    defaultDurationMs: number
     defaultScope: BridgeObservationScope
     screenshotRetention: BridgeObservationScreenshotRetention
     allowRemoteProviders: boolean
@@ -1816,7 +1815,6 @@ function fallbackSettingsConfig(): BridgeDesktopSettingsConfig {
       reactionNudgeAfterSilentCaptures: 3,
       reactionNudgeProbability: 0.35,
       minCaptureIntervalMs: 60_000,
-      defaultDurationMs: 5 * 60_000,
       defaultScope: 'primary_display',
       screenshotRetention: 'ephemeral',
       allowRemoteProviders: false,

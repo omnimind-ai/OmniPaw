@@ -83,7 +83,6 @@ const baseSettings: DesktopObservationSettings = {
   reactionNudgeAfterSilentCaptures: 3,
   reactionNudgeProbability: 0.35,
   minCaptureIntervalMs: 5_000,
-  defaultDurationMs: 60_000,
   defaultScope: 'primary_display',
   screenshotRetention: 'ephemeral',
   allowRemoteProviders: false,

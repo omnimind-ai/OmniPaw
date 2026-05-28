@@ -112,7 +112,6 @@ export interface DesktopObservationSettings {
   reactionNudgeAfterSilentCaptures: number
   reactionNudgeProbability: number
   minCaptureIntervalMs: number
-  defaultDurationMs: number
   defaultScope: ObservationScope
   screenshotRetention: ObservationScreenshotRetention
   allowRemoteProviders: boolean

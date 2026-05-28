@@ -31,8 +31,7 @@ let unsubscribeObservation: BridgeUnsubscribe | undefined
 const activeRun = computed(() => observationStore.activeRun)
 const statusLabel = computed(() => {
   if (!activeRun.value) return '未运行'
-  const minutes = Math.ceil(Math.max(0, activeRun.value.expiresAt - Date.now()) / 60_000)
-  return `运行中 ${minutes} 分钟`
+  return '运行中'
 })
 const latestDecision = computed(() => activeRun.value?.lastDecision)
 

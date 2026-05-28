@@ -54,7 +54,6 @@ try {
       enabled: true,
       defaultIntervalMs: 120_000,
       minIntervalMs: 30_000,
-      defaultDurationMs: 10 * 60_000,
       defaultScope: 'selected_window',
       outputMode: 'chat',
       retention: 'persist',
@@ -98,7 +97,6 @@ try {
   assert.equal(normalized.observation.reactionNudgeAfterSilentCaptures, 4)
   assert.equal(normalized.observation.reactionNudgeProbability, 0.5)
   assert.equal(normalized.observation.minCaptureIntervalMs, 30_000)
-  assert.equal(normalized.observation.defaultDurationMs, 10 * 60_000)
   assert.equal(normalized.observation.defaultScope, 'selected_window')
   assert.equal(normalized.observation.screenshotRetention, 'persist')
   assert.equal(normalized.observation.allowRemoteProviders, false)
@@ -132,8 +130,8 @@ try {
     },
   }).config.observation
   assert.equal('enabled' in legacyObservation, false)
+  assert.equal('durationMs' in legacyObservation, false)
   assert.equal(legacyObservation.evaluationIntervalMs, 90_000)
-  assert.equal(legacyObservation.defaultDurationMs, 180_000)
   assert.equal(legacyObservation.minCaptureIntervalMs, 15_000)
   assert.equal(legacyObservation.notificationCooldownMs, 10_000)
   assert.equal(legacyObservation.reactionNudgeAfterSilentCaptures, 2)
@@ -260,17 +258,6 @@ try {
         observation: {
           ...cloneDefaultConfig().observation,
           minCaptureIntervalMs: 1_000,
-        },
-      }),
-    ConfigValidationError
-  )
-  assert.throws(
-    () =>
-      normalizeConfig({
-        ...cloneDefaultConfig(),
-        observation: {
-          ...cloneDefaultConfig().observation,
-          defaultDurationMs: 25 * 60 * 60_000,
         },
       }),
     ConfigValidationError

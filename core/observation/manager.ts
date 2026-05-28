@@ -50,7 +50,6 @@ export interface ObservationManagerOptions {
 interface ActiveRunState {
   run: ObservationRun
   timer?: ReturnType<typeof setTimeout>
-  expirationTimer?: ReturnType<typeof setTimeout>
   abortController?: AbortController
   sourceId?: string
   busy: boolean
@@ -145,7 +144,6 @@ export class ObservationManager {
     }
 
     const settings = this.options.settings()
-    const durationMs = this.normalizeDuration(request.durationMs, settings)
     const retention = normalizeScreenshotRetention(
       request.screenshotRetention,
       settings.screenshotRetention
@@ -155,8 +153,6 @@ export class ObservationManager {
       visionSessionId: session.id,
       status: 'active',
       startedAt: Date.now(),
-      expiresAt: Date.now() + durationMs,
-      durationMs,
       scope: normalizeScope(request.scope, settings.defaultScope),
       screenshotRetention: retention,
       rule: {
@@ -189,7 +185,6 @@ export class ObservationManager {
     this.active = state
     this.lastRun = undefined
     this.lastVisionSessionId = session.id
-    this.scheduleExpiration(state)
     this.scheduleNextEvaluation(state, run.rule.evaluationIntervalMs)
     this.logger?.info('Observation vision runtime started.', {
       runId: run.id,
@@ -197,7 +192,6 @@ export class ObservationManager {
       evaluationIntervalMs: run.rule.evaluationIntervalMs,
       captureProbability: run.rule.captureProbability,
       minCaptureIntervalMs: run.rule.minCaptureIntervalMs,
-      durationMs: run.durationMs,
       scope: run.scope,
       screenshotRetention: run.screenshotRetention,
       modelChainMode: run.modelChainMode,
@@ -308,10 +302,6 @@ export class ObservationManager {
       return
     }
     run.rule.lastEvaluationAt = Date.now()
-    if (Date.now() >= run.expiresAt) {
-      this.stopRun(run.id, 'expired', true)
-      return
-    }
     const skipReason = this.skipReasonForEvaluation(state, false)
     if (skipReason) {
       run.rule.skippedReason = skipReason
@@ -355,10 +345,6 @@ export class ObservationManager {
   ): Promise<void> {
     const run = state.run
     if (run.status !== 'active') {
-      return
-    }
-    if (Date.now() >= run.expiresAt) {
-      this.stopRun(run.id, 'expired', true)
       return
     }
     if (state.busy) {
@@ -976,8 +962,6 @@ export class ObservationManager {
       visionSessionId: 'policy-check',
       status: 'active',
       startedAt: Date.now(),
-      expiresAt: Date.now(),
-      durationMs: 0,
       scope: settings.defaultScope,
       screenshotRetention: settings.screenshotRetention,
       rule: {
@@ -1035,18 +1019,6 @@ export class ObservationManager {
     return this.sessions.get(session.id) ?? session
   }
 
-  private normalizeDuration(value: number | undefined, settings: DesktopObservationSettings) {
-    const duration = Number.isFinite(value) ? Math.floor(Number(value)) : settings.defaultDurationMs
-    if (duration < 10_000 || duration > 24 * 60 * 60_000) {
-      throw this.observationError(
-        'invalid_request',
-        '观察时长需在 10000ms 到 86400000ms 之间。',
-        true
-      )
-    }
-    return duration
-  }
-
   private captureCountForToday(): number {
     const date = new Date().toISOString().slice(0, 10)
     if (this.captureCountDate !== date) {
@@ -1068,18 +1040,6 @@ export class ObservationManager {
     )
   }
 
-  private scheduleExpiration(state: ActiveRunState): void {
-    if (state.expirationTimer) {
-      clearTimeout(state.expirationTimer)
-    }
-    state.expirationTimer = setTimeout(
-      () => {
-        this.stopRun(state.run.id, 'expired', true)
-      },
-      Math.max(0, state.run.expiresAt - Date.now())
-    )
-  }
-
   private stopRun(
     runId: string,
     reason: NonNullable<StopObservationRequest['reason']>,
@@ -1089,10 +1049,9 @@ export class ObservationManager {
     const state = this.active?.run.id === runId ? this.active : undefined
     if (!state) return
     if (state.timer) clearTimeout(state.timer)
-    if (state.expirationTimer) clearTimeout(state.expirationTimer)
     state.abortController?.abort(reason)
     const stoppedAt = Date.now()
-    state.run.status = reason === 'expired' ? 'expired' : reason === 'failed' ? 'failed' : 'stopped'
+    state.run.status = reason === 'failed' ? 'failed' : 'stopped'
     state.run.stopReason = reason
     state.run.stoppedAt = stoppedAt
     state.run.error = error ?? state.run.error
@@ -1107,15 +1066,7 @@ export class ObservationManager {
       errorCode: state.run.error?.code,
     })
     if (emit) {
-      void this.emitChanged(
-        state.run.status === 'expired'
-          ? 'expired'
-          : state.run.status === 'failed'
-            ? 'failed'
-            : 'stopped',
-        state.run,
-        error
-      )
+      void this.emitChanged(state.run.status === 'failed' ? 'failed' : 'stopped', state.run, error)
     }
   }
 
@@ -1199,8 +1150,6 @@ export class ObservationManager {
       visionSessionId: run.visionSessionId,
       runId: run.id,
       startedAt: run.startedAt,
-      expiresAt: run.expiresAt,
-      remainingMs: Math.max(0, run.expiresAt - Date.now()),
       busy: this.active?.busy,
       updatedAt: Date.now(),
     }

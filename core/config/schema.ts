@@ -155,7 +155,6 @@ export const defaultConfig: DesktopSettingsConfig = {
     reactionNudgeAfterSilentCaptures: 3,
     reactionNudgeProbability: 0.35,
     minCaptureIntervalMs: 60_000,
-    defaultDurationMs: 5 * 60_000,
     defaultScope: 'primary_display',
     screenshotRetention: 'ephemeral',
     allowRemoteProviders: false,
@@ -1151,13 +1150,6 @@ function validateObservation(
     issues
   )
   validateIntegerRange(
-    settings.defaultDurationMs,
-    'observation.defaultDurationMs',
-    10_000,
-    24 * 60 * 60_000,
-    issues
-  )
-  validateIntegerRange(
     settings.dailyCaptureLimit,
     'observation.dailyCaptureLimit',
     1,
@@ -1390,10 +1382,6 @@ function normalizeObservationSettings(rawValue: unknown): DesktopObservationSett
     minCaptureIntervalMs: integerOrDefault(
       rawValue.minCaptureIntervalMs ?? rawValue.minIntervalMs,
       defaults.minCaptureIntervalMs
-    ),
-    defaultDurationMs: integerOrDefault(
-      rawValue.defaultDurationMs ?? rawValue.durationMs,
-      defaults.defaultDurationMs
     ),
     defaultScope: (rawValue.defaultScope === undefined
       ? defaults.defaultScope

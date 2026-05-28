@@ -4,9 +4,9 @@ import type {
   ObservationErrorInfo,
   ObservationRun,
 } from '@shared/types/observation'
-import { EyeIcon, EyeOffIcon, Loader2Icon, RefreshCwIcon, TimerIcon } from 'lucide-vue-next'
+import { EyeIcon, EyeOffIcon, Loader2Icon, RefreshCwIcon } from 'lucide-vue-next'
 import { storeToRefs } from 'pinia'
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, onMounted, watch } from 'vue'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
@@ -33,36 +33,23 @@ const observationStore = useObservationStore()
 const settingsStore = useSettingsStore()
 const toast = useToast()
 const { running, loading } = storeToRefs(observationStore)
-const now = ref(Date.now())
 const notifiedErrorKeys = new Set<string>()
-let clock: ReturnType<typeof window.setInterval> | undefined
 
 const settings = computed(
   () => settingsStore.draft?.observation ?? settingsStore.config?.observation
 )
-const activeRun = computed(() => observationStore.runForSession(props.sessionId))
+const activeRun = computed(() => observationStore.activeRun)
 const latestSessionEvent = computed(() => eventForCurrentSession(observationStore.lastEvent))
-const enabled = computed(() => settings.value?.enabled === true)
 const busy = computed(() => running.value || loading.value)
-const remainingMs = computed(() =>
-  activeRun.value ? Math.max(0, activeRun.value.expiresAt - now.value) : 0
-)
 const statusLabel = computed(() => {
-  if (activeRun.value) return formatRemaining(remainingMs.value)
+  if (activeRun.value) return '运行中'
   if (latestSessionEvent.value?.reason === 'failed') return '观察失败'
-  if (latestSessionEvent.value?.reason === 'expired') return '已结束'
-  if (!enabled.value) return '未启用'
   return '未观察'
 })
-const canStart = computed(
-  () => Boolean(props.sessionId) && enabled.value && !props.disabled && !busy.value
-)
+const canStart = computed(() => Boolean(settings.value) && !props.disabled && !busy.value)
 const canControl = computed(() => Boolean(activeRun.value) && !props.disabled && !busy.value)
 
 onMounted(async () => {
-  clock = window.setInterval(() => {
-    now.value = Date.now()
-  }, 1000)
   const tasks: Array<Promise<unknown>> = [observationStore.load()]
   if (!settingsStore.config && !settingsStore.draft) {
     tasks.push(settingsStore.load())
@@ -75,13 +62,6 @@ onMounted(async () => {
   })
 })
 
-onBeforeUnmount(() => {
-  if (clock) {
-    window.clearInterval(clock)
-    clock = undefined
-  }
-})
-
 watch(
   () => observationStore.lastEvent,
   (event) => {
@@ -90,12 +70,8 @@ watch(
 )
 
 async function handleStart(): Promise<void> {
-  if (!props.sessionId) {
-    toast.info('当前会话尚未创建')
-    return
-  }
-  if (!enabled.value) {
-    toast.info('请先在设置中启用主动视觉观察')
+  if (!settings.value) {
+    toast.info('主动视觉设置尚未加载')
     return
   }
 
@@ -103,17 +79,11 @@ async function handleStart(): Promise<void> {
 }
 
 async function startObservation(): Promise<void> {
-  if (!props.sessionId || !settings.value) return
+  if (!settings.value) return
   try {
     await observationStore.start({
-      targetSessionId: props.sessionId,
-      targetSessionKind: props.sessionKind,
-      surface: props.surface ?? (props.sessionKind === 'cat' ? 'cat' : 'chat'),
-      durationMs: settings.value.defaultDurationMs,
-      intervalMs: settings.value.defaultIntervalMs,
       scope: settings.value.defaultScope,
-      outputMode: settings.value.outputMode,
-      retention: settings.value.retention,
+      screenshotRetention: settings.value.screenshotRetention,
     })
   } catch (error) {
     toast.error(errorToText(error, '主动视觉观察启动失败。'))
@@ -136,10 +106,10 @@ async function handleTrigger(): Promise<void> {
   const triggeredAt = Date.now()
   try {
     await observationStore.trigger({ runId: run.id })
-    const active = observationStore.runForSession(props.sessionId)
+    const active = observationStore.activeRun
     if (
       active?.id === run.id &&
-      active.lastDecision?.mode === 'silent' &&
+      active.lastDecision?.decision === 'silent' &&
       active.lastDecision.createdAt >= triggeredAt
     ) {
       toast.info('本次观察已完成，模型未输出可见内容。')
@@ -147,7 +117,7 @@ async function handleTrigger(): Promise<void> {
   } catch (error) {
     const event = latestSessionEvent.value
     const eventError = event?.run ? (event.error ?? event.run.error) : undefined
-    const active = observationStore.runForSession(props.sessionId)
+    const active = observationStore.activeRun
     const runError = active?.id === run.id ? active.error : undefined
     if (event?.run && eventError) {
       notifyObservationError(event.run, eventError, '立即观察失败。')
@@ -170,25 +140,12 @@ function handleObservationEvent(event: ObservationChangedEvent | null): void {
     }
     return
   }
-
-  if (
-    sessionEvent.reason === 'expired' &&
-    !sessionEvent.run.lastDecision &&
-    sessionEvent.run.error
-  ) {
-    notifyObservationError(
-      sessionEvent.run,
-      sessionEvent.run.error,
-      '主动视觉观察已结束，期间没有成功完成观察。'
-    )
-  }
 }
 
 function eventForCurrentSession(
   event: ObservationChangedEvent | null
 ): ObservationChangedEvent | null {
-  if (!props.sessionId || !event?.run) return null
-  return event.run.targetSessionId === props.sessionId ? event : null
+  return event?.run ? event : null
 }
 
 function notifyObservationError(
@@ -206,13 +163,6 @@ function notifyObservationError(
   notifiedErrorKeys.add(key)
   toast.error(errorToText(error, fallback), { description: '主动视觉观察' })
 }
-
-function formatRemaining(value: number): string {
-  const totalSeconds = Math.max(0, Math.ceil(value / 1000))
-  const minutes = Math.floor(totalSeconds / 60)
-  const seconds = totalSeconds % 60
-  return `${minutes}:${String(seconds).padStart(2, '0')}`
-}
 </script>
 
 <template>
@@ -222,7 +172,7 @@ function formatRemaining(value: number): string {
         variant="outline"
         class="hidden shrink-0 gap-1 px-2 sm:inline-flex"
       >
-        <TimerIcon />
+        <EyeIcon />
         {{ statusLabel }}
       </Badge>
 

@@ -7,9 +7,9 @@ export type ObservationDecision = 'silent' | 'notify' | 'ask'
 
 export type ObservationScreenshotRetention = 'ephemeral' | 'persist'
 
-export type ObservationRunStatus = 'active' | 'stopped' | 'expired' | 'failed'
+export type ObservationRunStatus = 'active' | 'stopped' | 'failed'
 
-export type ObservationStopReason = 'user' | 'expired' | 'failed' | 'app_exit' | 'session_deleted'
+export type ObservationStopReason = 'user' | 'failed' | 'app_exit' | 'session_deleted'
 
 export type ObservationPermissionState =
   | 'granted'
@@ -89,10 +89,8 @@ export interface ObservationRun {
   visionSessionId: ID
   status: ObservationRunStatus
   startedAt: UnixMs
-  expiresAt: UnixMs
   stoppedAt?: UnixMs
   stopReason?: ObservationStopReason
-  durationMs: number
   scope: ObservationScope
   screenshotRetention: ObservationScreenshotRetention
   visionModelRef?: ProviderModelRef
@@ -111,7 +109,6 @@ export interface ObservationRun {
 
 export interface StartObservationRequest {
   visionSessionId?: ID
-  durationMs?: number
   scope?: ObservationScope
   screenshotRetention?: ObservationScreenshotRetention
   sourceId?: string
@@ -139,8 +136,6 @@ export interface ObservationRuntimeState {
   visionSessionId?: ID
   runId?: ID
   startedAt?: UnixMs
-  expiresAt?: UnixMs
-  remainingMs?: number
   busy?: boolean
   updatedAt: UnixMs
 }
@@ -159,7 +154,6 @@ export type ObservationChangedReason =
   | 'evaluated'
   | 'tick'
   | 'stopped'
-  | 'expired'
   | 'failed'
 
 export interface ObservationChangedEvent {

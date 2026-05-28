@@ -10,7 +10,7 @@ import type { IpcHandlerOptions } from './types'
 
 const scopes = new Set(['primary_display', 'selected_display', 'selected_window'])
 const retentions = new Set(['ephemeral', 'persist'])
-const stopReasons = new Set(['user', 'expired', 'failed', 'app_exit', 'session_deleted'])
+const stopReasons = new Set(['user', 'failed', 'app_exit', 'session_deleted'])
 
 export function registerObservationIpcHandlers(options: IpcHandlerOptions): void {
   const observation = options.runtime.observationManager
@@ -60,7 +60,6 @@ function normalizeStartRequest(request: unknown): StartObservationRequest {
     ...(typeof request.visionSessionId === 'string'
       ? { visionSessionId: request.visionSessionId }
       : {}),
-    ...(isFiniteNumber(request.durationMs) ? { durationMs: Math.floor(request.durationMs) } : {}),
     ...(scopes.has(String(request.scope))
       ? { scope: request.scope as StartObservationRequest['scope'] }
       : {}),
@@ -100,8 +99,4 @@ function normalizeTriggerRequest(request: unknown): TriggerObservationRequest {
       : {}),
     ...(request.devForceReaction === true ? { devForceReaction: true } : {}),
   }
-}
-
-function isFiniteNumber(value: unknown): value is number {
-  return typeof value === 'number' && Number.isFinite(value)
 }

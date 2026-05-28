@@ -71,13 +71,6 @@ const reactionNudgeProbabilityPercent = computed({
   },
 })
 
-const defaultDurationMinutes = computed({
-  get: () => Math.round(observation.value.defaultDurationMs / 60_000),
-  set: (value: string | number) => {
-    observation.value.defaultDurationMs = clampInteger(value, 1) * 60_000
-  },
-})
-
 const notificationCooldownSeconds = computed({
   get: () => Math.round(observation.value.notificationCooldownMs / 1000),
   set: (value: string | number) => {
@@ -95,7 +88,6 @@ async function toggleRuntime(enabled: boolean): Promise<void> {
   try {
     if (enabled) {
       await observationStore.start({
-        durationMs: observation.value.defaultDurationMs,
         scope: observation.value.defaultScope,
         screenshotRetention: observation.value.screenshotRetention,
       })
@@ -112,7 +104,6 @@ async function triggerDevReaction(): Promise<void> {
     let run = activeRun.value
     if (!run) {
       const next = await observationStore.start({
-        durationMs: observation.value.defaultDurationMs,
         scope: observation.value.defaultScope,
         screenshotRetention: observation.value.screenshotRetention,
       })
@@ -194,7 +185,7 @@ function clampInteger(value: string | number, min: number, max = Number.MAX_SAFE
           <FieldContent>
             <FieldLabel>当前状态</FieldLabel>
             <FieldDescription>
-              {{ runtime.active ? `运行中，剩余 ${Math.ceil((runtime.remainingMs ?? 0) / 60000)} 分钟` : '未运行' }}
+              {{ runtime.active ? '运行中，手动关闭前会持续观察' : '未运行' }}
             </FieldDescription>
           </FieldContent>
           <div class="flex flex-wrap items-center gap-2">
@@ -324,24 +315,6 @@ function clampInteger(value: string | number, min: number, max = Number.MAX_SAFE
           <Input
             id="observation-min-capture-interval"
             v-model="minCaptureIntervalSeconds"
-            class="w-full md:w-48"
-            type="number"
-            min="1"
-            step="1"
-          />
-        </Field>
-
-        <Field
-          orientation="responsive"
-          class="border-b px-4 py-3"
-        >
-          <FieldContent>
-            <FieldLabel for="observation-duration">默认运行时长（分钟）</FieldLabel>
-            <FieldDescription>每次显式启动后到期停止。</FieldDescription>
-          </FieldContent>
-          <Input
-            id="observation-duration"
-            v-model="defaultDurationMinutes"
             class="w-full md:w-48"
             type="number"
             min="1"
