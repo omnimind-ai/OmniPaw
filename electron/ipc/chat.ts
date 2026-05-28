@@ -48,7 +48,8 @@ export function registerChatIpcHandlers(options: IpcHandlerOptions): void {
   registerLoggedIpcHandler(
     options,
     IPC_CHANNELS.chat.sendMessage,
-    (event, request: SendMessageRequest) => runtime.chatService.sendMessage(request, event.sender)
+    (event, request: SendMessageRequest) =>
+      runtime.chatService.sendMessage(normalizeRendererSendMessageRequest(request), event.sender)
   )
   registerLoggedIpcHandler(
     options,
@@ -119,6 +120,19 @@ function normalizeCreateSessionRequest(request: unknown): CreateSessionRequest {
     ...(typeof request.providerId === 'string' ? { providerId: request.providerId } : {}),
     ...(typeof request.modelId === 'string' ? { modelId: request.modelId } : {}),
   }
+}
+
+function normalizeRendererSendMessageRequest(request: unknown): SendMessageRequest {
+  if (!isRecord(request)) {
+    return request as SendMessageRequest
+  }
+  const {
+    transientImageInputs: _transientImageInputs,
+    transientSystemInstructions: _transientSystemInstructions,
+    transientCurrentMessageParts: _transientCurrentMessageParts,
+    ...safeRequest
+  } = request as unknown as SendMessageRequest
+  return safeRequest
 }
 
 function normalizeListSessionKind(kind: unknown): ListSessionsRequest['kind'] | undefined {

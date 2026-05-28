@@ -15,6 +15,7 @@ import type {
 } from './context/types'
 import {
   buildSystemUnits,
+  buildTransientInstructionUnits,
   contextUnitStats,
   countUnits,
   messagePriority,
@@ -51,10 +52,11 @@ export class ContextBuilder {
         : undefined
     const messagesAfterSummary = filterMessagesAfterSummary(eligible, latestSummary)
     const systemUnits = buildSystemUnits(input.session, input.skillPrompt)
+    const transientUnits = buildTransientInstructionUnits(input.transientSystemInstructions)
     const summaryUnits = latestSummary ? [summaryUnit(latestSummary)] : []
     const messageUnits = await this.buildMessageUnits(messagesAfterSummary, input, policy, budget)
     const selection = selectContextUnits(
-      [...systemUnits, ...summaryUnits, ...messageUnits],
+      [...systemUnits, ...transientUnits, ...summaryUnits, ...messageUnits],
       policy,
       budget
     )
@@ -191,9 +193,13 @@ export class ContextBuilder {
       }
     }
 
+    const parts =
+      isCurrent && input.transientCurrentMessageParts?.length
+        ? [...input.transientCurrentMessageParts, ...message.parts]
+        : message.parts
     const content = await this.partsToProviderContent(
       message,
-      message.parts,
+      parts,
       input.model,
       includeAttachmentPayloads,
       neverIncludeAttachments || options.degraded

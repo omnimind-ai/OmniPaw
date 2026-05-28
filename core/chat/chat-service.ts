@@ -194,7 +194,7 @@ export class ChatService {
     return session
   }
 
-  private buildDefaultSystemContext(): ChatSystemContextConfig | undefined {
+  buildDefaultSystemContext(): ChatSystemContextConfig | undefined {
     const defaults = this.options.systemContextDefaults?.()
     const personaProfile = this.options.personaManager?.getActiveProfile()
 

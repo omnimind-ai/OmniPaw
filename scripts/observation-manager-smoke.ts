@@ -10,6 +10,7 @@ import {
   ObservationManager,
   ObservationRuntimeError,
 } from '../core/observation'
+import { OBSERVATION_PROMPTS } from '../core/prompts'
 import { cloneDefaultProviderRegistry } from '../core/provider/registry-schema'
 import type { ChatMessage, ChatMessagePart, ChatSession } from '../shared/types/chat'
 import type {
@@ -252,9 +253,39 @@ try {
   assert.equal(chatService.calls.length, 2)
   assert.equal(chatService.calls[0]?.providerId, 'local-vision')
   assert.equal(chatService.calls[0]?.transientImageInputs?.length, 1)
+  assert.equal(chatService.calls[0]?.parts[0]?.type, 'vision_capture')
+  assert.equal(
+    chatService.calls[0]?.transientCurrentMessageParts?.[0]?.text,
+    OBSERVATION_PROMPTS.visionSummaryUser
+  )
+  assert.equal(
+    (chatService.calls[0]?.transientSystemInstructions?.[0] as { refId?: string } | undefined)
+      ?.refId,
+    'persona-active'
+  )
+  assert.equal(
+    (chatService.calls[0]?.transientSystemInstructions?.[1] as { text?: string } | undefined)?.text,
+    OBSERVATION_PROMPTS.visionSummarySystem
+  )
   assert.equal(chatService.calls[1]?.providerId, 'local-text')
   assert.equal(chatService.calls[1]?.transientImageInputs, undefined)
-  assert.equal(messages.listBySession(visionSessionId)[0]?.parts[1]?.type, 'vision_capture')
+  assert.equal(messages.listBySession(visionSessionId)[0]?.parts[0]?.type, 'vision_capture')
+  assert.equal(
+    messages.listBySession(visionSessionId)[2]?.parts[0]?.text,
+    '[主动视觉 reaction 决策]'
+  )
+  assert.equal(
+    JSON.stringify(messages.listBySession(visionSessionId)).includes(
+      OBSERVATION_PROMPTS.visionSummaryUser
+    ),
+    false
+  )
+  assert.equal(
+    JSON.stringify(messages.listBySession(visionSessionId)).includes(
+      'Use the active persona voice.'
+    ),
+    false
+  )
   assert.equal(reactions.length, 1)
   assert.equal(reactions[0]?.catSessionId, 'cat-session-smoke')
   assert.equal(reactions[0]?.visionSessionId, visionSessionId)
@@ -310,7 +341,7 @@ try {
   await manager.trigger({ visionSessionId })
   await manager.trigger({ visionSessionId })
   await manager.trigger({ visionSessionId })
-  const thirdReactionPrompt = chatService.calls[5]?.parts[0]
+  const thirdReactionPrompt = chatService.calls[5]?.transientCurrentMessageParts?.[0]
   assert.equal(thirdReactionPrompt?.type, 'plain')
   assert.match((thirdReactionPrompt as { text?: string }).text ?? '', /本次倾向：已启用/)
   assert.equal(reactions.length, 2)
@@ -325,7 +356,7 @@ try {
   chatService.reset('{"mode":"ambient","text":"Dev bubble test.","reason":"dev"}')
   await manager.start({ visionSessionId })
   await manager.trigger({ visionSessionId, devForceReaction: true })
-  const devReactionPrompt = chatService.calls[1]?.parts[0]
+  const devReactionPrompt = chatService.calls[1]?.transientCurrentMessageParts?.[0]
   assert.equal(devReactionPrompt?.type, 'plain')
   assert.match((devReactionPrompt as { text?: string }).text ?? '', /开发验证已启用/)
   assert.equal(reactions.length, 3)
@@ -472,6 +503,8 @@ function createFakeChatService(
     providerId?: string
     modelId?: string
     parts: ChatMessagePart[]
+    transientSystemInstructions?: unknown[]
+    transientCurrentMessageParts?: ChatMessagePart[]
     transientImageInputs?: unknown[]
   }> = []
 
@@ -484,6 +517,13 @@ function createFakeChatService(
 
   return {
     calls,
+    buildDefaultSystemContext: () => ({
+      persona: {
+        refId: 'persona-active',
+        label: 'Active Persona',
+        text: 'Use the active persona voice.',
+      },
+    }),
     reset(nextResponseText: string): void {
       responseText = nextResponseText
       calls.length = 0
@@ -496,6 +536,8 @@ function createFakeChatService(
         providerId?: string
         modelId?: string
         transientImageInputs?: unknown[]
+        transientSystemInstructions?: unknown[]
+        transientCurrentMessageParts?: ChatMessagePart[]
         metadata?: Record<string, unknown>
       },
       target: ChatRunEventTarget
@@ -528,6 +570,8 @@ function createFakeChatService(
         providerId: request.providerId,
         modelId: request.modelId,
         parts: userMessage.parts,
+        transientSystemInstructions: request.transientSystemInstructions,
+        transientCurrentMessageParts: request.transientCurrentMessageParts,
         transientImageInputs: request.transientImageInputs,
       })
       messages.save(userMessage)

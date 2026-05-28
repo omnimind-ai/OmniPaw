@@ -127,6 +127,8 @@ export class ChatRunOrchestrator {
       toolProfile,
       maxSteps: request.maxSteps,
       transientImageInputs: request.transientImageInputs,
+      transientSystemInstructions: request.transientSystemInstructions,
+      transientCurrentMessageParts: request.transientCurrentMessageParts,
     })
     if (options.generateTitle && session.kind !== 'vision') {
       void this.options.titleGenerator.generateFromMessage(session.id, userMessage.id, target)

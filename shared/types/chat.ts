@@ -521,6 +521,19 @@ export interface TransientChatImageInput {
   createdAt?: UnixMs
 }
 
+export type TransientChatInstructionKind = Extract<
+  ContextUnitKind,
+  'base-system' | 'mask' | 'persona' | 'runtime'
+>
+
+export interface TransientChatInstruction {
+  id?: string
+  kind?: TransientChatInstructionKind
+  source?: string
+  refId?: string
+  text: string
+}
+
 export interface SendMessageRequest {
   sessionId: ID
   parts?: ChatMessagePart[]
@@ -533,6 +546,8 @@ export interface SendMessageRequest {
   idempotencyKey?: string
   metadata?: Record<string, unknown>
   transientImageInputs?: TransientChatImageInput[]
+  transientSystemInstructions?: TransientChatInstruction[]
+  transientCurrentMessageParts?: ChatMessagePart[]
   titleGeneration?: boolean
 }
 

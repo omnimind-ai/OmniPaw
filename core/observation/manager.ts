@@ -5,7 +5,7 @@ import type { ChatSessionRepo } from '@core/db/repos'
 import type { Logger } from '@core/logging'
 import { OBSERVATION_PROMPTS } from '@core/prompts'
 import type { ProviderManager, ProviderModelRecord, ProviderRecord } from '@core/provider/manager'
-import type { ChatMessagePart, ChatSession } from '@shared/types/chat'
+import type { ChatMessagePart, ChatSession, TransientChatInstruction } from '@shared/types/chat'
 import type {
   ObservationCaptureMetadata,
   ObservationChangedEvent,
@@ -484,19 +484,25 @@ export class ObservationManager {
     signal: AbortSignal,
     reactionContext: ReactionPromptContext
   ): Promise<ObservationTickResult> {
-    const parts = this.captureParts(frame, run.screenshotRetention, {
-      prompt: OBSERVATION_PROMPTS.singleModelReactionUser({
-        sessionKind: 'vision',
-        sessionTitle: visionTitle,
-        reactionContext,
-      }),
-    })
+    const transientCurrentMessageParts: ChatMessagePart[] = [
+      {
+        type: 'plain',
+        text: OBSERVATION_PROMPTS.singleModelReactionUser({
+          sessionKind: 'vision',
+          sessionTitle: visionTitle,
+          reactionContext,
+        }),
+      },
+    ]
+    const parts = this.captureParts(frame, run.screenshotRetention)
     const terminal = await this.sendVisionTurn({
       run,
       frame,
       providerId: resolved.vision.provider.id,
       modelId: resolved.vision.model.id,
       parts,
+      transientSystemInstruction: OBSERVATION_PROMPTS.singleModelReactionSystem,
+      transientCurrentMessageParts,
       signal,
       metadata: {
         source: 'observation',
@@ -534,9 +540,11 @@ export class ObservationManager {
       frame,
       providerId: resolved.vision.provider.id,
       modelId: resolved.vision.model.id,
-      parts: this.captureParts(frame, run.screenshotRetention, {
-        prompt: OBSERVATION_PROMPTS.visionSummaryUser,
-      }),
+      parts: this.captureParts(frame, run.screenshotRetention),
+      transientSystemInstruction: OBSERVATION_PROMPTS.visionSummarySystem,
+      transientCurrentMessageParts: [
+        { type: 'plain', text: OBSERVATION_PROMPTS.visionSummaryUser },
+      ],
       signal,
       metadata: {
         source: 'observation',
@@ -553,7 +561,9 @@ export class ObservationManager {
       run,
       providerId: reaction.provider.id,
       modelId: reaction.model.id,
-      parts: [
+      parts: [{ type: 'plain', text: '[主动视觉 reaction 决策]' }],
+      transientSystemInstruction: OBSERVATION_PROMPTS.splitReactionSystem,
+      transientCurrentMessageParts: [
         {
           type: 'plain',
           text: OBSERVATION_PROMPTS.splitReactionUser({
@@ -600,6 +610,8 @@ export class ObservationManager {
     providerId: string
     modelId: string
     parts: ChatMessagePart[]
+    transientSystemInstruction: string
+    transientCurrentMessageParts: ChatMessagePart[]
     signal: AbortSignal
     metadata: Record<string, unknown>
   }): Promise<ChatRunTerminalEvent> {
@@ -621,6 +633,11 @@ export class ObservationManager {
         toolProfile: 'minimal',
         maxSteps: 1,
         metadata: input.metadata,
+        transientSystemInstructions: this.transientSystemInstructions(
+          chat,
+          input.transientSystemInstruction
+        ),
+        transientCurrentMessageParts: input.transientCurrentMessageParts,
         transientImageInputs:
           input.frame && input.run.screenshotRetention === 'ephemeral'
             ? [
@@ -651,11 +668,9 @@ export class ObservationManager {
 
   private captureParts(
     frame: Awaited<ReturnType<DesktopCaptureAdapter['capture']>>,
-    retention: ObservationScreenshotRetention,
-    options: { prompt: string }
+    retention: ObservationScreenshotRetention
   ): ChatMessagePart[] {
     const parts: ChatMessagePart[] = [
-      { type: 'plain', text: options.prompt },
       {
         type: 'vision_capture',
         captureId: frame.captureId,
@@ -682,6 +697,33 @@ export class ObservationManager {
       }
     }
     return parts
+  }
+
+  private transientSystemInstructions(
+    chat: ChatService,
+    observationInstruction: string
+  ): TransientChatInstruction[] {
+    const instructions: TransientChatInstruction[] = []
+    const persona =
+      typeof chat.buildDefaultSystemContext === 'function'
+        ? chat.buildDefaultSystemContext()?.persona
+        : undefined
+    if (persona?.text?.trim()) {
+      instructions.push({
+        id: 'observation:persona',
+        kind: 'persona',
+        source: persona.refId ?? 'persona.active',
+        refId: persona.refId,
+        text: persona.text,
+      })
+    }
+    instructions.push({
+      id: 'observation:runtime',
+      kind: 'runtime',
+      source: 'observation.runtime',
+      text: observationInstruction,
+    })
+    return instructions
   }
 
   private async captureFrame(state: ActiveRunState) {

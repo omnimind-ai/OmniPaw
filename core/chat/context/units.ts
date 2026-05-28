@@ -4,6 +4,7 @@ import type {
   ChatMessage,
   ChatSession,
   ContextPolicy,
+  TransientChatInstruction,
 } from '@shared/types/chat'
 import type { ProviderMessage } from '@shared/types/provider'
 import type { SkillPromptContext } from '@shared/types/skill'
@@ -54,6 +55,25 @@ export function buildSystemUnits(
       refId: 'skill-inventory',
     })
   }
+  return units
+}
+
+export function buildTransientInstructionUnits(
+  instructions: readonly TransientChatInstruction[] | undefined
+): ContextUnit[] {
+  const units: ContextUnit[] = []
+  instructions?.forEach((instruction, index) => {
+    const kind = instruction.kind ?? 'runtime'
+    pushTextUnit(units, {
+      id: `transient:${instruction.id?.trim() || index}`,
+      kind,
+      source: instruction.source?.trim() || `transient.${kind}`,
+      text: instruction.text,
+      priority: transientInstructionPriority(kind),
+      required: true,
+      refId: instruction.refId,
+    })
+  })
   return units
 }
 
@@ -246,13 +266,28 @@ function kindOrder(kind: ContextUnitKind): number {
       return 1
     case 'persona':
       return 2
-    case 'skill':
+    case 'runtime':
       return 3
-    case 'tool-inventory':
+    case 'skill':
       return 4
-    case 'summary':
+    case 'tool-inventory':
       return 5
+    case 'summary':
+      return 6
     default:
       return 10
+  }
+}
+
+function transientInstructionPriority(kind: TransientChatInstruction['kind']): number {
+  switch (kind) {
+    case 'base-system':
+      return 1000
+    case 'mask':
+      return 980
+    case 'persona':
+      return 970
+    default:
+      return 960
   }
 }

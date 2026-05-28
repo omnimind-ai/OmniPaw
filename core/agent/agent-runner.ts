@@ -7,11 +7,13 @@ import type { Logger } from '@core/logging'
 import type { ProviderManager } from '@core/provider/manager'
 import type { SkillManager } from '@core/skill/skill-manager'
 import type {
+  ChatMessagePart,
   ChatRun,
   ChatRunMode,
   ChatSession,
   ToolProfile,
   TransientChatImageInput,
+  TransientChatInstruction,
 } from '@shared/types/chat'
 import type { ProviderConfig, ProviderModel } from '@shared/types/provider'
 import type { DesktopChatContextSettings, DesktopToolSettings } from '@shared/types/settings'
@@ -53,6 +55,8 @@ export interface AgentRunInput {
   toolProfile?: ToolProfile
   maxSteps?: number
   transientImageInputs?: TransientChatImageInput[]
+  transientSystemInstructions?: TransientChatInstruction[]
+  transientCurrentMessageParts?: ChatMessagePart[]
 }
 
 export class AgentRunner {

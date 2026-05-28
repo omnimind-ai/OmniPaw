@@ -1,10 +1,12 @@
 import type {
   ChatContextSummary,
   ChatMessage,
+  ChatMessagePart,
   ChatSession,
   ProviderRequestSnapshot,
   ContextUnitKind as SharedContextUnitKind,
   TransientChatImageInput,
+  TransientChatInstruction,
 } from '@shared/types/chat'
 import type { ProviderConfig, ProviderMessage, ProviderModel } from '@shared/types/provider'
 import type { DesktopSettingsConfig } from '@shared/types/settings'
@@ -31,6 +33,8 @@ export interface BuildContextInput {
   model: ProviderModel
   skillPrompt?: SkillPromptContext
   transientImageInputs?: TransientChatImageInput[]
+  transientSystemInstructions?: TransientChatInstruction[]
+  transientCurrentMessageParts?: ChatMessagePart[]
 }
 
 export interface BuildContextResult {
@@ -47,7 +51,7 @@ export interface ContextBudget {
   autoCompact: boolean
 }
 
-export type ContextUnitKind = Exclude<SharedContextUnitKind, 'runtime'>
+export type ContextUnitKind = SharedContextUnitKind
 
 export interface ContextUnit {
   id: string

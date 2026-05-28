@@ -251,6 +251,73 @@ try {
     JSON.stringify(providerRequests.at(-1)?.messages).includes('data:image/png;base64'),
     true
   )
+
+  const transientSession = await sessionModelService.createSession({
+    kind: 'vision',
+    providerId: kimiProvider.id,
+    modelId: 'kimi',
+  })
+  const transientSend = await sessionModelService.sendInternalMessage(
+    {
+      sessionId: transientSession.id,
+      parts: [{ type: 'plain', text: '[persisted marker]' }],
+      providerId: kimiProvider.id,
+      modelId: 'kimi',
+      mode: 'fast_chat',
+      toolProfile: 'minimal',
+      maxSteps: 1,
+      transientSystemInstructions: [
+        {
+          id: 'smoke-runtime',
+          kind: 'runtime',
+          text: 'Runtime instruction not persisted.',
+        },
+      ],
+      transientCurrentMessageParts: [
+        {
+          type: 'plain',
+          text: 'Transient prompt not persisted.',
+        },
+      ],
+    },
+    {
+      send() {},
+    }
+  )
+  await transientSend.terminalEvent
+  const transientStoredMessages = messageRepo.listBySession(transientSession.id)
+  assert.equal(
+    JSON.stringify(transientStoredMessages).includes('Transient prompt not persisted.'),
+    false
+  )
+  assert.equal(
+    JSON.stringify(transientStoredMessages).includes('Runtime instruction not persisted.'),
+    false
+  )
+  assert.equal(
+    JSON.stringify(providerRequests.at(-1)?.messages).includes('Transient prompt not persisted.'),
+    true
+  )
+  assert.equal(
+    JSON.stringify(providerRequests.at(-1)?.messages).includes(
+      'Runtime instruction not persisted.'
+    ),
+    true
+  )
+  assert.equal(
+    JSON.stringify(runRepo.get(transientSend.runId)?.requestSnapshot).includes(
+      'Transient prompt not persisted.'
+    ),
+    false
+  )
+  assert.equal(
+    JSON.stringify(runRepo.get(transientSend.runId)?.requestSnapshot).includes(
+      'Runtime instruction not persisted.'
+    ),
+    false
+  )
+  assert.equal(runRepo.get(transientSend.runId)?.requestSnapshot?.selectedCounts?.runtime, 1)
+
   for (let index = 0; index < 8; index += 1) {
     messageRepo.save({
       id: `vision-history-${index}`,
