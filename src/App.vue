@@ -42,6 +42,10 @@ onMounted(() => {
   stopCatSubscription = appBridge.chat.onStreamEvent?.(syncCatWindow)
   stopOpenChatSubscription = appBridge.app.onOpenChatSession?.((request) => {
     if (!request.sessionId) return
+    if (request.kind === 'vision') {
+      void router.push({ path: '/vision', query: { sessionId: request.sessionId } })
+      return
+    }
     void router.push(`/chat/${request.sessionId}`)
   })
 })

@@ -10,6 +10,7 @@ import type { AgentTool } from '../core/agent/tools/types'
 import { AgentWorkspaceService } from '../core/agent/workspace'
 import { AttachmentService } from '../core/chat/attachment-service'
 import { ChatService } from '../core/chat/chat-service'
+import { ContextCompactionService } from '../core/chat/context-compaction'
 import { ContextBuilder } from '../core/chat/context-manager'
 import { RunManager } from '../core/chat/run-manager'
 import {
@@ -19,7 +20,13 @@ import {
 import { cloneDefaultConfig } from '../core/config/schema'
 import { ScheduledTaskAgentExecutor } from '../core/cron/scheduled-task-executor'
 import { DatabaseClient } from '../core/db/client'
-import { AttachmentRepo, ChatMessageRepo, ChatRunRepo, ChatSessionRepo } from '../core/db/repos'
+import {
+  AttachmentRepo,
+  ChatContextSummaryRepo,
+  ChatMessageRepo,
+  ChatRunRepo,
+  ChatSessionRepo,
+} from '../core/db/repos'
 import { seedDefaultChatData } from '../core/db/seed'
 import { errorFromResponse, normalizeProviderError } from '../core/provider/errors'
 import { parseSseStream } from '../core/provider/providers/openai'
@@ -91,10 +98,13 @@ try {
     name: 'Kimi',
     models: [{ ...model, id: 'kimi', providerId: 'kimi-provider', remoteId: 'kimi' }],
   }
+  const runRepo = new ChatRunRepo(db)
+  const runManager = new RunManager(runRepo)
+  const providerRequests: Array<{ providerId: string; messages: unknown[] }> = []
   const sessionModelService = new ChatService({
     sessions: sessionRepo,
     messages: messageRepo,
-    runs: new ChatRunRepo(db),
+    runs: runRepo,
     attachments,
     attachmentRepo,
     providers: {
@@ -108,9 +118,35 @@ try {
         provider: mimoProvider,
         modelId: 'mimo',
       }),
+      createProviderClient: async (providerId: string) => ({
+        id: providerId,
+        streamChat: async function* (request) {
+          providerRequests.push({
+            providerId,
+            messages: request.messages,
+          })
+          yield { type: 'delta' as const, content: 'internal vision result', done: false as const }
+          yield {
+            type: 'final' as const,
+            done: true as const,
+            finishReason: 'stop',
+            usage: { input: 7, output: 3, total: 10 },
+          }
+        },
+      }),
     } as never,
-    contextBuilder: new ContextBuilder(attachments),
-    runManager: new RunManager(new ChatRunRepo(db)),
+    contextBuilder: new ContextBuilder(attachments, {
+      summaries: new ChatContextSummaryRepo(db),
+    }),
+    contextCompaction: new ContextCompactionService(new ChatContextSummaryRepo(db)),
+    runManager,
+    contextDefaults: () => ({
+      recentMessages: 20,
+      maxInputBudgetPercent: 75,
+      includeAttachments: 'current-only',
+      autoCompact: true,
+      compactThresholdPercent: 0,
+    }),
   })
   const selectedSession = await sessionModelService.createSession({
     providerId: kimiProvider.id,
@@ -118,6 +154,134 @@ try {
   })
   assert.equal(selectedSession.defaultProviderId, kimiProvider.id)
   assert.equal(selectedSession.defaultModelId, 'kimi')
+  const visionSession = await sessionModelService.createSession({
+    kind: 'vision',
+    providerId: kimiProvider.id,
+    modelId: 'kimi',
+  })
+  assert.equal(visionSession.kind, 'vision')
+  assert.equal(
+    sessionModelService.listSessions().some((item) => item.id === visionSession.id),
+    false
+  )
+  assert.equal(
+    sessionModelService
+      .listSessions({ kind: 'vision' })
+      .some((item) => item.id === visionSession.id),
+    true
+  )
+  const internalEvents: string[] = []
+  const internalSend = await sessionModelService.sendInternalMessage(
+    {
+      sessionId: visionSession.id,
+      parts: [
+        {
+          type: 'plain',
+          text: 'describe the current screen',
+        },
+        {
+          type: 'vision_capture',
+          captureId: 'capture-smoke',
+          scope: 'primary_display',
+          mimeType: 'image/png',
+          width: 1,
+          height: 1,
+          retention: 'ephemeral',
+          createdAt: Date.now(),
+          marker: '[capture marker only]',
+        },
+      ],
+      providerId: kimiProvider.id,
+      modelId: 'kimi',
+      mode: 'fast_chat',
+      toolProfile: 'minimal',
+      maxSteps: 1,
+      metadata: {
+        source: 'observation',
+        captureId: 'capture-smoke',
+      },
+      transientImageInputs: [
+        {
+          captureId: 'capture-smoke',
+          dataUrl:
+            'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADElEQVR42mP8z8AARQAFAAH7AhnwAAAAAElFTkSuQmCC',
+          mimeType: 'image/png',
+          width: 1,
+          height: 1,
+          createdAt: Date.now(),
+        },
+      ],
+    },
+    {
+      send(channel, event) {
+        internalEvents.push(`${channel}:${(event as { type?: string }).type ?? 'unknown'}`)
+      },
+    }
+  )
+  const terminal = await internalSend.terminalEvent
+  assert.equal(terminal.type, 'final')
+  assert.equal(
+    internalEvents.some((event) => event.includes(':started')),
+    true
+  )
+  assert.equal(
+    internalEvents.some((event) => event.includes(':delta')),
+    true
+  )
+  assert.equal(
+    internalEvents.some((event) => event.includes(':final')),
+    true
+  )
+  const internalMessages = messageRepo.listBySession(visionSession.id)
+  assert.equal(internalMessages.length, 2)
+  const internalUserMessage = internalMessages[0]
+  assert.ok(internalUserMessage)
+  assert.equal(internalMessages[0]?.metadata?.source, 'observation')
+  assert.equal(
+    internalMessages[0]?.parts.some((part) => part.type === 'vision_capture'),
+    true
+  )
+  assert.equal(messageRepo.listAttachmentLinks(internalUserMessage.id).length, 0)
+  assert.equal(runRepo.get(internalSend.runId)?.requestSnapshot?.imageInputCount, 1)
+  assert.equal(
+    JSON.stringify(runRepo.get(internalSend.runId)?.requestSnapshot).includes('base64'),
+    false
+  )
+  assert.equal(
+    JSON.stringify(providerRequests.at(-1)?.messages).includes('data:image/png;base64'),
+    true
+  )
+  for (let index = 0; index < 8; index += 1) {
+    messageRepo.save({
+      id: `vision-history-${index}`,
+      sessionId: visionSession.id,
+      role: index % 2 === 0 ? 'user' : 'assistant',
+      status: 'complete',
+      parts: [{ type: 'plain', text: `vision history ${index}` }],
+      createdAt: Date.now() + index + 10,
+      updatedAt: Date.now() + index + 10,
+    })
+  }
+  await sessionModelService
+    .sendInternalMessage(
+      {
+        sessionId: visionSession.id,
+        content: 'continue observing',
+        providerId: kimiProvider.id,
+        modelId: 'kimi',
+        mode: 'fast_chat',
+        toolProfile: 'minimal',
+        maxSteps: 1,
+      },
+      {
+        send() {},
+      }
+    )
+    .then((response) => response.terminalEvent)
+  assert.equal(
+    new ChatContextSummaryRepo(db).latestUsable(visionSession.id)?.sessionId,
+    visionSession.id
+  )
 
   const messages: ChatMessage[] = [
     {

@@ -5,8 +5,8 @@ import type { ChatCompletionChunk, ProviderMessage } from '@core/provider/base-p
 import { normalizeProviderError } from '@core/provider/errors'
 import type { ProviderManager } from '@core/provider/manager'
 import { IPC_CHANNELS } from '@shared/constants'
-import type { WebContents } from 'electron'
 import { resolveSelectedProviderAndModel } from '../run/provider-selector'
+import type { ChatRunEventTarget } from '../run-manager'
 import { textFromParts } from './message-text'
 
 export interface SessionTitleGeneratorOptions {
@@ -43,7 +43,7 @@ export class SessionTitleGenerator {
   async generateFromMessage(
     sessionId: string,
     userMessageId: string,
-    webContents?: WebContents
+    eventTarget?: ChatRunEventTarget & { isDestroyed?: () => boolean }
   ): Promise<void> {
     if (this.titleGenerations.has(sessionId)) {
       return
@@ -106,8 +106,8 @@ export class SessionTitleGenerator {
       }
       this.options.sessions.updateTitle(sessionId, title)
       const updated = this.options.sessions.get(sessionId)
-      if (updated && webContents && !webContents.isDestroyed()) {
-        webContents.send(IPC_CHANNELS.chat.sessionChanged, {
+      if (updated && eventTarget && eventTarget.isDestroyed?.() !== true) {
+        eventTarget.send(IPC_CHANNELS.chat.sessionChanged, {
           reason: 'title_generated',
           sessionId,
           session: updated,

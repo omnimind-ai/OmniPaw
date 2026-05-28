@@ -82,8 +82,7 @@ export type BridgeToolProfile = 'minimal' | 'assistant' | 'power' | string
 export type BridgeContextUsageSource = 'actual' | 'estimated' | 'mixed' | 'provider' | string
 export type BridgeContextAttachmentPolicy = 'current-only' | 'recent' | 'never'
 export type BridgeObservationScope = 'primary_display' | 'selected_display' | 'selected_window'
-export type BridgeObservationOutputMode = 'silent' | 'ambient' | 'chat' | 'ask'
-export type BridgeObservationRetention = 'ephemeral' | 'save_to_chat'
+export type BridgeObservationScreenshotRetention = 'ephemeral' | 'persist'
 
 export interface BridgeChatContextSettings {
   recentMessages: number
@@ -175,18 +174,17 @@ export interface BridgeDesktopSettingsConfig {
     misfireStartupLimit: number
   }
   observation: {
-    enabled: boolean
-    defaultIntervalMs: number
+    evaluationIntervalMs: number
+    captureProbability: number
+    minCaptureIntervalMs: number
     defaultDurationMs: number
     defaultScope: BridgeObservationScope
-    outputMode: BridgeObservationOutputMode
-    retention: BridgeObservationRetention
-    minIntervalMs: number
-    minDurationMs: number
-    maxDurationMs: number
+    screenshotRetention: BridgeObservationScreenshotRetention
+    allowRemoteProviders: boolean
+    localOnly: boolean
     dailyCaptureLimit: number
     consecutiveFailureLimit: number
-    reactionCooldownMs: number
+    notificationCooldownMs: number
   }
 }
 
@@ -218,7 +216,7 @@ export interface BridgeDesktopSettingsChangedEvent {
 export interface BridgeChatSession {
   id: string
   title: string
-  kind?: 'chat' | 'cat' | 'cron' | string
+  kind?: 'chat' | 'cat' | 'cron' | 'vision' | string
   status: 'active' | 'archived' | 'deleted'
   defaultProviderId?: string
   defaultModelId?: string
@@ -236,13 +234,13 @@ export interface BridgeChatSession {
 }
 
 export interface BridgeListSessionsRequest {
-  kind?: 'chat' | 'cat' | 'cron' | 'all'
+  kind?: 'chat' | 'cat' | 'cron' | 'vision' | 'all'
   includeDeleted?: boolean
 }
 
 export interface BridgeCreateSessionRequest {
   title?: string
-  kind?: 'chat' | 'cat'
+  kind?: 'chat' | 'cat' | 'vision'
   providerId?: string
   modelId?: string
 }
@@ -873,6 +871,7 @@ export interface RendererOpenOmniClawBridge {
     stop: (request?: StopObservationRequest) => Promise<ObservationState>
     trigger: (request?: TriggerObservationRequest) => Promise<ObservationState>
     onChanged: (callback: (event: ObservationChangedEvent) => void) => BridgeUnsubscribe
+    onNotification?: (callback: (event: ObservationReactionEvent) => void) => BridgeUnsubscribe
   }
   chat: {
     listSessions: (request?: BridgeListSessionsRequest) => Promise<BridgeChatSession[]>
@@ -1291,11 +1290,9 @@ const fallbackBridge: RendererOpenOmniClawBridge = {
     dragEnd: async () => null,
     onObservationReaction: () => () => {},
     openObservationSource: async (event) => {
-      if (event.targetSessionKind === 'cat') {
-        fallbackActiveCatSessionId = event.targetSessionId
-        fallbackCatPanelVisible = true
-        fallbackCatPanelSide = 'right'
-      }
+      fallbackActiveCatSessionId = event.catSessionId
+      fallbackCatPanelVisible = true
+      fallbackCatPanelSide = 'right'
     },
     showBubble: async (request) => {
       const text = typeof request === 'string' ? request : request.text
@@ -1432,6 +1429,7 @@ const fallbackBridge: RendererOpenOmniClawBridge = {
     stop: () => rejectFallbackPersistence<ObservationState>('observation.stop'),
     trigger: () => rejectFallbackPersistence<ObservationState>('observation.trigger'),
     onChanged: () => () => {},
+    onNotification: () => () => {},
   },
   chat: {
     listSessions: async (request) => {
@@ -1456,9 +1454,20 @@ const fallbackBridge: RendererOpenOmniClawBridge = {
         createdAt: now,
         updatedAt: now,
       }
+      const visionSession: BridgeChatSession = {
+        id: 'fallback-vision',
+        title: '主动视觉',
+        kind: 'vision',
+        status: 'active',
+        defaultProviderId: 'omniinfer-local',
+        defaultModelId: 'local-small-model',
+        createdAt: now,
+        updatedAt: now,
+      }
       if (request?.kind === 'cat') return [catSession]
       if (request?.kind === 'cron') return []
-      if (request?.kind === 'all') return [chatSession, catSession]
+      if (request?.kind === 'vision') return [visionSession]
+      if (request?.kind === 'all') return [chatSession, catSession, visionSession]
       return [chatSession]
     },
     createSession: async (request) => {
@@ -1466,8 +1475,14 @@ const fallbackBridge: RendererOpenOmniClawBridge = {
 
       return {
         id: crypto.randomUUID(),
-        title: request?.title || (request?.kind === 'cat' ? '小猫会话' : '新会话'),
-        kind: request?.kind === 'cat' ? 'cat' : 'chat',
+        title:
+          request?.title ||
+          (request?.kind === 'cat'
+            ? '小猫会话'
+            : request?.kind === 'vision'
+              ? '主动视觉'
+              : '新会话'),
+        kind: request?.kind === 'cat' || request?.kind === 'vision' ? request.kind : 'chat',
         status: 'active',
         defaultProviderId: request?.providerId || 'omniinfer-local',
         defaultModelId: request?.modelId || 'local-small-model',
@@ -1792,18 +1807,17 @@ function fallbackSettingsConfig(): BridgeDesktopSettingsConfig {
       misfireStartupLimit: 3,
     },
     observation: {
-      enabled: false,
-      defaultIntervalMs: 60_000,
+      evaluationIntervalMs: 60_000,
+      captureProbability: 0.25,
+      minCaptureIntervalMs: 60_000,
       defaultDurationMs: 5 * 60_000,
       defaultScope: 'primary_display',
-      outputMode: 'ambient',
-      retention: 'ephemeral',
-      minIntervalMs: 15_000,
-      minDurationMs: 60_000,
-      maxDurationMs: 30 * 60_000,
+      screenshotRetention: 'ephemeral',
+      allowRemoteProviders: false,
+      localOnly: true,
       dailyCaptureLimit: 200,
       consecutiveFailureLimit: 3,
-      reactionCooldownMs: 90_000,
+      notificationCooldownMs: 90_000,
     },
   }
 }

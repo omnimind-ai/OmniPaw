@@ -18,7 +18,7 @@ export type MessageStatus =
 export type AttachmentKind = 'image' | 'audio' | 'video' | 'file' | 'text'
 
 export type ChatSessionStatus = 'active' | 'archived' | 'deleted'
-export type ChatSessionKind = 'chat' | 'cat' | 'cron'
+export type ChatSessionKind = 'chat' | 'cat' | 'cron' | 'vision'
 
 export type ChatRunStatus = 'queued' | 'running' | 'complete' | 'error' | 'aborted'
 
@@ -150,6 +150,20 @@ export interface RefPart {
   }>
 }
 
+export interface VisionCapturePart {
+  type: 'vision_capture'
+  captureId: ID
+  scope?: string
+  sourceId?: string
+  sourceType?: 'screen' | 'window'
+  mimeType?: string
+  width?: number
+  height?: number
+  retention?: 'ephemeral' | 'persist'
+  createdAt: UnixMs
+  marker?: string
+}
+
 export type ChatMessagePart =
   | TextPart
   | ReasoningPart
@@ -160,6 +174,7 @@ export type ChatMessagePart =
   | ReplyPart
   | ToolCallPart
   | RefPart
+  | VisionCapturePart
   | Record<string, unknown>
 
 export interface ChatError {
@@ -497,6 +512,15 @@ export interface ChatRun {
   updatedAt: UnixMs
 }
 
+export interface TransientChatImageInput {
+  captureId?: ID
+  dataUrl: string
+  mimeType?: string
+  width?: number
+  height?: number
+  createdAt?: UnixMs
+}
+
 export interface SendMessageRequest {
   sessionId: ID
   parts?: ChatMessagePart[]
@@ -507,6 +531,9 @@ export interface SendMessageRequest {
   toolProfile?: ToolProfile
   maxSteps?: number
   idempotencyKey?: string
+  metadata?: Record<string, unknown>
+  transientImageInputs?: TransientChatImageInput[]
+  titleGeneration?: boolean
 }
 
 export interface SendMessageResponse {
@@ -526,7 +553,7 @@ export interface ListSessionsRequest {
 
 export interface CreateSessionRequest {
   title?: string
-  kind?: Extract<ChatSessionKind, 'chat' | 'cat'>
+  kind?: Extract<ChatSessionKind, 'chat' | 'cat' | 'vision'>
   providerId?: ID
   modelId?: string
 }

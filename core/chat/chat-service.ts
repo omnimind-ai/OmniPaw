@@ -41,9 +41,10 @@ import type { WebContents } from 'electron'
 import type { AttachmentService } from './attachment-service'
 import type { ContextCompactionService } from './context-compaction'
 import type { ContextBuilder } from './context-manager'
+import type { InternalSendMessageResponse } from './run/orchestrator'
 import { ChatRunOrchestrator } from './run/orchestrator'
 import { resolveSelectedProviderAndModel } from './run/provider-selector'
-import type { RunManager } from './run-manager'
+import type { ChatRunEventTarget, RunManager } from './run-manager'
 import { MessageEditor } from './support/message-editor'
 import { SessionSummaryUpdater } from './support/session-summary'
 import { SessionTitleGenerator } from './support/title-generator'
@@ -158,13 +159,15 @@ export class ChatService {
   async createSession(request: CreateSessionRequest = {}): Promise<ChatSession> {
     const now = Date.now()
     const modelRef = await this.resolveInitialModelRef(request)
-    const kind = request.kind === 'cat' ? 'cat' : 'chat'
+    const kind = request.kind === 'cat' || request.kind === 'vision' ? request.kind : 'chat'
     const contextDefaults = this.options.contextDefaults?.()
     const systemContext = this.buildDefaultSystemContext()
     const baseSystemPrompt = systemContext?.baseSystemPrompt
     const session: ChatSession = {
       id: crypto.randomUUID(),
-      title: request.title?.trim() || (kind === 'cat' ? '小猫会话' : '新会话'),
+      title:
+        request.title?.trim() ||
+        (kind === 'cat' ? '小猫会话' : kind === 'vision' ? '主动视觉' : '新会话'),
       kind,
       status: 'active',
       defaultProviderId: modelRef?.providerId,
@@ -259,6 +262,10 @@ export class ChatService {
 
   deleteSession(request: DeleteSessionRequest | string): { deleted: boolean } {
     const sessionId = typeof request === 'string' ? request : request.sessionId
+    const session = this.options.sessions.get(sessionId)
+    if (session?.kind === 'vision') {
+      this.options.observationManager?.()?.stopIfSessionActive(sessionId, 'session_deleted')
+    }
     const deleted = this.options.sessions.markDeleted(sessionId)
     if (deleted) {
       this.options.contextCompaction?.hideForSession(sessionId)
@@ -280,6 +287,21 @@ export class ChatService {
     webContents: WebContents
   ): Promise<SendMessageResponse> {
     return this.runOrchestrator.sendMessage(request, webContents)
+  }
+
+  async sendInternalMessage(
+    request: SendMessageRequest,
+    target: ChatRunEventTarget,
+    signal?: AbortSignal
+  ): Promise<InternalSendMessageResponse> {
+    return this.runOrchestrator.sendInternalMessage(
+      {
+        ...request,
+        titleGeneration: false,
+      },
+      target,
+      signal
+    )
   }
 
   async abortRun(request: AbortRunRequest | string): Promise<AbortRunResponse> {

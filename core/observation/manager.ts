@@ -1,23 +1,26 @@
-import type { ChatMessageRepo, ChatSessionRepo } from '@core/db/repos'
+import type { AttachmentService } from '@core/chat/attachment-service'
+import type { ChatService } from '@core/chat/chat-service'
+import type { ChatRunEventTarget, ChatRunTerminalEvent } from '@core/chat/run-manager'
+import type { ChatSessionRepo } from '@core/db/repos'
 import type { Logger } from '@core/logging'
 import { OBSERVATION_PROMPTS } from '@core/prompts'
-import type { BaseProvider, ProviderMessage } from '@core/provider/base-provider'
 import type { ProviderManager, ProviderModelRecord, ProviderRecord } from '@core/provider/manager'
-import type { ChatMessage, ChatMessagePart, ChatSession, ID, UnixMs } from '@shared/types/chat'
+import type { ChatMessagePart, ChatSession } from '@shared/types/chat'
 import type {
   ObservationCaptureMetadata,
   ObservationChangedEvent,
+  ObservationDecision,
   ObservationErrorCode,
   ObservationErrorInfo,
   ObservationModelChain,
-  ObservationOutputMode,
   ObservationPermissionStatus,
   ObservationReactionCandidate,
   ObservationReactionDecision,
   ObservationReactionEvent,
-  ObservationRetention,
   ObservationRun,
+  ObservationRuntimeState,
   ObservationScope,
+  ObservationScreenshotRetention,
   ObservationState,
   ScreenObserveToolResult,
   StartObservationRequest,
@@ -33,10 +36,14 @@ export interface ObservationManagerOptions {
   settings: () => DesktopObservationSettings
   providers: ProviderManager
   sessions: ChatSessionRepo
-  messages: ChatMessageRepo
+  attachments?: AttachmentService
+  chatService?: () => ChatService | undefined
+  eventTarget?: () => ChatRunEventTarget | undefined
+  resolveCatSessionId?: () => Promise<string | null> | string | null
   onChanged?: (event: ObservationChangedEvent) => void
   onReaction?: (event: ObservationReactionEvent) => void
   logger?: Logger
+  random?: () => number
 }
 
 interface ActiveRunState {
@@ -46,7 +53,7 @@ interface ActiveRunState {
   abortController?: AbortController
   sourceId?: string
   busy: boolean
-  lastTriggeredAt?: UnixMs
+  queuedCapture: boolean
 }
 
 interface ResolvedModel {
@@ -57,7 +64,7 @@ interface ResolvedModel {
 interface ResolvedChain {
   chain: ObservationModelChain
   vision: ResolvedModel
-  reaction: ResolvedModel
+  reaction?: ResolvedModel
 }
 
 interface ObservationTickResult {
@@ -65,18 +72,25 @@ interface ObservationTickResult {
     metadata: ObservationCaptureMetadata
     dataUrl: string
   }
-  summary: string
+  terminal: ChatRunTerminalEvent
+  summary?: string
   candidate: ObservationReactionCandidate
   decision: ObservationReactionDecision
 }
+
+const visionTitle = '主动视觉'
+const captureMarkerText =
+  '[Vision capture: screenshot was used only for the current run and was not retained.]'
 
 export class ObservationManager {
   private readonly capture: DesktopCaptureAdapter
   private readonly providers: ProviderManager
   private readonly sessions: ChatSessionRepo
-  private readonly messages: ChatMessageRepo
   private readonly logger?: Logger
-  private readonly runs = new Map<string, ActiveRunState>()
+  private readonly random: () => number
+  private active: ActiveRunState | undefined
+  private lastRun: ObservationRun | undefined
+  private lastVisionSessionId: string | undefined
   private captureCountDate = ''
   private captureCount = 0
 
@@ -84,25 +98,27 @@ export class ObservationManager {
     this.capture = options.capture
     this.providers = options.providers
     this.sessions = options.sessions
-    this.messages = options.messages
     this.logger = options.logger
+    this.random = options.random ?? Math.random
   }
 
   async permissionStatus(): Promise<ObservationPermissionStatus> {
     return await this.capture.permissionStatus()
   }
 
-  async status(targetSessionId?: string): Promise<ObservationState> {
-    return this.snapshotState(await this.permissionStatus(), targetSessionId)
+  async status(visionSessionId?: string): Promise<ObservationState> {
+    return this.snapshotState(await this.permissionStatus(), visionSessionId)
   }
 
-  async start(request: StartObservationRequest): Promise<ObservationState> {
-    const settings = this.options.settings()
-    if (!settings.enabled) {
-      throw this.observationError('disabled', '请先在设置中启用主动视觉观察。', true)
+  async start(request: StartObservationRequest = {}): Promise<ObservationState> {
+    if (hasLegacyTargetSessionPayload(request as Record<string, unknown>)) {
+      throw this.observationError(
+        'invalid_request',
+        '主动视觉已迁移为独立 vision session，请通过 observation.start({ visionSessionId? }) 启动。',
+        true
+      )
     }
 
-    const session = this.requireSession(request.targetSessionId, request.targetSessionKind)
     const permission = await this.permissionStatus()
     if (permission.screen !== 'granted' && permission.screen !== 'unknown') {
       throw this.observationError(
@@ -112,30 +128,43 @@ export class ObservationManager {
       )
     }
 
-    this.stopBySession(session.id, 'user', false)
+    await this.assertModelPolicyBeforeCapture()
+    const session = await this.getOrCreateVisionSession(request.visionSessionId)
+    if (this.active) {
+      this.stopRun(this.active.run.id, 'user', false)
+    }
 
+    const settings = this.options.settings()
     const durationMs = this.normalizeDuration(request.durationMs, settings)
-    const intervalMs = this.normalizeInterval(request.intervalMs, settings)
-    const outputMode = normalizeOutputMode(request.outputMode, settings.outputMode)
-    const retention = normalizeRetention(request.retention, settings.retention)
+    const retention = normalizeScreenshotRetention(
+      request.screenshotRetention,
+      settings.screenshotRetention
+    )
     const run: ObservationRun = {
       id: crypto.randomUUID(),
-      targetSessionId: session.id,
-      targetSessionKind: session.kind === 'cat' ? 'cat' : 'chat',
-      surface:
-        request.surface ?? (session.kind === 'cat' || outputMode === 'ambient' ? 'cat' : 'chat'),
+      visionSessionId: session.id,
       status: 'active',
       startedAt: Date.now(),
       expiresAt: Date.now() + durationMs,
       durationMs,
-      intervalMs,
       scope: normalizeScope(request.scope, settings.defaultScope),
-      outputMode,
-      retention,
+      screenshotRetention: retention,
+      rule: {
+        evaluationIntervalMs: settings.evaluationIntervalMs,
+        captureProbability: settings.captureProbability,
+        minCaptureIntervalMs: settings.minCaptureIntervalMs,
+        dailyCaptureLimit: settings.dailyCaptureLimit,
+        consecutiveFailureLimit: settings.consecutiveFailureLimit,
+        notificationCooldownMs: settings.notificationCooldownMs,
+        capturesToday: this.captureCountForToday(),
+      },
+      notification: {
+        cooldownMs: settings.notificationCooldownMs,
+      },
       failureCount: 0,
     }
 
-    const resolved = await this.resolveModelChain(session, run)
+    const resolved = await this.resolveModelChain(run)
     run.visionModelRef = resolved.chain.visionModelRef
     run.reactionModelRef = resolved.chain.reactionModelRef
     run.modelChainMode = resolved.chain.mode
@@ -144,18 +173,22 @@ export class ObservationManager {
       run,
       sourceId: request.sourceId,
       busy: false,
+      queuedCapture: false,
     }
-    this.runs.set(run.id, state)
+    this.active = state
+    this.lastRun = undefined
+    this.lastVisionSessionId = session.id
     this.scheduleExpiration(state)
-    this.scheduleNextTick(state, 0)
-    this.logger?.info('Observation run started.', {
+    this.scheduleNextEvaluation(state, run.rule.evaluationIntervalMs)
+    this.logger?.info('Observation vision runtime started.', {
       runId: run.id,
-      sessionId: run.targetSessionId,
-      kind: run.targetSessionKind,
-      intervalMs: run.intervalMs,
+      visionSessionId: run.visionSessionId,
+      evaluationIntervalMs: run.rule.evaluationIntervalMs,
+      captureProbability: run.rule.captureProbability,
+      minCaptureIntervalMs: run.rule.minCaptureIntervalMs,
       durationMs: run.durationMs,
       scope: run.scope,
-      outputMode: run.outputMode,
+      screenshotRetention: run.screenshotRetention,
       modelChainMode: run.modelChainMode,
     })
     await this.emitChanged('started', run)
@@ -166,12 +199,10 @@ export class ObservationManager {
     const reason = request.reason ?? 'user'
     if (request.runId) {
       this.stopRun(request.runId, reason, true)
-    } else if (request.targetSessionId) {
-      this.stopBySession(request.targetSessionId, reason, true)
-    } else {
-      for (const runId of [...this.runs.keys()]) {
-        this.stopRun(runId, reason, true)
-      }
+    } else if (request.visionSessionId) {
+      this.stopIfSessionActive(request.visionSessionId, reason)
+    } else if (this.active) {
+      this.stopRun(this.active.run.id, reason, true)
     }
     return this.status()
   }
@@ -179,20 +210,23 @@ export class ObservationManager {
   async trigger(request: TriggerObservationRequest = {}): Promise<ObservationState> {
     const state = this.findRunState(request)
     if (!state) {
-      throw this.observationError('run_not_found', '没有正在运行的主动视觉观察。', true)
+      throw this.observationError('run_not_found', '没有正在运行的主动视觉。', true)
     }
-    await this.executeTick(state, 'manual')
+    await this.executeCapture(state, 'manual')
     return this.status()
   }
 
   async captureForTool(sessionId: string): Promise<ScreenObserveToolResult> {
-    const state = [...this.runs.values()].find(
-      (item) => item.run.targetSessionId === sessionId && item.run.status === 'active'
-    )
-    if (!state) {
+    const state = this.active
+    if (
+      !state ||
+      state.run.status !== 'active' ||
+      state.run.visionSessionId !== sessionId ||
+      state.busy
+    ) {
       throw this.observationError(
         'run_not_found',
-        '需要先在当前会话中启动限时观察，才能调用 screen_observe。',
+        'screen_observe 只能在当前 active vision runtime 的会话中使用。',
         true
       )
     }
@@ -212,14 +246,69 @@ export class ObservationManager {
     }
   }
 
+  stopIfSessionActive(
+    visionSessionId: string,
+    reason: NonNullable<StopObservationRequest['reason']> = 'session_deleted'
+  ): boolean {
+    if (this.active?.run.visionSessionId !== visionSessionId) {
+      return false
+    }
+    this.stopRun(this.active.run.id, reason, true)
+    return true
+  }
+
   dispose(reason: StopObservationRequest['reason'] = 'app_exit'): void {
-    for (const runId of [...this.runs.keys()]) {
-      this.stopRun(runId, reason, false)
+    if (this.active) {
+      this.stopRun(this.active.run.id, reason, false)
     }
     void this.capture.cleanupAll?.()
   }
 
-  private async executeTick(state: ActiveRunState, source: 'timer' | 'manual'): Promise<void> {
+  private async evaluateTick(state: ActiveRunState): Promise<void> {
+    const run = state.run
+    if (run.status !== 'active') {
+      return
+    }
+    run.rule.lastEvaluationAt = Date.now()
+    if (Date.now() >= run.expiresAt) {
+      this.stopRun(run.id, 'expired', true)
+      return
+    }
+    const skipReason = this.skipReasonForEvaluation(state, false)
+    if (skipReason) {
+      run.rule.skippedReason = skipReason
+      await this.emitChanged('evaluated', run)
+      this.scheduleNextEvaluation(state, run.rule.evaluationIntervalMs)
+      return
+    }
+    await this.executeCapture(state, 'timer')
+  }
+
+  private skipReasonForEvaluation(
+    state: ActiveRunState,
+    manual: boolean
+  ): ObservationRun['rule']['skippedReason'] | undefined {
+    const run = state.run
+    if (state.busy) {
+      state.queuedCapture = true
+      return 'busy'
+    }
+    if (this.captureCountForToday() >= this.options.settings().dailyCaptureLimit) {
+      return 'daily_limit'
+    }
+    if (
+      run.rule.lastAcceptedAt &&
+      Date.now() - run.rule.lastAcceptedAt < this.options.settings().minCaptureIntervalMs
+    ) {
+      return 'min_capture_interval'
+    }
+    if (!manual && this.random() > this.options.settings().captureProbability) {
+      return 'probability_miss'
+    }
+    return undefined
+  }
+
+  private async executeCapture(state: ActiveRunState, source: 'timer' | 'manual'): Promise<void> {
     const run = state.run
     if (run.status !== 'active') {
       return
@@ -230,21 +319,54 @@ export class ObservationManager {
     }
     if (state.busy) {
       if (source === 'timer') {
+        state.queuedCapture = true
         return
       }
       throw this.observationError('run_busy', '观察正在执行中，请稍后再试。', true)
     }
 
+    const skipReason = this.skipReasonForEvaluation(state, source === 'manual')
+    if (skipReason) {
+      run.rule.skippedReason = skipReason
+      await this.emitChanged(source === 'manual' ? 'updated' : 'evaluated', run)
+      if (source === 'manual') {
+        throw this.observationError(
+          skipReason === 'daily_limit'
+            ? 'daily_limit'
+            : skipReason === 'min_capture_interval'
+              ? 'min_capture_interval'
+              : 'run_busy',
+          '当前策略暂不允许立即观察。',
+          true
+        )
+      }
+      this.scheduleNextEvaluation(state, run.rule.evaluationIntervalMs)
+      return
+    }
+
     state.busy = true
     state.abortController = new AbortController()
-    state.lastTriggeredAt = Date.now()
+    run.rule.skippedReason = undefined
     try {
       const result = await this.performObservation(state, state.abortController.signal)
       run.lastCapture = result.frame.metadata
       run.lastDecision = result.decision
-      if (result.decision.mode !== 'silent') {
-        run.lastReactionAt = result.decision.createdAt
+      run.lastRunId = result.terminal.runId
+      run.lastAssistantMessageId = result.terminal.assistantMessageId
+      run.lastUserMessageId =
+        result.terminal.type === 'final' ? result.terminal.message.id : undefined
+      if (
+        result.decision.decision !== 'silent' &&
+        !result.decision.notificationSuppressed &&
+        result.decision.text
+      ) {
+        run.notification.lastNotificationAt = result.decision.createdAt
       }
+      if (result.decision.notificationSuppressed) {
+        run.notification.lastSuppressedAt = result.decision.createdAt
+      }
+      run.rule.lastAcceptedAt = result.frame.metadata.createdAt
+      run.rule.capturesToday = this.captureCountForToday()
       run.failureCount = 0
       run.error = undefined
       await this.dispatchDecision(run, result)
@@ -255,9 +377,9 @@ export class ObservationManager {
       } else {
         run.failureCount += 1
         run.error = normalizeObservationError(error)
-        this.logger?.warn('Observation tick failed.', {
+        this.logger?.warn('Observation capture failed.', {
           runId: run.id,
-          sessionId: run.targetSessionId,
+          visionSessionId: run.visionSessionId,
           errorCode: run.error.code,
           recoverable: run.error.recoverable,
         })
@@ -277,7 +399,13 @@ export class ObservationManager {
       state.busy = false
       state.abortController = undefined
       if (run.status === 'active') {
-        this.scheduleNextTick(state, run.intervalMs)
+        const shouldRunQueued = state.queuedCapture
+        state.queuedCapture = false
+        if (shouldRunQueued && source === 'timer') {
+          void this.executeCapture(state, 'timer')
+        } else {
+          this.scheduleNextEvaluation(state, run.rule.evaluationIntervalMs)
+        }
       }
     }
   }
@@ -286,34 +414,219 @@ export class ObservationManager {
     state: ActiveRunState,
     signal: AbortSignal
   ): Promise<ObservationTickResult> {
-    this.assertDailyLimit()
-    const session = this.requireSession(state.run.targetSessionId, state.run.targetSessionKind)
-    const resolved = await this.resolveModelChain(session, state.run)
+    await this.assertModelPolicyBeforeCapture()
+    const resolved = await this.resolveModelChain(state.run)
     const frame = await this.captureFrame(state)
     try {
-      const summary =
+      const result =
         resolved.chain.mode === 'split'
-          ? await this.generateVisionSummary(resolved, frame.dataUrl, signal)
-          : ''
-      const candidate =
-        resolved.chain.mode === 'split'
-          ? await this.generateReaction(resolved, session, summary, signal)
-          : await this.generateSingleModelReaction(resolved, session, frame.dataUrl, signal)
-      const decision = this.gateReaction(state.run, candidate, frame)
-      return {
-        frame: {
-          metadata: frame,
-          dataUrl: frame.dataUrl,
-        },
-        summary,
-        candidate,
-        decision,
-      }
+          ? await this.performSplitObservation(state.run, resolved, frame, signal)
+          : await this.performSingleObservation(state.run, resolved, frame, signal)
+      return result
     } finally {
-      if (state.run.retention === 'ephemeral') {
+      if (state.run.screenshotRetention === 'ephemeral') {
         await this.cleanupFrame(frame.captureId)
       }
     }
+  }
+
+  private async performSingleObservation(
+    run: ObservationRun,
+    resolved: ResolvedChain,
+    frame: Awaited<ReturnType<DesktopCaptureAdapter['capture']>>,
+    signal: AbortSignal
+  ): Promise<ObservationTickResult> {
+    const parts = this.captureParts(frame, run.screenshotRetention, {
+      prompt: OBSERVATION_PROMPTS.singleModelReactionUser({
+        sessionKind: 'vision',
+        sessionTitle: visionTitle,
+      }),
+    })
+    const terminal = await this.sendVisionTurn({
+      run,
+      frame,
+      providerId: resolved.vision.provider.id,
+      modelId: resolved.vision.model.id,
+      parts,
+      signal,
+      metadata: {
+        source: 'observation',
+        observationRunId: run.id,
+        captureId: frame.captureId,
+        phase: 'single_multimodal',
+        screenshotRetention: run.screenshotRetention,
+      },
+    })
+    const text = terminal.type === 'final' ? textFromParts(terminal.message.parts) : ''
+    const candidate = parseCandidate(text)
+    const decision = this.gateDecision(run, candidate, frame, terminal)
+    return {
+      frame: {
+        metadata: captureMetadata(frame),
+        dataUrl: frame.dataUrl,
+      },
+      terminal,
+      candidate,
+      decision,
+    }
+  }
+
+  private async performSplitObservation(
+    run: ObservationRun,
+    resolved: ResolvedChain,
+    frame: Awaited<ReturnType<DesktopCaptureAdapter['capture']>>,
+    signal: AbortSignal
+  ): Promise<ObservationTickResult> {
+    const visionTerminal = await this.sendVisionTurn({
+      run,
+      frame,
+      providerId: resolved.vision.provider.id,
+      modelId: resolved.vision.model.id,
+      parts: this.captureParts(frame, run.screenshotRetention, {
+        prompt: OBSERVATION_PROMPTS.visionSummaryUser,
+      }),
+      signal,
+      metadata: {
+        source: 'observation',
+        observationRunId: run.id,
+        captureId: frame.captureId,
+        phase: 'vision_summary',
+        screenshotRetention: run.screenshotRetention,
+      },
+    })
+    const summary =
+      visionTerminal.type === 'final' ? textFromParts(visionTerminal.message.parts) : ''
+    const reaction = resolved.reaction ?? resolved.vision
+    const reactionTerminal = await this.sendVisionTurn({
+      run,
+      providerId: reaction.provider.id,
+      modelId: reaction.model.id,
+      parts: [
+        {
+          type: 'plain',
+          text: OBSERVATION_PROMPTS.splitReactionUser({
+            sessionKind: 'vision',
+            sessionTitle: visionTitle,
+            summary,
+          }),
+        },
+      ],
+      signal,
+      metadata: {
+        source: 'observation',
+        observationRunId: run.id,
+        captureId: frame.captureId,
+        phase: 'reaction_decision',
+        summaryMessageId: visionTerminal.type === 'final' ? visionTerminal.message.id : undefined,
+      },
+    })
+    const text =
+      reactionTerminal.type === 'final' ? textFromParts(reactionTerminal.message.parts) : ''
+    const candidate = {
+      ...parseCandidate(text),
+      summary,
+    }
+    const decision = this.gateDecision(run, candidate, frame, reactionTerminal)
+    return {
+      frame: {
+        metadata: captureMetadata(frame),
+        dataUrl: frame.dataUrl,
+      },
+      terminal: reactionTerminal,
+      summary,
+      candidate,
+      decision,
+    }
+  }
+
+  private async sendVisionTurn(input: {
+    run: ObservationRun
+    frame?: Awaited<ReturnType<DesktopCaptureAdapter['capture']>>
+    providerId: string
+    modelId: string
+    parts: ChatMessagePart[]
+    signal: AbortSignal
+    metadata: Record<string, unknown>
+  }): Promise<ChatRunTerminalEvent> {
+    const chat = this.options.chatService?.()
+    if (!chat) {
+      throw this.observationError('provider_failed', '主动视觉聊天执行入口尚未初始化。', true)
+    }
+    const target = this.options.eventTarget?.()
+    if (!target) {
+      throw this.observationError('provider_failed', '主动视觉事件广播入口不可用。', true)
+    }
+    const response = await chat.sendInternalMessage(
+      {
+        sessionId: input.run.visionSessionId,
+        parts: input.parts,
+        providerId: input.providerId,
+        modelId: input.modelId,
+        mode: 'fast_chat',
+        toolProfile: 'minimal',
+        maxSteps: 1,
+        metadata: input.metadata,
+        transientImageInputs:
+          input.frame && input.run.screenshotRetention === 'ephemeral'
+            ? [
+                {
+                  captureId: input.frame.captureId,
+                  dataUrl: input.frame.dataUrl,
+                  mimeType: input.frame.mimeType,
+                  width: input.frame.width,
+                  height: input.frame.height,
+                  createdAt: input.frame.createdAt,
+                },
+              ]
+            : undefined,
+      },
+      target,
+      input.signal
+    )
+    const terminal = await response.terminalEvent
+    if (terminal.type === 'error') {
+      throw this.observationError(
+        terminal.error.code === 'aborted' ? 'aborted' : 'provider_failed',
+        terminal.error.message,
+        terminal.error.retryable
+      )
+    }
+    return terminal
+  }
+
+  private captureParts(
+    frame: Awaited<ReturnType<DesktopCaptureAdapter['capture']>>,
+    retention: ObservationScreenshotRetention,
+    options: { prompt: string }
+  ): ChatMessagePart[] {
+    const parts: ChatMessagePart[] = [
+      { type: 'plain', text: options.prompt },
+      {
+        type: 'vision_capture',
+        captureId: frame.captureId,
+        scope: frame.scope,
+        sourceId: frame.sourceId,
+        sourceType: frame.sourceType,
+        mimeType: frame.mimeType,
+        width: frame.width,
+        height: frame.height,
+        retention,
+        createdAt: frame.createdAt,
+        marker: retention === 'ephemeral' ? captureMarkerText : undefined,
+      },
+    ]
+    if (retention === 'persist') {
+      const attachmentId = frame.attachmentId
+      if (attachmentId) {
+        parts.push({
+          type: 'image',
+          attachmentId,
+          attachment_id: attachmentId,
+          filename: `vision-capture-${frame.captureId}.png`,
+        })
+      }
+    }
+    return parts
   }
 
   private async captureFrame(state: ActiveRunState) {
@@ -321,157 +634,75 @@ export class ObservationManager {
     try {
       frame = await this.capture.capture({
         runId: state.run.id,
+        visionSessionId: state.run.visionSessionId,
         scope: state.run.scope,
         sourceId: state.sourceId,
       })
     } catch {
       throw this.observationError('capture_failed', '屏幕截图失败，请检查权限或截图源。', true)
     }
-    frame.retention = state.run.retention
+    frame.retention = state.run.screenshotRetention
+    if (state.run.screenshotRetention === 'persist') {
+      const attachment = await this.persistFrameAttachment(frame)
+      frame.attachmentId = attachment
+    }
     this.captureCount += 1
-    const { dataUrl: _dataUrl, ...metadata } = frame
-    state.run.lastCapture = metadata
+    state.run.lastCapture = captureMetadata(frame)
     return frame
   }
 
-  private async generateVisionSummary(
-    resolved: ResolvedChain,
-    dataUrl: string,
-    signal: AbortSignal
-  ): Promise<string> {
-    const text = await this.callProviderText({
-      resolved: resolved.vision,
-      signal,
-      messages: [
-        {
-          role: 'system',
-          content: OBSERVATION_PROMPTS.visionSummarySystem,
-        },
-        {
-          role: 'user',
-          content: [
-            {
-              type: 'text',
-              text: OBSERVATION_PROMPTS.visionSummaryUser,
-            },
-            { type: 'image_url', image_url: { url: dataUrl } },
-          ],
-        },
-      ],
-    })
-    return text.trim()
-  }
-
-  private async generateReaction(
-    resolved: ResolvedChain,
-    session: ChatSession,
-    summary: string,
-    signal: AbortSignal
-  ): Promise<ObservationReactionCandidate> {
-    const text = await this.callProviderText({
-      resolved: resolved.reaction,
-      signal,
-      messages: [
-        {
-          role: 'system',
-          content: OBSERVATION_PROMPTS.splitReactionSystem,
-        },
-        {
-          role: 'user',
-          content: OBSERVATION_PROMPTS.splitReactionUser({
-            sessionKind: session.kind,
-            sessionTitle: session.title,
-            summary,
-          }),
-        },
-      ],
-    })
-    return parseCandidate(text)
-  }
-
-  private async generateSingleModelReaction(
-    resolved: ResolvedChain,
-    session: ChatSession,
-    dataUrl: string,
-    signal: AbortSignal
-  ): Promise<ObservationReactionCandidate> {
-    const text = await this.callProviderText({
-      resolved: resolved.vision,
-      signal,
-      messages: [
-        {
-          role: 'system',
-          content: OBSERVATION_PROMPTS.singleModelReactionSystem,
-        },
-        {
-          role: 'user',
-          content: [
-            {
-              type: 'text',
-              text: OBSERVATION_PROMPTS.singleModelReactionUser({
-                sessionKind: session.kind,
-                sessionTitle: session.title,
-              }),
-            },
-            { type: 'image_url', image_url: { url: dataUrl } },
-          ],
-        },
-      ],
-    })
-    return parseCandidate(text)
-  }
-
-  private async callProviderText(input: {
-    resolved: ResolvedModel
-    messages: ProviderMessage[]
-    signal: AbortSignal
-  }): Promise<string> {
-    const client: BaseProvider = await this.providers.createProviderClient(
-      input.resolved.provider.id
-    )
-    let result = ''
-    for await (const chunk of client.streamChat({
-      modelId: input.resolved.model.remoteId ?? input.resolved.model.id,
-      messages: input.messages,
-      temperature: 0.3,
-      abortSignal: input.signal,
-    })) {
-      if (chunk.type === 'delta' && chunk.content) {
-        result += chunk.content
-      }
+  private async persistFrameAttachment(
+    frame: Awaited<ReturnType<DesktopCaptureAdapter['capture']>>
+  ): Promise<string | undefined> {
+    const attachments = this.options.attachments
+    if (!attachments) {
+      throw this.observationError('capture_failed', '截图保留需要附件服务可用。', true)
     }
-    if (!result.trim()) {
-      throw this.observationError('provider_failed', '观察模型没有返回有效内容。', true)
+    const base64 = frame.dataUrl.split(',')[1]
+    if (!base64) {
+      throw this.observationError('capture_failed', '截图数据格式无效。', true)
     }
-    return result
+    const bytes = Uint8Array.from(Buffer.from(base64, 'base64'))
+    const uploaded = await attachments.upload({
+      name: `vision-capture-${frame.captureId}.png`,
+      mimeType: frame.mimeType,
+      bytes: bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength),
+    })
+    return uploaded.attachment.id
   }
 
-  private gateReaction(
+  private gateDecision(
     run: ObservationRun,
     candidate: ObservationReactionCandidate,
-    frame: ObservationCaptureMetadata
+    frame: ObservationCaptureMetadata,
+    terminal: ChatRunTerminalEvent
   ): ObservationReactionDecision {
     const now = Date.now()
     const text = sanitizeReactionText(candidate.text)
-    let mode: ObservationOutputMode = normalizeOutputMode(candidate.mode, run.outputMode)
-    if (run.outputMode === 'silent' || !text) {
-      mode = 'silent'
+    let decision = normalizeDecision(candidate.decision)
+    let suppressionReason: ObservationReactionDecision['suppressionReason']
+    if (!text && decision !== 'silent') {
+      decision = 'silent'
+      suppressionReason = 'empty_text'
     }
-    const cooldownMs = this.options.settings().reactionCooldownMs
-    if (mode !== 'silent' && run.lastReactionAt && now - run.lastReactionAt < cooldownMs) {
-      mode = 'silent'
-    }
-    if (mode === 'chat' && run.outputMode !== 'chat' && run.outputMode !== 'ask') {
-      mode = run.outputMode === 'ambient' ? 'ambient' : 'silent'
-    }
-    if (mode === 'ask' && run.outputMode !== 'ask') {
-      mode = run.outputMode === 'chat' ? 'chat' : run.outputMode
+    const cooldownMs = this.options.settings().notificationCooldownMs
+    if (
+      decision !== 'silent' &&
+      run.notification.lastNotificationAt &&
+      now - run.notification.lastNotificationAt < cooldownMs
+    ) {
+      suppressionReason = 'cooldown'
     }
     return {
-      mode,
-      text: mode === 'silent' ? undefined : text,
+      decision: suppressionReason ? 'silent' : decision,
+      text: suppressionReason || decision === 'silent' ? undefined : text,
       reason: truncate(candidate.reason, 180),
+      summary: truncate(candidate.summary, 2_000),
       captureId: frame.captureId,
+      runId: terminal.runId,
+      messageId: terminal.assistantMessageId,
+      notificationSuppressed: Boolean(suppressionReason),
+      suppressionReason,
       createdAt: now,
     }
   }
@@ -481,20 +712,21 @@ export class ObservationManager {
     result: ObservationTickResult
   ): Promise<void> {
     const decision = result.decision
-    if (decision.mode === 'silent' || !decision.text) {
+    if (decision.decision === 'silent' || !decision.text || decision.notificationSuppressed) {
       return
     }
-    if (decision.mode === 'chat' || run.surface === 'chat') {
-      this.appendChatMessage(run, decision)
+    const catSessionId = await this.options.resolveCatSessionId?.()
+    if (!catSessionId) {
       return
     }
     const event: ObservationReactionEvent = {
       id: crypto.randomUUID(),
       observationRunId: run.id,
-      targetSessionId: run.targetSessionId,
-      targetSessionKind: run.targetSessionKind,
-      surface: run.surface,
-      decision: decision.mode,
+      visionSessionId: run.visionSessionId,
+      catSessionId,
+      sourceRunId: decision.runId,
+      sourceMessageId: decision.messageId,
+      decision: decision.decision,
       text: decision.text,
       captureId: decision.captureId,
       createdAt: decision.createdAt,
@@ -502,40 +734,7 @@ export class ObservationManager {
     this.options.onReaction?.(event)
   }
 
-  private appendChatMessage(run: ObservationRun, decision: ObservationReactionDecision): void {
-    if (!decision.text) return
-    const now = Date.now()
-    const message: ChatMessage = {
-      id: crypto.randomUUID(),
-      sessionId: run.targetSessionId,
-      role: 'assistant',
-      status: 'complete',
-      parts: [{ type: 'plain', text: decision.text } satisfies ChatMessagePart],
-      providerId: run.reactionModelRef?.providerId ?? run.visionModelRef?.providerId,
-      modelId: run.reactionModelRef?.modelId ?? run.visionModelRef?.modelId,
-      metadata: {
-        source: 'observation',
-        observationRunId: run.id,
-        captureId: decision.captureId,
-        retention: run.retention,
-        decision: decision.mode,
-      },
-      createdAt: now,
-      updatedAt: now,
-    }
-    this.messages.save(message)
-    const messages = this.messages.listBySession(run.targetSessionId)
-    this.sessions.updateMessageSummary(run.targetSessionId, {
-      messageCount: messages.length,
-      lastMessagePreview: decision.text,
-      lastMessageAt: now,
-    })
-  }
-
-  private async resolveModelChain(
-    session: ChatSession,
-    run: ObservationRun
-  ): Promise<ResolvedChain> {
+  private async resolveModelChain(run: ObservationRun): Promise<ResolvedChain> {
     const registry = this.providers.loadRegistry().registry
     const settings = registry.settings
     const visionRef = run.visionModelRef ?? settings.observationVisionModelRef
@@ -558,27 +757,24 @@ export class ObservationManager {
       return this.toChain(vision, reaction, 'split')
     }
     if (vision) {
-      return this.toChain(vision, vision, 'single_multimodal')
+      return this.toChain(vision, undefined, 'single_multimodal')
     }
     if (reaction?.model && modelSupports(reaction.model, 'image')) {
-      return this.toChain(reaction, reaction, 'single_multimodal')
+      return this.toChain(reaction, undefined, 'single_multimodal')
     }
 
-    const fallbackVision = await this.findVisionFallback(session)
+    const fallbackVision = await this.findVisionFallback()
     if (!fallbackVision) {
       throw this.observationError('no_vision_model', '需要配置支持图片输入的视觉模型。', true)
     }
     return reaction
       ? this.toChain(fallbackVision, reaction, 'split')
-      : this.toChain(fallbackVision, fallbackVision, 'single_multimodal')
+      : this.toChain(fallbackVision, undefined, 'single_multimodal')
   }
 
-  private async findVisionFallback(session: ChatSession): Promise<ResolvedModel | undefined> {
-    const candidates: ProviderModelRef[] = []
-    if (session.defaultProviderId && session.defaultModelId) {
-      candidates.push({ providerId: session.defaultProviderId, modelId: session.defaultModelId })
-    }
+  private async findVisionFallback(): Promise<ResolvedModel | undefined> {
     const registry = this.providers.loadRegistry().registry
+    const candidates: ProviderModelRef[] = []
     if (registry.settings.defaultProviderId && registry.settings.defaultModelId) {
       candidates.push({
         providerId: registry.settings.defaultProviderId,
@@ -622,60 +818,113 @@ export class ObservationManager {
 
   private toChain(
     vision: ResolvedModel,
-    reaction: ResolvedModel,
+    reaction: ResolvedModel | undefined,
     mode: ObservationModelChain['mode']
   ): ResolvedChain {
     const chain: ObservationModelChain = {
       visionModelRef: { providerId: vision.provider.id, modelId: vision.model.id },
-      reactionModelRef: { providerId: reaction.provider.id, modelId: reaction.model.id },
+      reactionModelRef: reaction
+        ? { providerId: reaction.provider.id, modelId: reaction.model.id }
+        : undefined,
       mode,
     }
     return { chain, vision, reaction }
   }
 
+  private async assertModelPolicyBeforeCapture(): Promise<void> {
+    const settings = this.options.settings()
+    const resolved = await this.resolveModelChain({
+      id: 'policy-check',
+      visionSessionId: 'policy-check',
+      status: 'active',
+      startedAt: Date.now(),
+      expiresAt: Date.now(),
+      durationMs: 0,
+      scope: settings.defaultScope,
+      screenshotRetention: settings.screenshotRetention,
+      rule: {
+        evaluationIntervalMs: settings.evaluationIntervalMs,
+        captureProbability: settings.captureProbability,
+        minCaptureIntervalMs: settings.minCaptureIntervalMs,
+        dailyCaptureLimit: settings.dailyCaptureLimit,
+        consecutiveFailureLimit: settings.consecutiveFailureLimit,
+        notificationCooldownMs: settings.notificationCooldownMs,
+        capturesToday: this.captureCountForToday(),
+      },
+      notification: { cooldownMs: settings.notificationCooldownMs },
+      failureCount: 0,
+    })
+    const models = [resolved.vision, resolved.reaction].filter(Boolean) as ResolvedModel[]
+    const external = models.some((item) => isExternalProvider(item.provider))
+    if ((settings.localOnly || !settings.allowRemoteProviders) && external) {
+      throw this.observationError('privacy_policy', '当前主动视觉策略禁止使用外部 Provider。', true)
+    }
+  }
+
+  private async getOrCreateVisionSession(preferredId?: string): Promise<ChatSession> {
+    const preferred = preferredId ? this.sessions.get(preferredId) : undefined
+    if (preferred && preferred.status !== 'deleted' && preferred.kind === 'vision') {
+      return preferred
+    }
+    if (preferredId && preferred?.kind !== 'vision') {
+      throw this.observationError('invalid_request', '主动视觉只能绑定 vision session。', true)
+    }
+    const existing = this.sessions
+      .list({ kind: 'vision' })
+      .find((session) => session.status === 'active')
+    if (existing) {
+      return existing
+    }
+    const now = Date.now()
+    const session: ChatSession = {
+      id: crypto.randomUUID(),
+      title: visionTitle,
+      kind: 'vision',
+      status: 'active',
+      messageCount: 0,
+      contextPolicy: {
+        mode: 'summary-plus-recent',
+        keepRecentTurns: 6,
+        includeAttachments: 'current-only',
+      },
+      metadata: {
+        system: 'observation',
+      },
+      createdAt: now,
+      updatedAt: now,
+    }
+    this.sessions.save(session)
+    return this.sessions.get(session.id) ?? session
+  }
+
   private normalizeDuration(value: number | undefined, settings: DesktopObservationSettings) {
     const duration = Number.isFinite(value) ? Math.floor(Number(value)) : settings.defaultDurationMs
-    if (duration < settings.minDurationMs || duration > settings.maxDurationMs) {
+    if (duration < 10_000 || duration > 24 * 60 * 60_000) {
       throw this.observationError(
         'invalid_request',
-        `观察时长需在 ${settings.minDurationMs}ms 到 ${settings.maxDurationMs}ms 之间。`,
+        '观察时长需在 10000ms 到 86400000ms 之间。',
         true
       )
     }
     return duration
   }
 
-  private normalizeInterval(value: number | undefined, settings: DesktopObservationSettings) {
-    const interval = Number.isFinite(value) ? Math.floor(Number(value)) : settings.defaultIntervalMs
-    if (interval < settings.minIntervalMs) {
-      throw this.observationError(
-        'invalid_request',
-        `观察间隔不能低于 ${settings.minIntervalMs}ms。`,
-        true
-      )
-    }
-    return interval
-  }
-
-  private assertDailyLimit(): void {
+  private captureCountForToday(): number {
     const date = new Date().toISOString().slice(0, 10)
     if (this.captureCountDate !== date) {
       this.captureCountDate = date
       this.captureCount = 0
     }
-    const limit = this.options.settings().dailyCaptureLimit
-    if (this.captureCount >= limit) {
-      throw this.observationError('invalid_request', '今日主动观察截图次数已达到上限。', true)
-    }
+    return this.captureCount
   }
 
-  private scheduleNextTick(state: ActiveRunState, delayMs: number): void {
+  private scheduleNextEvaluation(state: ActiveRunState, delayMs: number): void {
     if (state.timer) {
       clearTimeout(state.timer)
     }
     state.timer = setTimeout(
       () => {
-        void this.executeTick(state, 'timer')
+        void this.evaluateTick(state)
       },
       Math.max(0, delayMs)
     )
@@ -699,7 +948,7 @@ export class ObservationManager {
     emit: boolean,
     error?: ObservationErrorInfo
   ): void {
-    const state = this.runs.get(runId)
+    const state = this.active?.run.id === runId ? this.active : undefined
     if (!state) return
     if (state.timer) clearTimeout(state.timer)
     if (state.expirationTimer) clearTimeout(state.expirationTimer)
@@ -709,11 +958,12 @@ export class ObservationManager {
     state.run.stopReason = reason
     state.run.stoppedAt = stoppedAt
     state.run.error = error ?? state.run.error
-    this.runs.delete(runId)
+    this.active = undefined
+    this.lastRun = cloneRun(state.run)
     void this.capture.cleanupAll?.()
-    this.logger?.info('Observation run stopped.', {
+    this.logger?.info('Observation vision runtime stopped.', {
       runId,
-      sessionId: state.run.targetSessionId,
+      visionSessionId: state.run.visionSessionId,
       reason,
       status: state.run.status,
       errorCode: state.run.error?.code,
@@ -731,43 +981,17 @@ export class ObservationManager {
     }
   }
 
-  private stopBySession(
-    sessionId: string,
-    reason: NonNullable<StopObservationRequest['reason']>,
-    emit: boolean
-  ): void {
-    for (const [runId, state] of this.runs.entries()) {
-      if (state.run.targetSessionId === sessionId) {
-        this.stopRun(runId, reason, emit)
-      }
-    }
-  }
-
   private findRunState(request: TriggerObservationRequest): ActiveRunState | undefined {
-    if (request.runId) {
-      return this.runs.get(request.runId)
+    if (!this.active) {
+      return undefined
     }
-    if (request.targetSessionId) {
-      return [...this.runs.values()].find(
-        (item) => item.run.targetSessionId === request.targetSessionId
-      )
+    if (request.runId && request.runId !== this.active.run.id) {
+      return undefined
     }
-    return [...this.runs.values()][0]
-  }
-
-  private requireSession(targetSessionId: string, kind?: string): ChatSession {
-    const session = this.sessions.get(targetSessionId)
-    if (!session || session.status === 'deleted') {
-      throw this.observationError('session_not_found', '目标会话不存在。', true)
+    if (request.visionSessionId && request.visionSessionId !== this.active.run.visionSessionId) {
+      return undefined
     }
-    const sessionKind = session.kind ?? 'chat'
-    if (sessionKind !== 'chat' && sessionKind !== 'cat') {
-      throw this.observationError('invalid_request', '主动观察只能绑定 chat 或 cat 会话。', true)
-    }
-    if (kind && kind !== sessionKind) {
-      throw this.observationError('invalid_request', '观察请求的会话类型与目标会话不一致。', true)
-    }
-    return session
+    return this.active
   }
 
   private async cleanupFrame(captureId: string): Promise<void> {
@@ -786,7 +1010,8 @@ export class ObservationManager {
     const event: ObservationChangedEvent = {
       reason,
       run: run ? cloneRun(run) : undefined,
-      activeRuns: [...this.runs.values()].map((item) => cloneRun(item.run)),
+      activeRuns: this.active ? [cloneRun(this.active.run)] : [],
+      runtime: this.runtimeState(run),
       error,
       updatedAt: Date.now(),
     }
@@ -795,15 +1020,50 @@ export class ObservationManager {
 
   private async snapshotState(
     permission: ObservationPermissionStatus,
-    targetSessionId?: string
+    visionSessionId?: string
   ): Promise<ObservationState> {
-    const activeRuns = [...this.runs.values()]
-      .map((item) => item.run)
-      .filter((run) => !targetSessionId || run.targetSessionId === targetSessionId)
+    const activeRuns = this.active ? [this.active.run] : []
+    const filtered = activeRuns
+      .filter((run) => !visionSessionId || run.visionSessionId === visionSessionId)
       .map(cloneRun)
+    const runtimeRun =
+      filtered[0] ??
+      (!this.active && (!visionSessionId || this.lastRun?.visionSessionId === visionSessionId)
+        ? this.lastRun
+        : undefined)
     return {
-      activeRuns,
+      activeRuns: filtered,
+      runtime: this.runtimeState(runtimeRun),
+      visionSessionId:
+        this.active?.run.visionSessionId ??
+        this.lastRun?.visionSessionId ??
+        this.lastVisionSessionId,
       permission,
+      updatedAt: Date.now(),
+    }
+  }
+
+  private runtimeState(
+    run: ObservationRun | undefined = this.active?.run
+  ): ObservationRuntimeState {
+    if (!run || run.status !== 'active') {
+      return {
+        active: false,
+        status: run?.status ?? 'inactive',
+        visionSessionId: run?.visionSessionId ?? this.lastVisionSessionId,
+        runId: run?.id,
+        updatedAt: Date.now(),
+      }
+    }
+    return {
+      active: true,
+      status: run.status,
+      visionSessionId: run.visionSessionId,
+      runId: run.id,
+      startedAt: run.startedAt,
+      expiresAt: run.expiresAt,
+      remainingMs: Math.max(0, run.expiresAt - Date.now()),
+      busy: this.active?.busy,
       updatedAt: Date.now(),
     }
   }
@@ -835,6 +1095,20 @@ export class ObservationRuntimeError extends Error {
   }
 }
 
+function captureMetadata(frame: ObservationCaptureMetadata): ObservationCaptureMetadata {
+  return {
+    captureId: frame.captureId,
+    scope: frame.scope,
+    sourceId: frame.sourceId,
+    sourceType: frame.sourceType,
+    mimeType: frame.mimeType,
+    width: frame.width,
+    height: frame.height,
+    createdAt: frame.createdAt,
+    retention: frame.retention,
+  }
+}
+
 function normalizeObservationError(error: unknown): ObservationErrorInfo {
   if (error instanceof ObservationRuntimeError) {
     return error.details
@@ -854,21 +1128,34 @@ function modelSupports(model: ProviderModelRecord, input: 'text' | 'image'): boo
   return inputs.includes(input)
 }
 
+function isExternalProvider(provider: ProviderRecord): boolean {
+  const baseUrl = provider.baseUrl || ''
+  if (!baseUrl) return false
+  try {
+    const host = new URL(baseUrl).hostname.toLowerCase()
+    return host !== 'localhost' && host !== '127.0.0.1' && host !== '::1'
+  } catch {
+    return true
+  }
+}
+
 function parseCandidate(raw: string): ObservationReactionCandidate {
   const json = extractJson(raw)
   if (json) {
     try {
       const parsed = JSON.parse(json) as Record<string, unknown>
+      const mode = parsed.mode ?? parsed.decision
       return {
         text: sanitizeReactionText(parsed.text),
-        mode: isOutputMode(parsed.mode) ? parsed.mode : undefined,
+        decision: normalizeDecision(mode),
         reason: typeof parsed.reason === 'string' ? parsed.reason : undefined,
+        summary: typeof parsed.summary === 'string' ? parsed.summary : undefined,
       }
     } catch {
       // Fall through to plain text.
     }
   }
-  return { text: sanitizeReactionText(raw) }
+  return { text: sanitizeReactionText(raw), decision: 'notify' }
 }
 
 function extractJson(value: string): string | undefined {
@@ -908,22 +1195,17 @@ function normalizeScope(
     : fallback
 }
 
-function normalizeOutputMode(
-  value: ObservationOutputMode | undefined,
-  fallback: ObservationOutputMode
-): ObservationOutputMode {
-  return isOutputMode(value) ? value : fallback
+function normalizeScreenshotRetention(
+  value: ObservationScreenshotRetention | undefined,
+  fallback: ObservationScreenshotRetention
+): ObservationScreenshotRetention {
+  return value === 'ephemeral' || value === 'persist' ? value : fallback
 }
 
-function normalizeRetention(
-  value: ObservationRetention | undefined,
-  fallback: ObservationRetention
-): ObservationRetention {
-  return value === 'ephemeral' || value === 'save_to_chat' ? value : fallback
-}
-
-function isOutputMode(value: unknown): value is ObservationOutputMode {
-  return value === 'silent' || value === 'ambient' || value === 'chat' || value === 'ask'
+function normalizeDecision(value: unknown): ObservationDecision {
+  if (value === 'ask') return 'ask'
+  if (value === 'notify' || value === 'ambient' || value === 'chat') return 'notify'
+  return 'silent'
 }
 
 function cloneRun(run: ObservationRun): ObservationRun {
@@ -935,4 +1217,19 @@ function isAbortError(error: unknown): boolean {
     (error instanceof DOMException && error.name === 'AbortError') ||
     (error instanceof Error && error.name === 'AbortError')
   )
+}
+
+function textFromParts(parts: ChatMessagePart[]): string {
+  return parts
+    .map((part) => {
+      const record = part as Record<string, unknown>
+      return part.type === 'plain' && typeof record.text === 'string' ? record.text : ''
+    })
+    .filter(Boolean)
+    .join('\n')
+    .trim()
+}
+
+function hasLegacyTargetSessionPayload(request: Record<string, unknown>): boolean {
+  return 'targetSessionId' in request || 'targetSessionKind' in request
 }

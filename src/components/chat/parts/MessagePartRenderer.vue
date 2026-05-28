@@ -15,6 +15,7 @@ import {
   replyMessageId,
   replyPreview,
   toolCalls,
+  visionCaptureLabel,
 } from '../chat-display'
 import MarkdownMessagePart from './MarkdownMessagePart.vue'
 import ToolCallCard from './ToolCallCard.vue'
@@ -99,6 +100,18 @@ function jumpReply() {
     <FileDownIcon aria-hidden="true" />
     <span class="truncate">{{ attachmentLabel(part) }}</span>
   </a>
+
+  <Badge
+    v-else-if="part.type === 'vision_capture'"
+    variant="secondary"
+    class="max-w-full justify-start"
+  >
+    <component
+      :is="attachmentIcon(part)"
+      data-icon="inline-start"
+    />
+    <span class="truncate">{{ visionCaptureLabel(part) }}</span>
+  </Badge>
 
   <Badge
     v-else-if="isAttachmentPart(part)"

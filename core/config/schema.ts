@@ -150,18 +150,17 @@ export const defaultConfig: DesktopSettingsConfig = {
     misfireStartupLimit: 3,
   },
   observation: {
-    enabled: false,
-    defaultIntervalMs: 60_000,
+    evaluationIntervalMs: 60_000,
+    captureProbability: 0.25,
+    minCaptureIntervalMs: 60_000,
     defaultDurationMs: 5 * 60_000,
     defaultScope: 'primary_display',
-    outputMode: 'ambient',
-    retention: 'ephemeral',
-    minIntervalMs: 15_000,
-    minDurationMs: 60_000,
-    maxDurationMs: 30 * 60_000,
+    screenshotRetention: 'ephemeral',
+    allowRemoteProviders: false,
+    localOnly: true,
     dailyCaptureLimit: 200,
     consecutiveFailureLimit: 3,
-    reactionCooldownMs: 90_000,
+    notificationCooldownMs: 90_000,
   },
 }
 
@@ -877,9 +876,9 @@ function validateWorkspaceSettings(
     })
     return
   }
-  settings.externalRoots.forEach((grant, index) =>
+  settings.externalRoots.forEach((grant, index) => {
     validateExternalRootGrant(grant, `${path}.externalRoots.${index}`, issues)
-  )
+  })
 }
 
 function validateExternalRootGrant(
@@ -1121,13 +1120,6 @@ function validateObservation(
     return
   }
 
-  if (typeof settings.enabled !== 'boolean') {
-    issues.push({
-      path: 'observation.enabled',
-      message: 'Observation enabled state must be boolean.',
-      code: 'invalid_type',
-    })
-  }
   if (!isObservationScope(settings.defaultScope)) {
     issues.push({
       path: 'observation.defaultScope',
@@ -1135,52 +1127,31 @@ function validateObservation(
       code: 'invalid_enum',
     })
   }
-  if (!isObservationOutputMode(settings.outputMode)) {
+  if (!isObservationScreenshotRetention(settings.screenshotRetention)) {
     issues.push({
-      path: 'observation.outputMode',
-      message: 'Observation output mode is invalid.',
-      code: 'invalid_enum',
-    })
-  }
-  if (!isObservationRetention(settings.retention)) {
-    issues.push({
-      path: 'observation.retention',
+      path: 'observation.screenshotRetention',
       message: 'Observation retention policy is invalid.',
       code: 'invalid_enum',
     })
   }
   validateIntegerRange(
-    settings.minIntervalMs,
-    'observation.minIntervalMs',
-    5_000,
-    10 * 60_000,
-    issues
-  )
-  validateIntegerRange(
-    settings.defaultIntervalMs,
-    'observation.defaultIntervalMs',
+    settings.evaluationIntervalMs,
+    'observation.evaluationIntervalMs',
     5_000,
     60 * 60_000,
     issues
   )
   validateIntegerRange(
-    settings.minDurationMs,
-    'observation.minDurationMs',
-    10_000,
-    60 * 60_000,
+    settings.minCaptureIntervalMs,
+    'observation.minCaptureIntervalMs',
+    5_000,
+    24 * 60 * 60_000,
     issues
   )
   validateIntegerRange(
     settings.defaultDurationMs,
     'observation.defaultDurationMs',
     10_000,
-    24 * 60 * 60_000,
-    issues
-  )
-  validateIntegerRange(
-    settings.maxDurationMs,
-    'observation.maxDurationMs',
-    60_000,
     24 * 60 * 60_000,
     issues
   )
@@ -1199,32 +1170,36 @@ function validateObservation(
     issues
   )
   validateIntegerRange(
-    settings.reactionCooldownMs,
-    'observation.reactionCooldownMs',
+    settings.notificationCooldownMs,
+    'observation.notificationCooldownMs',
     0,
     60 * 60_000,
     issues
   )
 
-  if (settings.defaultIntervalMs < settings.minIntervalMs) {
+  if (
+    !isFiniteNumber(settings.captureProbability) ||
+    settings.captureProbability < 0 ||
+    settings.captureProbability > 1
+  ) {
     issues.push({
-      path: 'observation.defaultIntervalMs',
-      message: 'Observation interval must be at least the configured minimum interval.',
+      path: 'observation.captureProbability',
+      message: 'Observation capture probability must be a number between 0 and 1.',
       code: 'out_of_range',
     })
   }
-  if (settings.defaultDurationMs < settings.minDurationMs) {
+  if (typeof settings.allowRemoteProviders !== 'boolean') {
     issues.push({
-      path: 'observation.defaultDurationMs',
-      message: 'Observation duration must be at least the configured minimum duration.',
-      code: 'out_of_range',
+      path: 'observation.allowRemoteProviders',
+      message: 'Observation remote provider allowance must be boolean.',
+      code: 'invalid_type',
     })
   }
-  if (settings.defaultDurationMs > settings.maxDurationMs) {
+  if (typeof settings.localOnly !== 'boolean') {
     issues.push({
-      path: 'observation.defaultDurationMs',
-      message: 'Observation duration must not exceed the configured maximum duration.',
-      code: 'out_of_range',
+      path: 'observation.localOnly',
+      message: 'Observation local-only setting must be boolean.',
+      code: 'invalid_type',
     })
   }
 }
@@ -1279,14 +1254,10 @@ function isObservationScope(value: unknown): value is DesktopObservationSettings
   return value === 'primary_display' || value === 'selected_display' || value === 'selected_window'
 }
 
-function isObservationOutputMode(
+function isObservationScreenshotRetention(
   value: unknown
-): value is DesktopObservationSettings['outputMode'] {
-  return value === 'silent' || value === 'ambient' || value === 'chat' || value === 'ask'
-}
-
-function isObservationRetention(value: unknown): value is DesktopObservationSettings['retention'] {
-  return value === 'ephemeral' || value === 'save_to_chat'
+): value is DesktopObservationSettings['screenshotRetention'] {
+  return value === 'ephemeral' || value === 'persist'
 }
 
 function normalizeChatContextSettings(
@@ -1371,28 +1342,45 @@ function normalizeObservationSettings(rawValue: unknown): DesktopObservationSett
     ])
   }
 
+  const legacyRetention = rawValue.retention === 'persist' ? 'persist' : 'ephemeral'
   return {
-    enabled: typeof rawValue.enabled === 'boolean' ? rawValue.enabled : defaults.enabled,
-    defaultIntervalMs: integerOrDefault(rawValue.defaultIntervalMs, defaults.defaultIntervalMs),
-    defaultDurationMs: integerOrDefault(rawValue.defaultDurationMs, defaults.defaultDurationMs),
+    evaluationIntervalMs: integerOrDefault(
+      rawValue.evaluationIntervalMs ?? rawValue.defaultIntervalMs ?? rawValue.intervalMs,
+      defaults.evaluationIntervalMs
+    ),
+    captureProbability:
+      typeof rawValue.captureProbability === 'number' &&
+      Number.isFinite(rawValue.captureProbability)
+        ? rawValue.captureProbability
+        : defaults.captureProbability,
+    minCaptureIntervalMs: integerOrDefault(
+      rawValue.minCaptureIntervalMs ?? rawValue.minIntervalMs,
+      defaults.minCaptureIntervalMs
+    ),
+    defaultDurationMs: integerOrDefault(
+      rawValue.defaultDurationMs ?? rawValue.durationMs,
+      defaults.defaultDurationMs
+    ),
     defaultScope: (rawValue.defaultScope === undefined
       ? defaults.defaultScope
       : rawValue.defaultScope) as DesktopObservationSettings['defaultScope'],
-    outputMode: (rawValue.outputMode === undefined
-      ? defaults.outputMode
-      : rawValue.outputMode) as DesktopObservationSettings['outputMode'],
-    retention: (rawValue.retention === undefined
-      ? defaults.retention
-      : rawValue.retention) as DesktopObservationSettings['retention'],
-    minIntervalMs: integerOrDefault(rawValue.minIntervalMs, defaults.minIntervalMs),
-    minDurationMs: integerOrDefault(rawValue.minDurationMs, defaults.minDurationMs),
-    maxDurationMs: integerOrDefault(rawValue.maxDurationMs, defaults.maxDurationMs),
+    screenshotRetention: (rawValue.screenshotRetention === undefined
+      ? legacyRetention
+      : rawValue.screenshotRetention) as DesktopObservationSettings['screenshotRetention'],
+    allowRemoteProviders:
+      typeof rawValue.allowRemoteProviders === 'boolean'
+        ? rawValue.allowRemoteProviders
+        : defaults.allowRemoteProviders,
+    localOnly: typeof rawValue.localOnly === 'boolean' ? rawValue.localOnly : defaults.localOnly,
     dailyCaptureLimit: integerOrDefault(rawValue.dailyCaptureLimit, defaults.dailyCaptureLimit),
     consecutiveFailureLimit: integerOrDefault(
       rawValue.consecutiveFailureLimit,
       defaults.consecutiveFailureLimit
     ),
-    reactionCooldownMs: integerOrDefault(rawValue.reactionCooldownMs, defaults.reactionCooldownMs),
+    notificationCooldownMs: integerOrDefault(
+      rawValue.notificationCooldownMs ?? rawValue.reactionCooldownMs ?? rawValue.cooldownMs,
+      defaults.notificationCooldownMs
+    ),
   }
 }
 

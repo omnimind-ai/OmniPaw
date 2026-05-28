@@ -1,5 +1,5 @@
 import { join } from 'node:path'
-
+import type { ChatRunEventTarget } from '@core/chat/run-manager'
 import { createElectronLogSink, createProjectLogger } from '@core/logging'
 import { resolveOpenOmniClawDataPaths } from '@core/utils/data-paths'
 import { APP_NAME, IPC_CHANNELS } from '@shared/constants'
@@ -27,7 +27,6 @@ import {
   setActiveCatSessionId,
   setCatSessionIdResolver,
   setCatWindowLogger,
-  setChatSessionOpener,
   showCatWindow,
 } from './cat-window'
 import {
@@ -137,14 +136,14 @@ function showMainWindow(): void {
   mainWindowController?.show()
 }
 
-function openMainChatSession(sessionId: string): void {
+function openMainChatSession(sessionId: string, kind?: OpenChatSessionRequest['kind']): void {
   showMainWindow()
   const window = mainWindowController?.getWindow()
   if (!window || window.isDestroyed()) {
     return
   }
 
-  const request: OpenChatSessionRequest = { sessionId }
+  const request: OpenChatSessionRequest = { sessionId, kind }
   const send = () => {
     if (!window.isDestroyed()) {
       window.webContents.send(IPC_CHANNELS.app.navigateToChat, request)
@@ -291,7 +290,7 @@ function broadcastObservationChanged(event: ObservationChangedEvent): void {
     window.webContents.send(IPC_CHANNELS.observation.changed, event)
   }
 
-  const sessionId = event.run?.targetSessionId
+  const sessionId = event.run?.visionSessionId
   if (!sessionId) {
     return
   }
@@ -312,8 +311,19 @@ function broadcastObservationChanged(event: ObservationChangedEvent): void {
 }
 
 function broadcastObservationReaction(event: ObservationReactionEvent): void {
-  if (event.surface === 'cat') {
-    sendCatObservationReaction(event)
+  for (const window of BrowserWindow.getAllWindows()) {
+    window.webContents.send(IPC_CHANNELS.observation.notification, event)
+  }
+  sendCatObservationReaction(event)
+}
+
+function createBroadcastChatEventTarget(): ChatRunEventTarget {
+  return {
+    send(channel, event) {
+      for (const window of BrowserWindow.getAllWindows()) {
+        window.webContents.send(channel, event)
+      }
+    },
   }
 }
 
@@ -336,11 +346,12 @@ app
       onSkillChanged: broadcastSkillChanged,
       onObservationChanged: broadcastObservationChanged,
       onObservationReaction: broadcastObservationReaction,
+      chatEventTarget: createBroadcastChatEventTarget,
+      resolveCatSessionId: () => resolveRuntimeCatSessionId(getActiveCatSessionId()),
     })
     createControllers()
     setCatWindowLogger(mainLogger.child({ scope: 'cat' }))
     setCatSessionIdResolver(resolveRuntimeCatSessionId)
-    setChatSessionOpener(openMainChatSession)
     catNotificationController = createCatNotificationControllerForRuntime()
     catNotificationController.registerIpcHandlers()
     registerCatWindowIpcHandlers()

@@ -16,7 +16,7 @@ export function registerAppIpcHandlers(options: IpcHandlerOptions): void {
       if (!sessionId) {
         throw new Error('openChatSession requires sessionId.')
       }
-      options.openChatSession?.(sessionId)
+      options.openChatSession?.(sessionId, normalizeKind(request))
     }
   )
 }
@@ -29,4 +29,13 @@ function normalizeSessionId(request: unknown): string {
     return request.sessionId.trim()
   }
   return ''
+}
+
+function normalizeKind(request: unknown): 'chat' | 'cat' | 'vision' | undefined {
+  if (!isRecord(request)) {
+    return undefined
+  }
+  return request.kind === 'cat' || request.kind === 'vision' || request.kind === 'chat'
+    ? request.kind
+    : undefined
 }

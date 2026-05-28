@@ -6,7 +6,13 @@ import type { ChatMessageRepo, ChatRunRepo } from '@core/db/repos'
 import type { Logger } from '@core/logging'
 import type { ProviderManager } from '@core/provider/manager'
 import type { SkillManager } from '@core/skill/skill-manager'
-import type { ChatRun, ChatRunMode, ChatSession, ToolProfile } from '@shared/types/chat'
+import type {
+  ChatRun,
+  ChatRunMode,
+  ChatSession,
+  ToolProfile,
+  TransientChatImageInput,
+} from '@shared/types/chat'
 import type { ProviderConfig, ProviderModel } from '@shared/types/provider'
 import type { DesktopChatContextSettings, DesktopToolSettings } from '@shared/types/settings'
 import { AgentRunFinalizer } from './run/finalize'
@@ -46,6 +52,7 @@ export interface AgentRunInput {
   mode?: ChatRunMode
   toolProfile?: ToolProfile
   maxSteps?: number
+  transientImageInputs?: TransientChatImageInput[]
 }
 
 export class AgentRunner {

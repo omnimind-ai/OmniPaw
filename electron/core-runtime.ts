@@ -7,6 +7,7 @@ import { AttachmentService } from '@core/chat/attachment-service'
 import { ChatService } from '@core/chat/chat-service'
 import { ContextCompactionService } from '@core/chat/context-compaction'
 import { ContextBuilder } from '@core/chat/context-manager'
+import type { ChatRunEventTarget } from '@core/chat/run-manager'
 import { RunManager } from '@core/chat/run-manager'
 import { ConfigValidationError } from '@core/config/schema'
 import { ConfigStore } from '@core/config/store'
@@ -62,6 +63,8 @@ interface CoreRuntimeOptions {
   onSkillChanged: (event: SkillChangedEvent) => void
   onObservationChanged: (event: ObservationChangedEvent) => void
   onObservationReaction: (event: ObservationReactionEvent) => void
+  chatEventTarget?: () => ChatRunEventTarget | undefined
+  resolveCatSessionId?: () => Promise<string | null> | string | null
 }
 
 export interface CoreRuntime {
@@ -237,23 +240,27 @@ export function createCoreRuntime(options: CoreRuntimeOptions): CoreRuntime {
     tempDir: dataPaths.observationTemp,
   })
   void desktopCapture.cleanupAll()
-  const observationManager = new ObservationManager({
-    capture: desktopCapture,
-    settings: () => configStore.get().observation,
-    providers: providerManager,
-    sessions: sessionRepo,
-    messages: messageRepo,
-    onChanged: options.onObservationChanged,
-    onReaction: options.onObservationReaction,
-    logger: coreLogger.child({ scope: 'observation' }),
-  })
   const contextBuilder = new ContextBuilder(attachmentService, {
     summaries: contextSummaryRepo,
     contextDefaults: () => configStore.get().app.chatContext,
   })
   const contextCompaction = new ContextCompactionService(contextSummaryRepo)
   const runManager = new RunManager(runRepo)
-  const chatService = new ChatService({
+  let chatService: ChatService
+  const observationManager = new ObservationManager({
+    capture: desktopCapture,
+    settings: () => configStore.get().observation,
+    providers: providerManager,
+    sessions: sessionRepo,
+    attachments: attachmentService,
+    chatService: () => chatService,
+    eventTarget: options.chatEventTarget,
+    resolveCatSessionId: options.resolveCatSessionId,
+    onChanged: options.onObservationChanged,
+    onReaction: options.onObservationReaction,
+    logger: coreLogger.child({ scope: 'observation' }),
+  })
+  chatService = new ChatService({
     sessions: sessionRepo,
     messages: messageRepo,
     runs: runRepo,

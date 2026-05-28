@@ -14,8 +14,7 @@ import type {
   SendMessageResponse,
   ToolProfile,
 } from '@shared/types/chat'
-import type { WebContents } from 'electron'
-import type { RunManager } from '../run-manager'
+import type { ChatRunEventTarget, ChatRunTerminalEvent, RunManager } from '../run-manager'
 import { resolveProviderAndModel } from './provider-selector'
 import { responseFromRun } from './response'
 import { prepareSendRecords } from './send-preparation'
@@ -34,16 +33,51 @@ export interface ChatRunOrchestratorOptions {
   logger?: Logger
 }
 
+export interface InternalSendMessageResponse extends SendMessageResponse {
+  terminalEvent: Promise<ChatRunTerminalEvent>
+}
+
 export class ChatRunOrchestrator {
   constructor(private readonly options: ChatRunOrchestratorOptions) {}
 
   async sendMessage(
     request: SendMessageRequest,
-    webContents: WebContents
+    target: ChatRunEventTarget
   ): Promise<SendMessageResponse> {
+    const { terminalEvent: _terminalEvent, ...response } = await this.sendMessageToTarget(
+      request,
+      target,
+      { generateTitle: request.titleGeneration !== false }
+    )
+    return response
+  }
+
+  async sendInternalMessage(
+    request: SendMessageRequest,
+    target: ChatRunEventTarget,
+    signal?: AbortSignal
+  ): Promise<InternalSendMessageResponse> {
+    return this.sendMessageToTarget(request, target, {
+      generateTitle: false,
+      signal,
+    })
+  }
+
+  private async sendMessageToTarget(
+    request: SendMessageRequest,
+    target: ChatRunEventTarget,
+    options: {
+      generateTitle: boolean
+      signal?: AbortSignal
+    }
+  ): Promise<InternalSendMessageResponse> {
     const existing = this.options.runManager.getExistingIdempotentRun(request.idempotencyKey)
     if (existing) {
-      return responseFromRun(existing)
+      const response = responseFromRun(existing)
+      return {
+        ...response,
+        terminalEvent: this.options.runManager.waitForTerminalEvent(existing.id, options.signal),
+      }
     }
 
     const session = this.requireSession(request.sessionId)
@@ -69,7 +103,11 @@ export class ChatRunOrchestrator {
       attachmentLinks.map((link) => ({ ...link, messageId: userMessage.id }))
     )
     this.options.runs.save(run)
-    const signal = this.options.runManager.start(run.id, webContents)
+    const signal = this.options.runManager.start(run.id, target)
+    const terminalEvent = this.options.runManager.waitForTerminalEvent(run.id, options.signal)
+    const abort = () => this.options.runManager.abort(run.id, 'external_abort')
+    options.signal?.addEventListener('abort', abort, { once: true })
+    terminalEvent.finally(() => options.signal?.removeEventListener('abort', abort)).catch(() => {})
     const toolProfile = request.toolProfile ?? this.options.agentToolProfile?.()
     this.options.runManager.emit({
       type: 'started',
@@ -88,8 +126,11 @@ export class ChatRunOrchestrator {
       mode: request.mode,
       toolProfile,
       maxSteps: request.maxSteps,
+      transientImageInputs: request.transientImageInputs,
     })
-    void this.options.titleGenerator.generateFromMessage(session.id, userMessage.id, webContents)
+    if (options.generateTitle && session.kind !== 'vision') {
+      void this.options.titleGenerator.generateFromMessage(session.id, userMessage.id, target)
+    }
 
     this.options.logger?.info('Chat run accepted.', {
       runId: run.id,
@@ -101,12 +142,15 @@ export class ChatRunOrchestrator {
       mode: request.mode,
       toolProfile,
     })
-    return responseFromRun(run)
+    return {
+      ...responseFromRun(run),
+      terminalEvent,
+    }
   }
 
   async regenerateMessage(
     request: RegenerateMessageRequest,
-    webContents: WebContents
+    targetEvent: ChatRunEventTarget
   ): Promise<SendMessageResponse> {
     const target = this.options.messages.get(request.messageId)
     if (!target) {
@@ -138,7 +182,7 @@ export class ChatRunOrchestrator {
         maxSteps: request.maxSteps,
         idempotencyKey: request.idempotencyKey,
       },
-      webContents
+      targetEvent
     )
   }
 

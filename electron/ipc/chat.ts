@@ -18,7 +18,7 @@ import type { CoreRuntime } from '../core-runtime'
 import { isRecord, registerLoggedIpcHandler } from './common'
 import type { IpcHandlerOptions } from './types'
 
-const chatSessionKinds = new Set<ChatSessionKind>(['chat', 'cat', 'cron'])
+const chatSessionKinds = new Set<ChatSessionKind>(['chat', 'cat', 'cron', 'vision'])
 
 export function registerChatIpcHandlers(options: IpcHandlerOptions): void {
   const runtime = options.runtime
@@ -114,7 +114,7 @@ function normalizeCreateSessionRequest(request: unknown): CreateSessionRequest {
 
   const kind = normalizeChatSessionKind(request.kind)
   return {
-    ...(kind === 'cat' || kind === 'chat' ? { kind } : {}),
+    ...(kind === 'cat' || kind === 'chat' || kind === 'vision' ? { kind } : {}),
     ...(typeof request.title === 'string' ? { title: request.title } : {}),
     ...(typeof request.providerId === 'string' ? { providerId: request.providerId } : {}),
     ...(typeof request.modelId === 'string' ? { modelId: request.modelId } : {}),

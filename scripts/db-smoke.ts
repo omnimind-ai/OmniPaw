@@ -76,6 +76,37 @@ try {
     sessions.list({ kind: 'chat' }).some((item) => item.id === SYSTEM_SESSION_IDS.cron),
     false
   )
+  const visionSession: ChatSession = {
+    id: 'vision-session-smoke',
+    title: 'Vision smoke',
+    kind: 'vision',
+    status: 'active',
+    messageCount: 0,
+    contextPolicy: {
+      mode: 'summary-plus-recent',
+      keepRecentTurns: 6,
+      includeAttachments: 'current-only',
+    },
+    metadata: {
+      system: 'observation',
+    },
+    createdAt: 2003,
+    updatedAt: 2003,
+  }
+  sessions.save(visionSession)
+  assert.equal(sessions.get(visionSession.id)?.kind, 'vision')
+  assert.equal(sessions.list({ kind: 'vision' }).length, 1)
+  assert.equal(
+    sessions.list({ kind: 'chat' }).some((item) => item.id === visionSession.id),
+    false
+  )
+  assert.equal(
+    sessions.list({ kind: 'cat' }).some((item) => item.id === visionSession.id),
+    false
+  )
+  assert.equal(sessions.markDeleted(visionSession.id, 2004), true)
+  assert.equal(sessions.list({ kind: 'vision' }).length, 0)
+  assert.equal(sessions.list({ kind: 'vision', includeDeleted: true }).length, 1)
 
   const attachment: InternalAttachmentRecord = {
     id: 'attachment-smoke',

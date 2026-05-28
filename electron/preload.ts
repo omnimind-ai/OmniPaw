@@ -295,6 +295,8 @@ const bridge: OpenOmniClawBridge = {
     stop: (request) => ipcRenderer.invoke(IPC_CHANNELS.observation.stop, request),
     trigger: (request) => ipcRenderer.invoke(IPC_CHANNELS.observation.trigger, request),
     onChanged: (callback) => createUnsubscriber(IPC_CHANNELS.observation.changed, callback),
+    onNotification: (callback) =>
+      createUnsubscriber(IPC_CHANNELS.observation.notification, callback),
   },
   chat: {
     listSessions: (request) => ipcRenderer.invoke(IPC_CHANNELS.chat.listSessions, request),

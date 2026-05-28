@@ -2,9 +2,9 @@ import type {
   ChatContextSummary,
   ChatMessage,
   ChatSession,
-  ContextPolicy,
   ProviderRequestSnapshot,
   ContextUnitKind as SharedContextUnitKind,
+  TransientChatImageInput,
 } from '@shared/types/chat'
 import type { ProviderConfig, ProviderMessage, ProviderModel } from '@shared/types/provider'
 import type { DesktopSettingsConfig } from '@shared/types/settings'
@@ -30,6 +30,7 @@ export interface BuildContextInput {
   provider: ProviderConfig
   model: ProviderModel
   skillPrompt?: SkillPromptContext
+  transientImageInputs?: TransientChatImageInput[]
 }
 
 export interface BuildContextResult {

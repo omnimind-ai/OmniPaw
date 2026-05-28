@@ -11,5 +11,5 @@ export interface IpcHandlerOptions {
   platform: NodeJS.Platform
   runtime: CoreRuntime
   onSettingsChanged: (reason: SettingsChangeReason, config: DesktopSettingsConfig) => void
-  openChatSession?: (sessionId: string) => void
+  openChatSession?: (sessionId: string, kind?: 'chat' | 'cat' | 'vision') => void
 }

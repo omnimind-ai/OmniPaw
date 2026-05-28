@@ -62,6 +62,7 @@ export const IPC_CHANNELS = {
     stop: 'observation:stop',
     trigger: 'observation:trigger',
     changed: 'observation:changed',
+    notification: 'observation:notification',
   },
   chat: {
     listSessions: 'chat:list-sessions',

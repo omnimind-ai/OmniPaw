@@ -303,6 +303,7 @@ function validateRegistryShape(
 
   const modelKeys = new Set<string>()
   const enabledModelKeys = new Set<string>()
+  const modelInputs = new Map<string, ProviderRegistryModel['input']>()
   for (const [index, model] of registry.models.entries()) {
     const path = `models.${index}`
     validateModel(model, path, issues)
@@ -323,12 +324,13 @@ function validateRegistryShape(
       })
     }
     modelKeys.add(key)
+    modelInputs.set(key, model.input)
     if (model.enabled !== false) {
       enabledModelKeys.add(key)
     }
   }
 
-  validateSettings(registry.settings, sourceIds, enabledModelKeys, issues)
+  validateSettings(registry.settings, sourceIds, enabledModelKeys, modelInputs, issues)
 }
 
 function validateSource(
@@ -402,6 +404,7 @@ function validateSettings(
   settings: ProviderRegistrySettings,
   sourceIds: Set<string>,
   enabledModelKeys: Set<string>,
+  modelInputs: Map<string, ProviderRegistryModel['input']>,
   issues: ProviderRegistryValidationIssue[]
 ): void {
   if (Boolean(settings.defaultProviderId) !== Boolean(settings.defaultModelId)) {
@@ -478,6 +481,13 @@ function validateSettings(
       enabledModelKeys,
       issues
     )
+    validateModelRefInput(
+      settings.observationVisionModelRef,
+      'settings.observationVisionModelRef',
+      'image',
+      modelInputs,
+      issues
+    )
   }
   if (settings.observationReactionModelRef) {
     validateOptionalModelRef(
@@ -488,12 +498,36 @@ function validateSettings(
       enabledModelKeys,
       issues
     )
+    validateModelRefInput(
+      settings.observationReactionModelRef,
+      'settings.observationReactionModelRef',
+      'text',
+      modelInputs,
+      issues
+    )
   }
   if (typeof settings.streaming !== 'boolean') {
     issues.push({
       path: 'settings.streaming',
       message: 'Streaming setting must be boolean.',
       code: 'invalid_type',
+    })
+  }
+}
+
+function validateModelRefInput(
+  ref: ProviderModelRef,
+  path: string,
+  requiredInput: 'text' | 'image',
+  modelInputs: Map<string, ProviderRegistryModel['input']>,
+  issues: ProviderRegistryValidationIssue[]
+): void {
+  const input = modelInputs.get(modelKey(ref.providerId, ref.modelId)) ?? ['text']
+  if (!input.includes(requiredInput)) {
+    issues.push({
+      path,
+      message: `Model must support ${requiredInput} input.`,
+      code: 'invalid_capability',
     })
   }
 }

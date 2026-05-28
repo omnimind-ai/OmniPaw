@@ -35,6 +35,7 @@ export function prepareSendRecords(input: {
     parts,
     providerId: input.provider.id,
     modelId: input.model.id,
+    metadata: input.request.metadata,
     createdAt: now,
     updatedAt: now,
   }

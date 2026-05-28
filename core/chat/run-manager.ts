@@ -1,12 +1,18 @@
 import type { ChatRunRepo } from '@core/db/repos'
 
+import { IPC_CHANNELS } from '@shared/constants'
 import type { ChatStreamEvent, ToolApprovalRequest, ToolApprovalResponse } from '@shared/types/chat'
-import type { WebContents } from 'electron'
+
+export interface ChatRunEventTarget {
+  send(channel: string, event: unknown): void
+}
+
+export type ChatRunTerminalEvent = Extract<ChatStreamEvent, { type: 'final' | 'error' }>
 
 export interface ActiveRun {
   runId: string
   controller: AbortController
-  webContents: WebContents
+  target: ChatRunEventTarget
   seq: number
 }
 
@@ -21,6 +27,14 @@ interface PendingToolApproval {
 export class RunManager {
   private readonly activeRuns = new Map<string, ActiveRun>()
   private readonly pendingToolApprovals = new Map<string, PendingToolApproval>()
+  private readonly terminalWaiters = new Map<
+    string,
+    Array<{
+      resolve: (event: ChatRunTerminalEvent) => void
+      reject: (error: unknown) => void
+      cleanup: () => void
+    }>
+  >()
 
   constructor(private readonly runs: ChatRunRepo) {}
 
@@ -28,12 +42,12 @@ export class RunManager {
     return idempotencyKey ? this.runs.getByIdempotencyKey(idempotencyKey) : undefined
   }
 
-  start(runId: string, webContents: WebContents): AbortSignal {
+  start(runId: string, target: ChatRunEventTarget): AbortSignal {
     const controller = new AbortController()
     this.activeRuns.set(runId, {
       runId,
       controller,
-      webContents,
+      target,
       seq: 0,
     })
     return controller.signal
@@ -50,7 +64,10 @@ export class RunManager {
 
   emit(event: ChatStreamEvent): void {
     const active = this.activeRuns.get(event.runId)
-    active?.webContents.send('chat:stream-event', event)
+    active?.target.send(IPC_CHANNELS.chat.streamEvent, event)
+    if (event.type === 'final' || event.type === 'error') {
+      this.resolveTerminalWaiters(event)
+    }
   }
 
   abort(runId: string, reason?: string): boolean {
@@ -65,7 +82,33 @@ export class RunManager {
 
   finish(runId: string): void {
     this.rejectPendingApprovalsForRun(runId, new DOMException('Run finished.', 'AbortError'))
+    this.rejectTerminalWaiters(
+      runId,
+      new DOMException('Run finished without a terminal event.', 'AbortError')
+    )
     this.activeRuns.delete(runId)
+  }
+
+  waitForTerminalEvent(runId: string, signal?: AbortSignal): Promise<ChatRunTerminalEvent> {
+    if (signal?.aborted) {
+      return Promise.reject(new DOMException('Run aborted.', 'AbortError'))
+    }
+
+    return new Promise<ChatRunTerminalEvent>((resolve, reject) => {
+      const cleanup = () => {
+        signal?.removeEventListener('abort', abort)
+      }
+      const abort = () => {
+        cleanup()
+        this.removeTerminalWaiter(runId, waiter)
+        reject(new DOMException('Run aborted.', 'AbortError'))
+      }
+      const waiter = { resolve, reject, cleanup }
+      signal?.addEventListener('abort', abort, { once: true })
+      const waiters = this.terminalWaiters.get(runId) ?? []
+      waiters.push(waiter)
+      this.terminalWaiters.set(runId, waiters)
+    })
   }
 
   waitForToolApproval(input: {
@@ -155,6 +198,50 @@ export class RunManager {
         continue
       }
       pending.reject(error)
+    }
+  }
+
+  private resolveTerminalWaiters(event: ChatRunTerminalEvent): void {
+    const waiters = this.terminalWaiters.get(event.runId)
+    if (!waiters?.length) {
+      return
+    }
+    this.terminalWaiters.delete(event.runId)
+    for (const waiter of waiters) {
+      waiter.cleanup()
+      waiter.resolve(event)
+    }
+  }
+
+  private rejectTerminalWaiters(runId: string, error: unknown): void {
+    const waiters = this.terminalWaiters.get(runId)
+    if (!waiters?.length) {
+      return
+    }
+    this.terminalWaiters.delete(runId)
+    for (const waiter of waiters) {
+      waiter.cleanup()
+      waiter.reject(error)
+    }
+  }
+
+  private removeTerminalWaiter(
+    runId: string,
+    waiter: {
+      resolve: (event: ChatRunTerminalEvent) => void
+      reject: (error: unknown) => void
+      cleanup: () => void
+    }
+  ): void {
+    const waiters = this.terminalWaiters.get(runId)
+    if (!waiters?.length) {
+      return
+    }
+    const next = waiters.filter((item) => item !== waiter)
+    if (next.length) {
+      this.terminalWaiters.set(runId, next)
+    } else {
+      this.terminalWaiters.delete(runId)
     }
   }
 }

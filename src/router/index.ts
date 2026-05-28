@@ -3,8 +3,8 @@ import { createRouter, createWebHashHistory } from 'vue-router'
 import ChatWorkspace from '@/components/chat/ChatWorkspace.vue'
 import ChatContentView from '@/views/ChatContentView.vue'
 import ChatHomeView from '@/views/ChatHomeView.vue'
-import RewritePlaceholderView from '@/views/RewritePlaceholderView.vue'
 import SettingsView from '@/views/SettingsView.vue'
+import VisionHistoryView from '@/views/VisionHistoryView.vue'
 
 export const router = createRouter({
   history: createWebHashHistory(),
@@ -33,6 +33,11 @@ export const router = createRouter({
       path: '/settings',
       name: 'settings',
       component: SettingsView,
+    },
+    {
+      path: '/vision',
+      name: 'vision',
+      component: VisionHistoryView,
     },
   ],
 })

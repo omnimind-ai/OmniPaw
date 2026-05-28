@@ -362,6 +362,7 @@ export interface OpenOmniClawBridge {
     stop: (request?: StopObservationRequest) => Promise<ObservationState>
     trigger: (request?: TriggerObservationRequest) => Promise<ObservationState>
     onChanged: (callback: (event: ObservationChangedEvent) => void) => Unsubscribe
+    onNotification: (callback: (event: ObservationReactionEvent) => void) => Unsubscribe
   }
   chat: {
     listSessions: (request?: ListSessionsRequest) => Promise<ChatSession[]>

@@ -1,5 +1,5 @@
 import type { ChatMessage, ChatMessagePart, ContextPolicy } from '@shared/types/chat'
-import type { ProviderMessage, ProviderModel } from '@shared/types/provider'
+import type { ProviderContentPart, ProviderMessage, ProviderModel } from '@shared/types/provider'
 import type { AttachmentService } from './attachment-service'
 import { countAttachmentParts, partsToProviderContent } from './context/attachments'
 import { buildContextUsage, contextBudget, estimateTokens } from './context/budget'
@@ -198,7 +198,12 @@ export class ContextBuilder {
       includeAttachmentPayloads,
       neverIncludeAttachments || options.degraded
     )
-    if (!hasProviderContent(content)) {
+    const providerContent = this.withTransientImages(
+      content,
+      input,
+      isCurrent && includeAttachmentPayloads && !neverIncludeAttachments && !options.degraded
+    )
+    if (!hasProviderContent(providerContent)) {
       return []
     }
 
@@ -210,7 +215,7 @@ export class ContextBuilder {
             : message.role === 'system'
               ? 'system'
               : 'user',
-        content,
+        content: providerContent,
         reasoningContent:
           message.role === 'assistant' && options.includeReasoning
             ? partsReasoningText(message.parts)
@@ -236,6 +241,27 @@ export class ContextBuilder {
         workspaceDocumentAttachments: workspaceDocumentAttachmentsFromMetadata(message.metadata),
       }
     )
+  }
+
+  private withTransientImages(
+    content: ProviderMessage['content'],
+    input: BuildContextInput,
+    enabled: boolean
+  ): ProviderMessage['content'] {
+    const images =
+      enabled && (input.model.input ?? ['text']).includes('image')
+        ? (input.transientImageInputs ?? [])
+        : []
+    if (!images.length) {
+      return content
+    }
+
+    const parts: ProviderContentPart[] =
+      typeof content === 'string' ? [{ type: 'text', text: content }] : [...content]
+    for (const image of images) {
+      parts.push({ type: 'image_url', image_url: { url: image.dataUrl } })
+    }
+    return parts
   }
 }
 

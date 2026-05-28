@@ -50,6 +50,18 @@ try {
       tasks: [{ id: 'legacy-placeholder' }],
       misfireGraceMs: 120000,
     },
+    observation: {
+      enabled: true,
+      defaultIntervalMs: 120_000,
+      minIntervalMs: 30_000,
+      defaultDurationMs: 10 * 60_000,
+      defaultScope: 'selected_window',
+      outputMode: 'chat',
+      retention: 'persist',
+      dailyCaptureLimit: 12,
+      consecutiveFailureLimit: 4,
+      reactionCooldownMs: 45_000,
+    },
   }).config
 
   assert.equal(normalized.app.theme, 'dark')
@@ -75,12 +87,51 @@ try {
   assert.equal(normalized.scheduledTasks.misfireGraceMs, 120000)
   assert.equal(normalized.scheduledTasks.misfireStartupLimit, 3)
   assert.equal('tasks' in normalized.scheduledTasks, false)
-  assert.equal(normalized.observation.enabled, false)
-  assert.equal(normalized.observation.defaultScope, 'primary_display')
-  assert.equal(normalized.observation.outputMode, 'ambient')
-  assert.equal(normalized.observation.retention, 'ephemeral')
-  assert.equal(normalized.observation.defaultIntervalMs, 60_000)
-  assert.equal(normalized.observation.defaultDurationMs, 5 * 60_000)
+  assert.equal('enabled' in normalized.observation, false)
+  assert.equal('outputMode' in normalized.observation, false)
+  assert.equal('retention' in normalized.observation, false)
+  assert.equal('defaultIntervalMs' in normalized.observation, false)
+  assert.equal(normalized.observation.evaluationIntervalMs, 120_000)
+  assert.equal(normalized.observation.captureProbability, 0.25)
+  assert.equal(normalized.observation.minCaptureIntervalMs, 30_000)
+  assert.equal(normalized.observation.defaultDurationMs, 10 * 60_000)
+  assert.equal(normalized.observation.defaultScope, 'selected_window')
+  assert.equal(normalized.observation.screenshotRetention, 'persist')
+  assert.equal(normalized.observation.allowRemoteProviders, false)
+  assert.equal(normalized.observation.localOnly, true)
+  assert.equal(normalized.observation.dailyCaptureLimit, 12)
+  assert.equal(normalized.observation.consecutiveFailureLimit, 4)
+  assert.equal(normalized.observation.notificationCooldownMs, 45_000)
+
+  const defaultObservation = cloneDefaultConfig().observation
+  assert.equal(defaultObservation.screenshotRetention, 'ephemeral')
+  assert.equal(defaultObservation.allowRemoteProviders, false)
+  assert.equal(defaultObservation.localOnly, true)
+  assert.equal('enabled' in defaultObservation, false)
+
+  const legacyObservation = normalizeConfig({
+    ...cloneDefaultConfig(),
+    observation: {
+      enabled: true,
+      intervalMs: 90_000,
+      durationMs: 180_000,
+      minIntervalMs: 15_000,
+      cooldownMs: 10_000,
+      defaultScope: 'selected_display',
+      dailyCaptureLimit: 9,
+      consecutiveFailureLimit: 5,
+      retention: 'chat',
+    },
+  }).config.observation
+  assert.equal('enabled' in legacyObservation, false)
+  assert.equal(legacyObservation.evaluationIntervalMs, 90_000)
+  assert.equal(legacyObservation.defaultDurationMs, 180_000)
+  assert.equal(legacyObservation.minCaptureIntervalMs, 15_000)
+  assert.equal(legacyObservation.notificationCooldownMs, 10_000)
+  assert.equal(legacyObservation.defaultScope, 'selected_display')
+  assert.equal(legacyObservation.dailyCaptureLimit, 9)
+  assert.equal(legacyObservation.consecutiveFailureLimit, 5)
+  assert.equal(legacyObservation.screenshotRetention, 'ephemeral')
 
   assert.throws(
     () => normalizeConfig({ ...cloneDefaultConfig(), version: 999 }),
@@ -154,7 +205,7 @@ try {
         ...cloneDefaultConfig(),
         observation: {
           ...cloneDefaultConfig().observation,
-          defaultIntervalMs: 1_000,
+          evaluationIntervalMs: 1_000,
         },
       }),
     ConfigValidationError
@@ -165,7 +216,7 @@ try {
         ...cloneDefaultConfig(),
         observation: {
           ...cloneDefaultConfig().observation,
-          defaultDurationMs: 31 * 60_000,
+          captureProbability: 1.5,
         },
       }),
     ConfigValidationError
@@ -176,7 +227,29 @@ try {
         ...cloneDefaultConfig(),
         observation: {
           ...cloneDefaultConfig().observation,
-          outputMode: 'loud',
+          minCaptureIntervalMs: 1_000,
+        },
+      }),
+    ConfigValidationError
+  )
+  assert.throws(
+    () =>
+      normalizeConfig({
+        ...cloneDefaultConfig(),
+        observation: {
+          ...cloneDefaultConfig().observation,
+          defaultDurationMs: 25 * 60 * 60_000,
+        },
+      }),
+    ConfigValidationError
+  )
+  assert.throws(
+    () =>
+      normalizeConfig({
+        ...cloneDefaultConfig(),
+        observation: {
+          ...cloneDefaultConfig().observation,
+          screenshotRetention: 'chat',
         },
       }),
     ConfigValidationError

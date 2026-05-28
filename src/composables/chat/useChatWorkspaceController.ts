@@ -222,7 +222,6 @@ export function useChatWorkspaceController() {
   }
 
   let stopSessionChanged: (() => void) | undefined
-  let stopObservationChanged: (() => void) | undefined
 
   watch(
     () => route.params.conversationId,
@@ -295,13 +294,6 @@ export function useChatWorkspaceController() {
       }
       void getSessions()
     })
-    stopObservationChanged = appBridge.observation?.onChanged?.((event) => {
-      if (!event.run || event.run.targetSessionId !== currSessionId.value) return
-      if (event.reason === 'tick' || event.reason === 'updated') {
-        void messages.loadSessionMessages(event.run.targetSessionId)
-      }
-    })
-
     await nextTick()
     scroll.attachMessageScrollViewport()
     scroll.scheduleScrollToLatest('auto', true)
@@ -322,8 +314,6 @@ export function useChatWorkspaceController() {
   onBeforeUnmount(() => {
     stopSessionChanged?.()
     stopSessionChanged = undefined
-    stopObservationChanged?.()
-    stopObservationChanged = undefined
     media.clearStaged()
     media.cleanupMediaCache()
   })

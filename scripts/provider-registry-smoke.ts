@@ -146,6 +146,7 @@ try {
           id: 'gpt-4o-mini-pro',
           name: 'GPT-4o Mini Pro',
           enabled: true,
+          input: ['text'],
         },
       ],
     },
@@ -202,6 +203,14 @@ try {
     globalThis.fetch = originalFetch
   }
 
+  await assert.rejects(
+    () =>
+      providers.setObservationModels({
+        observationVisionModelRef: { providerId: 'custom-openai', modelId: 'gpt-4o-mini-pro' },
+      }),
+    /must support image input/
+  )
+
   await providers.setDefaultModel({ providerId: 'custom-openai', modelId: 'gpt-4o-mini' })
   assert.equal(registryStore.get().settings.defaultProviderId, 'custom-openai')
   assert.equal(registryStore.get().settings.defaultModelId, 'gpt-4o-mini')
@@ -226,6 +235,19 @@ try {
   assert.deepEqual(registryStore.get().settings.observationReactionModelRef, {
     providerId: 'omniinfer-local',
     modelId: 'local-small-model',
+  })
+
+  await providers.setObservationModels({
+    observationVisionModelRef: { providerId: 'custom-openai', modelId: 'gpt-4o-mini' },
+    observationReactionModelRef: { providerId: 'custom-openai', modelId: 'gpt-4o-mini' },
+  })
+  assert.deepEqual(registryStore.get().settings.observationReactionModelRef, {
+    providerId: 'custom-openai',
+    modelId: 'gpt-4o-mini',
+  })
+  await providers.setObservationModels({
+    observationVisionModelRef: { providerId: 'custom-openai', modelId: 'gpt-4o-mini' },
+    observationReactionModelRef: { providerId: 'omniinfer-local', modelId: 'local-small-model' },
   })
 
   const refreshed = await providers.refreshModels('omniinfer-local')

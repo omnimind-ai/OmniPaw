@@ -86,6 +86,7 @@ export async function prepareAgentRun(
     provider: input.provider,
     model: input.model,
     skillPrompt,
+    transientImageInputs: input.transientImageInputs,
   })
   const client = await options.providers.createProviderClient(input.provider.id)
   const providerMessages = injectToolInventory(

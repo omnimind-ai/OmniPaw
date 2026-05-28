@@ -652,15 +652,17 @@ export class ProviderManager {
   ): Promise<ProviderRegistryMutationResult> {
     const registry = this.requireRegistryStore().get()
     const nextSettings = { ...registry.settings }
-    nextSettings.observationVisionModelRef = this.normalizeOptionalEnabledModelRef(
+    nextSettings.observationVisionModelRef = this.normalizeOptionalEnabledModelRefWithInput(
       registry,
       request.observationVisionModelRef,
-      'Observation vision model'
+      'Observation vision model',
+      'image'
     )
-    nextSettings.observationReactionModelRef = this.normalizeOptionalEnabledModelRef(
+    nextSettings.observationReactionModelRef = this.normalizeOptionalEnabledModelRefWithInput(
       registry,
       request.observationReactionModelRef,
-      'Observation reaction model'
+      'Observation reaction model',
+      'text'
     )
     return this.registryResult(this.saveRegistry({ ...registry, settings: nextSettings }), {
       ok: true,
@@ -1111,10 +1113,11 @@ export class ProviderManager {
     }
   }
 
-  private normalizeOptionalEnabledModelRef(
+  private normalizeOptionalEnabledModelRefWithInput(
     registry: ProviderRegistry,
     selection: Partial<ProviderModelRef> | undefined,
-    label: string
+    label: string,
+    requiredInput: 'text' | 'image'
   ): ProviderModelRef | undefined {
     if (!selection?.providerId || !selection.modelId) {
       return undefined
@@ -1124,10 +1127,19 @@ export class ProviderManager {
       providerId: selection.providerId,
       modelId: selection.modelId,
     }
-    if (!findEnabledRegistryModel(registry, selectedRef.providerId, selectedRef.modelId)) {
+    const model = findEnabledRegistryModel(registry, selectedRef.providerId, selectedRef.modelId)
+    if (!model) {
       throw new ProviderSelectionError({
         code: 'validation',
         message: `${label} is not enabled or does not exist: ${selectedRef.providerId}/${selectedRef.modelId}.`,
+        retryable: false,
+      })
+    }
+    const inputs = model.input?.length ? model.input : ['text']
+    if (!inputs.includes(requiredInput)) {
+      throw new ProviderSelectionError({
+        code: 'validation',
+        message: `${label} must support ${requiredInput} input: ${selectedRef.providerId}/${selectedRef.modelId}.`,
         retryable: false,
       })
     }

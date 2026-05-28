@@ -1,4 +1,4 @@
-import { FileIcon, ImageIcon, MicIcon, VideoIcon } from 'lucide-vue-next'
+import { CameraIcon, FileIcon, ImageIcon, MicIcon, VideoIcon } from 'lucide-vue-next'
 import type { Component } from 'vue'
 
 import type { ChatContent, ChatRecord, MessagePart, ToolCall } from '@/composables/useMessages'
@@ -40,6 +40,7 @@ export function partText(part: MessagePart) {
   if (part.type === 'think') return String(part.think || '')
   if (part.type === 'reply') return replyPreview(part)
   if (part.type === 'tool_call') return toolCalls(part).map(toolCallLabel).join('\n')
+  if (part.type === 'vision_capture') return visionCaptureLabel(part)
   if (isAttachmentPart(part)) return attachmentLabel(part)
   if (part.type === 'ref')
     return refsFromPart(part)
@@ -49,10 +50,11 @@ export function partText(part: MessagePart) {
 }
 
 export function isAttachmentPart(part: MessagePart) {
-  return ['image', 'record', 'video', 'file'].includes(part.type)
+  return ['image', 'record', 'video', 'file', 'vision_capture'].includes(part.type)
 }
 
 export function attachmentIcon(part: MessagePart): Component {
+  if (part.type === 'vision_capture') return CameraIcon
   if (part.type === 'image') return ImageIcon
   if (part.type === 'record') return MicIcon
   if (part.type === 'video') return VideoIcon
@@ -61,12 +63,22 @@ export function attachmentIcon(part: MessagePart): Component {
 
 export function attachmentLabel(part: MessagePart) {
   if (part.filename) return part.filename
+  if (part.type === 'vision_capture') return visionCaptureLabel(part)
   const embeddedFile = part.embedded_file
   if (embeddedFile?.filename) return embeddedFile.filename
   if (part.type === 'image') return '图片'
   if (part.type === 'record') return '音频'
   if (part.type === 'video') return '视频'
   return '附件'
+}
+
+export function visionCaptureLabel(part: MessagePart) {
+  const retained = part.retention === 'persist'
+  const dimensions =
+    typeof part.width === 'number' && typeof part.height === 'number'
+      ? ` ${part.width}x${part.height}`
+      : ''
+  return retained ? `已保留截图${dimensions}` : `临时截图 marker${dimensions}`
 }
 
 export function partUrl(part: MessagePart) {

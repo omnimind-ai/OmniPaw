@@ -30,7 +30,6 @@ import { BrowserWindow, ipcMain, screen } from 'electron'
 type CatSessionIdResolver = (
   preferredSessionId?: string | null
 ) => string | null | Promise<string | null>
-type ChatSessionOpener = (sessionId: string) => void
 
 interface OpenCatPanelOptions {
   sessionId?: string | null
@@ -102,7 +101,6 @@ let catLogger: Logger | undefined
 let activeCatSessionId: string | null = null
 let activeCatSessionUpdatedAt = Date.now()
 let catSessionIdResolver: CatSessionIdResolver | undefined
-let chatSessionOpener: ChatSessionOpener | undefined
 const catDrafts = new Map<string, CatDraftState>()
 
 function setCatWindowLogger(logger: Logger): void {
@@ -111,10 +109,6 @@ function setCatWindowLogger(logger: Logger): void {
 
 function setCatSessionIdResolver(resolver: CatSessionIdResolver | undefined): void {
   catSessionIdResolver = resolver
-}
-
-function setChatSessionOpener(opener: ChatSessionOpener | undefined): void {
-  chatSessionOpener = opener
 }
 
 function clamp(value: number, min: number, max: number): number {
@@ -1183,33 +1177,30 @@ function registerCatWindowIpcHandlers(): void {
 }
 
 function openObservationSource(event: ObservationReactionEvent): void {
-  const sessionId = normalizeIdentifier(event?.targetSessionId)
-  if (!sessionId) {
+  const catSessionId = normalizeIdentifier(event?.catSessionId)
+  if (!catSessionId) {
     return
   }
 
   hideCatBubbleWindow({ id: activeCatBubbleEvent?.id, reason: 'source-opened', source: 'main' })
-
-  if (event.targetSessionKind === 'cat') {
-    setActiveCatSessionId(sessionId, 'observation')
-    openCatPanelWindow({ sessionId, source: 'observation' })
-    return
-  }
-
-  chatSessionOpener?.(sessionId)
+  setActiveCatSessionId(catSessionId, 'observation')
+  openCatPanelWindow({ sessionId: catSessionId, source: 'observation' })
 }
 
 function sanitizeObservationReactionEvent(
   event: ObservationReactionEvent
 ): ObservationReactionEvent {
   const captureId = event.captureId ? normalizeIdentifier(event.captureId) : null
+  const sourceRunId = event.sourceRunId ? normalizeIdentifier(event.sourceRunId) : null
+  const sourceMessageId = event.sourceMessageId ? normalizeIdentifier(event.sourceMessageId) : null
   return {
     id: normalizeIdentifier(event.id) ?? crypto.randomUUID(),
     observationRunId: normalizeIdentifier(event.observationRunId) ?? '',
-    targetSessionId: normalizeIdentifier(event.targetSessionId) ?? '',
-    targetSessionKind: event.targetSessionKind === 'cat' ? 'cat' : 'chat',
-    surface: event.surface === 'cat' ? 'cat' : event.surface === 'chat' ? 'chat' : 'none',
-    decision: event.decision === 'chat' || event.decision === 'ask' ? event.decision : 'ambient',
+    visionSessionId: normalizeIdentifier(event.visionSessionId) ?? '',
+    catSessionId: normalizeIdentifier(event.catSessionId) ?? '',
+    ...(sourceRunId ? { sourceRunId } : {}),
+    ...(sourceMessageId ? { sourceMessageId } : {}),
+    decision: event.decision === 'ask' ? 'ask' : 'notify',
     text: sanitizeBoundedText(event.text, 240) ?? '',
     ...(captureId ? { captureId } : {}),
     createdAt: Number.isFinite(event.createdAt) ? event.createdAt : Date.now(),
@@ -1234,7 +1225,6 @@ export {
   setCatSessionIdResolver,
   setCatState,
   setCatWindowLogger,
-  setChatSessionOpener,
   showCatWindow,
   stageCatDraftAttachments,
   toggleCatPanelWindow,
