@@ -133,6 +133,7 @@ function handleBubbleKeydown(event: KeyboardEvent) {
 
 const unsubscribeBubble = appBridge.cat.onBubbleEvent?.(applyBubbleEvent) ?? (() => {})
 const unsubscribePlacement = appBridge.cat.onBubblePlacement?.(applyPlacement) ?? (() => {})
+appBridge.cat.reportBubbleReady?.()
 
 onBeforeUnmount(() => {
   clearAutoDismissTimer()

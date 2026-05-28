@@ -325,6 +325,7 @@ export interface OpenOmniClawBridge {
     openObservationSource: (event: ObservationReactionEvent) => Promise<void>
     showBubble: (request: CatBubbleShowRequest | string) => Promise<CatBubbleEvent | null>
     dismissBubble: (request?: CatBubbleDismissRequest | string) => Promise<void>
+    reportBubbleReady: () => void
     onBubbleEvent: (callback: (event: CatBubbleEvent) => void) => Unsubscribe
     onBubblePlacement: (callback: (placement: CatPanelPlacement) => void) => Unsubscribe
   }

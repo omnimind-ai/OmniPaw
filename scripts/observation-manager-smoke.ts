@@ -320,7 +320,7 @@ try {
     ...baseSettings,
     captureProbability: 1,
     minCaptureIntervalMs: 0,
-    notificationCooldownMs: 0,
+    notificationCooldownMs: 60_000,
   }
   chatService.reset('{"mode":"ambient","text":"Dev bubble test.","reason":"dev"}')
   await manager.start({ visionSessionId })
@@ -329,6 +329,10 @@ try {
   assert.equal(devReactionPrompt?.type, 'plain')
   assert.match((devReactionPrompt as { text?: string }).text ?? '', /开发验证已启用/)
   assert.equal(reactions.length, 3)
+  await manager.trigger({ visionSessionId, devForceReaction: true })
+  assert.equal(reactions.length, 4)
+  const devRun = (await manager.status(visionSessionId)).activeRuns[0]
+  assert.equal(devRun?.lastDecision?.notificationSuppressed, false)
   await manager.stop({ visionSessionId })
 
   settings = { ...baseSettings, captureProbability: 1, minCaptureIntervalMs: 5_000 }

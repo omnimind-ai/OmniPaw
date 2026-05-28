@@ -45,16 +45,6 @@ const assets = Object.freeze({
   finish: finishImage,
 })
 
-const copy = Object.freeze<Record<CatWindowState, string>>({
-  hidden: '',
-  appearing: '你好',
-  idle: '待命',
-  dragging: '移动中',
-  preparing: '准备执行',
-  running: '执行中',
-  completed: '已完成',
-})
-
 const animationDurations = Object.freeze({
   appearing: 1000,
   preparing: 1050,
@@ -95,19 +85,6 @@ function reportState(state: CatWindowState) {
   appBridge.cat.reportState(state)
 }
 
-function setBubble(text: string, visible = true) {
-  if (!visible || text.length === 0) {
-    void appBridge.cat.dismissBubble?.({ reason: 'state-hidden', source: 'cat-window' })
-    return
-  }
-
-  void appBridge.cat.showBubble?.({
-    text,
-    kind: 'status',
-    source: 'cat-window',
-  })
-}
-
 function setSurfaceState(state: CatWindowState) {
   if (!surface) return
   surface.classList.toggle('is-dragging', state === states.DRAGGING)
@@ -126,7 +103,7 @@ function setImage(src: string, fallback = assets.idle) {
   })
 }
 
-function enterState(state: CatWindowState, options: { fromDragRestore?: boolean } = {}) {
+function enterState(state: CatWindowState) {
   if (!Object.values(states).includes(state)) {
     return
   }
@@ -139,13 +116,11 @@ function enterState(state: CatWindowState, options: { fromDragRestore?: boolean 
   }
 
   setSurfaceState(state)
-  setBubble(copy[state], state !== states.HIDDEN)
   reportState(state)
 
   switch (state) {
     case states.HIDDEN:
       setImage(assets.idle)
-      setBubble('', false)
       break
     case states.APPEARING:
       setImage(assets.show, assets.showFallback)
@@ -187,10 +162,6 @@ function enterState(state: CatWindowState, options: { fromDragRestore?: boolean 
       }, animationDurations.completedEnd)
       break
   }
-
-  if (options.fromDragRestore) {
-    setBubble(copy[state], state !== states.HIDDEN)
-  }
 }
 
 function handleCommand(payload: CatCommandEvent) {
@@ -219,7 +190,6 @@ function handleFileDragEnter(event: DragEvent) {
   if (fileDragDepth === 1) {
     previousStableState = currentStableState
     enterState(states.DRAGGING)
-    setBubble('添加附件')
   }
 }
 
@@ -236,7 +206,7 @@ function handleFileDragLeave(event: DragEvent) {
   event.preventDefault()
   fileDragDepth = Math.max(0, fileDragDepth - 1)
   if (fileDragDepth === 0 && currentState === states.DRAGGING && !dragSession?.active) {
-    enterState(previousStableState, { fromDragRestore: true })
+    enterState(previousStableState)
   }
 }
 
@@ -247,13 +217,12 @@ async function handleFileDrop(event: DragEvent) {
 
   const files = Array.from(event.dataTransfer?.files || [])
   if (!files.length) {
-    enterState(previousStableState, { fromDragRestore: true })
+    enterState(previousStableState)
     return
   }
 
   previousStableState = currentStableState
   enterState(states.PREPARING)
-  setBubble('上传中')
 
   try {
     const sessionId = await ensureCatDropSessionId()
@@ -265,16 +234,10 @@ async function handleFileDrop(event: DragEvent) {
         attachments: staged.attachments,
       })
       await appBridge.catPanel.open?.({ sessionId })
-      setBubble(`已添加 ${staged.attachments.length} 个附件`)
     }
-
-    if (staged.failedCount) {
-      setBubble(`${staged.failedCount} 个附件失败`)
-    }
-    enterState(states.IDLE, { fromDragRestore: true })
-  } catch (error) {
-    setBubble(error instanceof Error ? error.message : '附件上传失败')
-    enterState(states.IDLE, { fromDragRestore: true })
+    enterState(states.IDLE)
+  } catch {
+    enterState(states.IDLE)
   }
 }
 
@@ -423,7 +386,7 @@ stage?.addEventListener('pointerup', async (event) => {
   }
 
   await appBridge.cat.dragEnd()
-  enterState(previousStableState, { fromDragRestore: true })
+  enterState(previousStableState)
 })
 
 stage?.addEventListener('pointercancel', async (event) => {
@@ -436,7 +399,7 @@ stage?.addEventListener('pointercancel', async (event) => {
 
   if (wasDragging) {
     await appBridge.cat.dragEnd()
-    enterState(previousStableState, { fromDragRestore: true })
+    enterState(previousStableState)
   }
 })
 

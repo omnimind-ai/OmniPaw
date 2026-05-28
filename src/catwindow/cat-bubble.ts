@@ -1,9 +1,11 @@
+import { createPinia } from 'pinia'
 import { createApp } from 'vue'
 import { logger } from '@/utils/logger'
 import CatBubbleApp from './CatBubbleApp.vue'
 
 import '@/styles/main.css'
 
+const pinia = createPinia()
 const app = createApp(CatBubbleApp)
 const bubbleLogger = logger.child('cat.bubble')
 
@@ -15,4 +17,4 @@ window.addEventListener('unhandledrejection', (event) => {
   bubbleLogger.error('Cat bubble unhandled promise rejection.', { error: event.reason })
 })
 
-app.mount('#app')
+app.use(pinia).mount('#app')

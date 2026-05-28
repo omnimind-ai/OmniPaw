@@ -302,17 +302,84 @@ function sendCatBubbleEvent(event: CatBubbleEvent): void {
   sendToCatBubble(IPC_CHANNELS.cat.bubbleEvent, event)
 }
 
+function syncCatBubbleWindowState(delayMs = 0): void {
+  const sync = () => {
+    if (
+      !activeCatBubbleEvent ||
+      !catBubbleWindow ||
+      catBubbleWindow.isDestroyed() ||
+      !catWindow ||
+      catWindow.isDestroyed()
+    ) {
+      return
+    }
+
+    sendCatBubblePlacement(getCatBubblePlacement(catWindow.getBounds()))
+    sendCatBubbleEvent(activeCatBubbleEvent)
+  }
+
+  if (delayMs > 0) {
+    setTimeout(sync, delayMs)
+    return
+  }
+
+  sync()
+}
+
+function scheduleCatBubbleWindowStateSync(): void {
+  syncCatBubbleWindowState(0)
+  syncCatBubbleWindowState(50)
+  syncCatBubbleWindowState(150)
+  syncCatBubbleWindowState(350)
+}
+
 function sendCatObservationReaction(event: ObservationReactionEvent): void {
   showCatWindow()
   const reaction = sanitizeObservationReactionEvent(event)
-  showCatBubble({
+  const request: CatBubbleShowRequest = {
     id: reaction.id,
     text: reaction.text,
     kind: 'observation',
     observationReaction: reaction,
     autoDismissMs: catBubbleAutoDismissMs,
     source: 'observation',
-  })
+  }
+  if (showCatBubble(request)) {
+    return
+  }
+
+  const window = catWindow
+  if (!window || window.isDestroyed()) {
+    catLogger?.warn('Cat observation reaction dropped because cat window is unavailable.', {
+      reactionId: reaction.id,
+    })
+    return
+  }
+
+  const retry = () => {
+    if (!catWindow || catWindow.isDestroyed()) {
+      return
+    }
+    if (!catWindow.isVisible()) {
+      catWindow.showInactive()
+    }
+    const shown = showCatBubble(request)
+    if (!shown) {
+      catLogger?.warn('Cat observation reaction could not show bubble.', {
+        reactionId: reaction.id,
+        catVisible,
+        catState,
+      })
+    }
+  }
+
+  if (window.webContents.isLoading()) {
+    window.webContents.once('did-finish-load', () => {
+      setTimeout(retry, 50)
+    })
+  } else {
+    setTimeout(retry, 50)
+  }
 }
 
 function notifyActiveCatSessionChanged(source = 'main'): void {
@@ -541,6 +608,14 @@ function reportCatState(state: CatWindowState): void {
   catState = state
   catVisible =
     state !== 'hidden' && !!catWindow && !catWindow.isDestroyed() && catWindow.isVisible()
+
+  if (activeCatBubbleEvent?.kind === 'status' && activeCatBubbleEvent.source === 'cat-window') {
+    hideCatBubbleWindow({
+      id: activeCatBubbleEvent.id,
+      reason: 'state-hidden',
+      source: 'cat-window',
+    })
+  }
 }
 
 function createCatWindow(): BrowserWindow {
@@ -659,6 +734,9 @@ function createCatBubbleWindow(placement: CatPanelPlacement): BrowserWindow {
   catBubbleWindow.setAlwaysOnTop(true, 'floating')
   catBubbleWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
   loadRendererEntry(catBubbleWindow, 'cat-bubble.html')
+  catBubbleWindow.webContents.on('did-finish-load', () => {
+    scheduleCatBubbleWindowStateSync()
+  })
 
   catBubbleWindow.on('closed', () => {
     catBubbleWindow = null
@@ -919,7 +997,7 @@ function normalizeCatBubbleShowRequest(
 }
 
 function showCatBubble(request: CatBubbleShowRequest | string): CatBubbleEvent | null {
-  if (!catWindow || catWindow.isDestroyed() || !catWindow.isVisible()) {
+  if (!catWindow || catWindow.isDestroyed()) {
     return null
   }
 
@@ -937,6 +1015,10 @@ function showCatBubble(request: CatBubbleShowRequest | string): CatBubbleEvent |
 
   const placement = getCatBubblePlacement(catWindow.getBounds())
   const window = createCatBubbleWindow(placement)
+  if (!catWindow.isVisible()) {
+    catVisible = true
+    catWindow.showInactive()
+  }
   window.setBounds(placement.bounds)
   window.setIgnoreMouseEvents(event.kind !== 'observation', { forward: true })
 
@@ -945,6 +1027,7 @@ function showCatBubble(request: CatBubbleShowRequest | string): CatBubbleEvent |
 
   sendCatBubblePlacement(placement)
   sendCatBubbleEvent(event)
+  scheduleCatBubbleWindowStateSync()
 
   if (!window.isVisible()) {
     window.showInactive()
@@ -1137,6 +1220,16 @@ function registerCatWindowIpcHandlers(): void {
       hideCatBubbleWindow(request)
     }
   )
+  ipcMain.on(IPC_CHANNELS.cat.bubbleReady, (event) => {
+    if (!catBubbleWindow || catBubbleWindow.isDestroyed()) {
+      return
+    }
+    if (event.sender.id !== catBubbleWindow.webContents.id) {
+      return
+    }
+
+    syncCatBubbleWindowState()
+  })
   ipcMain.on(IPC_CHANNELS.cat.reportState, (_event, state: CatWindowState) => {
     reportCatState(state)
   })

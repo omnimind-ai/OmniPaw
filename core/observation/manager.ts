@@ -508,7 +508,9 @@ export class ObservationManager {
     })
     const text = terminal.type === 'final' ? textFromParts(terminal.message.parts) : ''
     const candidate = parseCandidate(text)
-    const decision = this.gateDecision(run, candidate, frame, terminal)
+    const decision = this.gateDecision(run, candidate, frame, terminal, {
+      bypassCooldown: reactionContext.devForceReaction,
+    })
     return {
       frame: {
         metadata: captureMetadata(frame),
@@ -577,7 +579,9 @@ export class ObservationManager {
       ...parseCandidate(text),
       summary,
     }
-    const decision = this.gateDecision(run, candidate, frame, reactionTerminal)
+    const decision = this.gateDecision(run, candidate, frame, reactionTerminal, {
+      bypassCooldown: reactionContext.devForceReaction,
+    })
     return {
       frame: {
         metadata: captureMetadata(frame),
@@ -726,7 +730,8 @@ export class ObservationManager {
     run: ObservationRun,
     candidate: ObservationReactionCandidate,
     frame: ObservationCaptureMetadata,
-    terminal: ChatRunTerminalEvent
+    terminal: ChatRunTerminalEvent,
+    options: { bypassCooldown?: boolean } = {}
   ): ObservationReactionDecision {
     const now = Date.now()
     const text = sanitizeReactionText(candidate.text)
@@ -738,6 +743,7 @@ export class ObservationManager {
     }
     const cooldownMs = this.options.settings().notificationCooldownMs
     if (
+      !options.bypassCooldown &&
       decision !== 'silent' &&
       run.notification.lastNotificationAt &&
       now - run.notification.lastNotificationAt < cooldownMs

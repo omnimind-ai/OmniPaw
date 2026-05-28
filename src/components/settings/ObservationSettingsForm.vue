@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { MessageCircleIcon } from 'lucide-vue-next'
-import { computed, onMounted } from 'vue'
-import type { BridgeDesktopSettingsConfig } from '@/bridge/app'
+import { computed, onMounted, ref } from 'vue'
+import { appBridge, type BridgeDesktopSettingsConfig, ensureElectronBridge } from '@/bridge/app'
 import SettingsSection from '@/components/settings/SettingsSection.vue'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -35,6 +35,7 @@ const observation = computed(() => props.draft.observation)
 const runtime = computed(() => observationStore.runtime)
 const activeRun = computed(() => observationStore.activeRun)
 const showDevReactionTrigger = import.meta.env.DEV
+const directCatBubblePending = ref(false)
 const runtimeEnabled = computed({
   get: () => runtime.value?.active === true,
   set: (enabled: boolean) => {
@@ -126,6 +127,34 @@ async function triggerDevReaction(): Promise<void> {
   }
 }
 
+async function showDirectDevCatBubble(): Promise<void> {
+  directCatBubblePending.value = true
+  try {
+    ensureElectronBridge('直接弹气泡')
+    await appBridge.cat.show()
+    await delay(250)
+    const event = await appBridge.cat.showBubble?.({
+      text: `气泡窗口测试 ${new Date().toLocaleTimeString()}`,
+      kind: 'observation',
+      autoDismissMs: 7_000,
+      source: 'dev-direct-bubble',
+    })
+    if (!event) {
+      throw new Error('小猫气泡窗口没有返回可见事件。')
+    }
+  } catch (error) {
+    toast.error(errorToText(error, '手动气泡测试失败。'))
+  } finally {
+    directCatBubblePending.value = false
+  }
+}
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    window.setTimeout(resolve, ms)
+  })
+}
+
 function clampInteger(value: string | number, min: number, max = Number.MAX_SAFE_INTEGER): number {
   const next = Math.round(Number(value))
   if (!Number.isFinite(next)) return min
@@ -168,7 +197,7 @@ function clampInteger(value: string | number, min: number, max = Number.MAX_SAFE
               {{ runtime.active ? `运行中，剩余 ${Math.ceil((runtime.remainingMs ?? 0) / 60000)} 分钟` : '未运行' }}
             </FieldDescription>
           </FieldContent>
-          <div class="flex items-center gap-2">
+          <div class="flex flex-wrap items-center gap-2">
             <Button
               type="button"
               variant="outline"
@@ -187,7 +216,18 @@ function clampInteger(value: string | number, min: number, max = Number.MAX_SAFE
               @click="triggerDevReaction"
             >
               <MessageCircleIcon data-icon="inline-start" />
-              测试气泡
+              模型测气泡
+            </Button>
+            <Button
+              v-if="showDevReactionTrigger"
+              type="button"
+              variant="outline"
+              size="sm"
+              :disabled="directCatBubblePending"
+              @click="showDirectDevCatBubble"
+            >
+              <MessageCircleIcon data-icon="inline-start" />
+              直接弹气泡
             </Button>
           </div>
         </Field>

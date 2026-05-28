@@ -834,6 +834,7 @@ export interface RendererOpenOmniClawBridge {
     openObservationSource?: (event: ObservationReactionEvent) => Promise<void>
     showBubble?: (request: CatBubbleShowRequest | string) => Promise<CatBubbleEvent | null>
     dismissBubble?: (request?: CatBubbleDismissRequest | string) => Promise<void>
+    reportBubbleReady?: () => void
     onBubbleEvent?: (callback: (event: CatBubbleEvent) => void) => BridgeUnsubscribe
     onBubblePlacement?: (callback: (event: CatPanelPlacement) => void) => BridgeUnsubscribe
   }
@@ -1322,6 +1323,7 @@ const fallbackBridge: RendererOpenOmniClawBridge = {
       }
     },
     dismissBubble: async () => {},
+    reportBubbleReady: () => {},
     onBubbleEvent: () => () => {},
     onBubblePlacement: () => () => {},
   },

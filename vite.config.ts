@@ -13,6 +13,6 @@ export default defineConfig({
     },
   },
   optimizeDeps: {
-    entries: ['index.html', 'cat-window.html', 'cat-panel.html'],
+    entries: ['index.html', 'cat-window.html', 'cat-panel.html', 'cat-bubble.html'],
   },
 })

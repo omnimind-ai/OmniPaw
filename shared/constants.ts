@@ -29,6 +29,7 @@ export const IPC_CHANNELS = {
     openObservationSource: 'cat:open-observation-source',
     showBubble: 'cat:show-bubble',
     dismissBubble: 'cat:dismiss-bubble',
+    bubbleReady: 'cat:bubble-ready',
     bubbleEvent: 'cat:bubble-event',
     bubblePlacement: 'cat:bubble-placement',
   },
