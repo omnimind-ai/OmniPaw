@@ -79,6 +79,8 @@ const providerRecords: ProviderConfig[] = [
 const baseSettings: DesktopObservationSettings = {
   evaluationIntervalMs: 25,
   captureProbability: 0,
+  reactionNudgeAfterSilentCaptures: 3,
+  reactionNudgeProbability: 0.35,
   minCaptureIntervalMs: 5_000,
   defaultDurationMs: 60_000,
   defaultScope: 'primary_display',
@@ -292,6 +294,25 @@ try {
   const cooldownRun = (await manager.status(visionSessionId)).activeRuns[0]
   assert.equal(cooldownRun?.lastDecision?.notificationSuppressed, true)
   assert.equal(cooldownRun?.lastDecision?.suppressionReason, 'cooldown')
+  await manager.stop({ visionSessionId })
+
+  settings = {
+    ...baseSettings,
+    captureProbability: 1,
+    minCaptureIntervalMs: 0,
+    reactionNudgeAfterSilentCaptures: 2,
+    reactionNudgeProbability: 1,
+    notificationCooldownMs: 0,
+  }
+  chatService.reset('{"mode":"silent","text":"","reason":"not useful"}')
+  await manager.start({ visionSessionId })
+  await manager.trigger({ visionSessionId })
+  await manager.trigger({ visionSessionId })
+  await manager.trigger({ visionSessionId })
+  const thirdReactionPrompt = chatService.calls[5]?.parts[0]
+  assert.equal(thirdReactionPrompt?.type, 'plain')
+  assert.match((thirdReactionPrompt as { text?: string }).text ?? '', /本次倾向：已启用/)
+  assert.equal(reactions.length, 2)
   await manager.stop({ visionSessionId })
 
   settings = { ...baseSettings, captureProbability: 1, minCaptureIntervalMs: 5_000 }

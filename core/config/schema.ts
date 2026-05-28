@@ -152,6 +152,8 @@ export const defaultConfig: DesktopSettingsConfig = {
   observation: {
     evaluationIntervalMs: 60_000,
     captureProbability: 0.25,
+    reactionNudgeAfterSilentCaptures: 3,
+    reactionNudgeProbability: 0.35,
     minCaptureIntervalMs: 60_000,
     defaultDurationMs: 5 * 60_000,
     defaultScope: 'primary_display',
@@ -1188,6 +1190,24 @@ function validateObservation(
       code: 'out_of_range',
     })
   }
+  validateIntegerRange(
+    settings.reactionNudgeAfterSilentCaptures,
+    'observation.reactionNudgeAfterSilentCaptures',
+    1,
+    100,
+    issues
+  )
+  if (
+    !isFiniteNumber(settings.reactionNudgeProbability) ||
+    settings.reactionNudgeProbability < 0 ||
+    settings.reactionNudgeProbability > 1
+  ) {
+    issues.push({
+      path: 'observation.reactionNudgeProbability',
+      message: 'Observation reaction nudge probability must be a number between 0 and 1.',
+      code: 'out_of_range',
+    })
+  }
   if (typeof settings.allowRemoteProviders !== 'boolean') {
     issues.push({
       path: 'observation.allowRemoteProviders',
@@ -1353,6 +1373,20 @@ function normalizeObservationSettings(rawValue: unknown): DesktopObservationSett
       Number.isFinite(rawValue.captureProbability)
         ? rawValue.captureProbability
         : defaults.captureProbability,
+    reactionNudgeAfterSilentCaptures: integerOrDefault(
+      rawValue.reactionNudgeAfterSilentCaptures ??
+        rawValue.replyNudgeAfterSilentCaptures ??
+        rawValue.responseNudgeAfterSilentCaptures,
+      defaults.reactionNudgeAfterSilentCaptures
+    ),
+    reactionNudgeProbability:
+      typeof rawValue.reactionNudgeProbability === 'number' &&
+      Number.isFinite(rawValue.reactionNudgeProbability)
+        ? rawValue.reactionNudgeProbability
+        : typeof rawValue.replyNudgeProbability === 'number' &&
+            Number.isFinite(rawValue.replyNudgeProbability)
+          ? rawValue.replyNudgeProbability
+          : defaults.reactionNudgeProbability,
     minCaptureIntervalMs: integerOrDefault(
       rawValue.minCaptureIntervalMs ?? rawValue.minIntervalMs,
       defaults.minCaptureIntervalMs

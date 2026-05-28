@@ -54,6 +54,7 @@ interface ActiveRunState {
   sourceId?: string
   busy: boolean
   queuedCapture: boolean
+  consecutiveNoVisibleReactions: number
 }
 
 interface ResolvedModel {
@@ -76,6 +77,13 @@ interface ObservationTickResult {
   summary?: string
   candidate: ObservationReactionCandidate
   decision: ObservationReactionDecision
+}
+
+interface ReactionPromptContext {
+  consecutiveNoVisibleReactions: number
+  nudgeActive: boolean
+  nudgeProbability: number
+  nudgeThreshold: number
 }
 
 const visionTitle = '主动视觉'
@@ -174,6 +182,7 @@ export class ObservationManager {
       sourceId: request.sourceId,
       busy: false,
       queuedCapture: false,
+      consecutiveNoVisibleReactions: 0,
     }
     this.active = state
     this.lastRun = undefined
@@ -388,6 +397,7 @@ export class ObservationManager {
       run.failureCount = 0
       run.error = undefined
       await this.dispatchDecision(run, result)
+      this.updateNoVisibleReactionStreak(state, result.decision)
       await this.emitChanged(source === 'timer' ? 'tick' : 'updated', run)
     } catch (error) {
       if (isAbortError(error)) {
@@ -435,11 +445,12 @@ export class ObservationManager {
     await this.assertModelPolicyBeforeCapture()
     const resolved = await this.resolveModelChain(state.run)
     const frame = await this.captureFrame(state)
+    const reactionContext = this.reactionPromptContext(state)
     try {
       const result =
         resolved.chain.mode === 'split'
-          ? await this.performSplitObservation(state.run, resolved, frame, signal)
-          : await this.performSingleObservation(state.run, resolved, frame, signal)
+          ? await this.performSplitObservation(state.run, resolved, frame, signal, reactionContext)
+          : await this.performSingleObservation(state.run, resolved, frame, signal, reactionContext)
       return result
     } finally {
       if (state.run.screenshotRetention === 'ephemeral') {
@@ -452,12 +463,14 @@ export class ObservationManager {
     run: ObservationRun,
     resolved: ResolvedChain,
     frame: Awaited<ReturnType<DesktopCaptureAdapter['capture']>>,
-    signal: AbortSignal
+    signal: AbortSignal,
+    reactionContext: ReactionPromptContext
   ): Promise<ObservationTickResult> {
     const parts = this.captureParts(frame, run.screenshotRetention, {
       prompt: OBSERVATION_PROMPTS.singleModelReactionUser({
         sessionKind: 'vision',
         sessionTitle: visionTitle,
+        reactionContext,
       }),
     })
     const terminal = await this.sendVisionTurn({
@@ -493,7 +506,8 @@ export class ObservationManager {
     run: ObservationRun,
     resolved: ResolvedChain,
     frame: Awaited<ReturnType<DesktopCaptureAdapter['capture']>>,
-    signal: AbortSignal
+    signal: AbortSignal,
+    reactionContext: ReactionPromptContext
   ): Promise<ObservationTickResult> {
     const visionTerminal = await this.sendVisionTurn({
       run,
@@ -526,6 +540,7 @@ export class ObservationManager {
             sessionKind: 'vision',
             sessionTitle: visionTitle,
             summary,
+            reactionContext,
           }),
         },
       ],
@@ -750,6 +765,31 @@ export class ObservationManager {
       createdAt: decision.createdAt,
     }
     this.options.onReaction?.(event)
+  }
+
+  private reactionPromptContext(state: ActiveRunState): ReactionPromptContext {
+    const settings = this.options.settings()
+    const threshold = Math.max(1, Math.floor(settings.reactionNudgeAfterSilentCaptures ?? 3))
+    const baseProbability = clampProbability(settings.reactionNudgeProbability ?? 0.35)
+    const silentCount = state.consecutiveNoVisibleReactions
+    const nudgeStep = silentCount - threshold + 1
+    const nudgeProbability = nudgeStep > 0 ? Math.min(1, baseProbability * nudgeStep) : 0
+
+    return {
+      consecutiveNoVisibleReactions: silentCount,
+      nudgeActive: nudgeProbability > 0 && this.random() < nudgeProbability,
+      nudgeProbability,
+      nudgeThreshold: threshold,
+    }
+  }
+
+  private updateNoVisibleReactionStreak(
+    state: ActiveRunState,
+    decision: ObservationReactionDecision
+  ): void {
+    const visible =
+      decision.decision !== 'silent' && !decision.notificationSuppressed && Boolean(decision.text)
+    state.consecutiveNoVisibleReactions = visible ? 0 : state.consecutiveNoVisibleReactions + 1
   }
 
   private async resolveModelChain(run: ObservationRun): Promise<ResolvedChain> {
@@ -1231,6 +1271,11 @@ function normalizeDecision(value: unknown): ObservationDecision {
   if (value === 'ask') return 'ask'
   if (value === 'notify' || value === 'ambient' || value === 'chat') return 'notify'
   return 'silent'
+}
+
+function clampProbability(value: number): number {
+  if (!Number.isFinite(value)) return 0
+  return Math.min(1, Math.max(0, value))
 }
 
 function cloneRun(run: ObservationRun): ObservationRun {

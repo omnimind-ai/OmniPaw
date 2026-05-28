@@ -109,6 +109,8 @@ export interface DesktopScheduledTaskSettings {
 export interface DesktopObservationSettings {
   evaluationIntervalMs: number
   captureProbability: number
+  reactionNudgeAfterSilentCaptures: number
+  reactionNudgeProbability: number
   minCaptureIntervalMs: number
   defaultDurationMs: number
   defaultScope: ObservationScope

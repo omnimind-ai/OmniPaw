@@ -176,6 +176,8 @@ export interface BridgeDesktopSettingsConfig {
   observation: {
     evaluationIntervalMs: number
     captureProbability: number
+    reactionNudgeAfterSilentCaptures: number
+    reactionNudgeProbability: number
     minCaptureIntervalMs: number
     defaultDurationMs: number
     defaultScope: BridgeObservationScope
@@ -1809,6 +1811,8 @@ function fallbackSettingsConfig(): BridgeDesktopSettingsConfig {
     observation: {
       evaluationIntervalMs: 60_000,
       captureProbability: 0.25,
+      reactionNudgeAfterSilentCaptures: 3,
+      reactionNudgeProbability: 0.35,
       minCaptureIntervalMs: 60_000,
       defaultDurationMs: 5 * 60_000,
       defaultScope: 'primary_display',

@@ -61,6 +61,8 @@ try {
       dailyCaptureLimit: 12,
       consecutiveFailureLimit: 4,
       reactionCooldownMs: 45_000,
+      reactionNudgeAfterSilentCaptures: 4,
+      reactionNudgeProbability: 0.5,
     },
   }).config
 
@@ -93,6 +95,8 @@ try {
   assert.equal('defaultIntervalMs' in normalized.observation, false)
   assert.equal(normalized.observation.evaluationIntervalMs, 120_000)
   assert.equal(normalized.observation.captureProbability, 0.25)
+  assert.equal(normalized.observation.reactionNudgeAfterSilentCaptures, 4)
+  assert.equal(normalized.observation.reactionNudgeProbability, 0.5)
   assert.equal(normalized.observation.minCaptureIntervalMs, 30_000)
   assert.equal(normalized.observation.defaultDurationMs, 10 * 60_000)
   assert.equal(normalized.observation.defaultScope, 'selected_window')
@@ -107,6 +111,8 @@ try {
   assert.equal(defaultObservation.screenshotRetention, 'ephemeral')
   assert.equal(defaultObservation.allowRemoteProviders, false)
   assert.equal(defaultObservation.localOnly, true)
+  assert.equal(defaultObservation.reactionNudgeAfterSilentCaptures, 3)
+  assert.equal(defaultObservation.reactionNudgeProbability, 0.35)
   assert.equal('enabled' in defaultObservation, false)
 
   const legacyObservation = normalizeConfig({
@@ -117,6 +123,8 @@ try {
       durationMs: 180_000,
       minIntervalMs: 15_000,
       cooldownMs: 10_000,
+      replyNudgeAfterSilentCaptures: 2,
+      replyNudgeProbability: 0.25,
       defaultScope: 'selected_display',
       dailyCaptureLimit: 9,
       consecutiveFailureLimit: 5,
@@ -128,6 +136,8 @@ try {
   assert.equal(legacyObservation.defaultDurationMs, 180_000)
   assert.equal(legacyObservation.minCaptureIntervalMs, 15_000)
   assert.equal(legacyObservation.notificationCooldownMs, 10_000)
+  assert.equal(legacyObservation.reactionNudgeAfterSilentCaptures, 2)
+  assert.equal(legacyObservation.reactionNudgeProbability, 0.25)
   assert.equal(legacyObservation.defaultScope, 'selected_display')
   assert.equal(legacyObservation.dailyCaptureLimit, 9)
   assert.equal(legacyObservation.consecutiveFailureLimit, 5)
@@ -217,6 +227,28 @@ try {
         observation: {
           ...cloneDefaultConfig().observation,
           captureProbability: 1.5,
+        },
+      }),
+    ConfigValidationError
+  )
+  assert.throws(
+    () =>
+      normalizeConfig({
+        ...cloneDefaultConfig(),
+        observation: {
+          ...cloneDefaultConfig().observation,
+          reactionNudgeAfterSilentCaptures: 0,
+        },
+      }),
+    ConfigValidationError
+  )
+  assert.throws(
+    () =>
+      normalizeConfig({
+        ...cloneDefaultConfig(),
+        observation: {
+          ...cloneDefaultConfig().observation,
+          reactionNudgeProbability: 1.5,
         },
       }),
     ConfigValidationError

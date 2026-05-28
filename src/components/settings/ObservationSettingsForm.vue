@@ -60,6 +60,13 @@ const captureProbabilityPercent = computed({
   },
 })
 
+const reactionNudgeProbabilityPercent = computed({
+  get: () => Math.round(observation.value.reactionNudgeProbability * 100),
+  set: (value: string | number) => {
+    observation.value.reactionNudgeProbability = clampInteger(value, 0, 100) / 100
+  },
+})
+
 const defaultDurationMinutes = computed({
   get: () => Math.round(observation.value.defaultDurationMs / 60_000),
   set: (value: string | number) => {
@@ -172,6 +179,43 @@ function clampInteger(value: string | number, min: number, max = Number.MAX_SAFE
             class="w-full md:w-48"
             type="number"
             min="1"
+            step="1"
+          />
+        </Field>
+
+        <Field
+          orientation="responsive"
+          class="border-b px-4 py-3"
+        >
+          <FieldContent>
+            <FieldLabel for="observation-reaction-nudge-after">连续静默提升（次）</FieldLabel>
+            <FieldDescription>达到次数后，后续观察会更积极考虑短问候或寒暄。</FieldDescription>
+          </FieldContent>
+          <Input
+            id="observation-reaction-nudge-after"
+            v-model="observation.reactionNudgeAfterSilentCaptures"
+            class="w-full md:w-48"
+            type="number"
+            min="1"
+            step="1"
+          />
+        </Field>
+
+        <Field
+          orientation="responsive"
+          class="border-b px-4 py-3"
+        >
+          <FieldContent>
+            <FieldLabel for="observation-reaction-nudge-probability">寒暄倾向（%）</FieldLabel>
+            <FieldDescription>连续静默达到阈值后，每次观察提升主动寒暄倾向的基础概率。</FieldDescription>
+          </FieldContent>
+          <Input
+            id="observation-reaction-nudge-probability"
+            v-model="reactionNudgeProbabilityPercent"
+            class="w-full md:w-48"
+            type="number"
+            min="0"
+            max="100"
             step="1"
           />
         </Field>
