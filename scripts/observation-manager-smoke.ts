@@ -4,7 +4,12 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { setTimeout as delay } from 'node:timers/promises'
 
+import { ChatSessionKindMismatchError } from '../core/chat/chat-service'
 import type { ChatRunEventTarget } from '../core/chat/run-manager'
+import {
+  createDefaultSessionRecord,
+  createVisionSessionRecord,
+} from '../core/chat/session-defaults'
 import {
   type DesktopCaptureAdapter,
   ObservationManager,
@@ -101,7 +106,7 @@ let permission: ObservationPermissionStatus = {
 const sessions = createMemorySessionRepo()
 const messages = createMemoryMessageRepo()
 const eventTarget = createMemoryEventTarget()
-const chatService = createFakeChatService(messages, eventTarget)
+const chatService = createFakeChatService(sessions, messages, eventTarget)
 
 let settings = { ...baseSettings }
 let registry = registryWithRefs()
@@ -163,7 +168,6 @@ const manager = new ObservationManager({
     get: async (providerId: string) =>
       providerRecords.find((provider) => provider.id === providerId),
   } as never,
-  sessions: sessions as never,
   chatService: () => chatService as never,
   eventTarget: () => eventTarget,
   resolveCatSessionId: () => 'cat-session-smoke',
@@ -422,7 +426,6 @@ try {
       get: async (providerId: string) =>
         providerRecords.find((provider) => provider.id === providerId),
     } as never,
-    sessions: sessions as never,
     chatService: () => chatService as never,
     eventTarget: () => eventTarget,
     resolveCatSessionId: () => 'cat-session-smoke',
@@ -493,6 +496,7 @@ async function waitFor(predicate: () => boolean, timeoutMs = 2000): Promise<void
 }
 
 function createFakeChatService(
+  sessions: ReturnType<typeof createMemorySessionRepo>,
   messages: ReturnType<typeof createMemoryMessageRepo>,
   eventTarget: ReturnType<typeof createMemoryEventTarget>
 ) {
@@ -527,6 +531,43 @@ function createFakeChatService(
       responseText = nextResponseText
       calls.length = 0
       eventTarget.events.length = 0
+    },
+    async getOrCreateSession(request: {
+      kind: 'cat' | 'vision'
+      preferredId?: string | null
+      preferredIds?: Array<string | null | undefined>
+      preferredMismatch?: 'throw' | 'ignore'
+    }): Promise<ChatSession> {
+      const preferredIds = normalizePreferredSessionIds(request.preferredId, request.preferredIds)
+      for (const requestedId of preferredIds) {
+        const preferred = sessions.get(requestedId)
+        if (preferred && preferred.status !== 'deleted' && preferred.kind === request.kind) {
+          return preferred
+        }
+        if (preferred && preferred.kind !== request.kind) {
+          if (request.preferredMismatch !== 'ignore') {
+            throw new ChatSessionKindMismatchError(
+              requestedId,
+              request.kind,
+              preferred.kind ?? 'chat'
+            )
+          }
+        }
+      }
+
+      const existing = sessions
+        .list({ kind: request.kind })
+        .find((session) => session.status === 'active')
+      if (existing) {
+        return existing
+      }
+
+      const session =
+        request.kind === 'vision'
+          ? createVisionSessionRecord()
+          : createDefaultSessionRecord({ kind: 'cat' })
+      sessions.save(session)
+      return sessions.get(session.id) ?? session
     },
     async sendInternalMessage(
       request: {
@@ -606,6 +647,21 @@ function createFakeChatService(
       }
     },
   }
+}
+
+function normalizePreferredSessionIds(
+  preferredId?: string | null,
+  preferredIds: Array<string | null | undefined> = []
+): string[] {
+  const seen = new Set<string>()
+  const normalized: string[] = []
+  for (const value of [preferredId, ...preferredIds]) {
+    const id = value?.trim()
+    if (!id || seen.has(id)) continue
+    seen.add(id)
+    normalized.push(id)
+  }
+  return normalized
 }
 
 function createMemorySessionRepo() {

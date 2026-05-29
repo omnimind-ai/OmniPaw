@@ -251,7 +251,6 @@ export function createCoreRuntime(options: CoreRuntimeOptions): CoreRuntime {
     capture: desktopCapture,
     settings: () => configStore.get().observation,
     providers: providerManager,
-    sessions: sessionRepo,
     attachments: attachmentService,
     chatService: () => chatService,
     eventTarget: options.chatEventTarget,

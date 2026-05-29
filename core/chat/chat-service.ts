@@ -16,6 +16,7 @@ import type {
   AbortRunResponse,
   ChatMessage,
   ChatSession,
+  ChatSessionKind,
   ChatSystemContextConfig,
   CreateSessionRequest,
   DeleteSessionRequest,
@@ -45,6 +46,7 @@ import type { InternalSendMessageResponse } from './run/orchestrator'
 import { ChatRunOrchestrator } from './run/orchestrator'
 import { resolveSelectedProviderAndModel } from './run/provider-selector'
 import type { ChatRunEventTarget, RunManager } from './run-manager'
+import { createDefaultSessionRecord, createVisionSessionRecord } from './session-defaults'
 import { MessageEditor } from './support/message-editor'
 import { SessionSummaryUpdater } from './support/session-summary'
 import { SessionTitleGenerator } from './support/title-generator'
@@ -74,6 +76,27 @@ export interface ChatServiceOptions {
   agentToolProfile?: () => ToolProfile
   agentRunner?: AgentRunner
   logger?: Logger
+}
+
+export class ChatSessionKindMismatchError extends Error {
+  readonly code = 'session_kind_mismatch'
+
+  constructor(
+    readonly sessionId: string,
+    readonly expectedKind: ChatSessionKind,
+    readonly actualKind: ChatSessionKind | undefined
+  ) {
+    super(`Session ${sessionId} is not a ${expectedKind} session.`)
+    this.name = 'ChatSessionKindMismatchError'
+  }
+}
+
+export interface GetOrCreateSessionRequest {
+  kind: Extract<ChatSessionKind, 'cat' | 'vision'>
+  preferredId?: string | null
+  preferredIds?: Array<string | null | undefined>
+  title?: string
+  preferredMismatch?: 'throw' | 'ignore'
 }
 
 export class ChatService {
@@ -157,41 +180,70 @@ export class ChatService {
   }
 
   async createSession(request: CreateSessionRequest = {}): Promise<ChatSession> {
-    const now = Date.now()
     const modelRef = await this.resolveInitialModelRef(request)
     const kind = request.kind === 'cat' || request.kind === 'vision' ? request.kind : 'chat'
-    const contextDefaults = this.options.contextDefaults?.()
-    const systemContext = this.buildDefaultSystemContext()
-    const baseSystemPrompt = systemContext?.baseSystemPrompt
-    const session: ChatSession = {
-      id: crypto.randomUUID(),
-      title:
-        request.title?.trim() ||
-        (kind === 'cat' ? '小猫会话' : kind === 'vision' ? '主动视觉' : '新会话'),
+    const session = this.createSessionRecord({
       kind,
-      status: 'active',
-      defaultProviderId: modelRef?.providerId,
-      defaultModelId: modelRef?.modelId,
-      systemPrompt: baseSystemPrompt?.trim() ? baseSystemPrompt : undefined,
-      systemContext,
-      messageCount: 0,
-      contextPolicy: {
-        mode: 'recent-turns',
-        maxMessages: contextDefaults?.recentMessages ?? 40,
-        includeAttachments: contextDefaults?.includeAttachments ?? 'current-only',
-      },
-      createdAt: now,
-      updatedAt: now,
-    }
+      title: request.title,
+      modelRef,
+      includeDefaultSystemContext: true,
+    })
     this.options.sessions.save(session)
     this.logger?.info('Chat session created.', {
       sessionId: session.id,
       kind: session.kind,
       providerId: session.defaultProviderId,
       modelId: session.defaultModelId,
-      personaRefId: systemContext?.persona?.refId,
+      personaRefId: session.systemContext?.persona?.refId,
     })
     return session
+  }
+
+  async getOrCreateSession(request: GetOrCreateSessionRequest): Promise<ChatSession> {
+    const preferredIds = normalizePreferredSessionIds(request)
+    for (const requestedId of preferredIds) {
+      const preferred = this.options.sessions.get(requestedId)
+      if (preferred && preferred.status !== 'deleted' && preferred.kind === request.kind) {
+        return preferred
+      }
+      if (preferred && preferred.kind !== request.kind) {
+        if (request.preferredMismatch !== 'ignore') {
+          throw new ChatSessionKindMismatchError(
+            requestedId,
+            request.kind,
+            preferred.kind ?? 'chat'
+          )
+        }
+      }
+    }
+
+    const existing = this.options.sessions
+      .list({ kind: request.kind })
+      .find((session) => session.status === 'active')
+    if (existing) {
+      return existing
+    }
+
+    const modelRef =
+      request.kind === 'cat'
+        ? await this.resolveInitialModelRef({}).catch(() => undefined)
+        : undefined
+    const session =
+      request.kind === 'vision'
+        ? this.createSessionRecord({
+            kind: 'vision',
+            title: request.title,
+            includeDefaultSystemContext: false,
+          })
+        : this.createSessionRecord({
+            kind: 'cat',
+            title: request.title,
+            modelRef,
+            includeDefaultSystemContext: true,
+          })
+    this.options.sessions.save(session)
+    this.logger?.info('Chat session ensured.', { sessionId: session.id, kind: session.kind })
+    return this.options.sessions.get(session.id) ?? session
   }
 
   buildDefaultSystemContext(): ChatSystemContextConfig | undefined {
@@ -355,4 +407,57 @@ export class ChatService {
       return undefined
     }
   }
+
+  private createSessionRecord(input: {
+    kind: Extract<ChatSessionKind, 'chat' | 'cat' | 'vision'>
+    title?: string
+    modelRef?: { providerId: string; modelId: string }
+    includeDefaultSystemContext: boolean
+  }): ChatSession {
+    const now = Date.now()
+    const systemContext = input.includeDefaultSystemContext
+      ? this.buildDefaultSystemContext()
+      : undefined
+    const baseSystemPrompt = systemContext?.baseSystemPrompt
+
+    if (input.kind === 'vision') {
+      const session = createVisionSessionRecord(now)
+      return {
+        ...session,
+        ...(input.title?.trim() ? { title: input.title.trim() } : {}),
+        defaultProviderId: input.modelRef?.providerId,
+        defaultModelId: input.modelRef?.modelId,
+        systemPrompt: baseSystemPrompt?.trim() ? baseSystemPrompt : undefined,
+        systemContext,
+      }
+    }
+
+    const contextDefaults = this.options.contextDefaults?.()
+    return createDefaultSessionRecord({
+      kind: input.kind,
+      title: input.title,
+      defaultProviderId: input.modelRef?.providerId,
+      defaultModelId: input.modelRef?.modelId,
+      systemPrompt: baseSystemPrompt,
+      systemContext,
+      recentMessages: contextDefaults?.recentMessages,
+      includeAttachments: contextDefaults?.includeAttachments,
+      now,
+    })
+  }
+}
+
+function normalizePreferredSessionIds(request: GetOrCreateSessionRequest): string[] {
+  const ids = [request.preferredId, ...(request.preferredIds ?? [])]
+  const seen = new Set<string>()
+  const normalized: string[] = []
+  for (const value of ids) {
+    const id = value?.trim()
+    if (!id || seen.has(id)) {
+      continue
+    }
+    seen.add(id)
+    normalized.push(id)
+  }
+  return normalized
 }

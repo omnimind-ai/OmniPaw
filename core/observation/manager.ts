@@ -1,11 +1,11 @@
 import type { AttachmentService } from '@core/chat/attachment-service'
-import type { ChatService } from '@core/chat/chat-service'
+import { type ChatService, ChatSessionKindMismatchError } from '@core/chat/chat-service'
 import type { ChatRunEventTarget, ChatRunTerminalEvent } from '@core/chat/run-manager'
-import type { ChatSessionRepo } from '@core/db/repos'
+import { VISION_SESSION_TITLE } from '@core/chat/session-defaults'
 import type { Logger } from '@core/logging'
 import { OBSERVATION_PROMPTS } from '@core/prompts'
 import type { ProviderManager, ProviderModelRecord, ProviderRecord } from '@core/provider/manager'
-import type { ChatMessagePart, ChatSession, TransientChatInstruction } from '@shared/types/chat'
+import type { ChatMessagePart, TransientChatInstruction } from '@shared/types/chat'
 import type {
   ObservationCaptureMetadata,
   ObservationChangedEvent,
@@ -35,7 +35,6 @@ export interface ObservationManagerOptions {
   capture: DesktopCaptureAdapter
   settings: () => DesktopObservationSettings
   providers: ProviderManager
-  sessions: ChatSessionRepo
   attachments?: AttachmentService
   chatService?: () => ChatService | undefined
   eventTarget?: () => ChatRunEventTarget | undefined
@@ -87,14 +86,13 @@ interface ReactionPromptContext {
   devForceReaction: boolean
 }
 
-const visionTitle = '主动视觉'
+const visionTitle = VISION_SESSION_TITLE
 const captureMarkerText =
   '[Vision capture: screenshot was used only for the current run and was not retained.]'
 
 export class ObservationManager {
   private readonly capture: DesktopCaptureAdapter
   private readonly providers: ProviderManager
-  private readonly sessions: ChatSessionRepo
   private readonly logger?: Logger
   private readonly random: () => number
   private active: ActiveRunState | undefined
@@ -106,7 +104,6 @@ export class ObservationManager {
   constructor(private readonly options: ObservationManagerOptions) {
     this.capture = options.capture
     this.providers = options.providers
-    this.sessions = options.sessions
     this.logger = options.logger
     this.random = options.random ?? Math.random
   }
@@ -601,10 +598,7 @@ export class ObservationManager {
     signal: AbortSignal
     metadata: Record<string, unknown>
   }): Promise<ChatRunTerminalEvent> {
-    const chat = this.options.chatService?.()
-    if (!chat) {
-      throw this.observationError('provider_failed', '主动视觉聊天执行入口尚未初始化。', true)
-    }
+    const chat = this.requireChatService()
     const target = this.options.eventTarget?.()
     if (!target) {
       throw this.observationError('provider_failed', '主动视觉事件广播入口不可用。', true)
@@ -983,40 +977,26 @@ export class ObservationManager {
     }
   }
 
-  private async getOrCreateVisionSession(preferredId?: string): Promise<ChatSession> {
-    const preferred = preferredId ? this.sessions.get(preferredId) : undefined
-    if (preferred && preferred.status !== 'deleted' && preferred.kind === 'vision') {
-      return preferred
+  private async getOrCreateVisionSession(preferredId?: string) {
+    try {
+      return await this.requireChatService().getOrCreateSession({
+        kind: 'vision',
+        preferredId,
+      })
+    } catch (error) {
+      if (error instanceof ChatSessionKindMismatchError) {
+        throw this.observationError('invalid_request', '主动视觉只能绑定 vision session。', true)
+      }
+      throw error
     }
-    if (preferredId && preferred?.kind !== 'vision') {
-      throw this.observationError('invalid_request', '主动视觉只能绑定 vision session。', true)
+  }
+
+  private requireChatService(): ChatService {
+    const chat = this.options.chatService?.()
+    if (!chat) {
+      throw this.observationError('provider_failed', '主动视觉聊天执行入口尚未初始化。', true)
     }
-    const existing = this.sessions
-      .list({ kind: 'vision' })
-      .find((session) => session.status === 'active')
-    if (existing) {
-      return existing
-    }
-    const now = Date.now()
-    const session: ChatSession = {
-      id: crypto.randomUUID(),
-      title: visionTitle,
-      kind: 'vision',
-      status: 'active',
-      messageCount: 0,
-      contextPolicy: {
-        mode: 'summary-plus-recent',
-        keepRecentTurns: 6,
-        includeAttachments: 'current-only',
-      },
-      metadata: {
-        system: 'observation',
-      },
-      createdAt: now,
-      updatedAt: now,
-    }
-    this.sessions.save(session)
-    return this.sessions.get(session.id) ?? session
+    return chat
   }
 
   private captureCountForToday(): number {

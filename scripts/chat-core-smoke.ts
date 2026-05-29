@@ -9,10 +9,11 @@ import { ToolRegistry } from '../core/agent/tools/registry'
 import type { AgentTool } from '../core/agent/tools/types'
 import { AgentWorkspaceService } from '../core/agent/workspace'
 import { AttachmentService } from '../core/chat/attachment-service'
-import { ChatService } from '../core/chat/chat-service'
+import { ChatService, ChatSessionKindMismatchError } from '../core/chat/chat-service'
 import { ContextCompactionService } from '../core/chat/context-compaction'
 import { ContextBuilder } from '../core/chat/context-manager'
 import { RunManager } from '../core/chat/run-manager'
+import { CAT_SESSION_TITLE } from '../core/chat/session-defaults'
 import {
   stageWorkspaceDocumentAttachments,
   withWorkspaceDocumentAttachmentsMetadata,
@@ -154,12 +155,41 @@ try {
   })
   assert.equal(selectedSession.defaultProviderId, kimiProvider.id)
   assert.equal(selectedSession.defaultModelId, 'kimi')
-  const visionSession = await sessionModelService.createSession({
+  const catSession = await sessionModelService.getOrCreateSession({ kind: 'cat' })
+  assert.equal(catSession.kind, 'cat')
+  assert.equal(catSession.title, CAT_SESSION_TITLE)
+  assert.equal((await sessionModelService.getOrCreateSession({ kind: 'cat' })).id, catSession.id)
+  assert.equal(
+    (
+      await sessionModelService.getOrCreateSession({
+        kind: 'cat',
+        preferredId: selectedSession.id,
+        preferredMismatch: 'ignore',
+      })
+    ).id,
+    catSession.id
+  )
+  const visionSession = await sessionModelService.getOrCreateSession({ kind: 'vision' })
+  assert.equal(visionSession.kind, 'vision')
+  assert.equal(visionSession.title, '主动视觉')
+  assert.equal(visionSession.metadata?.system, 'observation')
+  assert.equal(visionSession.contextPolicy?.mode, 'summary-plus-recent')
+  assert.equal(visionSession.contextPolicy?.keepRecentTurns, 6)
+  assert.equal(
+    (await sessionModelService.getOrCreateSession({ kind: 'vision' })).id,
+    visionSession.id
+  )
+  await assert.rejects(
+    () =>
+      sessionModelService.getOrCreateSession({ kind: 'vision', preferredId: selectedSession.id }),
+    (error) => error instanceof ChatSessionKindMismatchError
+  )
+  const explicitVisionSession = await sessionModelService.createSession({
     kind: 'vision',
     providerId: kimiProvider.id,
     modelId: 'kimi',
   })
-  assert.equal(visionSession.kind, 'vision')
+  assert.equal(explicitVisionSession.kind, 'vision')
   assert.equal(
     sessionModelService.listSessions().some((item) => item.id === visionSession.id),
     false

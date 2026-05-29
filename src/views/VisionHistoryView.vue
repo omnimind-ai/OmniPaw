@@ -71,7 +71,7 @@ async function loadSessions(): Promise<void> {
 
 async function loadMessages(sessionId: string): Promise<void> {
   if (!sessionId) return
-  const history = await appBridge.chat.listMessages?.({ sessionId })
+  const history = await appBridge.chat.listMessages?.(sessionId)
   messages.value = (history ?? []).map(mapMessage)
 }
 

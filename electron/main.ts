@@ -4,7 +4,7 @@ import { createElectronLogSink, createProjectLogger } from '@core/logging'
 import { resolveOpenOmniClawDataPaths } from '@core/utils/data-paths'
 import { APP_NAME, IPC_CHANNELS } from '@shared/constants'
 import type { OpenChatSessionRequest } from '@shared/types/app'
-import type { ChatSession, ChatSessionChangedEvent } from '@shared/types/chat'
+import type { ChatSessionChangedEvent } from '@shared/types/chat'
 import type { CronTaskChangedEvent } from '@shared/types/cron'
 import type { ObservationChangedEvent, ObservationReactionEvent } from '@shared/types/observation'
 import type {
@@ -174,10 +174,6 @@ function getRuntimeSessionKind(sessionId: string): string | undefined {
   return typeof session?.kind === 'string' ? session.kind : undefined
 }
 
-function isRuntimeCatSession(session: ChatSession | undefined | null): session is ChatSession {
-  return session?.status !== 'deleted' && session?.kind === 'cat'
-}
-
 function normalizeSessionId(value: string | null | undefined): string | null {
   if (typeof value !== 'string') {
     return null
@@ -195,42 +191,19 @@ async function resolveRuntimeCatSessionId(
   }
 
   const preferred = normalizeSessionId(preferredSessionId)
-  if (preferred && isRuntimeCatSession(runtime.sessionRepo.get(preferred))) {
-    return preferred
-  }
-
   const active = normalizeSessionId(getActiveCatSessionId())
-  if (active && isRuntimeCatSession(runtime.sessionRepo.get(active))) {
-    return active
-  }
-
-  const existing = runtime.sessionRepo
-    .list({ kind: 'all' })
-    .find((session) => isRuntimeCatSession(session))
-  if (existing) {
-    return existing.id
-  }
 
   try {
-    const created = await createRuntimeCatSession(runtime)
-    return created.id
+    const session = await runtime.chatService.getOrCreateSession({
+      kind: 'cat',
+      preferredIds: [preferred, active],
+      preferredMismatch: 'ignore',
+    })
+    return session.id
   } catch (error) {
     mainLogger.warn('Unable to create cat session for cat window state.', { error })
     return null
   }
-}
-
-async function createRuntimeCatSession(currentRuntime: CoreRuntime): Promise<ChatSession> {
-  const session = await currentRuntime.chatService.createSession({
-    kind: 'cat',
-    title: '小猫会话',
-  })
-  mainLogger.info('Cat session created.', {
-    sessionId: session.id,
-    providerId: session.defaultProviderId,
-    modelId: session.defaultModelId,
-  })
-  return session
 }
 
 function createCatNotificationControllerForRuntime(): CatNotificationController {
