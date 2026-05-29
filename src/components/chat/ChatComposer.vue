@@ -57,6 +57,7 @@ const props = defineProps<{
     label: string
     description: string
   }>
+  showToolProfile?: boolean
   toolProfileSaving?: boolean
   contextUsage?: SessionContextUsage
   contextUsageLoading?: boolean
@@ -122,6 +123,7 @@ const selectedToolProfileLabel = computed(() => selectedToolProfile.value?.label
 const selectedToolProfileDescription = computed(
   () => selectedToolProfile.value?.description ?? '选择 Agent 工具权限'
 )
+const showToolProfileControl = computed(() => props.showToolProfile !== false)
 
 function handleCompositionStart() {
   compositionActive.value = true
@@ -416,6 +418,8 @@ function handleDrop(event: DragEvent) {
                   <PlusIcon data-icon="inline-start" />
                 </InputGroupButton>
 
+                <slot name="controls" />
+
                 <DropdownMenu>
                   <DropdownMenuTrigger as-child>
                     <InputGroupButton
@@ -460,7 +464,7 @@ function handleDrop(event: DragEvent) {
                   </DropdownMenuContent>
                 </DropdownMenu>
 
-                <DropdownMenu>
+                <DropdownMenu v-if="showToolProfileControl">
                   <DropdownMenuTrigger as-child>
                     <InputGroupButton
                       class="max-w-9 justify-start px-1.5 @min-[34rem]/chat-composer:max-w-32 @min-[44rem]/chat-composer:max-w-40"

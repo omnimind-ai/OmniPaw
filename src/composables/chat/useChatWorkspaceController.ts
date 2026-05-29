@@ -1,5 +1,6 @@
 import { isComplexDocumentAttachment } from '@shared/attachment-documents'
 import type { ChatSessionKind, ToolProfile } from '@shared/types/chat'
+import type { TavernLorebook } from '@shared/types/tavern'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { appBridge } from '@/bridge/app'
@@ -46,8 +47,9 @@ export function useChatWorkspaceController() {
   const sessionKindFilter = ref<Extract<ChatSessionKind, 'chat' | 'cat' | 'vision'>>('chat')
   const fileInput = ref<HTMLInputElement | null>(null)
   const creatingSession = ref(false)
-  const tavernModalOpen = ref(false)
   const toolProfileSaving = ref(false)
+  const tavernSelectedCharacterId = ref('')
+  const tavernSelectedLorebookIds = ref<string[]>([])
   const replyTarget = ref<{ messageId: string; preview: string } | null>(null)
   const highlightedMessageId = ref('')
   const messages = useMessages({
@@ -80,6 +82,16 @@ export function useChatWorkspaceController() {
   const currentSessionRunning = computed(() =>
     currSessionId.value ? messages.isSessionRunning(currSessionId.value) : false
   )
+  const agentToolProfile = computed(() => settingsStore.agentToolProfile)
+  const showReasoningContent = computed(() => settingsStore.showReasoningContent)
+  const activeSession = computed(() => getCurrentSession.value)
+  const activeTavernMetadata = computed(() => activeSession.value?.metadata?.tavern)
+  const isTavernHomeMode = computed(() => route.name === 'tavern')
+  const effectiveToolProfile = computed<ToolProfile>(() =>
+    isTavernHomeMode.value || activeTavernMetadata.value?.enabled
+      ? 'minimal'
+      : agentToolProfile.value
+  )
   const attachmentWarning = computed(() => {
     if (!media.stagedFiles.value.length) return ''
     if (media.stagedFiles.value.length > ATTACHMENT_LIMITS.maxFilesPerMessage) {
@@ -106,7 +118,7 @@ export function useChatWorkspaceController() {
       ) {
         return `${complexDocument.filename} 超过 workspace 文件限制 ${formatBytes(tools.workspace.maxFileBytes)}。`
       }
-      if (agentToolProfile.value === 'minimal') {
+      if (effectiveToolProfile.value === 'minimal') {
         return '最小工具模式无法读取 Office 文档，请切换到助手或高级权限。'
       }
       if (model.selectedModel.value?.toolCallingDisabled) {
@@ -146,10 +158,6 @@ export function useChatWorkspaceController() {
   const sidebarOpen = computed(() => chatStore.sidebarOpen)
   const activeContextUsage = computed(() => chatStore.activeContextUsage)
   const activeContextUsageLoading = computed(() => chatStore.activeContextUsageLoading)
-  const agentToolProfile = computed(() => settingsStore.agentToolProfile)
-  const showReasoningContent = computed(() => settingsStore.showReasoningContent)
-  const activeSession = computed(() => getCurrentSession.value)
-  const activeTavernMetadata = computed(() => activeSession.value?.metadata?.tavern)
   const activeTavernCharacter = computed(() =>
     tavernStore.characterById(activeTavernMetadata.value?.characterId)
   )
@@ -173,6 +181,37 @@ export function useChatWorkspaceController() {
     () =>
       Boolean(activeTavernMetadata.value?.enabled) &&
       !messages.activeMessages.value.some((record) => messages.isUserMessage(record))
+  )
+  const tavernCharacters = computed(() =>
+    tavernStore.characters.filter((character) => character.enabled !== false)
+  )
+  const tavernLorebooks = computed(() =>
+    tavernStore.lorebooks.filter((lorebook) => lorebook.enabled !== false)
+  )
+  const tavernSelectedCharacter = computed(() =>
+    tavernStore.characterById(tavernSelectedCharacterId.value)
+  )
+  const tavernSelectedLorebooks = computed(() =>
+    tavernSelectedLorebookIds.value
+      .map((id) => tavernStore.lorebookById(id))
+      .filter((lorebook): lorebook is TavernLorebook => Boolean(lorebook))
+  )
+  const tavernSelectedCharacterLabel = computed(
+    () => tavernSelectedCharacter.value?.name || '选择角色卡'
+  )
+  const tavernSelectedLorebookLabel = computed(() => {
+    if (!tavernSelectedLorebooks.value.length) return '无世界书'
+    if (tavernSelectedLorebooks.value.length === 1) return tavernSelectedLorebooks.value[0].name
+    return `${tavernSelectedLorebooks.value.length} 本世界书`
+  })
+  const tavernCanSend = computed(
+    () =>
+      !messages.sending.value &&
+      !currentSessionRunning.value &&
+      !media.uploadPending.value &&
+      Boolean(model.selectedModel.value) &&
+      Boolean(tavernSelectedCharacter.value) &&
+      !attachmentWarning.value
   )
   const toolProfileOptions: Array<{
     value: ToolProfile
@@ -210,6 +249,13 @@ export function useChatWorkspaceController() {
     activeTavernLorebookNames,
     activeTavernGreetingOptions,
     activeTavernCanReplaceGreeting,
+    tavernCharacters,
+    tavernLorebooks,
+    tavernSelectedCharacterId,
+    tavernSelectedLorebookIds,
+    tavernSelectedCharacterLabel,
+    tavernSelectedLorebookLabel,
+    tavernCanSend,
     showScrollToBottom: scroll.showScrollToBottom,
     draft,
     stagedFiles: media.stagedFiles,
@@ -235,6 +281,7 @@ export function useChatWorkspaceController() {
     setMessagesScrollArea: scroll.setMessagesScrollArea,
     scrollToLatestMessage: scroll.scrollToLatestMessage,
     openSettings,
+    openTavernSettings,
     openFilePicker,
     handleFileInputChange,
     handleFilesDropped,
@@ -242,9 +289,12 @@ export function useChatWorkspaceController() {
     removeUploadAt,
     handleModelChange: model.handleModelChange,
     handleToolProfileChange,
+    handleTavernCharacterChange,
+    handleTavernLorebookToggle,
     handleTavernGreetingChange,
     handlePaste: media.handlePaste,
     handleSubmit,
+    handleTavernSubmit,
     handleStop,
     handleCopyMessage,
     handleCopyCode,
@@ -299,6 +349,17 @@ export function useChatWorkspaceController() {
       chatStore.reconcileContextUsageFromSessions(nextSessions)
     },
     { deep: true }
+  )
+
+  watch(
+    tavernCharacters,
+    (characters) => {
+      if (characters.some((character) => character.id === tavernSelectedCharacterId.value)) {
+        return
+      }
+      handleTavernCharacterChange(characters[0]?.id ?? '')
+    },
+    { immediate: true }
   )
 
   watch(
@@ -410,22 +471,26 @@ export function useChatWorkspaceController() {
     await router.push('/settings')
   }
 
+  async function openTavernSettings() {
+    await router.push({ name: 'settings', query: { tab: 'tavern' } })
+  }
+
+  async function openTavernHome() {
+    currSessionId.value = ''
+    selectedSessions.value = []
+    chatStore.activeSessionId = undefined
+    replyTarget.value = null
+    media.clearStaged()
+    model.syncSelectedModel()
+    await router.push('/tavern')
+  }
+
   async function toggleCatVisibility() {
     try {
       await appBridge.cat.toggleVisibility()
     } catch (error) {
       toast.error(error, { description: '切换小猫失败' })
     }
-  }
-
-  function setTavernModalOpen(open: boolean) {
-    tavernModalOpen.value = open
-  }
-
-  async function handleTavernSessionCreated(sessionId: string) {
-    sessionKindFilter.value = 'chat'
-    await getFilteredSessions()
-    await handleSelectSession(sessionId)
   }
 
   function openFilePicker() {
@@ -459,6 +524,26 @@ export function useChatWorkspaceController() {
       toast.error(error, { description: 'Agent 权限保存失败' })
     } finally {
       toolProfileSaving.value = false
+    }
+  }
+
+  function handleTavernCharacterChange(value: string | number) {
+    const characterId = String(value || '')
+    tavernSelectedCharacterId.value = characterId
+    const character = tavernStore.characterById(characterId)
+    tavernSelectedLorebookIds.value = (character?.defaultLorebookIds ?? []).filter((id) =>
+      tavernStore.lorebookById(id)
+    )
+  }
+
+  function handleTavernLorebookToggle(lorebookId: string, checked: boolean | 'indeterminate') {
+    const enabled = checked === true
+    if (enabled && !tavernSelectedLorebookIds.value.includes(lorebookId)) {
+      tavernSelectedLorebookIds.value = [...tavernSelectedLorebookIds.value, lorebookId]
+    } else if (!enabled) {
+      tavernSelectedLorebookIds.value = tavernSelectedLorebookIds.value.filter(
+        (id) => id !== lorebookId
+      )
     }
   }
 
@@ -513,6 +598,7 @@ export function useChatWorkspaceController() {
       chatStore.activeSessionId = sessionId
 
       await model.selectModel(selectedModel)
+      const requestToolProfile = runToolProfileForSession(sessionId)
 
       if (isHomeMode.value) {
         chatStore.setPendingInitialMessage({
@@ -521,7 +607,7 @@ export function useChatWorkspaceController() {
           parts,
           selectedProvider: selectedModel.providerId,
           selectedModel: selectedModel.modelId,
-          toolProfile: agentToolProfile.value,
+          toolProfile: requestToolProfile,
         })
 
         draft.value = ''
@@ -550,11 +636,62 @@ export function useChatWorkspaceController() {
         transport: 'sse',
         selectedProvider: selectedModel.providerId,
         selectedModel: selectedModel.modelId,
-        toolProfile: agentToolProfile.value,
+        toolProfile: requestToolProfile,
         enableStreaming: true,
         userRecord,
         botRecord,
       })
+    } finally {
+      messages.sending.value = false
+    }
+  }
+
+  async function handleTavernSubmit() {
+    if (!tavernCanSend.value) return
+
+    const selectedModel = model.selectedModel.value
+    const character = tavernSelectedCharacter.value
+    if (!selectedModel || !character) return
+
+    const messageId = crypto.randomUUID?.() || `${Date.now()}-${Math.random()}`
+    const parts = buildOutgoingParts()
+    messages.sending.value = true
+
+    try {
+      const result = await tavernStore.createSession({
+        characterId: character.id,
+        lorebookIds: tavernSelectedLorebookIds.value,
+        providerId: selectedModel.providerId,
+        modelId: selectedModel.modelId,
+      })
+      const sessionId = result.session.id
+
+      sessionKindFilter.value = 'chat'
+      currSessionId.value = sessionId
+      selectedSessions.value = [sessionId]
+      chatStore.activeSessionId = sessionId
+
+      await model.selectModel(selectedModel)
+      await getFilteredSessions()
+
+      if (parts.length) {
+        chatStore.setPendingInitialMessage({
+          sessionId,
+          messageId,
+          parts,
+          selectedProvider: selectedModel.providerId,
+          selectedModel: selectedModel.modelId,
+          toolProfile: undefined,
+        })
+      }
+
+      draft.value = ''
+      chatStore.draft = ''
+      media.clearStaged()
+      replyTarget.value = null
+      await router.push(`/chat/${sessionId}`)
+    } catch (error) {
+      toast.error(error, { description: '创建酒馆会话失败' })
     } finally {
       messages.sending.value = false
     }
@@ -580,7 +717,7 @@ export function useChatWorkspaceController() {
       transport: 'sse',
       selectedProvider: pending.selectedProvider,
       selectedModel: pending.selectedModel,
-      toolProfile: pending.toolProfile ?? agentToolProfile.value,
+      toolProfile: pending.toolProfile ?? runToolProfileForSession(sessionId),
       enableStreaming: true,
       userRecord,
       botRecord,
@@ -615,6 +752,14 @@ export function useChatWorkspaceController() {
     }
 
     return parts
+  }
+
+  function runToolProfileForSession(sessionId: string): ToolProfile | undefined {
+    const session =
+      sessions.value.find((item) => item.id === sessionId) ||
+      (activeSession.value?.id === sessionId ? activeSession.value : undefined)
+    if (session?.metadata?.tavern?.enabled) return undefined
+    return agentToolProfile.value
   }
 
   async function handleStop() {
@@ -657,7 +802,7 @@ export function useChatWorkspaceController() {
         sourceRecord: record,
         selectedProvider: model.selectedModel.value.providerId,
         selectedModel: model.selectedModel.value.modelId,
-        toolProfile: agentToolProfile.value,
+        toolProfile: runToolProfileForSession(currSessionId.value),
         enableStreaming: true,
       })
     } catch (error) {
@@ -673,7 +818,7 @@ export function useChatWorkspaceController() {
         record,
         model.selectedModel.value.providerId,
         model.selectedModel.value.modelId,
-        agentToolProfile.value
+        runToolProfileForSession(currSessionId.value)
       )
     } catch (error) {
       toast.error(error, { description: '重新生成失败' })
@@ -739,7 +884,6 @@ export function useChatWorkspaceController() {
     currSessionId,
     sessionKindFilter,
     creatingSession,
-    tavernModalOpen,
     runningSessionIds: messages.runningSessionIds,
     sidebarOpen,
     setSidebarOpen,
@@ -747,9 +891,8 @@ export function useChatWorkspaceController() {
     handleSelectSession,
     handleSessionKindFilterChange,
     openSettings,
+    openTavernHome,
     toggleCatVisibility,
-    setTavernModalOpen,
-    handleTavernSessionCreated,
     handleRenameSession,
     handleDeleteSession,
   }

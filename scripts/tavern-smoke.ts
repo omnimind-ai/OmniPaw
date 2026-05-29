@@ -355,6 +355,26 @@ try {
   assert.equal(run?.requestSnapshot?.tavern?.runProfile, 'low-noise')
   assert.equal(JSON.stringify(run?.requestSnapshot).includes('Moon Gate opens'), false)
 
+  const explicitProfileSend = await chatService.sendInternalMessage(
+    {
+      sessionId: createdSession.session.id,
+      parts: [{ type: 'plain', text: 'Keep this low-noise.' }],
+      providerId: provider.id,
+      modelId: model.id,
+      toolProfile: 'power',
+    },
+    {
+      send() {},
+    }
+  )
+  await explicitProfileSend.terminalEvent
+  assert.equal(providerRequests.at(-1)?.tools, undefined)
+  const explicitProfileRun = runRepo.get(explicitProfileSend.runId)
+  assert.equal(explicitProfileRun?.requestSnapshot?.mode, 'fast_chat')
+  assert.equal(explicitProfileRun?.requestSnapshot?.toolProfile, 'minimal')
+  assert.deepEqual(explicitProfileRun?.requestSnapshot?.availableTools, [])
+  assert.equal(explicitProfileRun?.requestSnapshot?.skills?.omittedReason, 'tavern_run_profile')
+
   await assert.rejects(
     () =>
       chatService.regenerateMessage(

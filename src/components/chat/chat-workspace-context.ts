@@ -1,5 +1,5 @@
 import type { ChatSession, ToolProfile } from '@shared/types/chat'
-import type { TavernCharacter, TavernSessionMetadata } from '@shared/types/tavern'
+import type { TavernCharacter, TavernLorebook, TavernSessionMetadata } from '@shared/types/tavern'
 import { type ComputedRef, type InjectionKey, inject, type Ref } from 'vue'
 import type { MessageScrollAreaRef } from '@/composables/chat/useChatWorkspaceScroll'
 import type { StagedFileInfo, StagedUploadItem } from '@/composables/useMediaHandling'
@@ -21,6 +21,13 @@ export interface ChatWorkspaceContext {
   activeTavernLorebookNames: ComputedRef<string[]>
   activeTavernGreetingOptions: ComputedRef<Array<{ index: number; label: string; text: string }>>
   activeTavernCanReplaceGreeting: ComputedRef<boolean>
+  tavernCharacters: ComputedRef<TavernCharacter[]>
+  tavernLorebooks: ComputedRef<TavernLorebook[]>
+  tavernSelectedCharacterId: Ref<string>
+  tavernSelectedLorebookIds: Ref<string[]>
+  tavernSelectedCharacterLabel: ComputedRef<string>
+  tavernSelectedLorebookLabel: ComputedRef<string>
+  tavernCanSend: ComputedRef<boolean>
   showScrollToBottom: Ref<boolean>
   draft: Ref<string>
   stagedFiles: Ref<StagedFileInfo[]>
@@ -50,6 +57,7 @@ export interface ChatWorkspaceContext {
   setMessagesScrollArea: (value: MessageScrollAreaRef) => void
   scrollToLatestMessage: (behavior?: ScrollBehavior, force?: boolean) => void
   openSettings: () => Promise<void>
+  openTavernSettings: () => Promise<void>
   openFilePicker: () => void
   handleFileInputChange: (event: Event) => Promise<void>
   handleFilesDropped: (files: File[]) => Promise<void>
@@ -57,9 +65,12 @@ export interface ChatWorkspaceContext {
   removeUploadAt: (index: number) => void
   handleModelChange: (value: unknown) => Promise<void>
   handleToolProfileChange: (value: ToolProfile) => Promise<void>
+  handleTavernCharacterChange: (value: string | number) => void
+  handleTavernLorebookToggle: (lorebookId: string, checked: boolean | 'indeterminate') => void
   handleTavernGreetingChange: (value: string | number) => Promise<void>
   handlePaste: (event: ClipboardEvent) => Promise<void>
   handleSubmit: () => Promise<void>
+  handleTavernSubmit: () => Promise<void>
   handleStop: () => Promise<void>
   handleCopyMessage: (record: ChatRecord) => Promise<void>
   handleCopyCode: (code?: string) => void

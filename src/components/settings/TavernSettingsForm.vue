@@ -10,25 +10,17 @@ import {
   BookOpenIcon,
   DownloadIcon,
   FileJsonIcon,
-  MessageCirclePlusIcon,
   PlusIcon,
   SaveIcon,
   Trash2Icon,
   UserRoundIcon,
 } from 'lucide-vue-next'
-import { computed, reactive, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 
+import SettingsSection from '@/components/settings/SettingsSection.vue'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
 import {
   Field,
   FieldContent,
@@ -52,15 +44,6 @@ import { useTavernStore } from '@/stores/tavern'
 import { askForConfirmation, useConfirmDialog } from '@/utils/confirmDialog'
 import { useToast } from '@/utils/toast'
 
-const props = defineProps<{
-  open: boolean
-}>()
-
-const emit = defineEmits<{
-  'update:open': [value: boolean]
-  sessionCreated: [sessionId: string]
-}>()
-
 const tavernStore = useTavernStore()
 const toast = useToast()
 const confirmDialog = useConfirmDialog()
@@ -70,11 +53,8 @@ const importText = ref('')
 const selectedCharacterId = ref('')
 const selectedLorebookId = ref('')
 const selectedSessionLorebookIds = ref<string[]>([])
-const sessionUserName = ref('User')
-const sessionGreetingIndex = ref('0')
 const savingCharacter = ref(false)
 const savingLorebook = ref(false)
-const creatingSession = ref(false)
 
 const characterDraft = reactive({
   name: '',
@@ -108,13 +88,6 @@ const selectedCharacter = computed(() =>
 const selectedLorebook = computed(() =>
   tavernStore.lorebooks.find((lorebook) => lorebook.id === selectedLorebookId.value)
 )
-const greetingOptions = computed(() => {
-  const character = selectedCharacter.value
-  if (!character) return []
-  return [character.firstMessage, ...character.alternateGreetings]
-    .map((text, index) => ({ index, text: text?.trim() || '' }))
-    .filter((item) => item.text)
-})
 const selectedSessionLorebookSet = computed(() => new Set(selectedSessionLorebookIds.value))
 const canSaveCharacter = computed(() => Boolean(characterDraft.name.trim()) && !tavernStore.saving)
 const canSaveLorebook = computed(
@@ -126,10 +99,8 @@ const canSaveLorebook = computed(
 )
 const importDisabled = computed(() => !importText.value.trim() || tavernStore.saving)
 
-watch(
-  () => props.open,
-  async (open) => {
-    if (!open) return
+onMounted(async () => {
+  try {
     await tavernStore.load()
     if (!selectedCharacterId.value && tavernStore.characters[0]) {
       selectCharacter(tavernStore.characters[0].id)
@@ -137,9 +108,14 @@ watch(
     if (!selectedLorebookId.value && tavernStore.lorebooks[0]) {
       selectLorebook(tavernStore.lorebooks[0].id)
     }
-  },
-  { immediate: true }
-)
+  } catch (error) {
+    toast.error(error, { description: '酒馆配置加载失败' })
+  }
+})
+
+onBeforeUnmount(() => {
+  tavernStore.stopSubscription()
+})
 
 watch(selectedCharacter, (character) => {
   applyCharacterDraft(character)
@@ -149,15 +125,10 @@ watch(selectedLorebook, (lorebook) => {
   applyLorebookDraft(lorebook)
 })
 
-function updateOpen(value: boolean) {
-  emit('update:open', value)
-}
-
 function selectCharacter(characterId: string) {
   selectedCharacterId.value = characterId
   const character = tavernStore.characters.find((item) => item.id === characterId)
   selectedSessionLorebookIds.value = [...(character?.defaultLorebookIds ?? [])]
-  sessionGreetingIndex.value = '0'
   applyCharacterDraft(character)
 }
 
@@ -283,27 +254,6 @@ async function exportPersona() {
     })
   } catch (error) {
     toast.error(error, { description: 'Persona 导出失败' })
-  }
-}
-
-async function createTavernSession() {
-  const character = selectedCharacter.value
-  if (!character) return
-  creatingSession.value = true
-  try {
-    const result = await tavernStore.createSession({
-      characterId: character.id,
-      userName: sessionUserName.value.trim() || 'User',
-      selectedGreetingIndex: Number(sessionGreetingIndex.value) || 0,
-      lorebookIds: selectedSessionLorebookIds.value,
-    })
-    emit('sessionCreated', result.session.id)
-    emit('update:open', false)
-    toast.success('酒馆会话已创建')
-  } catch (error) {
-    toast.error(error, { description: '创建酒馆会话失败' })
-  } finally {
-    creatingSession.value = false
   }
 }
 
@@ -434,23 +384,16 @@ function setEntrySecondaryKeys(entry: TavernLorebookEntryDraft, value: string | 
 </script>
 
 <template>
-  <Dialog
-    :open="open"
-    @update:open="updateOpen"
-  >
-    <DialogContent
-      class="grid max-h-[calc(100vh-2rem)] w-[calc(100vw-2rem)] grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden sm:max-w-5xl"
+  <div class="flex flex-col gap-4">
+    <SettingsSection
+      title="酒馆角色扮演"
+      description="导入角色卡并管理世界书。新的酒馆会话从侧栏酒馆入口创建。"
     >
-      <DialogHeader>
-        <DialogTitle>酒馆角色扮演</DialogTitle>
-        <DialogDescription>
-          导入角色卡、管理世界书，并创建低噪声普通聊天会话。
-        </DialogDescription>
-      </DialogHeader>
+      <div class="flex flex-col gap-4 p-4">
 
       <Tabs
         v-model="activeTab"
-        class="flex min-h-0 min-w-0 flex-col gap-4"
+        class="flex min-w-0 flex-col gap-4"
       >
         <TabsList class="max-w-full overflow-x-auto">
           <TabsTrigger value="characters">
@@ -604,73 +547,25 @@ function setEntrySecondaryKeys(entry: TavernLorebookEntryDraft, value: string | 
                 </Field>
               </FieldGroup>
 
-              <div class="rounded-md border p-3">
-                <div class="flex flex-col gap-3">
-                  <div class="flex items-center justify-between gap-3">
-                    <div>
-                      <p class="text-sm font-medium">创建酒馆会话</p>
-                      <p class="text-xs text-muted-foreground">默认使用 no-tools / no-inventory 运行策略。</p>
-                    </div>
-                    <Button
-                      type="button"
-                      :disabled="!selectedCharacter || creatingSession"
-                      @click="createTavernSession"
-                    >
-                      <MessageCirclePlusIcon data-icon="inline-start" />
-                      开始会话
-                    </Button>
-                  </div>
-
-                  <div class="grid gap-3 md:grid-cols-2">
-                    <Field>
-                      <FieldLabel for="tavern-session-user">用户名称</FieldLabel>
-                      <Input
-                        id="tavern-session-user"
-                        v-model="sessionUserName"
-                      />
-                    </Field>
-                    <Field>
-                      <FieldLabel>开场白</FieldLabel>
-                      <Select v-model="sessionGreetingIndex">
-                        <SelectTrigger>
-                          <SelectValue placeholder="选择 greeting" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectGroup>
-                            <SelectItem
-                              v-for="option in greetingOptions"
-                              :key="option.index"
-                              :value="String(option.index)"
-                            >
-                              {{ option.index === 0 ? 'First message' : `Alternate ${option.index}` }}
-                            </SelectItem>
-                          </SelectGroup>
-                        </SelectContent>
-                      </Select>
-                    </Field>
-                  </div>
-
-                  <div class="flex flex-col gap-2">
-                    <p class="text-sm font-medium">默认绑定世界书</p>
-                    <label
-                      v-for="lorebook in tavernStore.lorebooks"
-                      :key="lorebook.id"
-                      class="flex items-center gap-2 rounded-md border px-3 py-2 text-sm"
-                    >
-                      <Checkbox
-                        :checked="selectedSessionLorebookSet.has(lorebook.id)"
-                        @update:checked="toggleSessionLorebook(lorebook.id, $event)"
-                      />
-                      <span class="truncate">{{ lorebook.name }}</span>
-                    </label>
-                    <p
-                      v-if="!tavernStore.lorebooks.length"
-                      class="text-sm text-muted-foreground"
-                    >
-                      暂无世界书。
-                    </p>
-                  </div>
-                </div>
+              <div class="flex flex-col gap-2 rounded-md border p-3">
+                <p class="text-sm font-medium">默认绑定世界书</p>
+                <label
+                  v-for="lorebook in tavernStore.lorebooks"
+                  :key="lorebook.id"
+                  class="flex items-center gap-2 rounded-md border px-3 py-2 text-sm"
+                >
+                  <Checkbox
+                    :checked="selectedSessionLorebookSet.has(lorebook.id)"
+                    @update:checked="toggleSessionLorebook(lorebook.id, $event)"
+                  />
+                  <span class="truncate">{{ lorebook.name }}</span>
+                </label>
+                <p
+                  v-if="!tavernStore.lorebooks.length"
+                  class="text-sm text-muted-foreground"
+                >
+                  暂无世界书。
+                </p>
               </div>
             </div>
           </div>
@@ -881,14 +776,7 @@ function setEntrySecondaryKeys(entry: TavernLorebookEntryDraft, value: string | 
         </TabsContent>
       </Tabs>
 
-      <DialogFooter class="gap-2">
-        <Button
-          type="button"
-          variant="outline"
-          @click="updateOpen(false)"
-        >
-          关闭
-        </Button>
+      <div class="flex flex-wrap justify-end gap-2 border-t pt-4">
         <Button
           v-if="activeTab === 'characters'"
           type="button"
@@ -936,7 +824,8 @@ function setEntrySecondaryKeys(entry: TavernLorebookEntryDraft, value: string | 
           <SaveIcon data-icon="inline-start" />
           保存世界书
         </Button>
-      </DialogFooter>
-    </DialogContent>
-  </Dialog>
+      </div>
+      </div>
+    </SettingsSection>
+  </div>
 </template>

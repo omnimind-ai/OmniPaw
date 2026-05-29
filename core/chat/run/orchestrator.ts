@@ -237,11 +237,7 @@ export class ChatRunOrchestrator {
 }
 
 function isDefaultTavernRun(session: ChatSession, request: SendMessageRequest): boolean {
-  return Boolean(
-    session.metadata?.tavern?.enabled &&
-      request.mode === undefined &&
-      request.toolProfile === undefined
-  )
+  return Boolean(session.metadata?.tavern?.enabled && request.mode === undefined)
 }
 
 class UnsupportedChatOperationError extends Error {

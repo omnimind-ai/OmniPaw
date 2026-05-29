@@ -2,7 +2,7 @@
 import { useMediaQuery } from '@vueuse/core'
 import { storeToRefs } from 'pinia'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 
 import DefaultModelSettingsForm from '@/components/settings/DefaultModelSettingsForm.vue'
 import GeneralSettingsForm from '@/components/settings/GeneralSettingsForm.vue'
@@ -14,6 +14,7 @@ import ProviderSettingsForm from '@/components/settings/ProviderSettingsForm.vue
 import ScheduledTaskSettingsForm from '@/components/settings/ScheduledTaskSettingsForm.vue'
 import SettingsSidebar, { type SettingsTab } from '@/components/settings/SettingsSidebar.vue'
 import SkillSettingsForm from '@/components/settings/SkillSettingsForm.vue'
+import TavernSettingsForm from '@/components/settings/TavernSettingsForm.vue'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { SidebarInset, SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -23,6 +24,7 @@ import { useSettingsStore } from '@/stores/settings'
 import { errorToText, useToast } from '@/utils/toast'
 
 const router = useRouter()
+const route = useRoute()
 const settingsStore = useSettingsStore()
 const providerStore = useProviderStore()
 const toast = useToast()
@@ -30,7 +32,7 @@ const toast = useToast()
 const { draft, config, status, loading, saving, error, persistenceAvailable } =
   storeToRefs(settingsStore)
 
-const activeTab = ref<SettingsTab>('general')
+const activeTab = ref<SettingsTab>(normalizeSettingsTab(route.query.tab) ?? 'general')
 const isMobile = useMediaQuery('(max-width: 768px)')
 const sidebarOpen = ref(true)
 let autosaveTimer: ReturnType<typeof window.setTimeout> | undefined
@@ -67,6 +69,7 @@ onBeforeUnmount(() => {
 
 function selectTab(tab: SettingsTab) {
   activeTab.value = tab
+  void router.replace({ name: 'settings', query: { ...route.query, tab } })
 }
 
 function handleSidebarOpenUpdate(open: boolean) {
@@ -77,6 +80,16 @@ async function backToChat() {
   await flushAutosave()
   await router.push('/')
 }
+
+watch(
+  () => route.query.tab,
+  (tab) => {
+    const normalized = normalizeSettingsTab(tab)
+    if (normalized && normalized !== activeTab.value) {
+      activeTab.value = normalized
+    }
+  }
+)
 
 watch(
   () => draft.value,
@@ -163,6 +176,28 @@ async function autosave() {
     }
   }
 }
+
+function normalizeSettingsTab(value: unknown): SettingsTab | undefined {
+  const tab = Array.isArray(value) ? value[0] : value
+  if (typeof tab !== 'string') return undefined
+  if (
+    tab === 'providers' ||
+    tab === 'defaults' ||
+    tab === 'general' ||
+    tab === 'display' ||
+    tab === 'data' ||
+    tab === 'tools' ||
+    tab === 'tavern' ||
+    tab === 'skills' ||
+    tab === 'personas' ||
+    tab === 'schedule' ||
+    tab === 'observation' ||
+    tab === 'about'
+  ) {
+    return tab
+  }
+  return undefined
+}
 </script>
 
 <template>
@@ -223,6 +258,8 @@ async function autosave() {
               <SkillSettingsForm v-else-if="activeTab === 'skills'" />
 
               <PersonaSettingsForm v-else-if="activeTab === 'personas'" />
+
+              <TavernSettingsForm v-else-if="activeTab === 'tavern'" />
 
               <ObservationSettingsForm
                 v-else-if="activeTab === 'observation'"
