@@ -29,6 +29,7 @@ export interface DesktopBaseSettings {
   language: AppLanguage
   theme: AppTheme
   minimizeToTrayOnStartup: boolean
+  showReasoningContent: boolean
   zoom: {
     factor: number
     min: number

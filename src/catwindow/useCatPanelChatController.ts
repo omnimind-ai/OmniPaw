@@ -101,6 +101,7 @@ export function useCatPanelChatController() {
     return '就绪'
   })
   const agentToolProfile = computed(() => settingsStore.agentToolProfile)
+  const showReasoningContent = computed(() => settingsStore.showReasoningContent)
   const toolProfileOptions: Array<{
     value: ToolProfile
     label: string
@@ -753,6 +754,7 @@ export function useCatPanelChatController() {
     showMessageList,
     showMessageSkeleton,
     highlightedMessageId,
+    showReasoningContent,
     showScrollToBottom: scroll.showScrollToBottom,
     draft,
     stagedFiles: media.stagedFiles,

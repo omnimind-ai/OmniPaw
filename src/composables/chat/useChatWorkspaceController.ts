@@ -144,6 +144,7 @@ export function useChatWorkspaceController() {
   const activeContextUsage = computed(() => chatStore.activeContextUsage)
   const activeContextUsageLoading = computed(() => chatStore.activeContextUsageLoading)
   const agentToolProfile = computed(() => settingsStore.agentToolProfile)
+  const showReasoningContent = computed(() => settingsStore.showReasoningContent)
   const toolProfileOptions: Array<{
     value: ToolProfile
     label: string
@@ -173,6 +174,7 @@ export function useChatWorkspaceController() {
     showMessageList,
     showMessageSkeleton,
     highlightedMessageId,
+    showReasoningContent,
     showScrollToBottom: scroll.showScrollToBottom,
     draft,
     stagedFiles: media.stagedFiles,

@@ -132,6 +132,7 @@ export interface BridgeDesktopSettingsConfig {
     language: BridgeAppLanguage
     theme: BridgeAppTheme
     minimizeToTrayOnStartup: boolean
+    showReasoningContent: boolean
     zoom: {
       factor: number
       min: number
@@ -1717,6 +1718,7 @@ function fallbackSettingsConfig(): BridgeDesktopSettingsConfig {
       language: 'system',
       theme: 'system',
       minimizeToTrayOnStartup: false,
+      showReasoningContent: true,
       zoom: {
         factor: 1,
         min: 0.75,

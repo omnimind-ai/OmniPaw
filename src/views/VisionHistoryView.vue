@@ -14,12 +14,14 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { type ChatRecord, messageBlocks, normalizeMessageParts } from '@/composables/useMessages'
 import { useObservationStore } from '@/stores/observation'
+import { useSettingsStore } from '@/stores/settings'
 import { copyToClipboard } from '@/utils/clipboard'
 import { errorToText, useToast } from '@/utils/toast'
 
 const route = useRoute()
 const toast = useToast()
 const observationStore = useObservationStore()
+const settingsStore = useSettingsStore()
 const sessions = ref<BridgeChatSession[]>([])
 const activeSessionId = ref('')
 const messages = ref<ChatRecord[]>([])
@@ -34,10 +36,11 @@ const statusLabel = computed(() => {
   return '运行中'
 })
 const latestDecision = computed(() => activeRun.value?.lastDecision)
+const showReasoningContent = computed(() => settingsStore.showReasoningContent)
 
 onMounted(async () => {
   subscribe()
-  await Promise.allSettled([loadSessions(), observationStore.load()])
+  await Promise.allSettled([loadSessions(), observationStore.load(), settingsStore.load()])
 })
 
 onBeforeUnmount(() => {
@@ -208,6 +211,7 @@ function mapMessage(message: BridgeChatMessage): ChatRecord {
       <ChatMessageList
         :messages="messages"
         :loading="loading"
+        :show-reasoning-content="showReasoningContent"
         :is-user-message="isUserMessage"
         :message-content="messageContent"
         :message-blocks="messageBlocks"

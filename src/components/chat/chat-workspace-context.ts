@@ -13,6 +13,7 @@ export interface ChatWorkspaceContext {
   showMessageList: ComputedRef<boolean>
   showMessageSkeleton: Ref<boolean>
   highlightedMessageId: Ref<string>
+  showReasoningContent: ComputedRef<boolean>
   showScrollToBottom: Ref<boolean>
   draft: Ref<string>
   stagedFiles: Ref<StagedFileInfo[]>

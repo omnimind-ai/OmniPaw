@@ -57,6 +57,7 @@ export const defaultConfig: DesktopSettingsConfig = {
     language: 'system',
     theme: 'system',
     minimizeToTrayOnStartup: false,
+    showReasoningContent: true,
     zoom: {
       factor: 1,
       min: 0.75,
@@ -468,6 +469,13 @@ function validateApp(config: DesktopSettingsConfig, issues: SettingsValidationIs
   if (typeof config.app.minimizeToTrayOnStartup !== 'boolean') {
     issues.push({
       path: 'app.minimizeToTrayOnStartup',
+      message: 'Value must be boolean.',
+      code: 'invalid_type',
+    })
+  }
+  if (typeof config.app.showReasoningContent !== 'boolean') {
+    issues.push({
+      path: 'app.showReasoningContent',
       message: 'Value must be boolean.',
       code: 'invalid_type',
     })

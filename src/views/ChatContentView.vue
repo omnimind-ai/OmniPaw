@@ -13,6 +13,7 @@ const {
   activeMessages,
   showMessageSkeleton,
   highlightedMessageId,
+  showReasoningContent,
   isUserMessage,
   messageContent,
   messageBlocks,
@@ -40,6 +41,7 @@ const {
         :messages="activeMessages"
         :loading="showMessageSkeleton"
         :highlighted-message-id="highlightedMessageId"
+        :show-reasoning-content="showReasoningContent"
         :is-user-message="isUserMessage"
         :message-content="messageContent"
         :message-blocks="messageBlocks"

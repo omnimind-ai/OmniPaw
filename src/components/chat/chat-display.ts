@@ -32,7 +32,7 @@ export function recordErrorText(record: ChatRecord) {
 
 export function contentText(content: ChatContent) {
   const parts = Array.isArray(content.message) ? content.message : []
-  return parts.map(partText).filter(Boolean).join('\n\n')
+  return parts.map(partBodyText).filter(Boolean).join('\n\n')
 }
 
 export function partText(part: MessagePart) {
@@ -46,6 +46,11 @@ export function partText(part: MessagePart) {
     return refsFromPart(part)
       .map((ref) => ref.title || ref.url || ref.id)
       .join('\n')
+  return ''
+}
+
+function partBodyText(part: MessagePart) {
+  if (part.type === 'plain' || part.type === 'text') return String(part.text || '')
   return ''
 }
 

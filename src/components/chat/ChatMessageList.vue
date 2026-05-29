@@ -27,15 +27,23 @@ import MessageToolbar from './parts/MessageToolbar.vue'
 import ReasoningBlock from './parts/ReasoningBlock.vue'
 import RefsPanel from './RefsPanel.vue'
 
-const props = defineProps<{
-  messages: ChatRecord[]
-  loading?: boolean
-  highlightedMessageId?: string
-  isUserMessage: (record: ChatRecord) => boolean
-  messageContent: (record: ChatRecord) => ChatContent
-  messageBlocks: (content: ChatContent) => MessageDisplayBlock[]
-  isMessageStreaming: (record: ChatRecord, index: number) => boolean
-}>()
+const props = withDefaults(
+  defineProps<{
+    messages: ChatRecord[]
+    loading?: boolean
+    highlightedMessageId?: string
+    showReasoningContent?: boolean
+    isUserMessage: (record: ChatRecord) => boolean
+    messageContent: (record: ChatRecord) => ChatContent
+    messageBlocks: (content: ChatContent) => MessageDisplayBlock[]
+    isMessageStreaming: (record: ChatRecord, index: number) => boolean
+  }>(),
+  {
+    loading: false,
+    highlightedMessageId: '',
+    showReasoningContent: true,
+  }
+)
 
 const emit = defineEmits<{
   copyMessage: [record: ChatRecord]
@@ -69,6 +77,7 @@ function renderSegments(record: ChatRecord): MessageRenderSegment[] {
 
   for (const block of blocks(record)) {
     if (block.kind === 'thinking') {
+      if (!props.showReasoningContent) continue
       segments.push({
         kind: 'thinking',
         parts: block.parts,
@@ -91,7 +100,7 @@ function renderSegments(record: ChatRecord): MessageRenderSegment[] {
 }
 
 function hasDisplayBlocks(record: ChatRecord) {
-  return blocks(record).length > 0
+  return renderSegments(record).length > 0
 }
 
 function errorText(record: ChatRecord) {

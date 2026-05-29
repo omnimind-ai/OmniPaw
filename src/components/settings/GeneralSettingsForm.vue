@@ -57,6 +57,13 @@ const compactSkillDescriptions = computed({
   },
 })
 
+const showReasoningContent = computed({
+  get: () => props.draft.app.showReasoningContent,
+  set: (value: boolean) => {
+    props.draft.app.showReasoningContent = value
+  },
+})
+
 const maxRecentMessages = computed({
   get: () => props.draft.app.maxRecentMessages,
   set: (value: string | number) => {
@@ -197,7 +204,7 @@ function clampPercent(value: string | number): number {
 
         <Field
           orientation="responsive"
-          class="px-4 py-3"
+          class="border-b px-4 py-3"
         >
           <FieldContent>
             <FieldLabel for="settings-minimize-tray">关闭/最小化到托盘</FieldLabel>
@@ -207,6 +214,21 @@ function clampPercent(value: string | number): number {
             id="settings-minimize-tray"
             v-model="minimizeToTrayOnStartup"
             aria-label="关闭/最小化到托盘"
+          />
+        </Field>
+
+        <Field
+          orientation="responsive"
+          class="px-4 py-3"
+        >
+          <FieldContent>
+            <FieldLabel for="settings-show-reasoning">显示模型思考内容</FieldLabel>
+            <FieldDescription>关闭后对话中隐藏模型推理和思考内容块。</FieldDescription>
+          </FieldContent>
+          <Switch
+            id="settings-show-reasoning"
+            v-model="showReasoningContent"
+            aria-label="显示模型思考内容"
           />
         </Field>
       </FieldGroup>
