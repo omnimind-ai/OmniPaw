@@ -1,4 +1,5 @@
-import type { ToolProfile } from '@shared/types/chat'
+import type { ChatSession, ToolProfile } from '@shared/types/chat'
+import type { TavernCharacter, TavernSessionMetadata } from '@shared/types/tavern'
 import { type ComputedRef, type InjectionKey, inject, type Ref } from 'vue'
 import type { MessageScrollAreaRef } from '@/composables/chat/useChatWorkspaceScroll'
 import type { StagedFileInfo, StagedUploadItem } from '@/composables/useMediaHandling'
@@ -14,6 +15,12 @@ export interface ChatWorkspaceContext {
   showMessageSkeleton: Ref<boolean>
   highlightedMessageId: Ref<string>
   showReasoningContent: ComputedRef<boolean>
+  activeSession: ComputedRef<ChatSession | null>
+  activeTavernMetadata: ComputedRef<TavernSessionMetadata | undefined>
+  activeTavernCharacter: ComputedRef<TavernCharacter | undefined>
+  activeTavernLorebookNames: ComputedRef<string[]>
+  activeTavernGreetingOptions: ComputedRef<Array<{ index: number; label: string; text: string }>>
+  activeTavernCanReplaceGreeting: ComputedRef<boolean>
   showScrollToBottom: Ref<boolean>
   draft: Ref<string>
   stagedFiles: Ref<StagedFileInfo[]>
@@ -50,6 +57,7 @@ export interface ChatWorkspaceContext {
   removeUploadAt: (index: number) => void
   handleModelChange: (value: unknown) => Promise<void>
   handleToolProfileChange: (value: ToolProfile) => Promise<void>
+  handleTavernGreetingChange: (value: string | number) => Promise<void>
   handlePaste: (event: ClipboardEvent) => Promise<void>
   handleSubmit: () => Promise<void>
   handleStop: () => Promise<void>

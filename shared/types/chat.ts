@@ -1,4 +1,5 @@
 import type { LocalToolApprovalPlan } from './local-agent'
+import type { TavernRequestSnapshotMetadata, TavernSessionMetadata } from './tavern'
 
 export type ID = string
 export type UnixMs = number
@@ -187,6 +188,7 @@ export interface ChatError {
     | 'aborted'
     | 'validation'
     | 'not_found'
+    | 'unsupported_operation'
     | 'unknown'
   message: string
   retryable?: boolean
@@ -208,6 +210,10 @@ export type ContextUnitKind =
   | 'base-system'
   | 'mask'
   | 'persona'
+  | 'tavern-character'
+  | 'tavern-lore'
+  | 'tavern-example'
+  | 'tavern-post-history'
   | 'runtime'
   | 'skill'
   | 'tool-inventory'
@@ -219,6 +225,7 @@ export type ContextUnitSource =
   | 'session'
   | 'settings'
   | 'runtime'
+  | 'tavern'
   | 'skill'
   | 'tool'
   | 'message'
@@ -273,6 +280,22 @@ export interface ContextUnitAccounting {
   droppedCount?: number
   estimatedTokens?: number
   refId?: ID
+  unitIds?: ID[]
+  hashes?: string[]
+  selected?: Array<{
+    id: ID
+    refId?: ID
+    hash?: string
+    estimatedTokens?: number
+  }>
+  dropped?: Array<{
+    id: ID
+    refId?: ID
+    hash?: string
+    estimatedTokens?: number
+    reason?: string
+  }>
+  droppedReason?: string
   fallbackReason?: string
 }
 
@@ -334,7 +357,7 @@ export interface ChatSession {
   lastMessagePreview?: string
   lastMessageAt?: UnixMs
   contextPolicy?: ContextPolicy
-  metadata?: Record<string, unknown>
+  metadata?: ChatSessionMetadata
   createdAt: UnixMs
   updatedAt: UnixMs
 
@@ -472,6 +495,8 @@ export interface ProviderRequestSnapshot {
     omittedReason?: string
     readSkillIds?: string[]
   }
+  tavern?: TavernRequestSnapshotMetadata
+  omittedInventoryReasons?: string[]
   maxSteps?: number
   complexDocumentAttachments?: ComplexDocumentAttachmentRunDiagnostic
   fallbackReason?: string
@@ -571,6 +596,7 @@ export interface CreateSessionRequest {
   kind?: Extract<ChatSessionKind, 'chat' | 'cat' | 'vision'>
   providerId?: ID
   modelId?: string
+  metadata?: ChatSessionMetadata
 }
 
 export interface ListMessagesRequest {
@@ -589,6 +615,7 @@ export interface UpdateSessionRequest {
   systemContext?: ChatSystemContextConfig
   pinned?: boolean
   contextPolicy?: ContextPolicy
+  metadata?: ChatSessionMetadata
 }
 
 export interface DeleteSessionRequest {
@@ -745,3 +772,7 @@ export type ChatStreamEvent =
 export type Session = ChatSession
 export type Message = ChatMessage
 export type ToolCall = ToolCallDisplay
+
+export interface ChatSessionMetadata extends Record<string, unknown> {
+  tavern?: TavernSessionMetadata
+}

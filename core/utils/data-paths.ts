@@ -16,6 +16,7 @@ export interface OpenOmniClawDataPaths {
   config: string
   providerRegistry: string
   personaRegistry: string
+  tavernRegistry: string
   database: string
   mcpRegistry: string
   skillState: string
@@ -57,6 +58,7 @@ export function resolveOpenOmniClawDataPaths(
     config: join(configRoot, 'config.json'),
     providerRegistry: join(configRoot, 'providers.json'),
     personaRegistry: join(configRoot, 'personas.json'),
+    tavernRegistry: join(configRoot, 'tavern.json'),
     database: join(root, 'openomniclaw.sqlite3'),
     mcpRegistry: join(configRoot, 'mcp_server.json'),
     skillState: join(root, 'skill_state.json'),

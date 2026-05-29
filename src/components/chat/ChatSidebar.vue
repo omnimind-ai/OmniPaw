@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import {
   CatIcon,
+  DramaIcon,
   EyeIcon,
   MessageSquareIcon,
   MoreHorizontalIcon,
@@ -80,6 +81,7 @@ const emit = defineEmits<{
   updateSessionKindFilter: [kind: SessionKindFilter]
   openSettings: []
   toggleCat: []
+  openTavern: []
   renameSession: [sessionId: string, title: string]
   deleteSession: [sessionId: string]
 }>()
@@ -377,6 +379,16 @@ function updateSessionKindFilter(value: unknown) {
         <SidebarMenuItem
           class="flex justify-end gap-2 group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:gap-2"
         >
+          <SidebarMenuButton
+            class="w-auto"
+            size="default"
+            tooltip="酒馆"
+            aria-label="酒馆"
+            @click="emit('openTavern')"
+          >
+            <DramaIcon />
+          </SidebarMenuButton>
+
           <SidebarMenuButton
             class="w-auto"
             size="default"

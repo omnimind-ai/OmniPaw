@@ -8,6 +8,7 @@ import { registerPersonaIpcHandlers } from './persona'
 import { registerProviderIpcHandlers } from './provider'
 import { registerSettingsIpcHandlers } from './settings'
 import { registerSkillIpcHandlers } from './skill'
+import { registerTavernIpcHandlers } from './tavern'
 import { registerTerminalProcessIpcHandlers } from './terminal-process'
 import { registerToolIpcHandlers } from './tools'
 import type { IpcHandlerOptions } from './types'
@@ -21,6 +22,7 @@ export function registerIpcHandlers(options: IpcHandlerOptions): void {
   registerProviderIpcHandlers(options)
   registerObservationIpcHandlers(options)
   registerPersonaIpcHandlers(options)
+  registerTavernIpcHandlers(options)
   registerSkillIpcHandlers(options)
   registerCronIpcHandlers(options)
   registerToolIpcHandlers(options)

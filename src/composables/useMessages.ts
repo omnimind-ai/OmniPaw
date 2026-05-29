@@ -113,6 +113,7 @@ export interface ChatRecord {
   error?: unknown
   usage?: Record<string, unknown>
   runId?: string
+  metadata?: Record<string, unknown>
 }
 
 interface ActiveConnection {
@@ -1307,6 +1308,7 @@ function mapBridgeMessageToRecord(message: BridgeChatMessage): ChatRecord {
     error: message.error,
     usage: message.usage,
     runId: message.runId,
+    metadata,
     content: {
       type: roleType,
       message: parts,

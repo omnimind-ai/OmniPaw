@@ -6,6 +6,7 @@ import type { ChatMessageRepo, ChatRunRepo } from '@core/db/repos'
 import type { Logger } from '@core/logging'
 import type { ProviderManager } from '@core/provider/manager'
 import type { SkillManager } from '@core/skill/skill-manager'
+import type { TavernContextPlan, TavernContextService } from '@core/tavern/context-service'
 import type {
   ChatMessagePart,
   ChatRun,
@@ -40,6 +41,7 @@ export interface AgentRunnerOptions {
   skills?: SkillManager
   compactSkillDescriptions?: () => boolean
   contextDefaults?: () => DesktopChatContextSettings
+  tavernContextService?: TavernContextService
   toolExecutor?: ToolExecutor
   onComplete?: (sessionId: string) => void
   logger?: Logger
@@ -57,6 +59,9 @@ export interface AgentRunInput {
   transientImageInputs?: TransientChatImageInput[]
   transientSystemInstructions?: TransientChatInstruction[]
   transientCurrentMessageParts?: ChatMessagePart[]
+  tavernContext?: TavernContextPlan
+  omitSkillInventory?: boolean
+  omittedInventoryReasons?: string[]
 }
 
 export class AgentRunner {

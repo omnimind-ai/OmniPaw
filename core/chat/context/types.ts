@@ -1,3 +1,4 @@
+import type { TavernContextPlan } from '@core/tavern/context-service'
 import type {
   ChatContextSummary,
   ChatMessage,
@@ -35,6 +36,7 @@ export interface BuildContextInput {
   transientImageInputs?: TransientChatImageInput[]
   transientSystemInstructions?: TransientChatInstruction[]
   transientCurrentMessageParts?: ChatMessagePart[]
+  tavernContext?: TavernContextPlan
 }
 
 export interface BuildContextResult {
@@ -65,6 +67,8 @@ export interface ContextUnit {
   estimatedTokens: number
   messages: ProviderMessage[]
   refId?: string
+  contentHash?: string
+  droppedReason?: string
   fallbackReason?: string
 }
 
@@ -74,5 +78,16 @@ export interface ContextUnitStats {
   droppedCount: number
   estimatedTokens: number
   refId?: string
+  unitIds?: string[]
+  hashes?: string[]
+  selected?: Array<{ id: string; refId?: string; hash?: string; estimatedTokens?: number }>
+  dropped?: Array<{
+    id: string
+    refId?: string
+    hash?: string
+    estimatedTokens?: number
+    reason?: string
+  }>
+  droppedReason?: string
   fallbackReason?: string
 }

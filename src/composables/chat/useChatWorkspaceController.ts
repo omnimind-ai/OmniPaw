@@ -16,6 +16,7 @@ import {
 import { useSessions } from '@/composables/useSessions'
 import { useChatStore } from '@/stores/chat'
 import { useSettingsStore } from '@/stores/settings'
+import { useTavernStore } from '@/stores/tavern'
 import { copyToClipboard } from '@/utils/clipboard'
 import { useToast } from '@/utils/toast'
 
@@ -27,6 +28,7 @@ export function useChatWorkspaceController() {
   const route = useRoute()
   const chatStore = useChatStore()
   const settingsStore = useSettingsStore()
+  const tavernStore = useTavernStore()
   const toast = useToast()
   const {
     sessions,
@@ -44,6 +46,7 @@ export function useChatWorkspaceController() {
   const sessionKindFilter = ref<Extract<ChatSessionKind, 'chat' | 'cat' | 'vision'>>('chat')
   const fileInput = ref<HTMLInputElement | null>(null)
   const creatingSession = ref(false)
+  const tavernModalOpen = ref(false)
   const toolProfileSaving = ref(false)
   const replyTarget = ref<{ messageId: string; preview: string } | null>(null)
   const highlightedMessageId = ref('')
@@ -145,6 +148,32 @@ export function useChatWorkspaceController() {
   const activeContextUsageLoading = computed(() => chatStore.activeContextUsageLoading)
   const agentToolProfile = computed(() => settingsStore.agentToolProfile)
   const showReasoningContent = computed(() => settingsStore.showReasoningContent)
+  const activeSession = computed(() => getCurrentSession.value)
+  const activeTavernMetadata = computed(() => activeSession.value?.metadata?.tavern)
+  const activeTavernCharacter = computed(() =>
+    tavernStore.characterById(activeTavernMetadata.value?.characterId)
+  )
+  const activeTavernLorebookNames = computed(() =>
+    (activeTavernMetadata.value?.lorebookIds ?? [])
+      .map((id) => tavernStore.lorebookById(id)?.name || '缺失世界书')
+      .filter(Boolean)
+  )
+  const activeTavernGreetingOptions = computed(() => {
+    const character = activeTavernCharacter.value
+    if (!character) return []
+    return [character.firstMessage, ...character.alternateGreetings]
+      .map((text, index) => ({
+        index,
+        label: index === 0 ? 'First message' : `Alternate ${index}`,
+        text: text?.trim() || '',
+      }))
+      .filter((item) => item.text)
+  })
+  const activeTavernCanReplaceGreeting = computed(
+    () =>
+      Boolean(activeTavernMetadata.value?.enabled) &&
+      !messages.activeMessages.value.some((record) => messages.isUserMessage(record))
+  )
   const toolProfileOptions: Array<{
     value: ToolProfile
     label: string
@@ -175,6 +204,12 @@ export function useChatWorkspaceController() {
     showMessageSkeleton,
     highlightedMessageId,
     showReasoningContent,
+    activeSession,
+    activeTavernMetadata,
+    activeTavernCharacter,
+    activeTavernLorebookNames,
+    activeTavernGreetingOptions,
+    activeTavernCanReplaceGreeting,
     showScrollToBottom: scroll.showScrollToBottom,
     draft,
     stagedFiles: media.stagedFiles,
@@ -207,6 +242,7 @@ export function useChatWorkspaceController() {
     removeUploadAt,
     handleModelChange: model.handleModelChange,
     handleToolProfileChange,
+    handleTavernGreetingChange,
     handlePaste: media.handlePaste,
     handleSubmit,
     handleStop,
@@ -305,6 +341,7 @@ export function useChatWorkspaceController() {
       getFilteredSessions(),
       model.loadProviders(),
       settingsStore.load(),
+      tavernStore.load(),
     ])
     results.forEach((result) => {
       if (result.status === 'rejected') {
@@ -381,6 +418,16 @@ export function useChatWorkspaceController() {
     }
   }
 
+  function setTavernModalOpen(open: boolean) {
+    tavernModalOpen.value = open
+  }
+
+  async function handleTavernSessionCreated(sessionId: string) {
+    sessionKindFilter.value = 'chat'
+    await getFilteredSessions()
+    await handleSelectSession(sessionId)
+  }
+
   function openFilePicker() {
     fileInput.value?.click()
   }
@@ -412,6 +459,24 @@ export function useChatWorkspaceController() {
       toast.error(error, { description: 'Agent 权限保存失败' })
     } finally {
       toolProfileSaving.value = false
+    }
+  }
+
+  async function handleTavernGreetingChange(value: string | number) {
+    if (!currSessionId.value || !activeTavernMetadata.value) return
+    const selectedGreetingIndex = Number(value)
+    if (!Number.isFinite(selectedGreetingIndex)) return
+    try {
+      const result = await tavernStore.updateSessionBinding({
+        sessionId: currSessionId.value,
+        selectedGreetingIndex,
+      })
+      const session = sessions.value.find((item) => item.id === result.session.id)
+      if (session) Object.assign(session, result.session)
+      await messages.loadSessionMessages(currSessionId.value)
+      await getFilteredSessions()
+    } catch (error) {
+      toast.error(error, { description: '切换开场白失败' })
     }
   }
 
@@ -674,6 +739,7 @@ export function useChatWorkspaceController() {
     currSessionId,
     sessionKindFilter,
     creatingSession,
+    tavernModalOpen,
     runningSessionIds: messages.runningSessionIds,
     sidebarOpen,
     setSidebarOpen,
@@ -682,6 +748,8 @@ export function useChatWorkspaceController() {
     handleSessionKindFilterChange,
     openSettings,
     toggleCatVisibility,
+    setTavernModalOpen,
+    handleTavernSessionCreated,
     handleRenameSession,
     handleDeleteSession,
   }

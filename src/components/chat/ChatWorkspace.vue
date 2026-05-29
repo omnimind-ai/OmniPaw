@@ -3,6 +3,7 @@ import { provide } from 'vue'
 
 import ChatSidebar from '@/components/chat/ChatSidebar.vue'
 import { chatWorkspaceContextKey } from '@/components/chat/chat-workspace-context'
+import TavernManagerModal from '@/components/tavern/TavernManagerModal.vue'
 import { SidebarInset, SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar'
 import { useChatWorkspaceController } from '@/composables/chat/useChatWorkspaceController'
 
@@ -20,6 +21,9 @@ const {
   handleSessionKindFilterChange,
   openSettings,
   toggleCatVisibility,
+  tavernModalOpen,
+  setTavernModalOpen,
+  handleTavernSessionCreated,
   handleRenameSession,
   handleDeleteSession,
 } = useChatWorkspaceController()
@@ -43,8 +47,14 @@ provide(chatWorkspaceContextKey, workspaceContext)
       @update-session-kind-filter="handleSessionKindFilterChange"
       @open-settings="openSettings"
       @toggle-cat="toggleCatVisibility"
+      @open-tavern="setTavernModalOpen(true)"
       @rename-session="handleRenameSession"
       @delete-session="handleDeleteSession"
+    />
+
+    <TavernManagerModal
+      v-model:open="tavernModalOpen"
+      @session-created="handleTavernSessionCreated"
     />
 
     <SidebarInset class="h-svh overflow-hidden">

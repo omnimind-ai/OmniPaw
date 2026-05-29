@@ -30,10 +30,16 @@ export async function prepareAgentRun(
       ? 'provider_or_model_does_not_support_tools'
       : undefined
   let sourceMessages = options.messages.listBySession(input.session.id)
-  const skillPrompt = options.skills?.buildPromptInventory({
-    compact: options.compactSkillDescriptions?.() ?? true,
-    supportsSystemRole: input.model.compat?.supportsSystemRole !== false,
-  })
+  const skillPrompt = input.omitSkillInventory
+    ? {
+        enabledSkillIds: [],
+        injected: false,
+        omittedReason: 'tavern_run_profile',
+      }
+    : options.skills?.buildPromptInventory({
+        compact: options.compactSkillDescriptions?.() ?? true,
+        supportsSystemRole: input.model.compat?.supportsSystemRole !== false,
+      })
   const toolProfile = input.toolProfile ?? 'assistant'
   const policy = defaultToolPolicy(toolProfile)
   const agentTools =
@@ -51,6 +57,13 @@ export async function prepareAgentRun(
     agentTools,
   })
   sourceMessages = documentAttachments.sourceMessages
+  const tavernContext =
+    input.tavernContext ??
+    options.tavernContextService?.buildPlan({
+      session: input.session,
+      messages: sourceMessages,
+      currentUserMessageId: input.run.userMessageId,
+    })
   if (documentAttachments.rejectionMessage) {
     const snapshot = {
       api: input.provider.api ?? 'openai-chat-completions',
@@ -89,6 +102,7 @@ export async function prepareAgentRun(
     transientImageInputs: input.transientImageInputs,
     transientSystemInstructions: input.transientSystemInstructions,
     transientCurrentMessageParts: input.transientCurrentMessageParts,
+    tavernContext,
   })
   const client = await options.providers.createProviderClient(input.provider.id)
   const providerMessages = injectToolInventory(
@@ -112,6 +126,14 @@ export async function prepareAgentRun(
       ...localCapabilitiesSnapshot(agentTools, toolProfile),
     },
     skills: skillSnapshot(skillPrompt),
+    tavern: tavernContext?.snapshot
+      ? {
+          ...tavernContext.snapshot,
+          omittedInventoryReasons:
+            input.omittedInventoryReasons ?? tavernContext.snapshot.omittedInventoryReasons,
+        }
+      : undefined,
+    omittedInventoryReasons: input.omittedInventoryReasons,
     maxSteps,
     complexDocumentAttachments: documentAttachments.diagnostic,
     fallbackReason,

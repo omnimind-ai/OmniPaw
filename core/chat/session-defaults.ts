@@ -46,6 +46,7 @@ export function createDefaultSessionRecord(input: {
   defaultModelId?: string
   systemPrompt?: string
   systemContext?: ChatSession['systemContext']
+  metadata?: ChatSession['metadata']
   recentMessages?: number
   includeAttachments?: ContextPolicy['includeAttachments']
   now?: number
@@ -61,6 +62,7 @@ export function createDefaultSessionRecord(input: {
     defaultModelId: input.defaultModelId,
     systemPrompt,
     systemContext: input.systemContext,
+    metadata: input.metadata,
     messageCount: 0,
     contextPolicy: createDefaultSessionContextPolicy({
       kind: input.kind,

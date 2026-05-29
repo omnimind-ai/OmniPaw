@@ -108,7 +108,14 @@ export class ChatRunOrchestrator {
     const abort = () => this.options.runManager.abort(run.id, 'external_abort')
     options.signal?.addEventListener('abort', abort, { once: true })
     terminalEvent.finally(() => options.signal?.removeEventListener('abort', abort)).catch(() => {})
-    const toolProfile = request.toolProfile ?? this.options.agentToolProfile?.()
+    const tavernDefaultRun = isDefaultTavernRun(session, request)
+    const toolProfile = tavernDefaultRun
+      ? 'minimal'
+      : (request.toolProfile ?? this.options.agentToolProfile?.())
+    const mode = tavernDefaultRun ? 'fast_chat' : request.mode
+    const omittedInventoryReasons = tavernDefaultRun
+      ? ['tavern_run_profile_no_tool_inventory', 'tavern_run_profile_no_skill_inventory']
+      : undefined
     this.options.runManager.emit({
       type: 'started',
       runId: run.id,
@@ -123,12 +130,14 @@ export class ChatRunOrchestrator {
       provider,
       model,
       signal,
-      mode: request.mode,
+      mode,
       toolProfile,
       maxSteps: request.maxSteps,
       transientImageInputs: request.transientImageInputs,
       transientSystemInstructions: request.transientSystemInstructions,
       transientCurrentMessageParts: request.transientCurrentMessageParts,
+      omitSkillInventory: tavernDefaultRun,
+      omittedInventoryReasons,
     })
     if (options.generateTitle && session.kind !== 'vision') {
       void this.options.titleGenerator.generateFromMessage(session.id, userMessage.id, target)
@@ -141,8 +150,9 @@ export class ChatRunOrchestrator {
       modelId: model.id,
       fallbackReason,
       attachmentCount: attachmentLinks.length,
-      mode: request.mode,
+      mode,
       toolProfile,
+      tavernDefaultRun,
     })
     return {
       ...responseFromRun(run),
@@ -157,6 +167,11 @@ export class ChatRunOrchestrator {
     const target = this.options.messages.get(request.messageId)
     if (!target) {
       throw new Error('Message not found.')
+    }
+    if (isTavernGreetingMessage(target)) {
+      throw new UnsupportedChatOperationError(
+        'Local tavern greeting messages cannot be regenerated.'
+      )
     }
     const messages = this.options.messages.listBySession(request.sessionId)
     const targetIndex = messages.findIndex((message) => message.id === request.messageId)
@@ -219,4 +234,31 @@ export class ChatRunOrchestrator {
     }
     return session
   }
+}
+
+function isDefaultTavernRun(session: ChatSession, request: SendMessageRequest): boolean {
+  return Boolean(
+    session.metadata?.tavern?.enabled &&
+      request.mode === undefined &&
+      request.toolProfile === undefined
+  )
+}
+
+class UnsupportedChatOperationError extends Error {
+  readonly code = 'unsupported_operation'
+
+  constructor(message: string) {
+    super(message)
+    this.name = 'UnsupportedChatOperationError'
+  }
+}
+
+function isTavernGreetingMessage(message: { metadata?: Record<string, unknown> }): boolean {
+  const tavern = message.metadata?.tavern
+  return Boolean(
+    tavern &&
+      typeof tavern === 'object' &&
+      'greeting' in tavern &&
+      (tavern as { greeting?: unknown }).greeting === true
+  )
 }

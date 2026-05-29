@@ -1,4 +1,5 @@
 import { CONTEXT_PROMPTS } from '@core/prompts'
+import type { TavernContextPlan, TavernContextUnitPlan } from '@core/tavern/context-service'
 import type {
   ChatContextSummary,
   ChatMessage,
@@ -75,6 +76,13 @@ export function buildTransientInstructionUnits(
     })
   })
   return units
+}
+
+export function buildTavernContextUnits(plan: TavernContextPlan | undefined): ContextUnit[] {
+  if (!plan) {
+    return []
+  }
+  return plan.selectedUnits.map((unit) => tavernUnit(unit))
 }
 
 export function summaryUnit(summary: ChatContextSummary): ContextUnit {
@@ -176,6 +184,32 @@ export function contextUnitStats(
     if (unit.refId && !item.refId) {
       item.refId = unit.refId
     }
+    if (unit.refId) {
+      item.unitIds = [...(item.unitIds ?? []), unit.refId]
+    }
+    if (unit.contentHash) {
+      item.hashes = [...(item.hashes ?? []), unit.contentHash]
+    }
+    const accountingItem = {
+      id: unit.id,
+      refId: unit.refId,
+      hash: unit.contentHash,
+      estimatedTokens: unit.estimatedTokens,
+    }
+    if (selectedFlag) {
+      item.selected = [...(item.selected ?? []), accountingItem]
+    } else {
+      item.dropped = [
+        ...(item.dropped ?? []),
+        {
+          ...accountingItem,
+          reason: unit.droppedReason,
+        },
+      ]
+    }
+    if (unit.droppedReason && !item.droppedReason) {
+      item.droppedReason = unit.droppedReason
+    }
     if (unit.fallbackReason && !item.fallbackReason) {
       item.fallbackReason = unit.fallbackReason
     }
@@ -247,6 +281,35 @@ function pushTextUnit(
   })
 }
 
+function tavernUnit(unit: TavernContextUnitPlan): ContextUnit {
+  const messages: ProviderMessage[] = [{ role: 'system', content: unit.text }]
+  return {
+    id: unit.id,
+    kind: tavernKind(unit.kind),
+    source: unit.lorebookId ? `tavern.lorebook.${unit.lorebookId}` : 'tavern',
+    priority: unit.priority,
+    required: unit.required,
+    estimatedTokens: estimateTokens(messages),
+    messages,
+    refId: unit.refId,
+    contentHash: unit.hash,
+    droppedReason: unit.droppedReason,
+  }
+}
+
+function tavernKind(kind: TavernContextUnitPlan['kind']): ContextUnitKind {
+  switch (kind) {
+    case 'character':
+      return 'tavern-character'
+    case 'lore':
+      return 'tavern-lore'
+    case 'example':
+      return 'tavern-example'
+    case 'post-history':
+      return 'tavern-post-history'
+  }
+}
+
 function sortUnits(units: ContextUnit[]): ContextUnit[] {
   return [...units].sort((left, right) => {
     const leftOrder = kindOrder(left.kind)
@@ -266,16 +329,24 @@ function kindOrder(kind: ContextUnitKind): number {
       return 1
     case 'persona':
       return 2
-    case 'runtime':
+    case 'tavern-character':
       return 3
-    case 'skill':
+    case 'tavern-lore':
       return 4
-    case 'tool-inventory':
+    case 'tavern-example':
       return 5
-    case 'summary':
+    case 'tavern-post-history':
       return 6
-    default:
+    case 'runtime':
+      return 7
+    case 'skill':
+      return 8
+    case 'tool-inventory':
+      return 9
+    case 'summary':
       return 10
+    default:
+      return 20
   }
 }
 

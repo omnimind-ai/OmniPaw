@@ -19,6 +19,8 @@
 
 - MUST：聊天入口通过 `ChatService`，不要让 IPC handler 或 renderer 直接操作 repo。
 - MUST：会话、消息、run 的持久化通过 `core/db/repos/`。
+- MUST：`chat`、`cat`、`vision` 的会话创建、复用和 kind 校验语义归属 `ChatService`；Observation、Electron main、cat runtime 等调用方不得绕过 `ChatService` 直接用 session repo 决定或创建这些会话。
+- MUST：普通 `chat` 新建会话语义不得和运行态 get-or-create 语义混用；只有运行态拥有的 `cat` / `vision` 会话可以复用已存在 active session。
 - MUST：发送消息时先创建 user message、assistant 占位 message 和 run，再启动流式执行。
 - MUST：对流式任务维护 run 状态，并通过 `RunManager` 发出结构化 stream event。
 - MUST：支持 abort；中止时同步 run 状态和 assistant message 状态。
@@ -123,6 +125,17 @@
 - MUST：scheduled task 执行仍走既有 Agent/provider/tool policy，不直接调用工具实现或 Provider client。
 - MUST：`scheduledTasks.enabled` 默认关闭；开启执行能力时同步配置、UI、runner 状态和 smoke。
 
+## 酒馆角色扮演模式
+
+- MUST：酒馆模式通过 `ChatSession.metadata.tavern` 表达会话级绑定，不改变 `minimal`、`assistant`、`power` 的工具权限语义。
+- MUST：角色卡字段、世界书正文、message examples、greeting 和 post-history instructions 都按用户指令类敏感 prompt 处理；日志、request snapshot、toast 错误和非编辑诊断只记录 ID、hash、数量、token 估算、错误码和 recoverability。
+- MUST：renderer 只能通过 `appBridge.tavern` 管理角色、世界书、导出 Persona 和创建/更新酒馆会话，不直接导入 `core/tavern`、Node、Electron main、数据库或 registry 文件。
+- MUST：酒馆会话默认走低噪声 run profile：`fast_chat`、`minimal`、无 tool inventory、无 provider-native tools、无 skill inventory；不得修改全局 `agentToolProfile`。
+- MUST：酒馆角色、世界书、examples 和 post-history 作为独立 context units 进入 `ContextBuilder`，不写入普通聊天消息；只有用户可见开场白会作为本地 assistant message 保存，并带 `metadata.tavern.greeting`。
+- MUST：本地 greeting 没有 provider run，不能作为普通 provider assistant message regenerate；无用户消息前可替换 greeting，有用户消息后不得自动改写可见历史。
+- SHOULD：世界书激活保持 deterministic：constant 条目、关键词命中、priority/order、命中位置和稳定 ID tie-break；预算丢弃只进入脱敏 accounting。
+- SHOULD：角色导出 Persona 是一次性快照，默认不包含世界书正文、first message 或 alternate greetings。
+
 ## 消息片段变更
 
 新增 `ChatMessagePart` 类型时：
@@ -159,6 +172,11 @@
 | OpenAI 兼容 Provider | `core/provider/providers/openai.ts` |
 | 聊天 shared types | `shared/types/chat.ts` |
 | Provider shared types | `shared/types/provider.ts` |
+| 酒馆 shared types | `shared/types/tavern.ts` |
+| 酒馆 registry / manager | `core/tavern/` |
+| 酒馆 IPC | `electron/ipc/tavern.ts` |
+| 酒馆 renderer store | `src/stores/tavern.ts` |
+| 酒馆管理 UI | `src/components/tavern/` |
 | renderer 消息 composable | `src/composables/useMessages.ts` |
 | renderer 附件 composable | `src/composables/useMediaHandling.ts` |
 

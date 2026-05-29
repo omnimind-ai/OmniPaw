@@ -191,6 +191,16 @@ function messageStatusClass(record: ChatRecord) {
     user ? 'rounded-xl bg-muted px-4 py-2 leading-6 shadow-sm' : 'px-1 py-1 leading-6'
   )
 }
+
+function isLocalTavernGreeting(record: ChatRecord) {
+  const tavern = record.metadata?.tavern
+  return Boolean(
+    tavern &&
+      typeof tavern === 'object' &&
+      'greeting' in tavern &&
+      (tavern as { greeting?: unknown }).greeting === true
+  )
+}
 </script>
 
 <template>
@@ -304,6 +314,7 @@ function messageStatusClass(record: ChatRecord) {
           :checkpoint-id="record.checkpointId"
           :user="isUserMessage(record)"
           :copied="copiedRecordId === recordId(record)"
+          :disable-regenerate="isLocalTavernGreeting(record)"
           @copy="copyRecord(record)"
           @quote="quoteRecord(record)"
           @edit="beginEdit(record)"

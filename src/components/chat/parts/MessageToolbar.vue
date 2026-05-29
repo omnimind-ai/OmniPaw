@@ -22,6 +22,7 @@ const props = withDefaults(
     checkpointId?: string | null
     user?: boolean
     copied?: boolean
+    disableRegenerate?: boolean
   }>(),
   {
     time: '',
@@ -31,6 +32,7 @@ const props = withDefaults(
     checkpointId: null,
     user: false,
     copied: false,
+    disableRegenerate: false,
   }
 )
 
@@ -140,7 +142,7 @@ const hoverRevealClasses =
         <RefreshCwIcon data-icon="inline-start" />
       </Button>
       <Button
-        v-if="!user"
+        v-if="!user && !disableRegenerate"
         type="button"
         variant="ghost"
         size="icon-sm"

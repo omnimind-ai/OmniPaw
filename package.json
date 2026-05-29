@@ -16,6 +16,7 @@
     "persona-registry:smoke": "node scripts/run-electron-node.mjs scripts/persona-registry-smoke.ts",
     "db:smoke": "node scripts/run-electron-node.mjs scripts/db-smoke.ts",
     "chat-core:smoke": "node scripts/run-electron-node.mjs scripts/chat-core-smoke.ts",
+    "tavern:smoke": "node scripts/run-electron-node.mjs scripts/tavern-smoke.ts",
     "observation-manager:smoke": "node scripts/run-electron-node.mjs scripts/observation-manager-smoke.ts",
     "observation-bridge:smoke": "node scripts/run-electron-node.mjs scripts/observation-bridge-smoke.ts",
     "local-agent:smoke": "node scripts/run-electron-node.mjs scripts/local-agent-smoke.ts",

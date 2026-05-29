@@ -48,6 +48,20 @@ import type {
   TestProviderRequest,
 } from '@shared/types/provider'
 import type { DesktopSettingsConfig, SaveDesktopSettingsRequest } from '@shared/types/settings'
+import type {
+  CreateTavernCharacterRequest,
+  CreateTavernLorebookRequest,
+  CreateTavernSessionRequest,
+  DeleteTavernCharacterRequest,
+  DeleteTavernLorebookRequest,
+  ExportTavernCharacterPersonaRequest,
+  ImportTavernCharacterRequest,
+  SetTavernCharacterEnabledRequest,
+  SetTavernLorebookEnabledRequest,
+  UpdateTavernCharacterRequest,
+  UpdateTavernLorebookRequest,
+  UpdateTavernSessionBindingRequest,
+} from '@shared/types/tavern'
 import { contextBridge, ipcRenderer } from 'electron'
 
 const allowedTaskStates = new Set(['idle', 'preparing', 'running', 'completed'])
@@ -175,6 +189,24 @@ async function invokePersona<T>(channel: string, payload?: unknown): Promise<T> 
       details?: unknown
     }
     error.name = 'PersonaOperationError'
+    error.details = response.error
+    throw error
+  }
+
+  return response?.ok === true ? (response.value as T) : (response as T)
+}
+
+async function invokeTavern<T>(channel: string, payload?: unknown): Promise<T> {
+  const response =
+    payload === undefined
+      ? await ipcRenderer.invoke(channel)
+      : await ipcRenderer.invoke(channel, payload)
+
+  if (response?.ok === false) {
+    const error = new Error(response.error?.message || 'Tavern operation failed.') as Error & {
+      details?: unknown
+    }
+    error.name = 'TavernOperationError'
     error.details = response.error
     throw error
   }
@@ -468,6 +500,36 @@ const bridge: OpenOmniClawBridge = {
     setDefault: (request: SetDefaultPersonaRequest) =>
       invokePersona(IPC_CHANNELS.persona.setDefault, request),
     onChanged: (callback) => createUnsubscriber(IPC_CHANNELS.persona.changed, callback),
+  },
+  tavern: {
+    load: () => invokeTavern(IPC_CHANNELS.tavern.load),
+    list: () => invokeTavern(IPC_CHANNELS.tavern.list),
+    status: () => invokeTavern(IPC_CHANNELS.tavern.status),
+    importCharacter: (request: ImportTavernCharacterRequest) =>
+      invokeTavern(IPC_CHANNELS.tavern.importCharacter, request),
+    createCharacter: (request: CreateTavernCharacterRequest) =>
+      invokeTavern(IPC_CHANNELS.tavern.createCharacter, request),
+    updateCharacter: (request: UpdateTavernCharacterRequest) =>
+      invokeTavern(IPC_CHANNELS.tavern.updateCharacter, request),
+    deleteCharacter: (request: DeleteTavernCharacterRequest | string) =>
+      invokeTavern(IPC_CHANNELS.tavern.deleteCharacter, request),
+    setCharacterEnabled: (request: SetTavernCharacterEnabledRequest) =>
+      invokeTavern(IPC_CHANNELS.tavern.setCharacterEnabled, request),
+    createLorebook: (request: CreateTavernLorebookRequest) =>
+      invokeTavern(IPC_CHANNELS.tavern.createLorebook, request),
+    updateLorebook: (request: UpdateTavernLorebookRequest) =>
+      invokeTavern(IPC_CHANNELS.tavern.updateLorebook, request),
+    deleteLorebook: (request: DeleteTavernLorebookRequest | string) =>
+      invokeTavern(IPC_CHANNELS.tavern.deleteLorebook, request),
+    setLorebookEnabled: (request: SetTavernLorebookEnabledRequest) =>
+      invokeTavern(IPC_CHANNELS.tavern.setLorebookEnabled, request),
+    exportCharacterAsPersona: (request: ExportTavernCharacterPersonaRequest) =>
+      invokeTavern(IPC_CHANNELS.tavern.exportCharacterAsPersona, request),
+    createSession: (request: CreateTavernSessionRequest) =>
+      invokeTavern(IPC_CHANNELS.tavern.createSession, request),
+    updateSessionBinding: (request: UpdateTavernSessionBindingRequest) =>
+      invokeTavern(IPC_CHANNELS.tavern.updateSessionBinding, request),
+    onChanged: (callback) => createUnsubscriber(IPC_CHANNELS.tavern.changed, callback),
   },
 }
 

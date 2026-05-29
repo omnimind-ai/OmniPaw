@@ -73,6 +73,26 @@ import type {
   StopObservationRequest,
   TriggerObservationRequest,
 } from '@shared/types/observation'
+import type {
+  CreateTavernCharacterRequest,
+  CreateTavernLorebookRequest,
+  CreateTavernSessionRequest,
+  DeleteTavernCharacterRequest,
+  DeleteTavernLorebookRequest,
+  ExportTavernCharacterPersonaRequest,
+  ImportTavernCharacterRequest,
+  ImportTavernCharacterResult,
+  SetTavernCharacterEnabledRequest,
+  SetTavernLorebookEnabledRequest,
+  TavernRegistryChangedEvent,
+  TavernRegistryLoadResponse,
+  TavernRegistryMutationResult,
+  TavernRegistryStatus,
+  TavernSessionOperationResult,
+  UpdateTavernCharacterRequest,
+  UpdateTavernLorebookRequest,
+  UpdateTavernSessionBindingRequest,
+} from '@shared/types/tavern'
 
 export type BridgeUnsubscribe = () => void
 
@@ -1030,6 +1050,40 @@ export interface RendererOpenOmniClawBridge {
     ) => Promise<BridgePersonaRegistryMutationResult>
     onChanged: (callback: (event: BridgePersonaRegistryChangedEvent) => void) => BridgeUnsubscribe
   }
+  tavern?: {
+    load: () => Promise<TavernRegistryLoadResponse>
+    list: () => Promise<TavernRegistryLoadResponse>
+    status: () => Promise<TavernRegistryStatus>
+    importCharacter: (request: ImportTavernCharacterRequest) => Promise<ImportTavernCharacterResult>
+    createCharacter: (
+      request: CreateTavernCharacterRequest
+    ) => Promise<TavernRegistryMutationResult>
+    updateCharacter: (
+      request: UpdateTavernCharacterRequest
+    ) => Promise<TavernRegistryMutationResult>
+    deleteCharacter: (
+      request: DeleteTavernCharacterRequest | string
+    ) => Promise<TavernRegistryMutationResult>
+    setCharacterEnabled: (
+      request: SetTavernCharacterEnabledRequest
+    ) => Promise<TavernRegistryMutationResult>
+    createLorebook: (request: CreateTavernLorebookRequest) => Promise<TavernRegistryMutationResult>
+    updateLorebook: (request: UpdateTavernLorebookRequest) => Promise<TavernRegistryMutationResult>
+    deleteLorebook: (
+      request: DeleteTavernLorebookRequest | string
+    ) => Promise<TavernRegistryMutationResult>
+    setLorebookEnabled: (
+      request: SetTavernLorebookEnabledRequest
+    ) => Promise<TavernRegistryMutationResult>
+    exportCharacterAsPersona: (
+      request: ExportTavernCharacterPersonaRequest
+    ) => Promise<TavernRegistryMutationResult>
+    createSession: (request: CreateTavernSessionRequest) => Promise<TavernSessionOperationResult>
+    updateSessionBinding: (
+      request: UpdateTavernSessionBindingRequest
+    ) => Promise<TavernSessionOperationResult>
+    onChanged: (callback: (event: TavernRegistryChangedEvent) => void) => BridgeUnsubscribe
+  }
 }
 
 export interface BridgePersonaProfile {
@@ -1176,6 +1230,30 @@ function emptyPersonaRegistryLoadResponse(): BridgePersonaRegistryLoadResponse {
   return {
     registry: emptyPersonaRegistry(),
     status: emptyPersonaRegistryStatus(),
+  }
+}
+
+function emptyTavernRegistryStatus(): TavernRegistryStatus {
+  return {
+    path: '',
+    backupPath: '',
+    exists: false,
+    backupExists: false,
+    loaded: true,
+    version: 1,
+    recoverable: false,
+  }
+}
+
+function emptyTavernRegistryLoadResponse(): TavernRegistryLoadResponse {
+  return {
+    registry: {
+      version: 1,
+      characters: [],
+      lorebooks: [],
+      updatedAt: 0,
+    },
+    status: emptyTavernRegistryStatus(),
   }
 }
 
@@ -1709,6 +1787,36 @@ const fallbackBridge: RendererOpenOmniClawBridge = {
       rejectFallbackPersistence<BridgePersonaRegistryMutationResult>('persona.setDefault'),
     onChanged: () => () => {},
   },
+  tavern: {
+    load: async () => emptyTavernRegistryLoadResponse(),
+    list: async () => emptyTavernRegistryLoadResponse(),
+    status: async () => emptyTavernRegistryStatus(),
+    importCharacter: () =>
+      rejectFallbackPersistence<ImportTavernCharacterResult>('tavern.importCharacter'),
+    createCharacter: () =>
+      rejectFallbackPersistence<TavernRegistryMutationResult>('tavern.createCharacter'),
+    updateCharacter: () =>
+      rejectFallbackPersistence<TavernRegistryMutationResult>('tavern.updateCharacter'),
+    deleteCharacter: () =>
+      rejectFallbackPersistence<TavernRegistryMutationResult>('tavern.deleteCharacter'),
+    setCharacterEnabled: () =>
+      rejectFallbackPersistence<TavernRegistryMutationResult>('tavern.setCharacterEnabled'),
+    createLorebook: () =>
+      rejectFallbackPersistence<TavernRegistryMutationResult>('tavern.createLorebook'),
+    updateLorebook: () =>
+      rejectFallbackPersistence<TavernRegistryMutationResult>('tavern.updateLorebook'),
+    deleteLorebook: () =>
+      rejectFallbackPersistence<TavernRegistryMutationResult>('tavern.deleteLorebook'),
+    setLorebookEnabled: () =>
+      rejectFallbackPersistence<TavernRegistryMutationResult>('tavern.setLorebookEnabled'),
+    exportCharacterAsPersona: () =>
+      rejectFallbackPersistence<TavernRegistryMutationResult>('tavern.exportCharacterAsPersona'),
+    createSession: () =>
+      rejectFallbackPersistence<TavernSessionOperationResult>('tavern.createSession'),
+    updateSessionBinding: () =>
+      rejectFallbackPersistence<TavernSessionOperationResult>('tavern.updateSessionBinding'),
+    onChanged: () => () => {},
+  },
 }
 
 function fallbackSettingsConfig(): BridgeDesktopSettingsConfig {
@@ -1934,6 +2042,19 @@ function createPersonaBridge(
   }
 }
 
+function createTavernBridge(
+  bridge: RendererOpenOmniClawBridge['tavern'] | undefined
+): RendererOpenOmniClawBridge['tavern'] {
+  if (!bridge) {
+    return fallbackBridge.tavern
+  }
+
+  return {
+    ...fallbackBridge.tavern,
+    ...bridge,
+  }
+}
+
 export const appBridge: RendererOpenOmniClawBridge = exposedBridge
   ? {
       ...fallbackBridge,
@@ -1946,6 +2067,7 @@ export const appBridge: RendererOpenOmniClawBridge = exposedBridge
       provider: createProviderBridge(exposedBridge.provider),
       cron: createCronBridge(exposedBridge.cron),
       persona: createPersonaBridge(exposedBridge.persona),
+      tavern: createTavernBridge(exposedBridge.tavern),
     }
   : fallbackBridge
 
