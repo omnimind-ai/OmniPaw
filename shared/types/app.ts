@@ -6,5 +6,5 @@ export interface AppInfo {
 
 export interface OpenChatSessionRequest {
   sessionId: string
-  kind?: 'chat' | 'cat' | 'vision'
+  kind?: 'chat' | 'tavern' | 'cat' | 'vision'
 }

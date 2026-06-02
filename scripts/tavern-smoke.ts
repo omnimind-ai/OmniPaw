@@ -170,7 +170,7 @@ try {
   const session: ChatSession = {
     id: 'tavern-session',
     title: 'Aria',
-    kind: 'chat',
+    kind: 'tavern',
     status: 'active',
     messageCount: 0,
     metadata: {
@@ -317,7 +317,16 @@ try {
     userName: 'Luna',
     selectedGreetingIndex: 1,
   })
+  assert.equal(createdSession.session.kind, 'tavern')
   assert.equal(createdSession.session.metadata?.tavern?.enabled, true)
+  assert.equal(
+    sessionRepo.list({ kind: 'tavern' }).some((item) => item.id === createdSession.session.id),
+    true
+  )
+  assert.equal(
+    sessionRepo.list({ kind: 'chat' }).some((item) => item.id === createdSession.session.id),
+    false
+  )
   const seededMessages = messageRepo.listBySession(createdSession.session.id)
   assert.equal(seededMessages.length, 1)
   assert.equal(seededMessages[0]?.runId, undefined)

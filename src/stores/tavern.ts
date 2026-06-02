@@ -141,13 +141,15 @@ export const useTavernStore = defineStore('tavern', () => {
   async function createSession(
     request: CreateTavernSessionRequest
   ): Promise<TavernSessionOperationResult> {
-    return runMutation((bridge) => bridge.createSession(request))
+    return runMutation((bridge) => bridge.createSession(normalizeCreateSessionRequest(request)))
   }
 
   async function updateSessionBinding(
     request: UpdateTavernSessionBindingRequest
   ): Promise<TavernSessionOperationResult> {
-    return runMutation((bridge) => bridge.updateSessionBinding(request))
+    return runMutation((bridge) =>
+      bridge.updateSessionBinding(normalizeUpdateSessionBindingRequest(request))
+    )
   }
 
   function characterById(id: string | undefined): TavernCharacter | undefined {
@@ -241,6 +243,24 @@ function emptyRegistry(): TavernRegistry {
     characters: [],
     lorebooks: [],
     updatedAt: 0,
+  }
+}
+
+function normalizeCreateSessionRequest(
+  request: CreateTavernSessionRequest
+): CreateTavernSessionRequest {
+  return {
+    ...request,
+    lorebookIds: request.lorebookIds ? [...request.lorebookIds] : undefined,
+  }
+}
+
+function normalizeUpdateSessionBindingRequest(
+  request: UpdateTavernSessionBindingRequest
+): UpdateTavernSessionBindingRequest {
+  return {
+    ...request,
+    lorebookIds: request.lorebookIds ? [...request.lorebookIds] : undefined,
   }
 }
 

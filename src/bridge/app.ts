@@ -238,7 +238,7 @@ export interface BridgeDesktopSettingsChangedEvent {
 export interface BridgeChatSession {
   id: string
   title: string
-  kind?: 'chat' | 'cat' | 'cron' | 'vision' | string
+  kind?: 'chat' | 'tavern' | 'cat' | 'cron' | 'vision' | string
   status: 'active' | 'archived' | 'deleted'
   defaultProviderId?: string
   defaultModelId?: string
@@ -256,7 +256,7 @@ export interface BridgeChatSession {
 }
 
 export interface BridgeListSessionsRequest {
-  kind?: 'chat' | 'cat' | 'cron' | 'vision' | 'all'
+  kind?: 'chat' | 'tavern' | 'cat' | 'cron' | 'vision' | 'all'
   includeDeleted?: boolean
 }
 
@@ -899,6 +899,7 @@ export interface RendererOpenOmniClawBridge {
   chat: {
     listSessions: (request?: BridgeListSessionsRequest) => Promise<BridgeChatSession[]>
     createSession: (request?: BridgeCreateSessionRequest) => Promise<BridgeChatSession>
+    getSession?: (sessionId: string) => Promise<BridgeChatSession | null>
     updateSession?: (
       sessionId: string,
       patch: Partial<BridgeChatSession>
@@ -1546,12 +1547,39 @@ const fallbackBridge: RendererOpenOmniClawBridge = {
         createdAt: now,
         updatedAt: now,
       }
+      const tavernSession: BridgeChatSession = {
+        id: 'fallback-tavern',
+        title: '酒馆会话',
+        kind: 'tavern',
+        status: 'active',
+        defaultProviderId: 'omniinfer-local',
+        defaultModelId: 'local-small-model',
+        createdAt: now,
+        updatedAt: now,
+        metadata: {
+          tavern: {
+            enabled: true,
+            version: 1,
+            characterId: 'fallback-character',
+            characterName: '酒馆角色',
+            lorebookIds: [],
+            userName: 'User',
+            selectedGreetingIndex: 0,
+            contextPreset: 'default',
+          },
+        },
+      }
       if (request?.kind === 'cat') return [catSession]
+      if (request?.kind === 'tavern') return [tavernSession]
       if (request?.kind === 'cron') return []
       if (request?.kind === 'vision') return [visionSession]
-      if (request?.kind === 'all') return [chatSession, catSession, visionSession]
+      if (request?.kind === 'all') return [chatSession, tavernSession, catSession, visionSession]
       return [chatSession]
     },
+    getSession: async (sessionId) =>
+      (await fallbackBridge.chat.listSessions({ kind: 'all' })).find(
+        (session) => session.id === sessionId
+      ) ?? null,
     createSession: async (request) => {
       const now = Date.now()
 

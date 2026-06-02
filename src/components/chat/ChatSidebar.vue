@@ -59,7 +59,7 @@ import {
 import type { Session } from '@/composables/useSessions'
 import { cn } from '@/lib/utils'
 
-type SessionKindFilter = 'chat' | 'cat' | 'vision'
+type SessionKindFilter = 'chat' | 'tavern' | 'cat' | 'vision'
 
 const props = withDefaults(
   defineProps<{
@@ -99,6 +99,7 @@ const sessionKindOptions: Array<{
   icon: typeof MessageSquareIcon
 }> = [
   { value: 'chat', label: '普通对话', icon: MessageSquareIcon },
+  { value: 'tavern', label: '酒馆会话', icon: DramaIcon },
   { value: 'cat', label: '小猫会话', icon: CatIcon },
   { value: 'vision', label: '视觉会话', icon: EyeIcon },
 ]
@@ -214,7 +215,7 @@ function clearSearch() {
 
 function updateSessionKindFilter(value: unknown) {
   if (!value || typeof value !== 'string') return
-  if (value !== 'chat' && value !== 'cat' && value !== 'vision') return
+  if (value !== 'chat' && value !== 'tavern' && value !== 'cat' && value !== 'vision') return
   emit('updateSessionKindFilter', value)
 }
 </script>
@@ -382,6 +383,7 @@ function updateSessionKindFilter(value: unknown) {
           <SidebarMenuButton
             class="w-auto"
             size="default"
+            :is-active="sessionKindFilter === 'tavern'"
             tooltip="酒馆"
             aria-label="酒馆"
             @click="emit('openTavern')"

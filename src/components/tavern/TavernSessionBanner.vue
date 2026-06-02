@@ -41,7 +41,6 @@ const lorebookLabel = computed(() => {
     <div class="flex min-w-0 flex-wrap items-center gap-2">
       <DramaIcon class="shrink-0" />
       <span class="truncate font-medium">{{ characterName }}</span>
-      <Badge variant="secondary">低噪声</Badge>
       <Badge variant="outline">{{ lorebookLabel }}</Badge>
     </div>
 

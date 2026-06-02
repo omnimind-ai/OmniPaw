@@ -24,6 +24,14 @@ import { useToast } from '@/utils/toast'
 import { useChatWorkspaceModel } from './useChatWorkspaceModel'
 import { useChatWorkspaceScroll } from './useChatWorkspaceScroll'
 
+type SessionKindFilter = Extract<ChatSessionKind, 'chat' | 'tavern' | 'cat' | 'vision'>
+
+const sessionKindFilters = new Set<SessionKindFilter>(['chat', 'tavern', 'cat', 'vision'])
+
+function isSessionKindFilter(value: unknown): value is SessionKindFilter {
+  return typeof value === 'string' && sessionKindFilters.has(value as SessionKindFilter)
+}
+
 export function useChatWorkspaceController() {
   const router = useRouter()
   const route = useRoute()
@@ -44,7 +52,7 @@ export function useChatWorkspaceController() {
 
   const media = useMediaHandling()
   const draft = ref(chatStore.draft || '')
-  const sessionKindFilter = ref<Extract<ChatSessionKind, 'chat' | 'cat' | 'vision'>>('chat')
+  const sessionKindFilter = ref<SessionKindFilter>('chat')
   const fileInput = ref<HTMLInputElement | null>(null)
   const creatingSession = ref(false)
   const toolProfileSaving = ref(false)
@@ -321,9 +329,25 @@ export function useChatWorkspaceController() {
       chatStore.activeSessionId = sessionId || undefined
 
       if (sessionId) {
+        await syncSessionKindFilterForSession(sessionId)
         chatStore.setContextUsageLoading(sessionId, true)
         await messages.loadSessionMessages(sessionId)
         await consumePendingInitialMessage(sessionId)
+      }
+    },
+    { immediate: true }
+  )
+
+  watch(
+    () => route.name,
+    async (routeName) => {
+      if (routeSessionId()) return
+      if (routeName === 'tavern') {
+        await setSessionKindFilter('tavern')
+        return
+      }
+      if (routeName === 'home') {
+        await setSessionKindFilter('chat')
       }
     },
     { immediate: true }
@@ -431,13 +455,25 @@ export function useChatWorkspaceController() {
     await getSessions({ kind: sessionKindFilter.value })
   }
 
-  async function handleSessionKindFilterChange(
-    kind: Extract<ChatSessionKind, 'chat' | 'cat' | 'vision'>
-  ) {
-    if (!['chat', 'cat', 'vision'].includes(kind)) return
-    if (sessionKindFilter.value === kind) return
+  async function handleSessionKindFilterChange(kind: SessionKindFilter) {
+    if (!isSessionKindFilter(kind)) return
+    await setSessionKindFilter(kind)
+  }
+
+  async function syncSessionKindFilterForSession(sessionId: string) {
+    const loadedSession =
+      sessions.value.find((session) => session.id === sessionId) ??
+      (await appBridge.chat.getSession?.(sessionId).catch(() => null))
+    if (!isSessionKindFilter(loadedSession?.kind)) return
+    await setSessionKindFilter(loadedSession.kind)
+  }
+
+  async function setSessionKindFilter(kind: SessionKindFilter) {
+    const changed = sessionKindFilter.value !== kind
     sessionKindFilter.value = kind
-    await getFilteredSessions()
+    if (changed || sessions.value.length === 0) {
+      await getFilteredSessions()
+    }
   }
 
   function routeSessionId() {
@@ -455,6 +491,7 @@ export function useChatWorkspaceController() {
     replyTarget.value = null
     media.clearStaged()
     model.syncSelectedModel()
+    await setSessionKindFilter('chat')
     await router.push('/')
   }
 
@@ -482,6 +519,7 @@ export function useChatWorkspaceController() {
     replyTarget.value = null
     media.clearStaged()
     model.syncSelectedModel()
+    await setSessionKindFilter('tavern')
     await router.push('/tavern')
   }
 
@@ -666,7 +704,7 @@ export function useChatWorkspaceController() {
       })
       const sessionId = result.session.id
 
-      sessionKindFilter.value = 'chat'
+      sessionKindFilter.value = 'tavern'
       currSessionId.value = sessionId
       selectedSessions.value = [sessionId]
       chatStore.activeSessionId = sessionId

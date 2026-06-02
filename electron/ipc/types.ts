@@ -1,4 +1,5 @@
 import type { Logger, LogSink } from '@core/logging'
+import type { OpenChatSessionRequest } from '@shared/types/app'
 import type { DesktopSettingsConfig, SettingsChangeReason } from '@shared/types/settings'
 import type { CoreRuntime } from '../core-runtime'
 
@@ -11,5 +12,5 @@ export interface IpcHandlerOptions {
   platform: NodeJS.Platform
   runtime: CoreRuntime
   onSettingsChanged: (reason: SettingsChangeReason, config: DesktopSettingsConfig) => void
-  openChatSession?: (sessionId: string, kind?: 'chat' | 'cat' | 'vision') => void
+  openChatSession?: (sessionId: string, kind?: OpenChatSessionRequest['kind']) => void
 }

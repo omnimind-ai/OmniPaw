@@ -428,7 +428,7 @@ export class ChatService {
     }
     const session = withoutPersonaContext(
       this.createSessionRecord({
-        kind: 'chat',
+        kind: 'tavern',
         title: request.title?.trim() || character.name,
         modelRef,
         includeDefaultSystemContext: true,
@@ -489,6 +489,7 @@ export class ChatService {
     }
     const updated: ChatSession = {
       ...session,
+      kind: 'tavern',
       title: session.title || character.name,
       metadata: {
         ...(session.metadata ?? {}),
@@ -648,7 +649,7 @@ export class ChatService {
   }
 
   private createSessionRecord(input: {
-    kind: Extract<ChatSessionKind, 'chat' | 'cat' | 'vision'>
+    kind: Extract<ChatSessionKind, 'chat' | 'tavern' | 'cat' | 'vision'>
     title?: string
     modelRef?: { providerId: string; modelId: string }
     includeDefaultSystemContext: boolean
