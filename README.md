@@ -27,7 +27,32 @@ OpenOmniClaw 是一个面向桌面环境的 AI 助手客户端，目标是让本
 
 ## 截图
 
+<p align="center">
+  <img src="assets/hello.png" alt="OpenOmniClaw 主界面" width="100%" />
+</p>
 
+<table>
+  <tr>
+    <td width="50%">
+      <img src="assets/traven.png" alt="酒馆角色会话" />
+    </td>
+    <td width="50%">
+      <img src="assets/corn.png" alt="计划任务与工具调用" />
+    </td>
+  </tr>
+  <tr>
+    <td align="center"><strong>酒馆会话</strong></td>
+    <td align="center"><strong>计划任务与工具调用</strong></td>
+  </tr>
+  <tr>
+    <td colspan="2">
+      <img src="assets/version.png" alt="视觉观察与桌面助手" />
+    </td>
+  </tr>
+  <tr>
+    <td colspan="2" align="center"><strong>视觉观察与桌面助手</strong></td>
+  </tr>
+</table>
 
 ## 技术栈
 
