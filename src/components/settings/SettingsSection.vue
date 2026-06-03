@@ -15,6 +15,7 @@ const props = defineProps<{
   title: string
   description?: string
   class?: HTMLAttributes['class']
+  contentClass?: HTMLAttributes['class']
 }>()
 </script>
 
@@ -32,7 +33,7 @@ const props = defineProps<{
         {{ description }}
       </CardDescription>
     </CardHeader>
-    <CardContent class="settings-section__content p-0">
+    <CardContent :class="cn('settings-section__content p-0', props.contentClass)">
       <slot />
     </CardContent>
   </Card>

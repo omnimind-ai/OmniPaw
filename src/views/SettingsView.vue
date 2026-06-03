@@ -42,7 +42,7 @@ let saveQueued = false
 const hasChanges = computed(() => JSON.stringify(draft.value) !== JSON.stringify(config.value))
 const showInitialSkeleton = useDelayedFlag(() => loading.value && !draft.value)
 const contentClass = computed(() =>
-  activeTab.value === 'providers'
+  activeTab.value === 'providers' || activeTab.value === 'tavern'
     ? 'mx-auto flex min-h-full w-full max-w-none flex-1 flex-col gap-4 px-4 pb-6 pt-14 md:px-6 md:py-6'
     : 'mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 pb-6 pt-14 md:px-6 md:py-6'
 )

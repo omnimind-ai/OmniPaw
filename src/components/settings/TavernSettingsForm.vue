@@ -12,10 +12,8 @@ import type {
 } from '@shared/types/tavern'
 import {
   BookOpenIcon,
-  DownloadIcon,
   FileJsonIcon,
   IdCardIcon,
-  PlusIcon,
   SaveIcon,
   ScrollTextIcon,
   Trash2Icon,
@@ -24,28 +22,20 @@ import {
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 
 import SettingsSection from '@/components/settings/SettingsSection.vue'
-import { Badge } from '@/components/ui/badge'
+import TavernCharactersTab from '@/components/settings/tavern-settings/TavernCharactersTab.vue'
+import TavernImportTab from '@/components/settings/tavern-settings/TavernImportTab.vue'
+import TavernLorebooksTab from '@/components/settings/tavern-settings/TavernLorebooksTab.vue'
+import TavernPromptPresetsTab from '@/components/settings/tavern-settings/TavernPromptPresetsTab.vue'
+import TavernUserProfilesTab from '@/components/settings/tavern-settings/TavernUserProfilesTab.vue'
+import type {
+  TavernCharacterDraftState,
+  TavernLorebookDraftState,
+  TavernPromptPresetDraftState,
+  TavernUserProfileDraftState,
+} from '@/components/settings/tavern-settings/types'
 import { Button } from '@/components/ui/button'
-import { Checkbox } from '@/components/ui/checkbox'
-import {
-  Field,
-  FieldContent,
-  FieldDescription,
-  FieldGroup,
-  FieldLabel,
-} from '@/components/ui/field'
-import { Input } from '@/components/ui/input'
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
+import { ScrollArea } from '@/components/ui/scroll-area'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Textarea } from '@/components/ui/textarea'
-import { cn } from '@/lib/utils'
 import { usePersonaStore } from '@/stores/persona'
 import { useTavernStore } from '@/stores/tavern'
 import { askForConfirmation, useConfirmDialog } from '@/utils/confirmDialog'
@@ -55,7 +45,6 @@ const tavernStore = useTavernStore()
 const personaStore = usePersonaStore()
 const toast = useToast()
 const confirmDialog = useConfirmDialog()
-const fileInput = ref<HTMLInputElement | null>(null)
 const activeTab = ref('characters')
 const importText = ref('')
 const selectedCharacterId = ref('')
@@ -68,7 +57,7 @@ const savingLorebook = ref(false)
 const savingPromptPreset = ref(false)
 const savingUserProfile = ref(false)
 
-const characterDraft = reactive({
+const characterDraft = reactive<TavernCharacterDraftState>({
   name: '',
   description: '',
   personality: '',
@@ -82,19 +71,14 @@ const characterDraft = reactive({
   enabled: true,
 })
 
-const lorebookDraft = reactive<{
-  name: string
-  description: string
-  enabled: boolean
-  entries: TavernLorebookEntryDraft[]
-}>({
+const lorebookDraft = reactive<TavernLorebookDraftState>({
   name: '',
   description: '',
   enabled: true,
   entries: [],
 })
 
-const promptPresetDraft = reactive({
+const promptPresetDraft = reactive<TavernPromptPresetDraftState>({
   name: '',
   description: '',
   enabled: true,
@@ -104,7 +88,7 @@ const promptPresetDraft = reactive({
   finalEnabled: true,
 })
 
-const userProfileDraft = reactive({
+const userProfileDraft = reactive<TavernUserProfileDraftState>({
   name: '',
   description: '',
   enabled: true,
@@ -620,683 +604,213 @@ function setEntrySecondaryKeys(entry: TavernLorebookEntryDraft, value: string | 
 </script>
 
 <template>
-  <div class="flex flex-col gap-4">
+  <div class="flex min-h-0 flex-1 flex-col">
     <SettingsSection
       title="酒馆角色扮演"
       description="导入角色卡并管理世界书。新的酒馆会话从侧栏酒馆入口创建。"
+      class="flex min-h-0 flex-1 flex-col"
+      content-class="flex min-h-0 flex-1 flex-col"
     >
-      <div class="flex flex-col gap-4 p-4">
-
-      <Tabs
-        v-model="activeTab"
-        class="flex min-w-0 flex-col gap-4"
-      >
-        <TabsList class="max-w-full overflow-x-auto">
-          <TabsTrigger value="characters">
-            <UserRoundIcon data-icon="inline-start" />
-            角色
-          </TabsTrigger>
-          <TabsTrigger value="lorebooks">
-            <BookOpenIcon data-icon="inline-start" />
-            世界书
-          </TabsTrigger>
-          <TabsTrigger value="presets">
-            <ScrollTextIcon data-icon="inline-start" />
-            Preset
-          </TabsTrigger>
-          <TabsTrigger value="profiles">
-            <IdCardIcon data-icon="inline-start" />
-            用户
-          </TabsTrigger>
-          <TabsTrigger value="import">
-            <FileJsonIcon data-icon="inline-start" />
-            导入
-          </TabsTrigger>
-        </TabsList>
-
-        <TabsContent
-          value="characters"
-          class="min-h-0 overflow-y-auto pr-1"
+      <div class="flex min-h-0 flex-1 flex-col gap-4 p-4">
+        <Tabs
+          v-model="activeTab"
+          class="flex min-h-0 flex-1 flex-col gap-4"
         >
-          <div class="grid gap-4 lg:grid-cols-[220px_minmax(0,1fr)]">
-            <div class="flex flex-col gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                @click="newCharacterDraft"
-              >
-                <PlusIcon data-icon="inline-start" />
-                新建角色
-              </Button>
-              <button
-                v-for="character in tavernStore.characters"
-                :key="character.id"
-                type="button"
-                :class="cn(
-                  'flex min-h-10 items-center justify-between gap-2 rounded-md border px-3 py-2 text-left text-sm',
-                  selectedCharacterId === character.id ? 'border-primary bg-muted' : 'border-border',
-                )"
-                @click="selectCharacter(character.id)"
-              >
-                <span class="truncate">{{ character.name }}</span>
-                <Badge
-                  v-if="!character.enabled"
-                  variant="secondary"
-                >
-                  禁用
-                </Badge>
-              </button>
-              <p
-                v-if="!tavernStore.characters.length"
-                class="rounded-md border border-dashed px-3 py-6 text-center text-sm text-muted-foreground"
-              >
-                暂无角色
-              </p>
-            </div>
+          <TabsList class="mx-auto max-w-full overflow-x-auto">
+            <TabsTrigger value="characters">
+              <UserRoundIcon data-icon="inline-start" />
+              角色
+            </TabsTrigger>
+            <TabsTrigger value="lorebooks">
+              <BookOpenIcon data-icon="inline-start" />
+              世界书
+            </TabsTrigger>
+            <TabsTrigger value="presets">
+              <ScrollTextIcon data-icon="inline-start" />
+              Preset
+            </TabsTrigger>
+            <TabsTrigger value="profiles">
+              <IdCardIcon data-icon="inline-start" />
+              用户
+            </TabsTrigger>
+            <TabsTrigger value="import">
+              <FileJsonIcon data-icon="inline-start" />
+              导入
+            </TabsTrigger>
+          </TabsList>
 
-            <div class="flex min-w-0 flex-col gap-4">
-              <FieldGroup>
-                <Field orientation="horizontal">
-                  <Checkbox
-                    id="tavern-character-enabled"
-                    v-model:checked="characterDraft.enabled"
-                  />
-                  <FieldContent>
-                    <FieldLabel for="tavern-character-enabled">启用角色</FieldLabel>
-                    <FieldDescription>禁用后不能用于新的酒馆上下文。</FieldDescription>
-                  </FieldContent>
-                </Field>
-                <Field>
-                  <FieldLabel for="tavern-character-name">名称</FieldLabel>
-                  <Input
-                    id="tavern-character-name"
-                    v-model="characterDraft.name"
-                    placeholder="角色名称"
-                  />
-                </Field>
-                <Field>
-                  <FieldLabel for="tavern-character-desc">描述</FieldLabel>
-                  <Textarea
-                    id="tavern-character-desc"
-                    v-model="characterDraft.description"
-                    class="min-h-20"
-                  />
-                </Field>
-                <Field>
-                  <FieldLabel for="tavern-character-personality">人格</FieldLabel>
-                  <Textarea
-                    id="tavern-character-personality"
-                    v-model="characterDraft.personality"
-                    class="min-h-20"
-                  />
-                </Field>
-                <Field>
-                  <FieldLabel for="tavern-character-scenario">场景</FieldLabel>
-                  <Textarea
-                    id="tavern-character-scenario"
-                    v-model="characterDraft.scenario"
-                    class="min-h-20"
-                  />
-                </Field>
-                <Field>
-                  <FieldLabel for="tavern-character-system">System prompt</FieldLabel>
-                  <Textarea
-                    id="tavern-character-system"
-                    v-model="characterDraft.systemPrompt"
-                    class="min-h-20"
-                  />
-                </Field>
-                <Field>
-                  <FieldLabel for="tavern-character-post-history">Post-history instructions</FieldLabel>
-                  <Textarea
-                    id="tavern-character-post-history"
-                    v-model="characterDraft.postHistoryInstructions"
-                    class="min-h-20"
-                  />
-                </Field>
-                <Field>
-                  <FieldLabel for="tavern-character-first-message">首条开场白</FieldLabel>
-                  <Textarea
-                    id="tavern-character-first-message"
-                    v-model="characterDraft.firstMessage"
-                    class="min-h-20"
-                  />
-                </Field>
-                <Field>
-                  <FieldLabel for="tavern-character-alt">Alternate greetings</FieldLabel>
-                  <Textarea
-                    id="tavern-character-alt"
-                    v-model="characterDraft.alternateGreetingsText"
-                    class="min-h-24"
-                    placeholder="每段之间空一行"
-                  />
-                </Field>
-                <Field>
-                  <FieldLabel for="tavern-character-examples">Message examples</FieldLabel>
-                  <Textarea
-                    id="tavern-character-examples"
-                    v-model="characterDraft.messageExamplesText"
-                    class="min-h-24"
-                    placeholder="每段之间空一行"
-                  />
-                </Field>
-                <Field>
-                  <FieldLabel for="tavern-character-tags">标签</FieldLabel>
-                  <Input
-                    id="tavern-character-tags"
-                    v-model="characterDraft.tagsText"
-                    placeholder="tag-a, tag-b"
-                  />
-                </Field>
-              </FieldGroup>
+          <TabsContent
+            value="characters"
+            class="min-h-0 flex-1 data-[state=inactive]:hidden"
+          >
+            <ScrollArea class="h-full pr-3">
+              <TavernCharactersTab
+                :characters="tavernStore.characters"
+                :lorebooks="tavernStore.lorebooks"
+                :selected-character-id="selectedCharacterId"
+                :selected-session-lorebook-set="selectedSessionLorebookSet"
+                :draft="characterDraft"
+                :new-character-draft="newCharacterDraft"
+                :select-character="selectCharacter"
+                :toggle-session-lorebook="toggleSessionLorebook"
+              />
+            </ScrollArea>
+          </TabsContent>
 
-              <div class="flex flex-col gap-2 rounded-md border p-3">
-                <p class="text-sm font-medium">默认绑定世界书</p>
-                <label
-                  v-for="lorebook in tavernStore.lorebooks"
-                  :key="lorebook.id"
-                  class="flex items-center gap-2 rounded-md border px-3 py-2 text-sm"
-                >
-                  <Checkbox
-                    :checked="selectedSessionLorebookSet.has(lorebook.id)"
-                    @update:checked="toggleSessionLorebook(lorebook.id, $event)"
-                  />
-                  <span class="truncate">{{ lorebook.name }}</span>
-                </label>
-                <p
-                  v-if="!tavernStore.lorebooks.length"
-                  class="text-sm text-muted-foreground"
-                >
-                  暂无世界书。
-                </p>
-              </div>
-            </div>
-          </div>
-        </TabsContent>
+          <TabsContent
+            value="lorebooks"
+            class="min-h-0 flex-1 data-[state=inactive]:hidden"
+          >
+            <ScrollArea class="h-full pr-3">
+              <TavernLorebooksTab
+                :lorebooks="tavernStore.lorebooks"
+                :selected-lorebook-id="selectedLorebookId"
+                :draft="lorebookDraft"
+                :new-lorebook-draft="newLorebookDraft"
+                :select-lorebook="selectLorebook"
+                :add-lorebook-entry="addLorebookEntry"
+                :remove-lorebook-entry="removeLorebookEntry"
+                :set-entry-keys="setEntryKeys"
+                :set-entry-secondary-keys="setEntrySecondaryKeys"
+              />
+            </ScrollArea>
+          </TabsContent>
 
-        <TabsContent
-          value="lorebooks"
-          class="min-h-0 overflow-y-auto pr-1"
-        >
-          <div class="grid gap-4 lg:grid-cols-[220px_minmax(0,1fr)]">
-            <div class="flex flex-col gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                @click="newLorebookDraft"
-              >
-                <PlusIcon data-icon="inline-start" />
-                新建世界书
-              </Button>
-              <button
-                v-for="lorebook in tavernStore.lorebooks"
-                :key="lorebook.id"
-                type="button"
-                :class="cn(
-                  'flex min-h-10 items-center justify-between gap-2 rounded-md border px-3 py-2 text-left text-sm',
-                  selectedLorebookId === lorebook.id ? 'border-primary bg-muted' : 'border-border',
-                )"
-                @click="selectLorebook(lorebook.id)"
-              >
-                <span class="truncate">{{ lorebook.name }}</span>
-                <Badge variant="outline">{{ lorebook.entries.length }}</Badge>
-              </button>
-            </div>
+          <TabsContent
+            value="presets"
+            class="min-h-0 flex-1 data-[state=inactive]:hidden"
+          >
+            <ScrollArea class="h-full pr-3">
+              <TavernPromptPresetsTab
+                :prompt-presets="tavernStore.promptPresets"
+                :selected-prompt-preset-id="selectedPromptPresetId"
+                :draft="promptPresetDraft"
+                :new-prompt-preset-draft="newPromptPresetDraft"
+                :select-prompt-preset="selectPromptPreset"
+              />
+            </ScrollArea>
+          </TabsContent>
 
-            <div class="flex min-w-0 flex-col gap-4">
-              <FieldGroup>
-                <Field orientation="horizontal">
-                  <Checkbox
-                    id="tavern-lorebook-enabled"
-                    v-model:checked="lorebookDraft.enabled"
-                  />
-                  <FieldContent>
-                    <FieldLabel for="tavern-lorebook-enabled">启用世界书</FieldLabel>
-                    <FieldDescription>禁用后所有条目都不会被触发。</FieldDescription>
-                  </FieldContent>
-                </Field>
-                <Field>
-                  <FieldLabel for="tavern-lorebook-name">名称</FieldLabel>
-                  <Input
-                    id="tavern-lorebook-name"
-                    v-model="lorebookDraft.name"
-                  />
-                </Field>
-                <Field>
-                  <FieldLabel for="tavern-lorebook-desc">描述</FieldLabel>
-                  <Textarea
-                    id="tavern-lorebook-desc"
-                    v-model="lorebookDraft.description"
-                  />
-                </Field>
-              </FieldGroup>
+          <TabsContent
+            value="profiles"
+            class="min-h-0 flex-1 data-[state=inactive]:hidden"
+          >
+            <ScrollArea class="h-full pr-3">
+              <TavernUserProfilesTab
+                :user-profiles="tavernStore.userProfiles"
+                :persona-profiles="personaStore.profiles"
+                :selected-user-profile-id="selectedUserProfileId"
+                :draft="userProfileDraft"
+                :saving-user-profile="savingUserProfile"
+                :new-user-profile-draft="newUserProfileDraft"
+                :select-user-profile="selectUserProfile"
+                :copy-persona-to-user-profile="copyPersonaToUserProfile"
+              />
+            </ScrollArea>
+          </TabsContent>
 
-              <div class="flex items-center justify-between gap-3">
-                <p class="text-sm font-medium">条目</p>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  @click="addLorebookEntry"
-                >
-                  <PlusIcon data-icon="inline-start" />
-                  添加条目
-                </Button>
-              </div>
+          <TabsContent
+            value="import"
+            class="min-h-0 flex-1 data-[state=inactive]:hidden"
+          >
+            <ScrollArea class="h-full pr-3">
+              <TavernImportTab
+                v-model:import-text="importText"
+                :import-disabled="importDisabled"
+                :import-from-text="importFromText"
+                :import-from-file="importFromFile"
+              />
+            </ScrollArea>
+          </TabsContent>
+        </Tabs>
 
-              <div class="flex flex-col gap-3">
-                <div
-                  v-for="(entry, index) in lorebookDraft.entries"
-                  :key="entry.id || index"
-                  class="rounded-md border p-3"
-                >
-                  <div class="flex flex-col gap-3">
-                    <div class="flex items-center justify-between gap-3">
-                      <label class="flex items-center gap-2 text-sm">
-                        <Checkbox v-model:checked="entry.enabled" />
-                        启用条目
-                      </label>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon-sm"
-                        aria-label="删除世界书条目"
-                        @click="removeLorebookEntry(index)"
-                      >
-                        <Trash2Icon data-icon="inline-start" />
-                      </Button>
-                    </div>
-                    <div class="grid gap-3 md:grid-cols-2">
-                      <Field>
-                        <FieldLabel>关键词</FieldLabel>
-                        <Input
-                          :model-value="entry.keys.join(', ')"
-                          placeholder="keyword-a, keyword-b"
-                          @update:model-value="setEntryKeys(entry, $event)"
-                        />
-                      </Field>
-                      <Field>
-                        <FieldLabel>Secondary keys</FieldLabel>
-                        <Input
-                          :model-value="(entry.secondaryKeys ?? []).join(', ')"
-                          @update:model-value="setEntrySecondaryKeys(entry, $event)"
-                        />
-                      </Field>
-                      <Field>
-                        <FieldLabel>Priority</FieldLabel>
-                        <Input
-                          v-model="entry.priority"
-                          type="number"
-                        />
-                      </Field>
-                      <Field>
-                        <FieldLabel>Order</FieldLabel>
-                        <Input
-                          v-model="entry.order"
-                          type="number"
-                        />
-                      </Field>
-                    </div>
-                    <div class="flex flex-wrap gap-4">
-                      <label class="flex items-center gap-2 text-sm">
-                        <Checkbox v-model:checked="entry.constant" />
-                        Constant
-                      </label>
-                      <label class="flex items-center gap-2 text-sm">
-                        <Checkbox v-model:checked="entry.selective" />
-                        Selective
-                      </label>
-                      <Select v-model="entry.position">
-                        <SelectTrigger class="w-44">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectGroup>
-                            <SelectItem value="after-character">After character</SelectItem>
-                            <SelectItem value="before-history">Before history</SelectItem>
-                          </SelectGroup>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <Field>
-                      <FieldLabel>正文</FieldLabel>
-                      <Textarea
-                        v-model="entry.content"
-                        class="min-h-24"
-                      />
-                    </Field>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </TabsContent>
-
-        <TabsContent
-          value="presets"
-          class="min-h-0 overflow-y-auto pr-1"
-        >
-          <div class="grid gap-4 lg:grid-cols-[220px_minmax(0,1fr)]">
-            <div class="flex flex-col gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                @click="newPromptPresetDraft"
-              >
-                <PlusIcon data-icon="inline-start" />
-                新建 preset
-              </Button>
-              <button
-                v-for="preset in tavernStore.promptPresets"
-                :key="preset.id"
-                type="button"
-                :class="cn(
-                  'flex min-h-10 items-center justify-between gap-2 rounded-md border px-3 py-2 text-left text-sm',
-                  selectedPromptPresetId === preset.id ? 'border-primary bg-muted' : 'border-border',
-                )"
-                @click="selectPromptPreset(preset.id)"
-              >
-                <span class="truncate">{{ preset.name }}</span>
-                <Badge variant="outline">{{ preset.slots.length }}</Badge>
-              </button>
-            </div>
-
-            <FieldGroup>
-              <Field orientation="horizontal">
-                <FieldContent>
-                  <FieldLabel for="tavern-preset-enabled">启用 preset</FieldLabel>
-                </FieldContent>
-                <Checkbox
-                  id="tavern-preset-enabled"
-                  v-model:checked="promptPresetDraft.enabled"
-                />
-              </Field>
-              <Field>
-                <FieldLabel for="tavern-preset-name">名称</FieldLabel>
-                <Input
-                  id="tavern-preset-name"
-                  v-model="promptPresetDraft.name"
-                />
-              </Field>
-              <Field>
-                <FieldLabel for="tavern-preset-description">描述</FieldLabel>
-                <Textarea
-                  id="tavern-preset-description"
-                  v-model="promptPresetDraft.description"
-                  class="min-h-16"
-                />
-              </Field>
-              <Field orientation="horizontal">
-                <FieldContent>
-                  <FieldLabel for="tavern-preset-main-enabled">启用 main prompt</FieldLabel>
-                </FieldContent>
-                <Checkbox
-                  id="tavern-preset-main-enabled"
-                  v-model:checked="promptPresetDraft.mainEnabled"
-                />
-              </Field>
-              <Field>
-                <FieldLabel for="tavern-preset-main">Main prompt</FieldLabel>
-                <Textarea
-                  id="tavern-preset-main"
-                  v-model="promptPresetDraft.mainPrompt"
-                  class="min-h-40"
-                  placeholder="{{char}}、{{user}}、{{persona}}"
-                />
-              </Field>
-              <Field orientation="horizontal">
-                <FieldContent>
-                  <FieldLabel for="tavern-preset-final-enabled">启用 final prompt</FieldLabel>
-                </FieldContent>
-                <Checkbox
-                  id="tavern-preset-final-enabled"
-                  v-model:checked="promptPresetDraft.finalEnabled"
-                />
-              </Field>
-              <Field>
-                <FieldLabel for="tavern-preset-final">Final / post-history prompt</FieldLabel>
-                <Textarea
-                  id="tavern-preset-final"
-                  v-model="promptPresetDraft.finalPrompt"
-                  class="min-h-32"
-                  placeholder="会放在普通历史之后，靠近当前用户回合"
-                />
-              </Field>
-            </FieldGroup>
-          </div>
-        </TabsContent>
-
-        <TabsContent
-          value="profiles"
-          class="min-h-0 overflow-y-auto pr-1"
-        >
-          <div class="grid gap-4 lg:grid-cols-[220px_minmax(0,1fr)]">
-            <div class="flex flex-col gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                @click="newUserProfileDraft"
-              >
-                <PlusIcon data-icon="inline-start" />
-                新建用户
-              </Button>
-              <button
-                v-for="profile in tavernStore.userProfiles"
-                :key="profile.id"
-                type="button"
-                :class="cn(
-                  'flex min-h-10 items-center justify-between gap-2 rounded-md border px-3 py-2 text-left text-sm',
-                  selectedUserProfileId === profile.id ? 'border-primary bg-muted' : 'border-border',
-                )"
-                @click="selectUserProfile(profile.id)"
-              >
-                <span class="truncate">{{ profile.name }}</span>
-                <Badge variant="outline">快照</Badge>
-              </button>
-            </div>
-
-            <FieldGroup>
-              <FieldDescription>
-                酒馆用户 profile 是独立快照，不自动同步普通 Persona，也不回写普通 Persona。
-              </FieldDescription>
-              <Field orientation="horizontal">
-                <FieldContent>
-                  <FieldLabel for="tavern-profile-enabled">启用 profile</FieldLabel>
-                </FieldContent>
-                <Checkbox
-                  id="tavern-profile-enabled"
-                  v-model:checked="userProfileDraft.enabled"
-                />
-              </Field>
-              <Field>
-                <FieldLabel for="tavern-profile-name">名称</FieldLabel>
-                <Input
-                  id="tavern-profile-name"
-                  v-model="userProfileDraft.name"
-                />
-              </Field>
-              <Field>
-                <FieldLabel for="tavern-profile-description">描述</FieldLabel>
-                <Textarea
-                  id="tavern-profile-description"
-                  v-model="userProfileDraft.description"
-                  class="min-h-40"
-                  placeholder="{{persona}} 会使用这里的文本"
-                />
-              </Field>
-              <Field>
-                <FieldLabel for="tavern-profile-copy">从普通 Persona 复制</FieldLabel>
-                <div class="flex gap-2">
-                  <Select v-model="userProfileDraft.copyPersonaId">
-                    <SelectTrigger
-                      id="tavern-profile-copy"
-                      class="min-w-0 flex-1"
-                    >
-                      <SelectValue placeholder="选择 Persona" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectGroup>
-                        <SelectItem
-                          v-for="profile in personaStore.profiles"
-                          :key="profile.id"
-                          :value="profile.id"
-                        >
-                          {{ profile.name }}
-                        </SelectItem>
-                      </SelectGroup>
-                    </SelectContent>
-                  </Select>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    :disabled="!userProfileDraft.copyPersonaId || savingUserProfile"
-                    @click="copyPersonaToUserProfile"
-                  >
-                    复制
-                  </Button>
-                </div>
-              </Field>
-            </FieldGroup>
-          </div>
-        </TabsContent>
-
-        <TabsContent
-          value="import"
-          class="min-h-0 overflow-y-auto pr-1"
-        >
-          <div class="flex flex-col gap-4">
-            <FieldGroup>
-              <Field>
-                <FieldLabel for="tavern-import-json">角色卡 JSON</FieldLabel>
-                <Textarea
-                  id="tavern-import-json"
-                  v-model="importText"
-                  class="min-h-56 font-mono text-xs"
-                  placeholder="{ &quot;spec&quot;: &quot;chara_card_v2&quot;, &quot;data&quot;: { ... } }"
-                />
-                <FieldDescription>支持 SillyTavern V1/V2 JSON、PNG 和 WebP 角色卡。</FieldDescription>
-              </Field>
-            </FieldGroup>
-            <div class="flex flex-wrap gap-2">
-              <Button
-                type="button"
-                :disabled="importDisabled"
-                @click="importFromText"
-              >
-                <FileJsonIcon data-icon="inline-start" />
-                导入文本
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                @click="fileInput?.click()"
-              >
-                <DownloadIcon data-icon="inline-start" />
-                选择文件
-              </Button>
-              <input
-                ref="fileInput"
-                class="sr-only"
-                type="file"
-                accept="application/json,image/png,image/webp,.json,.png,.webp"
-                @change="importFromFile"
-              >
-            </div>
-          </div>
-        </TabsContent>
-      </Tabs>
-
-      <div class="flex flex-wrap justify-end gap-2 border-t pt-4">
-        <Button
-          v-if="activeTab === 'characters'"
-          type="button"
-          variant="outline"
-          :disabled="!selectedCharacter"
-          @click="exportPersona"
-        >
-          另存为 Persona
-        </Button>
-        <Button
-          v-if="activeTab === 'characters'"
-          type="button"
-          variant="destructive"
-          :disabled="!selectedCharacter"
-          @click="deleteSelectedCharacter"
-        >
-          <Trash2Icon data-icon="inline-start" />
-          删除角色
-        </Button>
-        <Button
-          v-if="activeTab === 'characters'"
-          type="button"
-          :disabled="!canSaveCharacter || savingCharacter"
-          @click="saveCharacter"
-        >
-          <SaveIcon data-icon="inline-start" />
-          保存角色
-        </Button>
-        <Button
-          v-if="activeTab === 'lorebooks'"
-          type="button"
-          variant="destructive"
-          :disabled="!selectedLorebook"
-          @click="deleteSelectedLorebook"
-        >
-          <Trash2Icon data-icon="inline-start" />
-          删除世界书
-        </Button>
-        <Button
-          v-if="activeTab === 'lorebooks'"
-          type="button"
-          :disabled="!canSaveLorebook || savingLorebook"
-          @click="saveLorebook"
-        >
-          <SaveIcon data-icon="inline-start" />
-          保存世界书
-        </Button>
-        <Button
-          v-if="activeTab === 'presets'"
-          type="button"
-          variant="destructive"
-          :disabled="!selectedPromptPreset"
-          @click="deleteSelectedPromptPreset"
-        >
-          <Trash2Icon data-icon="inline-start" />
-          删除 preset
-        </Button>
-        <Button
-          v-if="activeTab === 'presets'"
-          type="button"
-          :disabled="!canSavePromptPreset || savingPromptPreset"
-          @click="savePromptPreset"
-        >
-          <SaveIcon data-icon="inline-start" />
-          保存 preset
-        </Button>
-        <Button
-          v-if="activeTab === 'profiles'"
-          type="button"
-          variant="destructive"
-          :disabled="!selectedUserProfile"
-          @click="deleteSelectedUserProfile"
-        >
-          <Trash2Icon data-icon="inline-start" />
-          删除用户
-        </Button>
-        <Button
-          v-if="activeTab === 'profiles'"
-          type="button"
-          :disabled="!canSaveUserProfile || savingUserProfile"
-          @click="saveUserProfile"
-        >
-          <SaveIcon data-icon="inline-start" />
-          保存用户
-        </Button>
-      </div>
+        <div class="flex shrink-0 flex-wrap justify-end gap-2 border-t pt-4">
+          <Button
+            v-if="activeTab === 'characters'"
+            type="button"
+            variant="outline"
+            :disabled="!selectedCharacter"
+            @click="exportPersona"
+          >
+            另存为 Persona
+          </Button>
+          <Button
+            v-if="activeTab === 'characters'"
+            type="button"
+            variant="destructive"
+            :disabled="!selectedCharacter"
+            @click="deleteSelectedCharacter"
+          >
+            <Trash2Icon data-icon="inline-start" />
+            删除角色
+          </Button>
+          <Button
+            v-if="activeTab === 'characters'"
+            type="button"
+            :disabled="!canSaveCharacter || savingCharacter"
+            @click="saveCharacter"
+          >
+            <SaveIcon data-icon="inline-start" />
+            保存角色
+          </Button>
+          <Button
+            v-if="activeTab === 'lorebooks'"
+            type="button"
+            variant="destructive"
+            :disabled="!selectedLorebook"
+            @click="deleteSelectedLorebook"
+          >
+            <Trash2Icon data-icon="inline-start" />
+            删除世界书
+          </Button>
+          <Button
+            v-if="activeTab === 'lorebooks'"
+            type="button"
+            :disabled="!canSaveLorebook || savingLorebook"
+            @click="saveLorebook"
+          >
+            <SaveIcon data-icon="inline-start" />
+            保存世界书
+          </Button>
+          <Button
+            v-if="activeTab === 'presets'"
+            type="button"
+            variant="destructive"
+            :disabled="!selectedPromptPreset"
+            @click="deleteSelectedPromptPreset"
+          >
+            <Trash2Icon data-icon="inline-start" />
+            删除 preset
+          </Button>
+          <Button
+            v-if="activeTab === 'presets'"
+            type="button"
+            :disabled="!canSavePromptPreset || savingPromptPreset"
+            @click="savePromptPreset"
+          >
+            <SaveIcon data-icon="inline-start" />
+            保存 preset
+          </Button>
+          <Button
+            v-if="activeTab === 'profiles'"
+            type="button"
+            variant="destructive"
+            :disabled="!selectedUserProfile"
+            @click="deleteSelectedUserProfile"
+          >
+            <Trash2Icon data-icon="inline-start" />
+            删除用户
+          </Button>
+          <Button
+            v-if="activeTab === 'profiles'"
+            type="button"
+            :disabled="!canSaveUserProfile || savingUserProfile"
+            @click="saveUserProfile"
+          >
+            <SaveIcon data-icon="inline-start" />
+            保存用户
+          </Button>
+        </div>
       </div>
     </SettingsSection>
   </div>
