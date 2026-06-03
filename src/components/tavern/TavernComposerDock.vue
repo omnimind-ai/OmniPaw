@@ -89,7 +89,7 @@ const selectedLorebookSet = computed(() => new Set(tavernSelectedLorebookIds.val
 <template>
   <div class="flex w-full flex-1 flex-col items-center justify-center gap-8 px-6 pb-6 md:px-10 lg:px-16">
     <h1 class="text-center text-3xl font-semibold tracking-normal md:text-4xl">
-      今天想让小万变身为什么角色
+      今天想让小万化身什么角色
     </h1>
 
     <div class="w-full max-w-4xl">
