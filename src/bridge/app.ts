@@ -74,16 +74,25 @@ import type {
   TriggerObservationRequest,
 } from '@shared/types/observation'
 import type {
+  CopyPersonaToTavernUserProfileRequest,
   CreateTavernCharacterRequest,
   CreateTavernLorebookRequest,
+  CreateTavernPromptPresetRequest,
   CreateTavernSessionRequest,
+  CreateTavernUserProfileRequest,
   DeleteTavernCharacterRequest,
   DeleteTavernLorebookRequest,
+  DeleteTavernPromptPresetRequest,
+  DeleteTavernUserProfileRequest,
   ExportTavernCharacterPersonaRequest,
   ImportTavernCharacterRequest,
   ImportTavernCharacterResult,
   SetTavernCharacterEnabledRequest,
   SetTavernLorebookEnabledRequest,
+  SetTavernPromptPresetEnabledRequest,
+  SetTavernUserProfileEnabledRequest,
+  TavernPromptPreviewRequest,
+  TavernPromptPreviewResult,
   TavernRegistryChangedEvent,
   TavernRegistryLoadResponse,
   TavernRegistryMutationResult,
@@ -91,7 +100,9 @@ import type {
   TavernSessionOperationResult,
   UpdateTavernCharacterRequest,
   UpdateTavernLorebookRequest,
+  UpdateTavernPromptPresetRequest,
   UpdateTavernSessionBindingRequest,
+  UpdateTavernUserProfileRequest,
 } from '@shared/types/tavern'
 
 export type BridgeUnsubscribe = () => void
@@ -1076,6 +1087,33 @@ export interface RendererOpenOmniClawBridge {
     setLorebookEnabled: (
       request: SetTavernLorebookEnabledRequest
     ) => Promise<TavernRegistryMutationResult>
+    createPromptPreset: (
+      request: CreateTavernPromptPresetRequest
+    ) => Promise<TavernRegistryMutationResult>
+    updatePromptPreset: (
+      request: UpdateTavernPromptPresetRequest
+    ) => Promise<TavernRegistryMutationResult>
+    deletePromptPreset: (
+      request: DeleteTavernPromptPresetRequest | string
+    ) => Promise<TavernRegistryMutationResult>
+    setPromptPresetEnabled: (
+      request: SetTavernPromptPresetEnabledRequest
+    ) => Promise<TavernRegistryMutationResult>
+    createUserProfile: (
+      request: CreateTavernUserProfileRequest
+    ) => Promise<TavernRegistryMutationResult>
+    updateUserProfile: (
+      request: UpdateTavernUserProfileRequest
+    ) => Promise<TavernRegistryMutationResult>
+    deleteUserProfile: (
+      request: DeleteTavernUserProfileRequest | string
+    ) => Promise<TavernRegistryMutationResult>
+    setUserProfileEnabled: (
+      request: SetTavernUserProfileEnabledRequest
+    ) => Promise<TavernRegistryMutationResult>
+    copyPersonaToUserProfile: (
+      request: CopyPersonaToTavernUserProfileRequest
+    ) => Promise<TavernRegistryMutationResult>
     exportCharacterAsPersona: (
       request: ExportTavernCharacterPersonaRequest
     ) => Promise<TavernRegistryMutationResult>
@@ -1083,6 +1121,7 @@ export interface RendererOpenOmniClawBridge {
     updateSessionBinding: (
       request: UpdateTavernSessionBindingRequest
     ) => Promise<TavernSessionOperationResult>
+    previewPrompt: (request: TavernPromptPreviewRequest) => Promise<TavernPromptPreviewResult>
     onChanged: (callback: (event: TavernRegistryChangedEvent) => void) => BridgeUnsubscribe
   }
 }
@@ -1201,7 +1240,7 @@ function emptyProviderRegistryStatus(): BridgeProviderRegistryStatus {
     exists: false,
     backupExists: false,
     loaded: true,
-    version: 1,
+    version: 2,
     recoverable: false,
   }
 }
@@ -1241,7 +1280,7 @@ function emptyTavernRegistryStatus(): TavernRegistryStatus {
     exists: false,
     backupExists: false,
     loaded: true,
-    version: 1,
+    version: 2,
     recoverable: false,
   }
 }
@@ -1249,9 +1288,11 @@ function emptyTavernRegistryStatus(): TavernRegistryStatus {
 function emptyTavernRegistryLoadResponse(): TavernRegistryLoadResponse {
   return {
     registry: {
-      version: 1,
+      version: 2,
       characters: [],
       lorebooks: [],
+      promptPresets: [],
+      userProfiles: [],
       updatedAt: 0,
     },
     status: emptyTavernRegistryStatus(),
@@ -1566,6 +1607,7 @@ const fallbackBridge: RendererOpenOmniClawBridge = {
             userName: 'User',
             selectedGreetingIndex: 0,
             contextPreset: 'default',
+            loreSettings: { scanDepth: 12, loreBudget: 800 },
           },
         },
       }
@@ -1837,12 +1879,39 @@ const fallbackBridge: RendererOpenOmniClawBridge = {
       rejectFallbackPersistence<TavernRegistryMutationResult>('tavern.deleteLorebook'),
     setLorebookEnabled: () =>
       rejectFallbackPersistence<TavernRegistryMutationResult>('tavern.setLorebookEnabled'),
+    createPromptPreset: () =>
+      rejectFallbackPersistence<TavernRegistryMutationResult>('tavern.createPromptPreset'),
+    updatePromptPreset: () =>
+      rejectFallbackPersistence<TavernRegistryMutationResult>('tavern.updatePromptPreset'),
+    deletePromptPreset: () =>
+      rejectFallbackPersistence<TavernRegistryMutationResult>('tavern.deletePromptPreset'),
+    setPromptPresetEnabled: () =>
+      rejectFallbackPersistence<TavernRegistryMutationResult>('tavern.setPromptPresetEnabled'),
+    createUserProfile: () =>
+      rejectFallbackPersistence<TavernRegistryMutationResult>('tavern.createUserProfile'),
+    updateUserProfile: () =>
+      rejectFallbackPersistence<TavernRegistryMutationResult>('tavern.updateUserProfile'),
+    deleteUserProfile: () =>
+      rejectFallbackPersistence<TavernRegistryMutationResult>('tavern.deleteUserProfile'),
+    setUserProfileEnabled: () =>
+      rejectFallbackPersistence<TavernRegistryMutationResult>('tavern.setUserProfileEnabled'),
+    copyPersonaToUserProfile: () =>
+      rejectFallbackPersistence<TavernRegistryMutationResult>('tavern.copyPersonaToUserProfile'),
     exportCharacterAsPersona: () =>
       rejectFallbackPersistence<TavernRegistryMutationResult>('tavern.exportCharacterAsPersona'),
     createSession: () =>
       rejectFallbackPersistence<TavernSessionOperationResult>('tavern.createSession'),
     updateSessionBinding: () =>
       rejectFallbackPersistence<TavernSessionOperationResult>('tavern.updateSessionBinding'),
+    previewPrompt: async (request) => ({
+      ok: true,
+      sessionId: request.sessionId,
+      generatedAt: Date.now(),
+      missingLorebookIds: [],
+      loreSettings: { scanDepth: 12, loreBudget: 800 },
+      sections: [],
+      snapshot: { enabled: true, loreSettings: { scanDepth: 12, loreBudget: 800 } },
+    }),
     onChanged: () => () => {},
   },
 }

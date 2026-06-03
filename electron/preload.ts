@@ -49,18 +49,28 @@ import type {
 } from '@shared/types/provider'
 import type { DesktopSettingsConfig, SaveDesktopSettingsRequest } from '@shared/types/settings'
 import type {
+  CopyPersonaToTavernUserProfileRequest,
   CreateTavernCharacterRequest,
   CreateTavernLorebookRequest,
+  CreateTavernPromptPresetRequest,
   CreateTavernSessionRequest,
+  CreateTavernUserProfileRequest,
   DeleteTavernCharacterRequest,
   DeleteTavernLorebookRequest,
+  DeleteTavernPromptPresetRequest,
+  DeleteTavernUserProfileRequest,
   ExportTavernCharacterPersonaRequest,
   ImportTavernCharacterRequest,
   SetTavernCharacterEnabledRequest,
   SetTavernLorebookEnabledRequest,
+  SetTavernPromptPresetEnabledRequest,
+  SetTavernUserProfileEnabledRequest,
+  TavernPromptPreviewRequest,
   UpdateTavernCharacterRequest,
   UpdateTavernLorebookRequest,
+  UpdateTavernPromptPresetRequest,
   UpdateTavernSessionBindingRequest,
+  UpdateTavernUserProfileRequest,
 } from '@shared/types/tavern'
 import { contextBridge, ipcRenderer } from 'electron'
 
@@ -523,12 +533,32 @@ const bridge: OpenOmniClawBridge = {
       invokeTavern(IPC_CHANNELS.tavern.deleteLorebook, request),
     setLorebookEnabled: (request: SetTavernLorebookEnabledRequest) =>
       invokeTavern(IPC_CHANNELS.tavern.setLorebookEnabled, request),
+    createPromptPreset: (request: CreateTavernPromptPresetRequest) =>
+      invokeTavern(IPC_CHANNELS.tavern.createPromptPreset, request),
+    updatePromptPreset: (request: UpdateTavernPromptPresetRequest) =>
+      invokeTavern(IPC_CHANNELS.tavern.updatePromptPreset, request),
+    deletePromptPreset: (request: DeleteTavernPromptPresetRequest | string) =>
+      invokeTavern(IPC_CHANNELS.tavern.deletePromptPreset, request),
+    setPromptPresetEnabled: (request: SetTavernPromptPresetEnabledRequest) =>
+      invokeTavern(IPC_CHANNELS.tavern.setPromptPresetEnabled, request),
+    createUserProfile: (request: CreateTavernUserProfileRequest) =>
+      invokeTavern(IPC_CHANNELS.tavern.createUserProfile, request),
+    updateUserProfile: (request: UpdateTavernUserProfileRequest) =>
+      invokeTavern(IPC_CHANNELS.tavern.updateUserProfile, request),
+    deleteUserProfile: (request: DeleteTavernUserProfileRequest | string) =>
+      invokeTavern(IPC_CHANNELS.tavern.deleteUserProfile, request),
+    setUserProfileEnabled: (request: SetTavernUserProfileEnabledRequest) =>
+      invokeTavern(IPC_CHANNELS.tavern.setUserProfileEnabled, request),
+    copyPersonaToUserProfile: (request: CopyPersonaToTavernUserProfileRequest) =>
+      invokeTavern(IPC_CHANNELS.tavern.copyPersonaToUserProfile, request),
     exportCharacterAsPersona: (request: ExportTavernCharacterPersonaRequest) =>
       invokeTavern(IPC_CHANNELS.tavern.exportCharacterAsPersona, request),
     createSession: (request: CreateTavernSessionRequest) =>
       invokeTavern(IPC_CHANNELS.tavern.createSession, request),
     updateSessionBinding: (request: UpdateTavernSessionBindingRequest) =>
       invokeTavern(IPC_CHANNELS.tavern.updateSessionBinding, request),
+    previewPrompt: (request: TavernPromptPreviewRequest) =>
+      invokeTavern(IPC_CHANNELS.tavern.previewPrompt, request),
     onChanged: (callback) => createUnsubscriber(IPC_CHANNELS.tavern.changed, callback),
   },
 }

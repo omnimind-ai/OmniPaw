@@ -145,16 +145,25 @@ import type {
   SkillListResponse,
 } from './skill'
 import type {
+  CopyPersonaToTavernUserProfileRequest,
   CreateTavernCharacterRequest,
   CreateTavernLorebookRequest,
+  CreateTavernPromptPresetRequest,
   CreateTavernSessionRequest,
+  CreateTavernUserProfileRequest,
   DeleteTavernCharacterRequest,
   DeleteTavernLorebookRequest,
+  DeleteTavernPromptPresetRequest,
+  DeleteTavernUserProfileRequest,
   ExportTavernCharacterPersonaRequest,
   ImportTavernCharacterRequest,
   ImportTavernCharacterResult,
   SetTavernCharacterEnabledRequest,
   SetTavernLorebookEnabledRequest,
+  SetTavernPromptPresetEnabledRequest,
+  SetTavernUserProfileEnabledRequest,
+  TavernPromptPreviewRequest,
+  TavernPromptPreviewResult,
   TavernRegistryChangedEvent,
   TavernRegistryLoadResponse,
   TavernRegistryMutationResult,
@@ -162,7 +171,9 @@ import type {
   TavernSessionOperationResult,
   UpdateTavernCharacterRequest,
   UpdateTavernLorebookRequest,
+  UpdateTavernPromptPresetRequest,
   UpdateTavernSessionBindingRequest,
+  UpdateTavernUserProfileRequest,
 } from './tavern'
 import type { ManagedToolInfo, SetToolEnabledRequest, SetToolEnabledResponse } from './tool'
 
@@ -539,6 +550,33 @@ export interface OpenOmniClawBridge {
     setLorebookEnabled: (
       request: SetTavernLorebookEnabledRequest
     ) => Promise<TavernRegistryMutationResult>
+    createPromptPreset: (
+      request: CreateTavernPromptPresetRequest
+    ) => Promise<TavernRegistryMutationResult>
+    updatePromptPreset: (
+      request: UpdateTavernPromptPresetRequest
+    ) => Promise<TavernRegistryMutationResult>
+    deletePromptPreset: (
+      request: DeleteTavernPromptPresetRequest | string
+    ) => Promise<TavernRegistryMutationResult>
+    setPromptPresetEnabled: (
+      request: SetTavernPromptPresetEnabledRequest
+    ) => Promise<TavernRegistryMutationResult>
+    createUserProfile: (
+      request: CreateTavernUserProfileRequest
+    ) => Promise<TavernRegistryMutationResult>
+    updateUserProfile: (
+      request: UpdateTavernUserProfileRequest
+    ) => Promise<TavernRegistryMutationResult>
+    deleteUserProfile: (
+      request: DeleteTavernUserProfileRequest | string
+    ) => Promise<TavernRegistryMutationResult>
+    setUserProfileEnabled: (
+      request: SetTavernUserProfileEnabledRequest
+    ) => Promise<TavernRegistryMutationResult>
+    copyPersonaToUserProfile: (
+      request: CopyPersonaToTavernUserProfileRequest
+    ) => Promise<TavernRegistryMutationResult>
     exportCharacterAsPersona: (
       request: ExportTavernCharacterPersonaRequest
     ) => Promise<TavernRegistryMutationResult>
@@ -546,6 +584,7 @@ export interface OpenOmniClawBridge {
     updateSessionBinding: (
       request: UpdateTavernSessionBindingRequest
     ) => Promise<TavernSessionOperationResult>
+    previewPrompt: (request: TavernPromptPreviewRequest) => Promise<TavernPromptPreviewResult>
     onChanged: (callback: (event: TavernRegistryChangedEvent) => void) => Unsubscribe
   }
 }

@@ -1,6 +1,6 @@
 import { isComplexDocumentAttachment } from '@shared/attachment-documents'
 import type { ChatSessionKind, ToolProfile } from '@shared/types/chat'
-import type { TavernLorebook } from '@shared/types/tavern'
+import type { TavernLorebook, TavernPromptPreviewResult } from '@shared/types/tavern'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { appBridge } from '@/bridge/app'
@@ -58,6 +58,12 @@ export function useChatWorkspaceController() {
   const toolProfileSaving = ref(false)
   const tavernSelectedCharacterId = ref('')
   const tavernSelectedLorebookIds = ref<string[]>([])
+  const tavernSelectedPromptPresetId = ref('')
+  const tavernSelectedUserProfileId = ref('')
+  const tavernScanDepth = ref(12)
+  const tavernLoreBudget = ref(800)
+  const tavernPromptPreview = ref<TavernPromptPreviewResult | null>(null)
+  const tavernPreviewLoading = ref(false)
   const replyTarget = ref<{ messageId: string; preview: string } | null>(null)
   const highlightedMessageId = ref('')
   const messages = useMessages({
@@ -174,6 +180,12 @@ export function useChatWorkspaceController() {
       .map((id) => tavernStore.lorebookById(id)?.name || '缺失世界书')
       .filter(Boolean)
   )
+  const activeTavernPromptPreset = computed(() =>
+    tavernStore.promptPresetById(activeTavernMetadata.value?.promptPresetId)
+  )
+  const activeTavernUserProfile = computed(() =>
+    tavernStore.userProfileById(activeTavernMetadata.value?.userProfileId)
+  )
   const activeTavernGreetingOptions = computed(() => {
     const character = activeTavernCharacter.value
     if (!character) return []
@@ -196,6 +208,12 @@ export function useChatWorkspaceController() {
   const tavernLorebooks = computed(() =>
     tavernStore.lorebooks.filter((lorebook) => lorebook.enabled !== false)
   )
+  const tavernPromptPresets = computed(() =>
+    tavernStore.promptPresets.filter((preset) => preset.enabled !== false)
+  )
+  const tavernUserProfiles = computed(() =>
+    tavernStore.userProfiles.filter((profile) => profile.enabled !== false)
+  )
   const tavernSelectedCharacter = computed(() =>
     tavernStore.characterById(tavernSelectedCharacterId.value)
   )
@@ -203,6 +221,12 @@ export function useChatWorkspaceController() {
     tavernSelectedLorebookIds.value
       .map((id) => tavernStore.lorebookById(id))
       .filter((lorebook): lorebook is TavernLorebook => Boolean(lorebook))
+  )
+  const tavernSelectedPromptPreset = computed(() =>
+    tavernStore.promptPresetById(tavernSelectedPromptPresetId.value)
+  )
+  const tavernSelectedUserProfile = computed(() =>
+    tavernStore.userProfileById(tavernSelectedUserProfileId.value)
   )
   const tavernSelectedCharacterLabel = computed(
     () => tavernSelectedCharacter.value?.name || '选择角色卡'
@@ -212,6 +236,12 @@ export function useChatWorkspaceController() {
     if (tavernSelectedLorebooks.value.length === 1) return tavernSelectedLorebooks.value[0].name
     return `${tavernSelectedLorebooks.value.length} 本世界书`
   })
+  const tavernSelectedPromptPresetLabel = computed(
+    () => tavernSelectedPromptPreset.value?.name || '无 preset'
+  )
+  const tavernSelectedUserProfileLabel = computed(
+    () => tavernSelectedUserProfile.value?.name || '无酒馆用户'
+  )
   const tavernCanSend = computed(
     () =>
       !messages.sending.value &&
@@ -255,14 +285,26 @@ export function useChatWorkspaceController() {
     activeTavernMetadata,
     activeTavernCharacter,
     activeTavernLorebookNames,
+    activeTavernPromptPreset,
+    activeTavernUserProfile,
     activeTavernGreetingOptions,
     activeTavernCanReplaceGreeting,
     tavernCharacters,
     tavernLorebooks,
+    tavernPromptPresets,
+    tavernUserProfiles,
     tavernSelectedCharacterId,
     tavernSelectedLorebookIds,
+    tavernSelectedPromptPresetId,
+    tavernSelectedUserProfileId,
+    tavernScanDepth,
+    tavernLoreBudget,
+    tavernPromptPreview,
+    tavernPreviewLoading,
     tavernSelectedCharacterLabel,
     tavernSelectedLorebookLabel,
+    tavernSelectedPromptPresetLabel,
+    tavernSelectedUserProfileLabel,
     tavernCanSend,
     showScrollToBottom: scroll.showScrollToBottom,
     draft,
@@ -299,7 +341,17 @@ export function useChatWorkspaceController() {
     handleToolProfileChange,
     handleTavernCharacterChange,
     handleTavernLorebookToggle,
+    handleTavernPromptPresetChange,
+    handleTavernUserProfileChange,
+    handleTavernScanDepthChange,
+    handleTavernLoreBudgetChange,
     handleTavernGreetingChange,
+    handleActiveTavernPromptPresetChange,
+    handleActiveTavernUserProfileChange,
+    handleActiveTavernScanDepthChange,
+    handleActiveTavernLoreBudgetChange,
+    handleTavernPromptPreview,
+    clearTavernPromptPreview,
     handlePaste: media.handlePaste,
     handleSubmit,
     handleTavernSubmit,
@@ -382,6 +434,24 @@ export function useChatWorkspaceController() {
         return
       }
       handleTavernCharacterChange(characters[0]?.id ?? '')
+    },
+    { immediate: true }
+  )
+
+  watch(
+    tavernPromptPresets,
+    (presets) => {
+      if (presets.some((preset) => preset.id === tavernSelectedPromptPresetId.value)) return
+      tavernSelectedPromptPresetId.value = presets[0]?.id ?? ''
+    },
+    { immediate: true }
+  )
+
+  watch(
+    tavernUserProfiles,
+    (profiles) => {
+      if (profiles.some((profile) => profile.id === tavernSelectedUserProfileId.value)) return
+      tavernSelectedUserProfileId.value = profiles[0]?.id ?? ''
     },
     { immediate: true }
   )
@@ -585,6 +655,84 @@ export function useChatWorkspaceController() {
     }
   }
 
+  function handleTavernPromptPresetChange(value: string | number) {
+    tavernSelectedPromptPresetId.value = String(value || '')
+  }
+
+  function handleTavernUserProfileChange(value: string | number) {
+    tavernSelectedUserProfileId.value = String(value || '')
+  }
+
+  function handleTavernScanDepthChange(value: string | number) {
+    const next = Number(value)
+    if (Number.isFinite(next)) tavernScanDepth.value = Math.max(0, Math.round(next))
+  }
+
+  function handleTavernLoreBudgetChange(value: string | number) {
+    const next = Number(value)
+    if (Number.isFinite(next)) tavernLoreBudget.value = Math.max(0, Math.round(next))
+  }
+
+  async function updateActiveTavernRuntimeBinding(patch: {
+    promptPresetId?: string | null
+    userProfileId?: string | null
+    loreSettings?: { scanDepth?: number; loreBudget?: number }
+  }) {
+    if (!currSessionId.value || !activeTavernMetadata.value) return
+    try {
+      const result = await tavernStore.updateSessionBinding({
+        sessionId: currSessionId.value,
+        ...patch,
+      })
+      const session = sessions.value.find((item) => item.id === result.session.id)
+      if (session) Object.assign(session, result.session)
+      await getFilteredSessions()
+    } catch (error) {
+      toast.error(error, { description: '更新酒馆运行设置失败' })
+    }
+  }
+
+  async function handleActiveTavernPromptPresetChange(value: string | number) {
+    const id = String(value || '')
+    await updateActiveTavernRuntimeBinding({ promptPresetId: id || null })
+  }
+
+  async function handleActiveTavernUserProfileChange(value: string | number) {
+    const id = String(value || '')
+    await updateActiveTavernRuntimeBinding({ userProfileId: id || null })
+  }
+
+  async function handleActiveTavernScanDepthChange(value: string | number) {
+    const next = Math.max(0, Math.round(Number(value)))
+    if (!Number.isFinite(next)) return
+    await updateActiveTavernRuntimeBinding({ loreSettings: { scanDepth: next } })
+  }
+
+  async function handleActiveTavernLoreBudgetChange(value: string | number) {
+    const next = Math.max(0, Math.round(Number(value)))
+    if (!Number.isFinite(next)) return
+    await updateActiveTavernRuntimeBinding({ loreSettings: { loreBudget: next } })
+  }
+
+  async function handleTavernPromptPreview() {
+    if (!currSessionId.value || !activeTavernMetadata.value) return
+    tavernPreviewLoading.value = true
+    try {
+      tavernPromptPreview.value = await tavernStore.previewPrompt({
+        sessionId: currSessionId.value,
+        currentInput: draft.value,
+      })
+    } catch (error) {
+      toast.error(error, { description: '生成 prompt preview 失败' })
+    } finally {
+      tavernPreviewLoading.value = false
+    }
+  }
+
+  function clearTavernPromptPreview() {
+    tavernPromptPreview.value = null
+  }
+
   async function handleTavernGreetingChange(value: string | number) {
     if (!currSessionId.value || !activeTavernMetadata.value) return
     const selectedGreetingIndex = Number(value)
@@ -699,6 +847,12 @@ export function useChatWorkspaceController() {
       const result = await tavernStore.createSession({
         characterId: character.id,
         lorebookIds: tavernSelectedLorebookIds.value,
+        promptPresetId: tavernSelectedPromptPresetId.value || undefined,
+        userProfileId: tavernSelectedUserProfileId.value || undefined,
+        loreSettings: {
+          scanDepth: tavernScanDepth.value,
+          loreBudget: tavernLoreBudget.value,
+        },
         providerId: selectedModel.providerId,
         modelId: selectedModel.modelId,
       })

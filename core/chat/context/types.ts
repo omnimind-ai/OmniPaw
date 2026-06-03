@@ -70,6 +70,7 @@ export interface ContextUnit {
   contentHash?: string
   droppedReason?: string
   fallbackReason?: string
+  tavernPosition?: 'after-character' | 'before-history' | 'after-history'
 }
 
 export interface ContextUnitStats {

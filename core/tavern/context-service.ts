@@ -4,13 +4,26 @@ import type {
   TavernContextUnitAccountingItem,
   TavernLorebook,
   TavernLorebookEntry,
+  TavernPromptPreset,
+  TavernPromptSlotPlacement,
   TavernRequestSnapshotMetadata,
   TavernSessionMetadata,
+  TavernUserProfile,
 } from '@shared/types/tavern'
 import type { TavernManager } from './manager'
 import { estimateTextTokens, hashSensitiveText, renderTavernTemplate } from './template'
 
-export type TavernContextUnitKind = 'character' | 'lore' | 'example' | 'post-history'
+export const DEFAULT_TAVERN_LORE_SETTINGS = {
+  scanDepth: 12,
+  loreBudget: 800,
+} as const
+
+export type TavernContextUnitKind =
+  | 'prompt-preset'
+  | 'character'
+  | 'lore'
+  | 'example'
+  | 'post-history'
 
 export interface TavernContextUnitPlan {
   id: string
@@ -18,20 +31,28 @@ export interface TavernContextUnitPlan {
   text: string
   refId?: string
   lorebookId?: string
+  promptPresetId?: string
+  promptSlotId?: string
+  userProfileId?: string
   priority: number
   required: boolean
   estimatedTokens: number
   hash: string
-  position?: 'after-character' | 'before-history'
+  position?: 'after-character' | 'before-history' | 'after-history'
+  placement?: TavernPromptSlotPlacement
   droppedReason?: string
 }
 
 export interface TavernContextPlan {
   session: TavernSessionMetadata
   character?: TavernCharacter
+  promptPreset?: TavernPromptPreset
+  userProfile?: TavernUserProfile
   selectedUnits: TavernContextUnitPlan[]
   droppedUnits: TavernContextUnitPlan[]
   missingLorebookIds: string[]
+  missingPromptPresetId?: string
+  missingUserProfileId?: string
   snapshot: TavernRequestSnapshotMetadata
 }
 
@@ -39,6 +60,35 @@ export interface TavernContextServiceOptions {
   tavernManager: TavernManager
   recentMessageCount?: number
   loreTokenBudget?: number
+}
+
+export function normalizeTavernSessionMetadata(
+  metadata: TavernSessionMetadata | undefined
+): TavernSessionMetadata | undefined {
+  if (!metadata?.enabled) return metadata
+  return {
+    ...metadata,
+    lorebookIds: Array.isArray(metadata.lorebookIds) ? metadata.lorebookIds : [],
+    userName: metadata.userName?.trim() || 'User',
+    selectedGreetingIndex:
+      typeof metadata.selectedGreetingIndex === 'number' ? metadata.selectedGreetingIndex : 0,
+    contextPreset: metadata.contextPreset ?? 'default',
+    loreSettings: normalizeLoreSettings(metadata.loreSettings),
+  }
+}
+
+export function normalizeLoreSettings(
+  settings: Partial<TavernSessionMetadata['loreSettings']> | undefined
+): TavernSessionMetadata['loreSettings'] {
+  return {
+    scanDepth: positiveInteger(settings?.scanDepth, DEFAULT_TAVERN_LORE_SETTINGS.scanDepth),
+    loreBudget: positiveInteger(settings?.loreBudget, DEFAULT_TAVERN_LORE_SETTINGS.loreBudget),
+  }
+}
+
+function positiveInteger(value: unknown, fallback: number): number {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return fallback
+  return Math.max(0, Math.round(value))
 }
 
 export class TavernContextService {
@@ -57,25 +107,43 @@ export class TavernContextService {
     messages: ChatMessage[]
     currentUserMessageId: string
   }): TavernContextPlan | undefined {
-    const metadata = input.session.metadata?.tavern
+    const metadata = normalizeTavernSessionMetadata(input.session.metadata?.tavern)
     if (!metadata?.enabled) {
       return undefined
     }
 
     const character = this.tavernManager.getCharacter(metadata.characterId)
+    const promptPreset = this.tavernManager.getPromptPreset(metadata.promptPresetId)
+    const userProfile = this.tavernManager.getUserProfile(metadata.userProfileId)
+    const missingPromptPresetId =
+      metadata.promptPresetId && !promptPreset ? metadata.promptPresetId : undefined
+    const missingUserProfileId =
+      metadata.userProfileId && !userProfile ? metadata.userProfileId : undefined
     if (!character || character.enabled === false) {
       return {
         session: metadata,
         character,
+        promptPreset,
+        userProfile,
         selectedUnits: [],
         droppedUnits: [],
         missingLorebookIds: metadata.lorebookIds,
+        missingPromptPresetId,
+        missingUserProfileId,
         snapshot: {
           enabled: true,
           characterId: metadata.characterId,
           characterName: metadata.characterName,
           lorebookIds: metadata.lorebookIds,
           missingLorebookIds: metadata.lorebookIds,
+          promptPresetId: metadata.promptPresetId,
+          missingPromptPresetId,
+          userProfileId: metadata.userProfileId,
+          missingUserProfileId,
+          userDescriptionSnapshotHash: metadata.userDescriptionSnapshot
+            ? hashSensitiveText(metadata.userDescriptionSnapshot)
+            : undefined,
+          loreSettings: metadata.loreSettings,
           selectedGreetingIndex: metadata.selectedGreetingIndex,
           contextPreset: metadata.contextPreset,
           runProfile: 'low-noise',
@@ -89,12 +157,37 @@ export class TavernContextService {
       }
     }
 
+    const persona = userProfile?.enabled === false ? undefined : userProfile?.description
+    const personaDescription = persona ?? metadata.userDescriptionSnapshot ?? ''
     const variables = {
       char: character.name,
       user: metadata.userName || 'User',
+      persona: personaDescription,
     }
     const selectedUnits: TavernContextUnitPlan[] = []
     const droppedUnits: TavernContextUnitPlan[] = []
+
+    if (promptPreset && promptPreset.enabled !== false) {
+      const presetUnits = promptPreset.slots
+        .filter((slot) => slot.enabled !== false)
+        .map((slot) => {
+          const text = renderTavernTemplate(slot.text, variables).trim()
+          if (!text) return undefined
+          return unitPlan(slot.placement === 'final' ? 'post-history' : 'prompt-preset', {
+            id: `tavern-prompt-preset:${promptPreset.id}:${slot.id}`,
+            refId: slot.id,
+            promptPresetId: promptPreset.id,
+            promptSlotId: slot.id,
+            text: slot.placement === 'final' ? `Final instructions:\n${text}` : text,
+            priority: slot.placement === 'final' ? 940 : 990,
+            required: true,
+            placement: slot.placement,
+          })
+        })
+        .filter((unit): unit is TavernContextUnitPlan => Boolean(unit))
+      selectedUnits.push(...presetUnits)
+    }
+
     const characterText = compileCharacterText(character, variables)
     if (characterText) {
       selectedUnits.push(
@@ -151,10 +244,10 @@ export class TavernContextService {
       candidateText: candidateText(
         input.messages,
         input.currentUserMessageId,
-        this.recentMessageCount
+        metadata.loreSettings.scanDepth ?? this.recentMessageCount
       ),
       variables,
-      budget: this.loreTokenBudget,
+      budget: metadata.loreSettings.loreBudget ?? this.loreTokenBudget,
     })
     selectedUnits.push(...loreSelection.selected)
     droppedUnits.push(...loreSelection.dropped)
@@ -162,16 +255,24 @@ export class TavernContextService {
     const snapshot = tavernSnapshot({
       metadata,
       character,
+      promptPreset,
+      userProfile,
       missingLorebookIds,
+      missingPromptPresetId,
+      missingUserProfileId,
       selectedUnits,
       droppedUnits,
     })
     return {
       session: metadata,
       character,
+      promptPreset,
+      userProfile,
       selectedUnits,
       droppedUnits,
       missingLorebookIds,
+      missingPromptPresetId,
+      missingUserProfileId,
       snapshot,
     }
   }
@@ -180,7 +281,7 @@ export class TavernContextService {
 function selectLoreUnits(input: {
   lorebooks: TavernLorebook[]
   candidateText: string
-  variables: { char: string; user: string }
+  variables: { char: string; user: string; persona?: string }
   budget: number
 }): { selected: TavernContextUnitPlan[]; dropped: TavernContextUnitPlan[] } {
   const candidates: Array<{
@@ -210,13 +311,17 @@ function selectLoreUnits(input: {
       right.entry.priority - left.entry.priority ||
       left.entry.order - right.entry.order ||
       left.hitPosition - right.hitPosition ||
+      positionOrder(left.entry.position) - positionOrder(right.entry.position) ||
       left.entry.id.localeCompare(right.entry.id)
   )
   const selected: TavernContextUnitPlan[] = []
   const dropped: TavernContextUnitPlan[] = []
   let used = 0
   for (const candidate of ordered) {
-    const text = renderTavernTemplate(candidate.entry.content, input.variables).trim()
+    const text = clampTextToBudget(
+      renderTavernTemplate(candidate.entry.content, input.variables).trim(),
+      candidate.entry.tokenBudget
+    )
     if (!text) continue
     const unit = unitPlan('lore', {
       id: `tavern-lore:${candidate.book.id}:${candidate.entry.id}`,
@@ -266,9 +371,30 @@ function firstKeywordPosition(keys: readonly string[], lowerCandidateText: strin
   return position === Number.MAX_SAFE_INTEGER ? -1 : position
 }
 
+function positionOrder(position: TavernContextUnitPlan['position']): number {
+  switch (position) {
+    case 'before-history':
+      return 0
+    case 'after-character':
+      return 1
+    case 'after-history':
+      return 2
+    default:
+      return 1
+  }
+}
+
+function clampTextToBudget(text: string, budget: number | undefined): string {
+  if (!budget || estimateTextTokens(text) <= budget) {
+    return text
+  }
+  const maxChars = Math.max(1, budget * 4)
+  return text.slice(0, maxChars).trim()
+}
+
 function compileCharacterText(
   character: TavernCharacter,
-  variables: { char: string; user: string }
+  variables: { char: string; user: string; persona?: string }
 ): string {
   const sections: string[] = []
   pushRenderedSection(sections, 'Character', character.name, variables)
@@ -283,7 +409,7 @@ function pushRenderedSection(
   sections: string[],
   label: string,
   value: string | undefined,
-  variables: { char: string; user: string }
+  variables: { char: string; user: string; persona?: string }
 ): void {
   const text = renderTavernTemplate(value, variables).trim()
   if (text) {
@@ -300,7 +426,7 @@ function candidateText(
     .filter((message) => ['complete', 'streaming'].includes(message.status))
     .filter((message) => message.role === 'user' || message.role === 'assistant')
   const current = visible.find((message) => message.id === currentUserMessageId)
-  const recent = visible.slice(-recentMessageCount)
+  const recent = recentMessageCount > 0 ? visible.slice(-recentMessageCount) : []
   return [current, ...recent]
     .filter((message): message is ChatMessage => Boolean(message))
     .map(messageText)
@@ -329,7 +455,11 @@ function unitPlan(
     required: boolean
     refId?: string
     lorebookId?: string
-    position?: 'after-character' | 'before-history'
+    promptPresetId?: string
+    promptSlotId?: string
+    userProfileId?: string
+    position?: 'after-character' | 'before-history' | 'after-history'
+    placement?: TavernPromptSlotPlacement
   }
 ): TavernContextUnitPlan {
   return {
@@ -338,18 +468,26 @@ function unitPlan(
     text: input.text,
     refId: input.refId,
     lorebookId: input.lorebookId,
+    promptPresetId: input.promptPresetId,
+    promptSlotId: input.promptSlotId,
+    userProfileId: input.userProfileId,
     priority: input.priority,
     required: input.required,
     estimatedTokens: estimateTextTokens(input.text),
     hash: hashSensitiveText(input.text),
     position: input.position,
+    placement: input.placement,
   }
 }
 
 function tavernSnapshot(input: {
   metadata: TavernSessionMetadata
   character: TavernCharacter
+  promptPreset?: TavernPromptPreset
+  userProfile?: TavernUserProfile
   missingLorebookIds: string[]
+  missingPromptPresetId?: string
+  missingUserProfileId?: string
   selectedUnits: TavernContextUnitPlan[]
   droppedUnits: TavernContextUnitPlan[]
 }): TavernRequestSnapshotMetadata {
@@ -361,6 +499,14 @@ function tavernSnapshot(input: {
     characterName: input.character.name,
     lorebookIds: input.metadata.lorebookIds,
     missingLorebookIds: input.missingLorebookIds,
+    promptPresetId: input.metadata.promptPresetId,
+    missingPromptPresetId: input.missingPromptPresetId,
+    userProfileId: input.metadata.userProfileId,
+    missingUserProfileId: input.missingUserProfileId,
+    userDescriptionSnapshotHash: input.metadata.userDescriptionSnapshot
+      ? hashSensitiveText(input.metadata.userDescriptionSnapshot)
+      : undefined,
+    loreSettings: input.metadata.loreSettings,
     selectedGreetingIndex: input.metadata.selectedGreetingIndex,
     contextPreset: input.metadata.contextPreset,
     runProfile: 'low-noise',
@@ -383,11 +529,17 @@ function groupAccounting(
     const item: TavernContextUnitAccountingItem = {
       id: unit.refId ?? unit.id,
       lorebookId: unit.lorebookId,
+      promptPresetId: unit.promptPresetId,
+      promptSlotId: unit.promptSlotId,
+      userProfileId: unit.userProfileId,
+      placement: unit.placement ?? unit.position,
       hash: unit.hash,
       estimatedTokens: unit.estimatedTokens,
       droppedReason: unit.droppedReason,
     }
-    if (unit.kind === 'character') {
+    if (unit.kind === 'prompt-preset') {
+      output.promptPreset = [...(output.promptPreset ?? []), item]
+    } else if (unit.kind === 'character') {
       output.character = [...(output.character ?? []), item]
     } else if (unit.kind === 'lore') {
       output.lore = [...(output.lore ?? []), item]

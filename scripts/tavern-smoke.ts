@@ -7,7 +7,7 @@ import { AttachmentService } from '../core/chat/attachment-service'
 import { ChatService } from '../core/chat/chat-service'
 import { ContextBuilder } from '../core/chat/context-manager'
 import { RunManager } from '../core/chat/run-manager'
-import { DatabaseClient } from '../core/db/client'
+import { DatabaseClient, type DatabaseConnection } from '../core/db/client'
 import {
   AttachmentRepo,
   ChatContextSummaryRepo,
@@ -92,9 +92,11 @@ try {
   })
 
   const initial = tavernStore.load()
-  assert.equal(initial.version, 1)
+  assert.equal(initial.version, 2)
   assert.equal(initial.characters.length, 0)
   assert.equal(initial.lorebooks.length, 0)
+  assert.equal(initial.promptPresets.length, 0)
+  assert.equal(initial.userProfiles.length, 0)
   assert.equal(existsSync(tavernStore.registryPath), true)
 
   assert.throws(
@@ -122,6 +124,116 @@ try {
   assert.equal(imported.character.systemPrompt, 'Stay in character.')
   assert.equal(imported.character.postHistoryInstructions, 'Keep responses concise.')
   assert.equal(imported.character.defaultLorebookIds.length, 1)
+
+  const pngImported = tavernManager.importCharacter({
+    dataBase64: pngCharacterCard(characterJson).toString('base64'),
+    sourceKind: 'png',
+    mimeType: 'image/png',
+    sourceName: 'aria.png',
+  })
+  assert.equal(pngImported.character.source?.kind, 'sillytavern-png')
+  assert.equal(pngImported.character.source?.sourceName, 'aria.png')
+  assert.equal(
+    JSON.stringify(pngImported.registry).includes(
+      pngCharacterCard(characterJson).toString('base64')
+    ),
+    false
+  )
+
+  const webpImported = tavernManager.importCharacter({
+    dataBase64: webpCharacterCard(characterJson).toString('base64'),
+    sourceKind: 'webp',
+    mimeType: 'image/webp',
+    sourceName: 'aria.webp',
+  })
+  assert.equal(webpImported.character.source?.kind, 'sillytavern-webp')
+
+  const beforeInvalidImportCount = tavernManager.list().registry.characters.length
+  assert.throws(
+    () =>
+      tavernManager.importCharacter({
+        dataBase64: pngCharacterCard('{}', 'other').toString('base64'),
+        sourceKind: 'png',
+        mimeType: 'image/png',
+        sourceName: 'empty.png',
+      }),
+    TavernRegistryValidationError
+  )
+  assert.equal(tavernManager.list().registry.characters.length, beforeInvalidImportCount)
+
+  const preset = tavernManager.createPromptPreset({
+    preset: {
+      name: 'Roleplay preset',
+      slots: [
+        {
+          placement: 'main',
+          text: 'Main prompt for {{char}} and {{user}}. Persona: {{persona}}.',
+          order: 0,
+        },
+        {
+          placement: 'final',
+          text: 'Final prompt for {{char}} near the latest turn.',
+          order: 1,
+        },
+        {
+          placement: 'main',
+          text: '',
+          enabled: false,
+          order: 2,
+        },
+      ],
+    },
+  }).promptPreset
+  assert.ok(preset)
+  assert.equal(preset.slots.length, 3)
+  assert.equal(preset.slots[1]?.placement, 'final')
+  assert.equal(preset.slots[2]?.enabled, false)
+
+  const temporaryPreset = tavernManager.createPromptPreset({
+    preset: {
+      name: 'Temporary preset',
+      slots: [{ placement: 'main', text: 'Temporary', order: 0 }],
+    },
+  }).promptPreset
+  assert.ok(temporaryPreset)
+  tavernManager.setPromptPresetEnabled({ id: temporaryPreset.id, enabled: false })
+  assert.equal(tavernManager.getPromptPreset(temporaryPreset.id)?.enabled, false)
+  tavernManager.deletePromptPreset(temporaryPreset.id)
+  assert.equal(tavernManager.getPromptPreset(temporaryPreset.id), undefined)
+
+  const persona = personaManager.create({
+    profile: {
+      name: 'Luna persona',
+      prompt: 'Luna is a cartographer.',
+    },
+  }).profile
+  assert.ok(persona)
+  const userProfile = tavernManager.copyPersonaToUserProfile({
+    personaId: persona.id,
+    name: 'Luna profile',
+  }).userProfile
+  assert.ok(userProfile)
+  assert.equal(userProfile.description, 'Luna is a cartographer.')
+  personaManager.update({
+    id: persona.id,
+    profile: {
+      name: 'Luna persona changed',
+      prompt: 'Changed ordinary persona prompt.',
+    },
+  })
+  assert.equal(tavernManager.getUserProfile(userProfile.id)?.description, 'Luna is a cartographer.')
+
+  const temporaryProfile = tavernManager.createUserProfile({
+    profile: {
+      name: 'Temporary profile',
+      description: 'Temporary profile text.',
+    },
+  }).userProfile
+  assert.ok(temporaryProfile)
+  tavernManager.setUserProfileEnabled({ id: temporaryProfile.id, enabled: false })
+  assert.equal(tavernManager.getUserProfile(temporaryProfile.id)?.enabled, false)
+  tavernManager.deleteUserProfile(temporaryProfile.id)
+  assert.equal(tavernManager.getUserProfile(temporaryProfile.id), undefined)
 
   const exported = tavernManager.exportCharacterAsPersona({
     characterId: imported.character.id,
@@ -155,6 +267,14 @@ try {
           order: 9,
           position: 'after-character',
         },
+        {
+          keys: ['Moon Gate'],
+          content: 'After history lore is visible near the latest turn.',
+          priority: 5,
+          order: 2,
+          position: 'after-history',
+          tokenBudget: 3,
+        },
       ],
     },
   })
@@ -180,9 +300,15 @@ try {
         characterId: imported.character.id,
         characterName: imported.character.name,
         lorebookIds: imported.character.defaultLorebookIds,
+        promptPresetId: preset.id,
+        userProfileId: userProfile.id,
         userName: 'Luna',
         selectedGreetingIndex: 0,
         contextPreset: 'default',
+        loreSettings: {
+          scanDepth: 1,
+          loreBudget: 32,
+        },
       },
     },
     createdAt: now,
@@ -220,6 +346,22 @@ try {
     true
   )
   assert.equal(
+    plan?.selectedUnits.some(
+      (unit) => unit.kind === 'prompt-preset' && unit.text.includes('Luna is a cartographer.')
+    ),
+    true
+  )
+  assert.equal(
+    plan?.selectedUnits.some(
+      (unit) => unit.kind === 'post-history' && unit.promptPresetId === preset.id
+    ),
+    true
+  )
+  assert.equal(
+    plan?.selectedUnits.some((unit) => unit.kind === 'lore' && unit.position === 'after-history'),
+    true
+  )
+  assert.equal(
     plan?.selectedUnits.some((unit) => unit.text.includes('Disabled text')),
     false
   )
@@ -228,6 +370,10 @@ try {
     true
   )
   assert.equal(JSON.stringify(plan?.snapshot).includes('Moon Gate opens'), false)
+  assert.equal(JSON.stringify(plan?.snapshot).includes('Luna is a cartographer.'), false)
+  assert.equal(plan?.snapshot.promptPresetId, preset.id)
+  assert.equal(plan?.snapshot.userProfileId, userProfile.id)
+  assert.deepEqual(plan?.snapshot.loreSettings, { scanDepth: 1, loreBudget: 32 })
 
   const provider: ProviderConfig = {
     id: 'provider',
@@ -267,6 +413,11 @@ try {
   assert.equal(JSON.stringify(fallbackContext.messages).includes('Aria is an archivist.'), true)
   assert.equal(JSON.stringify(fallbackContext.snapshot).includes('Aria is an archivist.'), false)
   assert.ok((fallbackContext.snapshot.tavern?.selectedLoreCount ?? 0) >= 1)
+  const fallbackSerialized = JSON.stringify(fallbackContext.messages)
+  assert.ok(
+    fallbackSerialized.indexOf('Tell me about the Moon Gate.') <
+      fallbackSerialized.indexOf('Final prompt for Aria')
+  )
 
   const providerRequests: Array<{ messages: unknown[]; tools?: unknown[] }> = []
   const chatService = new ChatService({
@@ -316,9 +467,26 @@ try {
     characterId: imported.character.id,
     userName: 'Luna',
     selectedGreetingIndex: 1,
+    promptPresetId: preset.id,
+    userProfileId: userProfile.id,
+    loreSettings: {
+      scanDepth: 2,
+      loreBudget: 24,
+    },
   })
   assert.equal(createdSession.session.kind, 'tavern')
   assert.equal(createdSession.session.metadata?.tavern?.enabled, true)
+  assert.equal(createdSession.session.metadata?.tavern?.promptPresetId, preset.id)
+  assert.equal(createdSession.session.metadata?.tavern?.userProfileId, userProfile.id)
+  assert.equal(
+    createdSession.session.metadata?.tavern?.userDescriptionSnapshot,
+    'Luna is a cartographer.'
+  )
+  assert.deepEqual(createdSession.session.metadata?.tavern?.loreSettings, {
+    scanDepth: 2,
+    loreBudget: 24,
+  })
+  assert.equal(createdSession.session.systemContext?.persona, undefined)
   assert.equal(
     sessionRepo.list({ kind: 'tavern' }).some((item) => item.id === createdSession.session.id),
     true
@@ -336,12 +504,40 @@ try {
   const switched = chatService.updateTavernSessionBinding({
     sessionId: createdSession.session.id,
     selectedGreetingIndex: 0,
+    loreSettings: {
+      scanDepth: 1,
+      loreBudget: 20,
+    },
   })
   assert.equal(switched.greetingReplaced, true)
+  assert.deepEqual(switched.session.metadata?.tavern?.loreSettings, {
+    scanDepth: 1,
+    loreBudget: 20,
+  })
   assert.equal(
     JSON.stringify(messageRepo.listBySession(createdSession.session.id)).includes('Welcome, Luna.'),
     true
   )
+
+  const beforePreviewMessageCount = messageRepo.listBySession(createdSession.session.id).length
+  const beforePreviewRunCount = runCountBySession(db, createdSession.session.id)
+  const preview = chatService.previewTavernPrompt({
+    sessionId: createdSession.session.id,
+    currentInput: 'Preview the Moon Gate.',
+  })
+  assert.equal(preview.ok, true)
+  assert.equal(preview.promptPresetId, preset.id)
+  assert.equal(preview.userProfileId, userProfile.id)
+  assert.equal(
+    preview.sections.some((section) => section.text.includes('Luna is a cartographer.')),
+    true
+  )
+  assert.equal(JSON.stringify(preview.snapshot).includes('Luna is a cartographer.'), false)
+  assert.equal(
+    messageRepo.listBySession(createdSession.session.id).length,
+    beforePreviewMessageCount
+  )
+  assert.equal(runCountBySession(db, createdSession.session.id), beforePreviewRunCount)
 
   const send = await chatService.sendInternalMessage(
     {
@@ -363,6 +559,9 @@ try {
   assert.equal(run?.requestSnapshot?.skills?.omittedReason, 'tavern_run_profile')
   assert.equal(run?.requestSnapshot?.tavern?.runProfile, 'low-noise')
   assert.equal(JSON.stringify(run?.requestSnapshot).includes('Moon Gate opens'), false)
+  assert.equal(JSON.stringify(run?.requestSnapshot).includes('Luna is a cartographer.'), false)
+  assert.equal(run?.requestSnapshot?.tavern?.promptPresetId, preset.id)
+  assert.equal(run?.requestSnapshot?.tavern?.userProfileId, userProfile.id)
 
   const explicitProfileSend = await chatService.sendInternalMessage(
     {
@@ -398,9 +597,56 @@ try {
 
   assert.equal(IPC_CHANNELS.tavern.importCharacter, 'tavern:import-character')
   assert.equal(IPC_CHANNELS.tavern.createSession, 'tavern:create-session')
+  assert.equal(IPC_CHANNELS.tavern.previewPrompt, 'tavern:preview-prompt')
+  assert.equal(IPC_CHANNELS.tavern.createPromptPreset, 'tavern:create-prompt-preset')
+  assert.equal(IPC_CHANNELS.tavern.copyPersonaToUserProfile, 'tavern:copy-persona-user-profile')
 
   console.log('tavern smoke ok')
 } finally {
   client.close()
   rmSync(tempDir, { recursive: true, force: true })
+}
+
+function pngCharacterCard(content: string, keyword = 'chara'): Buffer {
+  const signature = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])
+  const encoded = Buffer.from(content, 'utf8').toString('base64')
+  const payload = Buffer.concat([
+    Buffer.from(keyword, 'latin1'),
+    Buffer.from([0]),
+    Buffer.from(encoded, 'utf8'),
+  ])
+  return Buffer.concat([signature, pngChunk('tEXt', payload)])
+}
+
+function pngChunk(type: string, payload: Buffer): Buffer {
+  const length = Buffer.alloc(4)
+  length.writeUInt32BE(payload.length, 0)
+  return Buffer.concat([length, Buffer.from(type, 'ascii'), payload, Buffer.alloc(4)])
+}
+
+function webpCharacterCard(content: string): Buffer {
+  const encoded = Buffer.from(content, 'utf8').toString('base64')
+  const payload = Buffer.from(`chara=${encoded}`, 'utf8')
+  const padding = payload.length % 2 ? Buffer.from([0]) : Buffer.alloc(0)
+  const riffSize = Buffer.alloc(4)
+  riffSize.writeUInt32LE(4 + 8 + payload.length + padding.length, 0)
+  const chunkSize = Buffer.alloc(4)
+  chunkSize.writeUInt32LE(payload.length, 0)
+  return Buffer.concat([
+    Buffer.from('RIFF', 'ascii'),
+    riffSize,
+    Buffer.from('WEBP', 'ascii'),
+    Buffer.from('EXIF', 'ascii'),
+    chunkSize,
+    payload,
+    padding,
+  ])
+}
+
+function runCountBySession(db: DatabaseConnection, sessionId: string): number {
+  return (
+    db.prepare('SELECT COUNT(*) AS count FROM chat_runs WHERE session_id = ?').get(sessionId) as {
+      count: number
+    }
+  ).count
 }

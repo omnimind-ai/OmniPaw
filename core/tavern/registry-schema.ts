@@ -4,20 +4,31 @@ import type {
   TavernLorebook,
   TavernLorebookEntry,
   TavernLorebookEntryPosition,
+  TavernPromptPreset,
+  TavernPromptRecordVersion,
+  TavernPromptSlot,
+  TavernPromptSlotPlacement,
   TavernRegistry,
   TavernRegistryErrorCode,
   TavernRegistryOperationError,
   TavernRegistryValidationIssue,
   TavernRegistryVersion,
+  TavernUserProfile,
+  TavernUserProfileVersion,
 } from '@shared/types/tavern'
+import { hashSensitiveText } from './template'
 
 export const TAVERN_REGISTRY_FILE_NAME = 'tavern.json'
-export const CURRENT_TAVERN_REGISTRY_VERSION: TavernRegistryVersion = 1
+export const CURRENT_TAVERN_REGISTRY_VERSION: TavernRegistryVersion = 2
+export const CURRENT_TAVERN_PROMPT_RECORD_VERSION: TavernPromptRecordVersion = 1
+export const CURRENT_TAVERN_USER_PROFILE_VERSION: TavernUserProfileVersion = 1
 
 export const defaultTavernRegistry: TavernRegistry = {
   version: CURRENT_TAVERN_REGISTRY_VERSION,
   characters: [],
   lorebooks: [],
+  promptPresets: [],
+  userProfiles: [],
   updatedAt: 0,
 }
 
@@ -155,6 +166,18 @@ function normalizeRegistryShape(
         : CURRENT_TAVERN_REGISTRY_VERSION,
     characters: normalizeArray(raw.characters, 'characters', issues, normalizeCharacterRecord),
     lorebooks: normalizeArray(raw.lorebooks, 'lorebooks', issues, normalizeLorebookRecord),
+    promptPresets: normalizeArray(
+      raw.promptPresets,
+      'promptPresets',
+      issues,
+      normalizePromptPresetRecord
+    ),
+    userProfiles: normalizeArray(
+      raw.userProfiles,
+      'userProfiles',
+      issues,
+      normalizeUserProfileRecord
+    ),
     updatedAt: typeof raw.updatedAt === 'number' ? raw.updatedAt : 0,
   }
 }
@@ -238,6 +261,82 @@ function normalizeLorebookEntryRecord(
   }
 }
 
+function normalizePromptPresetRecord(
+  raw: unknown,
+  path: string,
+  issues: TavernRegistryValidationIssue[]
+): TavernPromptPreset {
+  if (!isPlainObject(raw)) {
+    issues.push({ path, message: 'Prompt preset must be an object.', code: 'invalid_type' })
+    return defaultPromptPresetRecord()
+  }
+  const now = Date.now()
+  const slots = normalizeArray(raw.slots, `${path}.slots`, issues, normalizePromptSlotRecord)
+  return {
+    id: stringValue(raw.id),
+    name: stringValue(raw.name),
+    description: optionalString(raw.description),
+    enabled: raw.enabled !== false,
+    slots,
+    version:
+      raw.version === CURRENT_TAVERN_PROMPT_RECORD_VERSION
+        ? CURRENT_TAVERN_PROMPT_RECORD_VERSION
+        : CURRENT_TAVERN_PROMPT_RECORD_VERSION,
+    contentHash: optionalString(raw.contentHash) ?? hashPromptPreset(slots),
+    createdAt: typeof raw.createdAt === 'number' ? raw.createdAt : now,
+    updatedAt: typeof raw.updatedAt === 'number' ? raw.updatedAt : now,
+  }
+}
+
+function normalizePromptSlotRecord(
+  raw: unknown,
+  path: string,
+  issues: TavernRegistryValidationIssue[]
+): TavernPromptSlot {
+  if (!isPlainObject(raw)) {
+    issues.push({ path, message: 'Prompt slot must be an object.', code: 'invalid_type' })
+    return defaultPromptSlotRecord()
+  }
+  const now = Date.now()
+  return {
+    id: stringValue(raw.id),
+    label: stringValue(raw.label) || defaultSlotLabel(raw.placement),
+    placement: normalizePromptSlotPlacement(raw.placement),
+    text: typeof raw.text === 'string' ? raw.text : '',
+    enabled: raw.enabled !== false,
+    order: finiteNumber(raw.order, 0),
+    createdAt: typeof raw.createdAt === 'number' ? raw.createdAt : now,
+    updatedAt: typeof raw.updatedAt === 'number' ? raw.updatedAt : now,
+  }
+}
+
+function normalizeUserProfileRecord(
+  raw: unknown,
+  path: string,
+  issues: TavernRegistryValidationIssue[]
+): TavernUserProfile {
+  if (!isPlainObject(raw)) {
+    issues.push({ path, message: 'User profile must be an object.', code: 'invalid_type' })
+    return defaultUserProfileRecord()
+  }
+  const now = Date.now()
+  const description = typeof raw.description === 'string' ? raw.description : ''
+  return {
+    id: stringValue(raw.id),
+    name: stringValue(raw.name),
+    description,
+    enabled: raw.enabled !== false,
+    version:
+      raw.version === CURRENT_TAVERN_USER_PROFILE_VERSION
+        ? CURRENT_TAVERN_USER_PROFILE_VERSION
+        : CURRENT_TAVERN_USER_PROFILE_VERSION,
+    contentHash: optionalString(raw.contentHash) ?? hashSensitiveText(description),
+    source: normalizeUserProfileSource(raw.source),
+    createdAt: typeof raw.createdAt === 'number' ? raw.createdAt : now,
+    updatedAt: typeof raw.updatedAt === 'number' ? raw.updatedAt : now,
+  }
+}
+
 function validateRegistryShape(
   registry: TavernRegistry,
   issues: TavernRegistryValidationIssue[]
@@ -251,6 +350,18 @@ function validateRegistryShape(
   }
   const characterIds = validateIdCollection(registry.characters, 'characters', 'Character', issues)
   const lorebookIds = validateIdCollection(registry.lorebooks, 'lorebooks', 'Lorebook', issues)
+  const promptPresetIds = validateIdCollection(
+    registry.promptPresets,
+    'promptPresets',
+    'Prompt preset',
+    issues
+  )
+  const userProfileIds = validateIdCollection(
+    registry.userProfiles,
+    'userProfiles',
+    'User profile',
+    issues
+  )
 
   for (const [index, character] of registry.characters.entries()) {
     const path = `characters.${index}`
@@ -308,7 +419,57 @@ function validateRegistryShape(
     }
   }
 
+  for (const [index, preset] of registry.promptPresets.entries()) {
+    const path = `promptPresets.${index}`
+    if (!preset.name.trim()) {
+      issues.push({
+        path: `${path}.name`,
+        message: 'Prompt preset name is required.',
+        code: 'required',
+      })
+    }
+    const slotIds = new Set<string>()
+    for (const [slotIndex, slot] of preset.slots.entries()) {
+      const slotPath = `${path}.slots.${slotIndex}`
+      if (!slot.id) {
+        issues.push({
+          path: `${slotPath}.id`,
+          message: 'Prompt slot ID is required.',
+          code: 'required',
+        })
+      }
+      if (slotIds.has(slot.id)) {
+        issues.push({
+          path: `${slotPath}.id`,
+          message: 'Prompt slot ID must be unique within a preset.',
+          code: 'duplicate',
+        })
+      }
+      slotIds.add(slot.id)
+      if (slot.enabled && !slot.text.trim()) {
+        issues.push({
+          path: `${slotPath}.text`,
+          message: 'Prompt slot text is required.',
+          code: 'required',
+        })
+      }
+    }
+  }
+
+  for (const [index, profile] of registry.userProfiles.entries()) {
+    const path = `userProfiles.${index}`
+    if (!profile.name.trim()) {
+      issues.push({
+        path: `${path}.name`,
+        message: 'User profile name is required.',
+        code: 'required',
+      })
+    }
+  }
+
   void characterIds
+  void promptPresetIds
+  void userProfileIds
 }
 
 function validateIdCollection<T extends { id: string }>(
@@ -348,6 +509,16 @@ function sortRegistry(registry: TavernRegistry): TavernRegistry {
         (left, right) => left.order - right.order || left.id.localeCompare(right.id)
       ),
     })),
+    promptPresets: [...registry.promptPresets].sort(sortByCreatedAtThenId).map((preset) => ({
+      ...preset,
+      slots: [...preset.slots].sort(
+        (left, right) =>
+          placementOrder(left.placement) - placementOrder(right.placement) ||
+          left.order - right.order ||
+          left.id.localeCompare(right.id)
+      ),
+    })),
+    userProfiles: [...registry.userProfiles].sort(sortByCreatedAtThenId),
   }
 }
 
@@ -404,6 +575,48 @@ function defaultLorebookEntryRecord(): TavernLorebookEntry {
   }
 }
 
+function defaultPromptPresetRecord(): TavernPromptPreset {
+  const now = Date.now()
+  return {
+    id: '',
+    name: '',
+    enabled: true,
+    slots: [],
+    version: CURRENT_TAVERN_PROMPT_RECORD_VERSION,
+    contentHash: hashPromptPreset([]),
+    createdAt: now,
+    updatedAt: now,
+  }
+}
+
+function defaultPromptSlotRecord(): TavernPromptSlot {
+  const now = Date.now()
+  return {
+    id: '',
+    label: 'Prompt',
+    placement: 'main',
+    text: '',
+    enabled: true,
+    order: 0,
+    createdAt: now,
+    updatedAt: now,
+  }
+}
+
+function defaultUserProfileRecord(): TavernUserProfile {
+  const now = Date.now()
+  return {
+    id: '',
+    name: '',
+    description: '',
+    enabled: true,
+    version: CURRENT_TAVERN_USER_PROFILE_VERSION,
+    contentHash: hashSensitiveText(''),
+    createdAt: now,
+    updatedAt: now,
+  }
+}
+
 function normalizeArray<T>(
   raw: unknown,
   path: string,
@@ -448,18 +661,64 @@ function normalizeSource(raw: unknown): TavernCharacter['source'] {
   if (!isPlainObject(raw)) {
     return undefined
   }
-  const kind = raw.kind === 'sillytavern-json' ? 'sillytavern-json' : 'manual'
+  const kind =
+    raw.kind === 'sillytavern-json' ||
+    raw.kind === 'sillytavern-png' ||
+    raw.kind === 'sillytavern-webp'
+      ? raw.kind
+      : 'manual'
   return {
     kind,
     version: optionalString(raw.version),
     importedAt: typeof raw.importedAt === 'number' ? raw.importedAt : undefined,
     sourceName: optionalString(raw.sourceName),
+    mimeType: optionalString(raw.mimeType),
     contentHash: optionalString(raw.contentHash),
   }
 }
 
+function normalizeUserProfileSource(raw: unknown): TavernUserProfile['source'] {
+  if (!isPlainObject(raw)) {
+    return undefined
+  }
+  const kind = raw.kind === 'persona-copy' ? 'persona-copy' : 'manual'
+  return {
+    kind,
+    personaId: optionalString(raw.personaId),
+    copiedAt: typeof raw.copiedAt === 'number' ? raw.copiedAt : undefined,
+  }
+}
+
 function normalizePosition(raw: unknown): TavernLorebookEntryPosition {
-  return raw === 'before-history' ? 'before-history' : 'after-character'
+  if (raw === 'before-history') return 'before-history'
+  if (raw === 'after-history') return 'after-history'
+  return 'after-character'
+}
+
+function normalizePromptSlotPlacement(raw: unknown): TavernPromptSlotPlacement {
+  return raw === 'final' ? 'final' : 'main'
+}
+
+function defaultSlotLabel(rawPlacement: unknown): string {
+  return normalizePromptSlotPlacement(rawPlacement) === 'final' ? 'Final prompt' : 'Main prompt'
+}
+
+function placementOrder(placement: TavernPromptSlotPlacement): number {
+  return placement === 'main' ? 0 : 1
+}
+
+function hashPromptPreset(slots: readonly TavernPromptSlot[]): string {
+  return hashSensitiveText(
+    JSON.stringify(
+      slots.map((slot) => ({
+        id: slot.id,
+        placement: slot.placement,
+        text: slot.text,
+        enabled: slot.enabled,
+        order: slot.order,
+      }))
+    )
+  )
 }
 
 function stringValue(value: unknown): string {

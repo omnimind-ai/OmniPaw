@@ -1,4 +1,6 @@
+import { inflateSync } from 'node:zlib'
 import type {
+  ImportTavernCharacterRequest,
   TavernCharacterDraft,
   TavernLorebookDraft,
   TavernLorebookEntryDraft,
@@ -13,9 +15,43 @@ export interface ParsedTavernCharacterImport {
   source: TavernSourceMetadata
 }
 
+export function parseSillyTavernCharacterImport(
+  request: ImportTavernCharacterRequest
+): ParsedTavernCharacterImport {
+  const sourceKind = resolveSourceKind(request)
+  if (sourceKind === 'json') {
+    return parseSillyTavernCharacterJson(request.content ?? '', request.sourceName, {
+      mimeType: request.mimeType,
+    })
+  }
+  const data = decodeImportBytes(request)
+  const payload =
+    sourceKind === 'png' ? extractPngCharacterPayload(data) : extractWebpCharacterPayload(data)
+  const parsed = parseSillyTavernCharacterJson(payload, request.sourceName, {
+    sourceKind,
+    mimeType: request.mimeType,
+    sourceContent: payload,
+  })
+  return {
+    ...parsed,
+    source: {
+      ...parsed.source,
+      kind: sourceKind === 'png' ? 'sillytavern-png' : 'sillytavern-webp',
+      mimeType: request.mimeType,
+      sourceName: request.sourceName,
+      contentHash: hashSensitiveText(payload),
+    },
+  }
+}
+
 export function parseSillyTavernCharacterJson(
   content: string,
-  sourceName?: string
+  sourceName?: string,
+  options: {
+    sourceKind?: 'json' | 'png' | 'webp'
+    mimeType?: string
+    sourceContent?: string
+  } = {}
 ): ParsedTavernCharacterImport {
   let parsed: unknown
   try {
@@ -78,9 +114,169 @@ export function parseSillyTavernCharacterJson(
       version: pickString(root, ['spec', 'spec_version']) || pickString(data, ['spec', 'version']),
       importedAt: Date.now(),
       sourceName,
-      contentHash: hashSensitiveText(content),
+      mimeType: options.mimeType,
+      contentHash: hashSensitiveText(options.sourceContent ?? content),
     },
   }
+}
+
+function resolveSourceKind(request: ImportTavernCharacterRequest): 'json' | 'png' | 'webp' {
+  if (request.sourceKind) return request.sourceKind
+  const mime = request.mimeType?.toLocaleLowerCase()
+  if (mime === 'image/png') return 'png'
+  if (mime === 'image/webp') return 'webp'
+  const name = request.sourceName?.toLocaleLowerCase() ?? ''
+  if (name.endsWith('.png')) return 'png'
+  if (name.endsWith('.webp')) return 'webp'
+  return 'json'
+}
+
+function decodeImportBytes(request: ImportTavernCharacterRequest): Buffer {
+  const encoded = request.dataBase64?.trim()
+  if (!encoded) {
+    throw new TavernRegistryValidationError(
+      tavernRegistryError('invalid_metadata', 'Character image import data is missing.', {
+        recoverable: false,
+        issues: [
+          {
+            path: 'dataBase64',
+            message: 'Image import requires base64 encoded file data.',
+            code: 'required',
+          },
+        ],
+      })
+    )
+  }
+  try {
+    return Buffer.from(encoded, 'base64')
+  } catch {
+    throwInvalidMetadata('Image import data is not valid base64.')
+  }
+}
+
+function extractPngCharacterPayload(data: Buffer): string {
+  const signature = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])
+  if (data.length < signature.length || !data.subarray(0, signature.length).equals(signature)) {
+    throwInvalidMetadata('PNG character card metadata is invalid.')
+  }
+  let offset = 8
+  while (offset + 12 <= data.length) {
+    const length = data.readUInt32BE(offset)
+    const type = data.subarray(offset + 4, offset + 8).toString('ascii')
+    const chunk = data.subarray(offset + 8, offset + 8 + length)
+    if (type === 'tEXt') {
+      const payload = pngTextPayload(chunk)
+      if (payload) return payload
+    } else if (type === 'zTXt') {
+      const payload = pngCompressedTextPayload(chunk)
+      if (payload) return payload
+    } else if (type === 'iTXt') {
+      const payload = pngInternationalTextPayload(chunk)
+      if (payload) return payload
+    }
+    offset += 12 + length
+  }
+  throwUnsupportedMetadata('PNG image does not contain SillyTavern character metadata.')
+}
+
+function pngTextPayload(chunk: Buffer): string | undefined {
+  const separator = chunk.indexOf(0)
+  if (separator <= 0) return undefined
+  const keyword = chunk.subarray(0, separator).toString('latin1')
+  if (keyword !== 'chara') return undefined
+  return decodeSillyTavernMetadataValue(chunk.subarray(separator + 1).toString('utf8'))
+}
+
+function pngCompressedTextPayload(chunk: Buffer): string | undefined {
+  const keywordEnd = chunk.indexOf(0)
+  if (keywordEnd <= 0 || chunk.subarray(0, keywordEnd).toString('latin1') !== 'chara') {
+    return undefined
+  }
+  const compressionMethod = chunk[keywordEnd + 1]
+  if (compressionMethod !== 0) return undefined
+  try {
+    return decodeSillyTavernMetadataValue(
+      inflateSync(chunk.subarray(keywordEnd + 2)).toString('utf8')
+    )
+  } catch {
+    throwInvalidMetadata('PNG character metadata is compressed but invalid.')
+  }
+}
+
+function pngInternationalTextPayload(chunk: Buffer): string | undefined {
+  const keywordEnd = chunk.indexOf(0)
+  if (keywordEnd <= 0 || chunk.subarray(0, keywordEnd).toString('latin1') !== 'chara') {
+    return undefined
+  }
+  const compressionFlag = chunk[keywordEnd + 1]
+  const compressionMethod = chunk[keywordEnd + 2]
+  let offset = keywordEnd + 3
+  for (let index = 0; index < 2; index += 1) {
+    const end = chunk.indexOf(0, offset)
+    if (end < 0) return undefined
+    offset = end + 1
+  }
+  const payload = chunk.subarray(offset)
+  if (compressionFlag === 1 && compressionMethod === 0) {
+    try {
+      return decodeSillyTavernMetadataValue(inflateSync(payload).toString('utf8'))
+    } catch {
+      throwInvalidMetadata('PNG character metadata is compressed but invalid.')
+    }
+  }
+  return decodeSillyTavernMetadataValue(payload.toString('utf8'))
+}
+
+function extractWebpCharacterPayload(data: Buffer): string {
+  if (data.length < 12 || data.subarray(0, 4).toString('ascii') !== 'RIFF') {
+    throwInvalidMetadata('WebP character card metadata is invalid.')
+  }
+  if (data.subarray(8, 12).toString('ascii') !== 'WEBP') {
+    throwInvalidMetadata('WebP character card metadata is invalid.')
+  }
+  let offset = 12
+  while (offset + 8 <= data.length) {
+    const type = data.subarray(offset, offset + 4).toString('ascii')
+    const length = data.readUInt32LE(offset + 4)
+    const chunk = data.subarray(offset + 8, offset + 8 + length)
+    if (type === 'EXIF' || type === 'XMP ') {
+      const payload = metadataPayloadFromText(chunk.toString('utf8'))
+      if (payload) return payload
+    }
+    offset += 8 + length + (length % 2)
+  }
+  throwUnsupportedMetadata('WebP image does not contain SillyTavern character metadata.')
+}
+
+function metadataPayloadFromText(text: string): string | undefined {
+  const charaIndex = text.indexOf('chara')
+  if (charaIndex < 0) return undefined
+  const rawAfterKeyword = text.slice(charaIndex + 'chara'.length)
+  let start = 0
+  while (start < rawAfterKeyword.length) {
+    const current = rawAfterKeyword[start]
+    if (current === ':' || current === '=' || /\s/.test(current) || current.charCodeAt(0) === 0) {
+      start += 1
+      continue
+    }
+    break
+  }
+  const afterKeyword = rawAfterKeyword.slice(start)
+  const match = afterKeyword.match(/[A-Za-z0-9+/=]{16,}/)
+  if (!match) return undefined
+  return decodeSillyTavernMetadataValue(match[0])
+}
+
+function decodeSillyTavernMetadataValue(value: string): string {
+  const trimmed = value.trim()
+  if (trimmed.startsWith('{')) return trimmed
+  try {
+    const decoded = Buffer.from(trimmed, 'base64').toString('utf8').trim()
+    if (decoded.startsWith('{')) return decoded
+  } catch {
+    // Fall through to structured error below.
+  }
+  throwInvalidMetadata('SillyTavern character metadata payload is invalid.')
 }
 
 function extractLorebooks(
@@ -191,9 +387,12 @@ function pickString(
   return undefined
 }
 
-function normalizePosition(value: unknown): 'after-character' | 'before-history' {
+function normalizePosition(value: unknown): 'after-character' | 'before-history' | 'after-history' {
   if (value === 'before-history' || value === 'before_char' || value === 0) {
     return 'before-history'
+  }
+  if (value === 'after-history' || value === 'after_history') {
+    return 'after-history'
   }
   return 'after-character'
 }
@@ -218,6 +417,24 @@ function throwUnsupportedImport(): never {
   throw new TavernRegistryValidationError(
     tavernRegistryError('import_failed', 'JSON is not a supported SillyTavern character card.', {
       recoverable: false,
+    })
+  )
+}
+
+function throwUnsupportedMetadata(message: string): never {
+  throw new TavernRegistryValidationError(
+    tavernRegistryError('unsupported_metadata', message, {
+      recoverable: false,
+      issues: [{ path: 'metadata.chara', message, code: 'unsupported_metadata' }],
+    })
+  )
+}
+
+function throwInvalidMetadata(message: string): never {
+  throw new TavernRegistryValidationError(
+    tavernRegistryError('invalid_metadata', message, {
+      recoverable: false,
+      issues: [{ path: 'metadata.chara', message, code: 'invalid_metadata' }],
     })
   )
 }

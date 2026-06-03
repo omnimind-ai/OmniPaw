@@ -53,6 +53,10 @@ export class PersonaManager {
     return registry.profiles.find((item) => item.id === registry.defaultPersonaId)
   }
 
+  getProfile(profileId: string): PersonaProfile | undefined {
+    return this.registryStore.get().profiles.find((item) => item.id === profileId)
+  }
+
   create(request: CreatePersonaRequest): PersonaRegistryMutationResult {
     const validation = validateDraft(request.profile)
     if (validation.length) {
@@ -180,7 +184,7 @@ export class PersonaManager {
 
   private mutationResult(
     registry: PersonaRegistry,
-    reason: PersonaRegistryChangeReason,
+    _reason: PersonaRegistryChangeReason,
     profile?: PersonaProfile
   ): PersonaRegistryMutationResult {
     const payload: PersonaRegistryMutationResult = {
@@ -195,7 +199,7 @@ export class PersonaManager {
 
 function validateDraft(profile: PersonaProfileDraft) {
   const issues: { path: string; message: string; code?: string }[] = []
-  if (!profile.name || !profile.name.trim()) {
+  if (!profile.name?.trim()) {
     issues.push({ path: 'profile.name', message: 'Profile name is required.', code: 'required' })
   }
   if (typeof profile.prompt !== 'string' || !profile.prompt.trim()) {

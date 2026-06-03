@@ -2,15 +2,24 @@ import { TavernRegistryValidationError } from '@core/tavern'
 import { IPC_CHANNELS } from '@shared/constants'
 import type { ChatSessionChangedEvent } from '@shared/types/chat'
 import type {
+  CopyPersonaToTavernUserProfileRequest,
   CreateTavernCharacterRequest,
   CreateTavernLorebookRequest,
+  CreateTavernPromptPresetRequest,
   CreateTavernSessionRequest,
+  CreateTavernUserProfileRequest,
   DeleteTavernCharacterRequest,
   DeleteTavernLorebookRequest,
+  DeleteTavernPromptPresetRequest,
+  DeleteTavernUserProfileRequest,
   ExportTavernCharacterPersonaRequest,
   ImportTavernCharacterRequest,
   SetTavernCharacterEnabledRequest,
   SetTavernLorebookEnabledRequest,
+  SetTavernPromptPresetEnabledRequest,
+  SetTavernUserProfileEnabledRequest,
+  TavernPromptPreviewRequest,
+  TavernPromptPreviewResult,
   TavernRegistryChangedEvent,
   TavernRegistryChangeReason,
   TavernRegistryLoadResponse,
@@ -20,7 +29,9 @@ import type {
   TavernSessionOperationResult,
   UpdateTavernCharacterRequest,
   UpdateTavernLorebookRequest,
+  UpdateTavernPromptPresetRequest,
   UpdateTavernSessionBindingRequest,
+  UpdateTavernUserProfileRequest,
 } from '@shared/types/tavern'
 import { registerLoggedIpcHandler } from './common'
 import type { IpcHandlerOptions } from './types'
@@ -144,6 +155,96 @@ export function registerTavernIpcHandlers(options: IpcHandlerOptions): void {
 
   registerLoggedIpcHandler(
     options,
+    IPC_CHANNELS.tavern.createPromptPreset,
+    (event, request: CreateTavernPromptPresetRequest) => {
+      const result = safe(() => runtime.tavernManager.createPromptPreset(request))
+      if (result.ok && result.value) emitTavernChanged(event, 'prompt-preset', result.value)
+      return result
+    }
+  )
+
+  registerLoggedIpcHandler(
+    options,
+    IPC_CHANNELS.tavern.updatePromptPreset,
+    (event, request: UpdateTavernPromptPresetRequest) => {
+      const result = safe(() => runtime.tavernManager.updatePromptPreset(request))
+      if (result.ok && result.value) emitTavernChanged(event, 'prompt-preset', result.value)
+      return result
+    }
+  )
+
+  registerLoggedIpcHandler(
+    options,
+    IPC_CHANNELS.tavern.deletePromptPreset,
+    (event, request: DeleteTavernPromptPresetRequest | string) => {
+      const result = safe(() => runtime.tavernManager.deletePromptPreset(request))
+      if (result.ok && result.value) emitTavernChanged(event, 'prompt-preset', result.value)
+      return result
+    }
+  )
+
+  registerLoggedIpcHandler(
+    options,
+    IPC_CHANNELS.tavern.setPromptPresetEnabled,
+    (event, request: SetTavernPromptPresetEnabledRequest) => {
+      const result = safe(() => runtime.tavernManager.setPromptPresetEnabled(request))
+      if (result.ok && result.value) emitTavernChanged(event, 'prompt-preset', result.value)
+      return result
+    }
+  )
+
+  registerLoggedIpcHandler(
+    options,
+    IPC_CHANNELS.tavern.createUserProfile,
+    (event, request: CreateTavernUserProfileRequest) => {
+      const result = safe(() => runtime.tavernManager.createUserProfile(request))
+      if (result.ok && result.value) emitTavernChanged(event, 'user-profile', result.value)
+      return result
+    }
+  )
+
+  registerLoggedIpcHandler(
+    options,
+    IPC_CHANNELS.tavern.updateUserProfile,
+    (event, request: UpdateTavernUserProfileRequest) => {
+      const result = safe(() => runtime.tavernManager.updateUserProfile(request))
+      if (result.ok && result.value) emitTavernChanged(event, 'user-profile', result.value)
+      return result
+    }
+  )
+
+  registerLoggedIpcHandler(
+    options,
+    IPC_CHANNELS.tavern.deleteUserProfile,
+    (event, request: DeleteTavernUserProfileRequest | string) => {
+      const result = safe(() => runtime.tavernManager.deleteUserProfile(request))
+      if (result.ok && result.value) emitTavernChanged(event, 'user-profile', result.value)
+      return result
+    }
+  )
+
+  registerLoggedIpcHandler(
+    options,
+    IPC_CHANNELS.tavern.setUserProfileEnabled,
+    (event, request: SetTavernUserProfileEnabledRequest) => {
+      const result = safe(() => runtime.tavernManager.setUserProfileEnabled(request))
+      if (result.ok && result.value) emitTavernChanged(event, 'user-profile', result.value)
+      return result
+    }
+  )
+
+  registerLoggedIpcHandler(
+    options,
+    IPC_CHANNELS.tavern.copyPersonaToUserProfile,
+    (event, request: CopyPersonaToTavernUserProfileRequest) => {
+      const result = safe(() => runtime.tavernManager.copyPersonaToUserProfile(request))
+      if (result.ok && result.value) emitTavernChanged(event, 'user-profile', result.value)
+      return result
+    }
+  )
+
+  registerLoggedIpcHandler(
+    options,
     IPC_CHANNELS.tavern.exportCharacterAsPersona,
     (event, request: ExportTavernCharacterPersonaRequest) => {
       const result = safe(() => runtime.tavernManager.exportCharacterAsPersona(request))
@@ -177,6 +278,13 @@ export function registerTavernIpcHandlers(options: IpcHandlerOptions): void {
       return result
     }
   )
+
+  registerLoggedIpcHandler(
+    options,
+    IPC_CHANNELS.tavern.previewPrompt,
+    (_event, request: TavernPromptPreviewRequest): TavernResult<TavernPromptPreviewResult> =>
+      safe(() => runtime.chatService.previewTavernPrompt(request))
+  )
 }
 
 function emitTavernChanged(
@@ -190,6 +298,8 @@ function emitTavernChanged(
     status: mutation.status,
     character: 'character' in mutation ? mutation.character : undefined,
     lorebook: 'lorebook' in mutation ? mutation.lorebook : undefined,
+    promptPreset: 'promptPreset' in mutation ? mutation.promptPreset : undefined,
+    userProfile: 'userProfile' in mutation ? mutation.userProfile : undefined,
   }
   event.sender.send(IPC_CHANNELS.tavern.changed, payload)
 }

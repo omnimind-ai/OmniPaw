@@ -210,6 +210,7 @@ export type ContextUnitKind =
   | 'base-system'
   | 'mask'
   | 'persona'
+  | 'tavern-prompt-preset'
   | 'tavern-character'
   | 'tavern-lore'
   | 'tavern-example'

@@ -1,6 +1,12 @@
 <script setup lang="ts">
 import type { ToolProfile } from '@shared/types/chat'
-import { BookOpenIcon, SettingsIcon, UserRoundIcon } from 'lucide-vue-next'
+import {
+  BookOpenIcon,
+  IdCardIcon,
+  ScrollTextIcon,
+  SettingsIcon,
+  UserRoundIcon,
+} from 'lucide-vue-next'
 import { computed } from 'vue'
 
 import ChatComposer from '@/components/chat/ChatComposer.vue'
@@ -45,10 +51,16 @@ const {
   selectedModelMeta,
   tavernCharacters,
   tavernLorebooks,
+  tavernPromptPresets,
+  tavernUserProfiles,
   tavernSelectedCharacterId,
   tavernSelectedLorebookIds,
+  tavernSelectedPromptPresetId,
+  tavernSelectedUserProfileId,
   tavernSelectedCharacterLabel,
   tavernSelectedLorebookLabel,
+  tavernSelectedPromptPresetLabel,
+  tavernSelectedUserProfileLabel,
   tavernCanSend,
   currentSessionRunning,
   uploadPending,
@@ -62,6 +74,8 @@ const {
   handleModelChange,
   handleTavernCharacterChange,
   handleTavernLorebookToggle,
+  handleTavernPromptPresetChange,
+  handleTavernUserProfileChange,
   handlePaste,
   handleTavernSubmit,
   handleStop,
@@ -221,6 +235,92 @@ const selectedLorebookSet = computed(() => new Set(tavernSelectedLorebookIds.val
                   </span>
                 </div>
               </DropdownMenuCheckboxItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          <DropdownMenu>
+            <DropdownMenuTrigger as-child>
+              <InputGroupButton
+                class="max-w-9 justify-start px-1.5 @min-[34rem]/chat-composer:max-w-36 @min-[44rem]/chat-composer:max-w-44"
+                :disabled="!tavernPromptPresets.length"
+                :aria-label="`Prompt preset：${tavernSelectedPromptPresetLabel}`"
+              >
+                <ScrollTextIcon data-icon="inline-start" />
+                <span class="hidden truncate @min-[34rem]/chat-composer:inline">
+                  {{ tavernSelectedPromptPresetLabel }}
+                </span>
+              </InputGroupButton>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              align="start"
+              class="w-80"
+            >
+              <DropdownMenuLabel>Prompt preset</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuRadioGroup
+                :model-value="tavernSelectedPromptPresetId"
+                @update:model-value="handleTavernPromptPresetChange"
+              >
+                <DropdownMenuRadioItem value="">
+                  无 preset
+                </DropdownMenuRadioItem>
+                <DropdownMenuRadioItem
+                  v-for="preset in tavernPromptPresets"
+                  :key="preset.id"
+                  :value="preset.id"
+                  class="items-start"
+                >
+                  <div class="flex min-w-0 flex-1 flex-col gap-0.5">
+                    <span class="truncate">{{ preset.name }}</span>
+                    <span class="text-xs text-muted-foreground">
+                      {{ preset.slots.length }} 个 slot
+                    </span>
+                  </div>
+                </DropdownMenuRadioItem>
+              </DropdownMenuRadioGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          <DropdownMenu>
+            <DropdownMenuTrigger as-child>
+              <InputGroupButton
+                class="max-w-9 justify-start px-1.5 @min-[34rem]/chat-composer:max-w-36 @min-[44rem]/chat-composer:max-w-44"
+                :disabled="!tavernUserProfiles.length"
+                :aria-label="`酒馆用户：${tavernSelectedUserProfileLabel}`"
+              >
+                <IdCardIcon data-icon="inline-start" />
+                <span class="hidden truncate @min-[34rem]/chat-composer:inline">
+                  {{ tavernSelectedUserProfileLabel }}
+                </span>
+              </InputGroupButton>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              align="start"
+              class="w-80"
+            >
+              <DropdownMenuLabel>酒馆用户 profile</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuRadioGroup
+                :model-value="tavernSelectedUserProfileId"
+                @update:model-value="handleTavernUserProfileChange"
+              >
+                <DropdownMenuRadioItem value="">
+                  无酒馆用户
+                </DropdownMenuRadioItem>
+                <DropdownMenuRadioItem
+                  v-for="profile in tavernUserProfiles"
+                  :key="profile.id"
+                  :value="profile.id"
+                  class="items-start"
+                >
+                  <div class="flex min-w-0 flex-1 flex-col gap-0.5">
+                    <span class="truncate">{{ profile.name }}</span>
+                    <span class="line-clamp-2 text-xs text-muted-foreground">
+                      独立快照，不自动同步、不回写普通 Persona。
+                    </span>
+                  </div>
+                </DropdownMenuRadioItem>
+              </DropdownMenuRadioGroup>
             </DropdownMenuContent>
           </DropdownMenu>
         </template>

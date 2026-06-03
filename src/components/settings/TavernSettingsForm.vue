@@ -5,13 +5,19 @@ import type {
   TavernLorebook,
   TavernLorebookDraft,
   TavernLorebookEntryDraft,
+  TavernPromptPreset,
+  TavernPromptPresetDraft,
+  TavernUserProfile,
+  TavernUserProfileDraft,
 } from '@shared/types/tavern'
 import {
   BookOpenIcon,
   DownloadIcon,
   FileJsonIcon,
+  IdCardIcon,
   PlusIcon,
   SaveIcon,
+  ScrollTextIcon,
   Trash2Icon,
   UserRoundIcon,
 } from 'lucide-vue-next'
@@ -40,11 +46,13 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
 import { cn } from '@/lib/utils'
+import { usePersonaStore } from '@/stores/persona'
 import { useTavernStore } from '@/stores/tavern'
 import { askForConfirmation, useConfirmDialog } from '@/utils/confirmDialog'
 import { useToast } from '@/utils/toast'
 
 const tavernStore = useTavernStore()
+const personaStore = usePersonaStore()
 const toast = useToast()
 const confirmDialog = useConfirmDialog()
 const fileInput = ref<HTMLInputElement | null>(null)
@@ -52,9 +60,13 @@ const activeTab = ref('characters')
 const importText = ref('')
 const selectedCharacterId = ref('')
 const selectedLorebookId = ref('')
+const selectedPromptPresetId = ref('')
+const selectedUserProfileId = ref('')
 const selectedSessionLorebookIds = ref<string[]>([])
 const savingCharacter = ref(false)
 const savingLorebook = ref(false)
+const savingPromptPreset = ref(false)
+const savingUserProfile = ref(false)
 
 const characterDraft = reactive({
   name: '',
@@ -82,11 +94,34 @@ const lorebookDraft = reactive<{
   entries: [],
 })
 
+const promptPresetDraft = reactive({
+  name: '',
+  description: '',
+  enabled: true,
+  mainPrompt: '',
+  mainEnabled: true,
+  finalPrompt: '',
+  finalEnabled: true,
+})
+
+const userProfileDraft = reactive({
+  name: '',
+  description: '',
+  enabled: true,
+  copyPersonaId: '',
+})
+
 const selectedCharacter = computed(() =>
   tavernStore.characters.find((character) => character.id === selectedCharacterId.value)
 )
 const selectedLorebook = computed(() =>
   tavernStore.lorebooks.find((lorebook) => lorebook.id === selectedLorebookId.value)
+)
+const selectedPromptPreset = computed(() =>
+  tavernStore.promptPresets.find((preset) => preset.id === selectedPromptPresetId.value)
+)
+const selectedUserProfile = computed(() =>
+  tavernStore.userProfiles.find((profile) => profile.id === selectedUserProfileId.value)
 )
 const selectedSessionLorebookSet = computed(() => new Set(selectedSessionLorebookIds.value))
 const canSaveCharacter = computed(() => Boolean(characterDraft.name.trim()) && !tavernStore.saving)
@@ -97,16 +132,31 @@ const canSaveLorebook = computed(
       (entry) => entry.content.trim() && (entry.constant || entry.keys.length)
     )
 )
+const canSavePromptPreset = computed(
+  () =>
+    Boolean(promptPresetDraft.name.trim()) &&
+    Boolean(promptPresetDraft.mainPrompt.trim() || promptPresetDraft.finalPrompt.trim()) &&
+    !tavernStore.saving
+)
+const canSaveUserProfile = computed(
+  () => Boolean(userProfileDraft.name.trim()) && !tavernStore.saving
+)
 const importDisabled = computed(() => !importText.value.trim() || tavernStore.saving)
 
 onMounted(async () => {
   try {
-    await tavernStore.load()
+    await Promise.all([tavernStore.load(), personaStore.load()])
     if (!selectedCharacterId.value && tavernStore.characters[0]) {
       selectCharacter(tavernStore.characters[0].id)
     }
     if (!selectedLorebookId.value && tavernStore.lorebooks[0]) {
       selectLorebook(tavernStore.lorebooks[0].id)
+    }
+    if (!selectedPromptPresetId.value && tavernStore.promptPresets[0]) {
+      selectPromptPreset(tavernStore.promptPresets[0].id)
+    }
+    if (!selectedUserProfileId.value && tavernStore.userProfiles[0]) {
+      selectUserProfile(tavernStore.userProfiles[0].id)
     }
   } catch (error) {
     toast.error(error, { description: '酒馆配置加载失败' })
@@ -115,6 +165,7 @@ onMounted(async () => {
 
 onBeforeUnmount(() => {
   tavernStore.stopSubscription()
+  personaStore.stopSubscription()
 })
 
 watch(selectedCharacter, (character) => {
@@ -123,6 +174,14 @@ watch(selectedCharacter, (character) => {
 
 watch(selectedLorebook, (lorebook) => {
   applyLorebookDraft(lorebook)
+})
+
+watch(selectedPromptPreset, (preset) => {
+  applyPromptPresetDraft(preset)
+})
+
+watch(selectedUserProfile, (profile) => {
+  applyUserProfileDraft(profile)
 })
 
 function selectCharacter(characterId: string) {
@@ -137,6 +196,16 @@ function selectLorebook(lorebookId: string) {
   applyLorebookDraft(tavernStore.lorebooks.find((item) => item.id === lorebookId))
 }
 
+function selectPromptPreset(presetId: string) {
+  selectedPromptPresetId.value = presetId
+  applyPromptPresetDraft(tavernStore.promptPresets.find((item) => item.id === presetId))
+}
+
+function selectUserProfile(profileId: string) {
+  selectedUserProfileId.value = profileId
+  applyUserProfileDraft(tavernStore.userProfiles.find((item) => item.id === profileId))
+}
+
 function newCharacterDraft() {
   selectedCharacterId.value = ''
   selectedSessionLorebookIds.value = []
@@ -147,6 +216,18 @@ function newLorebookDraft() {
   selectedLorebookId.value = ''
   applyLorebookDraft(undefined)
   activeTab.value = 'lorebooks'
+}
+
+function newPromptPresetDraft() {
+  selectedPromptPresetId.value = ''
+  applyPromptPresetDraft(undefined)
+  activeTab.value = 'presets'
+}
+
+function newUserProfileDraft() {
+  selectedUserProfileId.value = ''
+  applyUserProfileDraft(undefined)
+  activeTab.value = 'profiles'
 }
 
 function applyCharacterDraft(character: TavernCharacter | undefined) {
@@ -168,6 +249,25 @@ function applyLorebookDraft(lorebook: TavernLorebook | undefined) {
   lorebookDraft.description = lorebook?.description ?? ''
   lorebookDraft.enabled = lorebook?.enabled ?? true
   lorebookDraft.entries = (lorebook?.entries ?? []).map((entry) => ({ ...entry }))
+}
+
+function applyPromptPresetDraft(preset: TavernPromptPreset | undefined) {
+  const main = preset?.slots.find((slot) => slot.placement === 'main')
+  const final = preset?.slots.find((slot) => slot.placement === 'final')
+  promptPresetDraft.name = preset?.name ?? ''
+  promptPresetDraft.description = preset?.description ?? ''
+  promptPresetDraft.enabled = preset?.enabled ?? true
+  promptPresetDraft.mainPrompt = main?.text ?? ''
+  promptPresetDraft.mainEnabled = main?.enabled ?? true
+  promptPresetDraft.finalPrompt = final?.text ?? ''
+  promptPresetDraft.finalEnabled = final?.enabled ?? true
+}
+
+function applyUserProfileDraft(profile: TavernUserProfile | undefined) {
+  userProfileDraft.name = profile?.name ?? ''
+  userProfileDraft.description = profile?.description ?? ''
+  userProfileDraft.enabled = profile?.enabled ?? true
+  userProfileDraft.copyPersonaId = ''
 }
 
 async function importFromText() {
@@ -192,9 +292,12 @@ async function importFromFile(event: Event) {
   input.value = ''
   if (!file) return
   try {
-    const content = await file.text()
+    const isImage = file.type === 'image/png' || file.type === 'image/webp'
     const result = await tavernStore.importCharacter({
-      content,
+      content: isImage ? undefined : await file.text(),
+      dataBase64: isImage ? await fileToBase64(file) : undefined,
+      sourceKind: file.type === 'image/png' ? 'png' : file.type === 'image/webp' ? 'webp' : 'json',
+      mimeType: file.type,
       sourceName: file.name,
     })
     selectCharacter(result.character.id)
@@ -204,6 +307,18 @@ async function importFromFile(event: Event) {
   } catch (error) {
     toast.error(error, { description: '角色卡文件导入失败' })
   }
+}
+
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onerror = () => reject(reader.error ?? new Error('File read failed.'))
+    reader.onload = () => {
+      const result = String(reader.result ?? '')
+      resolve(result.includes(',') ? result.split(',').at(-1) || '' : result)
+    }
+    reader.readAsDataURL(file)
+  })
 }
 
 async function saveCharacter() {
@@ -324,6 +439,91 @@ function toggleSessionLorebook(lorebookId: string, checked: boolean | 'indetermi
   }
 }
 
+async function savePromptPreset() {
+  if (!canSavePromptPreset.value) return
+  savingPromptPreset.value = true
+  try {
+    const draft = promptPresetDraftPayload()
+    const result = selectedPromptPresetId.value
+      ? await tavernStore.updatePromptPreset({ id: selectedPromptPresetId.value, preset: draft })
+      : await tavernStore.createPromptPreset({ preset: draft })
+    if (result.promptPreset) selectPromptPreset(result.promptPreset.id)
+    toast.success('Prompt preset 已保存')
+  } catch (error) {
+    toast.error(error, { description: 'Prompt preset 保存失败' })
+  } finally {
+    savingPromptPreset.value = false
+  }
+}
+
+async function deleteSelectedPromptPreset() {
+  const preset = selectedPromptPreset.value
+  if (!preset) return
+  const confirmed = await askForConfirmation(`删除 preset“${preset.name}”？`, confirmDialog)
+  if (!confirmed) return
+  try {
+    await tavernStore.deletePromptPreset(preset.id)
+    const next = tavernStore.promptPresets.find((item) => item.id !== preset.id)
+    if (next) selectPromptPreset(next.id)
+    else newPromptPresetDraft()
+    toast.success('Prompt preset 已删除')
+  } catch (error) {
+    toast.error(error, { description: 'Prompt preset 删除失败' })
+  }
+}
+
+async function saveUserProfile() {
+  if (!canSaveUserProfile.value) return
+  savingUserProfile.value = true
+  try {
+    const draft = userProfileDraftPayload()
+    const result = selectedUserProfileId.value
+      ? await tavernStore.updateUserProfile({ id: selectedUserProfileId.value, profile: draft })
+      : await tavernStore.createUserProfile({ profile: draft })
+    if (result.userProfile) selectUserProfile(result.userProfile.id)
+    toast.success('酒馆用户 profile 已保存')
+  } catch (error) {
+    toast.error(error, { description: '酒馆用户 profile 保存失败' })
+  } finally {
+    savingUserProfile.value = false
+  }
+}
+
+async function deleteSelectedUserProfile() {
+  const profile = selectedUserProfile.value
+  if (!profile) return
+  const confirmed = await askForConfirmation(`删除 profile“${profile.name}”？`, confirmDialog)
+  if (!confirmed) return
+  try {
+    await tavernStore.deleteUserProfile(profile.id)
+    const next = tavernStore.userProfiles.find((item) => item.id !== profile.id)
+    if (next) selectUserProfile(next.id)
+    else newUserProfileDraft()
+    toast.success('酒馆用户 profile 已删除')
+  } catch (error) {
+    toast.error(error, { description: '酒馆用户 profile 删除失败' })
+  }
+}
+
+async function copyPersonaToUserProfile() {
+  if (!userProfileDraft.copyPersonaId) return
+  savingUserProfile.value = true
+  try {
+    const result = await tavernStore.copyPersonaToUserProfile({
+      personaId: userProfileDraft.copyPersonaId,
+      name: userProfileDraft.name || undefined,
+    })
+    if (result.userProfile) selectUserProfile(result.userProfile.id)
+    toast.success('已复制为独立酒馆用户 profile', {
+      description: '复制结果不自动同步、不回写普通 Persona。',
+    })
+  } catch (error) {
+    toast.error(error, { description: '复制 Persona 失败' })
+  } finally {
+    savingUserProfile.value = false
+  }
+}
+
 function characterDraftPayload(): TavernCharacterDraft {
   return {
     name: characterDraft.name,
@@ -353,6 +553,42 @@ function lorebookDraftPayload(): TavernLorebookDraft {
       order: Number(entry.order ?? index),
       priority: Number(entry.priority ?? 0),
     })),
+  }
+}
+
+function promptPresetDraftPayload(): TavernPromptPresetDraft {
+  const slots: TavernPromptPresetDraft['slots'] = []
+  if (promptPresetDraft.mainPrompt.trim()) {
+    slots.push({
+      label: 'Main prompt',
+      placement: 'main',
+      text: promptPresetDraft.mainPrompt,
+      enabled: promptPresetDraft.mainEnabled,
+      order: 0,
+    })
+  }
+  if (promptPresetDraft.finalPrompt.trim()) {
+    slots.push({
+      label: 'Final prompt',
+      placement: 'final',
+      text: promptPresetDraft.finalPrompt,
+      enabled: promptPresetDraft.finalEnabled,
+      order: 1,
+    })
+  }
+  return {
+    name: promptPresetDraft.name,
+    description: promptPresetDraft.description,
+    enabled: promptPresetDraft.enabled,
+    slots,
+  }
+}
+
+function userProfileDraftPayload(): TavernUserProfileDraft {
+  return {
+    name: userProfileDraft.name,
+    description: userProfileDraft.description,
+    enabled: userProfileDraft.enabled,
   }
 }
 
@@ -403,6 +639,14 @@ function setEntrySecondaryKeys(entry: TavernLorebookEntryDraft, value: string | 
           <TabsTrigger value="lorebooks">
             <BookOpenIcon data-icon="inline-start" />
             世界书
+          </TabsTrigger>
+          <TabsTrigger value="presets">
+            <ScrollTextIcon data-icon="inline-start" />
+            Preset
+          </TabsTrigger>
+          <TabsTrigger value="profiles">
+            <IdCardIcon data-icon="inline-start" />
+            用户
           </TabsTrigger>
           <TabsTrigger value="import">
             <FileJsonIcon data-icon="inline-start" />
@@ -731,6 +975,196 @@ function setEntrySecondaryKeys(entry: TavernLorebookEntryDraft, value: string | 
         </TabsContent>
 
         <TabsContent
+          value="presets"
+          class="min-h-0 overflow-y-auto pr-1"
+        >
+          <div class="grid gap-4 lg:grid-cols-[220px_minmax(0,1fr)]">
+            <div class="flex flex-col gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                @click="newPromptPresetDraft"
+              >
+                <PlusIcon data-icon="inline-start" />
+                新建 preset
+              </Button>
+              <button
+                v-for="preset in tavernStore.promptPresets"
+                :key="preset.id"
+                type="button"
+                :class="cn(
+                  'flex min-h-10 items-center justify-between gap-2 rounded-md border px-3 py-2 text-left text-sm',
+                  selectedPromptPresetId === preset.id ? 'border-primary bg-muted' : 'border-border',
+                )"
+                @click="selectPromptPreset(preset.id)"
+              >
+                <span class="truncate">{{ preset.name }}</span>
+                <Badge variant="outline">{{ preset.slots.length }}</Badge>
+              </button>
+            </div>
+
+            <FieldGroup>
+              <Field orientation="horizontal">
+                <FieldContent>
+                  <FieldLabel for="tavern-preset-enabled">启用 preset</FieldLabel>
+                </FieldContent>
+                <Checkbox
+                  id="tavern-preset-enabled"
+                  v-model:checked="promptPresetDraft.enabled"
+                />
+              </Field>
+              <Field>
+                <FieldLabel for="tavern-preset-name">名称</FieldLabel>
+                <Input
+                  id="tavern-preset-name"
+                  v-model="promptPresetDraft.name"
+                />
+              </Field>
+              <Field>
+                <FieldLabel for="tavern-preset-description">描述</FieldLabel>
+                <Textarea
+                  id="tavern-preset-description"
+                  v-model="promptPresetDraft.description"
+                  class="min-h-16"
+                />
+              </Field>
+              <Field orientation="horizontal">
+                <FieldContent>
+                  <FieldLabel for="tavern-preset-main-enabled">启用 main prompt</FieldLabel>
+                </FieldContent>
+                <Checkbox
+                  id="tavern-preset-main-enabled"
+                  v-model:checked="promptPresetDraft.mainEnabled"
+                />
+              </Field>
+              <Field>
+                <FieldLabel for="tavern-preset-main">Main prompt</FieldLabel>
+                <Textarea
+                  id="tavern-preset-main"
+                  v-model="promptPresetDraft.mainPrompt"
+                  class="min-h-40"
+                  placeholder="{{char}}、{{user}}、{{persona}}"
+                />
+              </Field>
+              <Field orientation="horizontal">
+                <FieldContent>
+                  <FieldLabel for="tavern-preset-final-enabled">启用 final prompt</FieldLabel>
+                </FieldContent>
+                <Checkbox
+                  id="tavern-preset-final-enabled"
+                  v-model:checked="promptPresetDraft.finalEnabled"
+                />
+              </Field>
+              <Field>
+                <FieldLabel for="tavern-preset-final">Final / post-history prompt</FieldLabel>
+                <Textarea
+                  id="tavern-preset-final"
+                  v-model="promptPresetDraft.finalPrompt"
+                  class="min-h-32"
+                  placeholder="会放在普通历史之后，靠近当前用户回合"
+                />
+              </Field>
+            </FieldGroup>
+          </div>
+        </TabsContent>
+
+        <TabsContent
+          value="profiles"
+          class="min-h-0 overflow-y-auto pr-1"
+        >
+          <div class="grid gap-4 lg:grid-cols-[220px_minmax(0,1fr)]">
+            <div class="flex flex-col gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                @click="newUserProfileDraft"
+              >
+                <PlusIcon data-icon="inline-start" />
+                新建用户
+              </Button>
+              <button
+                v-for="profile in tavernStore.userProfiles"
+                :key="profile.id"
+                type="button"
+                :class="cn(
+                  'flex min-h-10 items-center justify-between gap-2 rounded-md border px-3 py-2 text-left text-sm',
+                  selectedUserProfileId === profile.id ? 'border-primary bg-muted' : 'border-border',
+                )"
+                @click="selectUserProfile(profile.id)"
+              >
+                <span class="truncate">{{ profile.name }}</span>
+                <Badge variant="outline">快照</Badge>
+              </button>
+            </div>
+
+            <FieldGroup>
+              <FieldDescription>
+                酒馆用户 profile 是独立快照，不自动同步普通 Persona，也不回写普通 Persona。
+              </FieldDescription>
+              <Field orientation="horizontal">
+                <FieldContent>
+                  <FieldLabel for="tavern-profile-enabled">启用 profile</FieldLabel>
+                </FieldContent>
+                <Checkbox
+                  id="tavern-profile-enabled"
+                  v-model:checked="userProfileDraft.enabled"
+                />
+              </Field>
+              <Field>
+                <FieldLabel for="tavern-profile-name">名称</FieldLabel>
+                <Input
+                  id="tavern-profile-name"
+                  v-model="userProfileDraft.name"
+                />
+              </Field>
+              <Field>
+                <FieldLabel for="tavern-profile-description">描述</FieldLabel>
+                <Textarea
+                  id="tavern-profile-description"
+                  v-model="userProfileDraft.description"
+                  class="min-h-40"
+                  placeholder="{{persona}} 会使用这里的文本"
+                />
+              </Field>
+              <Field>
+                <FieldLabel for="tavern-profile-copy">从普通 Persona 复制</FieldLabel>
+                <div class="flex gap-2">
+                  <Select v-model="userProfileDraft.copyPersonaId">
+                    <SelectTrigger
+                      id="tavern-profile-copy"
+                      class="min-w-0 flex-1"
+                    >
+                      <SelectValue placeholder="选择 Persona" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectGroup>
+                        <SelectItem
+                          v-for="profile in personaStore.profiles"
+                          :key="profile.id"
+                          :value="profile.id"
+                        >
+                          {{ profile.name }}
+                        </SelectItem>
+                      </SelectGroup>
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    :disabled="!userProfileDraft.copyPersonaId || savingUserProfile"
+                    @click="copyPersonaToUserProfile"
+                  >
+                    复制
+                  </Button>
+                </div>
+              </Field>
+            </FieldGroup>
+          </div>
+        </TabsContent>
+
+        <TabsContent
           value="import"
           class="min-h-0 overflow-y-auto pr-1"
         >
@@ -744,7 +1178,7 @@ function setEntrySecondaryKeys(entry: TavernLorebookEntryDraft, value: string | 
                   class="min-h-56 font-mono text-xs"
                   placeholder="{ &quot;spec&quot;: &quot;chara_card_v2&quot;, &quot;data&quot;: { ... } }"
                 />
-                <FieldDescription>支持 SillyTavern V1/V2 风格 JSON 角色卡。</FieldDescription>
+                <FieldDescription>支持 SillyTavern V1/V2 JSON、PNG 和 WebP 角色卡。</FieldDescription>
               </Field>
             </FieldGroup>
             <div class="flex flex-wrap gap-2">
@@ -762,13 +1196,13 @@ function setEntrySecondaryKeys(entry: TavernLorebookEntryDraft, value: string | 
                 @click="fileInput?.click()"
               >
                 <DownloadIcon data-icon="inline-start" />
-                选择 JSON 文件
+                选择文件
               </Button>
               <input
                 ref="fileInput"
                 class="sr-only"
                 type="file"
-                accept="application/json,.json"
+                accept="application/json,image/png,image/webp,.json,.png,.webp"
                 @change="importFromFile"
               >
             </div>
@@ -823,6 +1257,44 @@ function setEntrySecondaryKeys(entry: TavernLorebookEntryDraft, value: string | 
         >
           <SaveIcon data-icon="inline-start" />
           保存世界书
+        </Button>
+        <Button
+          v-if="activeTab === 'presets'"
+          type="button"
+          variant="destructive"
+          :disabled="!selectedPromptPreset"
+          @click="deleteSelectedPromptPreset"
+        >
+          <Trash2Icon data-icon="inline-start" />
+          删除 preset
+        </Button>
+        <Button
+          v-if="activeTab === 'presets'"
+          type="button"
+          :disabled="!canSavePromptPreset || savingPromptPreset"
+          @click="savePromptPreset"
+        >
+          <SaveIcon data-icon="inline-start" />
+          保存 preset
+        </Button>
+        <Button
+          v-if="activeTab === 'profiles'"
+          type="button"
+          variant="destructive"
+          :disabled="!selectedUserProfile"
+          @click="deleteSelectedUserProfile"
+        >
+          <Trash2Icon data-icon="inline-start" />
+          删除用户
+        </Button>
+        <Button
+          v-if="activeTab === 'profiles'"
+          type="button"
+          :disabled="!canSaveUserProfile || savingUserProfile"
+          @click="saveUserProfile"
+        >
+          <SaveIcon data-icon="inline-start" />
+          保存用户
         </Button>
       </div>
       </div>

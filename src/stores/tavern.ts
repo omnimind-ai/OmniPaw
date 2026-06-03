@@ -1,25 +1,38 @@
 import type {
+  CopyPersonaToTavernUserProfileRequest,
   CreateTavernCharacterRequest,
   CreateTavernLorebookRequest,
+  CreateTavernPromptPresetRequest,
   CreateTavernSessionRequest,
+  CreateTavernUserProfileRequest,
   DeleteTavernCharacterRequest,
   DeleteTavernLorebookRequest,
+  DeleteTavernPromptPresetRequest,
+  DeleteTavernUserProfileRequest,
   ExportTavernCharacterPersonaRequest,
   ImportTavernCharacterRequest,
   ImportTavernCharacterResult,
   SetTavernCharacterEnabledRequest,
   SetTavernLorebookEnabledRequest,
+  SetTavernPromptPresetEnabledRequest,
+  SetTavernUserProfileEnabledRequest,
   TavernCharacter,
   TavernLorebook,
+  TavernPromptPreset,
+  TavernPromptPreviewRequest,
+  TavernPromptPreviewResult,
   TavernRegistry,
   TavernRegistryChangedEvent,
   TavernRegistryLoadResponse,
   TavernRegistryMutationResult,
   TavernRegistryStatus,
   TavernSessionOperationResult,
+  TavernUserProfile,
   UpdateTavernCharacterRequest,
   UpdateTavernLorebookRequest,
+  UpdateTavernPromptPresetRequest,
   UpdateTavernSessionBindingRequest,
+  UpdateTavernUserProfileRequest,
 } from '@shared/types/tavern'
 import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
@@ -42,13 +55,22 @@ export const useTavernStore = defineStore('tavern', () => {
   const persistenceAvailable = computed(() => !isFallbackBridge)
   const characters = computed<TavernCharacter[]>(() => registry.value.characters)
   const lorebooks = computed<TavernLorebook[]>(() => registry.value.lorebooks)
+  const promptPresets = computed<TavernPromptPreset[]>(() => registry.value.promptPresets)
+  const userProfiles = computed<TavernUserProfile[]>(() => registry.value.userProfiles)
   const recoverable = computed(() => status.value?.recoverable ?? false)
   const recoveryError = computed(() => status.value?.error)
-  const isEmpty = computed(() => characters.value.length === 0 && lorebooks.value.length === 0)
+  const isEmpty = computed(
+    () =>
+      characters.value.length === 0 &&
+      lorebooks.value.length === 0 &&
+      promptPresets.value.length === 0 &&
+      userProfiles.value.length === 0
+  )
 
   async function load(): Promise<TavernRegistry> {
     if (loadPromise) return loadPromise
-    if (!appBridge.tavern) {
+    const tavernBridge = appBridge.tavern
+    if (!tavernBridge) {
       registry.value = emptyRegistry()
       return registry.value
     }
@@ -56,7 +78,7 @@ export const useTavernStore = defineStore('tavern', () => {
     loading.value = true
     error.value = null
     loadPromise = (async () => {
-      const response = await appBridge.tavern!.load()
+      const response = await tavernBridge.load()
       applyLoadResponse(response)
       subscribeToChanges()
       return response.registry
@@ -132,6 +154,60 @@ export const useTavernStore = defineStore('tavern', () => {
     return runMutation((bridge) => bridge.setLorebookEnabled(request))
   }
 
+  async function createPromptPreset(
+    request: CreateTavernPromptPresetRequest
+  ): Promise<TavernRegistryMutationResult> {
+    return runMutation((bridge) => bridge.createPromptPreset(request))
+  }
+
+  async function updatePromptPreset(
+    request: UpdateTavernPromptPresetRequest
+  ): Promise<TavernRegistryMutationResult> {
+    return runMutation((bridge) => bridge.updatePromptPreset(request))
+  }
+
+  async function deletePromptPreset(id: string): Promise<TavernRegistryMutationResult> {
+    return runMutation((bridge) =>
+      bridge.deletePromptPreset({ id } as DeleteTavernPromptPresetRequest)
+    )
+  }
+
+  async function setPromptPresetEnabled(
+    request: SetTavernPromptPresetEnabledRequest
+  ): Promise<TavernRegistryMutationResult> {
+    return runMutation((bridge) => bridge.setPromptPresetEnabled(request))
+  }
+
+  async function createUserProfile(
+    request: CreateTavernUserProfileRequest
+  ): Promise<TavernRegistryMutationResult> {
+    return runMutation((bridge) => bridge.createUserProfile(request))
+  }
+
+  async function updateUserProfile(
+    request: UpdateTavernUserProfileRequest
+  ): Promise<TavernRegistryMutationResult> {
+    return runMutation((bridge) => bridge.updateUserProfile(request))
+  }
+
+  async function deleteUserProfile(id: string): Promise<TavernRegistryMutationResult> {
+    return runMutation((bridge) =>
+      bridge.deleteUserProfile({ id } as DeleteTavernUserProfileRequest)
+    )
+  }
+
+  async function setUserProfileEnabled(
+    request: SetTavernUserProfileEnabledRequest
+  ): Promise<TavernRegistryMutationResult> {
+    return runMutation((bridge) => bridge.setUserProfileEnabled(request))
+  }
+
+  async function copyPersonaToUserProfile(
+    request: CopyPersonaToTavernUserProfileRequest
+  ): Promise<TavernRegistryMutationResult> {
+    return runMutation((bridge) => bridge.copyPersonaToUserProfile(request))
+  }
+
   async function exportCharacterAsPersona(
     request: ExportTavernCharacterPersonaRequest
   ): Promise<TavernRegistryMutationResult> {
@@ -152,12 +228,30 @@ export const useTavernStore = defineStore('tavern', () => {
     )
   }
 
+  async function previewPrompt(
+    request: TavernPromptPreviewRequest
+  ): Promise<TavernPromptPreviewResult> {
+    ensureElectronBridge('tavern.previewPrompt')
+    if (!appBridge.tavern) {
+      throw new Error('Tavern bridge unavailable.')
+    }
+    return appBridge.tavern.previewPrompt(request)
+  }
+
   function characterById(id: string | undefined): TavernCharacter | undefined {
     return id ? characters.value.find((character) => character.id === id) : undefined
   }
 
   function lorebookById(id: string | undefined): TavernLorebook | undefined {
     return id ? lorebooks.value.find((lorebook) => lorebook.id === id) : undefined
+  }
+
+  function promptPresetById(id: string | undefined): TavernPromptPreset | undefined {
+    return id ? promptPresets.value.find((preset) => preset.id === id) : undefined
+  }
+
+  function userProfileById(id: string | undefined): TavernUserProfile | undefined {
+    return id ? userProfiles.value.find((profile) => profile.id === id) : undefined
   }
 
   function subscribeToChanges(): void {
@@ -210,6 +304,8 @@ export const useTavernStore = defineStore('tavern', () => {
     status,
     characters,
     lorebooks,
+    promptPresets,
+    userProfiles,
     persistenceAvailable,
     recoverable,
     recoveryError,
@@ -228,20 +324,34 @@ export const useTavernStore = defineStore('tavern', () => {
     updateLorebook,
     deleteLorebook,
     setLorebookEnabled,
+    createPromptPreset,
+    updatePromptPreset,
+    deletePromptPreset,
+    setPromptPresetEnabled,
+    createUserProfile,
+    updateUserProfile,
+    deleteUserProfile,
+    setUserProfileEnabled,
+    copyPersonaToUserProfile,
     exportCharacterAsPersona,
     createSession,
     updateSessionBinding,
+    previewPrompt,
     characterById,
     lorebookById,
+    promptPresetById,
+    userProfileById,
     stopSubscription,
   }
 })
 
 function emptyRegistry(): TavernRegistry {
   return {
-    version: 1,
+    version: 2,
     characters: [],
     lorebooks: [],
+    promptPresets: [],
+    userProfiles: [],
     updatedAt: 0,
   }
 }

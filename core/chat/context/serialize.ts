@@ -12,19 +12,14 @@ export function serializeUnits(
     return mergeAdjacentSystemMessages(providerMessages)
   }
 
-  const systemText = providerMessages
-    .filter((message) => message.role === 'system')
-    .map((message) => contentToText(message.content))
-    .filter(Boolean)
-    .join('\n\n')
-  const rest = providerMessages.filter((message) => message.role !== 'system')
-  if (!systemText) {
-    return rest
-  }
-  return [
-    { role: 'user', content: CONTEXT_PROMPTS.systemInstructionsFallback(systemText) },
-    ...rest,
-  ]
+  return providerMessages.map((message) =>
+    message.role === 'system'
+      ? {
+          role: 'user' as const,
+          content: CONTEXT_PROMPTS.systemInstructionsFallback(contentToText(message.content)),
+        }
+      : message
+  )
 }
 
 export function mergeAdjacentSystemMessages(messages: ProviderMessage[]): ProviderMessage[] {

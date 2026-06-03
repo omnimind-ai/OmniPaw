@@ -294,11 +294,14 @@ function tavernUnit(unit: TavernContextUnitPlan): ContextUnit {
     refId: unit.refId,
     contentHash: unit.hash,
     droppedReason: unit.droppedReason,
+    tavernPosition: unit.position,
   }
 }
 
 function tavernKind(kind: TavernContextUnitPlan['kind']): ContextUnitKind {
   switch (kind) {
+    case 'prompt-preset':
+      return 'tavern-prompt-preset'
     case 'character':
       return 'tavern-character'
     case 'lore':
@@ -312,13 +315,25 @@ function tavernKind(kind: TavernContextUnitPlan['kind']): ContextUnitKind {
 
 function sortUnits(units: ContextUnit[]): ContextUnit[] {
   return [...units].sort((left, right) => {
-    const leftOrder = kindOrder(left.kind)
-    const rightOrder = kindOrder(right.kind)
+    const leftOrder = unitOrder(left)
+    const rightOrder = unitOrder(right)
     if (leftOrder !== rightOrder) {
       return leftOrder - rightOrder
     }
-    return (left.messageCreatedAt ?? 0) - (right.messageCreatedAt ?? 0)
+    return (
+      (left.messageCreatedAt ?? 0) - (right.messageCreatedAt ?? 0) ||
+      left.id.localeCompare(right.id)
+    )
   })
+}
+
+function unitOrder(unit: ContextUnit): number {
+  if (unit.kind === 'tavern-lore') {
+    if (unit.tavernPosition === 'before-history') return 7
+    if (unit.tavernPosition === 'after-history') return 30
+    return 5
+  }
+  return kindOrder(unit.kind)
 }
 
 function kindOrder(kind: ContextUnitKind): number {
@@ -329,22 +344,24 @@ function kindOrder(kind: ContextUnitKind): number {
       return 1
     case 'persona':
       return 2
-    case 'tavern-character':
+    case 'tavern-prompt-preset':
       return 3
-    case 'tavern-lore':
+    case 'tavern-character':
       return 4
-    case 'tavern-example':
+    case 'tavern-lore':
       return 5
-    case 'tavern-post-history':
+    case 'tavern-example':
       return 6
     case 'runtime':
-      return 7
-    case 'skill':
       return 8
-    case 'tool-inventory':
+    case 'skill':
       return 9
-    case 'summary':
+    case 'tool-inventory':
       return 10
+    case 'summary':
+      return 11
+    case 'tavern-post-history':
+      return 30
     default:
       return 20
   }
