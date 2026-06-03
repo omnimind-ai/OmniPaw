@@ -4,7 +4,9 @@
 
 # OpenOmniClaw
 
-**面向端侧模型的桌面 AI 助手与 Agent 客户端**
+**A desktop AI assistant and Agent client for edge-side models**
+
+English | [简体中文](README.zh-CN.md)
 
 [![Electron](https://img.shields.io/badge/Electron-36-47848F?style=flat-square&logo=electron&logoColor=white)](https://www.electronjs.org/)
 [![Vue](https://img.shields.io/badge/Vue-3-42B883?style=flat-square&logo=vuedotjs&logoColor=white)](https://vuejs.org/)
@@ -14,109 +16,109 @@
 
 </div>
 
-OpenOmniClaw 是一个面向桌面环境的 AI 助手客户端，目标是让本地部署或局域网内的 OpenAI 兼容模型更容易接入日常工作流。提供聊天、酒馆、视觉观察、技能/MCP/Agent 工具/计划任务等能力
+OpenOmniClaw is a desktop AI assistant client designed to make locally deployed or LAN-hosted OpenAI-compatible models easier to use in everyday workflows. It provides chat, tavern role-play, visual observation, Skills, MCP, Agent tools, scheduled tasks, and other local-first capabilities.
 
-## 特性
+## Features
 
-- **OpenAI 兼容模型服务** - 支持配置 OpenAI-compatible Provider、模型列表、默认模型和备用模型
-- **桌面小猫助手** - 提供悬浮窗、通知气泡、会话入口和运行状态联动
-- **Persona 与上下文管理** - 支持人格配置、系统上下文、附件上下文和自动压缩策略
-- **Agent 工具能力** - 支持 Skills、MCP、本地 workspace、terminal process 和工具权限配置
-- **计划任务与主动观察** - 支持定时任务、视觉观察和通知反馈
-- **本地数据优先** - 配置、Provider、Persona、SQLite、附件、技能状态和日志默认保存在本机
+- **OpenAI-compatible model services** - Configure OpenAI-compatible providers, model lists, default models, and fallback models
+- **Desktop cat assistant** - Floating window, notification bubbles, session entry points, and runtime state sync
+- **Persona and context management** - Persona profiles, system context, attachment context, and automatic compaction policies
+- **Agent tooling** - Skills, MCP, local workspace, terminal process management, and configurable tool permissions
+- **Scheduled tasks and proactive observation** - Scheduled task execution, visual observation, and notification feedback
+- **Local-first data** - Config, providers, personas, SQLite data, attachments, skill state, and logs are stored locally by default
 
-## 截图
+## Screenshots
 
 <p align="center">
-  <img src="assets/hello.png" alt="OpenOmniClaw 主界面" width="100%" />
+  <img src="assets/hello.png" alt="OpenOmniClaw main screen" width="100%" />
 </p>
 
 <table>
   <tr>
     <td width="50%">
-      <img src="assets/traven.png" alt="酒馆角色会话" />
+      <img src="assets/traven.png" alt="Tavern role-play session" />
     </td>
     <td width="50%">
-      <img src="assets/corn.png" alt="计划任务与工具调用" />
+      <img src="assets/corn.png" alt="Scheduled tasks and tool calls" />
     </td>
   </tr>
   <tr>
-    <td align="center"><strong>酒馆会话</strong></td>
-    <td align="center"><strong>计划任务与工具调用</strong></td>
+    <td align="center"><strong>Tavern Session</strong></td>
+    <td align="center"><strong>Scheduled Tasks and Tool Calls</strong></td>
   </tr>
   <tr>
     <td colspan="2">
-      <img src="assets/version.png" alt="视觉观察与桌面助手" />
+      <img src="assets/version.png" alt="Visual observation and desktop assistant" />
     </td>
   </tr>
   <tr>
-    <td colspan="2" align="center"><strong>视觉观察与桌面助手</strong></td>
+    <td colspan="2" align="center"><strong>Visual Observation and Desktop Assistant</strong></td>
   </tr>
 </table>
 
-## 技术栈
+## Tech Stack
 
-| 层级 | 技术 |
+| Layer | Technology |
 |------|------|
-| **桌面框架** | [Electron](https://www.electronjs.org/) + [electron-vite](https://electron-vite.org/) |
-| **前端** | [Vue 3](https://vuejs.org/) + [TypeScript](https://www.typescriptlang.org/) |
-| **路由与状态** | [Vue Router](https://router.vuejs.org/) + [Pinia](https://pinia.vuejs.org/) |
+| **Desktop Framework** | [Electron](https://www.electronjs.org/) + [electron-vite](https://electron-vite.org/) |
+| **Frontend** | [Vue 3](https://vuejs.org/) + [TypeScript](https://www.typescriptlang.org/) |
+| **Routing and State** | [Vue Router](https://router.vuejs.org/) + [Pinia](https://pinia.vuejs.org/) |
 | **UI** | [shadcn-vue](https://www.shadcn-vue.com/) + [Reka UI](https://reka-ui.com/) + [Tailwind CSS v4](https://tailwindcss.com/) |
-| **数据库** | [better-sqlite3](https://github.com/WiseLibs/better-sqlite3) |
-| **构建与质量** | [Vite](https://vite.dev/) + [vue-tsc](https://github.com/vuejs/language-tools) + [Biome](https://biomejs.dev/) |
+| **Database** | [better-sqlite3](https://github.com/WiseLibs/better-sqlite3) |
+| **Build and Quality** | [Vite](https://vite.dev/) + [vue-tsc](https://github.com/vuejs/language-tools) + [Biome](https://biomejs.dev/) |
 
-## 安装
+## Installation
 
-### 从 Release 下载
+### Download from Releases
 
-Release 安装包尚未整理发布。当前阶段建议从源码启动或构建。
+Release packages are not available yet. For now, run or build the app from source.
 
-### 从源码运行
+### Run from Source
 
-#### 前置要求
+#### Requirements
 
 - [Node.js](https://nodejs.org/) `>=22.12.0`
 - [pnpm](https://pnpm.io/) `10.x`
 
-#### 启动开发环境
+#### Start the Development Environment
 
 ```bash
 pnpm install
 pnpm dev
 ```
 
-`pnpm dev` 会先重建 Electron 原生依赖，再启动桌面开发环境。
+`pnpm dev` rebuilds Electron native dependencies first, then starts the desktop development environment.
 
-#### 构建生产版本
+#### Build for Production
 
 ```bash
 pnpm build
 ```
 
-#### 预览构建产物
+#### Preview the Built App
 
 ```bash
 pnpm start
 ```
 
-#### 打包应用
+#### Package the App
 
 ```bash
 pnpm pack
 pnpm dist
 ```
 
-## 🚀 首次使用
+## First Use
 
-1. 启动应用后打开「设置」。
-2. 在「模型服务」中添加 OpenAI 兼容 Provider。
-3. 在「默认模型」中选择默认聊天模型和备用模型。
-4. 按需启用 Persona、酒馆、技能、MCP、本地 Agent、计划任务或视觉观察。
+1. Start the app and open Settings.
+2. Add an OpenAI-compatible provider under Model Services.
+3. Select the default chat model and fallback models under Default Models.
+4. Enable Persona, Tavern, Skills, MCP, local Agent tools, scheduled tasks, or visual observation as needed.
 
-## 🤝 贡献
+## Contributing
 
-欢迎提交 Issue 和 Pull Request。新增功能前建议先通过 Issue 说明场景、交互入口和数据边界，避免和当前 Electron / core / renderer 分层冲突。
+Issues and pull requests are welcome. Before adding a new feature, please open an issue to describe the use case, UI entry point, and data boundary so it fits the current Electron / core / renderer architecture.
 
-## 📄 开源协议
+## License
 
-本项目采用分段双重许可模式：非商业、个人、教育或研究用途遵循 AGPL v3；商业用途需要商业授权。详情请阅读 [LICENSE](LICENSE)。
+This project uses a segmented dual-licensing model. Non-commercial, personal, educational, or research use is available under AGPL v3. Commercial use requires a commercial license. See [LICENSE](LICENSE) for details.
