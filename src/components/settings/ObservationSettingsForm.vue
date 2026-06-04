@@ -5,7 +5,6 @@ import { appBridge, type BridgeDesktopSettingsConfig, ensureElectronBridge } fro
 import SettingEntry from '@/components/settings/common/SettingEntry.vue'
 import SettingsSection from '@/components/settings/common/SettingsSection.vue'
 import { Button } from '@/components/ui/button'
-import { Checkbox } from '@/components/ui/checkbox'
 import { FieldGroup } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import {
@@ -348,7 +347,7 @@ function clampInteger(value: string | number, min: number, max = Number.MAX_SAFE
           title="允许外部 Provider"
           description="关闭时，外部 Provider 会在截图前被拒绝。"
         >
-          <Checkbox
+          <Switch
             id="observation-remote"
             v-model="observation.allowRemoteProviders"
             aria-label="允许外部 Provider"
@@ -360,7 +359,7 @@ function clampInteger(value: string | number, min: number, max = Number.MAX_SAFE
           title="仅本地执行"
           description="开启时会阻止外部视觉或 reaction 模型。"
         >
-          <Checkbox
+          <Switch
             id="observation-local-only"
             v-model="observation.localOnly"
             aria-label="仅本地执行"
