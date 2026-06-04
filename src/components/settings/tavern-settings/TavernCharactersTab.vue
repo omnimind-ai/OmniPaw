@@ -1,187 +1,102 @@
 <script setup lang="ts">
-import type { TavernCharacter, TavernLorebook } from '@shared/types/tavern'
-import { PlusIcon } from 'lucide-vue-next'
+import type { TavernCharacter } from '@shared/types/tavern'
+import { PencilIcon, PlusIcon, Trash2Icon } from 'lucide-vue-next'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Checkbox } from '@/components/ui/checkbox'
-import {
-  Field,
-  FieldContent,
-  FieldDescription,
-  FieldGroup,
-  FieldLabel,
-} from '@/components/ui/field'
-import { Input } from '@/components/ui/input'
-import { Textarea } from '@/components/ui/textarea'
 import { cn } from '@/lib/utils'
-import type { TavernCharacterDraftState } from './types'
 
 defineProps<{
   characters: TavernCharacter[]
-  lorebooks: TavernLorebook[]
   selectedCharacterId: string
-  selectedSessionLorebookSet: Set<string>
-  draft: TavernCharacterDraftState
-  newCharacterDraft: () => void
-  selectCharacter: (characterId: string) => void
-  toggleSessionLorebook: (lorebookId: string, checked: boolean | 'indeterminate') => void
+  createCharacter: () => void
+  editCharacter: (character: TavernCharacter) => void
+  deleteCharacter: (character: TavernCharacter) => void
 }>()
 </script>
 
 <template>
-  <div class="grid gap-4 lg:grid-cols-[220px_minmax(0,1fr)]">
-    <div class="flex flex-col gap-2">
+  <div class="flex min-h-0 flex-col gap-3">
+    <div class="flex items-center justify-between gap-3">
+      <div class="min-w-0">
+        <p class="text-sm font-medium">角色卡</p>
+        <p class="text-xs text-muted-foreground">每个角色作为独立条目管理，编辑时在弹窗中打开。</p>
+      </div>
       <Button
         type="button"
-        variant="outline"
         size="sm"
-        @click="newCharacterDraft"
+        @click="createCharacter"
       >
         <PlusIcon data-icon="inline-start" />
         新建角色
       </Button>
-      <button
+    </div>
+
+    <p
+      v-if="!characters.length"
+      class="rounded-md border border-dashed px-3 py-8 text-center text-sm text-muted-foreground"
+    >
+      暂无角色
+    </p>
+
+    <ul
+      v-else
+      class="flex flex-col gap-2"
+    >
+      <li
         v-for="character in characters"
         :key="character.id"
-        type="button"
-        :class="cn(
-          'flex min-h-10 items-center justify-between gap-2 rounded-md border px-3 py-2 text-left text-sm',
-          selectedCharacterId === character.id ? 'border-primary bg-muted' : 'border-border',
-        )"
-        @click="selectCharacter(character.id)"
+        :class="
+          cn(
+            'flex flex-col gap-3 rounded-md border px-4 py-3 md:flex-row md:items-center md:justify-between',
+            selectedCharacterId === character.id && 'border-primary bg-muted/60',
+          )
+        "
       >
-        <span class="truncate">{{ character.name }}</span>
-        <Badge
-          v-if="!character.enabled"
-          variant="secondary"
-        >
-          禁用
-        </Badge>
-      </button>
-      <p
-        v-if="!characters.length"
-        class="rounded-md border border-dashed px-3 py-6 text-center text-sm text-muted-foreground"
-      >
-        暂无角色
-      </p>
-    </div>
+        <div class="min-w-0 flex-1">
+          <div class="flex flex-wrap items-center gap-2">
+            <span class="truncate text-sm font-medium">{{ character.name }}</span>
+            <Badge
+              v-if="!character.enabled"
+              variant="secondary"
+            >
+              禁用
+            </Badge>
+            <Badge
+              v-if="character.defaultLorebookIds.length"
+              variant="outline"
+            >
+              世界书 {{ character.defaultLorebookIds.length }}
+            </Badge>
+          </div>
+          <p
+            v-if="character.description"
+            class="mt-1 line-clamp-2 text-xs text-muted-foreground"
+          >
+            {{ character.description }}
+          </p>
+        </div>
 
-    <div class="flex min-w-0 flex-col gap-4">
-      <FieldGroup>
-        <Field orientation="horizontal">
-          <Checkbox
-            id="tavern-character-enabled"
-            v-model:checked="draft.enabled"
-          />
-          <FieldContent>
-            <FieldLabel for="tavern-character-enabled">启用角色</FieldLabel>
-            <FieldDescription>禁用后不能用于新的酒馆上下文。</FieldDescription>
-          </FieldContent>
-        </Field>
-        <Field>
-          <FieldLabel for="tavern-character-name">名称</FieldLabel>
-          <Input
-            id="tavern-character-name"
-            v-model="draft.name"
-            placeholder="角色名称"
-          />
-        </Field>
-        <Field>
-          <FieldLabel for="tavern-character-desc">描述</FieldLabel>
-          <Textarea
-            id="tavern-character-desc"
-            v-model="draft.description"
-            class="min-h-20"
-          />
-        </Field>
-        <Field>
-          <FieldLabel for="tavern-character-personality">人格</FieldLabel>
-          <Textarea
-            id="tavern-character-personality"
-            v-model="draft.personality"
-            class="min-h-20"
-          />
-        </Field>
-        <Field>
-          <FieldLabel for="tavern-character-scenario">场景</FieldLabel>
-          <Textarea
-            id="tavern-character-scenario"
-            v-model="draft.scenario"
-            class="min-h-20"
-          />
-        </Field>
-        <Field>
-          <FieldLabel for="tavern-character-system">System prompt</FieldLabel>
-          <Textarea
-            id="tavern-character-system"
-            v-model="draft.systemPrompt"
-            class="min-h-20"
-          />
-        </Field>
-        <Field>
-          <FieldLabel for="tavern-character-post-history">Post-history instructions</FieldLabel>
-          <Textarea
-            id="tavern-character-post-history"
-            v-model="draft.postHistoryInstructions"
-            class="min-h-20"
-          />
-        </Field>
-        <Field>
-          <FieldLabel for="tavern-character-first-message">首条开场白</FieldLabel>
-          <Textarea
-            id="tavern-character-first-message"
-            v-model="draft.firstMessage"
-            class="min-h-20"
-          />
-        </Field>
-        <Field>
-          <FieldLabel for="tavern-character-alt">Alternate greetings</FieldLabel>
-          <Textarea
-            id="tavern-character-alt"
-            v-model="draft.alternateGreetingsText"
-            class="min-h-24"
-            placeholder="每段之间空一行"
-          />
-        </Field>
-        <Field>
-          <FieldLabel for="tavern-character-examples">Message examples</FieldLabel>
-          <Textarea
-            id="tavern-character-examples"
-            v-model="draft.messageExamplesText"
-            class="min-h-24"
-            placeholder="每段之间空一行"
-          />
-        </Field>
-        <Field>
-          <FieldLabel for="tavern-character-tags">标签</FieldLabel>
-          <Input
-            id="tavern-character-tags"
-            v-model="draft.tagsText"
-            placeholder="tag-a, tag-b"
-          />
-        </Field>
-      </FieldGroup>
-
-      <div class="flex flex-col gap-2 rounded-md border p-3">
-        <p class="text-sm font-medium">默认绑定世界书</p>
-        <label
-          v-for="lorebook in lorebooks"
-          :key="lorebook.id"
-          class="flex items-center gap-2 rounded-md border px-3 py-2 text-sm"
-        >
-          <Checkbox
-            :checked="selectedSessionLorebookSet.has(lorebook.id)"
-            @update:checked="toggleSessionLorebook(lorebook.id, $event)"
-          />
-          <span class="truncate">{{ lorebook.name }}</span>
-        </label>
-        <p
-          v-if="!lorebooks.length"
-          class="text-sm text-muted-foreground"
-        >
-          暂无世界书。
-        </p>
-      </div>
-    </div>
+        <div class="flex shrink-0 flex-wrap items-center gap-1">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            @click="editCharacter(character)"
+          >
+            <PencilIcon data-icon="inline-start" />
+            编辑
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            aria-label="删除角色"
+            @click="deleteCharacter(character)"
+          >
+            <Trash2Icon data-icon />
+          </Button>
+        </div>
+      </li>
+    </ul>
   </div>
 </template>

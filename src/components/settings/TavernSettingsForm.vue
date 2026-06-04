@@ -22,10 +22,15 @@ import {
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 
 import SettingsSection from '@/components/settings/SettingsSection.vue'
+import TavernCharacterEditorForm from '@/components/settings/tavern-settings/TavernCharacterEditorForm.vue'
 import TavernCharactersTab from '@/components/settings/tavern-settings/TavernCharactersTab.vue'
+import TavernEditorModal from '@/components/settings/tavern-settings/TavernEditorModal.vue'
 import TavernImportTab from '@/components/settings/tavern-settings/TavernImportTab.vue'
+import TavernLorebookEditorForm from '@/components/settings/tavern-settings/TavernLorebookEditorForm.vue'
 import TavernLorebooksTab from '@/components/settings/tavern-settings/TavernLorebooksTab.vue'
+import TavernPromptPresetEditorForm from '@/components/settings/tavern-settings/TavernPromptPresetEditorForm.vue'
 import TavernPromptPresetsTab from '@/components/settings/tavern-settings/TavernPromptPresetsTab.vue'
+import TavernUserProfileEditorForm from '@/components/settings/tavern-settings/TavernUserProfileEditorForm.vue'
 import TavernUserProfilesTab from '@/components/settings/tavern-settings/TavernUserProfilesTab.vue'
 import type {
   TavernCharacterDraftState,
@@ -52,6 +57,10 @@ const selectedLorebookId = ref('')
 const selectedPromptPresetId = ref('')
 const selectedUserProfileId = ref('')
 const selectedSessionLorebookIds = ref<string[]>([])
+const characterEditorOpen = ref(false)
+const lorebookEditorOpen = ref(false)
+const promptPresetEditorOpen = ref(false)
+const userProfileEditorOpen = ref(false)
 const savingCharacter = ref(false)
 const savingLorebook = ref(false)
 const savingPromptPreset = ref(false)
@@ -126,6 +135,14 @@ const canSaveUserProfile = computed(
   () => Boolean(userProfileDraft.name.trim()) && !tavernStore.saving
 )
 const importDisabled = computed(() => !importText.value.trim() || tavernStore.saving)
+const characterEditorTitle = computed(() => (selectedCharacterId.value ? '编辑角色' : '新建角色'))
+const lorebookEditorTitle = computed(() => (selectedLorebookId.value ? '编辑世界书' : '新建世界书'))
+const promptPresetEditorTitle = computed(() =>
+  selectedPromptPresetId.value ? '编辑 prompt preset' : '新建 prompt preset'
+)
+const userProfileEditorTitle = computed(() =>
+  selectedUserProfileId.value ? '编辑酒馆用户 profile' : '新建酒馆用户 profile'
+)
 
 onMounted(async () => {
   try {
@@ -212,6 +229,86 @@ function newUserProfileDraft() {
   selectedUserProfileId.value = ''
   applyUserProfileDraft(undefined)
   activeTab.value = 'profiles'
+}
+
+function openCreateCharacter() {
+  newCharacterDraft()
+  characterEditorOpen.value = true
+}
+
+function openEditCharacter(character: TavernCharacter) {
+  selectCharacter(character.id)
+  characterEditorOpen.value = true
+}
+
+async function requestDeleteCharacter(character: TavernCharacter) {
+  selectCharacter(character.id)
+  await deleteSelectedCharacter()
+}
+
+function openCreateLorebook() {
+  newLorebookDraft()
+  lorebookEditorOpen.value = true
+}
+
+function openEditLorebook(lorebook: TavernLorebook) {
+  selectLorebook(lorebook.id)
+  lorebookEditorOpen.value = true
+}
+
+async function requestDeleteLorebook(lorebook: TavernLorebook) {
+  selectLorebook(lorebook.id)
+  await deleteSelectedLorebook()
+}
+
+function openCreatePromptPreset() {
+  newPromptPresetDraft()
+  promptPresetEditorOpen.value = true
+}
+
+function openEditPromptPreset(preset: TavernPromptPreset) {
+  selectPromptPreset(preset.id)
+  promptPresetEditorOpen.value = true
+}
+
+async function requestDeletePromptPreset(preset: TavernPromptPreset) {
+  selectPromptPreset(preset.id)
+  await deleteSelectedPromptPreset()
+}
+
+function openCreateUserProfile() {
+  newUserProfileDraft()
+  userProfileEditorOpen.value = true
+}
+
+function openEditUserProfile(profile: TavernUserProfile) {
+  selectUserProfile(profile.id)
+  userProfileEditorOpen.value = true
+}
+
+async function requestDeleteUserProfile(profile: TavernUserProfile) {
+  selectUserProfile(profile.id)
+  await deleteSelectedUserProfile()
+}
+
+function handleCharacterEditorOpenChange(value: boolean) {
+  if (savingCharacter.value && !value) return
+  characterEditorOpen.value = value
+}
+
+function handleLorebookEditorOpenChange(value: boolean) {
+  if (savingLorebook.value && !value) return
+  lorebookEditorOpen.value = value
+}
+
+function handlePromptPresetEditorOpenChange(value: boolean) {
+  if (savingPromptPreset.value && !value) return
+  promptPresetEditorOpen.value = value
+}
+
+function handleUserProfileEditorOpenChange(value: boolean) {
+  if (savingUserProfile.value && !value) return
+  userProfileEditorOpen.value = value
 }
 
 function applyCharacterDraft(character: TavernCharacter | undefined) {
@@ -316,6 +413,7 @@ async function saveCharacter() {
     if (result.character) {
       selectCharacter(result.character.id)
     }
+    characterEditorOpen.value = false
     toast.success('角色已保存')
   } catch (error) {
     toast.error(error, { description: '角色保存失败' })
@@ -334,6 +432,7 @@ async function deleteSelectedCharacter() {
     const next = tavernStore.characters.find((item) => item.id !== character.id)
     if (next) selectCharacter(next.id)
     else newCharacterDraft()
+    characterEditorOpen.value = false
     toast.success('角色已删除')
   } catch (error) {
     toast.error(error, { description: '角色删除失败' })
@@ -367,6 +466,7 @@ async function saveLorebook() {
     if (result.lorebook) {
       selectLorebook(result.lorebook.id)
     }
+    lorebookEditorOpen.value = false
     toast.success('世界书已保存')
   } catch (error) {
     toast.error(error, { description: '世界书保存失败' })
@@ -388,6 +488,7 @@ async function deleteSelectedLorebook() {
     const next = tavernStore.lorebooks.find((item) => item.id !== lorebook.id)
     if (next) selectLorebook(next.id)
     else newLorebookDraft()
+    lorebookEditorOpen.value = false
     toast.success('世界书已删除')
   } catch (error) {
     toast.error(error, { description: '世界书删除失败' })
@@ -432,6 +533,7 @@ async function savePromptPreset() {
       ? await tavernStore.updatePromptPreset({ id: selectedPromptPresetId.value, preset: draft })
       : await tavernStore.createPromptPreset({ preset: draft })
     if (result.promptPreset) selectPromptPreset(result.promptPreset.id)
+    promptPresetEditorOpen.value = false
     toast.success('Prompt preset 已保存')
   } catch (error) {
     toast.error(error, { description: 'Prompt preset 保存失败' })
@@ -450,6 +552,7 @@ async function deleteSelectedPromptPreset() {
     const next = tavernStore.promptPresets.find((item) => item.id !== preset.id)
     if (next) selectPromptPreset(next.id)
     else newPromptPresetDraft()
+    promptPresetEditorOpen.value = false
     toast.success('Prompt preset 已删除')
   } catch (error) {
     toast.error(error, { description: 'Prompt preset 删除失败' })
@@ -465,6 +568,7 @@ async function saveUserProfile() {
       ? await tavernStore.updateUserProfile({ id: selectedUserProfileId.value, profile: draft })
       : await tavernStore.createUserProfile({ profile: draft })
     if (result.userProfile) selectUserProfile(result.userProfile.id)
+    userProfileEditorOpen.value = false
     toast.success('酒馆用户 profile 已保存')
   } catch (error) {
     toast.error(error, { description: '酒馆用户 profile 保存失败' })
@@ -483,6 +587,7 @@ async function deleteSelectedUserProfile() {
     const next = tavernStore.userProfiles.find((item) => item.id !== profile.id)
     if (next) selectUserProfile(next.id)
     else newUserProfileDraft()
+    userProfileEditorOpen.value = false
     toast.success('酒馆用户 profile 已删除')
   } catch (error) {
     toast.error(error, { description: '酒馆用户 profile 删除失败' })
@@ -646,13 +751,10 @@ function setEntrySecondaryKeys(entry: TavernLorebookEntryDraft, value: string | 
             <ScrollArea class="h-full pr-3">
               <TavernCharactersTab
                 :characters="tavernStore.characters"
-                :lorebooks="tavernStore.lorebooks"
                 :selected-character-id="selectedCharacterId"
-                :selected-session-lorebook-set="selectedSessionLorebookSet"
-                :draft="characterDraft"
-                :new-character-draft="newCharacterDraft"
-                :select-character="selectCharacter"
-                :toggle-session-lorebook="toggleSessionLorebook"
+                :create-character="openCreateCharacter"
+                :edit-character="openEditCharacter"
+                :delete-character="requestDeleteCharacter"
               />
             </ScrollArea>
           </TabsContent>
@@ -665,13 +767,9 @@ function setEntrySecondaryKeys(entry: TavernLorebookEntryDraft, value: string | 
               <TavernLorebooksTab
                 :lorebooks="tavernStore.lorebooks"
                 :selected-lorebook-id="selectedLorebookId"
-                :draft="lorebookDraft"
-                :new-lorebook-draft="newLorebookDraft"
-                :select-lorebook="selectLorebook"
-                :add-lorebook-entry="addLorebookEntry"
-                :remove-lorebook-entry="removeLorebookEntry"
-                :set-entry-keys="setEntryKeys"
-                :set-entry-secondary-keys="setEntrySecondaryKeys"
+                :create-lorebook="openCreateLorebook"
+                :edit-lorebook="openEditLorebook"
+                :delete-lorebook="requestDeleteLorebook"
               />
             </ScrollArea>
           </TabsContent>
@@ -684,9 +782,9 @@ function setEntrySecondaryKeys(entry: TavernLorebookEntryDraft, value: string | 
               <TavernPromptPresetsTab
                 :prompt-presets="tavernStore.promptPresets"
                 :selected-prompt-preset-id="selectedPromptPresetId"
-                :draft="promptPresetDraft"
-                :new-prompt-preset-draft="newPromptPresetDraft"
-                :select-prompt-preset="selectPromptPreset"
+                :create-prompt-preset="openCreatePromptPreset"
+                :edit-prompt-preset="openEditPromptPreset"
+                :delete-prompt-preset="requestDeletePromptPreset"
               />
             </ScrollArea>
           </TabsContent>
@@ -698,13 +796,10 @@ function setEntrySecondaryKeys(entry: TavernLorebookEntryDraft, value: string | 
             <ScrollArea class="h-full pr-3">
               <TavernUserProfilesTab
                 :user-profiles="tavernStore.userProfiles"
-                :persona-profiles="personaStore.profiles"
                 :selected-user-profile-id="selectedUserProfileId"
-                :draft="userProfileDraft"
-                :saving-user-profile="savingUserProfile"
-                :new-user-profile-draft="newUserProfileDraft"
-                :select-user-profile="selectUserProfile"
-                :copy-persona-to-user-profile="copyPersonaToUserProfile"
+                :create-user-profile="openCreateUserProfile"
+                :edit-user-profile="openEditUserProfile"
+                :delete-user-profile="requestDeleteUserProfile"
               />
             </ScrollArea>
           </TabsContent>
@@ -723,29 +818,45 @@ function setEntrySecondaryKeys(entry: TavernLorebookEntryDraft, value: string | 
             </ScrollArea>
           </TabsContent>
         </Tabs>
+      </div>
+    </SettingsSection>
 
-        <div class="flex shrink-0 flex-wrap justify-end gap-2 border-t pt-4">
+    <TavernEditorModal
+      :open="characterEditorOpen"
+      :title="characterEditorTitle"
+      description="编辑角色卡基础设定、开场白、样例消息和默认绑定世界书。"
+      @update:open="handleCharacterEditorOpenChange"
+    >
+      <TavernCharacterEditorForm
+        :draft="characterDraft"
+        :lorebooks="tavernStore.lorebooks"
+        :selected-session-lorebook-set="selectedSessionLorebookSet"
+        :disabled="savingCharacter"
+        :toggle-session-lorebook="toggleSessionLorebook"
+      />
+
+      <template #footer>
+        <div class="flex w-full flex-wrap justify-between gap-2">
+          <div class="flex flex-wrap gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              :disabled="!selectedCharacter || savingCharacter"
+              @click="exportPersona"
+            >
+              另存为 Persona
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              :disabled="!selectedCharacter || savingCharacter"
+              @click="deleteSelectedCharacter"
+            >
+              <Trash2Icon data-icon="inline-start" />
+              删除角色
+            </Button>
+          </div>
           <Button
-            v-if="activeTab === 'characters'"
-            type="button"
-            variant="outline"
-            :disabled="!selectedCharacter"
-            @click="exportPersona"
-          >
-            另存为 Persona
-          </Button>
-          <Button
-            v-if="activeTab === 'characters'"
-            type="button"
-            variant="destructive"
-            :disabled="!selectedCharacter"
-            @click="deleteSelectedCharacter"
-          >
-            <Trash2Icon data-icon="inline-start" />
-            删除角色
-          </Button>
-          <Button
-            v-if="activeTab === 'characters'"
             type="button"
             :disabled="!canSaveCharacter || savingCharacter"
             @click="saveCharacter"
@@ -753,18 +864,37 @@ function setEntrySecondaryKeys(entry: TavernLorebookEntryDraft, value: string | 
             <SaveIcon data-icon="inline-start" />
             保存角色
           </Button>
+        </div>
+      </template>
+    </TavernEditorModal>
+
+    <TavernEditorModal
+      :open="lorebookEditorOpen"
+      :title="lorebookEditorTitle"
+      description="编辑世界书信息、触发关键词、位置和正文条目。"
+      @update:open="handleLorebookEditorOpenChange"
+    >
+      <TavernLorebookEditorForm
+        :draft="lorebookDraft"
+        :disabled="savingLorebook"
+        :add-lorebook-entry="addLorebookEntry"
+        :remove-lorebook-entry="removeLorebookEntry"
+        :set-entry-keys="setEntryKeys"
+        :set-entry-secondary-keys="setEntrySecondaryKeys"
+      />
+
+      <template #footer>
+        <div class="flex w-full flex-wrap justify-between gap-2">
           <Button
-            v-if="activeTab === 'lorebooks'"
             type="button"
             variant="destructive"
-            :disabled="!selectedLorebook"
+            :disabled="!selectedLorebook || savingLorebook"
             @click="deleteSelectedLorebook"
           >
             <Trash2Icon data-icon="inline-start" />
             删除世界书
           </Button>
           <Button
-            v-if="activeTab === 'lorebooks'"
             type="button"
             :disabled="!canSaveLorebook || savingLorebook"
             @click="saveLorebook"
@@ -772,18 +902,33 @@ function setEntrySecondaryKeys(entry: TavernLorebookEntryDraft, value: string | 
             <SaveIcon data-icon="inline-start" />
             保存世界书
           </Button>
+        </div>
+      </template>
+    </TavernEditorModal>
+
+    <TavernEditorModal
+      :open="promptPresetEditorOpen"
+      :title="promptPresetEditorTitle"
+      description="编辑酒馆 prompt preset 的主提示词和后置提示词。"
+      @update:open="handlePromptPresetEditorOpenChange"
+    >
+      <TavernPromptPresetEditorForm
+        :draft="promptPresetDraft"
+        :disabled="savingPromptPreset"
+      />
+
+      <template #footer>
+        <div class="flex w-full flex-wrap justify-between gap-2">
           <Button
-            v-if="activeTab === 'presets'"
             type="button"
             variant="destructive"
-            :disabled="!selectedPromptPreset"
+            :disabled="!selectedPromptPreset || savingPromptPreset"
             @click="deleteSelectedPromptPreset"
           >
             <Trash2Icon data-icon="inline-start" />
             删除 preset
           </Button>
           <Button
-            v-if="activeTab === 'presets'"
             type="button"
             :disabled="!canSavePromptPreset || savingPromptPreset"
             @click="savePromptPreset"
@@ -791,18 +936,36 @@ function setEntrySecondaryKeys(entry: TavernLorebookEntryDraft, value: string | 
             <SaveIcon data-icon="inline-start" />
             保存 preset
           </Button>
+        </div>
+      </template>
+    </TavernEditorModal>
+
+    <TavernEditorModal
+      :open="userProfileEditorOpen"
+      :title="userProfileEditorTitle"
+      description="维护酒馆模式专用的用户 profile 快照。"
+      @update:open="handleUserProfileEditorOpenChange"
+    >
+      <TavernUserProfileEditorForm
+        :draft="userProfileDraft"
+        :persona-profiles="personaStore.profiles"
+        :saving-user-profile="savingUserProfile"
+        :disabled="savingUserProfile"
+        :copy-persona-to-user-profile="copyPersonaToUserProfile"
+      />
+
+      <template #footer>
+        <div class="flex w-full flex-wrap justify-between gap-2">
           <Button
-            v-if="activeTab === 'profiles'"
             type="button"
             variant="destructive"
-            :disabled="!selectedUserProfile"
+            :disabled="!selectedUserProfile || savingUserProfile"
             @click="deleteSelectedUserProfile"
           >
             <Trash2Icon data-icon="inline-start" />
             删除用户
           </Button>
           <Button
-            v-if="activeTab === 'profiles'"
             type="button"
             :disabled="!canSaveUserProfile || savingUserProfile"
             @click="saveUserProfile"
@@ -811,7 +974,7 @@ function setEntrySecondaryKeys(entry: TavernLorebookEntryDraft, value: string | 
             保存用户
           </Button>
         </div>
-      </div>
-    </SettingsSection>
+      </template>
+    </TavernEditorModal>
   </div>
 </template>
