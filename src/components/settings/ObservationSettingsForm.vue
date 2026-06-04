@@ -2,7 +2,7 @@
 import { MessageCircleIcon } from 'lucide-vue-next'
 import { computed, onMounted, ref } from 'vue'
 import { appBridge, type BridgeDesktopSettingsConfig, ensureElectronBridge } from '@/bridge/app'
-import SettingsSection from '@/components/settings/SettingsSection.vue'
+import SettingsSection from '@/components/settings/common/SettingsSection.vue'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import {

@@ -2,6 +2,7 @@
 import { storeToRefs } from 'pinia'
 import { computed, onMounted, ref, watch } from 'vue'
 import type { BridgeProviderPreset } from '@/bridge/app'
+import SettingsSection from '@/components/settings/common/SettingsSection.vue'
 import ProviderAdvancedTab from '@/components/settings/provider-settings/ProviderAdvancedTab.vue'
 import ProviderBasicTab from '@/components/settings/provider-settings/ProviderBasicTab.vue'
 import ProviderDeleteModal from '@/components/settings/provider-settings/ProviderDeleteModal.vue'
@@ -11,7 +12,6 @@ import type {
   ProviderDraftTab,
   ProviderSidebarItem,
 } from '@/components/settings/provider-settings/types'
-import SettingsSection from '@/components/settings/SettingsSection.vue'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'

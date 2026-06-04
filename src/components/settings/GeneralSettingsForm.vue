@@ -6,7 +6,7 @@ import type {
   BridgeContextAttachmentPolicy,
   BridgeDesktopSettingsConfig,
 } from '@/bridge/app'
-import SettingsSection from '@/components/settings/SettingsSection.vue'
+import SettingsSection from '@/components/settings/common/SettingsSection.vue'
 import {
   Field,
   FieldContent,

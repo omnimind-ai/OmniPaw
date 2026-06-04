@@ -70,7 +70,7 @@
 
 组件约定：
 
-- MUST：优先复用 `src/components/settings/SettingsPanelHeader.vue`、`SettingsSearchBar.vue`、`SettingsPanelItem.vue` 组合面板，不在业务表单里重新拼一套 header/search/item 样式。
+- MUST：优先复用 `src/components/settings/common/SettingsPanelHeader.vue`、`SettingsSearchBar.vue`、`SettingsPanelItem.vue` 组合面板，不在业务表单里重新拼一套 header/search/item 样式。
 - MUST：panel header 使用 `SettingsPanelHeader`，左侧放当前设置名称和描述，右侧通过 `icon` 或 `action` slot 放一个大图标或主要视觉动作。
 - SHOULD：有搜索、过滤、统计、新建等能力时使用 `SettingsSearchBar`，搜索输入放左侧，统计 `Badge` 和新建按钮放 `summary` / `actions` slot。
 - SHOULD：条目使用 `SettingsPanelItem`，左侧是头像/图标、名称、描述、badge/meta，右侧通过 `actions` slot 放启用、编辑、删除等按钮。
@@ -166,7 +166,7 @@
 | 聊天页 | `src/views/ChatHomeView.vue` |
 | 设置页 | `src/views/SettingsView.vue` |
 | 设置表单 | `src/components/settings/` |
-| 设置面板通用组件 | `src/components/settings/SettingsPanel*.vue` |
+| 设置通用组件 | `src/components/settings/common/` |
 | Provider 设置子组件 | `src/components/settings/provider-settings/` |
 | Provider 设置弹窗 | `src/components/settings/provider-settings/ProviderDeleteModal.vue` |
 | Persona 设置 | `src/components/settings/PersonaSettingsForm.vue` |

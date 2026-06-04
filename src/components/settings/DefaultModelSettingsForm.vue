@@ -3,7 +3,7 @@ import { storeToRefs } from 'pinia'
 import type { AcceptableValue } from 'reka-ui'
 import { computed } from 'vue'
 import type { BridgeDesktopSettingsConfig } from '@/bridge/app'
-import SettingsSection from '@/components/settings/SettingsSection.vue'
+import SettingsSection from '@/components/settings/common/SettingsSection.vue'
 import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
 import {

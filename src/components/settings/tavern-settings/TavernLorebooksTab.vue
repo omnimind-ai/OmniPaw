@@ -2,8 +2,8 @@
 import type { TavernLorebook } from '@shared/types/tavern'
 import { BookOpenIcon, PencilIcon, PlusIcon, Trash2Icon } from 'lucide-vue-next'
 import { computed, ref } from 'vue'
-import SettingsPanelItem from '@/components/settings/SettingsPanelItem.vue'
-import SettingsSearchBar from '@/components/settings/SettingsSearchBar.vue'
+import SettingsPanelItem from '@/components/settings/common/SettingsPanelItem.vue'
+import SettingsSearchBar from '@/components/settings/common/SettingsSearchBar.vue'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 

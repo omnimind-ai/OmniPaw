@@ -13,9 +13,9 @@ import {
   XIcon,
 } from 'lucide-vue-next'
 import { computed, ref } from 'vue'
-import SettingsPanelHeader from '@/components/settings/SettingsPanelHeader.vue'
-import SettingsPanelItem from '@/components/settings/SettingsPanelItem.vue'
-import SettingsSearchBar from '@/components/settings/SettingsSearchBar.vue'
+import SettingsPanelHeader from '@/components/settings/common/SettingsPanelHeader.vue'
+import SettingsPanelItem from '@/components/settings/common/SettingsPanelItem.vue'
+import SettingsSearchBar from '@/components/settings/common/SettingsSearchBar.vue'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'

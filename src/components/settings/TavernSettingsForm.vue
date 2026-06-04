@@ -22,7 +22,7 @@ import {
 } from 'lucide-vue-next'
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 
-import SettingsPanelHeader from '@/components/settings/SettingsPanelHeader.vue'
+import SettingsPanelHeader from '@/components/settings/common/SettingsPanelHeader.vue'
 import TavernCharacterEditorForm from '@/components/settings/tavern-settings/TavernCharacterEditorForm.vue'
 import TavernCharactersTab from '@/components/settings/tavern-settings/TavernCharactersTab.vue'
 import TavernEditorModal from '@/components/settings/tavern-settings/TavernEditorModal.vue'

@@ -2,7 +2,7 @@
 import { FolderCogIcon, TerminalIcon } from 'lucide-vue-next'
 import { computed } from 'vue'
 import type { BridgeDesktopSettingsConfig } from '@/bridge/app'
-import SettingsSection from '@/components/settings/SettingsSection.vue'
+import SettingsSection from '@/components/settings/common/SettingsSection.vue'
 import { Badge } from '@/components/ui/badge'
 import {
   Field,
