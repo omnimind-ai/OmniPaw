@@ -7,7 +7,7 @@ import ScheduledTaskAuditModal from '@/components/settings/scheduled-task-settin
 import ScheduledTaskDetailModal from '@/components/settings/scheduled-task-settings/ScheduledTaskDetailModal.vue'
 import ScheduledTaskEditModal from '@/components/settings/scheduled-task-settings/ScheduledTaskEditModal.vue'
 import ScheduledTaskList from '@/components/settings/scheduled-task-settings/ScheduledTaskList.vue'
-import ScheduledTaskPolicySection from '@/components/settings/scheduled-task-settings/ScheduledTaskPolicySection.vue'
+import ScheduledTaskPolicyModal from '@/components/settings/scheduled-task-settings/ScheduledTaskPolicyModal.vue'
 import type { ScheduledTaskSubmitPayload } from '@/components/settings/scheduled-task-settings/types'
 import { useDelayedFlag } from '@/composables/useDelayedFlag'
 import { useCronStore } from '@/stores/cron'
@@ -28,6 +28,7 @@ const detailTaskId = ref<string | undefined>()
 const auditModalOpen = ref(false)
 const auditTaskId = ref<string | undefined>()
 const auditLoading = ref(false)
+const policyModalOpen = ref(false)
 const confirmDeleteTaskId = ref<string | undefined>()
 
 const detailTask = computed(() => findTaskById(detailTaskId.value))
@@ -75,6 +76,11 @@ function openCreateTask(): void {
   confirmDeleteTaskId.value = undefined
   editingTask.value = undefined
   editModalOpen.value = true
+}
+
+function openPolicySettings(): void {
+  confirmDeleteTaskId.value = undefined
+  policyModalOpen.value = true
 }
 
 function openEditTask(task: CronTask): void {
@@ -177,15 +183,15 @@ function closeTaskSurfaces(taskId: string): void {
 </script>
 
 <template>
-  <div class="flex flex-col gap-6">
-    <ScheduledTaskPolicySection :draft="draft" />
-
+  <div class="flex h-full min-h-0 flex-1 flex-col overflow-hidden">
     <ScheduledTaskList
+      class="min-h-0 flex-1"
       :tasks="tasks"
       :loading="loading"
       :saving="saving"
       :show-skeleton="showTaskListSkeleton"
       :confirm-delete-task-id="confirmDeleteTaskId"
+      @policy="openPolicySettings"
       @create="openCreateTask"
       @detail="openTaskDetail"
       @audit="openTaskAudit"
@@ -193,6 +199,11 @@ function closeTaskSurfaces(taskId: string): void {
       @edit="openEditTask"
       @enable="setTaskEnabled"
       @delete="deleteTask"
+    />
+
+    <ScheduledTaskPolicyModal
+      v-model:open="policyModalOpen"
+      :draft="draft"
     />
 
     <ScheduledTaskEditModal

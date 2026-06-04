@@ -41,7 +41,7 @@ let saveQueued = false
 
 const hasChanges = computed(() => JSON.stringify(draft.value) !== JSON.stringify(config.value))
 const showInitialSkeleton = useDelayedFlag(() => loading.value && !draft.value)
-const fullHeightPanelTabs = new Set<SettingsTab>(['personas', 'skills', 'tools'])
+const fullHeightPanelTabs = new Set<SettingsTab>(['personas', 'skills', 'tools', 'schedule'])
 const isFullHeightPanelTab = computed(() => fullHeightPanelTabs.has(activeTab.value))
 const contentClass = computed(() => {
   if (activeTab.value === 'providers' || activeTab.value === 'tavern') {
@@ -257,6 +257,12 @@ function normalizeSettingsTab(value: unknown): SettingsTab | undefined {
             v-else-if="activeTab === 'tools'"
             class="h-full min-h-0 flex-1"
           />
+
+          <ScheduledTaskSettingsForm
+            v-else-if="activeTab === 'schedule'"
+            :draft="draft"
+            class="h-full min-h-0 flex-1"
+          />
         </div>
 
         <ScrollArea
@@ -309,10 +315,6 @@ function normalizeSettingsTab(value: unknown): SettingsTab | undefined {
                 :draft="draft"
               />
 
-              <ScheduledTaskSettingsForm
-                v-else-if="activeTab === 'schedule'"
-                :draft="draft"
-              />
             </template>
           </div>
         </ScrollArea>
