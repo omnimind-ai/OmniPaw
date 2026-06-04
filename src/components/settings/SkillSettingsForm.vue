@@ -233,28 +233,31 @@ function normalizeMetadata(value: unknown): Record<string, string | undefined> {
 </script>
 
 <template>
-  <input
-    ref="fileInput"
-    type="file"
-    accept=".md,.zip"
-    class="hidden"
-    @change="importSkillFile"
-  >
+  <div class="flex h-full min-h-0 flex-1 flex-col overflow-hidden">
+    <input
+      ref="fileInput"
+      type="file"
+      accept=".md,.zip"
+      class="hidden"
+      @change="importSkillFile"
+    >
 
-  <SkillList
-    :skills="skills"
-    :loading="loading"
-    :show-skeleton="showListSkeleton"
-    :any-pending="anyPending"
-    :skill-unavailable="skillUnavailable"
-    :import-unavailable="importUnavailable"
-    :persistence-unavailable="persistenceUnavailable"
-    :read-only="isFallbackBridge || readOnly"
-    :operation-error="operationError"
-    :is-refresh-pending="isPending('refresh:all')"
-    :is-skill-pending="isSkillPending"
-    @import-file="openImportPicker"
-    @refresh="refreshSkills"
-    @enable="setSkillEnabled"
-  />
+    <SkillList
+      class="min-h-0 flex-1"
+      :skills="skills"
+      :loading="loading"
+      :show-skeleton="showListSkeleton"
+      :any-pending="anyPending"
+      :skill-unavailable="skillUnavailable"
+      :import-unavailable="importUnavailable"
+      :persistence-unavailable="persistenceUnavailable"
+      :read-only="isFallbackBridge || readOnly"
+      :operation-error="operationError"
+      :is-refresh-pending="isPending('refresh:all')"
+      :is-skill-pending="isSkillPending"
+      @import-file="openImportPicker"
+      @refresh="refreshSkills"
+      @enable="setSkillEnabled"
+    />
+  </div>
 </template>

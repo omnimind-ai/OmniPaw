@@ -366,42 +366,45 @@ function redactDraftSecrets(message: string) {
 </script>
 
 <template>
-  <McpServerList
-    :servers="servers"
-    :loading="loading"
-    :show-skeleton="showServerListSkeleton"
-    :any-pending="anyPending"
-    :mcp-unavailable="mcpUnavailable"
-    :fallback-runtime="isFallbackBridge"
-    :operation-error="operationError"
-    :registry-error="registryError"
-    :is-pending="isPending"
-    :is-server-pending="isServerPending"
-    @create="openCreateForm"
-    @refresh="refreshServers"
-    @edit="openEditForm"
-    @enable="setServerEnabled"
-    @delete="openDeleteDialog"
-  />
+  <div class="flex h-full min-h-0 flex-1 flex-col overflow-hidden">
+    <McpServerList
+      class="min-h-0 flex-1"
+      :servers="servers"
+      :loading="loading"
+      :show-skeleton="showServerListSkeleton"
+      :any-pending="anyPending"
+      :mcp-unavailable="mcpUnavailable"
+      :fallback-runtime="isFallbackBridge"
+      :operation-error="operationError"
+      :registry-error="registryError"
+      :is-pending="isPending"
+      :is-server-pending="isServerPending"
+      @create="openCreateForm"
+      @refresh="refreshServers"
+      @edit="openEditForm"
+      @enable="setServerEnabled"
+      @delete="openDeleteDialog"
+    />
 
-  <McpServerFormModal
-    v-model:open="formOpen"
-    v-model:draft="draft"
-    :editing="Boolean(editingServer)"
-    :existing-secret-keys="existingSecretKeys"
-    :form-errors="formErrors"
-    :saving="isPending('save')"
-    :disabled="mcpUnavailable"
-    @submit="saveServer"
-    @close="closeForm"
-    @add-row="addKeyValueRow"
-    @remove-row="removeKeyValueRow"
-  />
+    <McpServerFormModal
+      v-model:open="formOpen"
+      v-model:draft="draft"
+      :editing="Boolean(editingServer)"
+      :existing-secret-keys="existingSecretKeys"
+      :form-errors="formErrors"
+      :saving="isPending('save')"
+      :disabled="mcpUnavailable"
+      @submit="saveServer"
+      @close="closeForm"
+      @add-row="addKeyValueRow"
+      @remove-row="removeKeyValueRow"
+    />
 
-  <McpServerDeleteModal
-    v-model:open="deleteDialogOpen"
-    :target="deleteTarget"
-    :pending="deletePending"
-    @delete="deleteServer"
-  />
+    <McpServerDeleteModal
+      v-model:open="deleteDialogOpen"
+      :target="deleteTarget"
+      :pending="deletePending"
+      @delete="deleteServer"
+    />
+  </div>
 </template>

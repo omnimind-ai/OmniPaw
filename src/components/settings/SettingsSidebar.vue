@@ -12,8 +12,8 @@ import {
   SearchIcon,
   ServerIcon,
   SlidersHorizontalIcon,
+  TerminalIcon,
   UserIcon,
-  WrenchIcon,
 } from 'lucide-vue-next'
 import type { Component } from 'vue'
 
@@ -36,6 +36,7 @@ export type SettingsTab =
   | 'providers'
   | 'defaults'
   | 'general'
+  | 'agent'
   | 'display'
   | 'data'
   | 'tools'
@@ -68,12 +69,13 @@ const primaryItems: SettingsNavItem[] = [
 
 const settingsItems: SettingsNavItem[] = [
   { value: 'general', label: '常规设置', icon: SlidersHorizontalIcon },
+  { value: 'agent', label: 'Agent 能力', icon: TerminalIcon },
 ]
 
 const capabilityItems: SettingsNavItem[] = [
   { value: 'personas', label: '人格', icon: UserIcon },
   { value: 'tavern', label: '酒馆', icon: DramaIcon },
-  { value: 'tools', label: '工具设置', icon: WrenchIcon },
+  { value: 'tools', label: 'MCP 服务器', icon: ServerIcon },
   { value: 'observation', label: '视觉观察', icon: EyeIcon },
   { value: 'skills', label: '技能', icon: BookOpenIcon },
   { value: 'schedule', label: '计划任务', icon: CalendarClockIcon },

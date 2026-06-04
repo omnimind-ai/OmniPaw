@@ -64,6 +64,35 @@
 - SHOULD：设置页 UI 的本地状态限制在控件展开、搜索、loading、dialog 等临时状态。
 - SHOULD：对设置保存失败给出可读 toast，同时保留结构化错误供恢复 UI 使用。
 
+### 设置面板与条目列表
+
+当某个设置 tab 需要展示一组可创建、搜索、编辑、删除、启用/停用的条目时，使用统一的 panel/list 结构。典型场景包括 Persona、Provider、工具配置、计划任务、MCP server、可复用 preset 或 registry 类设置。
+
+组件约定：
+
+- MUST：优先复用 `src/components/settings/SettingsPanelHeader.vue`、`SettingsSearchBar.vue`、`SettingsPanelItem.vue` 组合面板，不在业务表单里重新拼一套 header/search/item 样式。
+- MUST：panel header 使用 `SettingsPanelHeader`，左侧放当前设置名称和描述，右侧通过 `icon` 或 `action` slot 放一个大图标或主要视觉动作。
+- SHOULD：有搜索、过滤、统计、新建等能力时使用 `SettingsSearchBar`，搜索输入放左侧，统计 `Badge` 和新建按钮放 `summary` / `actions` slot。
+- SHOULD：条目使用 `SettingsPanelItem`，左侧是头像/图标、名称、描述、badge/meta，右侧通过 `actions` slot 放启用、编辑、删除等按钮。
+- MUST：多个条目各自作为独立 panel item 展示，列表容器使用 `flex flex-col gap-*`；不要用 `divide-y` 把条目连成一整块，除非该 tab 明确是表格/日志类密集数据。
+- SHOULD：按钮内图标使用 `data-icon="inline-start"` 或 `data-icon`，按钮尺寸和 variant 优先沿用现有 shadcn-vue `Button` 变体。
+
+布局约定：
+
+- MUST：需要占满设置页剩余高度的 panel，根节点使用 `flex h-full min-h-0 flex-1 flex-col overflow-hidden` 这一类高度链路。
+- MUST：满高 panel 的外层 `Card` 使用明确的三段布局：header、search/filter、content。推荐 `grid h-full min-h-0 flex-1 grid-rows-[auto_auto_minmax(0,1fr)]`，content 行必须是 `minmax(0,1fr)`。
+- MUST：content 区域使用内部滚动，而不是让整个设置页根节点滚动。推荐 `CardContent` 使用 `flex min-h-0 flex-1 flex-col overflow-y-auto p-0`，内部再放 `flex min-h-full flex-1 flex-col`。
+- SHOULD：空状态和搜索空状态放在 content 的自然剩余空间中心，使用 `flex flex-1 flex-col items-center justify-center`，不要只靠固定 `py-*` 伪造居中。
+- SHOULD：有条目时，列表容器也保留 `flex-1`，例如 `flex flex-1 flex-col gap-3 px-4 py-4`，让内容区域视觉上自然填满 panel。
+- SHOULD：panel 外层边界放在 `Card` 上，例如 `border border-border` 或现有 Card 默认边界；内部只在必要分区使用分隔线。search/filter 与 content 之间通常不需要额外 border。
+
+滚动边界注意：
+
+- MUST：如果某个 tab 的 panel 需要内部 content 滚动并占满页面，`SettingsView.vue` 中该 tab 不应再包在外层 `ScrollArea` 里。Reka/shadcn-vue `ScrollArea` 的 viewport 内部会生成额外内容节点，容易打断 `h-full` / `flex-1` 的高度继承，让子 Card 退回内容高度。
+- SHOULD：普通表单、长配置表单可以继续使用 `SettingsView.vue` 的外层 `ScrollArea`；只有需要“header/search 固定，content 自滚动”的 panel tab 才单独走满高 flex 容器。
+- MUST：满高链路要从 `SidebarInset` / `main` / tab content wrapper / 表单根节点 / `Card` / `CardContent` 一路保持 `h-full`、`min-h-0`、`flex-1` 中的必要组合。缺少任一层都可能导致面板不能自然填满下方区域。
+- SHOULD：遇到“看起来缺一截”时，先检查是否被外层 `ScrollArea` 或自然高度 wrapper 截断，再检查 Card 本身；shadcn-vue `Card` 可以满高，关键是父级必须提供可继承高度。
+
 新增普通设置字段 Playbook：
 
 1. 更新 `shared/types/settings.ts`。
@@ -137,6 +166,7 @@
 | 聊天页 | `src/views/ChatHomeView.vue` |
 | 设置页 | `src/views/SettingsView.vue` |
 | 设置表单 | `src/components/settings/` |
+| 设置面板通用组件 | `src/components/settings/SettingsPanel*.vue` |
 | Provider 设置子组件 | `src/components/settings/provider-settings/` |
 | Provider 设置弹窗 | `src/components/settings/provider-settings/ProviderDeleteModal.vue` |
 | Persona 设置 | `src/components/settings/PersonaSettingsForm.vue` |
@@ -152,6 +182,7 @@
 
 - [ ] renderer 没有直接访问 Node、Electron main、数据库或文件系统。
 - [ ] 新增 UI 复用了现有 shadcn-vue 组件和语义 token。
+- [ ] 列表型设置页复用了 `SettingsPanelHeader`、`SettingsSearchBar`、`SettingsPanelItem`，满高 panel 的滚动边界正确。
 - [ ] 设置和 Provider 表单没有破坏 draft/autosave。
 - [ ] Persona 与本地 Agent 设置没有绕过对应 store/bridge 边界。
 - [ ] 用户可见错误和操作反馈使用现有 toast 封装。

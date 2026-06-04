@@ -41,11 +41,13 @@ let saveQueued = false
 
 const hasChanges = computed(() => JSON.stringify(draft.value) !== JSON.stringify(config.value))
 const showInitialSkeleton = useDelayedFlag(() => loading.value && !draft.value)
+const fullHeightPanelTabs = new Set<SettingsTab>(['personas', 'skills', 'tools'])
+const isFullHeightPanelTab = computed(() => fullHeightPanelTabs.has(activeTab.value))
 const contentClass = computed(() => {
   if (activeTab.value === 'providers' || activeTab.value === 'tavern') {
     return 'mx-auto flex min-h-full w-full max-w-none flex-1 flex-col gap-4 px-4 pb-6 pt-14 md:px-6 md:py-6'
   }
-  if (activeTab.value === 'personas') {
+  if (isFullHeightPanelTab.value) {
     return 'mx-auto flex h-full min-h-0 w-full max-w-6xl flex-1 flex-col overflow-hidden px-4 pb-6 pt-14 md:px-6 md:py-6'
   }
   return 'mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 pb-6 pt-14 md:px-6 md:py-6'
@@ -188,6 +190,7 @@ function normalizeSettingsTab(value: unknown): SettingsTab | undefined {
     tab === 'providers' ||
     tab === 'defaults' ||
     tab === 'general' ||
+    tab === 'agent' ||
     tab === 'display' ||
     tab === 'data' ||
     tab === 'tools' ||
@@ -219,7 +222,7 @@ function normalizeSettingsTab(value: unknown): SettingsTab | undefined {
       <main class="flex h-full min-h-0 flex-1 flex-col bg-muted/40">
         <SidebarTrigger class="fixed left-3 top-3 md:hidden" />
         <div
-          v-if="activeTab === 'personas'"
+          v-if="isFullHeightPanelTab"
           :class="contentClass"
         >
           <div
@@ -241,7 +244,17 @@ function normalizeSettingsTab(value: unknown): SettingsTab | undefined {
           </div>
 
           <PersonaSettingsForm
-            v-else
+            v-else-if="activeTab === 'personas'"
+            class="h-full min-h-0 flex-1"
+          />
+
+          <SkillSettingsForm
+            v-else-if="activeTab === 'skills'"
+            class="h-full min-h-0 flex-1"
+          />
+
+          <McpServerSettingsForm
+            v-else-if="activeTab === 'tools'"
             class="h-full min-h-0 flex-1"
           />
         </div>
@@ -283,14 +296,11 @@ function normalizeSettingsTab(value: unknown): SettingsTab | undefined {
               />
 
               <div
-                v-else-if="activeTab === 'tools'"
+                v-else-if="activeTab === 'agent'"
                 class="flex flex-col gap-4"
               >
                 <LocalAgentSettingsForm :draft="draft" />
-                <McpServerSettingsForm />
               </div>
-
-              <SkillSettingsForm v-else-if="activeTab === 'skills'" />
 
               <TavernSettingsForm v-else-if="activeTab === 'tavern'" />
 
