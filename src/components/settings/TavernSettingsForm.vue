@@ -12,6 +12,7 @@ import type {
 } from '@shared/types/tavern'
 import {
   BookOpenIcon,
+  DramaIcon,
   FileJsonIcon,
   IdCardIcon,
   SaveIcon,
@@ -21,7 +22,7 @@ import {
 } from 'lucide-vue-next'
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 
-import SettingsSection from '@/components/settings/SettingsSection.vue'
+import SettingsPanelHeader from '@/components/settings/SettingsPanelHeader.vue'
 import TavernCharacterEditorForm from '@/components/settings/tavern-settings/TavernCharacterEditorForm.vue'
 import TavernCharactersTab from '@/components/settings/tavern-settings/TavernCharactersTab.vue'
 import TavernEditorModal from '@/components/settings/tavern-settings/TavernEditorModal.vue'
@@ -39,7 +40,7 @@ import type {
   TavernUserProfileDraftState,
 } from '@/components/settings/tavern-settings/types'
 import { Button } from '@/components/ui/button'
-import { ScrollArea } from '@/components/ui/scroll-area'
+import { Card, CardContent } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { usePersonaStore } from '@/stores/persona'
 import { useTavernStore } from '@/stores/tavern'
@@ -711,19 +712,20 @@ function setEntrySecondaryKeys(entry: TavernLorebookEntryDraft, value: string | 
 </script>
 
 <template>
-  <div class="mx-auto flex min-h-0 w-full max-w-6xl flex-1 flex-col">
-    <SettingsSection
-      title="酒馆角色扮演"
-      description="导入角色卡并管理世界书。新的酒馆会话从侧栏酒馆入口创建。"
-      class="flex min-h-0 flex-1 flex-col"
-      content-class="flex min-h-0 flex-1 flex-col"
-    >
-      <div class="flex min-h-0 flex-1 flex-col gap-4 p-4">
-        <Tabs
-          v-model="activeTab"
-          class="flex min-h-0 flex-1 flex-col gap-4"
-        >
-          <TabsList class="mx-auto max-w-full overflow-x-auto">
+  <div class="flex h-full min-h-0 flex-1 flex-col overflow-hidden">
+    <Card class="grid h-full min-h-0 flex-1 grid-rows-[auto_auto_minmax(0,1fr)] gap-0 rounded-md border border-border py-0 ring-0">
+      <SettingsPanelHeader
+        title="酒馆角色扮演"
+        description="导入角色卡并管理世界书"
+        :icon="DramaIcon"
+      />
+
+      <Tabs
+        v-model="activeTab"
+        class="contents"
+      >
+        <div class="flex min-w-0 items-center border-b px-4 py-3 sm:px-5">
+          <TabsList class="w-full justify-start overflow-x-auto">
             <TabsTrigger value="characters">
               <UserRoundIcon data-icon="inline-start" />
               角色
@@ -745,83 +747,81 @@ function setEntrySecondaryKeys(entry: TavernLorebookEntryDraft, value: string | 
               导入
             </TabsTrigger>
           </TabsList>
+        </div>
 
+        <CardContent class="flex min-h-0 flex-1 flex-col overflow-y-auto p-0">
           <TabsContent
             value="characters"
-            class="min-h-0 flex-1 data-[state=inactive]:hidden"
+            class="m-0 flex min-h-full flex-1 flex-col data-[state=inactive]:hidden"
           >
-            <ScrollArea class="h-full pr-3">
+            <div class="flex min-h-full flex-1 flex-col px-4 py-4 sm:px-5">
               <TavernCharactersTab
                 :characters="tavernStore.characters"
-                :selected-character-id="selectedCharacterId"
                 :create-character="openCreateCharacter"
                 :edit-character="openEditCharacter"
                 :delete-character="requestDeleteCharacter"
               />
-            </ScrollArea>
+            </div>
           </TabsContent>
 
           <TabsContent
             value="lorebooks"
-            class="min-h-0 flex-1 data-[state=inactive]:hidden"
+            class="m-0 flex min-h-full flex-1 flex-col data-[state=inactive]:hidden"
           >
-            <ScrollArea class="h-full pr-3">
+            <div class="flex min-h-full flex-1 flex-col px-4 py-4 sm:px-5">
               <TavernLorebooksTab
                 :lorebooks="tavernStore.lorebooks"
-                :selected-lorebook-id="selectedLorebookId"
                 :create-lorebook="openCreateLorebook"
                 :edit-lorebook="openEditLorebook"
                 :delete-lorebook="requestDeleteLorebook"
               />
-            </ScrollArea>
+            </div>
           </TabsContent>
 
           <TabsContent
             value="presets"
-            class="min-h-0 flex-1 data-[state=inactive]:hidden"
+            class="m-0 flex min-h-full flex-1 flex-col data-[state=inactive]:hidden"
           >
-            <ScrollArea class="h-full pr-3">
+            <div class="flex min-h-full flex-1 flex-col px-4 py-4 sm:px-5">
               <TavernPromptPresetsTab
                 :prompt-presets="tavernStore.promptPresets"
-                :selected-prompt-preset-id="selectedPromptPresetId"
                 :create-prompt-preset="openCreatePromptPreset"
                 :edit-prompt-preset="openEditPromptPreset"
                 :delete-prompt-preset="requestDeletePromptPreset"
               />
-            </ScrollArea>
+            </div>
           </TabsContent>
 
           <TabsContent
             value="profiles"
-            class="min-h-0 flex-1 data-[state=inactive]:hidden"
+            class="m-0 flex min-h-full flex-1 flex-col data-[state=inactive]:hidden"
           >
-            <ScrollArea class="h-full pr-3">
+            <div class="flex min-h-full flex-1 flex-col px-4 py-4 sm:px-5">
               <TavernUserProfilesTab
                 :user-profiles="tavernStore.userProfiles"
-                :selected-user-profile-id="selectedUserProfileId"
                 :create-user-profile="openCreateUserProfile"
                 :edit-user-profile="openEditUserProfile"
                 :delete-user-profile="requestDeleteUserProfile"
               />
-            </ScrollArea>
+            </div>
           </TabsContent>
 
           <TabsContent
             value="import"
-            class="min-h-0 flex-1 data-[state=inactive]:hidden"
+            class="m-0 flex min-h-full flex-1 flex-col data-[state=inactive]:hidden"
           >
-            <ScrollArea class="h-full pr-3">
+            <div class="flex min-h-full flex-1 flex-col px-4 py-4 sm:px-5">
               <TavernImportTab
                 v-model:import-text="importText"
                 :import-disabled="importDisabled"
                 :import-from-text="importFromText"
                 :import-from-file="importFromFile"
               />
-            </ScrollArea>
+            </div>
           </TabsContent>
-        </Tabs>
-      </div>
-    </SettingsSection>
+        </CardContent>
+      </Tabs>
+    </Card>
 
     <TavernEditorModal
       :open="characterEditorOpen"

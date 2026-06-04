@@ -1,60 +1,99 @@
 <script setup lang="ts">
 import type { TavernUserProfile } from '@shared/types/tavern'
-import { PencilIcon, PlusIcon, Trash2Icon } from 'lucide-vue-next'
+import { IdCardIcon, PencilIcon, PlusIcon, Trash2Icon } from 'lucide-vue-next'
+import { computed, ref } from 'vue'
+import SettingsPanelItem from '@/components/settings/SettingsPanelItem.vue'
+import SettingsSearchBar from '@/components/settings/SettingsSearchBar.vue'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { cn } from '@/lib/utils'
 
-defineProps<{
+const props = defineProps<{
   userProfiles: TavernUserProfile[]
-  selectedUserProfileId: string
   createUserProfile: () => void
   editUserProfile: (profile: TavernUserProfile) => void
   deleteUserProfile: (profile: TavernUserProfile) => void
 }>()
+
+const searchQuery = ref('')
+const filteredUserProfiles = computed(() => {
+  const query = normalizeSearchText(searchQuery.value)
+  if (!query) return props.userProfiles
+  return props.userProfiles.filter((profile) => {
+    const searchable = [profile.name, profile.description].join(' ')
+    return normalizeSearchText(searchable).includes(query)
+  })
+})
+const searchEmpty = computed(
+  () => props.userProfiles.length > 0 && filteredUserProfiles.value.length === 0
+)
+
+function normalizeSearchText(value: string) {
+  return value.trim().toLocaleLowerCase()
+}
+
+function clearSearch() {
+  searchQuery.value = ''
+}
 </script>
 
 <template>
-  <div class="flex min-h-0 flex-col gap-3">
-    <div class="flex items-center justify-between gap-3">
-      <div class="min-w-0">
-        <p class="text-sm font-medium">酒馆用户 profile</p>
-        <p class="text-xs text-muted-foreground">每个 profile 都是普通 Persona 的独立快照，不会自动同步。</p>
+  <div class="flex min-h-full flex-1 flex-col">
+    <SettingsSearchBar
+      v-model="searchQuery"
+      class="-mx-4 -mt-4 border-b-0 sm:-mx-5"
+      label="搜索用户"
+      placeholder="搜索用户名称或描述"
+      clear-label="清除用户搜索"
+      @clear="clearSearch"
+    >
+      <template #summary>
+        <Badge variant="secondary">{{ userProfiles.length }} 个用户</Badge>
+      </template>
+      <template #actions>
+        <Button
+          type="button"
+          @click="createUserProfile"
+        >
+          <PlusIcon data-icon="inline-start" />
+          新建用户
+        </Button>
+      </template>
+    </SettingsSearchBar>
+
+    <div class="flex min-h-0 flex-1 flex-col gap-3 py-4">
+      <p
+        v-if="!userProfiles.length"
+        class="flex flex-1 items-center justify-center rounded-md border border-dashed px-3 py-10 text-center text-sm text-muted-foreground"
+      >
+        暂无酒馆用户 profile
+      </p>
+
+      <div
+        v-else-if="searchEmpty"
+        class="flex flex-1 flex-col items-center justify-center gap-3 rounded-md border border-dashed px-3 py-10 text-center text-sm text-muted-foreground"
+      >
+        <p>没有匹配的用户。</p>
+        <Button
+          type="button"
+          variant="outline"
+          @click="clearSearch"
+        >
+          清空搜索
+        </Button>
       </div>
-      <Button
-        type="button"
-        size="sm"
-        @click="createUserProfile"
-      >
-        <PlusIcon data-icon="inline-start" />
-        新建用户
-      </Button>
-    </div>
 
-    <p
-      v-if="!userProfiles.length"
-      class="rounded-md border border-dashed px-3 py-8 text-center text-sm text-muted-foreground"
-    >
-      暂无酒馆用户 profile
-    </p>
-
-    <ul
-      v-else
-      class="flex flex-col gap-2"
-    >
-      <li
-        v-for="profile in userProfiles"
-        :key="profile.id"
-        :class="
-          cn(
-            'flex flex-col gap-3 rounded-md border px-4 py-3 md:flex-row md:items-center md:justify-between',
-            selectedUserProfileId === profile.id && 'border-primary bg-muted/60',
-          )
-        "
+      <div
+        v-else
+        class="flex flex-col gap-3"
       >
-        <div class="min-w-0 flex-1">
-          <div class="flex flex-wrap items-center gap-2">
-            <span class="truncate text-sm font-medium">{{ profile.name }}</span>
+        <SettingsPanelItem
+          v-for="profile in filteredUserProfiles"
+          :key="profile.id"
+          :title="profile.name"
+          :description="profile.description"
+          :icon="IdCardIcon"
+        >
+          <template #badges>
             <Badge variant="outline">快照</Badge>
             <Badge
               v-if="!profile.enabled"
@@ -62,36 +101,30 @@ defineProps<{
             >
               禁用
             </Badge>
-          </div>
-          <p
-            v-if="profile.description"
-            class="mt-1 line-clamp-2 text-xs text-muted-foreground"
-          >
-            {{ profile.description }}
-          </p>
-        </div>
+          </template>
 
-        <div class="flex shrink-0 items-center gap-1">
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            @click="editUserProfile(profile)"
-          >
-            <PencilIcon data-icon="inline-start" />
-            编辑
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-sm"
-            aria-label="删除酒馆用户 profile"
-            @click="deleteUserProfile(profile)"
-          >
-            <Trash2Icon data-icon />
-          </Button>
-        </div>
-      </li>
-    </ul>
+          <template #actions>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              @click="editUserProfile(profile)"
+            >
+              <PencilIcon data-icon="inline-start" />
+              编辑
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              aria-label="删除酒馆用户 profile"
+              @click="deleteUserProfile(profile)"
+            >
+              <Trash2Icon data-icon />
+            </Button>
+          </template>
+        </SettingsPanelItem>
+      </div>
+    </div>
   </div>
 </template>

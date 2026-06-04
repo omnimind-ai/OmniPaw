@@ -41,10 +41,16 @@ let saveQueued = false
 
 const hasChanges = computed(() => JSON.stringify(draft.value) !== JSON.stringify(config.value))
 const showInitialSkeleton = useDelayedFlag(() => loading.value && !draft.value)
-const fullHeightPanelTabs = new Set<SettingsTab>(['personas', 'skills', 'tools', 'schedule'])
+const fullHeightPanelTabs = new Set<SettingsTab>([
+  'personas',
+  'skills',
+  'tools',
+  'schedule',
+  'tavern',
+])
 const isFullHeightPanelTab = computed(() => fullHeightPanelTabs.has(activeTab.value))
 const contentClass = computed(() => {
-  if (activeTab.value === 'providers' || activeTab.value === 'tavern') {
+  if (activeTab.value === 'providers') {
     return 'mx-auto flex min-h-full w-full max-w-none flex-1 flex-col gap-4 px-4 pb-6 pt-14 md:px-6 md:py-6'
   }
   if (isFullHeightPanelTab.value) {
@@ -263,6 +269,11 @@ function normalizeSettingsTab(value: unknown): SettingsTab | undefined {
             :draft="draft"
             class="h-full min-h-0 flex-1"
           />
+
+          <TavernSettingsForm
+            v-else-if="activeTab === 'tavern'"
+            class="h-full min-h-0 flex-1"
+          />
         </div>
 
         <ScrollArea
@@ -307,8 +318,6 @@ function normalizeSettingsTab(value: unknown): SettingsTab | undefined {
               >
                 <LocalAgentSettingsForm :draft="draft" />
               </div>
-
-              <TavernSettingsForm v-else-if="activeTab === 'tavern'" />
 
               <ObservationSettingsForm
                 v-else-if="activeTab === 'observation'"
