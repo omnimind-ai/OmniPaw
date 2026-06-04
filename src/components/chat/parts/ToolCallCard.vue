@@ -173,12 +173,6 @@ async function decideToolApproval(action: 'approve' | 'reject') {
         <Badge :variant="statusVariant">
           {{ statusLabel }}
         </Badge>
-        <Badge
-          v-if="approval?.fullAccess"
-          variant="destructive"
-        >
-          full access
-        </Badge>
         <CollapsibleTrigger as-child>
           <Button
             type="button"

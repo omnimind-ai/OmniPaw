@@ -2,16 +2,11 @@
 import { MessageCircleIcon } from 'lucide-vue-next'
 import { computed, onMounted, ref } from 'vue'
 import { appBridge, type BridgeDesktopSettingsConfig, ensureElectronBridge } from '@/bridge/app'
+import SettingEntry from '@/components/settings/common/SettingEntry.vue'
 import SettingsSection from '@/components/settings/common/SettingsSection.vue'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
-import {
-  Field,
-  FieldContent,
-  FieldDescription,
-  FieldGroup,
-  FieldLabel,
-} from '@/components/ui/field'
+import { FieldGroup } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import {
   Select,
@@ -160,34 +155,22 @@ function clampInteger(value: string | number, min: number, max = Number.MAX_SAFE
       description="运行状态只影响当前应用生命周期，重启后不会自动恢复屏幕捕获。"
     >
       <FieldGroup class="gap-0">
-        <Field
-          orientation="responsive"
-          class="border-b px-4 py-3"
-        >
-          <FieldContent>
-            <FieldLabel for="observation-runtime">运行主动视觉</FieldLabel>
-            <FieldDescription>
-              开启后创建或恢复独立主动视觉会话，并按已保存策略评估是否截图。
-            </FieldDescription>
-          </FieldContent>
+        <SettingEntry control-id="observation-runtime" title="运行主动视觉">
+          <template #description>
+            开启后创建或恢复独立主动视觉会话，并按已保存策略评估是否截图。
+          </template>
           <Switch
             id="observation-runtime"
             v-model="runtimeEnabled"
             :disabled="observationStore.running"
             aria-label="运行主动视觉"
           />
-        </Field>
+        </SettingEntry>
 
-        <Field
-          orientation="responsive"
-          class="px-4 py-3"
-        >
-          <FieldContent>
-            <FieldLabel>当前状态</FieldLabel>
-            <FieldDescription>
-              {{ runtime.active ? '运行中，手动关闭前会持续观察' : '未运行' }}
-            </FieldDescription>
-          </FieldContent>
+        <SettingEntry title="当前状态" control-class="flex-wrap @md/field-group:min-w-fit">
+          <template #description>
+            {{ runtime.active ? '运行中，手动关闭前会持续观察' : '未运行' }}
+          </template>
           <div class="flex flex-wrap items-center gap-2">
             <Button
               type="button"
@@ -221,7 +204,7 @@ function clampInteger(value: string | number, min: number, max = Number.MAX_SAFE
               直接弹气泡
             </Button>
           </div>
-        </Field>
+        </SettingEntry>
       </FieldGroup>
     </SettingsSection>
 
@@ -230,14 +213,11 @@ function clampInteger(value: string | number, min: number, max = Number.MAX_SAFE
       description="保存策略不会启动屏幕捕获。只有运行开关开启后才会按策略执行。"
     >
       <FieldGroup class="gap-0">
-        <Field
-          orientation="responsive"
-          class="border-b px-4 py-3"
+        <SettingEntry
+          control-id="observation-evaluation-interval"
+          title="评估间隔（秒）"
+          description="每次评估先按概率和限制决定是否截图。"
         >
-          <FieldContent>
-            <FieldLabel for="observation-evaluation-interval">评估间隔（秒）</FieldLabel>
-            <FieldDescription>每次评估先按概率和限制决定是否截图。</FieldDescription>
-          </FieldContent>
           <Input
             id="observation-evaluation-interval"
             v-model="evaluationIntervalSeconds"
@@ -246,16 +226,13 @@ function clampInteger(value: string | number, min: number, max = Number.MAX_SAFE
             min="1"
             step="1"
           />
-        </Field>
+        </SettingEntry>
 
-        <Field
-          orientation="responsive"
-          class="border-b px-4 py-3"
+        <SettingEntry
+          control-id="observation-reaction-nudge-after"
+          title="连续静默提升（次）"
+          description="达到次数后，后续观察会更积极考虑短问候或寒暄。"
         >
-          <FieldContent>
-            <FieldLabel for="observation-reaction-nudge-after">连续静默提升（次）</FieldLabel>
-            <FieldDescription>达到次数后，后续观察会更积极考虑短问候或寒暄。</FieldDescription>
-          </FieldContent>
           <Input
             id="observation-reaction-nudge-after"
             v-model="observation.reactionNudgeAfterSilentCaptures"
@@ -264,16 +241,13 @@ function clampInteger(value: string | number, min: number, max = Number.MAX_SAFE
             min="1"
             step="1"
           />
-        </Field>
+        </SettingEntry>
 
-        <Field
-          orientation="responsive"
-          class="border-b px-4 py-3"
+        <SettingEntry
+          control-id="observation-reaction-nudge-probability"
+          title="寒暄倾向（%）"
+          description="连续静默达到阈值后，每次观察提升主动寒暄倾向的基础概率。"
         >
-          <FieldContent>
-            <FieldLabel for="observation-reaction-nudge-probability">寒暄倾向（%）</FieldLabel>
-            <FieldDescription>连续静默达到阈值后，每次观察提升主动寒暄倾向的基础概率。</FieldDescription>
-          </FieldContent>
           <Input
             id="observation-reaction-nudge-probability"
             v-model="reactionNudgeProbabilityPercent"
@@ -283,16 +257,13 @@ function clampInteger(value: string | number, min: number, max = Number.MAX_SAFE
             max="100"
             step="1"
           />
-        </Field>
+        </SettingEntry>
 
-        <Field
-          orientation="responsive"
-          class="border-b px-4 py-3"
+        <SettingEntry
+          control-id="observation-capture-probability"
+          title="截图概率（%）"
+          description="未命中概率时不会截图、调用模型或创建消息。"
         >
-          <FieldContent>
-            <FieldLabel for="observation-capture-probability">截图概率（%）</FieldLabel>
-            <FieldDescription>未命中概率时不会截图、调用模型或创建消息。</FieldDescription>
-          </FieldContent>
           <Input
             id="observation-capture-probability"
             v-model="captureProbabilityPercent"
@@ -302,16 +273,13 @@ function clampInteger(value: string | number, min: number, max = Number.MAX_SAFE
             max="100"
             step="1"
           />
-        </Field>
+        </SettingEntry>
 
-        <Field
-          orientation="responsive"
-          class="border-b px-4 py-3"
+        <SettingEntry
+          control-id="observation-min-capture-interval"
+          title="最小截图间隔（秒）"
+          description="概率命中后仍会执行硬冷却。"
         >
-          <FieldContent>
-            <FieldLabel for="observation-min-capture-interval">最小截图间隔（秒）</FieldLabel>
-            <FieldDescription>概率命中后仍会执行硬冷却。</FieldDescription>
-          </FieldContent>
           <Input
             id="observation-min-capture-interval"
             v-model="minCaptureIntervalSeconds"
@@ -320,16 +288,13 @@ function clampInteger(value: string | number, min: number, max = Number.MAX_SAFE
             min="1"
             step="1"
           />
-        </Field>
+        </SettingEntry>
 
-        <Field
-          orientation="responsive"
-          class="px-4 py-3"
+        <SettingEntry
+          control-id="observation-scope"
+          title="默认范围"
+          description="第一版优先使用主显示器；窗口范围依赖系统可用源。"
         >
-          <FieldContent>
-            <FieldLabel for="observation-scope">默认范围</FieldLabel>
-            <FieldDescription>第一版优先使用主显示器；窗口范围依赖系统可用源。</FieldDescription>
-          </FieldContent>
           <Select
             v-model="observation.defaultScope"
             class="w-full md:w-48"
@@ -348,20 +313,17 @@ function clampInteger(value: string | number, min: number, max = Number.MAX_SAFE
               </SelectGroup>
             </SelectContent>
           </Select>
-        </Field>
+        </SettingEntry>
       </FieldGroup>
     </SettingsSection>
 
     <SettingsSection title="隐私与限制">
       <FieldGroup class="gap-0">
-        <Field
-          orientation="responsive"
-          class="border-b px-4 py-3"
+        <SettingEntry
+          control-id="observation-retention"
+          title="截图保留"
+          description="默认仅保留观察文字和安全 capture marker。"
         >
-          <FieldContent>
-            <FieldLabel for="observation-retention">截图保留</FieldLabel>
-            <FieldDescription>默认仅保留观察文字和安全 capture marker。</FieldDescription>
-          </FieldContent>
           <Select
             v-model="observation.screenshotRetention"
             class="w-full md:w-48"
@@ -379,46 +341,37 @@ function clampInteger(value: string | number, min: number, max = Number.MAX_SAFE
               </SelectGroup>
             </SelectContent>
           </Select>
-        </Field>
+        </SettingEntry>
 
-        <Field
-          orientation="responsive"
-          class="border-b px-4 py-3"
+        <SettingEntry
+          control-id="observation-remote"
+          title="允许外部 Provider"
+          description="关闭时，外部 Provider 会在截图前被拒绝。"
         >
-          <FieldContent>
-            <FieldLabel for="observation-remote">允许外部 Provider</FieldLabel>
-            <FieldDescription>关闭时，外部 Provider 会在截图前被拒绝。</FieldDescription>
-          </FieldContent>
           <Checkbox
             id="observation-remote"
             v-model="observation.allowRemoteProviders"
             aria-label="允许外部 Provider"
           />
-        </Field>
+        </SettingEntry>
 
-        <Field
-          orientation="responsive"
-          class="border-b px-4 py-3"
+        <SettingEntry
+          control-id="observation-local-only"
+          title="仅本地执行"
+          description="开启时会阻止外部视觉或 reaction 模型。"
         >
-          <FieldContent>
-            <FieldLabel for="observation-local-only">仅本地执行</FieldLabel>
-            <FieldDescription>开启时会阻止外部视觉或 reaction 模型。</FieldDescription>
-          </FieldContent>
           <Checkbox
             id="observation-local-only"
             v-model="observation.localOnly"
             aria-label="仅本地执行"
           />
-        </Field>
+        </SettingEntry>
 
-        <Field
-          orientation="responsive"
-          class="border-b px-4 py-3"
+        <SettingEntry
+          control-id="observation-daily-limit"
+          title="每日截图上限"
+          description="达到上限后当天不再执行观察。"
         >
-          <FieldContent>
-            <FieldLabel for="observation-daily-limit">每日截图上限</FieldLabel>
-            <FieldDescription>达到上限后当天不再执行观察。</FieldDescription>
-          </FieldContent>
           <Input
             id="observation-daily-limit"
             v-model="observation.dailyCaptureLimit"
@@ -427,16 +380,13 @@ function clampInteger(value: string | number, min: number, max = Number.MAX_SAFE
             min="1"
             step="1"
           />
-        </Field>
+        </SettingEntry>
 
-        <Field
-          orientation="responsive"
-          class="border-b px-4 py-3"
+        <SettingEntry
+          control-id="observation-failure-limit"
+          title="连续失败上限"
+          description="截图或模型调用连续失败后停止运行态。"
         >
-          <FieldContent>
-            <FieldLabel for="observation-failure-limit">连续失败上限</FieldLabel>
-            <FieldDescription>截图或模型调用连续失败后停止运行态。</FieldDescription>
-          </FieldContent>
           <Input
             id="observation-failure-limit"
             v-model="observation.consecutiveFailureLimit"
@@ -445,16 +395,13 @@ function clampInteger(value: string | number, min: number, max = Number.MAX_SAFE
             min="1"
             step="1"
           />
-        </Field>
+        </SettingEntry>
 
-        <Field
-          orientation="responsive"
-          class="px-4 py-3"
+        <SettingEntry
+          control-id="observation-cooldown"
+          title="通知冷却（秒）"
+          description="冷却期间 notify/ask 决定只写入主动视觉历史。"
         >
-          <FieldContent>
-            <FieldLabel for="observation-cooldown">通知冷却（秒）</FieldLabel>
-            <FieldDescription>冷却期间 notify/ask 决定只写入主动视觉历史。</FieldDescription>
-          </FieldContent>
           <Input
             id="observation-cooldown"
             v-model="notificationCooldownSeconds"
@@ -463,7 +410,7 @@ function clampInteger(value: string | number, min: number, max = Number.MAX_SAFE
             min="0"
             step="1"
           />
-        </Field>
+        </SettingEntry>
       </FieldGroup>
     </SettingsSection>
   </div>

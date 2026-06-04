@@ -6,14 +6,9 @@ import type {
   BridgeContextAttachmentPolicy,
   BridgeDesktopSettingsConfig,
 } from '@/bridge/app'
+import SettingEntry from '@/components/settings/common/SettingEntry.vue'
 import SettingsSection from '@/components/settings/common/SettingsSection.vue'
-import {
-  Field,
-  FieldContent,
-  FieldDescription,
-  FieldGroup,
-  FieldLabel,
-} from '@/components/ui/field'
+import { FieldGroup } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import {
   Select,
@@ -125,14 +120,11 @@ function clampPercent(value: string | number): number {
   <div class="flex flex-col gap-6">
     <SettingsSection title="常规设置">
       <FieldGroup class="gap-0">
-        <Field
-          orientation="responsive"
-          class="border-b px-4 py-3"
+        <SettingEntry
+          control-id="settings-language"
+          title="语言"
+          description="切换桌面端界面语言。"
         >
-          <FieldContent>
-            <FieldLabel for="settings-language">语言</FieldLabel>
-            <FieldDescription>切换桌面端界面语言。</FieldDescription>
-          </FieldContent>
           <Select
             v-model="language"
             class="w-full md:w-48"
@@ -151,16 +143,13 @@ function clampPercent(value: string | number): number {
               </SelectGroup>
             </SelectContent>
           </Select>
-        </Field>
+        </SettingEntry>
 
-        <Field
-          orientation="responsive"
-          class="border-b px-4 py-3"
+        <SettingEntry
+          control-id="settings-theme"
+          title="主题"
+          description="跟随系统或固定为亮色、深色。"
         >
-          <FieldContent>
-            <FieldLabel for="settings-theme">主题</FieldLabel>
-            <FieldDescription>跟随系统或固定为亮色、深色。</FieldDescription>
-          </FieldContent>
           <Select
             v-model="theme"
             class="w-full md:w-48"
@@ -179,18 +168,12 @@ function clampPercent(value: string | number): number {
               </SelectGroup>
             </SelectContent>
           </Select>
-        </Field>
+        </SettingEntry>
 
-        <Field
-          orientation="responsive"
-          class="border-b px-4 py-3"
-        >
-          <FieldContent>
-            <FieldLabel for="settings-zoom">缩放比例</FieldLabel>
-            <FieldDescription>
-              当前范围 {{ draft.app.zoom.min }} - {{ draft.app.zoom.max }}。
-            </FieldDescription>
-          </FieldContent>
+        <SettingEntry control-id="settings-zoom" title="缩放比例">
+          <template #description>
+            当前范围 {{ draft.app.zoom.min }} - {{ draft.app.zoom.max }}。
+          </template>
           <Input
             id="settings-zoom"
             v-model="zoomFactor"
@@ -200,50 +183,41 @@ function clampPercent(value: string | number): number {
             :min="draft.app.zoom.min"
             :max="draft.app.zoom.max"
           />
-        </Field>
+        </SettingEntry>
 
-        <Field
-          orientation="responsive"
-          class="border-b px-4 py-3"
+        <SettingEntry
+          control-id="settings-minimize-tray"
+          title="关闭/最小化到托盘"
+          description="关闭或最小化主窗口后保持后台可用。"
         >
-          <FieldContent>
-            <FieldLabel for="settings-minimize-tray">关闭/最小化到托盘</FieldLabel>
-            <FieldDescription>关闭或最小化主窗口后保持后台可用。</FieldDescription>
-          </FieldContent>
           <Switch
             id="settings-minimize-tray"
             v-model="minimizeToTrayOnStartup"
             aria-label="关闭/最小化到托盘"
           />
-        </Field>
+        </SettingEntry>
 
-        <Field
-          orientation="responsive"
-          class="px-4 py-3"
+        <SettingEntry
+          control-id="settings-show-reasoning"
+          title="显示模型思考内容"
+          description="关闭后对话中隐藏模型推理和思考内容块。"
         >
-          <FieldContent>
-            <FieldLabel for="settings-show-reasoning">显示模型思考内容</FieldLabel>
-            <FieldDescription>关闭后对话中隐藏模型推理和思考内容块。</FieldDescription>
-          </FieldContent>
           <Switch
             id="settings-show-reasoning"
             v-model="showReasoningContent"
             aria-label="显示模型思考内容"
           />
-        </Field>
+        </SettingEntry>
       </FieldGroup>
     </SettingsSection>
 
     <SettingsSection title="对话设置">
       <FieldGroup class="gap-0">
-        <Field
-          orientation="responsive"
-          class="border-b px-4 py-3"
+        <SettingEntry
+          control-id="settings-max-recent"
+          title="上下文最近消息数"
+          description="发送给模型前保留的最近消息数量。"
         >
-          <FieldContent>
-            <FieldLabel for="settings-max-recent">上下文最近消息数</FieldLabel>
-            <FieldDescription>发送给模型前保留的最近消息数量。</FieldDescription>
-          </FieldContent>
           <Input
             id="settings-max-recent"
             v-model="maxRecentMessages"
@@ -252,17 +226,14 @@ function clampPercent(value: string | number): number {
             min="1"
             step="1"
           />
-        </Field>
+        </SettingEntry>
 
         <template v-if="chatContext">
-          <Field
-            orientation="responsive"
-            class="border-b px-4 py-3"
+          <SettingEntry
+            control-id="settings-context-budget"
+            title="输入预算上限"
+            description="按模型上下文窗口保留的最大输入比例。"
           >
-            <FieldContent>
-              <FieldLabel for="settings-context-budget">输入预算上限</FieldLabel>
-              <FieldDescription>按模型上下文窗口保留的最大输入比例。</FieldDescription>
-            </FieldContent>
             <Input
               id="settings-context-budget"
               v-model="inputBudgetPercent"
@@ -272,16 +243,13 @@ function clampPercent(value: string | number): number {
               max="100"
               step="1"
             />
-          </Field>
+          </SettingEntry>
 
-          <Field
-            orientation="responsive"
-            class="border-b px-4 py-3"
+          <SettingEntry
+            control-id="settings-context-attachments"
+            title="附件策略"
+            description="选择默认进入上下文的附件范围。"
           >
-            <FieldContent>
-              <FieldLabel for="settings-context-attachments">附件策略</FieldLabel>
-              <FieldDescription>选择默认进入上下文的附件范围。</FieldDescription>
-            </FieldContent>
             <Select
               v-model="includeAttachments"
               class="w-full md:w-48"
@@ -300,31 +268,26 @@ function clampPercent(value: string | number): number {
                 </SelectGroup>
               </SelectContent>
             </Select>
-          </Field>
+          </SettingEntry>
 
-          <Field
-            orientation="responsive"
-            class="border-b px-4 py-3"
+          <SettingEntry
+            control-id="settings-context-auto-compact"
+            title="自动压缩上下文"
+            description="达到阈值后自动维护会话上下文摘要。"
           >
-            <FieldContent>
-              <FieldLabel for="settings-context-auto-compact">自动压缩上下文</FieldLabel>
-              <FieldDescription>达到阈值后自动维护会话上下文摘要。</FieldDescription>
-            </FieldContent>
             <Switch
               id="settings-context-auto-compact"
               v-model="autoCompact"
               aria-label="自动压缩上下文"
             />
-          </Field>
+          </SettingEntry>
 
-          <Field
-            orientation="responsive"
-            class="border-b px-4 py-3"
+          <SettingEntry
+            control-id="settings-context-compact-threshold"
+            title="压缩阈值"
+            description="按输入预算百分比触发自动压缩。"
+            :disabled="!autoCompact"
           >
-            <FieldContent>
-              <FieldLabel for="settings-context-compact-threshold">压缩阈值</FieldLabel>
-              <FieldDescription>按输入预算百分比触发自动压缩。</FieldDescription>
-            </FieldContent>
             <Input
               id="settings-context-compact-threshold"
               v-model="compactThresholdPercent"
@@ -335,23 +298,20 @@ function clampPercent(value: string | number): number {
               step="1"
               :disabled="!autoCompact"
             />
-          </Field>
+          </SettingEntry>
         </template>
 
-        <Field
-          orientation="responsive"
-          class="px-4 py-3"
+        <SettingEntry
+          control-id="settings-compact-skills"
+          title="压缩工具描述"
+          description="减少工具描述占用的上下文长度。"
         >
-          <FieldContent>
-            <FieldLabel for="settings-compact-skills">压缩工具描述</FieldLabel>
-            <FieldDescription>减少工具描述占用的上下文长度。</FieldDescription>
-          </FieldContent>
           <Switch
             id="settings-compact-skills"
             v-model="compactSkillDescriptions"
             aria-label="压缩工具描述"
           />
-        </Field>
+        </SettingEntry>
       </FieldGroup>
     </SettingsSection>
   </div>

@@ -3,6 +3,7 @@ import { storeToRefs } from 'pinia'
 import type { AcceptableValue } from 'reka-ui'
 import { computed } from 'vue'
 import type { BridgeDesktopSettingsConfig } from '@/bridge/app'
+import SettingEntry from '@/components/settings/common/SettingEntry.vue'
 import SettingsSection from '@/components/settings/common/SettingsSection.vue'
 import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -127,14 +128,11 @@ function modelLabel(option: ProviderModelOption) {
   <div class="flex flex-col gap-6">
     <SettingsSection title="默认模型">
       <FieldGroup class="gap-0">
-        <Field
-          orientation="responsive"
-          class="border-b px-4 py-3"
+        <SettingEntry
+          control-id="settings-default-model"
+          title="默认模型"
+          description="新会话默认使用的模型。"
         >
-          <FieldContent>
-            <FieldLabel for="settings-default-model">默认模型</FieldLabel>
-            <FieldDescription>新会话默认使用的模型。</FieldDescription>
-          </FieldContent>
           <Select
             :model-value="defaultModelKey || NONE_VALUE"
             :disabled="saving || !enabledOptions.length || !persistenceAvailable"
@@ -159,16 +157,13 @@ function modelLabel(option: ProviderModelOption) {
               </SelectGroup>
             </SelectContent>
           </Select>
-        </Field>
+        </SettingEntry>
 
-        <Field
-          orientation="responsive"
-          class="border-b px-4 py-3"
+        <SettingEntry
+          control-id="settings-title-model"
+          title="标题总结模型"
+          description="新聊天首次出现明确主题时，用于生成侧栏标题。"
         >
-          <FieldContent>
-            <FieldLabel for="settings-title-model">标题总结模型</FieldLabel>
-            <FieldDescription>新聊天首次出现明确主题时，用于生成侧栏标题。</FieldDescription>
-          </FieldContent>
           <Select
             :model-value="titleModelKey || NONE_VALUE"
             :disabled="saving || !enabledTextOptions.length || !persistenceAvailable"
@@ -193,16 +188,13 @@ function modelLabel(option: ProviderModelOption) {
               </SelectGroup>
             </SelectContent>
           </Select>
-        </Field>
+        </SettingEntry>
 
-        <Field
-          orientation="responsive"
-          class="border-b px-4 py-3"
+        <SettingEntry
+          control-id="settings-context-compact-model"
+          title="压缩默认模型"
+          description="上下文压缩时默认使用的模型，留空时使用当前会话模型。"
         >
-          <FieldContent>
-            <FieldLabel for="settings-context-compact-model">压缩默认模型</FieldLabel>
-            <FieldDescription>上下文压缩时默认使用的模型，留空时使用当前会话模型。</FieldDescription>
-          </FieldContent>
           <Select
             :model-value="compactModelKey"
             :disabled="saving || !enabledTextOptions.length || !persistenceAvailable"
@@ -227,16 +219,13 @@ function modelLabel(option: ProviderModelOption) {
               </SelectGroup>
             </SelectContent>
           </Select>
-        </Field>
+        </SettingEntry>
 
-        <Field
-          orientation="responsive"
-          class="px-4 py-3"
+        <SettingEntry
+          control-id="settings-streaming"
+          title="流式输出"
+          description="模型回复时逐步返回内容。"
         >
-          <FieldContent>
-            <FieldLabel for="settings-streaming">流式输出</FieldLabel>
-            <FieldDescription>模型回复时逐步返回内容。</FieldDescription>
-          </FieldContent>
           <Switch
             id="settings-streaming"
             :model-value="streaming"
@@ -244,22 +233,16 @@ function modelLabel(option: ProviderModelOption) {
             :disabled="saving || !persistenceAvailable"
             @update:model-value="updateStreaming"
           />
-        </Field>
+        </SettingEntry>
       </FieldGroup>
     </SettingsSection>
 
     <SettingsSection title="主动视觉观察模型">
       <FieldGroup class="gap-0">
-        <Field
-          orientation="responsive"
-          class="border-b px-4 py-3"
-        >
-          <FieldContent>
-            <FieldLabel for="settings-observation-vision-model">视觉观察模型</FieldLabel>
-            <FieldDescription>
-              用于理解截图。未选择时会从当前会话、默认模型和备用模型中寻找图片模型。
-            </FieldDescription>
-          </FieldContent>
+        <SettingEntry control-id="settings-observation-vision-model" title="视觉观察模型">
+          <template #description>
+            用于理解截图。未选择时会从当前会话、默认模型和备用模型中寻找图片模型。
+          </template>
           <Select
             :model-value="observationVisionModelKey || NONE_VALUE"
             :disabled="saving || !enabledOptions.length || !persistenceAvailable"
@@ -284,18 +267,12 @@ function modelLabel(option: ProviderModelOption) {
               </SelectGroup>
             </SelectContent>
           </Select>
-        </Field>
+        </SettingEntry>
 
-        <Field
-          orientation="responsive"
-          class="border-b px-4 py-3"
-        >
-          <FieldContent>
-            <FieldLabel for="settings-observation-reaction-model">Reaction 模型</FieldLabel>
-            <FieldDescription>
-              用于把视觉摘要转成短反应。选择支持图片的模型时也可承担完整链路。
-            </FieldDescription>
-          </FieldContent>
+        <SettingEntry control-id="settings-observation-reaction-model" title="Reaction 模型">
+          <template #description>
+            用于把视觉摘要转成短反应。选择支持图片的模型时也可承担完整链路。
+          </template>
           <Select
             :model-value="observationReactionModelKey || NONE_VALUE"
             :disabled="saving || !enabledTextOptions.length || !persistenceAvailable"
@@ -320,17 +297,15 @@ function modelLabel(option: ProviderModelOption) {
               </SelectGroup>
             </SelectContent>
           </Select>
-        </Field>
+        </SettingEntry>
 
-        <Field class="px-4 py-3">
-          <FieldDescription>
-            {{
-              enabledImageOptions.length
-                ? '只选择一个支持图片输入的模型时，它会承担截图理解和 reaction。'
-                : '还没有启用支持图片输入的模型。'
-            }}
-          </FieldDescription>
-        </Field>
+        <SettingEntry
+          :description="
+            enabledImageOptions.length
+              ? '只选择一个支持图片输入的模型时，它会承担截图理解和 reaction。'
+              : '还没有启用支持图片输入的模型。'
+          "
+        />
       </FieldGroup>
     </SettingsSection>
 

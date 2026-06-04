@@ -33,26 +33,8 @@ const props = defineProps<{
         {{ description }}
       </CardDescription>
     </CardHeader>
-    <CardContent :class="cn('settings-section__content p-0', props.contentClass)">
+    <CardContent :class="cn('p-0', props.contentClass)">
       <slot />
     </CardContent>
   </Card>
 </template>
-
-<style scoped>
-.settings-section__content :deep([data-slot="field-content"]) {
-  gap: 0.25rem;
-}
-
-.settings-section__content :deep([data-slot="field-label"]:not(.text-destructive)) {
-  color: var(--foreground);
-  font-size: 0.875rem;
-  font-weight: 650;
-}
-
-.settings-section__content :deep([data-slot="field-description"]:not(.text-destructive)) {
-  color: color-mix(in oklab, var(--muted-foreground) 82%, transparent);
-  font-size: 0.75rem;
-  line-height: 1.25rem;
-}
-</style>

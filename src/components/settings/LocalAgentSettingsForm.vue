@@ -2,15 +2,10 @@
 import { FolderCogIcon, TerminalIcon } from 'lucide-vue-next'
 import { computed } from 'vue'
 import type { BridgeDesktopSettingsConfig } from '@/bridge/app'
+import SettingEntry from '@/components/settings/common/SettingEntry.vue'
 import SettingsSection from '@/components/settings/common/SettingsSection.vue'
 import { Badge } from '@/components/ui/badge'
-import {
-  Field,
-  FieldContent,
-  FieldDescription,
-  FieldGroup,
-  FieldLabel,
-} from '@/components/ui/field'
+import { FieldGroup } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
 import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
@@ -93,64 +88,47 @@ function kbToChars(value: string | number, min: number, max: number) {
     description="托管 workspace 和本机 terminal 默认开箱即用；Docker 与专用镜像不是默认路径。"
   >
     <FieldGroup class="gap-0">
-      <Field
-        orientation="responsive"
-        class="border-b px-4 py-3"
+      <SettingEntry
+        control-id="local-workspace-enabled"
+        description="生成文件默认写入按会话隔离的 userData 托管目录。"
       >
-        <FieldContent>
-          <FieldLabel for="local-workspace-enabled">
-            <FolderCogIcon data-icon="inline-start" />
+        <template #title>
+          <span class="flex items-center gap-2">
             Workspace
-          </FieldLabel>
-          <FieldDescription>
-            生成文件默认写入按会话隔离的 userData 托管目录。
-          </FieldDescription>
-        </FieldContent>
+          </span>
+        </template>
         <div class="flex items-center gap-3">
-          <Badge variant="outline">managed-user-data</Badge>
           <Switch
             id="local-workspace-enabled"
             v-model="workspaceEnabled"
             aria-label="启用本地 workspace"
           />
         </div>
-      </Field>
+      </SettingEntry>
 
-      <Field
-        orientation="responsive"
-        class="border-b px-4 py-3"
+      <SettingEntry
+        control-id="local-terminal-enabled"
+        description="assistant 默认 ask-first，power 是 full local access。"
       >
-        <FieldContent>
-          <FieldLabel for="local-terminal-enabled">
-            <TerminalIcon data-icon="inline-start" />
+        <template #title>
+          <span class="flex items-center gap-2">
             Terminal
-          </FieldLabel>
-          <FieldDescription>
-            assistant 默认 ask-first，power 是 full local access。
-          </FieldDescription>
-        </FieldContent>
+          </span>
+        </template>
         <div class="flex items-center gap-3">
-          <Badge :variant="draft.tools.agentToolProfile === 'power' ? 'destructive' : 'outline'">
-            {{ draft.tools.agentToolProfile === 'power' ? 'full access' : 'ask-first' }}
-          </Badge>
           <Switch
             id="local-terminal-enabled"
             v-model="terminalEnabled"
             aria-label="启用本地 terminal"
           />
         </div>
-      </Field>
+      </SettingEntry>
 
-      <Field
-        orientation="responsive"
-        class="border-b px-4 py-3"
+      <SettingEntry
+        title="Assistant terminal approval"
+        description="默认逐条审批 terminal；power 模式固定为无需审批的 full local access。"
+        control-class="@md/field-group:min-w-fit"
       >
-        <FieldContent>
-          <FieldLabel>Assistant terminal approval</FieldLabel>
-          <FieldDescription>
-            默认逐条审批 terminal；power 模式固定为无需审批的 full local access。
-          </FieldDescription>
-        </FieldContent>
         <ToggleGroup
           v-model="assistantApproval"
           type="single"
@@ -161,16 +139,13 @@ function kbToChars(value: string | number, min: number, max: number) {
           <ToggleGroupItem value="allow" class="flex-1 md:flex-none">Allow</ToggleGroupItem>
           <ToggleGroupItem value="deny" class="flex-1 md:flex-none">Deny</ToggleGroupItem>
         </ToggleGroup>
-      </Field>
+      </SettingEntry>
 
-      <Field
-        orientation="responsive"
-        class="border-b px-4 py-3"
+      <SettingEntry
+        control-id="local-workspace-read-limit"
+        title="Workspace 读取上限"
+        description="单次 workspace read/search 可进入工具结果的内容上限。"
       >
-        <FieldContent>
-          <FieldLabel for="local-workspace-read-limit">Workspace 读取上限</FieldLabel>
-          <FieldDescription>单次 workspace read/search 可进入工具结果的内容上限。</FieldDescription>
-        </FieldContent>
         <Input
           id="local-workspace-read-limit"
           v-model="workspaceMaxReadMb"
@@ -179,16 +154,13 @@ function kbToChars(value: string | number, min: number, max: number) {
           min="1"
           max="64"
         />
-      </Field>
+      </SettingEntry>
 
-      <Field
-        orientation="responsive"
-        class="border-b px-4 py-3"
+      <SettingEntry
+        control-id="local-workspace-write-limit"
+        title="Workspace 写入上限"
+        description="单次 workspace write/patch 的文本大小上限，单位 MB。"
       >
-        <FieldContent>
-          <FieldLabel for="local-workspace-write-limit">Workspace 写入上限</FieldLabel>
-          <FieldDescription>单次 workspace write/patch 的文本大小上限，单位 MB。</FieldDescription>
-        </FieldContent>
         <Input
           id="local-workspace-write-limit"
           v-model="workspaceMaxWriteMb"
@@ -197,16 +169,13 @@ function kbToChars(value: string | number, min: number, max: number) {
           min="1"
           max="64"
         />
-      </Field>
+      </SettingEntry>
 
-      <Field
-        orientation="responsive"
-        class="border-b px-4 py-3"
+      <SettingEntry
+        control-id="local-terminal-timeout"
+        title="Terminal 超时"
+        description="前台命令默认运行时间上限，单位秒。"
       >
-        <FieldContent>
-          <FieldLabel for="local-terminal-timeout">Terminal 超时</FieldLabel>
-          <FieldDescription>前台命令默认运行时间上限，单位秒。</FieldDescription>
-        </FieldContent>
         <Input
           id="local-terminal-timeout"
           v-model="terminalTimeoutSeconds"
@@ -214,16 +183,13 @@ function kbToChars(value: string | number, min: number, max: number) {
           type="number"
           min="1"
         />
-      </Field>
+      </SettingEntry>
 
-      <Field
-        orientation="responsive"
-        class="px-4 py-3"
+      <SettingEntry
+        control-id="local-terminal-output-limit"
+        title="Terminal 输出上限"
+        description="stdout/stderr 只保留尾部内容，单位 KB。"
       >
-        <FieldContent>
-          <FieldLabel for="local-terminal-output-limit">Terminal 输出上限</FieldLabel>
-          <FieldDescription>stdout/stderr 只保留尾部内容，单位 KB。</FieldDescription>
-        </FieldContent>
         <Input
           id="local-terminal-output-limit"
           v-model="terminalOutputKb"
@@ -231,7 +197,7 @@ function kbToChars(value: string | number, min: number, max: number) {
           type="number"
           min="1"
         />
-      </Field>
+      </SettingEntry>
     </FieldGroup>
   </SettingsSection>
 </template>
