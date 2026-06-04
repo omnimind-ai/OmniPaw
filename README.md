@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="assets/brand-logo.png" alt="OpenOmniClaw Logo" style="width:140px;" />
+<img src="public/brand-logo.png" alt="OpenOmniClaw Logo" style="width:140px;" />
 
 # OpenOmniClaw
 
@@ -30,16 +30,16 @@ OpenOmniClaw is a desktop AI assistant client designed to make locally deployed 
 ## Screenshots
 
 <p align="center">
-  <img src="assets/hello.png" alt="OpenOmniClaw main screen" width="100%" />
+  <img src="public/hello.png" alt="OpenOmniClaw main screen" width="100%" />
 </p>
 
 <table>
   <tr>
     <td width="50%">
-      <img src="assets/traven.png" alt="Tavern role-play session" />
+      <img src="public/traven.png" alt="Tavern role-play session" />
     </td>
     <td width="50%">
-      <img src="assets/corn.png" alt="Scheduled tasks and tool calls" />
+      <img src="public/corn.png" alt="Scheduled tasks and tool calls" />
     </td>
   </tr>
   <tr>
@@ -48,7 +48,7 @@ OpenOmniClaw is a desktop AI assistant client designed to make locally deployed 
   </tr>
   <tr>
     <td colspan="2">
-      <img src="assets/version.png" alt="Visual observation and desktop assistant" />
+      <img src="public/version.png" alt="Visual observation and desktop assistant" />
     </td>
   </tr>
   <tr>
