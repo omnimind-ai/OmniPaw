@@ -202,12 +202,8 @@ export function useChatWorkspaceController() {
       Boolean(activeTavernMetadata.value?.enabled) &&
       !messages.activeMessages.value.some((record) => messages.isUserMessage(record))
   )
-  const tavernCharacters = computed(() =>
-    tavernStore.characters.filter((character) => character.enabled !== false)
-  )
-  const tavernLorebooks = computed(() =>
-    tavernStore.lorebooks.filter((lorebook) => lorebook.enabled !== false)
-  )
+  const tavernCharacters = computed(() => tavernStore.characters)
+  const tavernLorebooks = computed(() => tavernStore.lorebooks)
   const tavernPromptPresets = computed(() =>
     tavernStore.promptPresets.filter((preset) => preset.enabled !== false)
   )

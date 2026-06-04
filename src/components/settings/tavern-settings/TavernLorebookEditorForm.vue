@@ -3,13 +3,7 @@ import type { TavernLorebookEntryDraft } from '@shared/types/tavern'
 import { PlusIcon, Trash2Icon } from 'lucide-vue-next'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
-import {
-  Field,
-  FieldContent,
-  FieldDescription,
-  FieldGroup,
-  FieldLabel,
-} from '@/components/ui/field'
+import { Field, FieldGroup, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import {
   Select,
@@ -35,17 +29,6 @@ defineProps<{
 <template>
   <div class="flex min-w-0 flex-col gap-4">
     <FieldGroup>
-      <Field orientation="horizontal">
-        <Checkbox
-          id="tavern-lorebook-enabled"
-          v-model:checked="draft.enabled"
-          :disabled="disabled"
-        />
-        <FieldContent>
-          <FieldLabel for="tavern-lorebook-enabled">启用世界书</FieldLabel>
-          <FieldDescription>禁用后所有条目都不会被触发。</FieldDescription>
-        </FieldContent>
-      </Field>
       <Field>
         <FieldLabel for="tavern-lorebook-name">名称</FieldLabel>
         <Input

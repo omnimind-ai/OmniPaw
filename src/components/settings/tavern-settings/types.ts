@@ -11,13 +11,11 @@ export interface TavernCharacterDraftState {
   alternateGreetingsText: string
   messageExamplesText: string
   tagsText: string
-  enabled: boolean
 }
 
 export interface TavernLorebookDraftState {
   name: string
   description: string
-  enabled: boolean
   entries: TavernLorebookEntryDraft[]
 }
 

@@ -77,13 +77,11 @@ const characterDraft = reactive<TavernCharacterDraftState>({
   alternateGreetingsText: '',
   messageExamplesText: '',
   tagsText: '',
-  enabled: true,
 })
 
 const lorebookDraft = reactive<TavernLorebookDraftState>({
   name: '',
   description: '',
-  enabled: true,
   entries: [],
 })
 
@@ -322,13 +320,11 @@ function applyCharacterDraft(character: TavernCharacter | undefined) {
   characterDraft.alternateGreetingsText = (character?.alternateGreetings ?? []).join('\n\n')
   characterDraft.messageExamplesText = (character?.messageExamples ?? []).join('\n\n')
   characterDraft.tagsText = (character?.tags ?? []).join(', ')
-  characterDraft.enabled = character?.enabled ?? true
 }
 
 function applyLorebookDraft(lorebook: TavernLorebook | undefined) {
   lorebookDraft.name = lorebook?.name ?? ''
   lorebookDraft.description = lorebook?.description ?? ''
-  lorebookDraft.enabled = lorebook?.enabled ?? true
   lorebookDraft.entries = (lorebook?.entries ?? []).map((entry) => ({ ...entry }))
 }
 
@@ -625,8 +621,8 @@ function characterDraftPayload(): TavernCharacterDraft {
     alternateGreetings: splitParagraphs(characterDraft.alternateGreetingsText),
     messageExamples: splitParagraphs(characterDraft.messageExamplesText),
     tags: splitCsv(characterDraft.tagsText),
-    defaultLorebookIds: selectedSessionLorebookIds.value,
-    enabled: characterDraft.enabled,
+    defaultLorebookIds: cleanArray(selectedSessionLorebookIds.value),
+    enabled: true,
   }
 }
 
@@ -634,13 +630,19 @@ function lorebookDraftPayload(): TavernLorebookDraft {
   return {
     name: lorebookDraft.name,
     description: lorebookDraft.description,
-    enabled: lorebookDraft.enabled,
+    enabled: true,
     entries: lorebookDraft.entries.map((entry, index) => ({
-      ...entry,
+      id: entry.id,
+      enabled: entry.enabled,
       keys: cleanArray(entry.keys),
       secondaryKeys: cleanArray(entry.secondaryKeys),
-      order: Number(entry.order ?? index),
+      content: entry.content,
+      constant: entry.constant,
+      selective: entry.selective,
       priority: Number(entry.priority ?? 0),
+      order: Number(entry.order ?? index),
+      position: entry.position,
+      tokenBudget: entry.tokenBudget,
     })),
   }
 }
@@ -709,7 +711,7 @@ function setEntrySecondaryKeys(entry: TavernLorebookEntryDraft, value: string | 
 </script>
 
 <template>
-  <div class="flex min-h-0 flex-1 flex-col">
+  <div class="mx-auto flex min-h-0 w-full max-w-6xl flex-1 flex-col">
     <SettingsSection
       title="酒馆角色扮演"
       description="导入角色卡并管理世界书。新的酒馆会话从侧栏酒馆入口创建。"

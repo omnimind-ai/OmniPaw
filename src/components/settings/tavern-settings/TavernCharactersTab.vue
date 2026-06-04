@@ -56,12 +56,6 @@ defineProps<{
           <div class="flex flex-wrap items-center gap-2">
             <span class="truncate text-sm font-medium">{{ character.name }}</span>
             <Badge
-              v-if="!character.enabled"
-              variant="secondary"
-            >
-              禁用
-            </Badge>
-            <Badge
               v-if="character.defaultLorebookIds.length"
               variant="outline"
             >

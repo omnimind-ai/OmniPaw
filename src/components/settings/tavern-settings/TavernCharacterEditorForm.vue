@@ -1,13 +1,7 @@
 <script setup lang="ts">
 import type { TavernLorebook } from '@shared/types/tavern'
 import { Checkbox } from '@/components/ui/checkbox'
-import {
-  Field,
-  FieldContent,
-  FieldDescription,
-  FieldGroup,
-  FieldLabel,
-} from '@/components/ui/field'
+import { Field, FieldGroup, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import type { TavernCharacterDraftState } from './types'
@@ -24,17 +18,6 @@ defineProps<{
 <template>
   <div class="flex min-w-0 flex-col gap-4">
     <FieldGroup>
-      <Field orientation="horizontal">
-        <Checkbox
-          id="tavern-character-enabled"
-          v-model:checked="draft.enabled"
-          :disabled="disabled"
-        />
-        <FieldContent>
-          <FieldLabel for="tavern-character-enabled">启用角色</FieldLabel>
-          <FieldDescription>禁用后不能用于新的酒馆上下文。</FieldDescription>
-        </FieldContent>
-      </Field>
       <Field>
         <FieldLabel for="tavern-character-name">名称</FieldLabel>
         <Input

@@ -19,7 +19,7 @@ defineProps<{
     <div class="flex items-center justify-between gap-3">
       <div class="min-w-0">
         <p class="text-sm font-medium">世界书</p>
-        <p class="text-xs text-muted-foreground">条目内容在编辑弹窗内维护，列表只展示启用状态和条目数。</p>
+        <p class="text-xs text-muted-foreground">条目内容在编辑弹窗内维护，列表展示名称、描述和条目数。</p>
       </div>
       <Button
         type="button"
@@ -56,12 +56,6 @@ defineProps<{
           <div class="flex flex-wrap items-center gap-2">
             <span class="truncate text-sm font-medium">{{ lorebook.name }}</span>
             <Badge variant="outline">{{ lorebook.entries.length }} 条</Badge>
-            <Badge
-              v-if="!lorebook.enabled"
-              variant="secondary"
-            >
-              禁用
-            </Badge>
           </div>
           <p
             v-if="lorebook.description"
