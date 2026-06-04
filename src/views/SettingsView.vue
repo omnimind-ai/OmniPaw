@@ -41,11 +41,15 @@ let saveQueued = false
 
 const hasChanges = computed(() => JSON.stringify(draft.value) !== JSON.stringify(config.value))
 const showInitialSkeleton = useDelayedFlag(() => loading.value && !draft.value)
-const contentClass = computed(() =>
-  activeTab.value === 'providers' || activeTab.value === 'tavern'
-    ? 'mx-auto flex min-h-full w-full max-w-none flex-1 flex-col gap-4 px-4 pb-6 pt-14 md:px-6 md:py-6'
-    : 'mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 pb-6 pt-14 md:px-6 md:py-6'
-)
+const contentClass = computed(() => {
+  if (activeTab.value === 'providers' || activeTab.value === 'tavern') {
+    return 'mx-auto flex min-h-full w-full max-w-none flex-1 flex-col gap-4 px-4 pb-6 pt-14 md:px-6 md:py-6'
+  }
+  if (activeTab.value === 'personas') {
+    return 'mx-auto flex h-full min-h-0 w-full max-w-6xl flex-1 flex-col overflow-hidden px-4 pb-6 pt-14 md:px-6 md:py-6'
+  }
+  return 'mx-auto flex w-full max-w-6xl flex-col gap-4 px-4 pb-6 pt-14 md:px-6 md:py-6'
+})
 
 onMounted(async () => {
   const results = await Promise.allSettled([settingsStore.load(), providerStore.loadProviders()])
@@ -212,9 +216,40 @@ function normalizeSettingsTab(value: unknown): SettingsTab | undefined {
     />
 
     <SidebarInset class="h-svh overflow-hidden">
-      <main class="flex min-h-0 flex-1 flex-col bg-muted/40">
+      <main class="flex h-full min-h-0 flex-1 flex-col bg-muted/40">
         <SidebarTrigger class="fixed left-3 top-3 md:hidden" />
-        <ScrollArea class="min-h-0 flex-1">
+        <div
+          v-if="activeTab === 'personas'"
+          :class="contentClass"
+        >
+          <div
+            v-if="loading && !draft"
+            class="flex flex-col gap-4"
+          >
+            <template v-if="showInitialSkeleton">
+              <Skeleton class="h-32 w-full" />
+              <Skeleton class="h-48 w-full" />
+              <Skeleton class="h-24 w-full" />
+            </template>
+          </div>
+
+          <div
+            v-else-if="!draft"
+            class="rounded-lg border bg-card px-4 py-6 text-sm text-muted-foreground"
+          >
+            设置尚未加载。
+          </div>
+
+          <PersonaSettingsForm
+            v-else
+            class="h-full min-h-0 flex-1"
+          />
+        </div>
+
+        <ScrollArea
+          v-else
+          class="min-h-0 flex-1"
+        >
           <div :class="contentClass">
             <div
               v-if="loading && !draft"
@@ -256,8 +291,6 @@ function normalizeSettingsTab(value: unknown): SettingsTab | undefined {
               </div>
 
               <SkillSettingsForm v-else-if="activeTab === 'skills'" />
-
-              <PersonaSettingsForm v-else-if="activeTab === 'personas'" />
 
               <TavernSettingsForm v-else-if="activeTab === 'tavern'" />
 

@@ -1,11 +1,23 @@
 <script setup lang="ts">
-import { CheckCircle2Icon, PlusIcon, StarIcon, Trash2Icon, UserIcon } from 'lucide-vue-next'
+import {
+  CheckCircle2Icon,
+  PencilIcon,
+  PlusIcon,
+  SearchIcon,
+  StarIcon,
+  Trash2Icon,
+  UserIcon,
+  XIcon,
+} from 'lucide-vue-next'
 import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 
 import type { BridgePersonaProfile, BridgePersonaProfileDraft } from '@/bridge/app'
-import SettingsSection from '@/components/settings/SettingsSection.vue'
+import SettingsPanelHeader from '@/components/settings/SettingsPanelHeader.vue'
+import SettingsPanelItem from '@/components/settings/SettingsPanelItem.vue'
+import SettingsSearchBar from '@/components/settings/SettingsSearchBar.vue'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Card, CardContent } from '@/components/ui/card'
 import {
   Dialog,
   DialogContent,
@@ -25,7 +37,6 @@ import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Textarea } from '@/components/ui/textarea'
 import { useDelayedFlag } from '@/composables/useDelayedFlag'
-import { cn } from '@/lib/utils'
 import { usePersonaStore } from '@/stores/persona'
 import { errorToText, useToast } from '@/utils/toast'
 
@@ -53,11 +64,22 @@ const draftOpen = ref(false)
 const draft = reactive<DraftState>(createEmptyDraft())
 const validationError = ref('')
 const pendingId = ref('')
+const searchQuery = ref('')
 const deleteTarget = ref<BridgePersonaProfile | null>(null)
 const deleteOpen = ref(false)
 
 const isEditing = computed(() => Boolean(editingId.value))
 const isSaving = computed(() => personaStore.saving)
+const profileSummary = computed(() => `${profiles.value.length} 个人格`)
+const filteredProfiles = computed(() => {
+  const query = normalizeSearchText(searchQuery.value)
+  if (!query) return profiles.value
+  return profiles.value.filter((profile) => {
+    const searchable = `${profile.name} ${profile.description ?? ''}`
+    return normalizeSearchText(searchable).includes(query)
+  })
+})
+const searchEmpty = computed(() => !isEmpty.value && filteredProfiles.value.length === 0)
 
 onMounted(async () => {
   try {
@@ -84,6 +106,14 @@ function resetDraft(): void {
   Object.assign(draft, createEmptyDraft())
   editingId.value = undefined
   validationError.value = ''
+}
+
+function normalizeSearchText(value: string): string {
+  return value.trim().toLocaleLowerCase()
+}
+
+function clearSearch(): void {
+  searchQuery.value = ''
 }
 
 function openCreateDraft(): void {
@@ -218,92 +248,131 @@ function profileIsPending(profile: BridgePersonaProfile): boolean {
 </script>
 
 <template>
-  <div class="flex flex-col gap-4">
-    <SettingsSection
-      title="人格"
-      description="管理对话使用的人格 profile。当前启用的人格会应用到新会话。"
-    >
-      <template #actions>
-        <Button
-          type="button"
-          size="sm"
-          :disabled="!persistenceAvailable || isSaving"
-          @click="openCreateDraft"
-        >
-          <PlusIcon data-icon="inline-start" />
-          新建人格
-        </Button>
-      </template>
+  <div class="flex h-full min-h-0 flex-1 flex-col overflow-hidden">
+    <Card class="grid h-full min-h-0 flex-1 grid-rows-[auto_auto_minmax(0,1fr)] gap-0 rounded-md border border-border py-0 ring-0">
+      <SettingsPanelHeader
+        title="人格"
+        :icon="UserIcon"
+      >
+        <template #description>
+          管理对话使用的人格 profile。当前启用的人格会应用到新会话。
+        </template>
+      </SettingsPanelHeader>
 
-      <div class="flex flex-col gap-3 p-4">
-        <div
-          v-if="!persistenceAvailable"
-          class="rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-900"
-        >
-          当前未连接 Electron 主进程，人格无法保存。
-        </div>
+      <SettingsSearchBar
+        v-model="searchQuery"
+        class="border-b-0"
+        label="搜索人格"
+        placeholder="搜索人格名称或描述"
+        clear-label="清除人格搜索"
+      >
+        <template #summary>
+          <Badge variant="secondary">
+            {{ profileSummary }}
+          </Badge>
+        </template>
 
-        <div
-          v-if="recoveryError"
-          class="rounded-md border border-destructive bg-destructive/5 px-3 py-2 text-xs text-destructive"
-        >
-          人格注册表加载错误：{{ recoveryError.message }}
-        </div>
-
-        <div
-          v-if="showLoadingSkeleton"
-          class="flex flex-col gap-2"
-        >
-          <Skeleton class="h-16 w-full" />
-          <Skeleton class="h-16 w-full" />
-        </div>
-
-        <div
-          v-else-if="isEmpty"
-          class="flex flex-col items-center justify-center gap-2 py-8 text-sm text-muted-foreground"
-        >
-          <UserIcon class="size-8 opacity-50" />
-          <p>尚未创建任何人格。</p>
+        <template #actions>
           <Button
-            v-if="persistenceAvailable"
             type="button"
-            variant="outline"
-            size="sm"
+            :disabled="!persistenceAvailable || isSaving"
             @click="openCreateDraft"
           >
             <PlusIcon data-icon="inline-start" />
-            创建第一个人格
+            新建人格
           </Button>
-        </div>
+        </template>
+      </SettingsSearchBar>
 
-        <ul
-          v-else
-          class="flex flex-col divide-y rounded-md border"
-        >
-          <li
-            v-for="profile in profiles"
-            :key="profile.id"
-            :class="cn('flex flex-col gap-2 px-4 py-3', profileIsPending(profile) && 'opacity-60')"
+      <CardContent class="flex min-h-0 flex-1 flex-col overflow-y-auto p-0">
+        <div class="flex min-h-full flex-1 flex-col">
+          <div
+            v-if="!persistenceAvailable"
+            class="shrink-0 border-b px-4 py-3 text-sm text-muted-foreground sm:px-5"
           >
-            <div class="flex items-start justify-between gap-2">
-              <div class="flex flex-col gap-0.5">
-                <div class="flex flex-wrap items-center gap-2">
-                  <span class="text-sm font-medium">{{ profile.name }}</span>
-                  <Badge
-                    v-if="activePersonaId === profile.id"
-                    variant="default"
-                  >
-                    当前启用
-                  </Badge>
-                </div>
-                <p
-                  v-if="profile.description"
-                  class="line-clamp-2 text-xs text-muted-foreground"
+            当前未连接 Electron 主进程，人格无法保存。
+          </div>
+
+          <div
+            v-if="recoveryError"
+            class="shrink-0 border-b px-4 py-3 sm:px-5"
+          >
+            <div class="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+              人格注册表加载错误：{{ recoveryError.message }}
+            </div>
+          </div>
+
+          <div
+            v-if="showLoadingSkeleton"
+            class="flex shrink-0 flex-col gap-3 px-4 py-4 sm:px-5"
+          >
+            <Skeleton class="h-24 w-full" />
+            <Skeleton class="h-24 w-full" />
+          </div>
+
+          <div
+            v-else-if="isEmpty"
+            class="flex flex-1 flex-col items-center justify-center gap-3 px-4 py-10 text-center text-sm text-muted-foreground sm:px-5"
+          >
+            <UserIcon class="size-8 opacity-50" />
+            <div class="flex flex-col gap-1">
+              <p class="font-medium text-foreground">尚未创建任何人格。</p>
+              <p>创建后可在新会话中启用不同的系统上下文。</p>
+            </div>
+            <Button
+              v-if="persistenceAvailable"
+              type="button"
+              variant="outline"
+              size="sm"
+              @click="openCreateDraft"
+            >
+              <PlusIcon data-icon="inline-start" />
+              创建第一个人格
+            </Button>
+          </div>
+
+          <div
+            v-else-if="searchEmpty"
+            class="flex flex-1 flex-col items-center justify-center gap-3 px-4 py-10 text-center text-sm text-muted-foreground sm:px-5"
+          >
+            <SearchIcon class="size-8 opacity-50" />
+            <div class="flex flex-col gap-1">
+              <p class="font-medium text-foreground">没有匹配的人格。</p>
+              <p>换一个名称或描述关键词试试。</p>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              @click="clearSearch"
+            >
+              <XIcon data-icon="inline-start" />
+              清除搜索
+            </Button>
+          </div>
+
+          <div
+            v-else
+            class="flex flex-1 flex-col gap-3 px-4 py-4 sm:px-5"
+          >
+            <SettingsPanelItem
+              v-for="profile in filteredProfiles"
+              :key="profile.id"
+              :title="profile.name"
+              :description="profile.description || '未提供描述。'"
+              :icon="UserIcon"
+              :pending="profileIsPending(profile)"
+            >
+              <template #badges>
+                <Badge
+                  v-if="activePersonaId === profile.id"
+                  variant="default"
                 >
-                  {{ profile.description }}
-                </p>
-              </div>
-              <div class="flex items-center gap-1">
+                  当前启用
+                </Badge>
+              </template>
+
+              <template #actions>
                 <Button
                   v-if="activePersonaId !== profile.id"
                   type="button"
@@ -335,6 +404,7 @@ function profileIsPending(profile: BridgePersonaProfile): boolean {
                   :disabled="!persistenceAvailable || profileIsPending(profile)"
                   @click="openEditDraft(profile)"
                 >
+                  <PencilIcon data-icon="inline-start" />
                   编辑
                 </Button>
                 <Button
@@ -347,12 +417,12 @@ function profileIsPending(profile: BridgePersonaProfile): boolean {
                 >
                   <Trash2Icon data-icon />
                 </Button>
-              </div>
-            </div>
-          </li>
-        </ul>
-      </div>
-    </SettingsSection>
+              </template>
+            </SettingsPanelItem>
+          </div>
+        </div>
+      </CardContent>
+    </Card>
 
     <Dialog
       :open="draftOpen"
