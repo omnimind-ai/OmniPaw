@@ -467,12 +467,12 @@ function handleDrop(event: DragEvent) {
                 <DropdownMenu v-if="showToolProfileControl">
                   <DropdownMenuTrigger as-child>
                     <InputGroupButton
-                      class="max-w-9 justify-start px-1.5 @min-[34rem]/chat-composer:max-w-32 @min-[44rem]/chat-composer:max-w-40"
+                      class="min-w-0 max-w-28 justify-start px-1.5 @min-[44rem]/chat-composer:max-w-40"
                       :disabled="toolProfileSaving || !toolProfileOptions.length"
                       :aria-label="`Agent 权限：${selectedToolProfileDescription}`"
                     >
                       <ShieldCheckIcon data-icon="inline-start" />
-                      <span class="hidden truncate @min-[34rem]/chat-composer:inline">
+                      <span class="truncate">
                         {{ selectedToolProfileLabel }}
                       </span>
                     </InputGroupButton>

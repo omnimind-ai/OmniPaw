@@ -64,6 +64,29 @@
 - SHOULD：设置页 UI 的本地状态限制在控件展开、搜索、loading、dialog 等临时状态。
 - SHOULD：对设置保存失败给出可读 toast，同时保留结构化错误供恢复 UI 使用。
 
+### 普通 entry 类设置
+
+当某个设置 tab 展示固定字段、开关、枚举、数值限制或少量静态分组时，使用普通 entry 类结构。典型场景包括常规设置、默认模型、本地 Agent 限制、主动视觉策略、Provider 详情表单等。
+
+组件约定：
+
+- MUST：每个逻辑分组使用 `src/components/settings/common/SettingsSection.vue`，不要在业务表单里直接拼 `CardHeader` 或新建单独的 form header。
+- MUST：`SettingsSection` 传入 `title`、简短 `description` 和 lucide `icon`；图标以组件对象传入 `:icon="SomeIcon"`，不要用字符串 key。
+- MUST：`SettingsSection` 的 header/content 两段由组件自身负责；普通表单不要直接使用 `SettingsPanelHeader`，除非是在构建满高 panel/list 容器。
+- MUST：固定字段行使用 `SettingEntry`，放在 `FieldGroup class="gap-0"` 里；`SettingEntry` 左侧放字段标题、说明和 meta，右侧默认 slot 放控件。
+- MUST：字段控件继续使用 shadcn-vue primitives，例如 `Switch`、`Select`、`Input`、`ToggleGroup`、`Checkbox`，不要用自定义 `div` 伪造控件。
+- SHOULD：section 描述控制在一句短说明内，用来说明该分组的整体目的；字段级细节放在对应 `SettingEntry` 的 `description`，避免 header 和正文重复。
+- SHOULD：有保存、刷新等分组级动作时使用 `SettingsSection` 的 `actions` slot；行级动作仍放在对应 `SettingEntry` 或字段控件附近。
+- SHOULD：静态的 checkbox 集合、fallback 模型这类单一配置集合可以在 `SettingsSection` 内使用 `FieldSet` / `Field`，不需要升级为 `SettingsPanelItem`。
+
+布局约定：
+
+- MUST：普通滚动表单根节点使用 `flex flex-col gap-6` 这类自然文档流布局。
+- MUST：普通表单继续由 `SettingsView.vue` 外层 `ScrollArea` 负责页面滚动，不在表单内部做满高 content 自滚动。
+- SHOULD：`SettingsSection` 之间保持统一 `gap-*`，section 内列表边界交给 `SettingEntry` 的行分隔，不额外套卡片或嵌套 card。
+- SHOULD：输入控件宽度使用稳定响应式约束，例如 `w-full md:w-48`、`w-full md:w-72`，避免长文案或模型名挤压布局。
+- MUST NOT：为了强化标题层级新增 `SettingsFormHeader`、业务私有 header 或全局 CSS；普通 entry 类设置的标题层级统一由 `SettingsSection` 表达。
+
 ### 设置面板与条目列表
 
 当某个设置 tab 需要展示一组可创建、搜索、编辑、删除、启用/停用的条目时，使用统一的 panel/list 结构。典型场景包括 Persona、Provider、工具配置、计划任务、MCP server、可复用 preset 或 registry 类设置。

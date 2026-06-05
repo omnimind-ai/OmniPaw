@@ -4,7 +4,6 @@ import { ArrowDownIcon } from 'lucide-vue-next'
 import ChatComposerDock from '@/components/chat/ChatComposerDock.vue'
 import ChatMessageList from '@/components/chat/ChatMessageList.vue'
 import { useChatWorkspaceContext } from '@/components/chat/chat-workspace-context'
-import TavernSessionBanner from '@/components/tavern/TavernSessionBanner.vue'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
 
@@ -32,8 +31,6 @@ const {
 </script>
 
 <template>
-  <TavernSessionBanner />
-
   <div class="relative min-h-0 flex-1">
     <ScrollArea
       :ref="setMessagesScrollArea"

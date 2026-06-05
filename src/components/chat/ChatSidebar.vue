@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import {
   CatIcon,
+  ClockIcon,
   DramaIcon,
   EyeIcon,
   MessageSquareIcon,
@@ -47,7 +48,6 @@ import {
   SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
-  SidebarGroupLabel,
   SidebarHeader,
   SidebarMenu,
   SidebarMenuAction,
@@ -56,20 +56,24 @@ import {
   SidebarSeparator,
   SidebarTrigger,
 } from '@/components/ui/sidebar'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import type { Session } from '@/composables/useSessions'
 import { cn } from '@/lib/utils'
 
-type SessionKindFilter = 'chat' | 'tavern' | 'cat' | 'vision'
+type SessionKindFilter = 'chat' | 'tavern' | 'cat' | 'cron' | 'vision'
+type SessionMode = Extract<SessionKindFilter, 'chat' | 'tavern'>
 
 const props = withDefaults(
   defineProps<{
     sessions: Session[]
     activeSessionId?: string
+    sessionMode?: SessionMode
     sessionKindFilter?: SessionKindFilter
     creating?: boolean
     runningSessionIds?: string[]
   }>(),
   {
+    sessionMode: 'chat',
     sessionKindFilter: 'chat',
     runningSessionIds: () => [],
   }
@@ -78,10 +82,10 @@ const props = withDefaults(
 const emit = defineEmits<{
   newChat: []
   selectSession: [sessionId: string]
+  updateSessionMode: [mode: SessionMode]
   updateSessionKindFilter: [kind: SessionKindFilter]
   openSettings: []
   toggleCat: []
-  openTavern: []
   renameSession: [sessionId: string, title: string]
   deleteSession: [sessionId: string]
 }>()
@@ -93,24 +97,68 @@ const renameTitleDraft = ref('')
 const deleteDialogOpen = ref(false)
 const deleteSessionId = ref<string | null>(null)
 
+const sessionModeOptions: Array<{
+  value: SessionMode
+  label: string
+  title: string
+  newLabel: string
+  icon: typeof MessageSquareIcon
+}> = [
+  {
+    value: 'chat',
+    label: '聊天',
+    title: '普通对话',
+    newLabel: '新建对话',
+    icon: MessageSquareIcon,
+  },
+  {
+    value: 'tavern',
+    label: '酒馆',
+    title: '酒馆会话',
+    newLabel: '新建酒馆会话',
+    icon: DramaIcon,
+  },
+]
+
 const sessionKindOptions: Array<{
   value: SessionKindFilter
   label: string
+  title: string
   icon: typeof MessageSquareIcon
 }> = [
-  { value: 'chat', label: '普通对话', icon: MessageSquareIcon },
-  { value: 'tavern', label: '酒馆会话', icon: DramaIcon },
-  { value: 'cat', label: '小猫会话', icon: CatIcon },
-  { value: 'vision', label: '视觉会话', icon: EyeIcon },
+  { value: 'chat', label: '普通', title: '普通对话', icon: MessageSquareIcon },
+  { value: 'tavern', label: '酒馆', title: '酒馆会话', icon: DramaIcon },
+  { value: 'cat', label: '小猫', title: '小猫会话', icon: CatIcon },
+  { value: 'cron', label: '任务', title: '任务会话', icon: ClockIcon },
+  { value: 'vision', label: '视觉', title: '视觉会话', icon: EyeIcon },
 ]
 
 const normalizedSearchQuery = computed(() => searchQuery.value.trim().toLowerCase())
 const hasSearchQuery = computed(() => normalizedSearchQuery.value.length > 0)
 const runningSessionIdSet = computed(() => new Set(props.runningSessionIds))
+const activeSessionMode = computed<SessionMode>(() => props.sessionMode)
+const activeSessionModeOption = computed(
+  () =>
+    sessionModeOptions.find((option) => option.value === activeSessionMode.value) ||
+    sessionModeOptions[0]
+)
+const nextCollapsedMode = computed<SessionMode>(() =>
+  activeSessionMode.value === 'tavern' ? 'chat' : 'tavern'
+)
+const nextCollapsedModeOption = computed(
+  () =>
+    sessionModeOptions.find((option) => option.value === nextCollapsedMode.value) ||
+    sessionModeOptions[0]
+)
 const activeSessionKindOption = computed(
   () =>
     sessionKindOptions.find((option) => option.value === props.sessionKindFilter) ||
     sessionKindOptions[0]
+)
+const sessionListLabel = computed(() => activeSessionKindOption.value.title)
+const newChatLabel = computed(() => activeSessionModeOption.value.newLabel)
+const collapsedModeTooltip = computed(
+  () => `${activeSessionModeOption.value.title}，点击切换到${nextCollapsedModeOption.value.label}`
 )
 
 const filteredSessions = computed(() => {
@@ -147,11 +195,15 @@ const deleteTargetIsRunning = computed(() =>
   Boolean(deleteSessionId.value && isSessionRunning(deleteSessionId.value))
 )
 
-const emptyTitle = computed(() => (props.sessions.length === 0 ? '暂无会话' : '未找到会话'))
+const emptyTitle = computed(() =>
+  props.sessions.length === 0 ? `暂无${sessionListLabel.value}` : '未找到会话'
+)
 
 const emptyDescription = computed(() =>
   props.sessions.length === 0
-    ? '开始新的对话后，会话会出现在这里。'
+    ? props.sessionKindFilter === activeSessionMode.value
+      ? `${newChatLabel.value}后，会话会出现在这里。`
+      : `${activeSessionKindOption.value.title}会在这里显示。`
     : '调整搜索关键词，或直接新建对话。'
 )
 
@@ -215,8 +267,26 @@ function clearSearch() {
 
 function updateSessionKindFilter(value: unknown) {
   if (!value || typeof value !== 'string') return
-  if (value !== 'chat' && value !== 'tavern' && value !== 'cat' && value !== 'vision') return
+  if (
+    value !== 'chat' &&
+    value !== 'tavern' &&
+    value !== 'cat' &&
+    value !== 'cron' &&
+    value !== 'vision'
+  ) {
+    return
+  }
   emit('updateSessionKindFilter', value)
+}
+
+function updateSessionMode(value: unknown) {
+  if (!value || typeof value !== 'string') return
+  if (value !== 'chat' && value !== 'tavern') return
+  emit('updateSessionMode', value)
+}
+
+function toggleCollapsedMode() {
+  emit('updateSessionMode', nextCollapsedMode.value)
 }
 </script>
 
@@ -225,7 +295,7 @@ function updateSessionKindFilter(value: unknown) {
     collapsible="icon"
     class="group-data-[collapsible=icon]:border-r-0! group-data-[collapsible=icon]:*:data-[slot=sidebar-inner]:bg-transparent"
   >
-    <SidebarHeader>
+    <SidebarHeader class="gap-1.5">
       <div class="flex items-center gap-2">
         <SidebarTrigger />
       </div>
@@ -233,12 +303,48 @@ function updateSessionKindFilter(value: unknown) {
       <SidebarMenu>
         <SidebarMenuItem>
           <SidebarMenuButton
+            size="sm"
             :disabled="creating"
-            tooltip="新建对话"
+            :tooltip="newChatLabel"
+            :aria-label="newChatLabel"
             @click="emit('newChat')"
           >
             <PlusIcon />
-            <span>新建对话</span>
+            <span>{{ newChatLabel }}</span>
+          </SidebarMenuButton>
+        </SidebarMenuItem>
+      </SidebarMenu>
+
+      <Tabs
+        :model-value="activeSessionMode"
+        class="group-data-[collapsible=icon]:hidden gap-1"
+        @update:model-value="updateSessionMode"
+      >
+        <TabsList class="grid h-7 w-full grid-cols-2 rounded-md p-[2px]">
+          <TabsTrigger
+            v-for="option in sessionModeOptions"
+            :key="option.value"
+            :value="option.value"
+            class="gap-1 rounded-sm px-1 text-xs"
+          >
+            <component
+              :is="option.icon"
+              data-icon="inline-start"
+            />
+            {{ option.label }}
+          </TabsTrigger>
+        </TabsList>
+      </Tabs>
+
+      <SidebarMenu class="hidden group-data-[collapsible=icon]:block">
+        <SidebarMenuItem>
+          <SidebarMenuButton
+            :is-active="activeSessionMode === 'tavern'"
+            :tooltip="collapsedModeTooltip"
+            :aria-label="collapsedModeTooltip"
+            @click="toggleCollapsedMode"
+          >
+            <component :is="activeSessionModeOption.icon" />
           </SidebarMenuButton>
         </SidebarMenuItem>
       </SidebarMenu>
@@ -248,7 +354,6 @@ function updateSessionKindFilter(value: unknown) {
 
     <SidebarContent>
       <SidebarGroup class="group-data-[collapsible=icon]:hidden">
-        <SidebarGroupLabel>Sessions</SidebarGroupLabel>
         <SidebarGroupContent>
           <div class="group-data-[collapsible=icon]:hidden mb-2 flex items-center gap-2">
             <InputGroup>
@@ -278,8 +383,8 @@ function updateSessionKindFilter(value: unknown) {
               <DropdownMenuTrigger as-child>
                 <Button
                   variant="outline"
-                  size="icon"
-                  :aria-label="`筛选${activeSessionKindOption.label}`"
+                  size="icon-sm"
+                  :aria-label="`筛选${activeSessionKindOption.title}`"
                 >
                   <component
                     :is="activeSessionKindOption.icon"
@@ -380,17 +485,6 @@ function updateSessionKindFilter(value: unknown) {
         <SidebarMenuItem
           class="flex justify-end gap-2 group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:gap-2"
         >
-          <SidebarMenuButton
-            class="w-auto"
-            size="default"
-            :is-active="sessionKindFilter === 'tavern'"
-            tooltip="酒馆"
-            aria-label="酒馆"
-            @click="emit('openTavern')"
-          >
-            <DramaIcon />
-          </SidebarMenuButton>
-
           <SidebarMenuButton
             class="w-auto"
             size="default"

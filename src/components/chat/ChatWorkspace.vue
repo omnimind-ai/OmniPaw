@@ -10,6 +10,7 @@ const {
   workspaceContext,
   sessions,
   currSessionId,
+  sessionMode,
   sessionKindFilter,
   creatingSession,
   runningSessionIds,
@@ -17,9 +18,9 @@ const {
   setSidebarOpen,
   handleNewChat,
   handleSelectSession,
+  handleSessionModeChange,
   handleSessionKindFilterChange,
   openSettings,
-  openTavernHome,
   toggleCatVisibility,
   handleRenameSession,
   handleDeleteSession,
@@ -36,15 +37,16 @@ provide(chatWorkspaceContextKey, workspaceContext)
     <ChatSidebar
       :sessions="sessions"
       :active-session-id="currSessionId"
+      :session-mode="sessionMode"
       :session-kind-filter="sessionKindFilter"
       :creating="creatingSession"
       :running-session-ids="runningSessionIds"
       @new-chat="handleNewChat"
       @select-session="handleSelectSession"
+      @update-session-mode="handleSessionModeChange"
       @update-session-kind-filter="handleSessionKindFilterChange"
       @open-settings="openSettings"
       @toggle-cat="toggleCatVisibility"
-      @open-tavern="openTavernHome"
       @rename-session="handleRenameSession"
       @delete-session="handleDeleteSession"
     />

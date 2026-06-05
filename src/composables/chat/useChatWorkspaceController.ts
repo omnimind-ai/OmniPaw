@@ -24,12 +24,18 @@ import { useToast } from '@/utils/toast'
 import { useChatWorkspaceModel } from './useChatWorkspaceModel'
 import { useChatWorkspaceScroll } from './useChatWorkspaceScroll'
 
-type SessionKindFilter = Extract<ChatSessionKind, 'chat' | 'tavern' | 'cat' | 'vision'>
+type SessionKindFilter = ChatSessionKind
+type SessionMode = Extract<SessionKindFilter, 'chat' | 'tavern'>
 
-const sessionKindFilters = new Set<SessionKindFilter>(['chat', 'tavern', 'cat', 'vision'])
+const sessionKindFilters = new Set<SessionKindFilter>(['chat', 'tavern', 'cat', 'cron', 'vision'])
+const sessionModes = new Set<SessionMode>(['chat', 'tavern'])
 
 function isSessionKindFilter(value: unknown): value is SessionKindFilter {
   return typeof value === 'string' && sessionKindFilters.has(value as SessionKindFilter)
+}
+
+function isSessionMode(value: unknown): value is SessionMode {
+  return typeof value === 'string' && sessionModes.has(value as SessionMode)
 }
 
 export function useChatWorkspaceController() {
@@ -52,6 +58,7 @@ export function useChatWorkspaceController() {
 
   const media = useMediaHandling()
   const draft = ref(chatStore.draft || '')
+  const sessionMode = ref<SessionMode>('chat')
   const sessionKindFilter = ref<SessionKindFilter>('chat')
   const fileInput = ref<HTMLInputElement | null>(null)
   const creatingSession = ref(false)
@@ -391,10 +398,12 @@ export function useChatWorkspaceController() {
     async (routeName) => {
       if (routeSessionId()) return
       if (routeName === 'tavern') {
+        sessionMode.value = 'tavern'
         await setSessionKindFilter('tavern')
         return
       }
       if (routeName === 'home') {
+        sessionMode.value = 'chat'
         await setSessionKindFilter('chat')
       }
     },
@@ -526,11 +535,19 @@ export function useChatWorkspaceController() {
     await setSessionKindFilter(kind)
   }
 
+  async function handleSessionModeChange(mode: SessionMode) {
+    if (!isSessionMode(mode)) return
+    await openSessionModeHome(mode)
+  }
+
   async function syncSessionKindFilterForSession(sessionId: string) {
     const loadedSession =
       sessions.value.find((session) => session.id === sessionId) ??
       (await appBridge.chat.getSession?.(sessionId).catch(() => null))
     if (!isSessionKindFilter(loadedSession?.kind)) return
+    if (isSessionMode(loadedSession.kind)) {
+      sessionMode.value = loadedSession.kind
+    }
     await setSessionKindFilter(loadedSession.kind)
   }
 
@@ -548,17 +565,28 @@ export function useChatWorkspaceController() {
     return param || ''
   }
 
-  async function handleNewChat() {
+  function resetActiveSession(options: { clearDraft?: boolean } = {}) {
     currSessionId.value = ''
     selectedSessions.value = []
     chatStore.activeSessionId = undefined
-    draft.value = ''
-    chatStore.draft = ''
     replyTarget.value = null
     media.clearStaged()
     model.syncSelectedModel()
-    await setSessionKindFilter('chat')
-    await router.push('/')
+    if (options.clearDraft) {
+      draft.value = ''
+      chatStore.draft = ''
+    }
+  }
+
+  async function openSessionModeHome(kind: SessionMode, options: { clearDraft?: boolean } = {}) {
+    resetActiveSession(options)
+    sessionMode.value = kind
+    await setSessionKindFilter(kind)
+    await router.push(kind === 'tavern' ? '/tavern' : '/')
+  }
+
+  async function handleNewChat() {
+    await openSessionModeHome(sessionMode.value, { clearDraft: true })
   }
 
   async function handleSelectSession(sessionId: string) {
@@ -576,17 +604,6 @@ export function useChatWorkspaceController() {
 
   async function openTavernSettings() {
     await router.push({ name: 'settings', query: { tab: 'tavern' } })
-  }
-
-  async function openTavernHome() {
-    currSessionId.value = ''
-    selectedSessions.value = []
-    chatStore.activeSessionId = undefined
-    replyTarget.value = null
-    media.clearStaged()
-    model.syncSelectedModel()
-    await setSessionKindFilter('tavern')
-    await router.push('/tavern')
   }
 
   async function toggleCatVisibility() {
@@ -1070,6 +1087,7 @@ export function useChatWorkspaceController() {
     workspaceContext,
     sessions,
     currSessionId,
+    sessionMode,
     sessionKindFilter,
     creatingSession,
     runningSessionIds: messages.runningSessionIds,
@@ -1077,9 +1095,9 @@ export function useChatWorkspaceController() {
     setSidebarOpen,
     handleNewChat,
     handleSelectSession,
+    handleSessionModeChange,
     handleSessionKindFilterChange,
     openSettings,
-    openTavernHome,
     toggleCatVisibility,
     handleRenameSession,
     handleDeleteSession,

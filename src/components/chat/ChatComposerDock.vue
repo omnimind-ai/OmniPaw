@@ -97,6 +97,7 @@ const {
         :selected-model-meta="selectedModelMeta"
         :tool-profile="agentToolProfile"
         :tool-profile-options="toolProfileOptions"
+        :show-tool-profile="true"
         :tool-profile-saving="toolProfileSaving"
         :context-usage="activeContextUsage"
         :context-usage-loading="activeContextUsageLoading"
