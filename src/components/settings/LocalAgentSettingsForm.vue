@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { FolderCogIcon, TerminalIcon } from 'lucide-vue-next'
+import { TerminalIcon } from 'lucide-vue-next'
 import { computed } from 'vue'
 import type { BridgeDesktopSettingsConfig } from '@/bridge/app'
 import SettingEntry from '@/components/settings/common/SettingEntry.vue'
@@ -85,7 +85,8 @@ function kbToChars(value: string | number, min: number, max: number) {
 <template>
   <SettingsSection
     title="本地 Agent 能力"
-    description="托管 workspace 和本机 terminal 默认开箱即用；Docker 与专用镜像不是默认路径。"
+    description="配置 workspace 和 terminal 的本地权限。"
+    :icon="TerminalIcon"
   >
     <FieldGroup class="gap-0">
       <SettingEntry

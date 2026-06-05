@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { MessageCircleIcon } from 'lucide-vue-next'
+import { MessageCircleIcon, PlayCircleIcon, ShieldIcon, TimerIcon } from 'lucide-vue-next'
 import { computed, onMounted, ref } from 'vue'
 import { appBridge, type BridgeDesktopSettingsConfig, ensureElectronBridge } from '@/bridge/app'
 import SettingEntry from '@/components/settings/common/SettingEntry.vue'
@@ -151,7 +151,8 @@ function clampInteger(value: string | number, min: number, max = Number.MAX_SAFE
   <div class="flex flex-col gap-6">
     <SettingsSection
       title="主动视觉运行"
-      description="运行状态只影响当前应用生命周期，重启后不会自动恢复屏幕捕获。"
+      description="控制当前应用生命周期内的观察运行态。"
+      :icon="PlayCircleIcon"
     >
       <FieldGroup class="gap-0">
         <SettingEntry control-id="observation-runtime" title="运行主动视觉">
@@ -209,7 +210,8 @@ function clampInteger(value: string | number, min: number, max = Number.MAX_SAFE
 
     <SettingsSection
       title="触发策略"
-      description="保存策略不会启动屏幕捕获。只有运行开关开启后才会按策略执行。"
+      description="设置观察频率、概率和主动反应倾向。"
+      :icon="TimerIcon"
     >
       <FieldGroup class="gap-0">
         <SettingEntry
@@ -316,7 +318,11 @@ function clampInteger(value: string | number, min: number, max = Number.MAX_SAFE
       </FieldGroup>
     </SettingsSection>
 
-    <SettingsSection title="隐私与限制">
+    <SettingsSection
+      title="隐私与限制"
+      description="限制截图保留、外部模型和失败边界。"
+      :icon="ShieldIcon"
+    >
       <FieldGroup class="gap-0">
         <SettingEntry
           control-id="observation-retention"

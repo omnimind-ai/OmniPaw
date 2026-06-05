@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { BotIcon, EyeIcon, ListChecksIcon } from 'lucide-vue-next'
 import { storeToRefs } from 'pinia'
 import type { AcceptableValue } from 'reka-ui'
 import { computed } from 'vue'
@@ -126,7 +127,11 @@ function modelLabel(option: ProviderModelOption) {
 
 <template>
   <div class="flex flex-col gap-6">
-    <SettingsSection title="默认模型">
+    <SettingsSection
+      title="默认模型"
+      description="设置新会话与辅助任务的首选模型。"
+      :icon="BotIcon"
+    >
       <FieldGroup class="gap-0">
         <SettingEntry
           control-id="settings-default-model"
@@ -237,7 +242,11 @@ function modelLabel(option: ProviderModelOption) {
       </FieldGroup>
     </SettingsSection>
 
-    <SettingsSection title="主动视觉观察模型">
+    <SettingsSection
+      title="主动视觉观察模型"
+      description="指定视觉理解和短反应的模型链路。"
+      :icon="EyeIcon"
+    >
       <FieldGroup class="gap-0">
         <SettingEntry control-id="settings-observation-vision-model" title="视觉观察模型">
           <template #description>
@@ -309,7 +318,11 @@ function modelLabel(option: ProviderModelOption) {
       </FieldGroup>
     </SettingsSection>
 
-    <SettingsSection title="备用模型">
+    <SettingsSection
+      title="备用模型"
+      description="选择默认模型不可用时的候选。"
+      :icon="ListChecksIcon"
+    >
       <FieldSet class="px-4 py-4">
         <FieldDescription v-if="!enabledOptions.length">
           还没有可用模型。

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { MessagesSquareIcon, SlidersHorizontalIcon } from 'lucide-vue-next'
 import { computed } from 'vue'
 import type {
   BridgeAppLanguage,
@@ -118,7 +119,11 @@ function clampPercent(value: string | number): number {
 
 <template>
   <div class="flex flex-col gap-6">
-    <SettingsSection title="常规设置">
+    <SettingsSection
+      title="常规设置"
+      description="调整界面显示和窗口行为。"
+      :icon="SlidersHorizontalIcon"
+    >
       <FieldGroup class="gap-0">
         <SettingEntry
           control-id="settings-language"
@@ -211,7 +216,11 @@ function clampPercent(value: string | number): number {
       </FieldGroup>
     </SettingsSection>
 
-    <SettingsSection title="对话设置">
+    <SettingsSection
+      title="对话设置"
+      description="控制上下文、附件和压缩策略。"
+      :icon="MessagesSquareIcon"
+    >
       <FieldGroup class="gap-0">
         <SettingEntry
           control-id="settings-max-recent"

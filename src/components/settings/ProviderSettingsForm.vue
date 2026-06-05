@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { PlugIcon } from 'lucide-vue-next'
 import { storeToRefs } from 'pinia'
 import { computed, onMounted, ref, watch } from 'vue'
 import type { BridgeProviderPreset } from '@/bridge/app'
