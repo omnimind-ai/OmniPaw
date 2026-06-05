@@ -5,19 +5,11 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import brandLogoUrl from '@/asserts/brand-logo.png'
 import { appBridge, type BridgeDesktopWindowState, type BridgeUnsubscribe } from '@/bridge/app'
 import { Button } from '@/components/ui/button'
-import { cn } from '@/lib/utils'
 
 type WindowAction = 'close' | 'minimize' | 'toggleMaximize'
 
-interface MacControl {
-  action: WindowAction
-  label: string
-  circleClass: string
-  icon: typeof XIcon
-}
-
 const windowState = ref<BridgeDesktopWindowState>({
-  platform: 'win32',
+  platform: inferRendererPlatform(),
   isMaximized: false,
 })
 let unsubscribeWindowState: BridgeUnsubscribe | undefined
@@ -25,26 +17,14 @@ let unsubscribeWindowState: BridgeUnsubscribe | undefined
 const isMac = computed(() => windowState.value.platform === 'darwin')
 const maximizeLabel = computed(() => (windowState.value.isMaximized ? '还原' : '最大化'))
 const maximizeIcon = computed(() => (windowState.value.isMaximized ? CopyIcon : SquareIcon))
-const macControls = computed<MacControl[]>(() => [
-  {
-    action: 'close',
-    label: '关闭',
-    circleClass: 'bg-[#ff5f57]',
-    icon: XIcon,
-  },
-  {
-    action: 'minimize',
-    label: '最小化',
-    circleClass: 'bg-[#ffbd2e]',
-    icon: MinusIcon,
-  },
-  {
-    action: 'toggleMaximize',
-    label: maximizeLabel.value,
-    circleClass: 'bg-[#28c840]',
-    icon: maximizeIcon.value,
-  },
-])
+
+function inferRendererPlatform(): string {
+  if (typeof navigator === 'undefined') {
+    return 'win32'
+  }
+
+  return navigator.platform.toLowerCase().includes('mac') ? 'darwin' : 'win32'
+}
 
 onMounted(() => {
   void refreshWindowState()
@@ -86,33 +66,13 @@ function handleWindowAction(action: WindowAction): void {
   >
     <div
       v-if="isMac"
-      class="relative z-10 flex h-full w-24 items-center gap-1 px-2.5"
-      style="-webkit-app-region: no-drag"
-    >
-      <button
-        v-for="control in macControls"
-        :key="control.action"
-        type="button"
-        :aria-label="control.label"
-        class="group flex size-[18px] items-center justify-center rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring/70"
-        @click="handleWindowAction(control.action)"
-      >
-        <span
-          :class="
-            cn('flex size-2.5 items-center justify-center rounded-full', control.circleClass)
-          "
-        >
-          <component
-            :is="control.icon"
-            class="size-1.5 opacity-0 transition-opacity group-hover:opacity-80"
-          />
-        </span>
-      </button>
-    </div>
+      class="relative z-10 h-full w-24 shrink-0"
+      aria-hidden="true"
+    />
 
     <div
       v-else
-      class="relative z-10 h-full w-28"
+      class="relative z-10 h-full w-28 shrink-0"
     />
 
     <div class="pointer-events-none absolute inset-0 flex items-center justify-center px-28">
@@ -165,7 +125,7 @@ function handleWindowAction(action: WindowAction): void {
 
     <div
       v-else
-      class="relative z-10 ml-auto h-full w-28"
+      class="relative z-10 ml-auto h-full w-28 shrink-0"
     />
   </header>
 </template>

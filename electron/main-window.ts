@@ -30,6 +30,7 @@ export function createMainWindowController(
   let mainWindow: BrowserWindow | null = null
 
   function create(): void {
+    const isMac = process.platform === 'darwin'
     const window = new BrowserWindow({
       width: 1240,
       height: 780,
@@ -37,7 +38,14 @@ export function createMainWindowController(
       minHeight: 640,
       title: options.appName,
       backgroundColor: '#f7f4ed',
-      frame: false,
+      ...(isMac
+        ? {
+            titleBarStyle: 'hiddenInset',
+            trafficLightPosition: { x: 12, y: 4 },
+          }
+        : {
+            frame: false,
+          }),
       autoHideMenuBar: true,
       show: false,
       webPreferences: {
