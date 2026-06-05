@@ -176,6 +176,7 @@ import type {
   UpdateTavernUserProfileRequest,
 } from './tavern'
 import type { ManagedToolInfo, SetToolEnabledRequest, SetToolEnabledResponse } from './tool'
+import type { DesktopWindowState, DesktopWindowStateChangedEvent } from './window'
 
 export type Unsubscribe = () => void
 
@@ -336,6 +337,13 @@ export interface OpenOmniClawBridge {
     getInfo: () => Promise<AppInfo>
     openChatSession: (request: OpenChatSessionRequest | string) => Promise<void>
     onOpenChatSession: (callback: (request: OpenChatSessionRequest) => void) => Unsubscribe
+  }
+  window: {
+    getState: () => Promise<DesktopWindowState>
+    minimize: () => Promise<DesktopWindowState>
+    toggleMaximize: () => Promise<DesktopWindowState>
+    close: () => Promise<void>
+    onStateChanged: (callback: (event: DesktopWindowStateChangedEvent) => void) => Unsubscribe
   }
   logging: {
     write: (request: RendererLogRequest) => Promise<LoggerWriteResponse>

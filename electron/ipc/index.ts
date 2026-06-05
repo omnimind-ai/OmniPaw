@@ -12,11 +12,13 @@ import { registerTavernIpcHandlers } from './tavern'
 import { registerTerminalProcessIpcHandlers } from './terminal-process'
 import { registerToolIpcHandlers } from './tools'
 import type { IpcHandlerOptions } from './types'
+import { registerWindowIpcHandlers } from './window'
 import { registerWorkspaceIpcHandlers } from './workspace'
 
 export function registerIpcHandlers(options: IpcHandlerOptions): void {
   registerLoggingIpcHandlers(options)
   registerAppIpcHandlers(options)
+  registerWindowIpcHandlers(options)
   registerSettingsIpcHandlers(options)
   registerChatIpcHandlers(options)
   registerProviderIpcHandlers(options)

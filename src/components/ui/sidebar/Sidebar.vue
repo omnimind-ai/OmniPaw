@@ -39,6 +39,8 @@ const { isMobile, state, openMobile, setOpenMobile } = useSidebar()
       class="bg-sidebar text-sidebar-foreground w-(--sidebar-width) p-0 [&>button]:hidden"
       :style="{
         '--sidebar-width': SIDEBAR_WIDTH_MOBILE,
+        top: 'var(--app-window-content-top)',
+        height: 'calc(100svh - var(--app-window-content-top))',
       }"
     >
       <SheetHeader class="sr-only">
@@ -75,6 +77,10 @@ const { isMobile, state, openMobile, setOpenMobile } = useSidebar()
     <div
       data-slot="sidebar-container"
       :data-side="side"
+      :style="{
+        top: 'var(--app-window-content-top)',
+        height: 'calc(100svh - var(--app-window-content-top))',
+      }"
       :class="cn(
         'fixed inset-y-0 z-10 hidden h-svh w-(--sidebar-width) transition-[left,right,width] duration-200 ease-linear md:flex',
         side === 'left'

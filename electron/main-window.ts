@@ -1,6 +1,8 @@
 import { join } from 'node:path'
 
 import type { Logger } from '@core/logging'
+import { IPC_CHANNELS } from '@shared/constants'
+import type { DesktopWindowState } from '@shared/types/window'
 import { type app, BrowserWindow, shell } from 'electron'
 
 interface MainWindowControllerOptions {
@@ -35,6 +37,8 @@ export function createMainWindowController(
       minHeight: 640,
       title: options.appName,
       backgroundColor: '#f7f4ed',
+      frame: false,
+      autoHideMenuBar: true,
       show: false,
       webPreferences: {
         preload: join(__dirname, '../preload/preload.cjs'),
@@ -45,6 +49,7 @@ export function createMainWindowController(
     })
     mainWindow = window
     attachWindowDiagnostics(window, 'main', options.logger)
+    attachWindowStateEvents(window)
 
     if (process.env.ELECTRON_RENDERER_URL) {
       void window.loadURL(process.env.ELECTRON_RENDERER_URL)
@@ -148,4 +153,26 @@ function attachWindowDiagnostics(window: BrowserWindow, windowName: string, logg
   window.webContents.on('unresponsive', () => {
     windowLogger.warn('Window became unresponsive.')
   })
+}
+
+function attachWindowStateEvents(window: BrowserWindow): void {
+  const sendState = () => {
+    if (window.isDestroyed()) {
+      return
+    }
+
+    window.webContents.send(IPC_CHANNELS.window.stateChanged, getWindowState(window))
+  }
+
+  window.on('maximize', sendState)
+  window.on('unmaximize', sendState)
+  window.on('enter-full-screen', sendState)
+  window.on('leave-full-screen', sendState)
+}
+
+function getWindowState(window: BrowserWindow): DesktopWindowState {
+  return {
+    platform: process.platform,
+    isMaximized: window.isMaximized() || window.isFullScreen(),
+  }
 }

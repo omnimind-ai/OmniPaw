@@ -32,6 +32,7 @@ provide(chatWorkspaceContextKey, workspaceContext)
 <template>
   <SidebarProvider
     :open="sidebarOpen"
+    class="h-full min-h-0"
     @update:open="setSidebarOpen"
   >
     <ChatSidebar
@@ -51,7 +52,7 @@ provide(chatWorkspaceContextKey, workspaceContext)
       @delete-session="handleDeleteSession"
     />
 
-    <SidebarInset class="h-svh overflow-hidden">
+    <SidebarInset class="h-full overflow-hidden">
       <header class="flex h-12 shrink-0 items-center border-b px-3 md:hidden">
         <SidebarTrigger />
       </header>

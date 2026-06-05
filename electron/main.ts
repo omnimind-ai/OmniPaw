@@ -12,7 +12,7 @@ import type {
   DesktopSettingsConfig,
   SettingsChangeReason,
 } from '@shared/types/settings'
-import { app, BrowserWindow } from 'electron'
+import { app, BrowserWindow, Menu } from 'electron'
 import {
   type CatNotificationController,
   createCatNotificationController,
@@ -307,6 +307,8 @@ app
       version: app.getVersion(),
       logDir: logSink.status().logDir,
     })
+
+    Menu.setApplicationMenu(null)
 
     runtime = createCoreRuntime({
       app,

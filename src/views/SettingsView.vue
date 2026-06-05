@@ -215,6 +215,7 @@ function normalizeSettingsTab(value: unknown): SettingsTab | undefined {
 <template>
   <SidebarProvider
     :open="sidebarOpen"
+    class="h-full min-h-0"
     @update:open="handleSidebarOpenUpdate"
   >
     <SettingsSidebar
@@ -223,9 +224,9 @@ function normalizeSettingsTab(value: unknown): SettingsTab | undefined {
       @back="backToChat"
     />
 
-    <SidebarInset class="h-svh overflow-hidden">
-      <main class="flex h-full min-h-0 flex-1 flex-col bg-muted/40">
-        <SidebarTrigger class="fixed left-3 top-3 md:hidden" />
+    <SidebarInset class="h-full overflow-hidden">
+      <main class="relative flex h-full min-h-0 flex-1 flex-col bg-muted/40">
+        <SidebarTrigger class="absolute left-3 top-3 md:hidden" />
         <div
           v-if="isFullHeightPanelTab"
           :class="contentClass"

@@ -3,6 +3,7 @@ import { onBeforeUnmount, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 
 import { appBridge, type BridgeStreamEvent } from '@/bridge/app'
+import AppTopBar from '@/components/common/AppTopBar.vue'
 import { Toaster } from '@/components/ui/sonner'
 import { useAppTheme } from '@/composables/useAppTheme'
 
@@ -57,10 +58,18 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <RouterView />
-  <Toaster
-    close-button
-    rich-colors
-    position="top-right"
-  />
+  <div
+    data-app-shell
+    class="flex h-svh min-h-0 flex-col overflow-hidden bg-background text-foreground"
+  >
+    <AppTopBar />
+    <div class="min-h-0 flex-1 overflow-hidden">
+      <RouterView />
+    </div>
+    <Toaster
+      close-button
+      rich-colors
+      position="top-right"
+    />
+  </div>
 </template>

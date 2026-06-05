@@ -172,7 +172,7 @@ function mapMessage(message: BridgeChatMessage): ChatRecord {
 </script>
 
 <template>
-  <main class="flex h-svh min-h-0 flex-col bg-background text-foreground">
+  <main class="flex h-full min-h-0 flex-col bg-background text-foreground">
     <header class="flex shrink-0 flex-wrap items-center gap-3 border-b px-4 py-3">
       <div class="min-w-0 flex-1">
         <h1 class="truncate text-base font-semibold">主动视觉</h1>

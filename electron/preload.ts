@@ -269,6 +269,13 @@ const bridge: OpenOmniClawBridge = {
     openChatSession: (request) => ipcRenderer.invoke(IPC_CHANNELS.app.openChatSession, request),
     onOpenChatSession: (callback) => createUnsubscriber(IPC_CHANNELS.app.navigateToChat, callback),
   },
+  window: {
+    getState: () => ipcRenderer.invoke(IPC_CHANNELS.window.getState),
+    minimize: () => ipcRenderer.invoke(IPC_CHANNELS.window.minimize),
+    toggleMaximize: () => ipcRenderer.invoke(IPC_CHANNELS.window.toggleMaximize),
+    close: () => ipcRenderer.invoke(IPC_CHANNELS.window.close),
+    onStateChanged: (callback) => createUnsubscriber(IPC_CHANNELS.window.stateChanged, callback),
+  },
   logging: {
     write: writeRendererLog,
     status: getLoggingStatus,

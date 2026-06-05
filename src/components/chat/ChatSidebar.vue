@@ -115,7 +115,7 @@ const sessionModeOptions: Array<{
     value: 'tavern',
     label: '酒馆',
     title: '酒馆会话',
-    newLabel: '新建酒馆会话',
+    newLabel: '新建对话',
     icon: DramaIcon,
   },
 ]
@@ -320,12 +320,12 @@ function toggleCollapsedMode() {
         class="group-data-[collapsible=icon]:hidden gap-1"
         @update:model-value="updateSessionMode"
       >
-        <TabsList class="grid h-7 w-full grid-cols-2 rounded-md p-[2px]">
+        <TabsList class="grid !h-6 w-full grid-cols-2 rounded-md bg-sidebar-accent/40 p-px group-data-horizontal/tabs:!h-6">
           <TabsTrigger
             v-for="option in sessionModeOptions"
             :key="option.value"
             :value="option.value"
-            class="gap-1 rounded-sm px-1 text-xs"
+            class="box-border !h-full min-h-0 gap-0.5 overflow-hidden rounded-sm !border-0 !px-1 !py-0 !text-[13px] leading-none font-normal text-sidebar-foreground/55 shadow-none outline-none hover:bg-sidebar-accent/60 hover:text-sidebar-foreground/75 focus-visible:ring-1 focus-visible:ring-sidebar-ring/35 data-active:bg-sidebar-accent/70 data-active:text-sidebar-foreground/80 data-active:shadow-none dark:data-active:border-transparent dark:data-active:bg-sidebar-accent/70 has-data-[icon=inline-start]:!pl-1 group-data-[variant=default]/tabs-list:data-active:shadow-none [&_svg:not([class*=size-])]:!size-3"
           >
             <component
               :is="option.icon"

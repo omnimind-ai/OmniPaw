@@ -104,8 +104,11 @@ import type {
   UpdateTavernSessionBindingRequest,
   UpdateTavernUserProfileRequest,
 } from '@shared/types/tavern'
+import type { DesktopWindowState, DesktopWindowStateChangedEvent } from '@shared/types/window'
 
 export type BridgeUnsubscribe = () => void
+export type BridgeDesktopWindowState = DesktopWindowState
+export type BridgeDesktopWindowStateChangedEvent = DesktopWindowStateChangedEvent
 
 export type BridgeAppTheme = 'system' | 'light' | 'dark'
 export type BridgeAppLanguage = 'system' | 'zh-CN' | 'en-US'
@@ -844,6 +847,15 @@ export interface RendererOpenOmniClawBridge {
     openChatSession?: (request: OpenChatSessionRequest | string) => Promise<void>
     onOpenChatSession?: (callback: (request: OpenChatSessionRequest) => void) => BridgeUnsubscribe
   }
+  window: {
+    getState: () => Promise<BridgeDesktopWindowState>
+    minimize: () => Promise<BridgeDesktopWindowState>
+    toggleMaximize: () => Promise<BridgeDesktopWindowState>
+    close: () => Promise<void>
+    onStateChanged: (
+      callback: (event: BridgeDesktopWindowStateChangedEvent) => void
+    ) => BridgeUnsubscribe
+  }
   logging: {
     write: (request: RendererLogRequest) => Promise<LoggerWriteResponse>
     status: () => Promise<LoggerHealthStatus>
@@ -1337,6 +1349,22 @@ const fallbackBridge: RendererOpenOmniClawBridge = {
     }),
     openChatSession: async () => {},
     onOpenChatSession: () => () => {},
+  },
+  window: {
+    getState: async () => ({
+      platform: 'win32',
+      isMaximized: false,
+    }),
+    minimize: async () => ({
+      platform: 'win32',
+      isMaximized: false,
+    }),
+    toggleMaximize: async () => ({
+      platform: 'win32',
+      isMaximized: false,
+    }),
+    close: async () => {},
+    onStateChanged: () => () => {},
   },
   logging: {
     write: async () => ({
@@ -2054,6 +2082,19 @@ function createAppBridge(
   }
 }
 
+function createWindowBridge(
+  bridge: RendererOpenOmniClawBridge['window'] | undefined
+): RendererOpenOmniClawBridge['window'] {
+  if (!bridge) {
+    return fallbackBridge.window
+  }
+
+  return {
+    ...fallbackBridge.window,
+    ...bridge,
+  }
+}
+
 function createCatBridge(
   bridge: RendererOpenOmniClawBridge['cat'] | undefined
 ): RendererOpenOmniClawBridge['cat'] {
@@ -2157,6 +2198,7 @@ export const appBridge: RendererOpenOmniClawBridge = exposedBridge
       ...fallbackBridge,
       ...exposedBridge,
       app: createAppBridge(exposedBridge.app),
+      window: createWindowBridge(exposedBridge.window),
       cat: createCatBridge(exposedBridge.cat),
       logging: exposedBridge.logging ?? fallbackBridge.logging,
       settings: createSettingsBridge(exposedBridge.settings),

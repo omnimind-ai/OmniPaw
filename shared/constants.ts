@@ -10,6 +10,13 @@ export const IPC_CHANNELS = {
     openChatSession: 'app:open-chat-session',
     navigateToChat: 'app:navigate-to-chat',
   },
+  window: {
+    getState: 'window:get-state',
+    minimize: 'window:minimize',
+    toggleMaximize: 'window:toggle-maximize',
+    close: 'window:close',
+    stateChanged: 'window:state-changed',
+  },
   logging: {
     write: 'logging:write',
     status: 'logging:status',
