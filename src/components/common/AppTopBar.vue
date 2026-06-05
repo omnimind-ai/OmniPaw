@@ -5,7 +5,6 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import brandLogoUrl from '@/asserts/brand-logo.png'
 import { appBridge, type BridgeDesktopWindowState, type BridgeUnsubscribe } from '@/bridge/app'
 import { Button } from '@/components/ui/button'
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import { cn } from '@/lib/utils'
 
 type WindowAction = 'close' | 'minimize' | 'toggleMaximize'
@@ -85,118 +84,88 @@ function handleWindowAction(action: WindowAction): void {
     class="relative z-[60] flex h-(--app-topbar-height) shrink-0 items-center overflow-hidden border-b border-border bg-background text-foreground"
     style="-webkit-app-region: drag"
   >
-    <TooltipProvider :delay-duration="180">
-      <div
-        v-if="isMac"
-        class="relative z-10 flex h-full w-24 items-center gap-1 px-2.5"
-        style="-webkit-app-region: no-drag"
+    <div
+      v-if="isMac"
+      class="relative z-10 flex h-full w-24 items-center gap-1 px-2.5"
+      style="-webkit-app-region: no-drag"
+    >
+      <button
+        v-for="control in macControls"
+        :key="control.action"
+        type="button"
+        :aria-label="control.label"
+        class="group flex size-[18px] items-center justify-center rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring/70"
+        @click="handleWindowAction(control.action)"
       >
-        <Tooltip
-          v-for="control in macControls"
-          :key="control.action"
+        <span
+          :class="
+            cn('flex size-2.5 items-center justify-center rounded-full', control.circleClass)
+          "
         >
-          <TooltipTrigger as-child>
-            <button
-              type="button"
-              :aria-label="control.label"
-              :title="control.label"
-              class="group flex size-[18px] items-center justify-center rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring/70"
-              @click="handleWindowAction(control.action)"
-            >
-              <span
-                :class="
-                  cn(
-                    'flex size-2.5 items-center justify-center rounded-full',
-                    control.circleClass
-                  )
-                "
-              >
-                <component
-                  :is="control.icon"
-                  class="size-1.5 opacity-0 transition-opacity group-hover:opacity-80"
-                />
-              </span>
-            </button>
-          </TooltipTrigger>
-          <TooltipContent side="bottom">{{ control.label }}</TooltipContent>
-        </Tooltip>
-      </div>
+          <component
+            :is="control.icon"
+            class="size-1.5 opacity-0 transition-opacity group-hover:opacity-80"
+          />
+        </span>
+      </button>
+    </div>
 
-      <div
-        v-else
-        class="relative z-10 h-full w-28"
+    <div
+      v-else
+      class="relative z-10 h-full w-28"
+    />
+
+    <div class="pointer-events-none absolute inset-0 flex items-center justify-center px-28">
+      <img
+        :src="brandLogoUrl"
+        alt="OpenOmniClaw"
+        class="h-4 w-auto max-w-[min(42vw,8rem)] object-contain"
+        draggable="false"
       />
+    </div>
 
-      <div class="pointer-events-none absolute inset-0 flex items-center justify-center px-28">
-        <img
-          :src="brandLogoUrl"
-          alt="OpenOmniClaw"
-          class="h-4 w-auto max-w-[min(42vw,8rem)] object-contain"
-          draggable="false"
-        />
-      </div>
-
-      <div
-        v-if="!isMac"
-        class="relative z-10 ml-auto flex h-full"
-        style="-webkit-app-region: no-drag"
+    <div
+      v-if="!isMac"
+      class="relative z-10 ml-auto flex h-full"
+      style="-webkit-app-region: no-drag"
+    >
+      <Button
+        type="button"
+        variant="ghost"
+        class="h-full w-9 rounded-none text-muted-foreground hover:bg-muted hover:text-foreground"
+        :aria-label="'最小化'"
+        @click="handleWindowAction('minimize')"
       >
-        <Tooltip>
-          <TooltipTrigger as-child>
-            <Button
-              type="button"
-              variant="ghost"
-              class="h-full w-9 rounded-none text-muted-foreground hover:bg-muted hover:text-foreground"
-              :aria-label="'最小化'"
-              title="最小化"
-              @click="handleWindowAction('minimize')"
-            >
-              <MinusIcon data-icon />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side="bottom">最小化</TooltipContent>
-        </Tooltip>
+        <MinusIcon data-icon />
+      </Button>
 
-        <Tooltip>
-          <TooltipTrigger as-child>
-            <Button
-              type="button"
-              variant="ghost"
-              class="h-full w-9 rounded-none text-muted-foreground hover:bg-muted hover:text-foreground"
-              :aria-label="maximizeLabel"
-              :title="maximizeLabel"
-              @click="handleWindowAction('toggleMaximize')"
-            >
-              <component
-                :is="maximizeIcon"
-                data-icon
-              />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side="bottom">{{ maximizeLabel }}</TooltipContent>
-        </Tooltip>
+      <Button
+        type="button"
+        variant="ghost"
+        class="h-full w-9 rounded-none text-muted-foreground hover:bg-muted hover:text-foreground"
+        :aria-label="maximizeLabel"
+        @click="handleWindowAction('toggleMaximize')"
+      >
+        <component
+          :is="maximizeIcon"
+          data-icon
+        />
+      </Button>
 
-        <Tooltip>
-          <TooltipTrigger as-child>
-            <Button
-              type="button"
-              variant="ghost"
-              class="h-full w-10 rounded-none text-muted-foreground hover:bg-destructive/15 hover:text-destructive"
-              :aria-label="'关闭'"
-              title="关闭"
-              @click="handleWindowAction('close')"
-            >
-              <XIcon data-icon />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent side="bottom">关闭</TooltipContent>
-        </Tooltip>
-      </div>
+      <Button
+        type="button"
+        variant="ghost"
+        class="h-full w-10 rounded-none text-muted-foreground hover:bg-destructive/15 hover:text-destructive"
+        :aria-label="'关闭'"
+        @click="handleWindowAction('close')"
+      >
+        <XIcon data-icon />
+      </Button>
+    </div>
 
-      <div
-        v-else
-        class="relative z-10 ml-auto h-full w-28"
-      />
-    </TooltipProvider>
+    <div
+      v-else
+      class="relative z-10 ml-auto h-full w-28"
+    />
   </header>
 </template>
