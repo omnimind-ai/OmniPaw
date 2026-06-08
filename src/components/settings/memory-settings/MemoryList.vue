@@ -29,7 +29,6 @@ import {
   memoryScopeLabel,
   memoryStatusLabel,
   memoryStatusVariant,
-  percentLabel,
 } from './format'
 
 const searchQuery = defineModel<string>('searchQuery', { required: true })
@@ -91,13 +90,6 @@ const emit = defineEmits<{
         >
           <SlidersHorizontalIcon data-icon="inline-start" />
           策略设置
-        </Button>
-        <Button
-          type="button"
-          variant="outline"
-          @click="emit('toggleInactive')"
-        >
-          {{ includeInactive ? '仅活跃' : '含归档' }}
         </Button>
         <Button
           type="button"
@@ -189,7 +181,6 @@ const emit = defineEmits<{
               </Badge>
               <Badge variant="outline">{{ memoryScopeLabel(memory.scope) }}</Badge>
               <Badge variant="outline">重要度 {{ memory.importance }}</Badge>
-              <Badge variant="outline">{{ percentLabel(memory.confidence) }}</Badge>
             </template>
 
             <template #meta>

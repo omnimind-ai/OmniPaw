@@ -45,35 +45,40 @@ watch(
   <Collapsible
     v-if="text"
     v-model:open="open"
-    class="border-l pl-3"
+    class="w-full border-l pl-2.5"
   >
-    <CollapsibleTrigger as-child>
-      <Button
-        type="button"
-        variant="ghost"
-        size="sm"
-        class="w-full justify-between px-0 text-muted-foreground hover:bg-transparent hover:text-foreground"
-      >
-        <span class="flex min-w-0 items-center gap-2">
-          <BrainIcon data-icon="inline-start" />
-          <span class="truncate">{{ streaming ? '正在推理' : '推理过程' }}</span>
-        </span>
-        <ChevronDownIcon
-          data-icon="inline-end"
-          :class="cn('transition-transform', open && 'rotate-180')"
-        />
-      </Button>
-    </CollapsibleTrigger>
+    <div class="flex min-w-0 flex-col gap-1.5">
+      <CollapsibleTrigger as-child>
+        <Button
+          type="button"
+          variant="ghost"
+          size="xs"
+          class="h-6 w-full justify-between px-0 text-xs font-normal text-muted-foreground hover:bg-transparent hover:text-foreground"
+        >
+          <span class="flex min-w-0 items-center gap-2">
+            <BrainIcon data-icon="inline-start" />
+            <span class="truncate">{{ streaming ? '正在推理' : '推理过程' }}</span>
+          </span>
+          <span class="flex shrink-0 items-center">
+            <ChevronDownIcon
+              data-icon="inline-end"
+              :class="cn('transition-transform', open && 'rotate-180')"
+            />
+          </span>
+        </Button>
+      </CollapsibleTrigger>
 
-    <CollapsibleContent>
-      <div class="py-2">
-        <MarkdownMessagePart
-          :content="text"
-          compact
-          muted
-          @copy-code="emit('copyCode', $event)"
-        />
-      </div>
-    </CollapsibleContent>
+      <CollapsibleContent>
+        <div class="pt-1">
+          <MarkdownMessagePart
+            :content="text"
+            class="text-[0.72rem] leading-4"
+            compact
+            muted
+            @copy-code="emit('copyCode', $event)"
+          />
+        </div>
+      </CollapsibleContent>
+    </div>
   </Collapsible>
 </template>

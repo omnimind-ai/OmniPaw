@@ -12,7 +12,6 @@ import {
 import { computed, ref } from 'vue'
 
 import { appBridge } from '@/bridge/app'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import type { ToolCall } from '@/composables/useMessages'
@@ -94,13 +93,6 @@ const statusIcon = computed(() => {
   return WrenchIcon
 })
 
-const statusVariant = computed(() => {
-  if (status.value === 'error' || status.value === 'denied' || status.value === 'aborted')
-    return 'destructive'
-  if (status.value === 'complete') return 'secondary'
-  return 'outline'
-})
-
 async function decideToolApproval(action: 'approve' | 'reject') {
   if (!appBridge.chat.approveToolCall || !runId.value || !toolCallId.value) {
     toast.error('当前运行无法处理工具授权。')
@@ -127,33 +119,55 @@ async function decideToolApproval(action: 'approve' | 'reject') {
 <template>
   <Collapsible
     v-model:open="open"
-    class="rounded-md border bg-background/70"
+    class="w-full border-l pl-2.5"
   >
-    <div class="flex items-center justify-between gap-2 px-3 py-2">
-      <div class="flex min-w-0 items-center gap-2">
-        <component
-          :is="statusIcon"
-          class="shrink-0"
-          aria-hidden="true"
-        />
-        <div class="min-w-0">
-          <p class="truncate text-sm font-medium">
-            {{ label }}
-          </p>
-          <p
-            v-if="toolCall.durationMs"
-            class="text-xs text-muted-foreground"
-          >
-            {{ Math.round(Number(toolCall.durationMs)) }} ms
-          </p>
-        </div>
-      </div>
-
-      <div class="flex shrink-0 items-center gap-2">
+    <div class="flex min-w-0 flex-col gap-1.5">
+      <CollapsibleTrigger as-child>
         <Button
-          v-if="approvalPending"
           type="button"
-          size="sm"
+          variant="ghost"
+          size="xs"
+          :disabled="!detailRows.length"
+          class="h-6 w-full justify-between px-0 text-xs font-normal text-muted-foreground hover:bg-transparent hover:text-foreground disabled:opacity-100"
+          aria-label="展开工具调用详情"
+        >
+          <span class="flex min-w-0 items-center gap-2">
+            <component
+              :is="statusIcon"
+              data-icon="inline-start"
+              :class="cn(status === 'running' && 'animate-spin')"
+              aria-hidden="true"
+            />
+            <span class="min-w-0 truncate font-mono">
+              {{ label }}
+            </span>
+            <span class="shrink-0 text-muted-foreground/70">
+              {{ statusLabel }}
+            </span>
+            <span
+              v-if="toolCall.durationMs"
+              class="shrink-0 text-muted-foreground/70"
+            >
+              {{ Math.round(Number(toolCall.durationMs)) }} ms
+            </span>
+          </span>
+          <span class="flex shrink-0 items-center">
+            <ChevronDownIcon
+              v-if="detailRows.length"
+              data-icon="inline-end"
+              :class="cn('transition-transform', open && 'rotate-180')"
+            />
+          </span>
+        </Button>
+      </CollapsibleTrigger>
+
+      <div
+        v-if="approvalPending"
+        class="flex flex-wrap items-center gap-1.5"
+      >
+        <Button
+          type="button"
+          size="xs"
           :disabled="deciding"
           @click="decideToolApproval('approve')"
         >
@@ -161,46 +175,28 @@ async function decideToolApproval(action: 'approve' | 'reject') {
           授权并继续
         </Button>
         <Button
-          v-if="approvalPending"
           type="button"
           variant="outline"
-          size="sm"
+          size="xs"
           :disabled="deciding"
           @click="decideToolApproval('reject')"
         >
           拒绝
         </Button>
-        <Badge :variant="statusVariant">
-          {{ statusLabel }}
-        </Badge>
-        <CollapsibleTrigger as-child>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-sm"
-            :disabled="!detailRows.length"
-            aria-label="展开工具调用详情"
-          >
-            <ChevronDownIcon
-              data-icon="inline-start"
-              :class="cn('transition-transform', open && 'rotate-180')"
-            />
-          </Button>
-        </CollapsibleTrigger>
       </div>
-    </div>
 
-    <CollapsibleContent v-if="detailRows.length">
-      <div class="flex flex-col gap-3 border-t p-3">
-        <div
-          v-for="[title, value] in detailRows"
-          :key="title"
-          class="flex flex-col gap-1"
-        >
-          <span class="text-xs font-medium text-muted-foreground">{{ title }}</span>
-          <pre class="max-h-64 overflow-auto rounded-md bg-muted p-2 text-xs leading-5">{{ formatJson(value) }}</pre>
+      <CollapsibleContent v-if="detailRows.length">
+        <div class="flex max-w-full flex-col gap-2 pt-1">
+          <div
+            v-for="[title, value] in detailRows"
+            :key="title"
+            class="flex flex-col gap-1"
+          >
+            <span class="text-[0.7rem] font-medium text-muted-foreground">{{ title }}</span>
+            <pre class="max-h-48 overflow-auto rounded-md bg-muted/60 p-2 text-[0.7rem] leading-4 text-muted-foreground">{{ formatJson(value) }}</pre>
+          </div>
         </div>
-      </div>
-    </CollapsibleContent>
+      </CollapsibleContent>
+    </div>
   </Collapsible>
 </template>

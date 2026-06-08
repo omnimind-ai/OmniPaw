@@ -161,7 +161,7 @@ function openImageViewer() {
 
   <div
     v-else-if="part.type === 'tool_call'"
-    class="flex flex-col gap-2"
+    class="flex w-full flex-col gap-1.5"
   >
     <ToolCallCard
       v-for="(toolCall, toolIndex) in toolCalls(part)"

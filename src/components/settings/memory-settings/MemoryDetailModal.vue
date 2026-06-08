@@ -148,7 +148,7 @@ function clampInteger(value: string | number, min: number, max: number): number 
             {{ memoryStatusLabel(memory.status) }}
           </Badge>
           <Badge variant="outline">{{ memoryScopeLabel(memory.scope) }}</Badge>
-          <Badge variant="outline">{{ percentLabel(memory.confidence) }}</Badge>
+          <Badge variant="outline">置信度 {{ percentLabel(memory.confidence) }}</Badge>
         </div>
 
         <div class="grid grid-cols-1 gap-3 md:grid-cols-3">
@@ -238,12 +238,9 @@ function clampInteger(value: string | number, min: number, max: number): number 
         </div>
 
         <template v-if="sources.length">
-          <Separator />
-
           <Field>
             <FieldContent>
               <FieldLabel>来源</FieldLabel>
-              <FieldDescription>这条记忆关联的证据记录。</FieldDescription>
             </FieldContent>
           </Field>
 
