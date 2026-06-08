@@ -12,6 +12,7 @@ import {
   ChatMessageRepo,
   ChatRunRepo,
   ChatSessionRepo,
+  CompanionMemoryRepo,
   CronRunRepo,
   CronTaskRepo,
 } from '../core/db/repos'
@@ -31,6 +32,7 @@ try {
   const contextSummaries = new ChatContextSummaryRepo(db)
   const attachments = new AttachmentRepo(db)
   const runs = new ChatRunRepo(db)
+  const memories = new CompanionMemoryRepo(db)
   const cronTasks = new CronTaskRepo(db)
   const cronRuns = new CronRunRepo(db)
 
@@ -373,6 +375,45 @@ try {
   manager.stop()
   assert.equal(cronTasks.get('cron-task-stale')?.runningAt, undefined)
   assert.equal(cronRuns.get(staleRun.id)?.status, 'interrupted')
+
+  const memory = memories.create({
+    kind: 'preference',
+    scope: 'user',
+    content: 'Luna prefers concise answers about TypeScript smoke tests.',
+    importance: 4,
+    confidence: 0.9,
+    sessionId: session.id,
+    sourceRunId: run.id,
+    sources: [
+      {
+        sourceKind: 'chat-turn',
+        sessionId: session.id,
+        runId: run.id,
+        messageIds: [userMessage.id, assistantMessage.id],
+        sourceRole: 'mixed',
+        evidenceHash: 'evidence-smoke',
+        sourceCreatedAt: userMessage.createdAt,
+      },
+    ],
+  })
+  assert.equal(memories.get(memory.id)?.kind, 'preference')
+  assert.equal(memories.inspect(memory.id)?.sources[0]?.evidenceHash, 'evidence-smoke')
+  assert.equal(memories.search({ query: 'TypeScript smoke', limit: 5 }).items[0]?.id, memory.id)
+  assert.equal(memories.list({ minConfidence: 0.95 }).items.length, 0)
+  assert.equal(memories.archive(memory.id)?.status, 'archived')
+  assert.equal(
+    memories.list().items.some((item) => item.id === memory.id),
+    false
+  )
+  assert.equal(
+    memories.list({ includeInactive: true }).items.some((item) => item.id === memory.id),
+    true
+  )
+  assert.equal(memories.delete(memory.id), true)
+  assert.equal(
+    memories.list({ includeInactive: true }).items.find((item) => item.id === memory.id)?.status,
+    'deleted'
+  )
 
   console.log('DB smoke check passed')
 } finally {

@@ -7,6 +7,7 @@ import type { AgentWorkspaceService } from '@core/agent/workspace'
 import type { CronManager } from '@core/cron/cron-manager'
 import type { AttachmentRepo, ChatMessageRepo, ChatRunRepo, ChatSessionRepo } from '@core/db/repos'
 import type { Logger } from '@core/logging'
+import type { CompanionMemoryService } from '@core/memory/service'
 import type { ObservationManager } from '@core/observation'
 import type { PersonaManager } from '@core/persona/manager'
 import type { ProviderManager } from '@core/provider/manager'
@@ -90,6 +91,7 @@ export interface ChatServiceOptions {
   personaManager?: PersonaManager
   tavernManager?: TavernManager
   tavernContextService?: TavernContextService
+  memoryService?: CompanionMemoryService
   agentToolProfile?: () => ToolProfile
   agentRunner?: AgentRunner
   logger?: Logger
@@ -160,6 +162,7 @@ export class ChatService {
         compactSkillDescriptions: options.compactSkillDescriptions,
         contextDefaults: options.contextDefaults,
         tavernContextService: options.tavernContextService,
+        memoryService: options.memoryService,
         toolRegistry: new ToolRegistry({
           messages: options.messages,
           attachments: options.attachments,
@@ -173,6 +176,8 @@ export class ChatService {
           mcpTools: options.mcpTools,
         }),
         onComplete: (sessionId) => this.sessionSummary.updateSessionSummary(sessionId),
+        onRunComplete: ({ run, session }) =>
+          options.memoryService?.enqueueExtraction({ run, session }),
         logger: options.logger?.child({ scope: 'agent' }),
       })
     this.runOrchestrator = new ChatRunOrchestrator({

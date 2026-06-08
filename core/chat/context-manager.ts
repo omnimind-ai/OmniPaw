@@ -14,6 +14,7 @@ import type {
   ContextUnit,
 } from './context/types'
 import {
+  buildMemoryContextUnits,
   buildSystemUnits,
   buildTavernContextUnits,
   buildTransientInstructionUnits,
@@ -54,11 +55,19 @@ export class ContextBuilder {
     const messagesAfterSummary = filterMessagesAfterSummary(eligible, latestSummary)
     const systemUnits = buildSystemUnits(input.session, input.skillPrompt)
     const tavernUnits = buildTavernContextUnits(input.tavernContext)
+    const memoryUnits = buildMemoryContextUnits(input.memoryContext)
     const transientUnits = buildTransientInstructionUnits(input.transientSystemInstructions)
     const summaryUnits = latestSummary ? [summaryUnit(latestSummary)] : []
     const messageUnits = await this.buildMessageUnits(messagesAfterSummary, input, policy, budget)
     const selection = selectContextUnits(
-      [...systemUnits, ...tavernUnits, ...transientUnits, ...summaryUnits, ...messageUnits],
+      [
+        ...systemUnits,
+        ...tavernUnits,
+        ...memoryUnits,
+        ...transientUnits,
+        ...summaryUnits,
+        ...messageUnits,
+      ],
       policy,
       budget
     )
@@ -88,6 +97,7 @@ export class ContextBuilder {
         droppedCounts: countUnits(selection.dropped),
         summaryId: latestSummary?.id,
         tavern: input.tavernContext?.snapshot,
+        memory: input.memoryContext?.snapshot,
         messageCount: providerMessages.length,
         attachmentCount,
         imageInputCount,

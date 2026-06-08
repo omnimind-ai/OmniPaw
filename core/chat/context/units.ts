@@ -7,6 +7,11 @@ import type {
   ContextPolicy,
   TransientChatInstruction,
 } from '@shared/types/chat'
+import type {
+  CompanionMemoryContextItem,
+  CompanionMemoryContextPlan,
+  CompanionMemoryKind,
+} from '@shared/types/memory'
 import type { ProviderMessage } from '@shared/types/provider'
 import type { SkillPromptContext } from '@shared/types/skill'
 import { estimateTokens } from './budget'
@@ -83,6 +88,15 @@ export function buildTavernContextUnits(plan: TavernContextPlan | undefined): Co
     return []
   }
   return plan.selectedUnits.map((unit) => tavernUnit(unit))
+}
+
+export function buildMemoryContextUnits(
+  plan: CompanionMemoryContextPlan | undefined
+): ContextUnit[] {
+  if (!plan) {
+    return []
+  }
+  return plan.selected.map((item) => memoryUnit(item))
 }
 
 export function summaryUnit(summary: ChatContextSummary): ContextUnit {
@@ -298,6 +312,30 @@ function tavernUnit(unit: TavernContextUnitPlan): ContextUnit {
   }
 }
 
+function memoryUnit(item: CompanionMemoryContextItem): ContextUnit {
+  const text = `Relevant memory (${item.kind}): ${item.content}`
+  const messages: ProviderMessage[] = [{ role: 'system', content: text }]
+  return {
+    id: `memory:${item.id}`,
+    kind: memoryKind(item.kind),
+    source: `memory:${item.scope}`,
+    priority: memoryPriority(item),
+    required: true,
+    estimatedTokens: estimateTokens(messages),
+    messages,
+    refId: item.id,
+    contentHash: item.hash,
+  }
+}
+
+function memoryKind(kind: CompanionMemoryKind): ContextUnitKind {
+  return `memory-${kind}` as ContextUnitKind
+}
+
+function memoryPriority(item: CompanionMemoryContextItem): number {
+  return 820 + item.importance * 6 + Math.round(item.score)
+}
+
 function tavernKind(kind: TavernContextUnitPlan['kind']): ContextUnitKind {
   switch (kind) {
     case 'prompt-preset':
@@ -352,6 +390,20 @@ function kindOrder(kind: ContextUnitKind): number {
       return 5
     case 'tavern-example':
       return 6
+    case 'memory-profile':
+      return 7
+    case 'memory-preference':
+      return 7
+    case 'memory-relationship':
+      return 7
+    case 'memory-boundary':
+      return 7
+    case 'memory-plan':
+      return 7
+    case 'memory-fact':
+      return 7
+    case 'memory-episode':
+      return 7
     case 'runtime':
       return 8
     case 'skill':

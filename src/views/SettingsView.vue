@@ -8,6 +8,7 @@ import DefaultModelSettingsForm from '@/components/settings/DefaultModelSettings
 import GeneralSettingsForm from '@/components/settings/GeneralSettingsForm.vue'
 import LocalAgentSettingsForm from '@/components/settings/LocalAgentSettingsForm.vue'
 import McpServerSettingsForm from '@/components/settings/McpServerSettingsForm.vue'
+import MemorySettingsForm from '@/components/settings/MemorySettingsForm.vue'
 import ObservationSettingsForm from '@/components/settings/ObservationSettingsForm.vue'
 import PersonaSettingsForm from '@/components/settings/PersonaSettingsForm.vue'
 import ProviderSettingsForm from '@/components/settings/ProviderSettingsForm.vue'
@@ -42,6 +43,7 @@ const hasChanges = computed(() => JSON.stringify(draft.value) !== JSON.stringify
 const showInitialSkeleton = useDelayedFlag(() => loading.value && !draft.value)
 const fullHeightPanelTabs = new Set<SettingsTab>([
   'personas',
+  'memory',
   'skills',
   'tools',
   'schedule',
@@ -199,6 +201,7 @@ function normalizeSettingsTab(value: unknown): SettingsTab | undefined {
     tab === 'display' ||
     tab === 'data' ||
     tab === 'tools' ||
+    tab === 'memory' ||
     tab === 'tavern' ||
     tab === 'skills' ||
     tab === 'personas' ||
@@ -256,6 +259,12 @@ function normalizeSettingsTab(value: unknown): SettingsTab | undefined {
 
           <SkillSettingsForm
             v-else-if="activeTab === 'skills'"
+            class="h-full min-h-0 flex-1"
+          />
+
+          <MemorySettingsForm
+            v-else-if="activeTab === 'memory'"
+            :draft="draft"
             class="h-full min-h-0 flex-1"
           />
 

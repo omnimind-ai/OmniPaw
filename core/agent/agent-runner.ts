@@ -4,6 +4,7 @@ import type { ContextBuilder } from '@core/chat/context-manager'
 import type { RunManager } from '@core/chat/run-manager'
 import type { ChatMessageRepo, ChatRunRepo } from '@core/db/repos'
 import type { Logger } from '@core/logging'
+import type { CompanionMemoryService } from '@core/memory/service'
 import type { ProviderManager } from '@core/provider/manager'
 import type { SkillManager } from '@core/skill/skill-manager'
 import type { TavernContextPlan, TavernContextService } from '@core/tavern/context-service'
@@ -42,8 +43,10 @@ export interface AgentRunnerOptions {
   compactSkillDescriptions?: () => boolean
   contextDefaults?: () => DesktopChatContextSettings
   tavernContextService?: TavernContextService
+  memoryService?: CompanionMemoryService
   toolExecutor?: ToolExecutor
   onComplete?: (sessionId: string) => void
+  onRunComplete?: (input: { run: ChatRun; session: ChatSession }) => void
   logger?: Logger
 }
 

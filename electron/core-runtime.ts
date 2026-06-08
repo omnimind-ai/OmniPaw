@@ -21,12 +21,14 @@ import {
   ChatMessageRepo,
   ChatRunRepo,
   ChatSessionRepo,
+  CompanionMemoryRepo,
   CronRunRepo,
   CronTaskRepo,
 } from '@core/db/repos'
 import { defaultContextPolicy, seedDefaultChatData } from '@core/db/seed'
 import type { Logger } from '@core/logging'
 import { McpRegistryStore, McpServerManager, McpValidationError } from '@core/mcp'
+import { CompanionMemoryPolicyService, CompanionMemoryService } from '@core/memory'
 import { ObservationManager } from '@core/observation'
 import { PersonaManager } from '@core/persona/manager'
 import { PersonaRegistryValidationError } from '@core/persona/registry-schema'
@@ -80,6 +82,7 @@ export interface CoreRuntime {
   configStore: ConfigStore
   cronManager: CronManager
   mcpServerManager: McpServerManager
+  memoryService: CompanionMemoryService
   observationManager: ObservationManager
   personaManager: PersonaManager
   providerManager: ProviderManager
@@ -112,6 +115,7 @@ export function createCoreRuntime(options: CoreRuntimeOptions): CoreRuntime {
   const attachmentRepo = new AttachmentRepo(db)
   const contextSummaryRepo = new ChatContextSummaryRepo(db)
   const runRepo = new ChatRunRepo(db)
+  const memoryRepo = new CompanionMemoryRepo(db)
   const cronTaskRepo = new CronTaskRepo(db)
   const cronRunRepo = new CronRunRepo(db)
   const configStore = new ConfigStore({
@@ -265,6 +269,28 @@ export function createCoreRuntime(options: CoreRuntimeOptions): CoreRuntime {
   })
   const contextCompaction = new ContextCompactionService(contextSummaryRepo)
   const runManager = new RunManager(runRepo)
+  const memoryPolicy = new CompanionMemoryPolicyService(() => configStore.get().app.memory)
+  const memoryService = new CompanionMemoryService({
+    repo: memoryRepo,
+    sessions: sessionRepo,
+    messages: messageRepo,
+    runs: runRepo,
+    policy: memoryPolicy,
+    settings: () => configStore.get().app.memory,
+    saveSettings: (memorySettings) => {
+      const next = configStore.get()
+      const saved = configStore.save({
+        ...next,
+        app: {
+          ...next.app,
+          memory: memorySettings,
+        },
+      })
+      options.onSettingsChanged('save', saved)
+      return saved.app.memory
+    },
+    logger: coreLogger.child({ scope: 'memory' }),
+  })
   let chatService: ChatService
   const observationManager = new ObservationManager({
     capture: desktopCapture,
@@ -296,6 +322,7 @@ export function createCoreRuntime(options: CoreRuntimeOptions): CoreRuntime {
     personaManager,
     tavernManager,
     tavernContextService,
+    memoryService,
     agentToolProfile: () => configStore.get().tools.agentToolProfile,
     disabledToolNames: () => toolManagementService.getDisabledToolNames(),
     mcpTools: () => mcpServerManager.getAgentTools(),
@@ -341,6 +368,7 @@ export function createCoreRuntime(options: CoreRuntimeOptions): CoreRuntime {
     configStore,
     cronManager,
     mcpServerManager,
+    memoryService,
     observationManager,
     personaManager,
     providerManager,

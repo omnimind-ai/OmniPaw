@@ -93,6 +93,18 @@ import type {
   SetMcpServerEnabledRequest,
 } from './mcp'
 import type {
+  CompanionMemoryDeleteRequest,
+  CompanionMemoryFilters,
+  CompanionMemoryImportanceRequest,
+  CompanionMemoryInspectResponse,
+  CompanionMemoryItem,
+  CompanionMemoryListResponse,
+  CompanionMemorySettingsRequest,
+  CreateCompanionMemoryRequest,
+  DesktopMemorySettings,
+  UpdateCompanionMemoryRequest,
+} from './memory'
+import type {
   ObservationChangedEvent,
   ObservationPermissionStatus,
   ObservationReactionEvent,
@@ -394,6 +406,22 @@ export interface OpenOmniClawBridge {
     reset: () => Promise<DesktopSettingsConfig>
     status: () => Promise<DesktopSettingsStatus>
     onChanged: (callback: (event: DesktopSettingsChangedEvent) => void) => Unsubscribe
+  }
+  memory: {
+    list: (filters?: CompanionMemoryFilters) => Promise<CompanionMemoryListResponse>
+    search: (filters?: CompanionMemoryFilters) => Promise<CompanionMemoryListResponse>
+    inspect: (memoryId: string) => Promise<CompanionMemoryInspectResponse | null>
+    create: (request: CreateCompanionMemoryRequest) => Promise<CompanionMemoryItem>
+    update: (request: UpdateCompanionMemoryRequest) => Promise<CompanionMemoryItem | null>
+    archive: (memoryId: string) => Promise<CompanionMemoryItem | null>
+    delete: (request: CompanionMemoryDeleteRequest | string) => Promise<{ deleted: boolean }>
+    setImportance: (
+      request: CompanionMemoryImportanceRequest
+    ) => Promise<CompanionMemoryItem | null>
+    getSettings: () => Promise<DesktopMemorySettings>
+    updateSettings: (
+      request: CompanionMemorySettingsRequest | DesktopMemorySettings
+    ) => Promise<DesktopMemorySettings>
   }
   observation: {
     permissionStatus: () => Promise<ObservationPermissionStatus>

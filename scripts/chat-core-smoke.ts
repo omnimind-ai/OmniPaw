@@ -27,8 +27,10 @@ import {
   ChatMessageRepo,
   ChatRunRepo,
   ChatSessionRepo,
+  CompanionMemoryRepo,
 } from '../core/db/repos'
 import { seedDefaultChatData } from '../core/db/seed'
+import { CompanionMemoryPolicyService, CompanionMemoryService } from '../core/memory'
 import { errorFromResponse, normalizeProviderError } from '../core/provider/errors'
 import { parseSseStream } from '../core/provider/providers/openai'
 import type { ChatMessage } from '../shared/types/chat'
@@ -100,6 +102,23 @@ try {
     models: [{ ...model, id: 'kimi', providerId: 'kimi-provider', remoteId: 'kimi' }],
   }
   const runRepo = new ChatRunRepo(db)
+  const memoryRepo = new CompanionMemoryRepo(db)
+  const memorySettings = {
+    enabled: true,
+    extractionEnabled: true,
+    retrievalEnabled: true,
+    minConfidence: 0.55,
+    maxContextItems: 2,
+    maxContextTokens: 160,
+  }
+  const memoryService = new CompanionMemoryService({
+    repo: memoryRepo,
+    sessions: sessionRepo,
+    messages: messageRepo,
+    runs: runRepo,
+    policy: new CompanionMemoryPolicyService(() => memorySettings),
+    settings: () => memorySettings,
+  })
   const runManager = new RunManager(runRepo)
   const providerRequests: Array<{ providerId: string; messages: unknown[] }> = []
   const sessionModelService = new ChatService({
@@ -141,6 +160,7 @@ try {
     }),
     contextCompaction: new ContextCompactionService(new ChatContextSummaryRepo(db)),
     runManager,
+    memoryService,
     contextDefaults: () => ({
       recentMessages: 20,
       maxInputBudgetPercent: 75,
@@ -155,6 +175,111 @@ try {
   })
   assert.equal(selectedSession.defaultProviderId, kimiProvider.id)
   assert.equal(selectedSession.defaultModelId, 'kimi')
+  const memoryExtractionSend = await sessionModelService.sendInternalMessage(
+    {
+      sessionId: selectedSession.id,
+      content: 'please remember that I like terse TypeScript smoke test answers',
+      providerId: kimiProvider.id,
+      modelId: 'kimi',
+      mode: 'fast_chat',
+      toolProfile: 'minimal',
+      maxSteps: 1,
+    },
+    {
+      send() {},
+    }
+  )
+  await memoryExtractionSend.terminalEvent
+  await waitForMicrotasks()
+  const extractedMemories = memoryRepo
+    .list()
+    .items.filter((item) => item.content.includes('TypeScript smoke test answers'))
+  assert.equal(
+    extractedMemories.some((item) => item.kind === 'preference'),
+    true
+  )
+  assert.equal(memoryRepo.inspect(extractedMemories[0]?.id ?? '')?.sources.length, 1)
+
+  const manualMemory = memoryRepo.create({
+    kind: 'preference',
+    scope: 'user',
+    content: 'The user prefers direct TypeScript smoke test guidance.',
+    importance: 5,
+    confidence: 1,
+  })
+  memorySettings.maxContextItems = 1
+  const memoryRetrievalSend = await sessionModelService.sendInternalMessage(
+    {
+      sessionId: selectedSession.id,
+      content: 'How should we handle TypeScript smoke tests?',
+      providerId: kimiProvider.id,
+      modelId: 'kimi',
+      mode: 'fast_chat',
+      toolProfile: 'minimal',
+      maxSteps: 1,
+    },
+    {
+      send() {},
+    }
+  )
+  await memoryRetrievalSend.terminalEvent
+  const memorySnapshot = runRepo.get(memoryRetrievalSend.runId)?.requestSnapshot?.memory
+  assert.equal(memorySnapshot?.selected.length, 1)
+  assert.equal(memorySnapshot?.dropped.length >= 1, true)
+  assert.equal(memorySnapshot?.selected[0]?.id, manualMemory.id)
+  assert.equal(
+    JSON.stringify(runRepo.get(memoryRetrievalSend.runId)?.requestSnapshot).includes(
+      'direct TypeScript smoke test guidance'
+    ),
+    false
+  )
+  assert.equal(
+    JSON.stringify(providerRequests.at(-1)?.messages).includes(
+      'direct TypeScript smoke test guidance'
+    ),
+    true
+  )
+
+  const tavernMemorySession = {
+    ...selectedSession,
+    id: 'tavern-memory-smoke',
+    title: 'Tavern memory smoke',
+    kind: 'tavern' as const,
+    metadata: {
+      tavern: {
+        enabled: true,
+        version: 1 as const,
+        characterId: 'memory-character',
+        characterName: 'Memory Character',
+        lorebookIds: [],
+        userName: 'Luna',
+        selectedGreetingIndex: 0,
+        contextPreset: 'default' as const,
+      },
+    },
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+  }
+  sessionRepo.save(tavernMemorySession)
+  const memoryCountBeforeTavern = memoryRepo.list({ includeInactive: true }).total
+  const tavernSend = await sessionModelService.sendInternalMessage(
+    {
+      sessionId: tavernMemorySession.id,
+      content: 'please remember that tavern-only secret is blue',
+      providerId: kimiProvider.id,
+      modelId: 'kimi',
+      mode: 'fast_chat',
+      toolProfile: 'minimal',
+      maxSteps: 1,
+    },
+    {
+      send() {},
+    }
+  )
+  await tavernSend.terminalEvent
+  await waitForMicrotasks()
+  assert.equal(memoryRepo.list({ includeInactive: true }).total, memoryCountBeforeTavern)
+  assert.equal(runRepo.get(tavernSend.runId)?.requestSnapshot?.memory?.selected.length, 0)
   const catSession = await sessionModelService.getOrCreateSession({ kind: 'cat' })
   assert.equal(catSession.kind, 'cat')
   assert.equal(catSession.title, CAT_SESSION_TITLE)
@@ -748,4 +873,10 @@ function fakeAgentTool(name: 'workspace_file' | 'terminal_exec'): AgentTool {
 
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+function waitForMicrotasks(): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, 0)
+  })
 }

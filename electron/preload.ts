@@ -34,6 +34,15 @@ import type {
   RendererLogRequest,
 } from '@shared/types/logging'
 import type {
+  CompanionMemoryDeleteRequest,
+  CompanionMemoryFilters,
+  CompanionMemoryImportanceRequest,
+  CompanionMemorySettingsRequest,
+  CreateCompanionMemoryRequest,
+  DesktopMemorySettings,
+  UpdateCompanionMemoryRequest,
+} from '@shared/types/memory'
+import type {
   CreatePersonaRequest,
   DeletePersonaRequest,
   SetDefaultPersonaRequest,
@@ -337,6 +346,25 @@ const bridge: OpenOmniClawBridge = {
     reset: () => invokeSettings(IPC_CHANNELS.settings.reset),
     status: () => invokeSettings(IPC_CHANNELS.settings.status),
     onChanged: (callback) => createUnsubscriber(IPC_CHANNELS.settings.changed, callback),
+  },
+  memory: {
+    list: (filters?: CompanionMemoryFilters) =>
+      ipcRenderer.invoke(IPC_CHANNELS.memory.list, filters),
+    search: (filters?: CompanionMemoryFilters) =>
+      ipcRenderer.invoke(IPC_CHANNELS.memory.search, filters),
+    inspect: (memoryId: string) => ipcRenderer.invoke(IPC_CHANNELS.memory.inspect, memoryId),
+    create: (request: CreateCompanionMemoryRequest) =>
+      ipcRenderer.invoke(IPC_CHANNELS.memory.create, request),
+    update: (request: UpdateCompanionMemoryRequest) =>
+      ipcRenderer.invoke(IPC_CHANNELS.memory.update, request),
+    archive: (memoryId: string) => ipcRenderer.invoke(IPC_CHANNELS.memory.archive, memoryId),
+    delete: (request: CompanionMemoryDeleteRequest | string) =>
+      ipcRenderer.invoke(IPC_CHANNELS.memory.delete, request),
+    setImportance: (request: CompanionMemoryImportanceRequest) =>
+      ipcRenderer.invoke(IPC_CHANNELS.memory.setImportance, request),
+    getSettings: () => ipcRenderer.invoke(IPC_CHANNELS.memory.getSettings),
+    updateSettings: (request: CompanionMemorySettingsRequest | DesktopMemorySettings) =>
+      ipcRenderer.invoke(IPC_CHANNELS.memory.updateSettings, request),
   },
   observation: {
     permissionStatus: () => ipcRenderer.invoke(IPC_CHANNELS.observation.permissionStatus),

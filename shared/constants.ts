@@ -63,6 +63,18 @@ export const IPC_CHANNELS = {
     status: 'settings:status',
     changed: 'settings:changed',
   },
+  memory: {
+    list: 'memory:list',
+    search: 'memory:search',
+    inspect: 'memory:inspect',
+    create: 'memory:create',
+    update: 'memory:update',
+    archive: 'memory:archive',
+    delete: 'memory:delete',
+    setImportance: 'memory:set-importance',
+    getSettings: 'memory:get-settings',
+    updateSettings: 'memory:update-settings',
+  },
   observation: {
     permissionStatus: 'observation:permission-status',
     status: 'observation:status',

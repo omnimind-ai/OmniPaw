@@ -64,6 +64,11 @@ export async function prepareAgentRun(
       messages: sourceMessages,
       currentUserMessageId: input.run.userMessageId,
     })
+  const memoryContext = options.memoryService?.retrieveForRun({
+    session: input.session,
+    messages: sourceMessages,
+    currentUserMessageId: input.run.userMessageId,
+  })
   if (documentAttachments.rejectionMessage) {
     const snapshot = {
       api: input.provider.api ?? 'openai-chat-completions',
@@ -103,6 +108,7 @@ export async function prepareAgentRun(
     transientSystemInstructions: input.transientSystemInstructions,
     transientCurrentMessageParts: input.transientCurrentMessageParts,
     tavernContext,
+    memoryContext,
   })
   const client = await options.providers.createProviderClient(input.provider.id)
   const providerMessages = injectToolInventory(

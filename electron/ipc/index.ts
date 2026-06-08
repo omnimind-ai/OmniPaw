@@ -3,6 +3,7 @@ import { registerChatIpcHandlers } from './chat'
 import { registerCronIpcHandlers } from './cron'
 import { registerLoggingIpcHandlers } from './logging'
 import { registerMcpIpcHandlers } from './mcp'
+import { registerMemoryIpcHandlers } from './memory'
 import { registerObservationIpcHandlers } from './observation'
 import { registerPersonaIpcHandlers } from './persona'
 import { registerProviderIpcHandlers } from './provider'
@@ -20,6 +21,7 @@ export function registerIpcHandlers(options: IpcHandlerOptions): void {
   registerAppIpcHandlers(options)
   registerWindowIpcHandlers(options)
   registerSettingsIpcHandlers(options)
+  registerMemoryIpcHandlers(options)
   registerChatIpcHandlers(options)
   registerProviderIpcHandlers(options)
   registerObservationIpcHandlers(options)

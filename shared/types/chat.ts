@@ -1,4 +1,5 @@
 import type { LocalToolApprovalPlan } from './local-agent'
+import type { CompanionMemoryRequestSnapshot } from './memory'
 import type { TavernRequestSnapshotMetadata, TavernSessionMetadata } from './tavern'
 
 export type ID = string
@@ -215,6 +216,13 @@ export type ContextUnitKind =
   | 'tavern-lore'
   | 'tavern-example'
   | 'tavern-post-history'
+  | 'memory-profile'
+  | 'memory-preference'
+  | 'memory-relationship'
+  | 'memory-episode'
+  | 'memory-plan'
+  | 'memory-boundary'
+  | 'memory-fact'
   | 'runtime'
   | 'skill'
   | 'tool-inventory'
@@ -227,6 +235,7 @@ export type ContextUnitSource =
   | 'settings'
   | 'runtime'
   | 'tavern'
+  | 'memory'
   | 'skill'
   | 'tool'
   | 'message'
@@ -497,6 +506,7 @@ export interface ProviderRequestSnapshot {
     readSkillIds?: string[]
   }
   tavern?: TavernRequestSnapshotMetadata
+  memory?: CompanionMemoryRequestSnapshot
   omittedInventoryReasons?: string[]
   maxSteps?: number
   complexDocumentAttachments?: ComplexDocumentAttachmentRunDiagnostic

@@ -64,6 +64,18 @@ import type {
   RendererLogRequest,
 } from '@shared/types/logging'
 import type {
+  CompanionMemoryDeleteRequest,
+  CompanionMemoryFilters,
+  CompanionMemoryImportanceRequest,
+  CompanionMemoryInspectResponse,
+  CompanionMemoryItem,
+  CompanionMemoryListResponse,
+  CompanionMemorySettingsRequest,
+  CreateCompanionMemoryRequest,
+  DesktopMemorySettings,
+  UpdateCompanionMemoryRequest,
+} from '@shared/types/memory'
+import type {
   ObservationChangedEvent,
   ObservationPermissionStatus,
   ObservationReactionEvent,
@@ -176,6 +188,7 @@ export interface BridgeDesktopSettingsConfig {
     chatContext: BridgeChatContextSettings
     systemContext: BridgeSystemContextSettings
     compactSkillDescriptions: boolean
+    memory: DesktopMemorySettings
     dataDir?: string
   }
   providers: {
@@ -910,6 +923,22 @@ export interface RendererOpenOmniClawBridge {
     status: () => Promise<BridgeDesktopSettingsStatus>
     onChanged: (callback: (event: BridgeDesktopSettingsChangedEvent) => void) => BridgeUnsubscribe
   }
+  memory?: {
+    list: (filters?: CompanionMemoryFilters) => Promise<CompanionMemoryListResponse>
+    search: (filters?: CompanionMemoryFilters) => Promise<CompanionMemoryListResponse>
+    inspect: (memoryId: string) => Promise<CompanionMemoryInspectResponse | null>
+    create: (request: CreateCompanionMemoryRequest) => Promise<CompanionMemoryItem>
+    update: (request: UpdateCompanionMemoryRequest) => Promise<CompanionMemoryItem | null>
+    archive: (memoryId: string) => Promise<CompanionMemoryItem | null>
+    delete: (request: CompanionMemoryDeleteRequest | string) => Promise<{ deleted: boolean }>
+    setImportance: (
+      request: CompanionMemoryImportanceRequest
+    ) => Promise<CompanionMemoryItem | null>
+    getSettings: () => Promise<DesktopMemorySettings>
+    updateSettings: (
+      request: CompanionMemorySettingsRequest | DesktopMemorySettings
+    ) => Promise<DesktopMemorySettings>
+  }
   observation?: {
     permissionStatus: () => Promise<ObservationPermissionStatus>
     status: (request?: ObservationStatusRequest) => Promise<ObservationState>
@@ -1560,6 +1589,19 @@ const fallbackBridge: RendererOpenOmniClawBridge = {
     }),
     onChanged: () => () => {},
   },
+  memory: {
+    list: async () => ({ items: [], total: 0 }),
+    search: async () => ({ items: [], total: 0 }),
+    inspect: async () => null,
+    create: () => rejectFallbackPersistence<CompanionMemoryItem>('memory.create'),
+    update: () => rejectFallbackPersistence<CompanionMemoryItem | null>('memory.update'),
+    archive: () => rejectFallbackPersistence<CompanionMemoryItem | null>('memory.archive'),
+    delete: () => rejectFallbackPersistence<{ deleted: boolean }>('memory.delete'),
+    setImportance: () =>
+      rejectFallbackPersistence<CompanionMemoryItem | null>('memory.setImportance'),
+    getSettings: async () => fallbackSettingsConfig().app.memory,
+    updateSettings: () => rejectFallbackPersistence<DesktopMemorySettings>('memory.updateSettings'),
+  },
   observation: {
     permissionStatus: async () => ({
       platform: 'fallback',
@@ -1974,6 +2016,14 @@ function fallbackSettingsConfig(): BridgeDesktopSettingsConfig {
         },
       },
       compactSkillDescriptions: true,
+      memory: {
+        enabled: true,
+        extractionEnabled: true,
+        retrievalEnabled: true,
+        minConfidence: 0.55,
+        maxContextItems: 8,
+        maxContextTokens: 900,
+      },
     },
     providers: {
       sources: [],
@@ -2122,6 +2172,19 @@ function createSettingsBridge(
   }
 }
 
+function createMemoryBridge(
+  bridge: RendererOpenOmniClawBridge['memory'] | undefined
+): RendererOpenOmniClawBridge['memory'] {
+  if (!bridge) {
+    return fallbackBridge.memory
+  }
+
+  return {
+    ...fallbackBridge.memory,
+    ...bridge,
+  }
+}
+
 function createProviderBridge(
   bridge: RendererOpenOmniClawBridge['provider'] | undefined
 ): RendererOpenOmniClawBridge['provider'] {
@@ -2202,6 +2265,7 @@ export const appBridge: RendererOpenOmniClawBridge = exposedBridge
       cat: createCatBridge(exposedBridge.cat),
       logging: exposedBridge.logging ?? fallbackBridge.logging,
       settings: createSettingsBridge(exposedBridge.settings),
+      memory: createMemoryBridge(exposedBridge.memory),
       observation: createObservationBridge(exposedBridge.observation),
       provider: createProviderBridge(exposedBridge.provider),
       cron: createCronBridge(exposedBridge.cron),

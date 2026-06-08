@@ -1,5 +1,6 @@
 import type { ContextAttachmentPolicy, ToolProfile } from './chat'
 import type { LocalAgentTerminalSettings, LocalAgentWorkspaceSettings } from './local-agent'
+import type { DesktopMemorySettings } from './memory'
 import type { ObservationScope, ObservationScreenshotRetention } from './observation'
 import type {
   ProviderApi,
@@ -37,6 +38,7 @@ export interface DesktopBaseSettings {
   }
   maxRecentMessages: number
   chatContext: DesktopChatContextSettings
+  memory: DesktopMemorySettings
   systemContext: DesktopSystemContextSettings
   compactSkillDescriptions: boolean
   dataDir?: string

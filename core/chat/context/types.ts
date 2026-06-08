@@ -9,6 +9,7 @@ import type {
   TransientChatImageInput,
   TransientChatInstruction,
 } from '@shared/types/chat'
+import type { CompanionMemoryContextPlan } from '@shared/types/memory'
 import type { ProviderConfig, ProviderMessage, ProviderModel } from '@shared/types/provider'
 import type { DesktopSettingsConfig } from '@shared/types/settings'
 import type { SkillPromptContext } from '@shared/types/skill'
@@ -37,6 +38,7 @@ export interface BuildContextInput {
   transientSystemInstructions?: TransientChatInstruction[]
   transientCurrentMessageParts?: ChatMessagePart[]
   tavernContext?: TavernContextPlan
+  memoryContext?: CompanionMemoryContextPlan
 }
 
 export interface BuildContextResult {

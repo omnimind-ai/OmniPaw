@@ -31,6 +31,10 @@ export class AgentRunFinalizer {
     this.maybeCompact(state)
     this.emitFinal(state)
     this.options.onComplete?.(run.sessionId)
+    this.options.onRunComplete?.({
+      run: this.options.runs.get(run.id) ?? run,
+      session: state.input.session,
+    })
   }
 
   completeMaxSteps(state: AgentRunState): void {
@@ -52,6 +56,10 @@ export class AgentRunFinalizer {
     this.maybeCompact(state)
     this.emitFinal(state)
     this.options.onComplete?.(run.sessionId)
+    this.options.onRunComplete?.({
+      run: this.options.runs.get(run.id) ?? run,
+      session: state.input.session,
+    })
     this.logger?.warn('Agent run reached max steps.', {
       status: 'complete',
       maxSteps: state.maxSteps,

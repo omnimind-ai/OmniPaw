@@ -3,6 +3,7 @@ import {
   ArrowLeftIcon,
   BookOpenIcon,
   BotIcon,
+  BrainIcon,
   CalendarClockIcon,
   DramaIcon,
   EyeIcon,
@@ -41,6 +42,7 @@ export type SettingsTab =
   | 'data'
   | 'tools'
   | 'tavern'
+  | 'memory'
   | 'skills'
   | 'personas'
   | 'schedule'
@@ -74,6 +76,7 @@ const settingsItems: SettingsNavItem[] = [
 
 const capabilityItems: SettingsNavItem[] = [
   { value: 'personas', label: '人格', icon: UserIcon },
+  { value: 'memory', label: '记忆', icon: BrainIcon },
   { value: 'tavern', label: '酒馆', icon: DramaIcon },
   { value: 'tools', label: 'MCP 服务器', icon: ServerIcon },
   { value: 'observation', label: '视觉观察', icon: EyeIcon },

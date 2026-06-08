@@ -71,6 +71,14 @@ export const defaultConfig: DesktopSettingsConfig = {
       autoCompact: true,
       compactThresholdPercent: 85,
     },
+    memory: {
+      enabled: true,
+      extractionEnabled: true,
+      retrievalEnabled: true,
+      minConfidence: 0.55,
+      maxContextItems: 8,
+      maxContextTokens: 900,
+    },
     systemContext: {
       baseSystemPrompt: '',
       mask: {
@@ -300,6 +308,10 @@ function normalizeObject(defaultValue: unknown, rawValue: unknown, path: string)
     return normalizeChatContextSettings(rawValue)
   }
 
+  if (path === 'app.memory') {
+    return normalizeMemorySettings(rawValue)
+  }
+
   if (path === 'app.systemContext') {
     return normalizeSystemContextSettings(rawValue)
   }
@@ -499,6 +511,7 @@ function validateApp(config: DesktopSettingsConfig, issues: SettingsValidationIs
     })
   }
   validateChatContext(config, issues)
+  validateMemory(config, issues)
   validateSystemContext(config, issues)
 }
 
@@ -621,6 +634,52 @@ function validateChatContext(
       code: 'invalid_type',
     })
   }
+}
+
+function validateMemory(config: DesktopSettingsConfig, issues: SettingsValidationIssue[]): void {
+  const settings = config.app.memory
+  if (!isPlainObject(settings)) {
+    issues.push({
+      path: 'app.memory',
+      message: 'Memory settings must be an object.',
+      code: 'invalid_type',
+    })
+    return
+  }
+  if (typeof settings.enabled !== 'boolean') {
+    issues.push({
+      path: 'app.memory.enabled',
+      message: 'Memory enabled flag must be boolean.',
+      code: 'invalid_type',
+    })
+  }
+  if (typeof settings.extractionEnabled !== 'boolean') {
+    issues.push({
+      path: 'app.memory.extractionEnabled',
+      message: 'Memory extraction enabled flag must be boolean.',
+      code: 'invalid_type',
+    })
+  }
+  if (typeof settings.retrievalEnabled !== 'boolean') {
+    issues.push({
+      path: 'app.memory.retrievalEnabled',
+      message: 'Memory retrieval enabled flag must be boolean.',
+      code: 'invalid_type',
+    })
+  }
+  if (
+    !isFiniteNumber(settings.minConfidence) ||
+    settings.minConfidence < 0 ||
+    settings.minConfidence > 1
+  ) {
+    issues.push({
+      path: 'app.memory.minConfidence',
+      message: 'Memory minimum confidence must be between 0 and 1.',
+      code: 'out_of_range',
+    })
+  }
+  validateIntegerRange(settings.maxContextItems, 'app.memory.maxContextItems', 0, 50, issues)
+  validateIntegerRange(settings.maxContextTokens, 'app.memory.maxContextTokens', 0, 8000, issues)
 }
 
 function validateProviders(config: DesktopSettingsConfig, issues: SettingsValidationIssue[]): void {
@@ -1305,6 +1364,44 @@ function normalizeChatContextSettings(
     compactThresholdPercent: rawValue.compactThresholdPercent ?? defaults.compactThresholdPercent,
     compactModelId: rawValue.compactModelId,
   } as DesktopSettingsConfig['app']['chatContext']
+}
+
+function normalizeMemorySettings(rawValue: unknown): DesktopSettingsConfig['app']['memory'] {
+  const defaults = defaultConfig.app.memory
+  if (rawValue === undefined || rawValue === null) {
+    return cloneUnknown(defaults)
+  }
+  if (!isPlainObject(rawValue)) {
+    throwValidationError([
+      {
+        path: 'app.memory',
+        message: 'Memory settings must be an object.',
+        code: 'invalid_type',
+      },
+    ])
+  }
+
+  return {
+    enabled: typeof rawValue.enabled === 'boolean' ? rawValue.enabled : defaults.enabled,
+    extractionEnabled:
+      typeof rawValue.extractionEnabled === 'boolean'
+        ? rawValue.extractionEnabled
+        : defaults.extractionEnabled,
+    retrievalEnabled:
+      typeof rawValue.retrievalEnabled === 'boolean'
+        ? rawValue.retrievalEnabled
+        : defaults.retrievalEnabled,
+    minConfidence:
+      typeof rawValue.minConfidence === 'number' ? rawValue.minConfidence : defaults.minConfidence,
+    maxContextItems:
+      typeof rawValue.maxContextItems === 'number'
+        ? rawValue.maxContextItems
+        : defaults.maxContextItems,
+    maxContextTokens:
+      typeof rawValue.maxContextTokens === 'number'
+        ? rawValue.maxContextTokens
+        : defaults.maxContextTokens,
+  }
 }
 
 function normalizeSystemContextSettings(

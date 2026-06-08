@@ -247,4 +247,98 @@ export const migrations: Migration[] = [
         END;
     `,
   },
+  {
+    id: 8,
+    name: 'create_companion_memory_tables',
+    sql: `
+      CREATE TABLE IF NOT EXISTS companion_memory_items (
+        id TEXT PRIMARY KEY,
+        kind TEXT NOT NULL,
+        scope TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'active',
+        subject TEXT,
+        content TEXT NOT NULL,
+        importance INTEGER NOT NULL DEFAULT 3,
+        confidence REAL NOT NULL DEFAULT 0.7,
+        user_id TEXT,
+        character_id TEXT,
+        session_id TEXT,
+        source_run_id TEXT,
+        observed_at INTEGER,
+        expires_at INTEGER,
+        archived_at INTEGER,
+        deleted_at INTEGER,
+        metadata_json TEXT,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL,
+        FOREIGN KEY(session_id) REFERENCES chat_sessions(id) ON DELETE SET NULL,
+        FOREIGN KEY(source_run_id) REFERENCES chat_runs(id) ON DELETE SET NULL
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_companion_memory_status_updated
+        ON companion_memory_items(status, updated_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_companion_memory_scope_status
+        ON companion_memory_items(scope, status, confidence, importance);
+      CREATE INDEX IF NOT EXISTS idx_companion_memory_session
+        ON companion_memory_items(session_id, status, updated_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_companion_memory_character
+        ON companion_memory_items(character_id, status, updated_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_companion_memory_expiry
+        ON companion_memory_items(expires_at)
+        WHERE expires_at IS NOT NULL;
+
+      CREATE TABLE IF NOT EXISTS companion_memory_sources (
+        id TEXT PRIMARY KEY,
+        memory_id TEXT NOT NULL,
+        source_kind TEXT NOT NULL,
+        session_id TEXT,
+        run_id TEXT,
+        message_ids_json TEXT NOT NULL,
+        source_role TEXT,
+        evidence_hash TEXT NOT NULL,
+        source_created_at INTEGER,
+        metadata_json TEXT,
+        created_at INTEGER NOT NULL,
+        FOREIGN KEY(memory_id) REFERENCES companion_memory_items(id) ON DELETE CASCADE,
+        FOREIGN KEY(session_id) REFERENCES chat_sessions(id) ON DELETE SET NULL,
+        FOREIGN KEY(run_id) REFERENCES chat_runs(id) ON DELETE SET NULL
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_companion_memory_sources_memory
+        ON companion_memory_sources(memory_id, created_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_companion_memory_sources_session
+        ON companion_memory_sources(session_id, created_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_companion_memory_sources_run
+        ON companion_memory_sources(run_id);
+
+      CREATE TABLE IF NOT EXISTS companion_memory_extraction_jobs (
+        id TEXT PRIMARY KEY,
+        run_id TEXT NOT NULL,
+        session_id TEXT NOT NULL,
+        session_kind TEXT,
+        status TEXT NOT NULL,
+        error_code TEXT,
+        error_message TEXT,
+        created_memory_ids_json TEXT NOT NULL DEFAULT '[]',
+        started_at INTEGER,
+        finished_at INTEGER,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL,
+        FOREIGN KEY(run_id) REFERENCES chat_runs(id) ON DELETE CASCADE,
+        FOREIGN KEY(session_id) REFERENCES chat_sessions(id) ON DELETE CASCADE
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_companion_memory_jobs_run
+        ON companion_memory_extraction_jobs(run_id, created_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_companion_memory_jobs_status
+        ON companion_memory_extraction_jobs(status, updated_at DESC);
+
+      CREATE VIRTUAL TABLE IF NOT EXISTS companion_memory_fts USING fts5(
+        memory_id UNINDEXED,
+        subject,
+        content,
+        tokenize = 'unicode61'
+      );
+    `,
+  },
 ]

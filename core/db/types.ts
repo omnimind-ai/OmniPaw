@@ -37,3 +37,23 @@ export type {
   CronTaskState,
   CronValidationError,
 } from '@shared/types/cron'
+export type {
+  CompanionMemoryContextItem,
+  CompanionMemoryContextPlan,
+  CompanionMemoryDeleteRequest,
+  CompanionMemoryExtractionJob,
+  CompanionMemoryFilters,
+  CompanionMemoryImportanceRequest,
+  CompanionMemoryInspectResponse,
+  CompanionMemoryItem,
+  CompanionMemoryKind,
+  CompanionMemoryListResponse,
+  CompanionMemoryRequestSnapshot,
+  CompanionMemoryScope,
+  CompanionMemorySearchResult,
+  CompanionMemorySourceEvidence,
+  CompanionMemoryStatus,
+  CreateCompanionMemoryRequest,
+  DesktopMemorySettings,
+  UpdateCompanionMemoryRequest,
+} from '@shared/types/memory'
