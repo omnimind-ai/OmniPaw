@@ -87,7 +87,7 @@
 - SHOULD：输入控件宽度使用稳定响应式约束，例如 `w-full md:w-48`、`w-full md:w-72`，避免长文案或模型名挤压布局。
 - MUST NOT：为了强化标题层级新增 `SettingsFormHeader`、业务私有 header 或全局 CSS；普通 entry 类设置的标题层级统一由 `SettingsSection` 表达。
 
-### 设置面板与条目列表
+### 条目列表类设置
 
 当某个设置 tab 需要展示一组可创建、搜索、编辑、删除、启用/停用的条目时，使用统一的 panel/list 结构。典型场景包括 Persona、Provider、工具配置、计划任务、MCP server、可复用 preset 或 registry 类设置。
 
