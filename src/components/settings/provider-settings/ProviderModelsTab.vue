@@ -8,21 +8,12 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
 import { Field, FieldGroup, FieldLabel, FieldLegend, FieldSet } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import type { ModelInput, ProviderDraft, ProviderModelDraft } from './types'
 
 const props = defineProps<{
   draft: ProviderDraft
   canRefreshModels: boolean
-  enabledModels: ProviderModelDraft[]
   refreshingModels: boolean
 }>()
 
@@ -88,33 +79,7 @@ function modelCapabilityBadges(model: ProviderModelDraft) {
 
 <template>
   <div class="flex flex-col gap-4">
-    <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-      <Field class="md:max-w-sm">
-        <FieldLabel for="provider-default-model">当前 Provider 默认模型</FieldLabel>
-        <Select
-          v-model="draft.defaultModelId"
-          :disabled="!enabledModels.length"
-        >
-          <SelectTrigger
-            id="provider-default-model"
-            class="w-full"
-          >
-            <SelectValue placeholder="选择模型" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectGroup>
-              <SelectItem
-                v-for="model in enabledModels"
-                :key="model.id"
-                :value="model.id"
-              >
-                {{ model.name || model.id }}
-              </SelectItem>
-            </SelectGroup>
-          </SelectContent>
-        </Select>
-      </Field>
-
+    <div class="flex flex-col gap-3 md:flex-row md:items-center md:justify-end">
       <div class="flex shrink-0 items-center gap-2">
         <Button
           type="button"
@@ -166,12 +131,6 @@ function modelCapabilityBadges(model: ProviderModelDraft) {
                 <span class="truncate text-sm font-medium">
                   {{ model.name || model.id || '未命名模型' }}
                 </span>
-                <Badge
-                  v-if="model.id === draft.defaultModelId"
-                  variant="secondary"
-                >
-                  默认
-                </Badge>
                 <Badge
                   v-if="model.enabled === false"
                   variant="outline"

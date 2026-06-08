@@ -42,7 +42,6 @@ const {
   loadingDraft,
   addModel,
   buildSaveRequest,
-  ensureDefaultModelId,
   loadProviderDraft: loadProviderDraftState,
   removeModel,
   replaceModels,
@@ -50,7 +49,6 @@ const {
   startNewProviderDraft,
   startProviderDraftFromPreset,
   updateModelInput,
-  updateProviderType,
 } = useProviderDraft({ rawProviders, originalProviderId })
 
 const currentProvider = computed(() =>
@@ -66,9 +64,6 @@ const canRefreshModels = computed(() =>
         providerDraft.value.api === 'openai-chat-completions' ||
         providerDraft.value.type === 'openai-compatible')
   )
-)
-const enabledModels = computed(() =>
-  providerDraft.value.models.filter((model) => model.enabled !== false)
 )
 const providerList = computed(() => rawProviders.value)
 const providerSidebarList = computed<ProviderSidebarItem[]>(() => {
@@ -139,13 +134,6 @@ watch(
     }
   },
   { immediate: true }
-)
-
-watch(
-  () => providerDraft.value.models.map((model) => model.id),
-  () => {
-    ensureDefaultModelId()
-  }
 )
 
 watch(
@@ -395,7 +383,6 @@ function clearMessages() {}
                 v-model:credential-value="credentialValue"
                 :draft="providerDraft"
                 :is-existing-provider="isExistingProvider"
-                @update-provider-type="updateProviderType"
               />
             </TabsContent>
 
@@ -406,7 +393,6 @@ function clearMessages() {}
               <ProviderModelsTab
                 :can-refresh-models="canRefreshModels"
                 :draft="providerDraft"
-                :enabled-models="enabledModels"
                 :refreshing-models="refreshingModels"
                 @add-model="addModel"
                 @refresh-models="refreshProviderModels"

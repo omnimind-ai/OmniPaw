@@ -12,7 +12,7 @@ import type {
   DesktopSettingsConfig,
   SettingsChangeReason,
 } from '@shared/types/settings'
-import { app, BrowserWindow, Menu } from 'electron'
+import { app, BrowserWindow, Menu, type MenuItemConstructorOptions } from 'electron'
 import {
   type CatNotificationController,
   createCatNotificationController,
@@ -63,6 +63,7 @@ let mainWindowController: MainWindowController | undefined
 let trayController: TrayController | undefined
 let catNotificationController: CatNotificationController | undefined
 let isQuitting = false
+const ZOOM_STEP = 0.05
 
 registerProcessDiagnostics()
 
@@ -104,6 +105,7 @@ function createControllers(): void {
     isQuitting: () => isQuitting,
     setQuitting: markQuitting,
     shouldMinimizeToTray: isMinimizeToTrayEnabled,
+    zoomFactor: getConfiguredZoomFactor,
     onHiddenToTray: updateTrayMenu,
     onClosed: closeCatWindow,
     showCatWindow: () => {
@@ -161,12 +163,161 @@ function updateTrayMenu(): void {
   trayController?.updateMenu()
 }
 
+function updateApplicationMenu(): void {
+  const currentZoom = getConfiguredZoomFactor()
+  const zoomBounds = getConfiguredZoomBounds()
+  const isMac = process.platform === 'darwin'
+  const template: MenuItemConstructorOptions[] = []
+
+  if (isMac) {
+    template.push({
+      label: APP_NAME,
+      submenu: [
+        { role: 'about' },
+        { type: 'separator' },
+        { role: 'services' },
+        { type: 'separator' },
+        { role: 'hide' },
+        { role: 'hideOthers' },
+        { role: 'unhide' },
+        { type: 'separator' },
+        { role: 'quit' },
+      ],
+    })
+  }
+
+  template.push(
+    {
+      label: '编辑',
+      submenu: [
+        { role: 'undo', label: '撤销' },
+        { role: 'redo', label: '重做' },
+        { type: 'separator' },
+        { role: 'cut', label: '剪切' },
+        { role: 'copy', label: '复制' },
+        { role: 'paste', label: '粘贴' },
+        { role: 'selectAll', label: '全选' },
+      ],
+    },
+    {
+      label: '视图',
+      submenu: [
+        {
+          label: `缩放比例：${formatZoomPercent(currentZoom)}`,
+          enabled: false,
+        },
+        { type: 'separator' },
+        {
+          label: '放大',
+          accelerator: 'CmdOrCtrl+=',
+          enabled: currentZoom < zoomBounds.max,
+          click: () => stepConfiguredZoomFactor(1),
+        },
+        {
+          label: '缩小',
+          accelerator: 'CmdOrCtrl+-',
+          enabled: currentZoom > zoomBounds.min,
+          click: () => stepConfiguredZoomFactor(-1),
+        },
+        {
+          label: '重置缩放',
+          accelerator: 'CmdOrCtrl+0',
+          enabled: currentZoom !== getConfiguredDefaultZoomFactor(),
+          click: resetConfiguredZoomFactor,
+        },
+      ],
+    }
+  )
+
+  Menu.setApplicationMenu(Menu.buildFromTemplate(template))
+}
+
 function isMinimizeToTrayEnabled(): boolean {
   try {
     return runtime?.configStore.get().app.minimizeToTrayOnStartup ?? false
   } catch {
     return false
   }
+}
+
+function getConfiguredZoomFactor(config = runtime?.configStore.get()): number {
+  const bounds = getConfiguredZoomBounds(config)
+  const zoom = config?.app.zoom
+  if (!zoom) {
+    return 1
+  }
+
+  const factor = Number.isFinite(zoom.factor) ? zoom.factor : 1
+  return clampZoomFactor(factor, bounds)
+}
+
+function getConfiguredZoomBounds(config = runtime?.configStore.get()): {
+  min: number
+  max: number
+} {
+  const zoom = config?.app.zoom
+  const minSource = zoom?.min
+  const maxSource = zoom?.max
+  const min =
+    typeof minSource === 'number' && Number.isFinite(minSource) && minSource > 0 ? minSource : 0.75
+  const max =
+    typeof maxSource === 'number' && Number.isFinite(maxSource) && maxSource >= min
+      ? maxSource
+      : 1.5
+  return { min, max }
+}
+
+function getConfiguredDefaultZoomFactor(config = runtime?.configStore.get()): number {
+  return clampZoomFactor(1, getConfiguredZoomBounds(config))
+}
+
+function applyMainWindowZoom(config?: DesktopSettingsConfig): void {
+  mainWindowController?.applyZoomFactor(getConfiguredZoomFactor(config))
+}
+
+function stepConfiguredZoomFactor(direction: 1 | -1): void {
+  updateConfiguredZoomFactor(getConfiguredZoomFactor() + direction * ZOOM_STEP)
+}
+
+function resetConfiguredZoomFactor(): void {
+  updateConfiguredZoomFactor(getConfiguredDefaultZoomFactor())
+}
+
+function updateConfiguredZoomFactor(nextFactor: number): void {
+  if (!runtime) {
+    return
+  }
+
+  try {
+    const config = runtime.configStore.get()
+    const nextZoomFactor = roundZoomFactor(
+      clampZoomFactor(nextFactor, getConfiguredZoomBounds(config))
+    )
+    if (config.app.zoom.factor === nextZoomFactor) {
+      applyMainWindowZoom(config)
+      updateApplicationMenu()
+      return
+    }
+
+    config.app.zoom.factor = nextZoomFactor
+    const saved = runtime.configStore.save(config)
+    broadcastSettingsChanged('save', saved)
+  } catch (error) {
+    mainLogger.warn('Unable to update zoom factor.', { error })
+  }
+}
+
+function clampZoomFactor(value: number, bounds: { min: number; max: number }): number {
+  const factor = Number.isFinite(value) ? value : 1
+  return Math.min(bounds.max, Math.max(bounds.min, factor))
+}
+
+function roundZoomFactor(value: number): number {
+  return Math.round(value * 100) / 100
+}
+
+function formatZoomPercent(value: number): string {
+  return `${Math.round(value * 100)}%`
 }
 
 function getRuntimeSessionKind(sessionId: string): string | undefined {
@@ -227,6 +378,8 @@ function broadcastSettingsChanged(
   }
 
   updateTrayMenu()
+  applyMainWindowZoom(config)
+  updateApplicationMenu()
 
   const event: DesktopSettingsChangedEvent = {
     reason,
@@ -308,8 +461,6 @@ app
       logDir: logSink.status().logDir,
     })
 
-    Menu.setApplicationMenu(null)
-
     runtime = createCoreRuntime({
       app,
       appName: APP_NAME,
@@ -341,6 +492,7 @@ app
       onSettingsChanged: broadcastSettingsChanged,
       openChatSession: openMainChatSession,
     })
+    updateApplicationMenu()
     trayController?.create()
     mainWindowController?.create()
 

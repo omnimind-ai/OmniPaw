@@ -69,14 +69,6 @@ export function useProviderDraft(options: {
     return draft
   }
 
-  function ensureDefaultModelId() {
-    if (
-      !providerDraft.value.models.some((model) => model.id === providerDraft.value.defaultModelId)
-    ) {
-      providerDraft.value.defaultModelId = providerDraft.value.models[0]?.id || ''
-    }
-  }
-
   function buildSaveRequest(): ProviderSaveDraftResult {
     const validation = validateDraft()
     if (validation) return { ok: false, message: validation }
@@ -100,7 +92,6 @@ export function useProviderDraft(options: {
         authHeader: providerDraft.value.authHeader.trim() || 'Authorization',
         headers: parsedHeaders.value,
         extraBody: parsedExtraBody.value,
-        defaultModelId: providerDraft.value.defaultModelId || providerDraft.value.models[0]?.id,
         capabilities: { ...providerDraft.value.capabilities },
         createdAt: providerDraft.value.createdAt,
         updatedAt: providerDraft.value.updatedAt,
@@ -138,37 +129,18 @@ export function useProviderDraft(options: {
       supportsTools: false,
       supportsReasoning: false,
     })
-    providerDraft.value.defaultModelId ||= id
   }
 
   function removeModel(index: number) {
-    const removed = providerDraft.value.models[index]
     providerDraft.value.models.splice(index, 1)
-    if (removed?.id === providerDraft.value.defaultModelId) {
-      providerDraft.value.defaultModelId = providerDraft.value.models[0]?.id || ''
-    }
   }
 
   function replaceModels(models: Array<BridgeProviderModel | ProviderModel>) {
     loadingDraft.value = true
     providerDraft.value.models = models.map(draftFromModel)
-    ensureDefaultModelId()
     void nextTick(() => {
       loadingDraft.value = false
     })
-  }
-
-  function updateProviderType(value: ProviderType) {
-    providerDraft.value.type = value
-    providerDraft.value.api = apiFromType(value)
-    if (value === 'ollama') {
-      providerDraft.value.baseUrl ||= 'http://localhost:11434/v1'
-      providerDraft.value.capabilities.listModels = true
-    }
-    if (value === 'openai-compatible') {
-      providerDraft.value.baseUrl ||= 'https://api.openai.com/v1'
-      providerDraft.value.capabilities.listModels = true
-    }
   }
 
   function updateModelInput(
@@ -238,10 +210,6 @@ export function useProviderDraft(options: {
       modelIds.add(model.id.trim())
     }
 
-    if (providerDraft.value.defaultModelId && !modelIds.has(providerDraft.value.defaultModelId)) {
-      return '默认模型必须来自当前模型列表。'
-    }
-
     return ''
   }
 
@@ -252,7 +220,6 @@ export function useProviderDraft(options: {
     loadingDraft,
     addModel,
     buildSaveRequest,
-    ensureDefaultModelId,
     loadProviderDraft,
     removeModel,
     replaceModels,
@@ -260,7 +227,6 @@ export function useProviderDraft(options: {
     startNewProviderDraft,
     startProviderDraftFromPreset,
     updateModelInput,
-    updateProviderType,
   }
 }
 
@@ -276,7 +242,6 @@ function createEmptyProviderDraft(): ProviderDraft {
     authHeader: 'Authorization',
     headersText: '{}',
     extraBodyText: '{}',
-    defaultModelId: '',
     capabilities: {
       listModels: true,
       streaming: true,
@@ -296,7 +261,6 @@ function createEmptyProviderDraft(): ProviderDraft {
 
 function draftFromProvider(provider: BridgeProviderConfig): ProviderDraft {
   const models = (provider.models?.length ? provider.models : []).map(draftFromModel)
-  const firstModelId = models[0]?.id || ''
   const type = providerType(provider.type || provider.api)
 
   return {
@@ -310,7 +274,6 @@ function draftFromProvider(provider: BridgeProviderConfig): ProviderDraft {
     authHeader: typeof provider.authHeader === 'string' ? provider.authHeader : 'Authorization',
     headersText: formatJson(isRecord(provider.headers) ? provider.headers : {}),
     extraBodyText: formatJson(isRecord(provider.extraBody) ? provider.extraBody : {}),
-    defaultModelId: provider.defaultModelId || firstModelId,
     capabilities: normalizeCapabilities(provider.capabilities),
     compat: normalizeCompat(provider.compat),
     models,
@@ -335,7 +298,6 @@ function draftFromPreset(preset: BridgeProviderPreset): ProviderDraft {
     authHeader: preset.authHeader || draft.authHeader,
     headersText: formatJson(preset.headers || {}),
     extraBodyText: formatJson(preset.extraBody || {}),
-    defaultModelId: preset.defaultModelId || presetModels[0]?.id || '',
     capabilities: normalizeCapabilities(preset.capabilities),
     compat: normalizeCompat(preset.compat),
     models: presetModels,

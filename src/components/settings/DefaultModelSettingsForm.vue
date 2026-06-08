@@ -25,7 +25,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Switch } from '@/components/ui/switch'
 import { type ProviderModelOption, useProviderStore } from '@/stores/provider'
 
 const NONE_VALUE = '__none__'
@@ -42,7 +41,6 @@ const {
   observationReactionModelKey,
   observationVisionModelKey,
   persistenceAvailable,
-  registrySettings,
   saving,
   titleModelKey,
 } = storeToRefs(providerStore)
@@ -54,7 +52,6 @@ const enabledTextOptions = computed(() =>
 const enabledImageOptions = computed(() =>
   enabledOptions.value.filter((option) => option.input.includes('image'))
 )
-const streaming = computed(() => registrySettings.value.streaming)
 const chatContext = computed(() => props.draft.app.chatContext)
 const compactModelKey = computed(() => {
   const configuredModelId = chatContext.value.compactModelId
@@ -114,10 +111,6 @@ function updateCompactModel(value: AcceptableValue) {
   const normalizedValue = typeof value === 'string' ? value : ''
   const selected = enabledTextOptions.value.find((option) => option.key === normalizedValue)
   chatContext.value.compactModelId = selected?.modelId
-}
-
-function updateStreaming(value: boolean) {
-  void providerStore.setStreaming(value)
 }
 
 function modelLabel(option: ProviderModelOption) {
@@ -226,19 +219,6 @@ function modelLabel(option: ProviderModelOption) {
           </Select>
         </SettingEntry>
 
-        <SettingEntry
-          control-id="settings-streaming"
-          title="流式输出"
-          description="模型回复时逐步返回内容。"
-        >
-          <Switch
-            id="settings-streaming"
-            :model-value="streaming"
-            aria-label="流式输出"
-            :disabled="saving || !persistenceAvailable"
-            @update:model-value="updateStreaming"
-          />
-        </SettingEntry>
       </FieldGroup>
     </SettingsSection>
 

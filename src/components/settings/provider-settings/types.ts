@@ -20,7 +20,6 @@ export interface ProviderDraft {
   authHeader: string
   headersText: string
   extraBodyText: string
-  defaultModelId: string
   capabilities: Required<ProviderCapabilities>
   compat: Required<ProviderCompat>
   models: ProviderModelDraft[]

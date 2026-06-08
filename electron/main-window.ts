@@ -12,6 +12,7 @@ interface MainWindowControllerOptions {
   isQuitting: () => boolean
   setQuitting: () => void
   shouldMinimizeToTray: () => boolean
+  zoomFactor: () => number
   onHiddenToTray: () => void
   onClosed: () => void
   showCatWindow: () => void
@@ -21,6 +22,7 @@ export interface MainWindowController {
   create: () => void
   getWindow: () => BrowserWindow | null
   hideToTray: () => void
+  applyZoomFactor: (factor?: number) => void
   show: () => void
 }
 
@@ -58,6 +60,7 @@ export function createMainWindowController(
     mainWindow = window
     attachWindowDiagnostics(window, 'main', options.logger)
     attachWindowStateEvents(window)
+    applyZoomFactor()
 
     if (process.env.ELECTRON_RENDERER_URL) {
       void window.loadURL(process.env.ELECTRON_RENDERER_URL)
@@ -70,6 +73,7 @@ export function createMainWindowController(
         return
       }
 
+      applyZoomFactor()
       show()
     })
 
@@ -111,6 +115,14 @@ export function createMainWindowController(
     options.onHiddenToTray()
   }
 
+  function applyZoomFactor(factor = options.zoomFactor()): void {
+    if (!mainWindow || mainWindow.isDestroyed()) {
+      return
+    }
+
+    mainWindow.webContents.setZoomFactor(normalizeZoomFactor(factor))
+  }
+
   function show(): void {
     if (options.isQuitting()) {
       return
@@ -142,8 +154,13 @@ export function createMainWindowController(
     create,
     getWindow: () => mainWindow,
     hideToTray,
+    applyZoomFactor,
     show,
   }
+}
+
+function normalizeZoomFactor(value: number): number {
+  return Number.isFinite(value) && value > 0 ? value : 1
 }
 
 function attachWindowDiagnostics(window: BrowserWindow, windowName: string, logger: Logger): void {

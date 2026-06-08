@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import type { ProviderType } from '@shared/types/provider'
 import { CloudIcon } from 'lucide-vue-next'
 import { computed } from 'vue'
 import {
@@ -35,7 +34,6 @@ const props = defineProps<{
 const emit = defineEmits<{
   'update:credentialMode': [value: CredentialMode]
   'update:credentialValue': [value: string]
-  'update-provider-type': [value: ProviderType]
 }>()
 
 const localCredentialMode = computed({
@@ -67,50 +65,6 @@ const localCredentialValue = computed({
           v-model="draft.id"
           :disabled="isExistingProvider"
         />
-      </Field>
-    </div>
-
-    <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
-      <Field>
-        <FieldLabel for="provider-type">类型</FieldLabel>
-        <Select
-          :model-value="draft.type"
-          @update:model-value="emit('update-provider-type', $event as ProviderType)"
-        >
-          <SelectTrigger
-            id="provider-type"
-            class="w-full"
-          >
-            <SelectValue placeholder="选择类型" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectGroup>
-              <SelectItem value="openai-compatible">OpenAI Compatible</SelectItem>
-              <SelectItem value="ollama">Ollama</SelectItem>
-              <SelectItem value="omniinfer">OmniInfer</SelectItem>
-            </SelectGroup>
-          </SelectContent>
-        </Select>
-      </Field>
-
-      <Field>
-        <FieldLabel for="provider-api">API</FieldLabel>
-        <Select v-model="draft.api">
-          <SelectTrigger
-            id="provider-api"
-            class="w-full"
-          >
-            <SelectValue placeholder="选择 API" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectGroup>
-              <SelectItem value="openai-chat-completions">OpenAI Chat Completions</SelectItem>
-              <SelectItem value="openai-responses">OpenAI Responses</SelectItem>
-              <SelectItem value="ollama">Ollama</SelectItem>
-              <SelectItem value="omniinfer">OmniInfer</SelectItem>
-            </SelectGroup>
-          </SelectContent>
-        </Select>
       </Field>
     </div>
 
