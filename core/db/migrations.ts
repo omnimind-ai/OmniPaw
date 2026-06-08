@@ -341,4 +341,24 @@ export const migrations: Migration[] = [
       );
     `,
   },
+  {
+    id: 9,
+    name: 'create_companion_memory_embeddings',
+    sql: `
+      CREATE TABLE IF NOT EXISTS companion_memory_embeddings (
+        memory_id TEXT PRIMARY KEY,
+        provider TEXT NOT NULL,
+        model TEXT NOT NULL,
+        dimension INTEGER NOT NULL,
+        content_hash TEXT NOT NULL,
+        vector_json TEXT NOT NULL,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL,
+        FOREIGN KEY(memory_id) REFERENCES companion_memory_items(id) ON DELETE CASCADE
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_companion_memory_embeddings_model
+        ON companion_memory_embeddings(provider, model, updated_at DESC);
+    `,
+  },
 ]

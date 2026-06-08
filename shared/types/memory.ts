@@ -54,6 +54,8 @@ export interface CompanionMemorySourceEvidence {
 export interface CompanionMemorySearchResult extends CompanionMemoryItem {
   retrievalScore?: number
   lexicalScore?: number
+  vectorScore?: number
+  retrievalSource?: 'lexical' | 'vector' | 'hybrid'
 }
 
 export interface CompanionMemoryFilters {
@@ -175,6 +177,11 @@ export interface CompanionMemoryRequestSnapshot {
   budgetTokens: number
   budgetItems: number
   minConfidence: number
+  strategy?: 'lexical' | 'vector' | 'hybrid'
+  queryHash?: string
+  lexicalCandidateCount?: number
+  vectorCandidateCount?: number
+  candidateCount?: number
 }
 
 export interface CompanionMemoryContextItem {
@@ -194,4 +201,15 @@ export interface CompanionMemoryContextPlan {
   selected: CompanionMemoryContextItem[]
   dropped: CompanionMemoryContextItem[]
   snapshot: CompanionMemoryRequestSnapshot
+}
+
+export interface CompanionMemoryLocalEmbedding {
+  memoryId: ID
+  provider: string
+  model: string
+  dimension: number
+  contentHash: string
+  vector: number[]
+  createdAt: UnixMs
+  updatedAt: UnixMs
 }

@@ -240,6 +240,34 @@ try {
     true
   )
 
+  const chineseMemory = memoryRepo.create({
+    kind: 'preference',
+    scope: 'user',
+    content: '主人最喜欢猫娘了喵，他问起来的时候一定要喵喵叫',
+    importance: 5,
+    confidence: 1,
+  })
+  const chineseMemoryRetrievalSend = await sessionModelService.sendInternalMessage(
+    {
+      sessionId: selectedSession.id,
+      content: '我最喜欢什么你还有印象吗',
+      providerId: kimiProvider.id,
+      modelId: 'kimi',
+      mode: 'fast_chat',
+      toolProfile: 'minimal',
+      maxSteps: 1,
+    },
+    {
+      send() {},
+    }
+  )
+  await chineseMemoryRetrievalSend.terminalEvent
+  const chineseMemorySnapshot = runRepo.get(chineseMemoryRetrievalSend.runId)?.requestSnapshot
+    ?.memory
+  assert.equal(chineseMemorySnapshot?.selected[0]?.id, chineseMemory.id)
+  assert.equal((chineseMemorySnapshot?.vectorCandidateCount ?? 0) > 0, true)
+  assert.equal(chineseMemorySnapshot?.strategy, 'hybrid')
+
   const tavernMemorySession = {
     ...selectedSession,
     id: 'tavern-memory-smoke',

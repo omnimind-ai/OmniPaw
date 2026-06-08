@@ -6,11 +6,20 @@ import type {
   CompanionMemoryInspectResponse,
   CompanionMemoryItem,
   CompanionMemoryListResponse,
+  CompanionMemoryLocalEmbedding,
   CompanionMemorySearchResult,
   CompanionMemorySourceEvidence,
   CreateCompanionMemoryRequest,
   UpdateCompanionMemoryRequest,
 } from '@shared/types/memory'
+import {
+  hashEmbeddingText,
+  localMemoryEmbeddingDimension,
+  localMemoryEmbeddingModel,
+  localMemoryEmbeddingProvider,
+  localTextEmbedding,
+  memoryEmbeddingText,
+} from '../../memory/local-embedding'
 import type { DatabaseConnection } from '../client'
 import { decodeJson, encodeJson } from '../json'
 
@@ -66,6 +75,17 @@ interface JobRow {
   updated_at: number
 }
 
+interface EmbeddingRow {
+  memory_id: string
+  provider: string
+  model: string
+  dimension: number
+  content_hash: string
+  vector_json: string
+  created_at: number
+  updated_at: number
+}
+
 export class CompanionMemoryRepo {
   constructor(private readonly db: DatabaseConnection) {}
 
@@ -94,6 +114,7 @@ export class CompanionMemoryRepo {
     const save = this.db.transaction(() => {
       this.insertOrReplaceMemory(memory)
       this.replaceFts(memory)
+      this.replaceEmbedding(memory)
       for (const source of request.sources ?? []) {
         this.addSource({
           ...source,
@@ -237,6 +258,7 @@ export class CompanionMemoryRepo {
     }
     this.insertOrReplaceMemory(updated)
     this.replaceFts(updated)
+    this.replaceEmbedding(updated)
     return this.get(updated.id)
   }
 
@@ -254,6 +276,7 @@ export class CompanionMemoryRepo {
     if (hardDelete) {
       const remove = this.db.transaction(() => {
         this.db.prepare('DELETE FROM companion_memory_fts WHERE memory_id = ?').run(memoryId)
+        this.db.prepare('DELETE FROM companion_memory_embeddings WHERE memory_id = ?').run(memoryId)
         this.db.prepare('DELETE FROM companion_memory_items WHERE id = ?').run(memoryId)
       })
       remove()
@@ -398,6 +421,57 @@ export class CompanionMemoryRepo {
     return row ? mapJob(row as JobRow) : undefined
   }
 
+  listEmbeddings(filters: CompanionMemoryFilters = {}): CompanionMemoryLocalEmbedding[] {
+    const { where, params } = this.buildFilter(filters, 'items')
+    const limit = clampInteger(filters.limit ?? 500, 1, 5000)
+    const rows = this.db
+      .prepare(
+        `
+          SELECT embeddings.*
+          FROM companion_memory_embeddings embeddings
+          JOIN companion_memory_items items ON items.id = embeddings.memory_id
+          ${where}
+          ORDER BY items.importance DESC, items.updated_at DESC
+          LIMIT @limit
+        `
+      )
+      .all({ ...params, limit })
+    return rows.map((row) => mapEmbedding(row as EmbeddingRow)).filter((row) => row.vector.length)
+  }
+
+  ensureEmbeddings(filters: CompanionMemoryFilters = {}): number {
+    const { where, params } = this.buildFilter(filters, 'items')
+    const rows = this.db
+      .prepare(
+        `
+          SELECT items.*
+          FROM companion_memory_items items
+          LEFT JOIN companion_memory_embeddings embeddings ON embeddings.memory_id = items.id
+          ${where ? `${where} AND` : 'WHERE'}
+            (
+              embeddings.memory_id IS NULL
+              OR embeddings.provider != @embeddingProvider
+              OR embeddings.model != @embeddingModel
+              OR embeddings.dimension != @embeddingDimension
+            )
+          ORDER BY items.updated_at DESC
+          LIMIT 1000
+        `
+      )
+      .all({
+        ...params,
+        embeddingProvider: localMemoryEmbeddingProvider,
+        embeddingModel: localMemoryEmbeddingModel,
+        embeddingDimension: localMemoryEmbeddingDimension,
+      })
+      .map((row) => mapMemory(row as MemoryItemRow))
+
+    for (const memory of rows) {
+      this.replaceEmbedding(memory)
+    }
+    return rows.length
+  }
+
   private searchLike(filters: CompanionMemoryFilters): CompanionMemoryListResponse {
     const { where, params } = this.buildFilter(filters)
     const query = `%${filters.query?.trim() ?? ''}%`
@@ -509,6 +583,36 @@ export class CompanionMemoryRepo {
       )
       .run(memory.id, memory.subject ?? '', memory.content)
   }
+
+  private replaceEmbedding(memory: CompanionMemoryItem): void {
+    this.db.prepare('DELETE FROM companion_memory_embeddings WHERE memory_id = ?').run(memory.id)
+    if (memory.status === 'deleted') {
+      return
+    }
+
+    const text = memoryEmbeddingText(memory)
+    const now = Date.now()
+    this.db
+      .prepare(
+        `
+          INSERT INTO companion_memory_embeddings (
+            memory_id, provider, model, dimension, content_hash, vector_json, created_at, updated_at
+          ) VALUES (
+            @memoryId, @provider, @model, @dimension, @contentHash, @vectorJson, @createdAt, @updatedAt
+          )
+        `
+      )
+      .run({
+        memoryId: memory.id,
+        provider: localMemoryEmbeddingProvider,
+        model: localMemoryEmbeddingModel,
+        dimension: localMemoryEmbeddingDimension,
+        contentHash: hashEmbeddingText(text),
+        vectorJson: encodeJson(localTextEmbedding(text)) ?? '[]',
+        createdAt: now,
+        updatedAt: now,
+      })
+  }
 }
 
 function mapMemory(row: MemoryItemRow): CompanionMemorySearchResult {
@@ -564,6 +668,19 @@ function mapJob(row: JobRow): CompanionMemoryExtractionJob {
     createdMemoryIds: decodeJson<string[]>(row.created_memory_ids_json, []),
     startedAt: row.started_at ?? undefined,
     finishedAt: row.finished_at ?? undefined,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  }
+}
+
+function mapEmbedding(row: EmbeddingRow): CompanionMemoryLocalEmbedding {
+  return {
+    memoryId: row.memory_id,
+    provider: row.provider,
+    model: row.model,
+    dimension: row.dimension,
+    contentHash: row.content_hash,
+    vector: decodeJson<number[]>(row.vector_json, []).filter(Number.isFinite),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   }

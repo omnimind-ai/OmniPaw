@@ -28,6 +28,7 @@ import type {
   DesktopMemorySettings,
   UpdateCompanionMemoryRequest,
 } from '@shared/types/memory'
+import { embeddingCosine, localTextEmbedding } from './local-embedding'
 import type { CompanionMemoryPolicyService } from './policy'
 
 export interface CompanionMemoryServiceOptions {
@@ -217,6 +218,9 @@ export class CompanionMemoryService {
     currentUserMessageId: string
   }): CompanionMemoryContextPlan | undefined {
     const settings = this.options.policy.settingsSnapshot()
+    const current = input.messages.find((message) => message.id === input.currentUserMessageId)
+    const query = messageText(current).trim()
+    const queryHash = hashText(query)
     if (!this.options.policy.canRetrieve(input.session)) {
       return {
         selected: [],
@@ -229,19 +233,33 @@ export class CompanionMemoryService {
           budgetTokens: settings.maxContextTokens,
           budgetItems: settings.maxContextItems,
           minConfidence: settings.minConfidence,
+          strategy: 'hybrid',
+          queryHash,
+          lexicalCandidateCount: 0,
+          vectorCandidateCount: 0,
+          candidateCount: 0,
         },
       }
     }
 
-    const current = input.messages.find((message) => message.id === input.currentUserMessageId)
-    const query = messageText(current).trim()
     const searchLimit = Math.max(50, settings.maxContextItems * 4)
-    const results = this.searchForRetrieval({
+    this.options.repo.ensureEmbeddings({
+      sessionId: input.session.id,
+      minConfidence: settings.minConfidence,
+    })
+    const lexicalResults = this.searchForRetrieval({
       query,
       sessionId: input.session.id,
       minConfidence: settings.minConfidence,
       limit: searchLimit,
     })
+    const vectorResults = this.searchVectorForRetrieval({
+      query,
+      sessionId: input.session.id,
+      minConfidence: settings.minConfidence,
+      limit: searchLimit,
+    })
+    const results = mergeRetrievalResults(lexicalResults, vectorResults)
     const ranked = rankMemories(results, input.session.kind)
     const selected: CompanionMemoryContextItem[] = []
     const dropped: CompanionMemoryContextItem[] = []
@@ -260,7 +278,7 @@ export class CompanionMemoryService {
       usedTokens += item.estimatedTokens
     }
 
-    return {
+    const plan: CompanionMemoryContextPlan = {
       selected,
       dropped,
       snapshot: {
@@ -271,8 +289,24 @@ export class CompanionMemoryService {
         budgetTokens: settings.maxContextTokens,
         budgetItems: settings.maxContextItems,
         minConfidence: settings.minConfidence,
+        strategy: 'hybrid',
+        queryHash,
+        lexicalCandidateCount: lexicalResults.length,
+        vectorCandidateCount: vectorResults.length,
+        candidateCount: results.length,
       },
     }
+    this.options.logger?.debug('Companion memory retrieval completed.', {
+      sessionId: input.session.id,
+      sessionKind: input.session.kind,
+      selectedCount: selected.length,
+      droppedCount: dropped.length,
+      lexicalCandidateCount: lexicalResults.length,
+      vectorCandidateCount: vectorResults.length,
+      candidateCount: results.length,
+      queryHash,
+    })
+    return plan
   }
 
   applySnapshotMemory(
@@ -324,6 +358,47 @@ export class CompanionMemoryService {
       }
     }
     return [...results.values()]
+  }
+
+  private searchVectorForRetrieval(filters: {
+    query: string
+    sessionId: string
+    minConfidence: number
+    limit: number
+  }): CompanionMemorySearchResult[] {
+    const queryVector = localTextEmbedding(filters.query)
+    const embeddings = this.options.repo.listEmbeddings({
+      sessionId: filters.sessionId,
+      minConfidence: filters.minConfidence,
+      limit: 1000,
+    })
+    const scored = embeddings
+      .map((embedding) => ({
+        embedding,
+        vectorScore: embeddingCosine(queryVector, embedding.vector),
+      }))
+      .filter((item) => item.vectorScore > 0.03)
+      .sort(
+        (left, right) =>
+          right.vectorScore - left.vectorScore ||
+          right.embedding.updatedAt - left.embedding.updatedAt ||
+          left.embedding.memoryId.localeCompare(right.embedding.memoryId)
+      )
+      .slice(0, filters.limit)
+
+    const results: CompanionMemorySearchResult[] = []
+    for (const item of scored) {
+      const memory = this.options.repo.get(item.embedding.memoryId)
+      if (!memory || memory.status !== 'active' || memory.confidence < filters.minConfidence) {
+        continue
+      }
+      results.push({
+        ...memory,
+        vectorScore: item.vectorScore,
+        retrievalSource: 'vector',
+      })
+    }
+    return results
   }
 }
 
@@ -428,6 +503,32 @@ function normalizeRetrievalToken(token: string): string {
   return token
 }
 
+function mergeRetrievalResults(
+  lexicalResults: CompanionMemorySearchResult[],
+  vectorResults: CompanionMemorySearchResult[]
+): CompanionMemorySearchResult[] {
+  const results = new Map<string, CompanionMemorySearchResult>()
+  for (const memory of lexicalResults) {
+    results.set(memory.id, {
+      ...memory,
+      retrievalSource: 'lexical',
+    })
+  }
+  for (const memory of vectorResults) {
+    const existing = results.get(memory.id)
+    if (!existing) {
+      results.set(memory.id, memory)
+      continue
+    }
+    results.set(memory.id, {
+      ...existing,
+      vectorScore: Math.max(existing.vectorScore ?? 0, memory.vectorScore ?? 0),
+      retrievalSource: 'hybrid',
+    })
+  }
+  return [...results.values()]
+}
+
 function rankMemories(
   memories: CompanionMemorySearchResult[],
   sessionKind: ChatSessionKind | undefined
@@ -438,11 +539,17 @@ function rankMemories(
       const ageDays = Math.max(0, (now - memory.updatedAt) / 86_400_000)
       const recency = Math.max(0, 10 - ageDays / 7)
       const lexical = Math.abs(memory.lexicalScore ?? 0)
+      const vector = Math.max(0, memory.vectorScore ?? 0)
       const companionBoost = sessionKind === 'cat' && memory.scope === 'companion' ? 8 : 0
       return {
         ...memory,
         retrievalScore:
-          memory.importance * 12 + memory.confidence * 20 + recency + companionBoost - lexical,
+          memory.importance * 12 +
+          memory.confidence * 20 +
+          vector * 35 +
+          recency +
+          companionBoost -
+          lexical,
       }
     })
     .sort(
@@ -466,7 +573,9 @@ function toContextItem(memory: CompanionMemorySearchResult): CompanionMemoryCont
     hash: hashText(content),
     estimatedTokens: estimateTextTokens(content),
     score: memory.retrievalScore ?? 0,
-    reason: 'ranked_memory_match',
+    reason: memory.retrievalSource
+      ? `${memory.retrievalSource}_memory_match`
+      : 'ranked_memory_match',
   }
 }
 

@@ -398,6 +398,10 @@ try {
   })
   assert.equal(memories.get(memory.id)?.kind, 'preference')
   assert.equal(memories.inspect(memory.id)?.sources[0]?.evidenceHash, 'evidence-smoke')
+  assert.equal(
+    memories.listEmbeddings({ sessionId: session.id }).some((item) => item.memoryId === memory.id),
+    true
+  )
   assert.equal(memories.search({ query: 'TypeScript smoke', limit: 5 }).items[0]?.id, memory.id)
   assert.equal(memories.list({ minConfidence: 0.95 }).items.length, 0)
   assert.equal(memories.archive(memory.id)?.status, 'archived')
