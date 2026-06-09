@@ -213,34 +213,28 @@ function mergeCloudModels(models: ProviderModel[], modelId: string): ProviderMod
 </script>
 
 <template>
-  <div class="flex min-h-full flex-1 items-center justify-center overflow-auto bg-white px-6 py-8">
-    <section class="relative w-full max-w-4xl rounded-[28px] bg-white px-8 py-8 md:px-14 md:py-12">
-      <div class="absolute left-6 top-6 flex gap-2">
-        <span class="h-3.5 w-3.5 rounded-full bg-[#ff5f57]" />
-        <span class="h-3.5 w-3.5 rounded-full bg-[#ffbd2e]" />
-        <span class="h-3.5 w-3.5 rounded-full bg-[#28c840]" />
-      </div>
-
-      <div class="mx-auto max-w-3xl pt-6 text-center">
-        <p class="mb-3 inline-flex items-center gap-2 rounded-full bg-blue-50 px-4 py-1.5 text-sm font-semibold text-blue-700">
+  <div class="flex min-h-full flex-1 items-center justify-center overflow-auto bg-white px-6 py-5">
+    <section class="relative w-full max-w-3xl bg-white px-4 py-4 md:px-6">
+      <div class="mx-auto max-w-3xl text-center">
+        <p class="mb-2 inline-flex items-center gap-2 rounded-full bg-blue-50 px-3.5 py-1 text-sm font-semibold text-blue-700">
           <CloudIcon class="h-4 w-4" />
           只需要这一步配置！
         </p>
-        <h1 class="text-4xl font-bold tracking-normal text-zinc-950 md:text-5xl">
+        <h1 class="text-3xl font-bold tracking-normal text-zinc-950 md:text-4xl">
           Choose your model provider
         </h1>
-        <p class="mt-5 text-lg font-medium leading-7 text-slate-500">
+        <p class="mt-2 text-base font-medium leading-6 text-slate-500">
           选择 Agent 的运行方式。完成这一步后，就可以直接和桌面角色互动。
         </p>
       </div>
 
-      <div class="mx-auto mt-10 flex max-w-3xl flex-col gap-5">
+      <div class="mx-auto mt-6 flex max-w-3xl flex-col gap-3">
         <button
           v-for="choice in choices"
           :key="choice.id"
           type="button"
           :disabled="choice.disabled"
-          class="group flex min-h-36 w-full items-center gap-6 rounded-2xl border bg-white px-7 py-6 text-left shadow-sm transition hover:border-blue-300 hover:bg-blue-50/30"
+          class="group flex min-h-24 w-full items-center gap-4 rounded-2xl border bg-white px-5 py-4 text-left shadow-sm transition hover:border-blue-300 hover:bg-blue-50/30"
           :class="
             selectedChoiceId === choice.id
               ? 'border-blue-500 bg-blue-50/40 shadow-blue-100 ring-1 ring-blue-500'
@@ -251,7 +245,7 @@ function mergeCloudModels(models: ProviderModel[], modelId: string): ProviderMod
           @click="!choice.disabled && (selectedChoiceId = choice.id)"
         >
           <span
-            class="grid h-8 w-8 shrink-0 place-items-center rounded-full border-2"
+            class="grid h-7 w-7 shrink-0 place-items-center rounded-full border-2"
             :class="
               selectedChoiceId === choice.id
                 ? 'border-blue-500 bg-blue-500'
@@ -260,28 +254,28 @@ function mergeCloudModels(models: ProviderModel[], modelId: string): ProviderMod
           >
             <span
               v-if="selectedChoiceId === choice.id"
-              class="h-3.5 w-3.5 rounded-full bg-white"
+              class="h-3 w-3 rounded-full bg-white"
             />
           </span>
 
-          <span class="grid h-16 w-16 shrink-0 place-items-center rounded-2xl bg-slate-50 text-slate-700 ring-1 ring-slate-200">
+          <span class="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-slate-50 text-slate-700 ring-1 ring-slate-200">
             <component
               :is="choice.icon"
-              class="h-10 w-10 stroke-[1.8]"
+              class="h-8 w-8 stroke-[1.8]"
             />
           </span>
 
           <span class="min-w-0 flex-1">
             <span class="flex flex-wrap items-center gap-3">
-              <span class="text-2xl font-bold tracking-normal text-zinc-950">{{ choice.title }}</span>
+              <span class="text-xl font-bold tracking-normal text-zinc-950">{{ choice.title }}</span>
               <span
-                class="rounded-full px-3 py-1 text-sm font-bold"
+                class="rounded-full px-2.5 py-0.5 text-xs font-bold"
                 :class="choice.badgeClass"
               >
                 {{ choice.badge }}
               </span>
             </span>
-            <span class="mt-3 block text-lg font-medium leading-7 text-slate-500">
+            <span class="mt-2 block text-base font-medium leading-6 text-slate-500">
               {{ choice.description }}
             </span>
           </span>
@@ -290,15 +284,15 @@ function mergeCloudModels(models: ProviderModel[], modelId: string): ProviderMod
 
       <div
         v-if="selectedChoiceId === 'openai-compatible'"
-        class="mx-auto mt-6 max-w-3xl rounded-2xl border border-blue-100 bg-blue-50/40 p-5 text-left"
+        class="mx-auto mt-4 max-w-3xl rounded-2xl border border-blue-100 bg-blue-50/40 p-4 text-left"
       >
-        <div class="grid gap-4 md:grid-cols-[1.2fr_1fr]">
+        <div class="grid gap-3 md:grid-cols-[1.2fr_1fr]">
           <div class="space-y-2">
             <Label for="onboarding-cloud-base-url">Base URL</Label>
             <Input
               id="onboarding-cloud-base-url"
               v-model="cloudBaseUrl"
-              class="h-11 rounded-xl bg-white text-base"
+              class="h-10 rounded-xl bg-white text-base"
               placeholder="https://api.openai.com/v1"
             />
           </div>
@@ -308,30 +302,30 @@ function mergeCloudModels(models: ProviderModel[], modelId: string): ProviderMod
             <Input
               id="onboarding-cloud-model-id"
               v-model="cloudModelId"
-              class="h-11 rounded-xl bg-white text-base"
+              class="h-10 rounded-xl bg-white text-base"
               placeholder="gpt-4o-mini"
             />
           </div>
         </div>
 
-        <div class="mt-4 space-y-2">
+        <div class="mt-3 space-y-2">
           <Label for="onboarding-cloud-api-key">API Key</Label>
           <Input
             id="onboarding-cloud-api-key"
             v-model="cloudApiKey"
             type="password"
-            class="h-11 rounded-xl bg-white text-base"
+            class="h-10 rounded-xl bg-white text-base"
             placeholder="sk-..."
           />
         </div>
       </div>
 
-      <div class="mx-auto mt-9 flex max-w-3xl items-center justify-between gap-4">
+      <div class="mx-auto mt-5 flex max-w-3xl items-center justify-between gap-4">
         <Button
           type="button"
           variant="outline"
           size="lg"
-          class="h-14 min-w-40 rounded-xl border-zinc-200 px-8 text-lg font-semibold shadow-sm"
+          class="h-11 min-w-36 rounded-xl border-zinc-200 px-6 text-base font-semibold shadow-sm"
           @click="openAdvancedSettings"
         >
           Advanced
@@ -340,7 +334,7 @@ function mergeCloudModels(models: ProviderModel[], modelId: string): ProviderMod
         <Button
           type="button"
           size="lg"
-          class="h-14 min-w-48 rounded-xl bg-blue-600 px-10 text-lg font-semibold text-white shadow-lg shadow-blue-200 hover:bg-blue-700"
+          class="h-11 min-w-44 rounded-xl bg-blue-600 px-8 text-base font-semibold text-white shadow-lg shadow-blue-200 hover:bg-blue-700"
           :disabled="busy"
           @click="continueSetup"
         >
