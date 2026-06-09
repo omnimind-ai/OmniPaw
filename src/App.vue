@@ -1,18 +1,28 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted } from 'vue'
-import { useRouter } from 'vue-router'
+import { storeToRefs } from 'pinia'
+import { computed, onBeforeUnmount, onMounted } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 
 import { appBridge, type BridgeStreamEvent } from '@/bridge/app'
 import AppTopBar from '@/components/common/AppTopBar.vue'
+import FirstLaunchProviderGuide from '@/components/onboarding/FirstLaunchProviderGuide.vue'
 import { Toaster } from '@/components/ui/sonner'
 import { useAppTheme } from '@/composables/useAppTheme'
+import { useProviderStore } from '@/stores/provider'
 
 useAppTheme()
 
 const router = useRouter()
+const route = useRoute()
+const providerStore = useProviderStore()
+const { enabledModelOptions } = storeToRefs(providerStore)
 const activeCatRuns = new Set<string>()
 let stopCatSubscription: (() => void) | undefined
 let stopOpenChatSubscription: (() => void) | undefined
+
+const showProviderGuide = computed(
+  () => route.name !== 'settings' && enabledModelOptions.value.length === 0
+)
 
 function syncCatWindow(event: BridgeStreamEvent) {
   if (!event.runId) {
@@ -40,6 +50,7 @@ function syncCatWindow(event: BridgeStreamEvent) {
 }
 
 onMounted(() => {
+  void providerStore.loadProviders()
   stopCatSubscription = appBridge.chat.onStreamEvent?.(syncCatWindow)
   stopOpenChatSubscription = appBridge.app.onOpenChatSession?.((request) => {
     if (!request.sessionId) return
@@ -64,7 +75,8 @@ onBeforeUnmount(() => {
   >
     <AppTopBar />
     <div class="min-h-0 flex-1 overflow-hidden">
-      <RouterView />
+      <FirstLaunchProviderGuide v-if="showProviderGuide" />
+      <RouterView v-else />
     </div>
     <Toaster
       close-button

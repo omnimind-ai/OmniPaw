@@ -3,7 +3,6 @@ import { provide } from 'vue'
 
 import ChatSidebar from '@/components/chat/ChatSidebar.vue'
 import { chatWorkspaceContextKey } from '@/components/chat/chat-workspace-context'
-import FirstLaunchProviderGuide from '@/components/onboarding/FirstLaunchProviderGuide.vue'
 import { SidebarInset, SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar'
 import { useChatWorkspaceController } from '@/composables/chat/useChatWorkspaceController'
 
@@ -26,7 +25,6 @@ const {
   handleRenameSession,
   handleDeleteSession,
 } = useChatWorkspaceController()
-const { selectedModel, providersLoading } = workspaceContext
 
 provide(chatWorkspaceContextKey, workspaceContext)
 </script>
@@ -60,8 +58,7 @@ provide(chatWorkspaceContextKey, workspaceContext)
       </header>
 
       <main class="flex min-h-0 flex-1 flex-col bg-background">
-        <FirstLaunchProviderGuide v-if="!selectedModel && !providersLoading" />
-        <RouterView v-else />
+        <RouterView />
       </main>
     </SidebarInset>
   </SidebarProvider>
