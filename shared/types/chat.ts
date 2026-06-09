@@ -443,7 +443,6 @@ export type ComplexDocumentAttachmentRejectionReason =
   | 'minimal_profile'
   | 'model_does_not_support_tools'
   | 'workspace_disabled'
-  | 'terminal_disabled'
   | 'workspace_tool_disabled'
   | 'terminal_tool_disabled'
   | 'workspace_tool_unavailable'

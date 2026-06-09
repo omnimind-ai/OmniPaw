@@ -193,17 +193,10 @@ export function evaluateComplexDocumentAttachmentAdmission(input: {
       })
     )
   }
-  if (!input.workspaceServiceAvailable || input.toolSettings?.workspace.enabled === false) {
+  if (!input.workspaceServiceAvailable) {
     rejections.push(
       rejection('workspace_disabled', {
         message: '当前 workspace 能力关闭，无法安全提供文档路径给 Agent。',
-      })
-    )
-  }
-  if (input.toolSettings?.terminal.enabled === false) {
-    rejections.push(
-      rejection('terminal_disabled', {
-        message: '当前 terminal 能力关闭，无法转换或读取此类二进制文档。',
       })
     )
   }

@@ -9,10 +9,12 @@ import {
   ServerIcon,
   TerminalIcon,
   Trash2Icon,
+  WrenchIcon,
   XIcon,
 } from 'lucide-vue-next'
 import { computed, ref } from 'vue'
 import type {
+  BridgeManagedToolInfo,
   BridgeMcpDiscoveredToolSummary,
   BridgeMcpDiscoveryStatus,
   BridgeMcpSafeTransport,
@@ -31,10 +33,12 @@ import { cn } from '@/lib/utils'
 
 const props = defineProps<{
   servers: BridgeMcpServerSummary[]
+  builtinTools: BridgeManagedToolInfo[]
   loading: boolean
   showSkeleton: boolean
   anyPending: boolean
   mcpUnavailable: boolean
+  toolsUnavailable: boolean
   fallbackRuntime: boolean
   operationError: string
   registryError: string
@@ -47,14 +51,25 @@ const emit = defineEmits<{
   refresh: [serverId?: string]
   edit: [server: BridgeMcpServerSummary]
   enable: [server: BridgeMcpServerSummary, enabled: boolean]
+  toolEnable: [tool: BridgeManagedToolInfo, enabled: boolean]
   delete: [server: BridgeMcpServerSummary]
 }>()
 
 const searchQuery = ref('')
 const enabledCount = computed(() => props.servers.filter((server) => server.enabled).length)
+const enabledBuiltinToolCount = computed(
+  () => props.builtinTools.filter((tool) => tool.enabled).length
+)
 const discoveredToolCount = computed(() =>
   props.servers.reduce((count, server) => count + server.tools.length, 0)
 )
+const filteredBuiltinTools = computed(() => {
+  const query = normalizeSearchText(searchQuery.value)
+  if (!query) return props.builtinTools
+  return props.builtinTools.filter((tool) =>
+    normalizeSearchText(managedToolSearchText(tool)).includes(query)
+  )
+})
 const filteredServers = computed(() => {
   const query = normalizeSearchText(searchQuery.value)
   if (!query) return props.servers
@@ -62,7 +77,13 @@ const filteredServers = computed(() => {
     normalizeSearchText(serverSearchText(server)).includes(query)
   )
 })
-const searchEmpty = computed(() => props.servers.length > 0 && filteredServers.value.length === 0)
+const inventoryEmpty = computed(() => !props.builtinTools.length && !props.servers.length)
+const searchEmpty = computed(
+  () =>
+    !inventoryEmpty.value &&
+    filteredBuiltinTools.value.length === 0 &&
+    filteredServers.value.length === 0
+)
 
 function statusLabel(status: BridgeMcpDiscoveryStatus) {
   const labels: Record<BridgeMcpDiscoveryStatus, string> = {
@@ -81,7 +102,7 @@ function statusVariant(status: BridgeMcpDiscoveryStatus): BadgeVariants['variant
   return 'outline'
 }
 
-function riskLabel(risk: BridgeMcpDiscoveredToolSummary['risk']) {
+function riskLabel(risk: BridgeMcpDiscoveredToolSummary['risk'] | string) {
   const labels: Record<string, string> = {
     safe: '安全',
     read: '读取',
@@ -92,7 +113,9 @@ function riskLabel(risk: BridgeMcpDiscoveredToolSummary['risk']) {
   return labels[risk] || risk
 }
 
-function riskVariant(risk: BridgeMcpDiscoveredToolSummary['risk']): BadgeVariants['variant'] {
+function riskVariant(
+  risk: BridgeMcpDiscoveredToolSummary['risk'] | string
+): BadgeVariants['variant'] {
   return ['write', 'exec', 'network'].includes(risk) ? 'destructive' : 'outline'
 }
 
@@ -142,6 +165,20 @@ function serverSearchText(server: BridgeMcpServerSummary) {
     .join(' ')
 }
 
+function managedToolSearchText(tool: BridgeManagedToolInfo) {
+  return [
+    tool.name,
+    tool.providerName,
+    tool.label,
+    tool.description,
+    tool.source,
+    riskLabel(tool.risk),
+    ...tool.profiles,
+  ]
+    .filter(Boolean)
+    .join(' ')
+}
+
 function normalizeSearchText(value: string) {
   return value.trim().toLocaleLowerCase()
 }
@@ -155,22 +192,25 @@ function clearSearch() {
   <div class="flex h-full min-h-0 flex-1 flex-col overflow-hidden">
     <Card class="grid h-full min-h-0 flex-1 grid-rows-[auto_auto_minmax(0,1fr)] gap-0 rounded-md border border-border py-0 ring-0">
       <SettingsPanelHeader
-        title="MCP 服务器"
-        :icon="ServerIcon"
+        title="工具"
+        :icon="WrenchIcon"
       >
         <template #description>
-          管理外部 MCP 服务器。内置工具由 OpenOmniClaw 管理，外部扩展通过 MCP 接入。
+          管理内置工具和外部 MCP 服务器。
         </template>
       </SettingsPanelHeader>
 
       <SettingsSearchBar
         v-model="searchQuery"
         class="border-b-0"
-        label="搜索 MCP 服务器"
-        placeholder="搜索服务器、传输方式或工具"
-        clear-label="清除 MCP 搜索"
+        label="搜索工具"
+        placeholder="搜索内置工具、服务器或传输方式"
+        clear-label="清除工具搜索"
       >
         <template #summary>
+          <Badge variant="secondary">
+            {{ enabledBuiltinToolCount }}/{{ builtinTools.length }} 个内置工具
+          </Badge>
           <Badge variant="secondary">
             {{ servers.length }} 个服务器
           </Badge>
@@ -210,6 +250,13 @@ function clearSearch() {
           </div>
 
           <div
+            v-if="toolsUnavailable"
+            class="shrink-0 border-b px-4 py-4 text-sm text-muted-foreground sm:px-5"
+          >
+            工具管理桥接尚未就绪，请在 Electron 运行时中打开设置。
+          </div>
+
+          <div
             v-if="fallbackRuntime"
             class="shrink-0 border-b px-4 py-3 text-sm text-muted-foreground sm:px-5"
           >
@@ -237,13 +284,13 @@ function clearSearch() {
           </div>
 
           <div
-            v-else-if="!servers.length"
+            v-else-if="inventoryEmpty"
             class="flex flex-1 flex-col items-center justify-center gap-3 px-4 py-10 text-center text-sm text-muted-foreground sm:px-5"
           >
-            <ServerIcon class="size-8 opacity-50" />
+            <WrenchIcon class="size-8 opacity-50" />
             <div class="flex flex-col gap-1">
-              <p class="font-medium text-foreground">暂无 MCP 服务器。</p>
-              <p>添加本地命令或 HTTP MCP 服务器后，发现到的工具会显示在这里。</p>
+              <p class="font-medium text-foreground">暂无工具。</p>
+              <p>内置工具或 MCP 服务器发现到的工具会显示在这里。</p>
             </div>
             <Button
               type="button"
@@ -262,8 +309,8 @@ function clearSearch() {
           >
             <SearchIcon class="size-8 opacity-50" />
             <div class="flex flex-col gap-1">
-              <p class="font-medium text-foreground">没有匹配的 MCP 服务器。</p>
-              <p>换一个服务器、传输方式或工具关键词试试。</p>
+              <p class="font-medium text-foreground">没有匹配的工具。</p>
+              <p>换一个内置工具、服务器或传输方式关键词试试。</p>
             </div>
             <Button
               type="button"
@@ -280,14 +327,73 @@ function clearSearch() {
             v-else
             class="flex flex-1 flex-col gap-3 px-4 py-4 sm:px-5"
           >
-            <SettingsPanelItem
-              v-for="server in filteredServers"
-              :key="server.id"
-              :title="server.name"
-              :description="transportTarget(server.transport)"
-              :icon="transportIcon(server.transport)"
-              :pending="isServerPending(server.id)"
+            <div
+              v-if="filteredBuiltinTools.length"
+              class="flex flex-col gap-3"
             >
+              <div class="text-xs font-medium text-muted-foreground">
+                内置工具
+              </div>
+              <SettingsPanelItem
+                v-for="tool in filteredBuiltinTools"
+                :key="tool.name"
+                :title="tool.label || tool.name"
+                :description="tool.description"
+                :icon="WrenchIcon"
+                :pending="isPending(`tool:${tool.name}`)"
+              >
+                <template #badges>
+                  <Badge variant="outline">
+                    {{ tool.name }}
+                  </Badge>
+                  <Badge :variant="riskVariant(tool.risk)">
+                    {{ riskLabel(tool.risk) }}
+                  </Badge>
+                  <Badge :variant="tool.enabled ? 'secondary' : 'outline'">
+                    {{ tool.enabled ? '已启用' : '已停用' }}
+                  </Badge>
+                </template>
+
+                <template #meta>
+                  <div class="flex flex-wrap gap-1">
+                    <Badge
+                      v-for="profile in tool.profiles"
+                      :key="profile"
+                      variant="outline"
+                    >
+                      {{ profile }}
+                    </Badge>
+                  </div>
+                </template>
+
+                <template #actions>
+                  <Switch
+                    :id="`builtin-tool-enabled-${tool.name}`"
+                    size="sm"
+                    :model-value="tool.enabled"
+                    :disabled="isPending(`tool:${tool.name}`) || toolsUnavailable"
+                    :aria-label="`${tool.enabled ? '停用' : '启用'} ${tool.label || tool.name}`"
+                    @update:model-value="emit('toolEnable', tool, $event)"
+                  />
+                </template>
+              </SettingsPanelItem>
+            </div>
+
+            <div
+              v-if="filteredServers.length"
+              class="flex flex-col gap-3"
+            >
+              <div class="text-xs font-medium text-muted-foreground">
+                MCP 服务器
+              </div>
+              <SettingsPanelItem
+                v-for="server in filteredServers"
+                :key="server.id"
+                :title="server.name"
+                :description="transportTarget(server.transport)"
+                :icon="transportIcon(server.transport)"
+                :pending="isServerPending(server.id)"
+              >
               <template #badges>
                 <Badge :variant="statusVariant(server.status)">
                   {{ statusLabel(server.status) }}
@@ -420,7 +526,8 @@ function clearSearch() {
               >
                 当前没有可展示的 MCP 工具。
               </div>
-            </SettingsPanelItem>
+              </SettingsPanelItem>
+            </div>
           </div>
         </div>
       </CardContent>

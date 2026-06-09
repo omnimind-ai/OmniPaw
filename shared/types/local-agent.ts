@@ -1,6 +1,5 @@
 import type { ToolProfile } from './chat'
 
-export type LocalPermissionMode = 'ask' | 'allow' | 'deny'
 export type LocalNetworkPolicy = 'ask' | 'allow' | 'deny'
 export type WorkspaceRootStrategy = 'managed-user-data'
 export type ExternalRootAccessMode = 'read' | 'write' | 'read-write'
@@ -19,7 +18,6 @@ export interface ExternalRootGrant {
 }
 
 export interface LocalAgentWorkspaceSettings {
-  enabled: boolean
   rootStrategy: WorkspaceRootStrategy
   retentionDays: number
   cleanupOnSessionDelete: boolean
@@ -41,14 +39,11 @@ export interface LocalTerminalBaseProfileSettings {
   commandDenyPatterns: string[]
 }
 
-export interface LocalAssistantTerminalProfileSettings extends LocalTerminalBaseProfileSettings {
-  approval: LocalPermissionMode
-}
+export type LocalAssistantTerminalProfileSettings = LocalTerminalBaseProfileSettings
 
 export type LocalPowerTerminalProfileSettings = LocalTerminalBaseProfileSettings
 
 export interface LocalAgentTerminalSettings {
-  enabled: boolean
   timeoutMs: number
   maxOutputChars: number
   maxForegroundProcesses: number
@@ -110,7 +105,6 @@ export interface AgentWorkspaceStatus {
   createdAt: number
   updatedAt: number
   policy: {
-    enabled: boolean
     rootStrategy: WorkspaceRootStrategy
     maxFileBytes: number
     maxReadBytes: number

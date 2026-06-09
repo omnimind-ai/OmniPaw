@@ -732,40 +732,6 @@ try {
     }).some((item) => item.reason === 'model_does_not_support_tools'),
     true
   )
-  const disabledWorkspaceConfig = cloneDefaultConfig()
-  disabledWorkspaceConfig.tools.workspace.enabled = false
-  assert.equal(
-    evaluateComplexDocumentAttachmentAdmission({
-      documents: [documentRecord],
-      requestedMode: 'assistant',
-      mode: 'assistant',
-      supportsTools: true,
-      toolProfile: 'assistant',
-      agentTools: documentTools,
-      workspaceServiceAvailable: true,
-      toolSettings: disabledWorkspaceConfig.tools,
-      attachmentMaxFileBytes: attachments.getLimits().maxFileBytes,
-      workspaceMaxFileBytes: disabledWorkspaceConfig.tools.workspace.maxFileBytes,
-    }).some((item) => item.reason === 'workspace_disabled'),
-    true
-  )
-  const disabledTerminalConfig = cloneDefaultConfig()
-  disabledTerminalConfig.tools.terminal.enabled = false
-  assert.equal(
-    evaluateComplexDocumentAttachmentAdmission({
-      documents: [documentRecord],
-      requestedMode: 'assistant',
-      mode: 'assistant',
-      supportsTools: true,
-      toolProfile: 'assistant',
-      agentTools: documentTools,
-      workspaceServiceAvailable: true,
-      toolSettings: disabledTerminalConfig.tools,
-      attachmentMaxFileBytes: attachments.getLimits().maxFileBytes,
-      workspaceMaxFileBytes: disabledTerminalConfig.tools.workspace.maxFileBytes,
-    }).some((item) => item.reason === 'terminal_disabled'),
-    true
-  )
   const disabledToolReasons = evaluateComplexDocumentAttachmentAdmission({
     documents: [documentRecord],
     requestedMode: 'assistant',

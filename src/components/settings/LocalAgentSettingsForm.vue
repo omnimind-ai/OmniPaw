@@ -4,28 +4,13 @@ import { computed } from 'vue'
 import type { BridgeDesktopSettingsConfig } from '@/bridge/app'
 import SettingEntry from '@/components/settings/common/SettingEntry.vue'
 import SettingsSection from '@/components/settings/common/SettingsSection.vue'
-import { Badge } from '@/components/ui/badge'
 import { FieldGroup } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
-import { Switch } from '@/components/ui/switch'
-import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 
 const props = defineProps<{
   draft: BridgeDesktopSettingsConfig
 }>()
 
-const workspaceEnabled = computed({
-  get: () => props.draft.tools.workspace.enabled,
-  set: (value: boolean) => {
-    props.draft.tools.workspace.enabled = value
-  },
-})
-const terminalEnabled = computed({
-  get: () => props.draft.tools.terminal.enabled,
-  set: (value: boolean) => {
-    props.draft.tools.terminal.enabled = value
-  },
-})
 const workspaceMaxReadMb = computed({
   get: () => bytesToMb(props.draft.tools.workspace.maxReadBytes),
   set: (value: string | number) => {
@@ -56,15 +41,6 @@ const maxAgentSteps = computed({
     props.draft.tools.maxAgentSteps = clampInteger(value, 1, 24, 6)
   },
 })
-const assistantApproval = computed({
-  get: () => props.draft.tools.terminal.assistant.approval,
-  set: (value: string | string[] | undefined) => {
-    if (value === 'ask' || value === 'allow' || value === 'deny') {
-      props.draft.tools.terminal.assistant.approval = value
-    }
-  },
-})
-
 function bytesToMb(value: number) {
   return Math.round(value / 1024 / 1024)
 }
@@ -97,63 +73,10 @@ function clampInteger(value: string | number, min: number, max: number, fallback
 <template>
   <SettingsSection
     title="本地 Agent 能力"
-    description="配置 workspace 和 terminal 的本地权限。"
+    description="配置 workspace 和 terminal 的运行限制。"
     :icon="TerminalIcon"
   >
     <FieldGroup class="gap-0">
-      <SettingEntry
-        control-id="local-workspace-enabled"
-        description="生成文件默认写入按会话隔离的 userData 托管目录。"
-      >
-        <template #title>
-          <span class="flex items-center gap-2">
-            Workspace
-          </span>
-        </template>
-        <div class="flex items-center gap-3">
-          <Switch
-            id="local-workspace-enabled"
-            v-model="workspaceEnabled"
-            aria-label="启用本地 workspace"
-          />
-        </div>
-      </SettingEntry>
-
-      <SettingEntry
-        control-id="local-terminal-enabled"
-        description="assistant 默认 ask-first，power 是 full local access。"
-      >
-        <template #title>
-          <span class="flex items-center gap-2">
-            Terminal
-          </span>
-        </template>
-        <div class="flex items-center gap-3">
-          <Switch
-            id="local-terminal-enabled"
-            v-model="terminalEnabled"
-            aria-label="启用本地 terminal"
-          />
-        </div>
-      </SettingEntry>
-
-      <SettingEntry
-        title="Assistant terminal approval"
-        description="默认逐条审批 terminal；power 模式固定为无需审批的 full local access。"
-        control-class="@md/field-group:min-w-fit"
-      >
-        <ToggleGroup
-          v-model="assistantApproval"
-          type="single"
-          variant="outline"
-          class="w-full md:w-auto"
-        >
-          <ToggleGroupItem value="ask" class="flex-1 md:flex-none">Ask</ToggleGroupItem>
-          <ToggleGroupItem value="allow" class="flex-1 md:flex-none">Allow</ToggleGroupItem>
-          <ToggleGroupItem value="deny" class="flex-1 md:flex-none">Deny</ToggleGroupItem>
-        </ToggleGroup>
-      </SettingEntry>
-
       <SettingEntry
         control-id="local-agent-max-steps"
         title="Agent 最大步骤"

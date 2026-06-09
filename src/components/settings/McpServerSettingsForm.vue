@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import type {
+  BridgeManagedToolInfo,
   BridgeMcpChangedEvent,
   BridgeMcpRegistryStatus,
   BridgeMcpServerSummary,
@@ -24,6 +25,7 @@ const DEFAULT_TOOL_TIMEOUT_MS = '30000'
 const toast = useToast()
 
 const servers = ref<BridgeMcpServerSummary[]>([])
+const managedTools = ref<BridgeManagedToolInfo[]>([])
 const registryStatus = ref<BridgeMcpRegistryStatus>()
 const loading = ref(false)
 const operationError = ref('')
@@ -38,7 +40,9 @@ let nextRowId = 1
 let unsubscribeMcp: (() => void) | undefined
 
 const mcpUnavailable = computed(() => !appBridge.mcp)
+const toolsUnavailable = computed(() => !appBridge.tools)
 const anyPending = computed(() => pendingKeys.value.size > 0)
+const builtinTools = computed(() => managedTools.value.filter((tool) => tool.source === 'builtin'))
 const registryError = computed(() => registryStatus.value?.error?.message || '')
 const existingSecretKeys = computed(() => {
   const server = editingServer.value
@@ -57,7 +61,7 @@ onMounted(async () => {
     registryStatus.value = event.status
   })
 
-  await loadServers()
+  await loadInventory()
 })
 
 onBeforeUnmount(() => {
@@ -101,14 +105,22 @@ function createDraftFromServer(server: BridgeMcpServerSummary): McpServerDraft {
   return baseDraft
 }
 
+async function loadInventory() {
+  loading.value = true
+  operationError.value = ''
+
+  try {
+    await Promise.all([loadServers(), loadManagedTools()])
+  } finally {
+    loading.value = false
+  }
+}
+
 async function loadServers() {
   if (!appBridge.mcp) {
     operationError.value = 'MCP 管理桥接尚未就绪。'
     return
   }
-
-  loading.value = true
-  operationError.value = ''
 
   try {
     const response = await appBridge.mcp.listServers()
@@ -121,8 +133,19 @@ async function loadServers() {
     }
   } catch (error) {
     showOperationError(error, 'MCP 服务器加载失败。')
-  } finally {
-    loading.value = false
+  }
+}
+
+async function loadManagedTools() {
+  if (!appBridge.tools) {
+    operationError.value = operationError.value || '工具管理桥接尚未就绪。'
+    return
+  }
+
+  try {
+    managedTools.value = await appBridge.tools.list()
+  } catch (error) {
+    showOperationError(error, '内置工具加载失败。')
   }
 }
 
@@ -201,6 +224,22 @@ async function setServerEnabled(server: BridgeMcpServerSummary, enabled: boolean
       toast.success(`${server.name} 已${enabled ? '启用' : '停用'}。`)
     } catch (error) {
       showOperationError(error, 'MCP 服务器状态更新失败。')
+    }
+  })
+}
+
+async function setToolEnabled(tool: BridgeManagedToolInfo, enabled: boolean) {
+  if (!appBridge.tools) return
+
+  await withPending(`tool:${tool.name}`, async () => {
+    try {
+      const response = await appBridge.tools?.setEnabled({ name: tool.name, enabled })
+      if (response) {
+        managedTools.value = response.tools
+      }
+      toast.success(`${tool.label || tool.name} 已${enabled ? '启用' : '停用'}。`)
+    } catch (error) {
+      showOperationError(error, '内置工具状态更新失败。')
     }
   })
 }
@@ -370,10 +409,12 @@ function redactDraftSecrets(message: string) {
     <McpServerList
       class="min-h-0 flex-1"
       :servers="servers"
+      :builtin-tools="builtinTools"
       :loading="loading"
       :show-skeleton="showServerListSkeleton"
       :any-pending="anyPending"
       :mcp-unavailable="mcpUnavailable"
+      :tools-unavailable="toolsUnavailable"
       :fallback-runtime="isFallbackBridge"
       :operation-error="operationError"
       :registry-error="registryError"
@@ -383,6 +424,7 @@ function redactDraftSecrets(message: string) {
       @refresh="refreshServers"
       @edit="openEditForm"
       @enable="setServerEnabled"
+      @tool-enable="setToolEnabled"
       @delete="openDeleteDialog"
     />
 

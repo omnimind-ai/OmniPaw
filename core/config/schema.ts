@@ -5,7 +5,6 @@ import type {
   LocalAgentTerminalSettings,
   LocalAgentWorkspaceSettings,
   LocalNetworkPolicy,
-  LocalPermissionMode,
   WorkspaceRootStrategy,
 } from '@shared/types/local-agent'
 import type {
@@ -108,7 +107,6 @@ export const defaultConfig: DesktopSettingsConfig = {
     maxAgentSteps: 6,
     enabledByName: {},
     workspace: {
-      enabled: true,
       rootStrategy: 'managed-user-data',
       retentionDays: 30,
       cleanupOnSessionDelete: false,
@@ -132,7 +130,6 @@ export const defaultConfig: DesktopSettingsConfig = {
       externalRoots: [],
     },
     terminal: {
-      enabled: true,
       timeoutMs: 30_000,
       maxOutputChars: 20_000,
       maxForegroundProcesses: 4,
@@ -140,7 +137,6 @@ export const defaultConfig: DesktopSettingsConfig = {
       backgroundMaxLifetimeMs: 30 * 60 * 1000,
       minimalEnvKeys: ['PATH', 'HOME', 'TMPDIR', 'TEMP', 'TMP'],
       assistant: {
-        approval: 'ask',
         network: 'ask',
         allowBackground: false,
         allowPty: false,
@@ -928,13 +924,6 @@ function validateWorkspaceSettings(
     })
     return
   }
-  if (typeof settings.enabled !== 'boolean') {
-    issues.push({
-      path: `${path}.enabled`,
-      message: 'Value must be boolean.',
-      code: 'invalid_type',
-    })
-  }
   if (!isWorkspaceRootStrategy(settings.rootStrategy)) {
     issues.push({
       path: `${path}.rootStrategy`,
@@ -1060,13 +1049,6 @@ function validateTerminalSettings(
     issues.push({ path, message: 'Terminal settings must be an object.', code: 'invalid_type' })
     return
   }
-  if (typeof settings.enabled !== 'boolean') {
-    issues.push({
-      path: `${path}.enabled`,
-      message: 'Value must be boolean.',
-      code: 'invalid_type',
-    })
-  }
   validateIntegerRange(settings.timeoutMs, `${path}.timeoutMs`, 1000, 24 * 60 * 60 * 1000, issues)
   validateIntegerRange(settings.maxOutputChars, `${path}.maxOutputChars`, 1000, 1_000_000, issues)
   validateIntegerRange(
@@ -1107,16 +1089,6 @@ function validateAssistantTerminalProfileSettings(
   issues: SettingsValidationIssue[]
 ): void {
   validateTerminalProfileSettings(settings, path, issues)
-  if (!isPlainObject(settings)) {
-    return
-  }
-  if (!isPermissionMode(settings.approval)) {
-    issues.push({
-      path: `${path}.approval`,
-      message: 'Approval policy must be ask, allow, or deny.',
-      code: 'invalid_enum',
-    })
-  }
 }
 
 function validateTerminalProfileSettings(
@@ -1597,7 +1569,6 @@ function normalizeWorkspaceSettings(rawValue: unknown): LocalAgentWorkspaceSetti
   }
 
   return {
-    enabled: typeof rawValue.enabled === 'boolean' ? rawValue.enabled : defaults.enabled,
     rootStrategy: isWorkspaceRootStrategy(rawValue.rootStrategy)
       ? rawValue.rootStrategy
       : defaults.rootStrategy,
@@ -1666,7 +1637,6 @@ function normalizeTerminalSettings(rawValue: unknown): LocalAgentTerminalSetting
   }
 
   return {
-    enabled: typeof rawValue.enabled === 'boolean' ? rawValue.enabled : defaults.enabled,
     timeoutMs: integerOrDefault(rawValue.timeoutMs, defaults.timeoutMs),
     maxOutputChars: integerOrDefault(rawValue.maxOutputChars, defaults.maxOutputChars),
     maxForegroundProcesses: integerOrDefault(
@@ -1682,21 +1652,8 @@ function normalizeTerminalSettings(rawValue: unknown): LocalAgentTerminalSetting
       defaults.backgroundMaxLifetimeMs
     ),
     minimalEnvKeys: normalizeStringArray(rawValue.minimalEnvKeys, defaults.minimalEnvKeys),
-    assistant: normalizeAssistantTerminalProfileSettings(rawValue.assistant, defaults.assistant),
+    assistant: normalizeTerminalProfileSettings(rawValue.assistant, defaults.assistant),
     power: normalizeTerminalProfileSettings(rawValue.power, defaults.power),
-  }
-}
-
-function normalizeAssistantTerminalProfileSettings(
-  rawValue: unknown,
-  defaults: LocalAgentTerminalSettings['assistant']
-): LocalAgentTerminalSettings['assistant'] {
-  if (!isPlainObject(rawValue)) {
-    return cloneUnknown(defaults)
-  }
-  return {
-    ...normalizeTerminalProfileSettings(rawValue, defaults),
-    approval: isPermissionMode(rawValue.approval) ? rawValue.approval : defaults.approval,
   }
 }
 
@@ -1816,10 +1773,6 @@ function isNonEmptyString(value: unknown): value is string {
 
 function isWorkspaceRootStrategy(value: unknown): value is WorkspaceRootStrategy {
   return value === 'managed-user-data'
-}
-
-function isPermissionMode(value: unknown): value is LocalPermissionMode {
-  return value === 'ask' || value === 'allow' || value === 'deny'
 }
 
 function isNetworkPolicy(value: unknown): value is LocalNetworkPolicy {

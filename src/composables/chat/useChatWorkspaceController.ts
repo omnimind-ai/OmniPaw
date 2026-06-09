@@ -145,12 +145,6 @@ export function useChatWorkspaceController() {
       if (model.selectedModel.value?.toolCallingDisabled) {
         return `${model.selectedModel.value.modelName} 当前配置不支持工具调用，无法读取 Office 文档。`
       }
-      if (tools?.workspace?.enabled === false) {
-        return 'Workspace 能力已关闭，无法安全提供 Office 文档路径给 Agent。'
-      }
-      if (tools?.terminal?.enabled === false) {
-        return 'Terminal 能力已关闭，无法转换或读取 Office 文档。'
-      }
       if (tools?.enabledByName?.workspace_file === false) {
         return 'workspace_file 工具已禁用，无法提供 Office 文档路径给 Agent。'
       }

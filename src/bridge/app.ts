@@ -2057,7 +2057,6 @@ function fallbackSettingsConfig(): BridgeDesktopSettingsConfig {
       maxAgentSteps: 6,
       enabledByName: {},
       workspace: {
-        enabled: true,
         rootStrategy: 'managed-user-data',
         retentionDays: 30,
         cleanupOnSessionDelete: false,
@@ -2081,7 +2080,6 @@ function fallbackSettingsConfig(): BridgeDesktopSettingsConfig {
         externalRoots: [],
       },
       terminal: {
-        enabled: true,
         timeoutMs: 30_000,
         maxOutputChars: 20_000,
         maxForegroundProcesses: 4,
@@ -2089,7 +2087,6 @@ function fallbackSettingsConfig(): BridgeDesktopSettingsConfig {
         backgroundMaxLifetimeMs: 30 * 60 * 1000,
         minimalEnvKeys: ['PATH', 'HOME', 'TMPDIR', 'TEMP', 'TMP'],
         assistant: {
-          approval: 'ask',
           network: 'ask',
           allowBackground: false,
           allowPty: false,

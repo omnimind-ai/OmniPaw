@@ -83,7 +83,7 @@ export function createBuiltinTools(options: BuiltinToolOptions): AgentTool[] {
       execute: createScreenObserveExecutor(options),
     })
   }
-  if (options.workspaceService && (options.toolSettings?.().workspace.enabled ?? true)) {
+  if (options.workspaceService) {
     tools.push({
       ...BUILTIN_TOOL_CATALOG.workspace_file,
       localCapability: {
@@ -94,7 +94,7 @@ export function createBuiltinTools(options: BuiltinToolOptions): AgentTool[] {
       execute: createWorkspaceFileExecutor(options),
     })
   }
-  if (options.terminalService && (options.toolSettings?.().terminal.enabled ?? true)) {
+  if (options.terminalService) {
     tools.push({
       ...BUILTIN_TOOL_CATALOG.terminal_exec,
       localCapability: {
@@ -111,8 +111,6 @@ export function createBuiltinTools(options: BuiltinToolOptions): AgentTool[] {
           24 * 60 * 60 * 1000
         )
       },
-      requiresApproval: (args, context, risk) =>
-        terminalRequiresApproval(args, context.policyProfile, risk, options),
       approvalPlan: async (args, context) =>
         options.terminalService?.createApprovalPlan(
           toTerminalRequest(args, options, context.policyProfile, context.runId)
@@ -914,25 +912,6 @@ function toTerminalRequest(
   }
 }
 
-function terminalRequiresApproval(
-  args: unknown,
-  profile: ToolProfile,
-  risk: ToolRisk,
-  options: BuiltinToolOptions
-): boolean {
-  if (risk !== 'exec') return false
-  if (profile === 'power') return false
-  const settings = options.toolSettings?.().terminal
-  const terminalArgs = asTerminalExecArgs(args)
-  if (!settings || settings.assistant.approval === 'ask') {
-    return !matchesAnyPattern(terminalArgs.command ?? '', settings?.assistant.commandAllowPatterns)
-  }
-  if (settings.assistant.approval === 'deny') {
-    return true
-  }
-  return false
-}
-
 function parseToolRunAt(value: string | number | undefined): number | undefined {
   if (value === undefined) {
     return undefined
@@ -1221,17 +1200,6 @@ function isStringRecord(value: unknown): value is Record<string, string> {
     return false
   }
   return Object.values(value).every((item) => typeof item === 'string')
-}
-
-function matchesAnyPattern(command: string, patterns: string[] | undefined): boolean {
-  return Boolean(patterns?.some((pattern) => commandMatchesPattern(command, pattern)))
-}
-
-function commandMatchesPattern(command: string, pattern: string): boolean {
-  const trimmed = pattern.trim()
-  if (!trimmed) return false
-  const escaped = trimmed.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*')
-  return new RegExp(`^${escaped}$`).test(command)
 }
 
 function throwIfAborted(signal?: AbortSignal): void {

@@ -138,15 +138,9 @@ export class TerminalService {
       throw new Error('terminal_exec requires a non-empty command.')
     }
     const settings = this.options.settings()
-    if (!settings.enabled) {
-      throw new Error('Terminal execution is disabled.')
-    }
     const profileSettings = input.profile === 'power' ? settings.power : settings.assistant
     if (input.profile === 'minimal') {
       throw new Error('Terminal execution is not available in minimal profile.')
-    }
-    if (input.profile === 'assistant' && settings.assistant.approval === 'deny') {
-      throw new Error('Terminal execution is denied by the active profile settings.')
     }
     const fullAccess = input.profile === 'power' || profileSettings.fullAccess
     if (!fullAccess && matchesAnyPattern(command, profileSettings.commandDenyPatterns)) {

@@ -135,7 +135,6 @@ export class AgentWorkspaceService {
       createdAt: rootStats.birthtimeMs,
       updatedAt: Math.max(rootStats.mtimeMs, usage.updatedAt),
       policy: {
-        enabled: this.settings().enabled,
         rootStrategy: this.settings().rootStrategy,
         maxFileBytes: this.settings().maxFileBytes,
         maxReadBytes: this.settings().maxReadBytes,
@@ -149,7 +148,6 @@ export class AgentWorkspaceService {
     recursive?: boolean
     maxEntries?: number
   }): Promise<ListWorkspaceFilesResponse> {
-    this.ensureEnabled()
     const workspace = await this.ensureWorkspace(input.sessionId)
     const target = await this.resolveExistingPath(workspace, input.path ?? '')
     const targetStats = await lstat(target.absolutePath)
@@ -176,7 +174,6 @@ export class AgentWorkspaceService {
     path: string
     maxBytes?: number
   }): Promise<ReadWorkspaceFileResponse> {
-    this.ensureEnabled()
     const workspace = await this.ensureWorkspace(input.sessionId)
     const target = await this.resolveExistingPath(workspace, input.path)
     const targetStats = await lstat(target.absolutePath)
@@ -212,7 +209,6 @@ export class AgentWorkspaceService {
   }
 
   async writeFile(input: WorkspaceFileWriteRequest): Promise<AgentWorkspaceFileEntry> {
-    this.ensureEnabled()
     const workspace = await this.ensureWorkspace(input.sessionId)
     const target = await this.resolveWritablePath(workspace, input.path)
     const buffer = Buffer.from(input.content, 'utf8')
@@ -236,7 +232,6 @@ export class AgentWorkspaceService {
     matches: Array<{ path: string; line: number; snippet: string }>
     truncated: boolean
   }> {
-    this.ensureEnabled()
     const query = input.query.trim()
     if (!query) {
       throw new AgentWorkspaceError('invalid_request', 'Workspace search requires a query.')
@@ -266,7 +261,6 @@ export class AgentWorkspaceService {
   }
 
   async patchFile(input: WorkspaceFilePatchRequest): Promise<AgentWorkspaceFileEntry> {
-    this.ensureEnabled()
     const oldText = input.oldText
     const newText = input.newText
     if (typeof oldText !== 'string' || typeof newText !== 'string') {
@@ -304,7 +298,6 @@ export class AgentWorkspaceService {
     path: string
     destinationPath: string
   }): Promise<{ sessionId: string; path: string; destinationPath: string }> {
-    this.ensureEnabled()
     const workspace = await this.ensureWorkspace(input.sessionId)
     const source = await this.resolveExistingPath(workspace, input.path)
     const sourceStats = await lstat(source.absolutePath)
@@ -324,7 +317,6 @@ export class AgentWorkspaceService {
     sessionId: string
     path: string
   }): Promise<DeleteWorkspaceFileResponse> {
-    this.ensureEnabled()
     const workspace = await this.ensureWorkspace(input.sessionId)
     const target = await this.resolveExistingPath(workspace, input.path)
     if (!target.relativePath) {
@@ -456,15 +448,6 @@ export class AgentWorkspaceService {
       relativePath: normalized,
       absolutePath,
       rootPath: workspace.files,
-    }
-  }
-
-  private ensureEnabled(): void {
-    if (!this.settings().enabled) {
-      throw new AgentWorkspaceError(
-        'local_capability_unavailable',
-        'Agent workspace capability is disabled.'
-      )
     }
   }
 
