@@ -37,6 +37,7 @@ async function runSmoke(): Promise<void> {
   await testToolExecutorInvalidArguments()
   await testToolExecutorTimeout()
   await testMemorySearchToolProfileAndExecution()
+  await testMemoryWriteTools()
   await testFutureTaskToolCreateListEditDelete()
   await testFutureTaskToolDeniedAndDisabled()
 
@@ -659,6 +660,7 @@ async function testFutureTaskToolCreateListEditDelete(): Promise<void> {
 async function testMemorySearchToolProfileAndExecution(): Promise<void> {
   const memoryService = {
     canSearchForSession: (sessionId: string) => sessionId === 'session-1',
+    canWriteForSession: () => false,
     searchForTool: (request: {
       sessionId: string
       query?: string
@@ -725,6 +727,128 @@ async function testMemorySearchToolProfileAndExecution(): Promise<void> {
   const parsed = JSON.parse(output.result.resultText) as { resultCount: number; results: unknown[] }
   assert.equal(parsed.resultCount, 1)
   assert.equal(parsed.results.length, 1)
+}
+
+async function testMemoryWriteTools(): Promise<void> {
+  const created: unknown[] = []
+  const proposals: unknown[] = []
+  const memoryService = {
+    canSearchForSession: () => true,
+    canWriteForSession: (sessionId: string) => sessionId === 'session-1',
+    getSettings: () => ({
+      destructiveToolRequiresConfirmation: true,
+    }),
+    create: (request: unknown) => {
+      created.push(request)
+      return { id: 'memory-created', status: 'active', kind: 'fact' }
+    },
+    createProposal: (request: { kind: string }) => {
+      proposals.push(request)
+      return { id: `proposal-${proposals.length}`, status: 'pending', kind: request.kind }
+    },
+    archive: () => undefined,
+    searchForTool: () => ({
+      ok: true,
+      mode: 'overview',
+      query: '',
+      resultCount: 0,
+      results: [],
+    }),
+  }
+  const registry = new ToolRegistry({
+    messages: {
+      listBySession: () => [
+        {
+          id: 'user-latest',
+          role: 'user',
+          status: 'complete',
+          sessionId: 'session-1',
+          parts: [{ type: 'plain', text: 'please remember my keyboard preference' }],
+        },
+      ],
+      listAttachmentLinks: () => [],
+    } as never,
+    attachments: {
+      get: () => undefined,
+    } as never,
+    memoryService: memoryService as never,
+  })
+  const tools = await registry.resolve({
+    sessionId: 'session-1',
+    policy: { enabled: true, profile: 'assistant', requireApprovalForRisk: ['write'] },
+  })
+  assert.equal(
+    tools.some((tool) => tool.name === 'memory_create'),
+    true
+  )
+  assert.equal(
+    tools.some((tool) => tool.name === 'memory_update_proposal'),
+    true
+  )
+  assert.equal(
+    tools.some((tool) => tool.name === 'memory_forget_proposal'),
+    true
+  )
+
+  const executor = new ToolExecutor()
+  const create = await executor.execute({
+    toolCall: toolCall('memory-create', 'memory_create', {
+      content: 'The user prefers split ergonomic keyboards.',
+      kind: 'preference',
+    }),
+    tools,
+    policy: { enabled: true, profile: 'assistant', requireApprovalForRisk: ['write'] },
+    sessionId: 'session-1',
+    runId: 'run-1',
+  })
+  assert.equal(create.result.status, 'complete')
+  assert.equal(JSON.parse(create.result.resultText).memoryId, 'memory-created')
+  assert.deepEqual(create.display.args, { redacted: true, reason: 'memory_tool_arguments' })
+  assert.equal(created.length, 1)
+
+  const updateProposal = await executor.execute({
+    toolCall: toolCall('memory-update', 'memory_update_proposal', {
+      memoryId: 'memory-created',
+      kind: 'update',
+      proposedContent: 'Updated content that should not echo in display.',
+      reason: 'User corrected the memory.',
+    }),
+    tools,
+    policy: { enabled: true, profile: 'assistant', requireApprovalForRisk: ['write'] },
+    sessionId: 'session-1',
+    runId: 'run-1',
+  })
+  assert.equal(updateProposal.result.status, 'complete')
+  assert.equal(JSON.parse(updateProposal.result.resultText).proposalId, 'proposal-1')
+
+  const forgetProposal = await executor.execute({
+    toolCall: toolCall('memory-forget', 'memory_forget_proposal', {
+      memoryId: 'memory-created',
+      action: 'delete',
+      reason: 'User asked to forget it.',
+    }),
+    tools,
+    policy: { enabled: true, profile: 'assistant', requireApprovalForRisk: ['write'] },
+    sessionId: 'session-1',
+    runId: 'run-1',
+  })
+  assert.equal(forgetProposal.result.status, 'complete')
+  assert.equal(JSON.parse(forgetProposal.result.resultText).kind, 'delete')
+  assert.equal(proposals.length, 2)
+
+  const hiddenRegistry = new ToolRegistry({
+    messages: { listBySession: () => [], listAttachmentLinks: () => [] } as never,
+    attachments: { get: () => undefined } as never,
+    memoryService: { ...memoryService, canWriteForSession: () => false } as never,
+  })
+  const hidden = await hiddenRegistry.resolve({
+    sessionId: 'session-1',
+    policy: { enabled: true, profile: 'assistant', requireApprovalForRisk: [] },
+  })
+  assert.equal(
+    hidden.some((tool) => tool.name === 'memory_create'),
+    false
+  )
 }
 
 async function testFutureTaskToolDeniedAndDisabled(): Promise<void> {

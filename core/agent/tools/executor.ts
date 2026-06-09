@@ -47,7 +47,9 @@ export class ToolExecutor {
     const name = input.toolCall.function.name
     const logger = this.logger?.child({ scope: 'execute', toolName: name })
     const tool = input.tools.find((item) => item.name === name)
-    const argsDisplay = displayArguments(input.toolCall.function.arguments)
+    const argsDisplay = shouldRedactToolArguments(name)
+      ? { redacted: true, reason: 'memory_tool_arguments' }
+      : displayArguments(input.toolCall.function.arguments)
     const baseDisplay: ToolCallDisplay = {
       id: input.toolCall.id,
       runId: input.runId,
@@ -278,6 +280,14 @@ export class ToolExecutor {
       }
     }
   }
+}
+
+function shouldRedactToolArguments(name: string): boolean {
+  return (
+    name === 'memory_create' ||
+    name === 'memory_update_proposal' ||
+    name === 'memory_forget_proposal'
+  )
 }
 
 async function waitForApproval(input: {

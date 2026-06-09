@@ -1,15 +1,21 @@
 import type {
   CompanionMemoryDeleteRequest,
+  CompanionMemoryExtractionDiagnostics,
   CompanionMemoryExtractionJob,
   CompanionMemoryFilters,
   CompanionMemoryImportanceRequest,
   CompanionMemoryInspectResponse,
   CompanionMemoryItem,
+  CompanionMemoryLink,
   CompanionMemoryListResponse,
   CompanionMemoryLocalEmbedding,
+  CompanionMemoryMaintenanceProposal,
+  CompanionMemoryProposalListRequest,
   CompanionMemorySearchResult,
   CompanionMemorySourceEvidence,
+  CreateCompanionMemoryProposalRequest,
   CreateCompanionMemoryRequest,
+  UpdateCompanionMemoryProposalRequest,
   UpdateCompanionMemoryRequest,
 } from '@shared/types/memory'
 import {
@@ -69,8 +75,35 @@ interface JobRow {
   error_code: string | null
   error_message: string | null
   created_memory_ids_json: string
+  diagnostics_json?: string | null
   started_at: number | null
   finished_at: number | null
+  created_at: number
+  updated_at: number
+}
+
+interface LinkRow {
+  id: string
+  memory_id: string
+  linked_memory_id: string
+  relation: CompanionMemoryLink['relation']
+  confidence: number
+  metadata_json: string | null
+  created_at: number
+}
+
+interface ProposalRow {
+  id: string
+  kind: CompanionMemoryMaintenanceProposal['kind']
+  status: CompanionMemoryMaintenanceProposal['status']
+  memory_id: string | null
+  related_memory_id: string | null
+  proposed_content: string | null
+  reason: string
+  confidence: number
+  source: CompanionMemoryMaintenanceProposal['source']
+  run_id: string | null
+  metadata_json: string | null
   created_at: number
   updated_at: number
 }
@@ -140,6 +173,8 @@ export class CompanionMemoryRepo {
     return {
       memory,
       sources: this.listSources(memoryId),
+      links: this.listLinks(memoryId),
+      proposals: this.listProposals({ memoryId, status: 'pending', limit: 50 }).items,
     }
   }
 
@@ -383,7 +418,13 @@ export class CompanionMemoryRepo {
     patch: Partial<
       Pick<
         CompanionMemoryExtractionJob,
-        'status' | 'errorCode' | 'errorMessage' | 'createdMemoryIds' | 'startedAt' | 'finishedAt'
+        | 'status'
+        | 'errorCode'
+        | 'errorMessage'
+        | 'createdMemoryIds'
+        | 'diagnostics'
+        | 'startedAt'
+        | 'finishedAt'
       >
     >
   ): CompanionMemoryExtractionJob | undefined {
@@ -404,6 +445,7 @@ export class CompanionMemoryRepo {
               error_code = @errorCode,
               error_message = @errorMessage,
               created_memory_ids_json = @createdMemoryIdsJson,
+              diagnostics_json = @diagnosticsJson,
               started_at = @startedAt,
               finished_at = @finishedAt,
               updated_at = @updatedAt
@@ -419,6 +461,165 @@ export class CompanionMemoryRepo {
       .prepare('SELECT * FROM companion_memory_extraction_jobs WHERE id = ?')
       .get(jobId)
     return row ? mapJob(row as JobRow) : undefined
+  }
+
+  addLink(
+    link: Omit<CompanionMemoryLink, 'id' | 'createdAt'> & { id?: string; createdAt?: number }
+  ): CompanionMemoryLink {
+    const row: CompanionMemoryLink = {
+      id: link.id ?? crypto.randomUUID(),
+      memoryId: link.memoryId,
+      linkedMemoryId: link.linkedMemoryId,
+      relation: link.relation,
+      confidence: clampNumber(link.confidence, 0, 1),
+      metadata: link.metadata,
+      createdAt: link.createdAt ?? Date.now(),
+    }
+    this.db
+      .prepare(
+        `
+          INSERT INTO companion_memory_links (
+            id, memory_id, linked_memory_id, relation, confidence, metadata_json, created_at
+          ) VALUES (
+            @id, @memoryId, @linkedMemoryId, @relation, @confidence, @metadataJson, @createdAt
+          )
+          ON CONFLICT(memory_id, linked_memory_id, relation) DO UPDATE SET
+            confidence = excluded.confidence,
+            metadata_json = excluded.metadata_json
+        `
+      )
+      .run({
+        id: row.id,
+        memoryId: row.memoryId,
+        linkedMemoryId: row.linkedMemoryId,
+        relation: row.relation,
+        confidence: row.confidence,
+        metadataJson: encodeJson(row.metadata),
+        createdAt: row.createdAt,
+      })
+    return row
+  }
+
+  listLinks(memoryId: string): CompanionMemoryLink[] {
+    return this.db
+      .prepare(
+        `
+          SELECT * FROM companion_memory_links
+          WHERE memory_id = @memoryId OR linked_memory_id = @memoryId
+          ORDER BY created_at DESC
+        `
+      )
+      .all({ memoryId })
+      .map((row) => mapLink(row as LinkRow))
+  }
+
+  createProposal(
+    request: CreateCompanionMemoryProposalRequest
+  ): CompanionMemoryMaintenanceProposal {
+    const now = Date.now()
+    const proposal: CompanionMemoryMaintenanceProposal = {
+      id: crypto.randomUUID(),
+      kind: request.kind,
+      status: 'pending',
+      memoryId: cleanOptionalText(request.memoryId),
+      relatedMemoryId: cleanOptionalText(request.relatedMemoryId),
+      proposedContent: cleanOptionalText(request.proposedContent),
+      reason: request.reason.trim() || 'Memory proposal requires review.',
+      confidence: clampNumber(request.confidence ?? 0.7, 0, 1),
+      source: request.source ?? 'maintenance',
+      runId: cleanOptionalText(request.runId),
+      metadata: request.metadata,
+      createdAt: now,
+      updatedAt: now,
+    }
+    this.db
+      .prepare(
+        `
+          INSERT INTO companion_memory_proposals (
+            id, kind, status, memory_id, related_memory_id, proposed_content, reason,
+            confidence, source, run_id, metadata_json, created_at, updated_at
+          ) VALUES (
+            @id, @kind, @status, @memoryId, @relatedMemoryId, @proposedContent, @reason,
+            @confidence, @source, @runId, @metadataJson, @createdAt, @updatedAt
+          )
+        `
+      )
+      .run(toProposalParams(proposal))
+    return proposal
+  }
+
+  listProposals(request: CompanionMemoryProposalListRequest = {}): {
+    items: CompanionMemoryMaintenanceProposal[]
+    total: number
+  } {
+    const clauses: string[] = []
+    const params: Record<string, unknown> = {}
+    if (request.status) {
+      clauses.push('status = @status')
+      params.status = request.status
+    }
+    if (request.memoryId) {
+      clauses.push('(memory_id = @memoryId OR related_memory_id = @memoryId)')
+      params.memoryId = request.memoryId
+    }
+    const where = clauses.length ? `WHERE ${clauses.join(' AND ')}` : ''
+    const limit = clampInteger(request.limit ?? 100, 1, 500)
+    const items = this.db
+      .prepare(
+        `
+          SELECT * FROM companion_memory_proposals
+          ${where}
+          ORDER BY updated_at DESC, id ASC
+          LIMIT @limit
+        `
+      )
+      .all({ ...params, limit })
+      .map((row) => mapProposal(row as ProposalRow))
+    const total = (
+      this.db
+        .prepare(`SELECT count(*) AS count FROM companion_memory_proposals ${where}`)
+        .get(params) as { count: number }
+    ).count
+    return { items, total }
+  }
+
+  updateProposal(
+    request: UpdateCompanionMemoryProposalRequest
+  ): CompanionMemoryMaintenanceProposal | undefined {
+    const existing = this.getProposal(request.proposalId)
+    if (!existing) {
+      return undefined
+    }
+    const proposal: CompanionMemoryMaintenanceProposal = {
+      ...existing,
+      status: request.status ?? existing.status,
+      proposedContent:
+        request.proposedContent !== undefined
+          ? cleanOptionalText(request.proposedContent)
+          : existing.proposedContent,
+      metadata: request.metadata !== undefined ? request.metadata : existing.metadata,
+      updatedAt: Date.now(),
+    }
+    this.db
+      .prepare(
+        `
+          UPDATE companion_memory_proposals
+          SET status = @status,
+              proposed_content = @proposedContent,
+              metadata_json = @metadataJson,
+              updated_at = @updatedAt
+          WHERE id = @id
+        `
+      )
+      .run(toProposalParams(proposal))
+    return this.getProposal(proposal.id)
+  }
+
+  getProposal(proposalId: string): CompanionMemoryMaintenanceProposal | undefined {
+    const row = this.db
+      .prepare('SELECT * FROM companion_memory_proposals WHERE id = ?')
+      .get(proposalId)
+    return row ? mapProposal(row as ProposalRow) : undefined
   }
 
   listEmbeddings(filters: CompanionMemoryFilters = {}): CompanionMemoryLocalEmbedding[] {
@@ -616,6 +817,7 @@ export class CompanionMemoryRepo {
 }
 
 function mapMemory(row: MemoryItemRow): CompanionMemorySearchResult {
+  const metadata = decodeJson<Record<string, unknown> | undefined>(row.metadata_json, undefined)
   return {
     id: row.id,
     kind: row.kind,
@@ -633,7 +835,26 @@ function mapMemory(row: MemoryItemRow): CompanionMemorySearchResult {
     expiresAt: row.expires_at ?? undefined,
     archivedAt: row.archived_at ?? undefined,
     deletedAt: row.deleted_at ?? undefined,
-    metadata: decodeJson<Record<string, unknown> | undefined>(row.metadata_json, undefined),
+    metadata,
+    linkedMemoryIds: Array.isArray(metadata?.linkedMemoryIds)
+      ? metadata.linkedMemoryIds.filter((value): value is string => typeof value === 'string')
+      : undefined,
+    attribution:
+      metadata?.attributedTo === 'user-stated' ||
+      metadata?.attributedTo === 'assistant-provided' ||
+      metadata?.attributedTo === 'mixed'
+        ? metadata.attributedTo
+        : undefined,
+    extractionMethod:
+      metadata?.extractor === 'semantic'
+        ? 'semantic'
+        : metadata?.extractor === 'heuristic-add-only'
+          ? 'heuristic-fallback'
+          : metadata?.extractor === 'tool'
+            ? 'tool'
+            : metadata?.extractor === 'manual'
+              ? 'manual'
+              : undefined,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     lexicalScore: row.lexical_score ?? undefined,
@@ -666,8 +887,42 @@ function mapJob(row: JobRow): CompanionMemoryExtractionJob {
     errorCode: row.error_code ?? undefined,
     errorMessage: row.error_message ?? undefined,
     createdMemoryIds: decodeJson<string[]>(row.created_memory_ids_json, []),
+    diagnostics: decodeJson<CompanionMemoryExtractionDiagnostics | undefined>(
+      row.diagnostics_json ?? undefined,
+      undefined
+    ),
     startedAt: row.started_at ?? undefined,
     finishedAt: row.finished_at ?? undefined,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  }
+}
+
+function mapLink(row: LinkRow): CompanionMemoryLink {
+  return {
+    id: row.id,
+    memoryId: row.memory_id,
+    linkedMemoryId: row.linked_memory_id,
+    relation: row.relation,
+    confidence: row.confidence,
+    metadata: decodeJson<Record<string, unknown> | undefined>(row.metadata_json, undefined),
+    createdAt: row.created_at,
+  }
+}
+
+function mapProposal(row: ProposalRow): CompanionMemoryMaintenanceProposal {
+  return {
+    id: row.id,
+    kind: row.kind,
+    status: row.status,
+    memoryId: row.memory_id ?? undefined,
+    relatedMemoryId: row.related_memory_id ?? undefined,
+    proposedContent: row.proposed_content ?? undefined,
+    reason: row.reason,
+    confidence: row.confidence,
+    source: row.source,
+    runId: row.run_id ?? undefined,
+    metadata: decodeJson<Record<string, unknown> | undefined>(row.metadata_json, undefined),
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   }
@@ -720,10 +975,29 @@ function toJobParams(job: CompanionMemoryExtractionJob): Record<string, unknown>
     errorCode: job.errorCode ?? null,
     errorMessage: job.errorMessage ?? null,
     createdMemoryIdsJson: encodeJson(job.createdMemoryIds) ?? '[]',
+    diagnosticsJson: encodeJson(job.diagnostics),
     startedAt: job.startedAt ?? null,
     finishedAt: job.finishedAt ?? null,
     createdAt: job.createdAt,
     updatedAt: job.updatedAt,
+  }
+}
+
+function toProposalParams(proposal: CompanionMemoryMaintenanceProposal): Record<string, unknown> {
+  return {
+    id: proposal.id,
+    kind: proposal.kind,
+    status: proposal.status,
+    memoryId: proposal.memoryId ?? null,
+    relatedMemoryId: proposal.relatedMemoryId ?? null,
+    proposedContent: proposal.proposedContent ?? null,
+    reason: proposal.reason,
+    confidence: proposal.confidence,
+    source: proposal.source,
+    runId: proposal.runId ?? null,
+    metadataJson: encodeJson(proposal.metadata),
+    createdAt: proposal.createdAt,
+    updatedAt: proposal.updatedAt,
   }
 }
 

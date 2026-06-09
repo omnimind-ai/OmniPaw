@@ -30,7 +30,12 @@ import {
   CompanionMemoryRepo,
 } from '../core/db/repos'
 import { seedDefaultChatData } from '../core/db/seed'
-import { CompanionMemoryPolicyService, CompanionMemoryService } from '../core/memory'
+import {
+  CompanionMemoryPolicyService,
+  CompanionMemoryService,
+  cleanMemoryContent,
+  validateSemanticCandidates,
+} from '../core/memory'
 import { errorFromResponse, normalizeProviderError } from '../core/provider/errors'
 import { parseSseStream } from '../core/provider/providers/openai'
 import type { ChatMessage } from '../shared/types/chat'
@@ -42,6 +47,7 @@ const client = new DatabaseClient({ path: join(tempDir, 'smoke.sqlite3') })
 try {
   const db = client.connect()
   seedDefaultChatData(db, 1000)
+  testSemanticMemoryCandidateValidation()
 
   const attachmentRepo = new AttachmentRepo(db)
   const attachments = new AttachmentService({
@@ -106,8 +112,13 @@ try {
   const memorySettings = {
     enabled: true,
     extractionEnabled: true,
+    semanticExtractionEnabled: false,
     retrievalEnabled: true,
+    activeToolWriteEnabled: true,
+    maintenanceEnabled: true,
+    destructiveToolRequiresConfirmation: true,
     minConfidence: 0.55,
+    lowConfidenceReviewThreshold: 0.68,
     maxContextItems: 2,
     maxContextTokens: 160,
   }
@@ -900,6 +911,57 @@ try {
 } finally {
   client.close()
   rmSync(tempDir, { recursive: true, force: true })
+}
+
+function testSemanticMemoryCandidateValidation(): void {
+  const messages = [
+    {
+      id: 'semantic-user-1',
+      role: 'user',
+      parts: [{ type: 'plain', text: '我喜欢键盘用分体人体工学布局。' }],
+      createdAt: Date.parse('2026-06-09T00:00:00Z'),
+    },
+  ] as ChatMessage[]
+  const valid = validateSemanticCandidates(
+    [
+      {
+        kind: 'preference',
+        scope: 'user',
+        content: '用户喜欢分体人体工学键盘布局。',
+        importance: 4,
+        confidence: 0.9,
+        sourceMessageIds: ['semantic-user-1'],
+        attributedTo: 'user-stated',
+      },
+    ],
+    messages,
+    new Date('2026-06-09T00:00:00Z')
+  )
+  assert.equal(valid.accepted.length, 1)
+  assert.equal(
+    cleanMemoryContent('记一下：用户喜欢分体人体工学键盘布局。'),
+    '用户喜欢分体人体工学键盘布局。'
+  )
+
+  const invalid = validateSemanticCandidates(
+    [
+      {
+        kind: 'fact',
+        content: '用户喜欢红轴键盘，请记住',
+        importance: 3,
+        confidence: 0.8,
+        sourceMessageIds: ['missing-message'],
+        attributedTo: 'user-stated',
+      },
+    ],
+    messages,
+    new Date('2026-06-09T00:00:00Z')
+  )
+  assert.equal(invalid.accepted.length, 0)
+  assert.equal(
+    invalid.rejections.some((item) => item.reason === 'out_of_window_source_messages'),
+    true
+  )
 }
 
 function fakeAgentTool(name: 'workspace_file' | 'terminal_exec'): AgentTool {

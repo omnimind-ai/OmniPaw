@@ -72,6 +72,8 @@ export const IPC_CHANNELS = {
     archive: 'memory:archive',
     delete: 'memory:delete',
     setImportance: 'memory:set-importance',
+    listProposals: 'memory:list-proposals',
+    updateProposal: 'memory:update-proposal',
     getSettings: 'memory:get-settings',
     updateSettings: 'memory:update-settings',
   },

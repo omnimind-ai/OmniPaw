@@ -3,9 +3,11 @@ import type {
   CompanionMemoryDeleteRequest,
   CompanionMemoryFilters,
   CompanionMemoryImportanceRequest,
+  CompanionMemoryProposalListRequest,
   CompanionMemorySettingsRequest,
   CreateCompanionMemoryRequest,
   DesktopMemorySettings,
+  UpdateCompanionMemoryProposalRequest,
   UpdateCompanionMemoryRequest,
 } from '@shared/types/memory'
 import { registerLoggedIpcHandler } from './common'
@@ -55,6 +57,17 @@ export function registerMemoryIpcHandlers(options: IpcHandlerOptions): void {
     options,
     IPC_CHANNELS.memory.setImportance,
     (_event, request: CompanionMemoryImportanceRequest) => service.setImportance(request) ?? null
+  )
+  registerLoggedIpcHandler(
+    options,
+    IPC_CHANNELS.memory.listProposals,
+    (_event, request?: CompanionMemoryProposalListRequest) => service.listProposals(request)
+  )
+  registerLoggedIpcHandler(
+    options,
+    IPC_CHANNELS.memory.updateProposal,
+    (_event, request: UpdateCompanionMemoryProposalRequest) =>
+      service.updateProposal(request) ?? null
   )
   registerLoggedIpcHandler(options, IPC_CHANNELS.memory.getSettings, () => service.getSettings())
   registerLoggedIpcHandler(

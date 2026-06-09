@@ -361,4 +361,55 @@ export const migrations: Migration[] = [
         ON companion_memory_embeddings(provider, model, updated_at DESC);
     `,
   },
+  {
+    id: 10,
+    name: 'extend_companion_memory_semantic_metadata',
+    sql: `
+      ALTER TABLE companion_memory_extraction_jobs
+        ADD COLUMN diagnostics_json TEXT;
+
+      CREATE TABLE IF NOT EXISTS companion_memory_links (
+        id TEXT PRIMARY KEY,
+        memory_id TEXT NOT NULL,
+        linked_memory_id TEXT NOT NULL,
+        relation TEXT NOT NULL,
+        confidence REAL NOT NULL DEFAULT 0.7,
+        metadata_json TEXT,
+        created_at INTEGER NOT NULL,
+        FOREIGN KEY(memory_id) REFERENCES companion_memory_items(id) ON DELETE CASCADE,
+        FOREIGN KEY(linked_memory_id) REFERENCES companion_memory_items(id) ON DELETE CASCADE
+      );
+
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_companion_memory_links_unique
+        ON companion_memory_links(memory_id, linked_memory_id, relation);
+      CREATE INDEX IF NOT EXISTS idx_companion_memory_links_memory
+        ON companion_memory_links(memory_id, created_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_companion_memory_links_linked
+        ON companion_memory_links(linked_memory_id, created_at DESC);
+
+      CREATE TABLE IF NOT EXISTS companion_memory_proposals (
+        id TEXT PRIMARY KEY,
+        kind TEXT NOT NULL,
+        status TEXT NOT NULL DEFAULT 'pending',
+        memory_id TEXT,
+        related_memory_id TEXT,
+        proposed_content TEXT,
+        reason TEXT NOT NULL,
+        confidence REAL NOT NULL DEFAULT 0.7,
+        source TEXT NOT NULL DEFAULT 'maintenance',
+        run_id TEXT,
+        metadata_json TEXT,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL,
+        FOREIGN KEY(memory_id) REFERENCES companion_memory_items(id) ON DELETE SET NULL,
+        FOREIGN KEY(related_memory_id) REFERENCES companion_memory_items(id) ON DELETE SET NULL,
+        FOREIGN KEY(run_id) REFERENCES chat_runs(id) ON DELETE SET NULL
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_companion_memory_proposals_status
+        ON companion_memory_proposals(status, updated_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_companion_memory_proposals_memory
+        ON companion_memory_proposals(memory_id, status, updated_at DESC);
+    `,
+  },
 ]

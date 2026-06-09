@@ -3,6 +3,8 @@ import type {
   CompanionMemoryInspectResponse,
   CompanionMemoryItem,
   CompanionMemoryKind,
+  CompanionMemoryLink,
+  CompanionMemoryMaintenanceProposal,
   CompanionMemorySourceEvidence,
   CompanionMemoryStatus,
   UpdateCompanionMemoryRequest,
@@ -51,6 +53,8 @@ const open = defineModel<boolean>('open', { required: true })
 const props = defineProps<{
   memory?: CompanionMemoryInspectResponse['memory']
   sources: CompanionMemorySourceEvidence[]
+  links?: CompanionMemoryLink[]
+  proposals?: CompanionMemoryMaintenanceProposal[]
   loading: boolean
   saving: boolean
 }>()
@@ -116,6 +120,19 @@ function sourceTime(source: CompanionMemorySourceEvidence): string {
   return formatMemoryTime(source.sourceCreatedAt || source.createdAt)
 }
 
+function attributionLabel(value: string | undefined): string {
+  if (value === 'assistant-provided') return '助手提供'
+  if (value === 'mixed') return '混合来源'
+  return '用户陈述'
+}
+
+function extractionLabel(value: string | undefined): string {
+  if (value === 'semantic') return '语义抽取'
+  if (value === 'heuristic-fallback') return '本地降级'
+  if (value === 'tool') return '工具写入'
+  return '手动'
+}
+
 function clampInteger(value: string | number, min: number, max: number): number {
   const next = Math.round(Number(value))
   if (!Number.isFinite(next)) return min
@@ -149,6 +166,8 @@ function clampInteger(value: string | number, min: number, max: number): number 
           </Badge>
           <Badge variant="outline">{{ memoryScopeLabel(memory.scope) }}</Badge>
           <Badge variant="outline">置信度 {{ percentLabel(memory.confidence) }}</Badge>
+          <Badge variant="outline">{{ extractionLabel(memory.extractionMethod) }}</Badge>
+          <Badge variant="outline">{{ attributionLabel(memory.attribution) }}</Badge>
         </div>
 
         <div class="grid grid-cols-1 gap-3 md:grid-cols-3">
@@ -187,6 +206,7 @@ function clampInteger(value: string | number, min: number, max: number): number 
               <SelectContent>
                 <SelectGroup>
                   <SelectItem value="active">活跃</SelectItem>
+                  <SelectItem value="pending">待确认</SelectItem>
                   <SelectItem value="disabled">停用</SelectItem>
                   <SelectItem value="archived">归档</SelectItem>
                 </SelectGroup>
@@ -260,6 +280,57 @@ function clampInteger(value: string | number, min: number, max: number): number 
               >
                 会话 {{ source.sessionId }}
               </p>
+            </div>
+          </div>
+        </template>
+
+        <template v-if="links?.length">
+          <Field>
+            <FieldContent>
+              <FieldLabel>相关记忆</FieldLabel>
+              <FieldDescription>维护流水线记录的非破坏性关联。</FieldDescription>
+            </FieldContent>
+          </Field>
+
+          <div class="flex flex-col gap-2">
+            <div
+              v-for="link in links"
+              :key="link.id"
+              class="rounded-md border px-3 py-2 text-sm"
+            >
+              <div class="flex flex-wrap items-center gap-2">
+                <Badge variant="outline">{{ link.relation }}</Badge>
+                <span class="break-all text-muted-foreground">
+                  {{ link.memoryId === memory.id ? link.linkedMemoryId : link.memoryId }}
+                </span>
+                <span class="text-muted-foreground">置信度 {{ percentLabel(link.confidence) }}</span>
+              </div>
+            </div>
+          </div>
+        </template>
+
+        <template v-if="proposals?.length">
+          <Field>
+            <FieldContent>
+              <FieldLabel>维护建议</FieldLabel>
+              <FieldDescription>需要用户确认或忽略的候选操作。</FieldDescription>
+            </FieldContent>
+          </Field>
+
+          <div class="flex flex-col gap-2">
+            <div
+              v-for="proposal in proposals"
+              :key="proposal.id"
+              class="rounded-md border px-3 py-2 text-sm"
+            >
+              <div class="flex flex-wrap items-center gap-2">
+                <Badge variant="outline">{{ proposal.kind }}</Badge>
+                <Badge variant="outline">{{ proposal.status }}</Badge>
+                <span class="text-muted-foreground">
+                  置信度 {{ percentLabel(proposal.confidence) }}
+                </span>
+              </div>
+              <p class="mt-2 text-muted-foreground">{{ proposal.reason }}</p>
             </div>
           </div>
         </template>

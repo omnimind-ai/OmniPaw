@@ -34,6 +34,12 @@ const minConfidencePercent = computed({
     memorySettings.value.minConfidence = clampInteger(value, 0, 100) / 100
   },
 })
+const lowConfidenceReviewPercent = computed({
+  get: () => Math.round(memorySettings.value.lowConfidenceReviewThreshold * 100),
+  set: (value: string | number) => {
+    memorySettings.value.lowConfidenceReviewThreshold = clampInteger(value, 0, 100) / 100
+  },
+})
 const maxContextItems = computed({
   get: () => memorySettings.value.maxContextItems,
   set: (value: string | number) => {
@@ -77,6 +83,70 @@ function clampInteger(value: string | number, min: number, max: number): number 
             id="memory-enabled"
             v-model="memorySettings.enabled"
             aria-label="启用伙伴记忆"
+          />
+        </Field>
+
+        <Field
+          orientation="responsive"
+          class="border-b px-4 py-3"
+        >
+          <FieldContent>
+            <FieldLabel for="memory-semantic-extraction">语义抽取</FieldLabel>
+            <FieldDescription>优先使用已配置模型理解长期事实，失败时降级为本地规则。</FieldDescription>
+          </FieldContent>
+          <Switch
+            id="memory-semantic-extraction"
+            v-model="memorySettings.semanticExtractionEnabled"
+            :disabled="!memorySettings.enabled || !memorySettings.extractionEnabled"
+            aria-label="语义抽取记忆"
+          />
+        </Field>
+
+        <Field
+          orientation="responsive"
+          class="border-b px-4 py-3"
+        >
+          <FieldContent>
+            <FieldLabel for="memory-tool-write">主动工具写入</FieldLabel>
+            <FieldDescription>用户明确要求记住、更新或忘记时，允许助手调用受控记忆工具。</FieldDescription>
+          </FieldContent>
+          <Switch
+            id="memory-tool-write"
+            v-model="memorySettings.activeToolWriteEnabled"
+            :disabled="!memorySettings.enabled"
+            aria-label="主动工具写入记忆"
+          />
+        </Field>
+
+        <Field
+          orientation="responsive"
+          class="border-b px-4 py-3"
+        >
+          <FieldContent>
+            <FieldLabel for="memory-maintenance">维护建议</FieldLabel>
+            <FieldDescription>异步生成去重、关联、冲突和过期计划建议。</FieldDescription>
+          </FieldContent>
+          <Switch
+            id="memory-maintenance"
+            v-model="memorySettings.maintenanceEnabled"
+            :disabled="!memorySettings.enabled"
+            aria-label="维护记忆"
+          />
+        </Field>
+
+        <Field
+          orientation="responsive"
+          class="border-b px-4 py-3"
+        >
+          <FieldContent>
+            <FieldLabel for="memory-destructive-confirm">破坏性操作确认</FieldLabel>
+            <FieldDescription>删除、归档或覆盖记忆默认生成待确认建议。</FieldDescription>
+          </FieldContent>
+          <Switch
+            id="memory-destructive-confirm"
+            v-model="memorySettings.destructiveToolRequiresConfirmation"
+            :disabled="!memorySettings.enabled"
+            aria-label="破坏性记忆操作需要确认"
           />
         </Field>
 
@@ -152,7 +222,7 @@ function clampInteger(value: string | number, min: number, max: number): number 
 
         <Field
           orientation="responsive"
-          class="px-4 py-3"
+          class="border-b px-4 py-3"
         >
           <FieldContent>
             <FieldLabel for="memory-min-confidence">最低置信度</FieldLabel>
@@ -161,6 +231,25 @@ function clampInteger(value: string | number, min: number, max: number): number 
           <Input
             id="memory-min-confidence"
             v-model="minConfidencePercent"
+            class="w-full md:w-48"
+            type="number"
+            min="0"
+            max="100"
+            step="1"
+          />
+        </Field>
+
+        <Field
+          orientation="responsive"
+          class="px-4 py-3"
+        >
+          <FieldContent>
+            <FieldLabel for="memory-low-confidence">低置信复核阈值</FieldLabel>
+            <FieldDescription>低于该百分比的自动候选会进入待确认状态。</FieldDescription>
+          </FieldContent>
+          <Input
+            id="memory-low-confidence"
+            v-model="lowConfidenceReviewPercent"
             class="w-full md:w-48"
             type="number"
             min="0"

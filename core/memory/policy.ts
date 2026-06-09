@@ -11,8 +11,13 @@ export class CompanionMemoryPolicyService {
       this.settings() ?? {
         enabled: true,
         extractionEnabled: true,
+        semanticExtractionEnabled: true,
         retrievalEnabled: true,
+        activeToolWriteEnabled: true,
+        maintenanceEnabled: true,
+        destructiveToolRequiresConfirmation: true,
         minConfidence: 0.55,
+        lowConfidenceReviewThreshold: 0.68,
         maxContextItems: 8,
         maxContextTokens: 900,
       }
@@ -31,5 +36,10 @@ export class CompanionMemoryPolicyService {
   canRetrieve(session: Pick<ChatSession, 'kind'> | undefined): boolean {
     const settings = this.settingsSnapshot()
     return settings.enabled && settings.retrievalEnabled && this.isEligibleSession(session)
+  }
+
+  canUseWriteTools(session: Pick<ChatSession, 'kind'> | undefined): boolean {
+    const settings = this.settingsSnapshot()
+    return settings.enabled && settings.activeToolWriteEnabled && this.isEligibleSession(session)
   }
 }

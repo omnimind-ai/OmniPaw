@@ -11,9 +11,80 @@ export type CompanionMemoryKind =
 
 export type CompanionMemoryScope = 'global' | 'user' | 'companion' | 'session' | 'character'
 
-export type CompanionMemoryStatus = 'active' | 'archived' | 'deleted' | 'disabled'
+export type CompanionMemoryStatus = 'active' | 'pending' | 'archived' | 'deleted' | 'disabled'
 
-export type CompanionMemorySourceKind = 'chat-turn' | 'message-window' | 'manual'
+export type CompanionMemorySourceKind =
+  | 'chat-turn'
+  | 'message-window'
+  | 'manual'
+  | 'tool'
+  | 'manual-intent'
+
+export type CompanionMemoryAttribution = 'user-stated' | 'assistant-provided' | 'mixed'
+
+export type CompanionMemoryExtractionMethod = 'semantic' | 'heuristic-fallback' | 'manual' | 'tool'
+
+export interface CompanionMemoryLink {
+  id: ID
+  memoryId: ID
+  linkedMemoryId: ID
+  relation: 'related' | 'duplicate' | 'conflicts' | 'supports' | 'supersedes'
+  confidence: number
+  metadata?: Record<string, unknown>
+  createdAt: UnixMs
+}
+
+export type CompanionMemoryProposalKind = 'update' | 'merge' | 'archive' | 'delete' | 'review'
+
+export type CompanionMemoryProposalStatus = 'pending' | 'accepted' | 'ignored' | 'applied'
+
+export interface CompanionMemoryMaintenanceProposal {
+  id: ID
+  kind: CompanionMemoryProposalKind
+  status: CompanionMemoryProposalStatus
+  memoryId?: ID
+  relatedMemoryId?: ID
+  proposedContent?: string
+  reason: string
+  confidence: number
+  source: 'maintenance' | 'tool'
+  runId?: ID
+  metadata?: Record<string, unknown>
+  createdAt: UnixMs
+  updatedAt: UnixMs
+}
+
+export interface CompanionMemorySemanticCandidate {
+  kind: CompanionMemoryKind
+  scope?: CompanionMemoryScope
+  subject?: string
+  content: string
+  importance: number
+  confidence: number
+  sourceMessageIds: ID[]
+  attributedTo: CompanionMemoryAttribution
+  expiresAt?: UnixMs
+  linkedMemoryIds?: ID[]
+  metadata?: Record<string, unknown>
+}
+
+export interface CompanionMemoryCandidateRejection {
+  index: number
+  reason: string
+  hash?: string
+}
+
+export interface CompanionMemoryExtractionDiagnostics {
+  extractor: CompanionMemoryExtractionMethod
+  modelId?: string
+  candidateCount: number
+  acceptedCount: number
+  rejectedCount: number
+  hashes: string[]
+  rejections: CompanionMemoryCandidateRejection[]
+  fallbackReason?: string
+  durationMs?: number
+}
 
 export interface CompanionMemoryItem {
   id: ID
@@ -33,6 +104,9 @@ export interface CompanionMemoryItem {
   archivedAt?: UnixMs
   deletedAt?: UnixMs
   metadata?: Record<string, unknown>
+  linkedMemoryIds?: ID[]
+  attribution?: CompanionMemoryAttribution
+  extractionMethod?: CompanionMemoryExtractionMethod
   createdAt: UnixMs
   updatedAt: UnixMs
 }
@@ -125,6 +199,8 @@ export interface CompanionMemoryDeleteRequest {
 export interface CompanionMemoryInspectResponse {
   memory: CompanionMemoryItem
   sources: CompanionMemorySourceEvidence[]
+  links?: CompanionMemoryLink[]
+  proposals?: CompanionMemoryMaintenanceProposal[]
 }
 
 export interface CompanionMemoryListResponse {
@@ -135,8 +211,13 @@ export interface CompanionMemoryListResponse {
 export interface DesktopMemorySettings {
   enabled: boolean
   extractionEnabled: boolean
+  semanticExtractionEnabled: boolean
   retrievalEnabled: boolean
+  activeToolWriteEnabled: boolean
+  maintenanceEnabled: boolean
+  destructiveToolRequiresConfirmation: boolean
   minConfidence: number
+  lowConfidenceReviewThreshold: number
   maxContextItems: number
   maxContextTokens: number
 }
@@ -154,10 +235,36 @@ export interface CompanionMemoryExtractionJob {
   errorCode?: string
   errorMessage?: string
   createdMemoryIds: ID[]
+  diagnostics?: CompanionMemoryExtractionDiagnostics
   startedAt?: UnixMs
   finishedAt?: UnixMs
   createdAt: UnixMs
   updatedAt: UnixMs
+}
+
+export interface CreateCompanionMemoryProposalRequest {
+  kind: CompanionMemoryProposalKind
+  memoryId?: ID
+  relatedMemoryId?: ID
+  proposedContent?: string
+  reason: string
+  confidence?: number
+  source?: CompanionMemoryMaintenanceProposal['source']
+  runId?: ID
+  metadata?: Record<string, unknown>
+}
+
+export interface UpdateCompanionMemoryProposalRequest {
+  proposalId: ID
+  status?: CompanionMemoryProposalStatus
+  proposedContent?: string
+  metadata?: Record<string, unknown>
+}
+
+export interface CompanionMemoryProposalListRequest {
+  status?: CompanionMemoryProposalStatus
+  memoryId?: ID
+  limit?: number
 }
 
 export interface CompanionMemorySnapshotItem {

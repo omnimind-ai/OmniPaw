@@ -6,31 +6,44 @@ import type {
   CompanionMemoryRepo,
 } from '@core/db/repos'
 import type { Logger } from '@core/logging'
+import type { ProviderManager } from '@core/provider/manager'
 import type {
   ChatMessage,
   ChatRun,
   ChatSession,
   ChatSessionKind,
+  MessageRole,
   ProviderRequestSnapshot,
 } from '@shared/types/chat'
 import type {
   CompanionMemoryContextItem,
   CompanionMemoryContextPlan,
   CompanionMemoryDeleteRequest,
+  CompanionMemoryExtractionDiagnostics,
   CompanionMemoryFilters,
   CompanionMemoryImportanceRequest,
   CompanionMemoryInspectResponse,
   CompanionMemoryItem,
   CompanionMemoryKind,
   CompanionMemoryListResponse,
+  CompanionMemoryMaintenanceProposal,
+  CompanionMemoryProposalListRequest,
   CompanionMemoryScope,
   CompanionMemorySearchResult,
+  CompanionMemorySemanticCandidate,
+  CreateCompanionMemoryProposalRequest,
   CreateCompanionMemoryRequest,
   DesktopMemorySettings,
+  UpdateCompanionMemoryProposalRequest,
   UpdateCompanionMemoryRequest,
 } from '@shared/types/memory'
 import { embeddingCosine, localTextEmbedding } from './local-embedding'
 import type { CompanionMemoryPolicyService } from './policy'
+import {
+  CompanionMemorySemanticExtractor,
+  cleanMemoryContent,
+  SemanticExtractionError,
+} from './semantic-extractor'
 
 export interface CompanionMemoryServiceOptions {
   repo: CompanionMemoryRepo
@@ -38,6 +51,7 @@ export interface CompanionMemoryServiceOptions {
   messages: ChatMessageRepo
   runs: ChatRunRepo
   policy: CompanionMemoryPolicyService
+  providers?: ProviderManager
   settings: () => DesktopMemorySettings
   saveSettings?: (settings: DesktopMemorySettings) => DesktopMemorySettings
   logger?: Logger
@@ -84,7 +98,13 @@ export interface CompanionMemoryToolSearchResponse {
 }
 
 export class CompanionMemoryService {
-  constructor(private readonly options: CompanionMemoryServiceOptions) {}
+  private readonly semanticExtractor?: CompanionMemorySemanticExtractor
+
+  constructor(private readonly options: CompanionMemoryServiceOptions) {
+    this.semanticExtractor = options.providers
+      ? new CompanionMemorySemanticExtractor(options.providers)
+      : undefined
+  }
 
   list(filters?: CompanionMemoryFilters): CompanionMemoryListResponse {
     return this.options.repo.list(filters)
@@ -131,6 +151,30 @@ export class CompanionMemoryService {
     return this.options.repo.setImportance(request)
   }
 
+  listProposals(request?: CompanionMemoryProposalListRequest): {
+    items: CompanionMemoryMaintenanceProposal[]
+    total: number
+  } {
+    return this.options.repo.listProposals(request)
+  }
+
+  updateProposal(
+    request: UpdateCompanionMemoryProposalRequest
+  ): CompanionMemoryMaintenanceProposal | undefined {
+    const updated = this.options.repo.updateProposal(request)
+    if (updated && updated.status === 'accepted') {
+      this.applyAcceptedProposal(updated)
+      return this.options.repo.updateProposal({ proposalId: updated.id, status: 'applied' })
+    }
+    return updated
+  }
+
+  createProposal(
+    request: CreateCompanionMemoryProposalRequest
+  ): CompanionMemoryMaintenanceProposal {
+    return this.options.repo.createProposal(request)
+  }
+
   getSettings(): DesktopMemorySettings {
     return this.options.settings()
   }
@@ -145,6 +189,11 @@ export class CompanionMemoryService {
   canSearchForSession(sessionId: string): boolean {
     const session = this.options.sessions.get(sessionId)
     return Boolean(session && this.options.policy.canRetrieve(session))
+  }
+
+  canWriteForSession(sessionId: string): boolean {
+    const session = this.options.sessions.get(sessionId)
+    return Boolean(session && this.options.policy.canUseWriteTools(session))
   }
 
   searchForTool(request: CompanionMemoryToolSearchRequest): CompanionMemoryToolSearchResponse {
@@ -262,14 +311,33 @@ export class CompanionMemoryService {
     this.options.repo.updateJob(job, { status: 'running', startedAt })
     try {
       const messages = this.sourceMessages(run)
-      const candidates = extractCandidates(messages)
+      const semantic = await this.trySemanticExtraction({ run, session, messages, startedAt })
+      const candidates = semantic.used ? semantic.candidates : extractCandidates(messages)
       const createdIds: string[] = []
+      const seen = new Set<string>()
       for (const candidate of candidates) {
+        const content = cleanMemoryContent(candidate.content)
+        if (!content || seen.has(normalizeMemoryKey(content))) {
+          continue
+        }
+        seen.add(normalizeMemoryKey(content))
+        const duplicate = this.findDuplicateMemory(content, run.sessionId)
+        if (duplicate) {
+          if (candidate.linkedMemoryIds?.length) {
+            this.linkCandidateMemory(duplicate.id, candidate, 'duplicate')
+          }
+          continue
+        }
         const sourceText = messages.map((message) => messageText(message)).join('\n')
         const memory = this.options.repo.create({
           kind: candidate.kind,
-          scope: session?.kind === 'cat' ? 'companion' : 'user',
-          content: candidate.content,
+          scope: candidate.scope ?? (session?.kind === 'cat' ? 'companion' : 'user'),
+          status:
+            candidate.confidence <
+            this.options.policy.settingsSnapshot().lowConfidenceReviewThreshold
+              ? 'pending'
+              : 'active',
+          content,
           subject: candidate.subject,
           confidence: candidate.confidence,
           importance: candidate.importance,
@@ -277,26 +345,46 @@ export class CompanionMemoryService {
           sourceRunId: run.id,
           observedAt: Date.now(),
           metadata: {
-            extractor: 'heuristic-add-only',
+            extractor: semantic.used ? 'semantic' : 'heuristic-add-only',
             sessionKind: session?.kind,
+            attributedTo: candidate.attributedTo ?? 'user-stated',
+            linkedMemoryIds: candidate.linkedMemoryIds,
           },
           sources: [
             {
               sourceKind: 'chat-turn',
               sessionId: run.sessionId,
               runId: run.id,
-              messageIds: messages.map((message) => message.id),
-              sourceRole: 'mixed',
+              messageIds: candidate.sourceMessageIds?.length
+                ? candidate.sourceMessageIds
+                : messages.map((message) => message.id),
+              sourceRole: sourceRoleForCandidate(candidate, messages),
               evidenceHash: hashText(sourceText),
               sourceCreatedAt: Math.min(...messages.map((message) => message.createdAt)),
+              metadata: {
+                attributedTo: candidate.attributedTo ?? 'user-stated',
+              },
             },
           ],
         })
         createdIds.push(memory.id)
+        this.linkCandidateMemory(memory.id, candidate, 'related')
+        this.runMaintenanceForMemory(memory)
       }
       this.options.repo.updateJob(job, {
         status: 'complete',
         createdMemoryIds: createdIds,
+        diagnostics: {
+          extractor: semantic.used ? 'semantic' : 'heuristic-fallback',
+          modelId: semantic.diagnostics?.modelId,
+          candidateCount: semantic.diagnostics?.candidateCount ?? candidates.length,
+          acceptedCount: createdIds.length,
+          rejectedCount: semantic.diagnostics?.rejectedCount ?? 0,
+          hashes: createdIds.map((id) => hashText(id)),
+          rejections: semantic.diagnostics?.rejections ?? [],
+          fallbackReason: semantic.fallbackReason,
+          durationMs: Date.now() - startedAt,
+        },
         finishedAt: Date.now(),
       })
       this.options.logger?.debug('Companion memory extraction completed.', {
@@ -519,14 +607,184 @@ export class CompanionMemoryService {
     }
     return results
   }
+
+  private async trySemanticExtraction(input: {
+    run: ChatRun
+    session?: ChatSession
+    messages: ChatMessage[]
+    startedAt: number
+  }): Promise<{
+    used: boolean
+    candidates: CompanionMemorySemanticCandidate[]
+    diagnostics?: CompanionMemoryExtractionDiagnostics
+    fallbackReason?: string
+  }> {
+    const settings = this.options.policy.settingsSnapshot()
+    if (!settings.semanticExtractionEnabled) {
+      return { used: false, candidates: [], fallbackReason: 'semantic_extraction_disabled' }
+    }
+    if (!this.semanticExtractor) {
+      return { used: false, candidates: [], fallbackReason: 'provider_unavailable' }
+    }
+    try {
+      const result = await this.semanticExtractor.extract({
+        run: input.run,
+        session: input.session,
+        messages: input.messages,
+        observationDate: new Date(input.startedAt),
+      })
+      return {
+        used: true,
+        candidates: result.candidates,
+        diagnostics: result.diagnostics,
+      }
+    } catch (error) {
+      const fallbackReason =
+        error instanceof SemanticExtractionError ? error.code : 'semantic_extraction_failed'
+      this.options.logger?.warn('Companion semantic memory extraction fell back.', {
+        runId: input.run.id,
+        sessionId: input.run.sessionId,
+        fallbackReason,
+      })
+      return { used: false, candidates: [], fallbackReason }
+    }
+  }
+
+  private findDuplicateMemory(content: string, sessionId: string): CompanionMemoryItem | undefined {
+    const key = normalizeMemoryKey(content)
+    return this.options.repo
+      .list({ sessionId, includeInactive: true, limit: 500 })
+      .items.find((item) => normalizeMemoryKey(item.content) === key && item.status !== 'deleted')
+  }
+
+  private linkCandidateMemory(
+    memoryId: string,
+    candidate: Pick<CompanionMemorySemanticCandidate, 'linkedMemoryIds' | 'confidence'>,
+    relation: 'related' | 'duplicate'
+  ): void {
+    for (const linkedMemoryId of candidate.linkedMemoryIds ?? []) {
+      if (linkedMemoryId === memoryId || !this.options.repo.get(linkedMemoryId)) {
+        continue
+      }
+      this.options.repo.addLink({
+        memoryId,
+        linkedMemoryId,
+        relation,
+        confidence: candidate.confidence,
+      })
+    }
+  }
+
+  private runMaintenanceForMemory(memory: CompanionMemoryItem): void {
+    const settings = this.options.policy.settingsSnapshot()
+    if (!settings.maintenanceEnabled) {
+      return
+    }
+    try {
+      const related = this.findRelatedMemories(memory)
+      for (const item of related.slice(0, 3)) {
+        this.options.repo.addLink({
+          memoryId: memory.id,
+          linkedMemoryId: item.id,
+          relation: item.relation,
+          confidence: item.score,
+          metadata: { maintenance: 'token-overlap' },
+        })
+        if (item.relation === 'conflicts') {
+          this.options.repo.createProposal({
+            kind: 'review',
+            memoryId: memory.id,
+            relatedMemoryId: item.id,
+            reason: 'Possible conflict with an existing memory.',
+            confidence: item.score,
+            source: 'maintenance',
+          })
+        }
+      }
+      if (memory.kind === 'plan' && memory.expiresAt && memory.expiresAt < Date.now()) {
+        this.options.repo.createProposal({
+          kind: 'archive',
+          memoryId: memory.id,
+          reason: 'Plan memory appears stale because its expiry date has passed.',
+          confidence: 0.85,
+          source: 'maintenance',
+        })
+      }
+      if (memory.status === 'pending') {
+        this.options.repo.createProposal({
+          kind: 'review',
+          memoryId: memory.id,
+          proposedContent: memory.content,
+          reason: 'Low confidence memory candidate requires review.',
+          confidence: memory.confidence,
+          source: 'maintenance',
+        })
+      }
+    } catch (error) {
+      this.options.logger?.warn('Companion memory maintenance failed.', {
+        memoryId: memory.id,
+        errorCode: error instanceof Error ? 'maintenance_failed' : 'unknown',
+      })
+    }
+  }
+
+  private findRelatedMemories(
+    memory: CompanionMemoryItem
+  ): Array<{ id: string; relation: 'related' | 'conflicts'; score: number }> {
+    const memoryTokens = memoryTokensFor(memory.content)
+    if (!memoryTokens.size) {
+      return []
+    }
+    return this.options.repo
+      .list({ sessionId: memory.sessionId, includeInactive: true, limit: 500 })
+      .items.filter((item) => item.id !== memory.id && item.status !== 'deleted')
+      .map((item) => {
+        const tokens = memoryTokensFor(item.content)
+        const overlap = [...memoryTokens].filter((token) => tokens.has(token)).length
+        const score = overlap / Math.max(1, Math.min(memoryTokens.size, tokens.size))
+        const sameSubject = Boolean(
+          memory.subject && item.subject && memory.subject === item.subject
+        )
+        const relation: 'related' | 'conflicts' =
+          sameSubject &&
+          memory.kind === item.kind &&
+          normalizeMemoryKey(memory.content) !== normalizeMemoryKey(item.content)
+            ? 'conflicts'
+            : 'related'
+        return { id: item.id, relation, score }
+      })
+      .filter((item) => item.score >= 0.45)
+      .sort((left, right) => right.score - left.score || left.id.localeCompare(right.id))
+  }
+
+  private applyAcceptedProposal(proposal: CompanionMemoryMaintenanceProposal): void {
+    if (!proposal.memoryId) {
+      return
+    }
+    if (proposal.kind === 'archive') {
+      this.archive(proposal.memoryId)
+      return
+    }
+    if (proposal.kind === 'delete') {
+      this.delete({ memoryId: proposal.memoryId })
+      return
+    }
+    if ((proposal.kind === 'update' || proposal.kind === 'merge') && proposal.proposedContent) {
+      this.update({ memoryId: proposal.memoryId, content: proposal.proposedContent })
+    }
+  }
 }
 
 interface MemoryCandidate {
   kind: CompanionMemoryKind
+  scope?: CompanionMemoryScope
   subject?: string
   content: string
   importance: number
   confidence: number
+  sourceMessageIds?: string[]
+  attributedTo?: 'user-stated' | 'assistant-provided' | 'mixed'
+  linkedMemoryIds?: string[]
 }
 
 function extractCandidates(messages: ChatMessage[]): MemoryCandidate[] {
@@ -559,12 +817,45 @@ function extractCandidates(messages: ChatMessage[]): MemoryCandidate[] {
           : planMatch
             ? 'plan'
             : 'fact',
-      content: content.trim(),
+      content: cleanMemoryContent(content),
       importance: preferenceMatch || boundaryMatch ? 4 : 3,
       confidence: 0.72,
+      sourceMessageIds: messages
+        .filter((message) => message.role === 'user')
+        .map((message) => message.id),
+      attributedTo: 'user-stated',
     })
   }
   return dedupeCandidates(candidates)
+}
+
+function sourceRoleForCandidate(
+  candidate: Pick<MemoryCandidate, 'sourceMessageIds'>,
+  messages: ChatMessage[]
+): MessageRole | 'mixed' {
+  const ids = new Set(candidate.sourceMessageIds ?? [])
+  const roles = new Set(
+    messages.filter((message) => ids.has(message.id)).map((message) => message.role)
+  )
+  if (roles.size === 1) {
+    return [...roles][0] ?? 'mixed'
+  }
+  return 'mixed'
+}
+
+function normalizeMemoryKey(content: string): string {
+  return content.toLowerCase().replace(/\s+/g, ' ').trim()
+}
+
+function memoryTokensFor(content: string): Set<string> {
+  return new Set(
+    content
+      .toLowerCase()
+      .split(/[^\p{L}\p{N}_]+/u)
+      .map((token) => token.trim())
+      .filter((token) => token.length >= 2 && !retrievalStopwords.has(token))
+      .slice(0, 80)
+  )
 }
 
 function dedupeCandidates(candidates: MemoryCandidate[]): MemoryCandidate[] {

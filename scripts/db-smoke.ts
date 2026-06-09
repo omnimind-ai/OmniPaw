@@ -404,6 +404,33 @@ try {
   )
   assert.equal(memories.search({ query: 'TypeScript smoke', limit: 5 }).items[0]?.id, memory.id)
   assert.equal(memories.list({ minConfidence: 0.95 }).items.length, 0)
+  const pending = memories.create({
+    kind: 'fact',
+    scope: 'user',
+    status: 'pending',
+    content: 'Luna is reviewing low confidence memory smoke coverage.',
+    confidence: 0.4,
+  })
+  assert.equal(memories.get(pending.id)?.status, 'pending')
+  memories.addLink({
+    memoryId: pending.id,
+    linkedMemoryId: memory.id,
+    relation: 'related',
+    confidence: 0.8,
+  })
+  assert.equal(memories.inspect(pending.id)?.links?.[0]?.linkedMemoryId, memory.id)
+  const proposal = memories.createProposal({
+    kind: 'review',
+    memoryId: pending.id,
+    proposedContent: pending.content,
+    reason: 'Low confidence smoke proposal.',
+    confidence: 0.4,
+  })
+  assert.equal(memories.listProposals({ status: 'pending' }).items[0]?.id, proposal.id)
+  assert.equal(
+    memories.updateProposal({ proposalId: proposal.id, status: 'ignored' })?.status,
+    'ignored'
+  )
   assert.equal(memories.archive(memory.id)?.status, 'archived')
   assert.equal(
     memories.list().items.some((item) => item.id === memory.id),

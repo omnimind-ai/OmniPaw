@@ -37,9 +37,11 @@ import type {
   CompanionMemoryDeleteRequest,
   CompanionMemoryFilters,
   CompanionMemoryImportanceRequest,
+  CompanionMemoryProposalListRequest,
   CompanionMemorySettingsRequest,
   CreateCompanionMemoryRequest,
   DesktopMemorySettings,
+  UpdateCompanionMemoryProposalRequest,
   UpdateCompanionMemoryRequest,
 } from '@shared/types/memory'
 import type {
@@ -362,6 +364,10 @@ const bridge: OpenOmniClawBridge = {
       ipcRenderer.invoke(IPC_CHANNELS.memory.delete, request),
     setImportance: (request: CompanionMemoryImportanceRequest) =>
       ipcRenderer.invoke(IPC_CHANNELS.memory.setImportance, request),
+    listProposals: (request?: CompanionMemoryProposalListRequest) =>
+      ipcRenderer.invoke(IPC_CHANNELS.memory.listProposals, request),
+    updateProposal: (request: UpdateCompanionMemoryProposalRequest) =>
+      ipcRenderer.invoke(IPC_CHANNELS.memory.updateProposal, request),
     getSettings: () => ipcRenderer.invoke(IPC_CHANNELS.memory.getSettings),
     updateSettings: (request: CompanionMemorySettingsRequest | DesktopMemorySettings) =>
       ipcRenderer.invoke(IPC_CHANNELS.memory.updateSettings, request),

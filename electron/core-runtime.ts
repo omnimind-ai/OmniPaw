@@ -276,6 +276,7 @@ export function createCoreRuntime(options: CoreRuntimeOptions): CoreRuntime {
     messages: messageRepo,
     runs: runRepo,
     policy: memoryPolicy,
+    providers: providerManager,
     settings: () => configStore.get().app.memory,
     saveSettings: (memorySettings) => {
       const next = configStore.get()

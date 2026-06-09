@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type {
   CompanionMemoryItem,
+  CompanionMemoryMaintenanceProposal,
   CompanionMemoryStatus,
   CreateCompanionMemoryRequest,
   UpdateCompanionMemoryRequest,
@@ -12,6 +13,8 @@ import MemoryCreateModal from '@/components/settings/memory-settings/MemoryCreat
 import MemoryDetailModal from '@/components/settings/memory-settings/MemoryDetailModal.vue'
 import MemoryList from '@/components/settings/memory-settings/MemoryList.vue'
 import MemoryPolicyModal from '@/components/settings/memory-settings/MemoryPolicyModal.vue'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { useDelayedFlag } from '@/composables/useDelayedFlag'
 import { useMemoryStore } from '@/stores/memory'
 import { errorToText, useToast } from '@/utils/toast'
@@ -22,7 +25,8 @@ defineProps<{
 
 const toast = useToast()
 const memoryStore = useMemoryStore()
-const { items, selected, loading, saving, total } = storeToRefs(memoryStore)
+const { items, selected, loading, saving, total, proposals, proposalTotal } =
+  storeToRefs(memoryStore)
 
 const searchQuery = ref('')
 const includeInactive = ref(false)
@@ -34,6 +38,8 @@ const confirmDeleteMemoryId = ref<string | undefined>()
 
 const selectedMemory = computed(() => selected.value?.memory)
 const selectedSources = computed(() => selected.value?.sources ?? [])
+const selectedLinks = computed(() => selected.value?.links ?? [])
+const selectedProposals = computed(() => selected.value?.proposals ?? [])
 const showMemoryListSkeleton = useDelayedFlag(() => loading.value)
 
 watch(detailModalOpen, (isOpen) => {
@@ -44,6 +50,7 @@ watch(detailModalOpen, (isOpen) => {
 
 onMounted(() => {
   void reload()
+  void reloadProposals()
 })
 
 async function reload(): Promise<void> {
@@ -60,6 +67,14 @@ async function reload(): Promise<void> {
     }
   } catch (error) {
     toast.error(errorToText(error, '记忆列表加载失败。'))
+  }
+}
+
+async function reloadProposals(): Promise<void> {
+  try {
+    await memoryStore.loadProposals({ status: 'pending', limit: 50 })
+  } catch (error) {
+    toast.error(errorToText(error, '维护建议加载失败。'))
   }
 }
 
@@ -102,6 +117,22 @@ async function submitMemoryUpdate(request: UpdateCompanionMemoryRequest): Promis
     }
   } catch (error) {
     toast.error(errorToText(error, '记忆保存失败。'))
+  }
+}
+
+async function updateProposal(
+  proposal: CompanionMemoryMaintenanceProposal,
+  status: 'accepted' | 'ignored'
+): Promise<void> {
+  try {
+    await memoryStore.updateProposal({ proposalId: proposal.id, status })
+    await reload()
+    if (selectedMemory.value?.id) {
+      await inspectMemory(selectedMemory.value.id)
+    }
+    toast.success(status === 'accepted' ? '维护建议已接受。' : '维护建议已忽略。')
+  } catch (error) {
+    toast.error(errorToText(error, '维护建议处理失败。'))
   }
 }
 
@@ -193,6 +224,59 @@ function clampInteger(value: string | number, min: number, max: number): number 
 
 <template>
   <div class="flex h-full min-h-0 flex-1 flex-col overflow-hidden">
+    <div
+      v-if="proposals.length"
+      class="mb-3 flex flex-col gap-2 rounded-md border px-3 py-3"
+    >
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <div class="flex items-center gap-2">
+          <Badge variant="outline">维护建议 {{ proposalTotal }}</Badge>
+          <span class="text-sm text-muted-foreground">待确认、归档、删除或复核。</span>
+        </div>
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          @click="reloadProposals"
+        >
+          刷新
+        </Button>
+      </div>
+      <div class="flex flex-col gap-2">
+        <div
+          v-for="proposal in proposals.slice(0, 3)"
+          :key="proposal.id"
+          class="flex flex-wrap items-center justify-between gap-2 rounded-md border px-3 py-2 text-sm"
+        >
+          <div class="min-w-0">
+            <div class="flex flex-wrap items-center gap-2">
+              <Badge variant="outline">{{ proposal.kind }}</Badge>
+              <span class="truncate text-muted-foreground">{{ proposal.reason }}</span>
+            </div>
+          </div>
+          <div class="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              :disabled="saving"
+              @click="updateProposal(proposal, 'ignored')"
+            >
+              忽略
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              :disabled="saving"
+              @click="updateProposal(proposal, 'accepted')"
+            >
+              接受
+            </Button>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <MemoryList
       v-model:search-query="searchQuery"
       class="min-h-0 flex-1"
@@ -230,6 +314,8 @@ function clampInteger(value: string | number, min: number, max: number): number 
       v-model:open="detailModalOpen"
       :memory="selectedMemory"
       :sources="selectedSources"
+      :links="selectedLinks"
+      :proposals="selectedProposals"
       :loading="detailLoading"
       :saving="saving"
       @submit="submitMemoryUpdate"

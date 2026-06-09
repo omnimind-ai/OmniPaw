@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import type { TerminalExecRequest, TerminalService } from '@core/agent/terminal'
 import type { AgentWorkspaceService } from '@core/agent/workspace'
 import type { AttachmentService } from '@core/chat/attachment-service'
@@ -7,7 +8,11 @@ import type { CompanionMemoryService } from '@core/memory/service'
 import type { ObservationManager } from '@core/observation'
 import { ATTACHMENT_PROMPTS, BUILTIN_TOOL_PROMPTS, SKILL_PROMPTS } from '@core/prompts'
 import type { SkillManager } from '@core/skill/skill-manager'
-import type { CompanionMemoryKind, CompanionMemoryScope } from '@shared/types/memory'
+import type {
+  CompanionMemoryKind,
+  CompanionMemoryProposalKind,
+  CompanionMemoryScope,
+} from '@shared/types/memory'
 import type { DesktopToolSettings } from '@shared/types/settings'
 import type { ToolPolicy } from './policy'
 import type { AgentTool, ToolProfile, ToolRisk } from './types'
@@ -56,6 +61,25 @@ export function createBuiltinTools(options: BuiltinToolOptions): AgentTool[] {
       ...BUILTIN_TOOL_DEFINITIONS.memory_search,
       execute: createMemorySearchExecutor(options),
     })
+  }
+  if (options.memoryService?.canWriteForSession(options.sessionId)) {
+    tools.push(
+      {
+        ...BUILTIN_TOOL_DEFINITIONS.memory_create,
+        requiresApproval: () => false,
+        execute: createMemoryCreateExecutor(options),
+      },
+      {
+        ...BUILTIN_TOOL_DEFINITIONS.memory_update_proposal,
+        requiresApproval: () => false,
+        execute: createMemoryUpdateProposalExecutor(options),
+      },
+      {
+        ...BUILTIN_TOOL_DEFINITIONS.memory_forget_proposal,
+        requiresApproval: () => false,
+        execute: createMemoryForgetProposalExecutor(options),
+      }
+    )
   }
   if (options.cronManager) {
     tools.push({
@@ -122,6 +146,9 @@ export function listBuiltinToolDefinitions(): BuiltinToolDefinition[] {
     BUILTIN_TOOL_DEFINITIONS.attachment_text_read,
     BUILTIN_TOOL_DEFINITIONS.attachment_text_search,
     BUILTIN_TOOL_DEFINITIONS.memory_search,
+    BUILTIN_TOOL_DEFINITIONS.memory_create,
+    BUILTIN_TOOL_DEFINITIONS.memory_update_proposal,
+    BUILTIN_TOOL_DEFINITIONS.memory_forget_proposal,
     BUILTIN_TOOL_DEFINITIONS.future_task,
     BUILTIN_TOOL_DEFINITIONS.screen_observe,
     BUILTIN_TOOL_DEFINITIONS.workspace_file,
@@ -246,6 +273,82 @@ const BUILTIN_TOOL_DEFINITIONS = {
           type: 'boolean',
           description: BUILTIN_TOOL_PROMPTS.memorySearch.sessionOnlyDescription,
         },
+      },
+      additionalProperties: false,
+    },
+  },
+  memory_create: {
+    name: 'memory_create',
+    label: BUILTIN_TOOL_PROMPTS.memoryCreate.label,
+    description: BUILTIN_TOOL_PROMPTS.memoryCreate.description,
+    risk: 'write',
+    source: 'builtin',
+    profiles: ['assistant', 'power'],
+    parameters: {
+      type: 'object',
+      required: ['content'],
+      properties: {
+        content: {
+          type: 'string',
+          description: BUILTIN_TOOL_PROMPTS.memoryCreate.contentDescription,
+        },
+        kind: {
+          type: 'string',
+          enum: ['profile', 'preference', 'relationship', 'episode', 'plan', 'boundary', 'fact'],
+        },
+        scope: {
+          type: 'string',
+          enum: ['global', 'user', 'companion', 'session', 'character'],
+        },
+        subject: { type: 'string' },
+        importance: { type: 'number' },
+        confidence: { type: 'number' },
+      },
+      additionalProperties: false,
+    },
+  },
+  memory_update_proposal: {
+    name: 'memory_update_proposal',
+    label: BUILTIN_TOOL_PROMPTS.memoryUpdateProposal.label,
+    description: BUILTIN_TOOL_PROMPTS.memoryUpdateProposal.description,
+    risk: 'write',
+    source: 'builtin',
+    profiles: ['assistant', 'power'],
+    parameters: {
+      type: 'object',
+      required: ['memoryId', 'reason'],
+      properties: {
+        memoryId: { type: 'string' },
+        relatedMemoryId: { type: 'string' },
+        kind: {
+          type: 'string',
+          enum: ['update', 'merge', 'archive', 'review'],
+        },
+        proposedContent: { type: 'string' },
+        reason: { type: 'string' },
+        confidence: { type: 'number' },
+      },
+      additionalProperties: false,
+    },
+  },
+  memory_forget_proposal: {
+    name: 'memory_forget_proposal',
+    label: BUILTIN_TOOL_PROMPTS.memoryForgetProposal.label,
+    description: BUILTIN_TOOL_PROMPTS.memoryForgetProposal.description,
+    risk: 'write',
+    source: 'builtin',
+    profiles: ['assistant', 'power'],
+    parameters: {
+      type: 'object',
+      required: ['memoryId', 'reason'],
+      properties: {
+        memoryId: { type: 'string' },
+        action: {
+          type: 'string',
+          enum: ['archive', 'delete'],
+        },
+        reason: { type: 'string' },
+        confidence: { type: 'number' },
       },
       additionalProperties: false,
     },
@@ -546,6 +649,31 @@ interface MemorySearchArgs {
   sessionOnly?: boolean
 }
 
+interface MemoryCreateArgs {
+  content?: string
+  kind?: CompanionMemoryKind
+  scope?: CompanionMemoryScope
+  subject?: string
+  importance?: number
+  confidence?: number
+}
+
+interface MemoryUpdateProposalArgs {
+  memoryId?: string
+  relatedMemoryId?: string
+  kind?: Exclude<CompanionMemoryProposalKind, 'delete'>
+  proposedContent?: string
+  reason?: string
+  confidence?: number
+}
+
+interface MemoryForgetProposalArgs {
+  memoryId?: string
+  action?: 'archive' | 'delete'
+  reason?: string
+  confidence?: number
+}
+
 function createMemorySearchExecutor(options: BuiltinToolOptions): AgentTool['execute'] {
   return async (_toolCallId, args, signal) => {
     throwIfAborted(signal)
@@ -570,6 +698,127 @@ function createMemorySearchExecutor(options: BuiltinToolOptions): AgentTool['exe
         ...item,
         content: truncateText(item.content, 1200),
       })),
+    })
+  }
+}
+
+function createMemoryCreateExecutor(options: BuiltinToolOptions): AgentTool['execute'] {
+  return async (_toolCallId, args, signal, _onUpdate, context) => {
+    throwIfAborted(signal)
+    if (!options.memoryService) {
+      throw new Error('Companion memory writing is not available.')
+    }
+    const writeArgs = asMemoryCreateArgs(args)
+    const content = writeArgs.content?.trim()
+    if (!content) {
+      throw new Error('memory_create requires content.')
+    }
+    const sourceMessageIds = latestUserMessageIds(options)
+    const memory = options.memoryService.create({
+      kind: writeArgs.kind ?? 'fact',
+      scope: writeArgs.scope ?? 'user',
+      content,
+      subject: writeArgs.subject,
+      importance: writeArgs.importance,
+      confidence: writeArgs.confidence ?? 1,
+      sessionId: options.sessionId,
+      sourceRunId: context?.runId,
+      observedAt: Date.now(),
+      metadata: {
+        extractor: 'tool',
+        attributedTo: 'user-stated',
+      },
+      sources: [
+        {
+          sourceKind: 'manual-intent',
+          sessionId: options.sessionId,
+          runId: context?.runId,
+          messageIds: sourceMessageIds,
+          sourceRole: sourceMessageIds.length ? 'user' : undefined,
+          evidenceHash: hashToolEvidence(context?.runId ?? options.sessionId, sourceMessageIds),
+          sourceCreatedAt: Date.now(),
+          metadata: {
+            toolName: 'memory_create',
+          },
+        },
+      ],
+    })
+    return jsonToolResult({
+      ok: true,
+      action: 'create',
+      memoryId: memory.id,
+      status: memory.status,
+      kind: memory.kind,
+    })
+  }
+}
+
+function createMemoryUpdateProposalExecutor(options: BuiltinToolOptions): AgentTool['execute'] {
+  return async (_toolCallId, args, signal, _onUpdate, context) => {
+    throwIfAborted(signal)
+    if (!options.memoryService) {
+      throw new Error('Companion memory writing is not available.')
+    }
+    const proposalArgs = asMemoryUpdateProposalArgs(args)
+    if (!proposalArgs.memoryId?.trim() || !proposalArgs.reason?.trim()) {
+      throw new Error('memory_update_proposal requires memoryId and reason.')
+    }
+    const proposal = options.memoryService.createProposal({
+      kind: proposalArgs.kind ?? 'review',
+      memoryId: proposalArgs.memoryId,
+      relatedMemoryId: proposalArgs.relatedMemoryId,
+      proposedContent: proposalArgs.proposedContent,
+      reason: proposalArgs.reason,
+      confidence: proposalArgs.confidence,
+      source: 'tool',
+      runId: context?.runId,
+      metadata: { toolName: 'memory_update_proposal' },
+    })
+    return jsonToolResult({
+      ok: true,
+      action: 'proposal',
+      proposalId: proposal.id,
+      status: proposal.status,
+      kind: proposal.kind,
+    })
+  }
+}
+
+function createMemoryForgetProposalExecutor(options: BuiltinToolOptions): AgentTool['execute'] {
+  return async (_toolCallId, args, signal, _onUpdate, context) => {
+    throwIfAborted(signal)
+    if (!options.memoryService) {
+      throw new Error('Companion memory writing is not available.')
+    }
+    const proposalArgs = asMemoryForgetProposalArgs(args)
+    if (!proposalArgs.memoryId?.trim() || !proposalArgs.reason?.trim()) {
+      throw new Error('memory_forget_proposal requires memoryId and reason.')
+    }
+    const settings = options.memoryService.getSettings()
+    if (!settings.destructiveToolRequiresConfirmation && proposalArgs.action === 'archive') {
+      const archived = options.memoryService.archive(proposalArgs.memoryId)
+      return jsonToolResult({
+        ok: Boolean(archived),
+        action: 'archive',
+        memoryId: proposalArgs.memoryId,
+        status: archived?.status ?? 'not_found',
+      })
+    }
+    const proposal = options.memoryService.createProposal({
+      kind: proposalArgs.action ?? 'archive',
+      memoryId: proposalArgs.memoryId,
+      reason: proposalArgs.reason,
+      confidence: proposalArgs.confidence,
+      source: 'tool',
+      runId: context?.runId,
+      metadata: { toolName: 'memory_forget_proposal' },
+    })
+    return jsonToolResult({
+      ok: true,
+      action: 'proposal',
+      proposalId: proposal.id,
+      status: proposal.status,
+      kind: proposal.kind,
     })
   }
 }
@@ -888,6 +1137,46 @@ function asMemorySearchArgs(value: unknown): MemorySearchArgs {
   }
 }
 
+function asMemoryCreateArgs(value: unknown): MemoryCreateArgs {
+  const args = asRecord(value, 'memory_create')
+  return {
+    content: typeof args.content === 'string' ? args.content : undefined,
+    kind: isMemoryKind(args.kind) ? args.kind : undefined,
+    scope: isMemoryScope(args.scope) ? args.scope : undefined,
+    subject: typeof args.subject === 'string' ? args.subject : undefined,
+    importance: isFiniteNumber(args.importance) ? clampNumber(args.importance, 1, 5) : undefined,
+    confidence: isFiniteNumber(args.confidence) ? clampNumber(args.confidence, 0, 1) : undefined,
+  }
+}
+
+function asMemoryUpdateProposalArgs(value: unknown): MemoryUpdateProposalArgs {
+  const args = asRecord(value, 'memory_update_proposal')
+  return {
+    memoryId: typeof args.memoryId === 'string' ? args.memoryId : undefined,
+    relatedMemoryId: typeof args.relatedMemoryId === 'string' ? args.relatedMemoryId : undefined,
+    kind:
+      args.kind === 'update' ||
+      args.kind === 'merge' ||
+      args.kind === 'archive' ||
+      args.kind === 'review'
+        ? args.kind
+        : undefined,
+    proposedContent: typeof args.proposedContent === 'string' ? args.proposedContent : undefined,
+    reason: typeof args.reason === 'string' ? args.reason : undefined,
+    confidence: isFiniteNumber(args.confidence) ? clampNumber(args.confidence, 0, 1) : undefined,
+  }
+}
+
+function asMemoryForgetProposalArgs(value: unknown): MemoryForgetProposalArgs {
+  const args = asRecord(value, 'memory_forget_proposal')
+  return {
+    memoryId: typeof args.memoryId === 'string' ? args.memoryId : undefined,
+    action: args.action === 'delete' ? 'delete' : 'archive',
+    reason: typeof args.reason === 'string' ? args.reason : undefined,
+    confidence: isFiniteNumber(args.confidence) ? clampNumber(args.confidence, 0, 1) : undefined,
+  }
+}
+
 function asSkillReadArgs(value: unknown): SkillReadArgs {
   const args = asRecord(value, 'skill_read')
   return {
@@ -1096,6 +1385,28 @@ function currentSessionAttachmentIds(options: BuiltinToolOptions): Set<string> {
     }
   }
   return ids
+}
+
+function latestUserMessageIds(options: BuiltinToolOptions): string[] {
+  return options.messages
+    .listBySession(options.sessionId)
+    .filter((message) => message.role === 'user' && message.status !== 'deleted')
+    .slice(-2)
+    .map((message) => message.id)
+}
+
+function hashToolEvidence(runOrSessionId: string, messageIds: string[]): string {
+  return createHash('sha256')
+    .update([runOrSessionId, ...messageIds].join(':'))
+    .digest('hex')
+    .slice(0, 24)
+}
+
+function clampNumber(value: number, min: number, max: number): number {
+  if (!Number.isFinite(value)) {
+    return min
+  }
+  return Math.min(max, Math.max(min, value))
 }
 
 function calculate(args: CalculatorArgs): number {

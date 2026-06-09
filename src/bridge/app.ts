@@ -70,9 +70,12 @@ import type {
   CompanionMemoryInspectResponse,
   CompanionMemoryItem,
   CompanionMemoryListResponse,
+  CompanionMemoryMaintenanceProposal,
+  CompanionMemoryProposalListRequest,
   CompanionMemorySettingsRequest,
   CreateCompanionMemoryRequest,
   DesktopMemorySettings,
+  UpdateCompanionMemoryProposalRequest,
   UpdateCompanionMemoryRequest,
 } from '@shared/types/memory'
 import type {
@@ -935,6 +938,12 @@ export interface RendererOpenOmniClawBridge {
     setImportance: (
       request: CompanionMemoryImportanceRequest
     ) => Promise<CompanionMemoryItem | null>
+    listProposals: (
+      request?: CompanionMemoryProposalListRequest
+    ) => Promise<{ items: CompanionMemoryMaintenanceProposal[]; total: number }>
+    updateProposal: (
+      request: UpdateCompanionMemoryProposalRequest
+    ) => Promise<CompanionMemoryMaintenanceProposal | null>
     getSettings: () => Promise<DesktopMemorySettings>
     updateSettings: (
       request: CompanionMemorySettingsRequest | DesktopMemorySettings
@@ -1600,6 +1609,9 @@ const fallbackBridge: RendererOpenOmniClawBridge = {
     delete: () => rejectFallbackPersistence<{ deleted: boolean }>('memory.delete'),
     setImportance: () =>
       rejectFallbackPersistence<CompanionMemoryItem | null>('memory.setImportance'),
+    listProposals: async () => ({ items: [], total: 0 }),
+    updateProposal: () =>
+      rejectFallbackPersistence<CompanionMemoryMaintenanceProposal | null>('memory.updateProposal'),
     getSettings: async () => fallbackSettingsConfig().app.memory,
     updateSettings: () => rejectFallbackPersistence<DesktopMemorySettings>('memory.updateSettings'),
   },
@@ -2020,8 +2032,13 @@ function fallbackSettingsConfig(): BridgeDesktopSettingsConfig {
       memory: {
         enabled: true,
         extractionEnabled: true,
+        semanticExtractionEnabled: true,
         retrievalEnabled: true,
+        activeToolWriteEnabled: true,
+        maintenanceEnabled: true,
+        destructiveToolRequiresConfirmation: true,
         minConfidence: 0.55,
+        lowConfidenceReviewThreshold: 0.68,
         maxContextItems: 8,
         maxContextTokens: 900,
       },

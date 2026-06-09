@@ -32,6 +32,7 @@ export function memoryScopeLabel(scope: CompanionMemoryScope): string {
 export function memoryStatusLabel(status: CompanionMemoryStatus): string {
   const labels: Record<CompanionMemoryStatus, string> = {
     active: '活跃',
+    pending: '待确认',
     archived: '归档',
     deleted: '删除',
     disabled: '停用',
@@ -41,6 +42,7 @@ export function memoryStatusLabel(status: CompanionMemoryStatus): string {
 
 export function memoryStatusVariant(status: CompanionMemoryStatus): BadgeVariants['variant'] {
   if (status === 'active') return 'secondary'
+  if (status === 'pending') return 'outline'
   if (status === 'deleted') return 'destructive'
   return 'outline'
 }

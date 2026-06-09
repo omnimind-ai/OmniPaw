@@ -74,8 +74,13 @@ export const defaultConfig: DesktopSettingsConfig = {
     memory: {
       enabled: true,
       extractionEnabled: true,
+      semanticExtractionEnabled: true,
       retrievalEnabled: true,
+      activeToolWriteEnabled: true,
+      maintenanceEnabled: true,
+      destructiveToolRequiresConfirmation: true,
       minConfidence: 0.55,
+      lowConfidenceReviewThreshold: 0.68,
       maxContextItems: 8,
       maxContextTokens: 900,
     },
@@ -665,10 +670,38 @@ function validateMemory(config: DesktopSettingsConfig, issues: SettingsValidatio
       code: 'invalid_type',
     })
   }
+  if (typeof settings.semanticExtractionEnabled !== 'boolean') {
+    issues.push({
+      path: 'app.memory.semanticExtractionEnabled',
+      message: 'Semantic memory extraction enabled flag must be boolean.',
+      code: 'invalid_type',
+    })
+  }
   if (typeof settings.retrievalEnabled !== 'boolean') {
     issues.push({
       path: 'app.memory.retrievalEnabled',
       message: 'Memory retrieval enabled flag must be boolean.',
+      code: 'invalid_type',
+    })
+  }
+  if (typeof settings.activeToolWriteEnabled !== 'boolean') {
+    issues.push({
+      path: 'app.memory.activeToolWriteEnabled',
+      message: 'Active memory tool write enabled flag must be boolean.',
+      code: 'invalid_type',
+    })
+  }
+  if (typeof settings.maintenanceEnabled !== 'boolean') {
+    issues.push({
+      path: 'app.memory.maintenanceEnabled',
+      message: 'Memory maintenance enabled flag must be boolean.',
+      code: 'invalid_type',
+    })
+  }
+  if (typeof settings.destructiveToolRequiresConfirmation !== 'boolean') {
+    issues.push({
+      path: 'app.memory.destructiveToolRequiresConfirmation',
+      message: 'Memory destructive confirmation flag must be boolean.',
       code: 'invalid_type',
     })
   }
@@ -680,6 +713,17 @@ function validateMemory(config: DesktopSettingsConfig, issues: SettingsValidatio
     issues.push({
       path: 'app.memory.minConfidence',
       message: 'Memory minimum confidence must be between 0 and 1.',
+      code: 'out_of_range',
+    })
+  }
+  if (
+    !isFiniteNumber(settings.lowConfidenceReviewThreshold) ||
+    settings.lowConfidenceReviewThreshold < 0 ||
+    settings.lowConfidenceReviewThreshold > 1
+  ) {
+    issues.push({
+      path: 'app.memory.lowConfidenceReviewThreshold',
+      message: 'Memory low confidence review threshold must be between 0 and 1.',
       code: 'out_of_range',
     })
   }
@@ -1393,12 +1437,32 @@ function normalizeMemorySettings(rawValue: unknown): DesktopSettingsConfig['app'
       typeof rawValue.extractionEnabled === 'boolean'
         ? rawValue.extractionEnabled
         : defaults.extractionEnabled,
+    semanticExtractionEnabled:
+      typeof rawValue.semanticExtractionEnabled === 'boolean'
+        ? rawValue.semanticExtractionEnabled
+        : defaults.semanticExtractionEnabled,
     retrievalEnabled:
       typeof rawValue.retrievalEnabled === 'boolean'
         ? rawValue.retrievalEnabled
         : defaults.retrievalEnabled,
+    activeToolWriteEnabled:
+      typeof rawValue.activeToolWriteEnabled === 'boolean'
+        ? rawValue.activeToolWriteEnabled
+        : defaults.activeToolWriteEnabled,
+    maintenanceEnabled:
+      typeof rawValue.maintenanceEnabled === 'boolean'
+        ? rawValue.maintenanceEnabled
+        : defaults.maintenanceEnabled,
+    destructiveToolRequiresConfirmation:
+      typeof rawValue.destructiveToolRequiresConfirmation === 'boolean'
+        ? rawValue.destructiveToolRequiresConfirmation
+        : defaults.destructiveToolRequiresConfirmation,
     minConfidence:
       typeof rawValue.minConfidence === 'number' ? rawValue.minConfidence : defaults.minConfidence,
+    lowConfidenceReviewThreshold:
+      typeof rawValue.lowConfidenceReviewThreshold === 'number'
+        ? rawValue.lowConfidenceReviewThreshold
+        : defaults.lowConfidenceReviewThreshold,
     maxContextItems:
       typeof rawValue.maxContextItems === 'number'
         ? rawValue.maxContextItems

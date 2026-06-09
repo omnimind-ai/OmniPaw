@@ -260,6 +260,23 @@ export const BUILTIN_TOOL_PROMPTS = {
     sessionOnlyDescription:
       'Set true only when searching memories explicitly tied to this chat session instead of broader user or companion memory.',
   },
+  memoryCreate: {
+    label: 'Create memory',
+    description:
+      'Persist a clean long-term companion memory only when the user explicitly asks to remember something or clearly confirms saving it. Store the fact, preference, plan, boundary, or relationship detail without command wording.',
+    contentDescription:
+      'Clean, self-contained memory content. Do not include phrases like "remember this" or "记一下".',
+  },
+  memoryUpdateProposal: {
+    label: 'Propose memory update',
+    description:
+      'Create a user-reviewable proposal to update, merge, archive, or review an existing companion memory. Use this instead of silently changing existing memory content.',
+  },
+  memoryForgetProposal: {
+    label: 'Propose memory forget',
+    description:
+      'Create a user-reviewable proposal to archive or delete a companion memory when the user asks to forget, stop using, or remove remembered information.',
+  },
   skillRead: {
     label: 'Read local skill',
     description: 'Read the SKILL.md instructions for an enabled local skill before applying it.',

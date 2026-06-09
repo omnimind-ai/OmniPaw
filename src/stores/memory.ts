@@ -3,7 +3,10 @@ import type {
   CompanionMemoryInspectResponse,
   CompanionMemoryItem,
   CompanionMemoryListResponse,
+  CompanionMemoryMaintenanceProposal,
+  CompanionMemoryProposalListRequest,
   CreateCompanionMemoryRequest,
+  UpdateCompanionMemoryProposalRequest,
   UpdateCompanionMemoryRequest,
 } from '@shared/types/memory'
 import { defineStore } from 'pinia'
@@ -14,6 +17,8 @@ export const useMemoryStore = defineStore('memory', () => {
   const items = ref<CompanionMemoryItem[]>([])
   const total = ref(0)
   const selected = ref<CompanionMemoryInspectResponse | null>(null)
+  const proposals = ref<CompanionMemoryMaintenanceProposal[]>([])
+  const proposalTotal = ref(0)
   const loading = ref(false)
   const saving = ref(false)
   const error = ref<unknown>(null)
@@ -85,6 +90,25 @@ export const useMemoryStore = defineStore('memory', () => {
     return withSaving(() => requireMemoryBridge().setImportance({ memoryId, importance }))
   }
 
+  async function loadProposals(
+    request: CompanionMemoryProposalListRequest = { status: 'pending', limit: 100 }
+  ): Promise<{ items: CompanionMemoryMaintenanceProposal[]; total: number }> {
+    const response = await requireMemoryBridge().listProposals(request)
+    proposals.value = response.items
+    proposalTotal.value = response.total
+    return response
+  }
+
+  async function updateProposal(
+    request: UpdateCompanionMemoryProposalRequest
+  ): Promise<CompanionMemoryMaintenanceProposal | null> {
+    return withSaving(async () => {
+      const proposal = await requireMemoryBridge().updateProposal(request)
+      await loadProposals()
+      return proposal
+    })
+  }
+
   async function withSaving<T>(operation: () => Promise<T>): Promise<T> {
     saving.value = true
     error.value = null
@@ -102,6 +126,8 @@ export const useMemoryStore = defineStore('memory', () => {
     items,
     total,
     selected,
+    proposals,
+    proposalTotal,
     loading,
     saving,
     error,
@@ -114,6 +140,8 @@ export const useMemoryStore = defineStore('memory', () => {
     archive,
     deleteMemory,
     setImportance,
+    loadProposals,
+    updateProposal,
   }
 })
 

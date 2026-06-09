@@ -99,9 +99,12 @@ import type {
   CompanionMemoryInspectResponse,
   CompanionMemoryItem,
   CompanionMemoryListResponse,
+  CompanionMemoryMaintenanceProposal,
+  CompanionMemoryProposalListRequest,
   CompanionMemorySettingsRequest,
   CreateCompanionMemoryRequest,
   DesktopMemorySettings,
+  UpdateCompanionMemoryProposalRequest,
   UpdateCompanionMemoryRequest,
 } from './memory'
 import type {
@@ -418,6 +421,12 @@ export interface OpenOmniClawBridge {
     setImportance: (
       request: CompanionMemoryImportanceRequest
     ) => Promise<CompanionMemoryItem | null>
+    listProposals: (
+      request?: CompanionMemoryProposalListRequest
+    ) => Promise<{ items: CompanionMemoryMaintenanceProposal[]; total: number }>
+    updateProposal: (
+      request: UpdateCompanionMemoryProposalRequest
+    ) => Promise<CompanionMemoryMaintenanceProposal | null>
     getSettings: () => Promise<DesktopMemorySettings>
     updateSettings: (
       request: CompanionMemorySettingsRequest | DesktopMemorySettings
