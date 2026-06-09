@@ -1,3 +1,4 @@
+import { DEFAULT_TOOL_APPROVAL_RISKS, TOOL_PROFILE_ALLOWLIST } from './catalog'
 import type { AgentTool, ToolProfile, ToolRisk } from './types'
 
 export interface ToolPolicy {
@@ -14,51 +15,11 @@ export interface ToolPolicyDecision {
   approvalRequired?: boolean
 }
 
-const PROFILE_TOOLS: Record<ToolProfile, string[]> = {
-  minimal: [
-    'system_time',
-    'calculator',
-    'attachment_text_read',
-    'attachment_text_search',
-    'skill_read',
-  ],
-  assistant: [
-    'system_time',
-    'calculator',
-    'attachment_text_read',
-    'attachment_text_search',
-    'memory_search',
-    'memory_create',
-    'memory_update_proposal',
-    'memory_forget_proposal',
-    'future_task',
-    'skill_read',
-    'workspace_file',
-    'terminal_exec',
-    'screen_observe',
-  ],
-  power: [
-    'system_time',
-    'calculator',
-    'attachment_text_read',
-    'attachment_text_search',
-    'memory_search',
-    'memory_create',
-    'memory_update_proposal',
-    'memory_forget_proposal',
-    'future_task',
-    'skill_read',
-    'workspace_file',
-    'terminal_exec',
-    'screen_observe',
-  ],
-}
-
 export function defaultToolPolicy(profile: ToolProfile = 'minimal'): ToolPolicy {
   return {
     enabled: true,
     profile,
-    requireApprovalForRisk: profile === 'power' ? [] : ['write', 'network', 'exec'],
+    requireApprovalForRisk: [...(DEFAULT_TOOL_APPROVAL_RISKS[profile] ?? [])],
   }
 }
 
@@ -79,7 +40,7 @@ export function decideToolUse(
     return { allowed: false, reason: `Tool "${tool.name}" is denied by policy.` }
   }
 
-  const profileAllowed = PROFILE_TOOLS[policy.profile] ?? []
+  const profileAllowed = TOOL_PROFILE_ALLOWLIST[policy.profile] ?? []
   if (tool.source === 'builtin' && !profileAllowed.includes(tool.name)) {
     return {
       allowed: false,
@@ -115,5 +76,5 @@ export function decideToolUse(
 }
 
 export function allowedToolNamesForProfile(profile: ToolProfile): string[] {
-  return [...(PROFILE_TOOLS[profile] ?? [])]
+  return [...(TOOL_PROFILE_ALLOWLIST[profile] ?? [])]
 }
