@@ -3,9 +3,11 @@ import type { AgentWorkspaceService } from '@core/agent/workspace'
 import type { AttachmentService } from '@core/chat/attachment-service'
 import type { CronManager } from '@core/cron/cron-manager'
 import type { ChatMessageRepo } from '@core/db/repos'
+import type { CompanionMemoryService } from '@core/memory/service'
 import type { ObservationManager } from '@core/observation'
 import { ATTACHMENT_PROMPTS, BUILTIN_TOOL_PROMPTS, SKILL_PROMPTS } from '@core/prompts'
 import type { SkillManager } from '@core/skill/skill-manager'
+import type { CompanionMemoryKind, CompanionMemoryScope } from '@shared/types/memory'
 import type { DesktopToolSettings } from '@shared/types/settings'
 import type { ToolPolicy } from './policy'
 import type { AgentTool, ToolProfile, ToolRisk } from './types'
@@ -25,6 +27,7 @@ export interface BuiltinToolOptions {
   messages: ChatMessageRepo
   attachments: AttachmentService
   sessionId: string
+  memoryService?: CompanionMemoryService
   skills?: SkillManager
   cronManager?: CronManager
   observationManager?: ObservationManager
@@ -48,6 +51,12 @@ export function createBuiltinTools(options: BuiltinToolOptions): AgentTool[] {
       execute: createAttachmentTextSearchExecutor(options),
     },
   ]
+  if (options.memoryService?.canSearchForSession(options.sessionId)) {
+    tools.push({
+      ...BUILTIN_TOOL_DEFINITIONS.memory_search,
+      execute: createMemorySearchExecutor(options),
+    })
+  }
   if (options.cronManager) {
     tools.push({
       ...BUILTIN_TOOL_DEFINITIONS.future_task,
@@ -112,6 +121,7 @@ export function listBuiltinToolDefinitions(): BuiltinToolDefinition[] {
     BUILTIN_TOOL_DEFINITIONS.calculator,
     BUILTIN_TOOL_DEFINITIONS.attachment_text_read,
     BUILTIN_TOOL_DEFINITIONS.attachment_text_search,
+    BUILTIN_TOOL_DEFINITIONS.memory_search,
     BUILTIN_TOOL_DEFINITIONS.future_task,
     BUILTIN_TOOL_DEFINITIONS.screen_observe,
     BUILTIN_TOOL_DEFINITIONS.workspace_file,
@@ -193,6 +203,45 @@ const BUILTIN_TOOL_DEFINITIONS = {
         query: { type: 'string' },
         maxResults: { type: 'number' },
         contextChars: { type: 'number' },
+      },
+      additionalProperties: false,
+    },
+  },
+  memory_search: {
+    name: 'memory_search',
+    label: BUILTIN_TOOL_PROMPTS.memorySearch.label,
+    description: BUILTIN_TOOL_PROMPTS.memorySearch.description,
+    risk: 'read',
+    source: 'builtin',
+    profiles: ['assistant', 'power'],
+    parameters: {
+      type: 'object',
+      required: ['query'],
+      properties: {
+        query: {
+          type: 'string',
+          description: BUILTIN_TOOL_PROMPTS.memorySearch.queryDescription,
+        },
+        limit: { type: 'number' },
+        kinds: {
+          type: 'array',
+          items: {
+            type: 'string',
+            enum: ['profile', 'preference', 'relationship', 'episode', 'plan', 'boundary', 'fact'],
+          },
+        },
+        scopes: {
+          type: 'array',
+          items: {
+            type: 'string',
+            enum: ['global', 'user', 'companion', 'session', 'character'],
+          },
+        },
+        minConfidence: { type: 'number' },
+        sessionOnly: {
+          type: 'boolean',
+          description: BUILTIN_TOOL_PROMPTS.memorySearch.sessionOnlyDescription,
+        },
       },
       additionalProperties: false,
     },
@@ -480,6 +529,45 @@ function createAttachmentTextSearchExecutor(options: BuiltinToolOptions): AgentT
         },
       ],
     }
+  }
+}
+
+interface MemorySearchArgs {
+  query?: string
+  limit?: number
+  kinds?: CompanionMemoryKind[]
+  scopes?: CompanionMemoryScope[]
+  minConfidence?: number
+  sessionOnly?: boolean
+}
+
+function createMemorySearchExecutor(options: BuiltinToolOptions): AgentTool['execute'] {
+  return async (_toolCallId, args, signal) => {
+    throwIfAborted(signal)
+    if (!options.memoryService) {
+      throw new Error('Companion memory search is not available.')
+    }
+    const searchArgs = asMemorySearchArgs(args)
+    const query = searchArgs.query?.trim()
+    if (!query) {
+      throw new Error('memory_search requires query.')
+    }
+    const response = options.memoryService.searchForTool({
+      sessionId: options.sessionId,
+      query,
+      limit: searchArgs.limit,
+      kinds: searchArgs.kinds,
+      scopes: searchArgs.scopes,
+      minConfidence: searchArgs.minConfidence,
+      sessionOnly: searchArgs.sessionOnly,
+    })
+    return jsonToolResult({
+      ...response,
+      results: response.results.map((item) => ({
+        ...item,
+        content: truncateText(item.content, 1200),
+      })),
+    })
   }
 }
 
@@ -779,6 +867,18 @@ function asAttachmentSearchArgs(value: unknown): AttachmentSearchArgs {
   }
 }
 
+function asMemorySearchArgs(value: unknown): MemorySearchArgs {
+  const args = asRecord(value, 'memory_search')
+  return {
+    query: typeof args.query === 'string' ? args.query : undefined,
+    limit: isFiniteNumber(args.limit) ? args.limit : undefined,
+    kinds: Array.isArray(args.kinds) ? args.kinds.filter(isMemoryKind) : undefined,
+    scopes: Array.isArray(args.scopes) ? args.scopes.filter(isMemoryScope) : undefined,
+    minConfidence: isFiniteNumber(args.minConfidence) ? args.minConfidence : undefined,
+    sessionOnly: typeof args.sessionOnly === 'boolean' ? args.sessionOnly : undefined,
+  }
+}
+
 function asSkillReadArgs(value: unknown): SkillReadArgs {
   const args = asRecord(value, 'skill_read')
   return {
@@ -950,6 +1050,28 @@ function isCalculatorOperation(value: unknown): value is NonNullable<CalculatorA
     value === 'multiply' ||
     value === 'divide' ||
     value === 'power'
+  )
+}
+
+function isMemoryKind(value: unknown): value is CompanionMemoryKind {
+  return (
+    value === 'profile' ||
+    value === 'preference' ||
+    value === 'relationship' ||
+    value === 'episode' ||
+    value === 'plan' ||
+    value === 'boundary' ||
+    value === 'fact'
+  )
+}
+
+function isMemoryScope(value: unknown): value is CompanionMemoryScope {
+  return (
+    value === 'global' ||
+    value === 'user' ||
+    value === 'companion' ||
+    value === 'session' ||
+    value === 'character'
   )
 }
 

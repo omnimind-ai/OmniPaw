@@ -26,6 +26,16 @@ try {
     initialTools.some((tool) => tool.name === 'future_task' && tool.risk === 'write'),
     true
   )
+  assert.equal(
+    initialTools.some(
+      (tool) =>
+        tool.name === 'memory_search' &&
+        tool.risk === 'read' &&
+        tool.profiles.includes('assistant') &&
+        !tool.profiles.includes('minimal')
+    ),
+    true
+  )
   assert.ok(initialTools.every((tool) => tool.enabled))
   assert.ok(initialTools.every((tool) => tool.source === 'builtin'))
 

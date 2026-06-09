@@ -166,6 +166,7 @@ export class ChatService {
         toolRegistry: new ToolRegistry({
           messages: options.messages,
           attachments: options.attachments,
+          memoryService: options.memoryService,
           skills: options.skills,
           cronManager: options.cronManager,
           observationManager: options.observationManager,

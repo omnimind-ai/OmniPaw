@@ -249,6 +249,15 @@ export const BUILTIN_TOOL_PROMPTS = {
     label: 'Search attachment text',
     description: 'Search extracted text from attachments uploaded in the current chat session.',
   },
+  memorySearch: {
+    label: 'Search memory',
+    description:
+      'Search long-term companion memory when the reply clearly depends on historical dialogue, preferences, shared experiences, previous agreements, plans, or relationship context. Do not use for greetings, immediate reactions, light banter, or information already present in recent messages.',
+    queryDescription:
+      'Specific memory search query. Rewrite vague references into concrete keywords, such as prior plans, preferences, promises, people, or shared experiences.',
+    sessionOnlyDescription:
+      'Set true only when searching memories explicitly tied to this chat session instead of broader user or companion memory.',
+  },
   skillRead: {
     label: 'Read local skill',
     description: 'Read the SKILL.md instructions for an enabled local skill before applying it.',

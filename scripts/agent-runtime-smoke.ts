@@ -36,6 +36,7 @@ async function runSmoke(): Promise<void> {
   await testToolExecutorDenied()
   await testToolExecutorInvalidArguments()
   await testToolExecutorTimeout()
+  await testMemorySearchToolProfileAndExecution()
   await testFutureTaskToolCreateListEditDelete()
   await testFutureTaskToolDeniedAndDisabled()
 
@@ -653,6 +654,71 @@ async function testFutureTaskToolCreateListEditDelete(): Promise<void> {
     policy,
   })
   assert.equal(JSON.parse(invalid.result.resultText).ok, false)
+}
+
+async function testMemorySearchToolProfileAndExecution(): Promise<void> {
+  const memoryService = {
+    canSearchForSession: (sessionId: string) => sessionId === 'session-1',
+    searchForTool: (request: { sessionId: string; query: string; limit?: number }) => ({
+      ok: true,
+      query: request.query,
+      resultCount: 1,
+      results: [
+        {
+          id: 'memory-1',
+          kind: 'preference',
+          scope: 'user',
+          content: 'The user prefers concise technical answers.',
+          importance: 4,
+          confidence: 0.9,
+          updatedAt: 1,
+          score: 42,
+          source: 'hybrid',
+        },
+      ],
+    }),
+  }
+  const registry = new ToolRegistry({
+    messages: {
+      listBySession: () => [],
+      listAttachmentLinks: () => [],
+    } as never,
+    attachments: {
+      get: () => undefined,
+    } as never,
+    memoryService: memoryService as never,
+  })
+
+  const minimalTools = await registry.resolve({
+    sessionId: 'session-1',
+    policy: defaultToolPolicy('minimal'),
+  })
+  assert.equal(
+    minimalTools.some((tool) => tool.name === 'memory_search'),
+    false
+  )
+
+  const assistantTools = await registry.resolve({
+    sessionId: 'session-1',
+    policy: { enabled: true, profile: 'assistant', requireApprovalForRisk: [] },
+  })
+  assert.equal(
+    assistantTools.some((tool) => tool.name === 'memory_search' && tool.risk === 'read'),
+    true
+  )
+
+  const output = await new ToolExecutor().execute({
+    toolCall: toolCall('memory-search', 'memory_search', {
+      query: 'preferred answer style',
+      limit: 3,
+    }),
+    tools: assistantTools,
+    policy: { enabled: true, profile: 'assistant', requireApprovalForRisk: [] },
+  })
+  assert.equal(output.result.status, 'complete')
+  const parsed = JSON.parse(output.result.resultText) as { resultCount: number; results: unknown[] }
+  assert.equal(parsed.resultCount, 1)
+  assert.equal(parsed.results.length, 1)
 }
 
 async function testFutureTaskToolDeniedAndDisabled(): Promise<void> {

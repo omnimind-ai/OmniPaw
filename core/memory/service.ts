@@ -23,6 +23,7 @@ import type {
   CompanionMemoryItem,
   CompanionMemoryKind,
   CompanionMemoryListResponse,
+  CompanionMemoryScope,
   CompanionMemorySearchResult,
   CreateCompanionMemoryRequest,
   DesktopMemorySettings,
@@ -45,6 +46,39 @@ export interface CompanionMemoryServiceOptions {
 export interface CompletedRunInput {
   run: ChatRun
   session?: ChatSession
+}
+
+export interface CompanionMemoryToolSearchRequest {
+  sessionId: string
+  query: string
+  limit?: number
+  kinds?: CompanionMemoryKind[]
+  scopes?: CompanionMemoryScope[]
+  minConfidence?: number
+  sessionOnly?: boolean
+}
+
+export interface CompanionMemoryToolSearchHit {
+  id: string
+  kind: CompanionMemoryKind
+  scope: CompanionMemoryScope
+  subject?: string
+  content: string
+  importance: number
+  confidence: number
+  observedAt?: number
+  updatedAt: number
+  score: number
+  source: 'lexical' | 'vector' | 'hybrid' | 'ranked'
+}
+
+export interface CompanionMemoryToolSearchResponse {
+  ok: boolean
+  query: string
+  resultCount: number
+  results: CompanionMemoryToolSearchHit[]
+  reason?: 'memory_unavailable' | 'validation' | 'not_found'
+  message?: string
 }
 
 export class CompanionMemoryService {
@@ -104,6 +138,73 @@ export class CompanionMemoryService {
       return settings
     }
     return this.options.saveSettings(settings)
+  }
+
+  canSearchForSession(sessionId: string): boolean {
+    const session = this.options.sessions.get(sessionId)
+    return Boolean(session && this.options.policy.canRetrieve(session))
+  }
+
+  searchForTool(request: CompanionMemoryToolSearchRequest): CompanionMemoryToolSearchResponse {
+    const session = this.options.sessions.get(request.sessionId)
+    const query = request.query.trim()
+    if (!query) {
+      return {
+        ok: false,
+        query,
+        resultCount: 0,
+        results: [],
+        reason: 'validation',
+        message: 'memory_search requires query.',
+      }
+    }
+    if (!this.options.policy.canRetrieve(session)) {
+      return {
+        ok: false,
+        query,
+        resultCount: 0,
+        results: [],
+        reason: 'memory_unavailable',
+        message: 'Companion memory retrieval is disabled or unavailable for this session.',
+      }
+    }
+
+    const settings = this.options.policy.settingsSnapshot()
+    const limit = clampInteger(request.limit ?? Math.min(settings.maxContextItems, 8), 1, 20)
+    const minConfidence = clampNumber(request.minConfidence ?? settings.minConfidence, 0, 1)
+    const searchLimit = Math.max(20, limit * 4)
+    const filters = {
+      query,
+      sessionId: request.sessionId,
+      minConfidence,
+      limit: searchLimit,
+      kinds: request.kinds,
+      scopes: request.sessionOnly ? (['session'] as CompanionMemoryScope[]) : request.scopes,
+    }
+
+    this.options.repo.ensureEmbeddings(filters)
+    const lexicalResults = this.searchForRetrieval(filters)
+    const vectorResults = this.searchVectorForRetrieval(filters)
+    const ranked = rankMemories(mergeRetrievalResults(lexicalResults, vectorResults), session?.kind)
+    const results = ranked.slice(0, limit).map((memory) => toToolSearchHit(memory))
+
+    this.options.logger?.debug('Companion memory tool search completed.', {
+      sessionId: request.sessionId,
+      sessionKind: session?.kind,
+      queryHash: hashText(query),
+      resultCount: results.length,
+      lexicalCandidateCount: lexicalResults.length,
+      vectorCandidateCount: vectorResults.length,
+    })
+
+    return {
+      ok: true,
+      query,
+      resultCount: results.length,
+      results,
+      reason: results.length ? undefined : 'not_found',
+      message: results.length ? undefined : 'No matching companion memories found.',
+    }
   }
 
   enqueueExtraction(input: CompletedRunInput): void {
@@ -338,6 +439,8 @@ export class CompanionMemoryService {
     sessionId: string
     minConfidence: number
     limit: number
+    kinds?: CompanionMemoryKind[]
+    scopes?: CompanionMemoryScope[]
   }): CompanionMemorySearchResult[] {
     const results = new Map<string, CompanionMemorySearchResult>()
     for (const query of memorySearchQueries(filters.query)) {
@@ -346,6 +449,8 @@ export class CompanionMemoryService {
         sessionId: filters.sessionId,
         minConfidence: filters.minConfidence,
         limit: filters.limit,
+        kinds: filters.kinds,
+        scopes: filters.scopes,
       }).items
       for (const item of batch) {
         const existing = results.get(item.id)
@@ -365,12 +470,16 @@ export class CompanionMemoryService {
     sessionId: string
     minConfidence: number
     limit: number
+    kinds?: CompanionMemoryKind[]
+    scopes?: CompanionMemoryScope[]
   }): CompanionMemorySearchResult[] {
     const queryVector = localTextEmbedding(filters.query)
     const embeddings = this.options.repo.listEmbeddings({
       sessionId: filters.sessionId,
       minConfidence: filters.minConfidence,
       limit: 1000,
+      kinds: filters.kinds,
+      scopes: filters.scopes,
     })
     const scored = embeddings
       .map((embedding) => ({
@@ -579,6 +688,22 @@ function toContextItem(memory: CompanionMemorySearchResult): CompanionMemoryCont
   }
 }
 
+function toToolSearchHit(memory: CompanionMemorySearchResult): CompanionMemoryToolSearchHit {
+  return {
+    id: memory.id,
+    kind: memory.kind,
+    scope: memory.scope,
+    subject: memory.subject,
+    content: memory.content.trim(),
+    importance: memory.importance,
+    confidence: memory.confidence,
+    observedAt: memory.observedAt,
+    updatedAt: memory.updatedAt,
+    score: memory.retrievalScore ?? 0,
+    source: memory.retrievalSource ?? 'ranked',
+  }
+}
+
 function snapshotItem(item: CompanionMemoryContextItem, selected: boolean) {
   return {
     id: item.id,
@@ -611,6 +736,20 @@ function hashText(text: string): string {
 
 function estimateTextTokens(text: string): number {
   return Math.max(1, Math.ceil(text.length / 4))
+}
+
+function clampInteger(value: number, min: number, max: number): number {
+  if (!Number.isFinite(value)) {
+    return min
+  }
+  return Math.max(min, Math.min(Math.round(value), max))
+}
+
+function clampNumber(value: number, min: number, max: number): number {
+  if (!Number.isFinite(value)) {
+    return min
+  }
+  return Math.max(min, Math.min(value, max))
 }
 
 function normalizeJobError(error: unknown): { code: string; message: string } {
