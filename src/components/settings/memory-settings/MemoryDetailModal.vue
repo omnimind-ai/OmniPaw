@@ -113,6 +113,7 @@ function resetDraft(memory: CompanionMemoryItem): void {
 function sourceKindLabel(source: CompanionMemorySourceEvidence): string {
   if (source.sourceKind === 'chat-turn') return '聊天回合'
   if (source.sourceKind === 'message-window') return '消息窗口'
+  if (source.sourceKind === 'tool' || source.sourceKind === 'manual-intent') return '工具写入'
   return '手动写入'
 }
 
@@ -131,6 +132,15 @@ function extractionLabel(value: string | undefined): string {
   if (value === 'heuristic-fallback') return '本地降级'
   if (value === 'tool') return '工具写入'
   return '手动'
+}
+
+function shouldShowExtractionBadge(
+  memory: CompanionMemoryItem,
+  source: CompanionMemorySourceEvidence
+): boolean {
+  return Boolean(
+    memory.extractionMethod && extractionLabel(memory.extractionMethod) !== sourceKindLabel(source)
+  )
 }
 
 function clampInteger(value: string | number, min: number, max: number): number {
@@ -166,8 +176,6 @@ function clampInteger(value: string | number, min: number, max: number): number 
           </Badge>
           <Badge variant="outline">{{ memoryScopeLabel(memory.scope) }}</Badge>
           <Badge variant="outline">置信度 {{ percentLabel(memory.confidence) }}</Badge>
-          <Badge variant="outline">{{ extractionLabel(memory.extractionMethod) }}</Badge>
-          <Badge variant="outline">{{ attributionLabel(memory.attribution) }}</Badge>
         </div>
 
         <div class="grid grid-cols-1 gap-3 md:grid-cols-3">
@@ -272,6 +280,13 @@ function clampInteger(value: string | number, min: number, max: number): number 
             >
               <div class="flex flex-wrap items-center gap-2">
                 <Badge variant="outline">{{ sourceKindLabel(source) }}</Badge>
+                <Badge
+                  v-if="shouldShowExtractionBadge(memory, source)"
+                  variant="outline"
+                >
+                  {{ extractionLabel(memory.extractionMethod) }}
+                </Badge>
+                <Badge variant="outline">{{ attributionLabel(memory.attribution) }}</Badge>
                 <span class="text-muted-foreground">{{ sourceTime(source) }}</span>
               </div>
               <p
