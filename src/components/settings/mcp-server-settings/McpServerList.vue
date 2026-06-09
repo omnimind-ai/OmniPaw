@@ -7,14 +7,13 @@ import {
   RefreshCwIcon,
   SearchIcon,
   ServerIcon,
+  SlidersHorizontalIcon,
   TerminalIcon,
   Trash2Icon,
-  WrenchIcon,
   XIcon,
 } from 'lucide-vue-next'
 import { computed, ref } from 'vue'
 import type {
-  BridgeManagedToolInfo,
   BridgeMcpDiscoveredToolSummary,
   BridgeMcpDiscoveryStatus,
   BridgeMcpSafeTransport,
@@ -33,7 +32,8 @@ import { cn } from '@/lib/utils'
 
 const props = defineProps<{
   servers: BridgeMcpServerSummary[]
-  builtinTools: BridgeManagedToolInfo[]
+  builtinToolCount: number
+  enabledBuiltinToolCount: number
   loading: boolean
   showSkeleton: boolean
   anyPending: boolean
@@ -48,28 +48,14 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   create: []
+  builtinTools: []
   refresh: [serverId?: string]
   edit: [server: BridgeMcpServerSummary]
   enable: [server: BridgeMcpServerSummary, enabled: boolean]
-  toolEnable: [tool: BridgeManagedToolInfo, enabled: boolean]
   delete: [server: BridgeMcpServerSummary]
 }>()
 
 const searchQuery = ref('')
-const enabledCount = computed(() => props.servers.filter((server) => server.enabled).length)
-const enabledBuiltinToolCount = computed(
-  () => props.builtinTools.filter((tool) => tool.enabled).length
-)
-const discoveredToolCount = computed(() =>
-  props.servers.reduce((count, server) => count + server.tools.length, 0)
-)
-const filteredBuiltinTools = computed(() => {
-  const query = normalizeSearchText(searchQuery.value)
-  if (!query) return props.builtinTools
-  return props.builtinTools.filter((tool) =>
-    normalizeSearchText(managedToolSearchText(tool)).includes(query)
-  )
-})
 const filteredServers = computed(() => {
   const query = normalizeSearchText(searchQuery.value)
   if (!query) return props.servers
@@ -77,13 +63,7 @@ const filteredServers = computed(() => {
     normalizeSearchText(serverSearchText(server)).includes(query)
   )
 })
-const inventoryEmpty = computed(() => !props.builtinTools.length && !props.servers.length)
-const searchEmpty = computed(
-  () =>
-    !inventoryEmpty.value &&
-    filteredBuiltinTools.value.length === 0 &&
-    filteredServers.value.length === 0
-)
+const searchEmpty = computed(() => props.servers.length > 0 && filteredServers.value.length === 0)
 
 function statusLabel(status: BridgeMcpDiscoveryStatus) {
   const labels: Record<BridgeMcpDiscoveryStatus, string> = {
@@ -165,20 +145,6 @@ function serverSearchText(server: BridgeMcpServerSummary) {
     .join(' ')
 }
 
-function managedToolSearchText(tool: BridgeManagedToolInfo) {
-  return [
-    tool.name,
-    tool.providerName,
-    tool.label,
-    tool.description,
-    tool.source,
-    riskLabel(tool.risk),
-    ...tool.profiles,
-  ]
-    .filter(Boolean)
-    .join(' ')
-}
-
 function normalizeSearchText(value: string) {
   return value.trim().toLocaleLowerCase()
 }
@@ -192,31 +158,37 @@ function clearSearch() {
   <div class="flex h-full min-h-0 flex-1 flex-col overflow-hidden">
     <Card class="grid h-full min-h-0 flex-1 grid-rows-[auto_auto_minmax(0,1fr)] gap-0 rounded-md border border-border py-0 ring-0">
       <SettingsPanelHeader
-        title="工具"
-        :icon="WrenchIcon"
+        title="MCP 服务器"
+        :icon="ServerIcon"
       >
         <template #description>
-          管理内置工具和外部 MCP 服务器。
+          管理外部 MCP 服务器。内置工具可以从右侧入口单独调整。
         </template>
       </SettingsPanelHeader>
 
       <SettingsSearchBar
         v-model="searchQuery"
         class="border-b-0"
-        label="搜索工具"
-        placeholder="搜索内置工具、服务器或传输方式"
-        clear-label="清除工具搜索"
+        label="搜索 MCP 服务器"
+        placeholder="搜索服务器、传输方式或工具"
+        clear-label="清除 MCP 搜索"
       >
         <template #summary>
-          <Badge variant="secondary">
-            {{ enabledBuiltinToolCount }}/{{ builtinTools.length }} 个内置工具
-          </Badge>
           <Badge variant="secondary">
             {{ servers.length }} 个服务器
           </Badge>
         </template>
 
         <template #actions>
+          <Button
+            type="button"
+            variant="outline"
+            :disabled="toolsUnavailable"
+            @click="emit('builtinTools')"
+          >
+            <SlidersHorizontalIcon data-icon="inline-start" />
+            内置工具 {{ enabledBuiltinToolCount }}/{{ builtinToolCount }}
+          </Button>
           <Button
             type="button"
             variant="outline"
@@ -284,13 +256,13 @@ function clearSearch() {
           </div>
 
           <div
-            v-else-if="inventoryEmpty"
+            v-else-if="!servers.length"
             class="flex flex-1 flex-col items-center justify-center gap-3 px-4 py-10 text-center text-sm text-muted-foreground sm:px-5"
           >
-            <WrenchIcon class="size-8 opacity-50" />
+            <ServerIcon class="size-8 opacity-50" />
             <div class="flex flex-col gap-1">
-              <p class="font-medium text-foreground">暂无工具。</p>
-              <p>内置工具或 MCP 服务器发现到的工具会显示在这里。</p>
+              <p class="font-medium text-foreground">暂无 MCP 服务器。</p>
+              <p>添加本地命令或 HTTP MCP 服务器后，发现到的工具会显示在这里。</p>
             </div>
             <Button
               type="button"
@@ -309,8 +281,8 @@ function clearSearch() {
           >
             <SearchIcon class="size-8 opacity-50" />
             <div class="flex flex-col gap-1">
-              <p class="font-medium text-foreground">没有匹配的工具。</p>
-              <p>换一个内置工具、服务器或传输方式关键词试试。</p>
+              <p class="font-medium text-foreground">没有匹配的 MCP 服务器。</p>
+              <p>换一个服务器、传输方式或工具关键词试试。</p>
             </div>
             <Button
               type="button"
@@ -327,65 +299,7 @@ function clearSearch() {
             v-else
             class="flex flex-1 flex-col gap-3 px-4 py-4 sm:px-5"
           >
-            <div
-              v-if="filteredBuiltinTools.length"
-              class="flex flex-col gap-3"
-            >
-              <div class="text-xs font-medium text-muted-foreground">
-                内置工具
-              </div>
-              <SettingsPanelItem
-                v-for="tool in filteredBuiltinTools"
-                :key="tool.name"
-                :title="tool.label || tool.name"
-                :description="tool.description"
-                :icon="WrenchIcon"
-                :pending="isPending(`tool:${tool.name}`)"
-              >
-                <template #badges>
-                  <Badge variant="outline">
-                    {{ tool.name }}
-                  </Badge>
-                  <Badge :variant="riskVariant(tool.risk)">
-                    {{ riskLabel(tool.risk) }}
-                  </Badge>
-                  <Badge :variant="tool.enabled ? 'secondary' : 'outline'">
-                    {{ tool.enabled ? '已启用' : '已停用' }}
-                  </Badge>
-                </template>
-
-                <template #meta>
-                  <div class="flex flex-wrap gap-1">
-                    <Badge
-                      v-for="profile in tool.profiles"
-                      :key="profile"
-                      variant="outline"
-                    >
-                      {{ profile }}
-                    </Badge>
-                  </div>
-                </template>
-
-                <template #actions>
-                  <Switch
-                    :id="`builtin-tool-enabled-${tool.name}`"
-                    size="sm"
-                    :model-value="tool.enabled"
-                    :disabled="isPending(`tool:${tool.name}`) || toolsUnavailable"
-                    :aria-label="`${tool.enabled ? '停用' : '启用'} ${tool.label || tool.name}`"
-                    @update:model-value="emit('toolEnable', tool, $event)"
-                  />
-                </template>
-              </SettingsPanelItem>
-            </div>
-
-            <div
-              v-if="filteredServers.length"
-              class="flex flex-col gap-3"
-            >
-              <div class="text-xs font-medium text-muted-foreground">
-                MCP 服务器
-              </div>
+            <div class="flex flex-col gap-3">
               <SettingsPanelItem
                 v-for="server in filteredServers"
                 :key="server.id"
@@ -394,138 +308,138 @@ function clearSearch() {
                 :icon="transportIcon(server.transport)"
                 :pending="isServerPending(server.id)"
               >
-              <template #badges>
-                <Badge :variant="statusVariant(server.status)">
-                  {{ statusLabel(server.status) }}
-                </Badge>
-                <Badge variant="outline">
-                  <component
-                    :is="transportIcon(server.transport)"
-                    data-icon="inline-start"
+                <template #badges>
+                  <Badge :variant="statusVariant(server.status)">
+                    {{ statusLabel(server.status) }}
+                  </Badge>
+                  <Badge variant="outline">
+                    <component
+                      :is="transportIcon(server.transport)"
+                      data-icon="inline-start"
+                    />
+                    {{ transportLabel(server.transport) }}
+                  </Badge>
+                  <Badge :variant="server.enabled ? 'secondary' : 'outline'">
+                    {{ server.enabled ? '已启用' : '已停用' }}
+                  </Badge>
+                </template>
+
+                <template #meta>
+                  <p class="truncate text-xs text-muted-foreground">
+                    {{ server.id }}
+                  </p>
+                  <div class="flex flex-wrap gap-2 text-xs text-muted-foreground">
+                    <span
+                      v-for="detail in transportDetails(server.transport)"
+                      :key="detail"
+                    >
+                      {{ detail }}
+                    </span>
+                    <span>连接 {{ server.timeoutMs }}ms</span>
+                    <span>工具 {{ server.toolTimeoutMs }}ms</span>
+                  </div>
+                </template>
+
+                <template #actions>
+                  <Switch
+                    :id="`mcp-enabled-${server.id}`"
+                    size="sm"
+                    :model-value="server.enabled"
+                    :disabled="isServerPending(server.id) || mcpUnavailable"
+                    :aria-label="`${server.enabled ? '停用' : '启用'} ${server.name}`"
+                    @update:model-value="emit('enable', server, $event)"
                   />
-                  {{ transportLabel(server.transport) }}
-                </Badge>
-                <Badge :variant="server.enabled ? 'secondary' : 'outline'">
-                  {{ server.enabled ? '已启用' : '已停用' }}
-                </Badge>
-              </template>
-
-              <template #meta>
-                <p class="truncate text-xs text-muted-foreground">
-                  {{ server.id }}
-                </p>
-                <div class="flex flex-wrap gap-2 text-xs text-muted-foreground">
-                  <span
-                    v-for="detail in transportDetails(server.transport)"
-                    :key="detail"
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    :disabled="isServerPending(server.id) || mcpUnavailable"
+                    @click="emit('refresh', server.id)"
                   >
-                    {{ detail }}
-                  </span>
-                  <span>连接 {{ server.timeoutMs }}ms</span>
-                  <span>工具 {{ server.toolTimeoutMs }}ms</span>
-                </div>
-              </template>
-
-              <template #actions>
-                <Switch
-                  :id="`mcp-enabled-${server.id}`"
-                  size="sm"
-                  :model-value="server.enabled"
-                  :disabled="isServerPending(server.id) || mcpUnavailable"
-                  :aria-label="`${server.enabled ? '停用' : '启用'} ${server.name}`"
-                  @update:model-value="emit('enable', server, $event)"
-                />
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  :disabled="isServerPending(server.id) || mcpUnavailable"
-                  @click="emit('refresh', server.id)"
-                >
-                  <RefreshCwIcon
-                    data-icon="inline-start"
-                    :class="cn(isPending(`refresh:${server.id}`) && 'animate-spin')"
-                  />
-                  刷新
-                </Button>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  :disabled="isServerPending(server.id)"
-                  @click="emit('edit', server)"
-                >
-                  <PencilIcon data-icon="inline-start" />
-                  编辑
-                </Button>
-                <Button
-                  type="button"
-                  variant="destructive"
-                  size="sm"
-                  :disabled="isServerPending(server.id) || mcpUnavailable"
-                  @click="emit('delete', server)"
-                >
-                  <Trash2Icon data-icon="inline-start" />
-                  删除
-                </Button>
-              </template>
-
-              <div
-                v-if="server.error"
-                class="mt-3 rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive"
-              >
-                {{ server.error }}
-              </div>
-
-              <div
-                v-if="server.tools.length"
-                class="mt-3 flex flex-col gap-2"
-              >
-                <div class="text-xs font-medium text-muted-foreground">
-                  已发现工具
-                </div>
-                <div class="grid grid-cols-1 gap-2 xl:grid-cols-2">
-                  <div
-                    v-for="tool in server.tools"
-                    :key="`${server.id}:${tool.providerName}`"
-                    class="flex min-w-0 flex-col gap-2 rounded-md border bg-background px-3 py-2"
+                    <RefreshCwIcon
+                      data-icon="inline-start"
+                      :class="cn(isPending(`refresh:${server.id}`) && 'animate-spin')"
+                    />
+                    刷新
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    :disabled="isServerPending(server.id)"
+                    @click="emit('edit', server)"
                   >
-                    <div class="flex flex-wrap items-center gap-2">
-                      <span class="truncate text-sm font-medium">
-                        {{ tool.label || tool.name }}
-                      </span>
-                      <Badge variant="outline">
-                        {{ tool.providerName }}
-                      </Badge>
-                      <Badge :variant="riskVariant(tool.risk)">
-                        {{ riskLabel(tool.risk) }}
-                      </Badge>
-                      <Badge :variant="tool.enabled ? 'secondary' : 'outline'">
-                        {{ tool.enabled ? '可用' : '不可用' }}
-                      </Badge>
-                    </div>
-                    <p class="line-clamp-2 text-sm text-muted-foreground">
-                      {{ tool.description || '未提供描述。' }}
-                    </p>
-                    <div class="flex flex-wrap gap-1">
-                      <Badge
-                        v-for="profile in tool.profiles"
-                        :key="profile"
-                        variant="outline"
-                      >
-                        {{ profile }}
-                      </Badge>
+                    <PencilIcon data-icon="inline-start" />
+                    编辑
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    size="sm"
+                    :disabled="isServerPending(server.id) || mcpUnavailable"
+                    @click="emit('delete', server)"
+                  >
+                    <Trash2Icon data-icon="inline-start" />
+                    删除
+                  </Button>
+                </template>
+
+                <div
+                  v-if="server.error"
+                  class="mt-3 rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive"
+                >
+                  {{ server.error }}
+                </div>
+
+                <div
+                  v-if="server.tools.length"
+                  class="mt-3 flex flex-col gap-2"
+                >
+                  <div class="text-xs font-medium text-muted-foreground">
+                    已发现工具
+                  </div>
+                  <div class="grid grid-cols-1 gap-2 xl:grid-cols-2">
+                    <div
+                      v-for="tool in server.tools"
+                      :key="`${server.id}:${tool.providerName}`"
+                      class="flex min-w-0 flex-col gap-2 rounded-md border bg-background px-3 py-2"
+                    >
+                      <div class="flex flex-wrap items-center gap-2">
+                        <span class="truncate text-sm font-medium">
+                          {{ tool.label || tool.name }}
+                        </span>
+                        <Badge variant="outline">
+                          {{ tool.providerName }}
+                        </Badge>
+                        <Badge :variant="riskVariant(tool.risk)">
+                          {{ riskLabel(tool.risk) }}
+                        </Badge>
+                        <Badge :variant="tool.enabled ? 'secondary' : 'outline'">
+                          {{ tool.enabled ? '可用' : '不可用' }}
+                        </Badge>
+                      </div>
+                      <p class="line-clamp-2 text-sm text-muted-foreground">
+                        {{ tool.description || '未提供描述。' }}
+                      </p>
+                      <div class="flex flex-wrap gap-1">
+                        <Badge
+                          v-for="profile in tool.profiles"
+                          :key="profile"
+                          variant="outline"
+                        >
+                          {{ profile }}
+                        </Badge>
+                      </div>
                     </div>
                   </div>
                 </div>
-              </div>
 
-              <div
-                v-else
-                class="mt-3 rounded-md border px-3 py-2 text-sm text-muted-foreground"
-              >
-                当前没有可展示的 MCP 工具。
-              </div>
+                <div
+                  v-else
+                  class="mt-3 rounded-md border px-3 py-2 text-sm text-muted-foreground"
+                >
+                  当前没有可展示的 MCP 工具。
+                </div>
               </SettingsPanelItem>
             </div>
           </div>

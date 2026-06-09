@@ -8,6 +8,7 @@ import type {
   BridgeSaveMcpServerRequest,
 } from '@/bridge/app'
 import { appBridge, isFallbackBridge } from '@/bridge/app'
+import BuiltinToolSettingsModal from '@/components/settings/mcp-server-settings/BuiltinToolSettingsModal.vue'
 import McpServerDeleteModal from '@/components/settings/mcp-server-settings/McpServerDeleteModal.vue'
 import McpServerFormModal from '@/components/settings/mcp-server-settings/McpServerFormModal.vue'
 import McpServerList from '@/components/settings/mcp-server-settings/McpServerList.vue'
@@ -31,6 +32,7 @@ const loading = ref(false)
 const operationError = ref('')
 const pendingKeys = ref<Set<string>>(new Set())
 const formOpen = ref(false)
+const builtinToolModalOpen = ref(false)
 const deleteDialogOpen = ref(false)
 const editingServer = ref<BridgeMcpServerSummary>()
 const deleteTarget = ref<BridgeMcpServerSummary>()
@@ -155,6 +157,11 @@ function openCreateForm() {
   formErrors.value = {}
   operationError.value = ''
   formOpen.value = true
+}
+
+function openBuiltinToolSettings() {
+  operationError.value = ''
+  builtinToolModalOpen.value = true
 }
 
 function openEditForm(server: BridgeMcpServerSummary) {
@@ -409,7 +416,8 @@ function redactDraftSecrets(message: string) {
     <McpServerList
       class="min-h-0 flex-1"
       :servers="servers"
-      :builtin-tools="builtinTools"
+      :builtin-tool-count="builtinTools.length"
+      :enabled-builtin-tool-count="builtinTools.filter((tool) => tool.enabled).length"
       :loading="loading"
       :show-skeleton="showServerListSkeleton"
       :any-pending="anyPending"
@@ -421,11 +429,19 @@ function redactDraftSecrets(message: string) {
       :is-pending="isPending"
       :is-server-pending="isServerPending"
       @create="openCreateForm"
+      @builtin-tools="openBuiltinToolSettings"
       @refresh="refreshServers"
       @edit="openEditForm"
       @enable="setServerEnabled"
-      @tool-enable="setToolEnabled"
       @delete="openDeleteDialog"
+    />
+
+    <BuiltinToolSettingsModal
+      v-model:open="builtinToolModalOpen"
+      :tools="builtinTools"
+      :pending="isPending"
+      :disabled="toolsUnavailable"
+      @enable="setToolEnabled"
     />
 
     <McpServerFormModal
