@@ -95,6 +95,7 @@ export interface DesktopProvidersSettings {
 
 export interface DesktopToolSettings {
   agentToolProfile: ToolProfile
+  maxAgentSteps: number
   enabledByName: Record<string, boolean>
   workspace: LocalAgentWorkspaceSettings
   terminal: LocalAgentTerminalSettings

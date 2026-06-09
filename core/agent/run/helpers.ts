@@ -17,7 +17,7 @@ export function clampMaxSteps(value?: number): number {
   if (!Number.isFinite(value)) {
     return 6
   }
-  return Math.max(1, Math.min(Math.floor(value ?? 6), 12))
+  return Math.max(1, Math.min(Math.floor(value ?? 6), 24))
 }
 
 export function providerSupportsTools(provider: ProviderConfig, model: ProviderModel): boolean {

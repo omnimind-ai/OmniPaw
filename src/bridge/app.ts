@@ -211,6 +211,7 @@ export interface BridgeDesktopSettingsConfig {
   }
   tools: {
     agentToolProfile: BridgeToolProfile
+    maxAgentSteps: number
     enabledByName: Record<string, boolean>
     workspace: LocalAgentWorkspaceSettings
     terminal: LocalAgentTerminalSettings
@@ -2036,6 +2037,7 @@ function fallbackSettingsConfig(): BridgeDesktopSettingsConfig {
     },
     tools: {
       agentToolProfile: 'assistant',
+      maxAgentSteps: 6,
       enabledByName: {},
       workspace: {
         enabled: true,

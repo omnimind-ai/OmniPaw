@@ -30,6 +30,7 @@ export interface ChatRunOrchestratorOptions {
   agentRunner: AgentRunner
   titleGenerator: SessionTitleGenerator
   agentToolProfile?: () => ToolProfile
+  maxAgentSteps?: () => number
   logger?: Logger
 }
 
@@ -132,7 +133,7 @@ export class ChatRunOrchestrator {
       signal,
       mode,
       toolProfile,
-      maxSteps: request.maxSteps,
+      maxSteps: request.maxSteps ?? this.options.maxAgentSteps?.(),
       transientImageInputs: request.transientImageInputs,
       transientSystemInstructions: request.transientSystemInstructions,
       transientCurrentMessageParts: request.transientCurrentMessageParts,

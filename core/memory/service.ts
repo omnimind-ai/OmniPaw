@@ -50,7 +50,8 @@ export interface CompletedRunInput {
 
 export interface CompanionMemoryToolSearchRequest {
   sessionId: string
-  query: string
+  query?: string
+  mode?: 'search' | 'overview'
   limit?: number
   kinds?: CompanionMemoryKind[]
   scopes?: CompanionMemoryScope[]
@@ -74,6 +75,7 @@ export interface CompanionMemoryToolSearchHit {
 
 export interface CompanionMemoryToolSearchResponse {
   ok: boolean
+  mode: 'search' | 'overview'
   query: string
   resultCount: number
   results: CompanionMemoryToolSearchHit[]
@@ -147,20 +149,12 @@ export class CompanionMemoryService {
 
   searchForTool(request: CompanionMemoryToolSearchRequest): CompanionMemoryToolSearchResponse {
     const session = this.options.sessions.get(request.sessionId)
-    const query = request.query.trim()
-    if (!query) {
-      return {
-        ok: false,
-        query,
-        resultCount: 0,
-        results: [],
-        reason: 'validation',
-        message: 'memory_search requires query.',
-      }
-    }
+    const query = request.query?.trim() ?? ''
+    const mode = request.mode === 'overview' || !query ? 'overview' : 'search'
     if (!this.options.policy.canRetrieve(session)) {
       return {
         ok: false,
+        mode,
         query,
         resultCount: 0,
         results: [],
@@ -182,15 +176,30 @@ export class CompanionMemoryService {
       scopes: request.sessionOnly ? (['session'] as CompanionMemoryScope[]) : request.scopes,
     }
 
-    this.options.repo.ensureEmbeddings(filters)
-    const lexicalResults = this.searchForRetrieval(filters)
-    const vectorResults = this.searchVectorForRetrieval(filters)
-    const ranked = rankMemories(mergeRetrievalResults(lexicalResults, vectorResults), session?.kind)
+    if (mode === 'search') {
+      this.options.repo.ensureEmbeddings(filters)
+    }
+    const lexicalResults = mode === 'search' ? this.searchForRetrieval(filters) : []
+    const vectorResults = mode === 'search' ? this.searchVectorForRetrieval(filters) : []
+    const ranked =
+      mode === 'overview'
+        ? rankMemories(
+            this.options.repo.list({
+              sessionId: request.sessionId,
+              minConfidence,
+              limit: searchLimit,
+              kinds: request.kinds,
+              scopes: filters.scopes,
+            }).items,
+            session?.kind
+          )
+        : rankMemories(mergeRetrievalResults(lexicalResults, vectorResults), session?.kind)
     const results = ranked.slice(0, limit).map((memory) => toToolSearchHit(memory))
 
     this.options.logger?.debug('Companion memory tool search completed.', {
       sessionId: request.sessionId,
       sessionKind: session?.kind,
+      mode,
       queryHash: hashText(query),
       resultCount: results.length,
       lexicalCandidateCount: lexicalResults.length,
@@ -199,6 +208,7 @@ export class CompanionMemoryService {
 
     return {
       ok: true,
+      mode,
       query,
       resultCount: results.length,
       results,

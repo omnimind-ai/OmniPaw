@@ -93,6 +93,7 @@ export interface ChatServiceOptions {
   tavernContextService?: TavernContextService
   memoryService?: CompanionMemoryService
   agentToolProfile?: () => ToolProfile
+  maxAgentSteps?: () => number
   agentRunner?: AgentRunner
   logger?: Logger
 }
@@ -192,6 +193,7 @@ export class ChatService {
       agentRunner: this.agentRunner,
       titleGenerator: this.titleGenerator,
       agentToolProfile: options.agentToolProfile,
+      maxAgentSteps: options.maxAgentSteps,
       logger: options.logger,
     })
   }

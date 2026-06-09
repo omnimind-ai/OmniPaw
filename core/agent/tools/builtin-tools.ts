@@ -216,8 +216,12 @@ const BUILTIN_TOOL_DEFINITIONS = {
     profiles: ['assistant', 'power'],
     parameters: {
       type: 'object',
-      required: ['query'],
       properties: {
+        mode: {
+          type: 'string',
+          enum: ['search', 'overview'],
+          description: BUILTIN_TOOL_PROMPTS.memorySearch.modeDescription,
+        },
         query: {
           type: 'string',
           description: BUILTIN_TOOL_PROMPTS.memorySearch.queryDescription,
@@ -533,6 +537,7 @@ function createAttachmentTextSearchExecutor(options: BuiltinToolOptions): AgentT
 }
 
 interface MemorySearchArgs {
+  mode?: 'search' | 'overview'
   query?: string
   limit?: number
   kinds?: CompanionMemoryKind[]
@@ -549,11 +554,9 @@ function createMemorySearchExecutor(options: BuiltinToolOptions): AgentTool['exe
     }
     const searchArgs = asMemorySearchArgs(args)
     const query = searchArgs.query?.trim()
-    if (!query) {
-      throw new Error('memory_search requires query.')
-    }
     const response = options.memoryService.searchForTool({
       sessionId: options.sessionId,
+      mode: searchArgs.mode,
       query,
       limit: searchArgs.limit,
       kinds: searchArgs.kinds,
@@ -870,6 +873,12 @@ function asAttachmentSearchArgs(value: unknown): AttachmentSearchArgs {
 function asMemorySearchArgs(value: unknown): MemorySearchArgs {
   const args = asRecord(value, 'memory_search')
   return {
+    mode:
+      args.mode === 'search' || args.mode === 'overview'
+        ? args.mode
+        : typeof args.query === 'string' && args.query.trim()
+          ? 'search'
+          : 'overview',
     query: typeof args.query === 'string' ? args.query : undefined,
     limit: isFiniteNumber(args.limit) ? args.limit : undefined,
     kinds: Array.isArray(args.kinds) ? args.kinds.filter(isMemoryKind) : undefined,

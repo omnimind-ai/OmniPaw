@@ -324,6 +324,7 @@ export function createCoreRuntime(options: CoreRuntimeOptions): CoreRuntime {
     tavernContextService,
     memoryService,
     agentToolProfile: () => configStore.get().tools.agentToolProfile,
+    maxAgentSteps: () => configStore.get().tools.maxAgentSteps,
     disabledToolNames: () => toolManagementService.getDisabledToolNames(),
     mcpTools: () => mcpServerManager.getAgentTools(),
     workspaceService: agentWorkspaceService,

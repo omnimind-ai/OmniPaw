@@ -168,6 +168,7 @@ try {
       autoCompact: true,
       compactThresholdPercent: 0,
     }),
+    maxAgentSteps: () => 9,
   })
   const selectedSession = await sessionModelService.createSession({
     providerId: kimiProvider.id,
@@ -175,6 +176,22 @@ try {
   })
   assert.equal(selectedSession.defaultProviderId, kimiProvider.id)
   assert.equal(selectedSession.defaultModelId, 'kimi')
+  const defaultStepsSend = await sessionModelService.sendInternalMessage(
+    {
+      sessionId: selectedSession.id,
+      content: 'Use the configured default agent step limit.',
+      providerId: kimiProvider.id,
+      modelId: 'kimi',
+      mode: 'fast_chat',
+      toolProfile: 'minimal',
+    },
+    {
+      send() {},
+    }
+  )
+  await defaultStepsSend.terminalEvent
+  assert.equal(runRepo.get(defaultStepsSend.runId)?.requestSnapshot?.maxSteps, 9)
+
   const memoryExtractionSend = await sessionModelService.sendInternalMessage(
     {
       sessionId: selectedSession.id,

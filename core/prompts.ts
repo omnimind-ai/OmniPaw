@@ -252,9 +252,11 @@ export const BUILTIN_TOOL_PROMPTS = {
   memorySearch: {
     label: 'Search memory',
     description:
-      'Search long-term companion memory when the reply clearly depends on historical dialogue, preferences, shared experiences, previous agreements, plans, or relationship context. Do not use for greetings, immediate reactions, light banter, or information already present in recent messages.',
+      'Search or summarize long-term companion memory. Use mode=overview once for broad requests like "what do you remember about me"; use mode=search with a specific query only when the reply clearly depends on historical dialogue, preferences, shared experiences, previous agreements, plans, or relationship context. Avoid repeated searches after one useful result set unless the user asks for a narrower follow-up.',
+    modeDescription:
+      'Use overview for broad memory audits or "what do you remember" requests. Use search for a specific historical fact, preference, person, plan, promise, or shared experience.',
     queryDescription:
-      'Specific memory search query. Rewrite vague references into concrete keywords, such as prior plans, preferences, promises, people, or shared experiences.',
+      'Specific memory search query for mode=search. Leave empty for mode=overview. Rewrite vague references into concrete keywords, such as prior plans, preferences, promises, people, or shared experiences.',
     sessionOnlyDescription:
       'Set true only when searching memories explicitly tied to this chat session instead of broader user or companion memory.',
   },

@@ -100,6 +100,7 @@ export const defaultConfig: DesktopSettingsConfig = {
   },
   tools: {
     agentToolProfile: 'assistant',
+    maxAgentSteps: 6,
     enabledByName: {},
     workspace: {
       enabled: true,
@@ -318,6 +319,10 @@ function normalizeObject(defaultValue: unknown, rawValue: unknown, path: string)
 
   if (path === 'tools.agentToolProfile') {
     return isToolProfile(rawValue) ? rawValue : defaultConfig.tools.agentToolProfile
+  }
+
+  if (path === 'tools.maxAgentSteps') {
+    return normalizeInteger(rawValue, defaultConfig.tools.maxAgentSteps, 1, 24)
   }
 
   if (path === 'tools.enabledByName') {
@@ -861,6 +866,7 @@ function validateTools(config: DesktopSettingsConfig, issues: SettingsValidation
       code: 'invalid_type',
     })
   }
+  validateIntegerRange(config.tools.maxAgentSteps, 'tools.maxAgentSteps', 1, 24, issues)
   validateWorkspaceSettings(config.tools.workspace, 'tools.workspace', issues)
   validateTerminalSettings(config.tools.terminal, 'tools.terminal', issues)
 }
@@ -1714,6 +1720,14 @@ function normalizeStringArray(value: unknown, fallback: string[]): string[] {
 
 function integerOrDefault(value: unknown, fallback: number): number {
   return Number.isInteger(value) ? (value as number) : fallback
+}
+
+function normalizeInteger(value: unknown, fallback: number, min: number, max: number): number {
+  const numeric = typeof value === 'number' ? value : Number(value)
+  if (!Number.isFinite(numeric)) {
+    return fallback
+  }
+  return Math.max(min, Math.min(Math.round(numeric), max))
 }
 
 function validateIntegerRange(

@@ -50,6 +50,12 @@ const terminalOutputKb = computed({
     props.draft.tools.terminal.maxOutputChars = kbToChars(value, 1, 976)
   },
 })
+const maxAgentSteps = computed({
+  get: () => props.draft.tools.maxAgentSteps,
+  set: (value: string | number) => {
+    props.draft.tools.maxAgentSteps = clampInteger(value, 1, 24, 6)
+  },
+})
 const assistantApproval = computed({
   get: () => props.draft.tools.terminal.assistant.approval,
   set: (value: string | string[] | undefined) => {
@@ -79,6 +85,12 @@ function kbToChars(value: string | number, min: number, max: number) {
   const next = Number(value)
   if (!Number.isFinite(next)) return min * 1024
   return Math.round(Math.min(max, Math.max(min, next)) * 1024)
+}
+
+function clampInteger(value: string | number, min: number, max: number, fallback: number) {
+  const next = Number(value)
+  if (!Number.isFinite(next)) return fallback
+  return Math.round(Math.min(max, Math.max(min, next)))
 }
 </script>
 
@@ -140,6 +152,22 @@ function kbToChars(value: string | number, min: number, max: number) {
           <ToggleGroupItem value="allow" class="flex-1 md:flex-none">Allow</ToggleGroupItem>
           <ToggleGroupItem value="deny" class="flex-1 md:flex-none">Deny</ToggleGroupItem>
         </ToggleGroup>
+      </SettingEntry>
+
+      <SettingEntry
+        control-id="local-agent-max-steps"
+        title="Agent 最大步骤"
+        description="单次回复中模型可连续调用工具的最大轮数，过高会增加延迟和成本。"
+      >
+        <Input
+          id="local-agent-max-steps"
+          v-model="maxAgentSteps"
+          class="w-full md:w-40"
+          type="number"
+          min="1"
+          max="24"
+          step="1"
+        />
       </SettingEntry>
 
       <SettingEntry

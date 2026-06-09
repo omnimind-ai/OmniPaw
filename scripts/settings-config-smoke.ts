@@ -75,6 +75,7 @@ try {
   assert.equal(normalized.providers.models[0]?.providerSourceId, 'custom-openai')
   assert.equal(normalized.providers.settings.defaultModelId, 'custom-model')
   assert.equal(normalized.tools.agentToolProfile, 'assistant')
+  assert.equal(normalized.tools.maxAgentSteps, 6)
   assert.equal(normalized.tools.workspace.enabled, true)
   assert.equal(normalized.tools.workspace.rootStrategy, 'managed-user-data')
   assert.equal(normalized.tools.workspace.maxReadBytes, 512 * 1024)

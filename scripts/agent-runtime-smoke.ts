@@ -659,9 +659,15 @@ async function testFutureTaskToolCreateListEditDelete(): Promise<void> {
 async function testMemorySearchToolProfileAndExecution(): Promise<void> {
   const memoryService = {
     canSearchForSession: (sessionId: string) => sessionId === 'session-1',
-    searchForTool: (request: { sessionId: string; query: string; limit?: number }) => ({
+    searchForTool: (request: {
+      sessionId: string
+      query?: string
+      mode?: string
+      limit?: number
+    }) => ({
       ok: true,
-      query: request.query,
+      mode: request.mode ?? 'overview',
+      query: request.query ?? '',
       resultCount: 1,
       results: [
         {
@@ -709,7 +715,7 @@ async function testMemorySearchToolProfileAndExecution(): Promise<void> {
 
   const output = await new ToolExecutor().execute({
     toolCall: toolCall('memory-search', 'memory_search', {
-      query: 'preferred answer style',
+      mode: 'overview',
       limit: 3,
     }),
     tools: assistantTools,
