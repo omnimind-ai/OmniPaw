@@ -25,7 +25,7 @@ defineEmits<{
     @update:open="$emit('update:open', $event)"
   >
     <DialogContent
-      class="grid h-[calc(100vh-2rem)] max-h-[900px] grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden p-0 sm:max-w-4xl"
+      class="grid h-[calc(100svh_-_var(--app-window-content-top)_-_2rem)] max-h-[900px] grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden p-0 sm:max-w-4xl"
     >
       <DialogHeader class="border-b px-5 py-4">
         <DialogTitle>{{ title }}</DialogTitle>
