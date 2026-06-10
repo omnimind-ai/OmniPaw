@@ -1,14 +1,22 @@
 <script setup lang="ts">
-import type { ProviderModel, SaveProviderRequest } from '@shared/types/provider'
+import type {
+  ProviderCapabilities,
+  ProviderCompat,
+  ProviderModel,
+  SaveProviderRequest,
+} from '@shared/types/provider'
 import { CloudIcon, KeyRoundIcon, LaptopIcon, Loader2Icon, SparklesIcon } from 'lucide-vue-next'
 import { storeToRefs } from 'pinia'
-import { computed, onMounted, ref } from 'vue'
+import { type Component, computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 
-import type { BridgeProviderPreset } from '@/bridge/app'
+import type { BridgeProviderConfig, BridgeProviderPreset } from '@/bridge/app'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader } from '@/components/ui/card'
+import { Field, FieldGroup, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
+import { cn } from '@/lib/utils'
 import { useProviderStore } from '@/stores/provider'
 import { useSettingsStore } from '@/stores/settings'
 import { errorToText, useToast } from '@/utils/toast'
@@ -19,9 +27,9 @@ interface ProviderChoice {
   id: ProviderChoiceId
   title: string
   badge: string
-  badgeClass: string
+  badgeVariant: 'secondary' | 'outline'
   description: string
-  icon: typeof SparklesIcon
+  icon: Component
   disabled?: boolean
 }
 
@@ -42,7 +50,7 @@ const choices: ProviderChoice[] = [
     id: 'omniinfer-local',
     title: 'OmniInfer',
     badge: '占位',
-    badgeClass: 'bg-slate-100 text-slate-500',
+    badgeVariant: 'secondary',
     description: '即将支持的一键本地推理服务',
     icon: LaptopIcon,
     disabled: true,
@@ -51,7 +59,7 @@ const choices: ProviderChoice[] = [
     id: 'ollama',
     title: 'Ollama',
     badge: '本地',
-    badgeClass: 'bg-emerald-100 text-emerald-700',
+    badgeVariant: 'secondary',
     description: '使用这台 Mac 上的 Ollama 模型',
     icon: SparklesIcon,
   },
@@ -59,7 +67,7 @@ const choices: ProviderChoice[] = [
     id: 'openai-compatible',
     title: 'Cloud API',
     badge: 'API Key',
-    badgeClass: 'bg-slate-100 text-slate-700',
+    badgeVariant: 'outline',
     description: '使用 OpenAI-compatible API keys',
     icon: KeyRoundIcon,
   },
@@ -142,6 +150,8 @@ async function saveCloudProvider(preset: BridgeProviderPreset) {
   const existing = findExistingProvider(preset)
   const providerId = existing?.id || preset.id
   const models = mergeCloudModels(existing?.models ?? [], modelId)
+  const capabilities = normalizeCapabilities(preset, existing)
+  const compat = normalizeCompat(preset, existing)
   const request: SaveProviderRequest = {
     provider: {
       id: providerId,
@@ -150,29 +160,14 @@ async function saveCloudProvider(preset: BridgeProviderPreset) {
       api: 'openai-chat-completions',
       baseUrl,
       enabled: true,
-      credentialRef: existing?.credentialRef || `${providerId}:default`,
-      authHeader: existing?.authHeader || preset.authHeader || 'Authorization',
-      headers: existing?.headers || preset.headers || {},
-      extraBody: existing?.extraBody || preset.extraBody || {},
+      credentialRef:
+        stringValue(existing?.credentialRef) || preset.credentialRef || `${providerId}:default`,
+      authHeader: stringValue(existing?.authHeader) || preset.authHeader || 'Authorization',
+      headers: mergeStringRecords(preset.headers, existing?.headers),
+      extraBody: mergeObjectRecords(preset.extraBody, existing?.extraBody),
       defaultModelId: modelId,
-      capabilities: {
-        listModels: preset.capabilities?.listModels ?? existing?.capabilities?.listModels ?? true,
-        streaming: preset.capabilities?.streaming ?? existing?.capabilities?.streaming ?? true,
-        tools: preset.capabilities?.tools ?? existing?.capabilities?.tools ?? true,
-        vision: preset.capabilities?.vision ?? existing?.capabilities?.vision ?? true,
-      },
-      compat: {
-        maxTokensField:
-          preset.compat?.maxTokensField || existing?.compat?.maxTokensField || 'max_tokens',
-        supportsSystemRole:
-          preset.compat?.supportsSystemRole ?? existing?.compat?.supportsSystemRole ?? true,
-        supportsDeveloperRole:
-          preset.compat?.supportsDeveloperRole ?? existing?.compat?.supportsDeveloperRole ?? false,
-        supportsJsonMode:
-          preset.compat?.supportsJsonMode ?? existing?.compat?.supportsJsonMode ?? true,
-        reasoningFormat:
-          preset.compat?.reasoningFormat || existing?.compat?.reasoningFormat || 'none',
-      },
+      capabilities,
+      compat,
       models,
     },
     credential: {
@@ -223,141 +218,256 @@ function mergeCloudModels(models: ProviderModel[], modelId: string): ProviderMod
       : model
   )
 }
+
+function choiceButtonClass(choice: ProviderChoice) {
+  return cn(
+    'group flex min-h-[86px] w-full items-start gap-3 rounded-md border bg-background px-4 py-3 text-left transition-colors hover:bg-muted/50 disabled:cursor-not-allowed disabled:opacity-50',
+    selectedChoiceId.value === choice.id
+      ? 'border-primary bg-primary/5 ring-1 ring-primary/20'
+      : 'border-border'
+  )
+}
+
+function choiceIndicatorClass(choice: ProviderChoice) {
+  return cn(
+    'mt-1 flex size-4 shrink-0 items-center justify-center rounded-full border',
+    selectedChoiceId.value === choice.id
+      ? 'border-primary bg-primary'
+      : 'border-muted-foreground/40 bg-background'
+  )
+}
+
+function choiceIconClass(choice: ProviderChoice) {
+  return cn(
+    'flex size-10 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground [&>svg]:size-5',
+    selectedChoiceId.value === choice.id && 'bg-primary/10 text-primary'
+  )
+}
+
+function normalizeCapabilities(
+  preset: BridgeProviderPreset,
+  existing?: BridgeProviderConfig
+): ProviderCapabilities {
+  return {
+    listModels: booleanValue(
+      [preset.capabilities?.listModels, existing?.capabilities?.listModels],
+      true
+    ),
+    streaming: booleanValue(
+      [preset.capabilities?.streaming, existing?.capabilities?.streaming],
+      true
+    ),
+    tools: booleanValue([preset.capabilities?.tools, existing?.capabilities?.tools], true),
+    vision: booleanValue([preset.capabilities?.vision, existing?.capabilities?.vision], true),
+  }
+}
+
+function normalizeCompat(
+  preset: BridgeProviderPreset,
+  existing?: BridgeProviderConfig
+): ProviderCompat {
+  return {
+    maxTokensField: maxTokensFieldValue(
+      preset.compat?.maxTokensField,
+      existing?.compat?.maxTokensField
+    ),
+    supportsSystemRole: booleanValue(
+      [preset.compat?.supportsSystemRole, existing?.compat?.supportsSystemRole],
+      true
+    ),
+    supportsDeveloperRole: booleanValue(
+      [preset.compat?.supportsDeveloperRole, existing?.compat?.supportsDeveloperRole],
+      false
+    ),
+    supportsJsonMode: booleanValue(
+      [preset.compat?.supportsJsonMode, existing?.compat?.supportsJsonMode],
+      true
+    ),
+    reasoningFormat: reasoningFormatValue(
+      preset.compat?.reasoningFormat,
+      existing?.compat?.reasoningFormat
+    ),
+  }
+}
+
+function booleanValue(values: unknown[], fallback: boolean): boolean {
+  const value = values.find((item): item is boolean => typeof item === 'boolean')
+  return value ?? fallback
+}
+
+function stringValue(value: unknown): string | undefined {
+  return typeof value === 'string' ? value : undefined
+}
+
+function maxTokensFieldValue(...values: unknown[]): ProviderCompat['maxTokensField'] {
+  return (
+    values.find(
+      (value): value is NonNullable<ProviderCompat['maxTokensField']> =>
+        value === 'max_tokens' || value === 'max_completion_tokens'
+    ) ?? 'max_tokens'
+  )
+}
+
+function reasoningFormatValue(...values: unknown[]): ProviderCompat['reasoningFormat'] {
+  return (
+    values.find(
+      (value): value is NonNullable<ProviderCompat['reasoningFormat']> =>
+        value === 'none' || value === 'openai' || value === 'deepseek' || value === 'qwen'
+    ) ?? 'none'
+  )
+}
+
+function mergeStringRecords(...values: unknown[]): Record<string, string> {
+  return Object.assign({}, ...values.map(toStringRecord))
+}
+
+function toStringRecord(value: unknown): Record<string, string> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {}
+  return Object.fromEntries(
+    Object.entries(value).filter((entry): entry is [string, string] => typeof entry[1] === 'string')
+  )
+}
+
+function mergeObjectRecords(...values: unknown[]): Record<string, unknown> {
+  return Object.assign({}, ...values.map(toObjectRecord))
+}
+
+function toObjectRecord(value: unknown): Record<string, unknown> {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return {}
+  return { ...value }
+}
 </script>
 
 <template>
-  <div class="flex min-h-full flex-1 items-center justify-center overflow-auto bg-white px-6 py-5">
-    <section class="relative w-full max-w-3xl bg-white px-4 py-4 md:px-6">
-      <div class="mx-auto max-w-3xl text-center">
-        <p class="mb-2 inline-flex items-center gap-2 rounded-full bg-blue-50 px-3.5 py-1 text-sm font-semibold text-blue-700">
-          <CloudIcon class="h-4 w-4" />
-          只需要这一步配置！
-        </p>
-        <h1 class="text-3xl font-bold tracking-normal text-zinc-950 md:text-4xl">
-          Choose your model provider
-        </h1>
-        <p class="mt-2 text-base font-medium leading-6 text-slate-500">
-          选择 Agent 的运行方式。完成这一步后，就可以直接和桌面角色互动。
-        </p>
-      </div>
-
-      <div class="mx-auto mt-6 flex max-w-3xl flex-col gap-3">
-        <button
-          v-for="choice in choices"
-          :key="choice.id"
-          type="button"
-          :disabled="choice.disabled"
-          class="group flex min-h-24 w-full items-center gap-4 rounded-2xl border bg-white px-5 py-4 text-left shadow-sm transition hover:border-blue-300 hover:bg-blue-50/30"
-          :class="
-            selectedChoiceId === choice.id
-              ? 'border-blue-500 bg-blue-50/40 shadow-blue-100 ring-1 ring-blue-500'
-              : choice.disabled
-                ? 'cursor-not-allowed border-zinc-200 opacity-60'
-                : 'border-zinc-200'
-          "
-          @click="!choice.disabled && (selectedChoiceId = choice.id)"
-        >
-          <span
-            class="grid h-7 w-7 shrink-0 place-items-center rounded-full border-2"
-            :class="
-              selectedChoiceId === choice.id
-                ? 'border-blue-500 bg-blue-500'
-                : 'border-zinc-300 bg-white'
-            "
+  <div
+    class="flex min-h-full flex-1 items-center justify-center overflow-auto bg-muted/40 px-4 py-6 md:px-6"
+  >
+    <Card class="w-full max-w-4xl rounded-md py-0">
+      <CardHeader class="border-b px-5 py-4 md:px-6">
+        <div class="flex flex-col gap-2">
+          <Badge
+            variant="outline"
+            class="w-fit"
           >
-            <span
-              v-if="selectedChoiceId === choice.id"
-              class="h-3 w-3 rounded-full bg-white"
-            />
-          </span>
+            <CloudIcon data-icon="inline-start" />
+            首次启动
+          </Badge>
+          <div class="flex flex-col gap-1">
+            <h1 class="text-xl font-semibold tracking-normal md:text-2xl">
+              选择模型服务
+            </h1>
+            <p class="max-w-2xl text-sm leading-6 text-muted-foreground">
+              配置 Agent 使用的 Provider。稍后可以在设置中继续调整模型、密钥和高级兼容选项。
+            </p>
+          </div>
+        </div>
+      </CardHeader>
 
-          <span class="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-slate-50 text-slate-700 ring-1 ring-slate-200">
-            <component
-              :is="choice.icon"
-              class="h-8 w-8 stroke-[1.8]"
-            />
-          </span>
-
-          <span class="min-w-0 flex-1">
-            <span class="flex flex-wrap items-center gap-3">
-              <span class="text-xl font-bold tracking-normal text-zinc-950">{{ choice.title }}</span>
+      <CardContent class="flex flex-col gap-4 p-5 md:p-6">
+        <div class="flex flex-col gap-3">
+          <button
+            v-for="choice in choices"
+            :key="choice.id"
+            type="button"
+            :disabled="choice.disabled"
+            :aria-pressed="selectedChoiceId === choice.id"
+            :class="choiceButtonClass(choice)"
+            @click="!choice.disabled && (selectedChoiceId = choice.id)"
+          >
+            <span :class="choiceIndicatorClass(choice)">
               <span
-                class="rounded-full px-2.5 py-0.5 text-xs font-bold"
-                :class="choice.badgeClass"
-              >
-                {{ choice.badge }}
+                v-if="selectedChoiceId === choice.id"
+                class="size-1.5 rounded-full bg-primary-foreground"
+              />
+            </span>
+
+            <span :class="choiceIconClass(choice)">
+              <component
+                :is="choice.icon"
+                aria-hidden="true"
+              />
+            </span>
+
+            <span class="flex min-w-0 flex-1 flex-col gap-1">
+              <span class="flex min-w-0 flex-wrap items-center gap-2">
+                <span class="truncate text-sm font-medium">{{ choice.title }}</span>
+                <Badge :variant="choice.badgeVariant">
+                  {{ choice.badge }}
+                </Badge>
+              </span>
+              <span class="text-sm leading-6 text-muted-foreground">
+                {{ choice.description }}
               </span>
             </span>
-            <span class="mt-2 block text-base font-medium leading-6 text-slate-500">
-              {{ choice.description }}
-            </span>
-          </span>
-        </button>
-      </div>
-
-      <div
-        v-if="selectedChoiceId === 'openai-compatible'"
-        class="mx-auto mt-4 max-w-3xl rounded-2xl border border-blue-100 bg-blue-50/40 p-4 text-left"
-      >
-        <div class="grid gap-3 md:grid-cols-[1.2fr_1fr]">
-          <div class="space-y-2">
-            <Label for="onboarding-cloud-base-url">Base URL</Label>
-            <Input
-              id="onboarding-cloud-base-url"
-              v-model="cloudBaseUrl"
-              class="h-10 rounded-xl bg-white text-base"
-              placeholder="https://api.openai.com/v1"
-            />
-          </div>
-
-          <div class="space-y-2">
-            <Label for="onboarding-cloud-model-id">Model ID</Label>
-            <Input
-              id="onboarding-cloud-model-id"
-              v-model="cloudModelId"
-              class="h-10 rounded-xl bg-white text-base"
-              placeholder="gpt-4o-mini"
-            />
-          </div>
+          </button>
         </div>
 
-        <div class="mt-3 space-y-2">
-          <Label for="onboarding-cloud-api-key">API Key</Label>
-          <Input
-            id="onboarding-cloud-api-key"
-            v-model="cloudApiKey"
-            type="password"
-            class="h-10 rounded-xl bg-white text-base"
-            placeholder="sk-..."
-          />
+        <div
+          v-if="selectedChoiceId === 'openai-compatible'"
+          class="rounded-md border bg-muted/30 p-4"
+        >
+          <FieldGroup class="gap-3">
+            <div class="grid gap-3 md:grid-cols-[1.2fr_1fr]">
+              <Field>
+                <FieldLabel for="onboarding-cloud-base-url">Base URL</FieldLabel>
+                <Input
+                  id="onboarding-cloud-base-url"
+                  v-model="cloudBaseUrl"
+                  placeholder="https://api.openai.com/v1"
+                />
+              </Field>
+
+              <Field>
+                <FieldLabel for="onboarding-cloud-model-id">Model ID</FieldLabel>
+                <Input
+                  id="onboarding-cloud-model-id"
+                  v-model="cloudModelId"
+                  placeholder="gpt-4o-mini"
+                />
+              </Field>
+            </div>
+
+            <Field>
+              <FieldLabel for="onboarding-cloud-api-key">API Key</FieldLabel>
+              <Input
+                id="onboarding-cloud-api-key"
+                v-model="cloudApiKey"
+                type="password"
+                placeholder="sk-..."
+              />
+            </Field>
+          </FieldGroup>
         </div>
-      </div>
 
-      <div class="mx-auto mt-5 flex max-w-3xl items-center justify-between gap-4">
-        <Button
-          type="button"
-          variant="outline"
-          size="lg"
-          class="h-11 min-w-36 rounded-xl border-zinc-200 px-6 text-base font-semibold shadow-sm"
-          @click="openAdvancedSettings"
+        <div
+          class="flex items-center justify-between gap-3 border-t pt-4"
         >
-          Advanced
-        </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="lg"
+            class="min-w-0 flex-1 sm:min-w-32 sm:flex-none"
+            @click="openAdvancedSettings"
+          >
+            进入高级设置
+          </Button>
 
-        <Button
-          type="button"
-          size="lg"
-          class="h-11 min-w-44 rounded-xl bg-blue-600 px-8 text-base font-semibold text-white shadow-lg shadow-blue-200 hover:bg-blue-700"
-          :disabled="busy"
-          @click="continueSetup"
-        >
-          <Loader2Icon
-            v-if="busy"
-            class="mr-2 h-5 w-5 animate-spin"
-          />
-          Continue
-        </Button>
-      </div>
-    </section>
+          <Button
+            type="button"
+            size="lg"
+            class="min-w-0 flex-1 sm:min-w-32 sm:flex-none"
+            :disabled="busy"
+            @click="continueSetup"
+          >
+            <Loader2Icon
+              v-if="busy"
+              data-icon="inline-start"
+              class="animate-spin"
+            />
+            继续
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
   </div>
 </template>
