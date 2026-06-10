@@ -25,7 +25,7 @@ import type {
   CatWindowState,
 } from '@shared/types/cat'
 import type { ObservationReactionEvent } from '@shared/types/observation'
-import { BrowserWindow, ipcMain, screen } from 'electron'
+import { app, BrowserWindow, ipcMain, screen } from 'electron'
 
 type CatSessionIdResolver = (
   preferredSessionId?: string | null
@@ -89,6 +89,8 @@ const catStageVisualBounds = {
   width: 76,
   height: 76,
 }
+
+const shouldSkipFloatingWindowTaskbar = process.platform !== 'darwin'
 
 let catWindow: BrowserWindow | null = null
 let catPanelWindow: BrowserWindow | null = null
@@ -633,7 +635,7 @@ function createCatWindow(): BrowserWindow {
     maximizable: false,
     minimizable: false,
     fullscreenable: false,
-    skipTaskbar: true,
+    skipTaskbar: shouldSkipFloatingWindowTaskbar,
     alwaysOnTop: true,
     hasShadow: false,
     show: false,
@@ -659,6 +661,12 @@ function createCatWindow(): BrowserWindow {
     closeCatPanelWindow()
     closeCatBubbleWindow()
   })
+  catWindow.on('show', () => {
+    catVisible = true
+  })
+  catWindow.on('hide', () => {
+    catVisible = false
+  })
 
   return catWindow
 }
@@ -677,7 +685,7 @@ function createCatPanelWindow(placement: CatPanelPlacement): BrowserWindow {
     maximizable: false,
     minimizable: false,
     fullscreenable: false,
-    skipTaskbar: true,
+    skipTaskbar: shouldSkipFloatingWindowTaskbar,
     alwaysOnTop: true,
     hasShadow: false,
     show: false,
@@ -700,6 +708,12 @@ function createCatPanelWindow(placement: CatPanelPlacement): BrowserWindow {
     catPanelVisible = false
     catPanelSide = null
   })
+  catPanelWindow.on('show', () => {
+    catPanelVisible = true
+  })
+  catPanelWindow.on('hide', () => {
+    catPanelVisible = false
+  })
 
   return catPanelWindow
 }
@@ -718,7 +732,7 @@ function createCatBubbleWindow(placement: CatPanelPlacement): BrowserWindow {
     maximizable: false,
     minimizable: false,
     fullscreenable: false,
-    skipTaskbar: true,
+    skipTaskbar: shouldSkipFloatingWindowTaskbar,
     alwaysOnTop: true,
     hasShadow: false,
     show: false,
@@ -770,9 +784,10 @@ function attachCatDiagnostics(window: BrowserWindow, windowName: string): void {
 }
 
 function closeCatPanelWindow(): void {
+  catPanelVisible = false
+  catPanelSide = null
+
   if (catPanelWindow && !catPanelWindow.isDestroyed()) {
-    catPanelVisible = false
-    catPanelSide = null
     catPanelWindow.close()
   }
 }
@@ -1037,11 +1052,46 @@ function showCatBubble(request: CatBubbleShowRequest | string): CatBubbleEvent |
   return event
 }
 
+function restoreMacApplicationVisibility(activate = false): void {
+  if (process.platform !== 'darwin') {
+    return
+  }
+
+  try {
+    app.setActivationPolicy('regular')
+  } catch (error) {
+    catLogger?.warn('Unable to restore macOS activation policy.', { error })
+  }
+
+  try {
+    void app.dock?.show().catch((error) => {
+      catLogger?.warn('Unable to show macOS Dock icon.', { error })
+    })
+  } catch (error) {
+    catLogger?.warn('Unable to request macOS Dock visibility.', { error })
+  }
+
+  try {
+    app.show()
+  } catch (error) {
+    catLogger?.warn('Unable to show macOS application windows.', { error })
+  }
+
+  if (activate) {
+    try {
+      app.focus({ steal: true })
+    } catch (error) {
+      catLogger?.warn('Unable to focus macOS application.', { error })
+    }
+  }
+}
+
 function ensureCatWindow(): BrowserWindow {
   return createCatWindow()
 }
 
 function showCatWindow(): CatStatus {
+  restoreMacApplicationVisibility()
   const window = ensureCatWindow()
   catVisible = true
 
@@ -1086,6 +1136,7 @@ function setCatState(state: CatTaskState): CatStatus {
     return getCatStatus()
   }
 
+  restoreMacApplicationVisibility()
   const window = ensureCatWindow()
   catVisible = true
 
@@ -1098,6 +1149,8 @@ function setCatState(state: CatTaskState): CatStatus {
 }
 
 function openCatPanelWindow(options: OpenCatPanelOptions = {}): CatPanelToggleResult {
+  restoreMacApplicationVisibility(options.activate ?? false)
+
   if (options.sessionId) {
     setActiveCatSessionId(options.sessionId, options.source ?? 'panel')
   }
@@ -1136,24 +1189,23 @@ function openCatPanelWindow(options: OpenCatPanelOptions = {}): CatPanelToggleRe
   }
 }
 
-function toggleCatPanelWindow(): CatPanelToggleResult {
-  if (!catWindow || catWindow.isDestroyed() || !catWindow.isVisible()) {
-    return {
-      visible: false,
-    }
-  }
-
-  if (catPanelWindow && !catPanelWindow.isDestroyed() && catPanelWindow.isVisible()) {
+function toggleCatPanelWindow(options: OpenCatPanelOptions = {}): CatPanelToggleResult {
+  if (
+    catPanelWindow &&
+    !catPanelWindow.isDestroyed() &&
+    (catPanelVisible || catPanelWindow.isVisible() || catPanelWindow.isFocused())
+  ) {
     closeCatPanelWindow()
-    catPanelVisible = false
-    catPanelSide = null
 
     return {
       visible: false,
     }
   }
 
-  return openCatPanelWindow({ source: 'toggle' })
+  return openCatPanelWindow({
+    ...options,
+    source: options.source ?? 'toggle',
+  })
 }
 
 function dragStart(): CatBounds | null {

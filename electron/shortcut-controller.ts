@@ -92,6 +92,7 @@ export function createShortcutController(options: ShortcutControllerOptions): Sh
       try {
         const registered = globalShortcut.register(accelerator, () => {
           try {
+            logger.debug('Shortcut action invoked.', { action })
             options.actions[action]()
           } catch (error) {
             logger.warn('Shortcut action failed.', { action, error })
@@ -220,7 +221,7 @@ function actionLabel(action: ShortcutAction): string {
     case 'cat.toggleVisibility':
       return '显示/隐藏小猫'
     case 'cat.openPanel':
-      return '打开小猫面板'
+      return '打开/关闭小猫面板'
     case 'app.zoomIn':
       return '放大'
     case 'app.zoomOut':

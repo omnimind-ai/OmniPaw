@@ -29,6 +29,7 @@ import {
   setCatSessionIdResolver,
   setCatWindowLogger,
   showCatWindow,
+  toggleCatPanelWindow,
   toggleCatVisibility,
 } from './cat-window'
 import {
@@ -541,7 +542,7 @@ app
       actions: {
         'cat.toggleVisibility': toggleCatVisibility,
         'cat.openPanel': () => {
-          openCatPanelWindow({ source: 'shortcut', activate: true })
+          toggleCatPanelWindow({ source: 'shortcut', activate: true })
         },
       },
       onChanged: broadcastShortcutChanged,

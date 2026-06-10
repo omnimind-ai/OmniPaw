@@ -134,7 +134,19 @@ export function createMainWindowController(
     }
 
     if (process.platform === 'darwin') {
-      options.app.dock?.show()
+      try {
+        options.app.setActivationPolicy('regular')
+      } catch (error) {
+        options.logger.warn('Unable to restore macOS activation policy.', { error })
+      }
+
+      try {
+        void options.app.dock?.show().catch((error) => {
+          options.logger.warn('Unable to show macOS Dock icon.', { error })
+        })
+      } catch (error) {
+        options.logger.warn('Unable to request macOS Dock visibility.', { error })
+      }
     }
 
     if (mainWindow.isMinimized()) {

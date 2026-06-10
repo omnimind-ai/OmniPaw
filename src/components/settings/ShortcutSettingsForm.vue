@@ -24,8 +24,8 @@ const shortcutItems = [
   },
   {
     action: 'cat.openPanel',
-    title: '打开小猫面板',
-    description: '唤起小猫对话面板并激活输入。',
+    title: '打开/关闭小猫面板',
+    description: '切换小猫对话面板并激活输入。',
   },
   {
     action: 'app.zoomIn',
