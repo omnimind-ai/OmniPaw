@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { storeToRefs } from 'pinia'
-import { computed, onBeforeUnmount, onMounted } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import { appBridge, type BridgeStreamEvent } from '@/bridge/app'
@@ -9,20 +9,27 @@ import FirstLaunchProviderGuide from '@/components/onboarding/FirstLaunchProvide
 import { Toaster } from '@/components/ui/sonner'
 import { useAppTheme } from '@/composables/useAppTheme'
 import { useProviderStore } from '@/stores/provider'
+import { useSettingsStore } from '@/stores/settings'
 
 useAppTheme()
 
 const router = useRouter()
 const route = useRoute()
 const providerStore = useProviderStore()
-const { enabledModelOptions } = storeToRefs(providerStore)
+const settingsStore = useSettingsStore()
+const { config: settingsConfig } = storeToRefs(settingsStore)
+const startupLoaded = ref(false)
 const activeCatRuns = new Set<string>()
 let stopCatSubscription: (() => void) | undefined
 let stopOpenChatSubscription: (() => void) | undefined
 
 const showProviderGuide = computed(
-  () => route.name !== 'settings' && enabledModelOptions.value.length === 0
+  () =>
+    startupLoaded.value &&
+    route.name !== 'settings' &&
+    settingsConfig.value?.app.initialized === false
 )
+const showStartupPlaceholder = computed(() => !startupLoaded.value && route.name !== 'settings')
 
 function syncCatWindow(event: BridgeStreamEvent) {
   if (!event.runId) {
@@ -49,8 +56,13 @@ function syncCatWindow(event: BridgeStreamEvent) {
   void appBridge.cat.setState('running').catch(() => {})
 }
 
+async function initializeStartupState() {
+  await Promise.allSettled([settingsStore.load(), providerStore.loadProviders()])
+  startupLoaded.value = true
+}
+
 onMounted(() => {
-  void providerStore.loadProviders()
+  void initializeStartupState()
   stopCatSubscription = appBridge.chat.onStreamEvent?.(syncCatWindow)
   stopOpenChatSubscription = appBridge.app.onOpenChatSession?.((request) => {
     if (!request.sessionId) return
@@ -75,7 +87,11 @@ onBeforeUnmount(() => {
   >
     <AppTopBar />
     <div class="min-h-0 flex-1 overflow-hidden">
-      <FirstLaunchProviderGuide v-if="showProviderGuide" />
+      <div
+        v-if="showStartupPlaceholder"
+        class="h-full bg-background"
+      />
+      <FirstLaunchProviderGuide v-else-if="showProviderGuide" />
       <RouterView v-else />
     </div>
     <Toaster

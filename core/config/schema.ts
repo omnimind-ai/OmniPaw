@@ -56,6 +56,7 @@ export const defaultConfig: DesktopSettingsConfig = {
   app: {
     language: 'system',
     theme: 'system',
+    initialized: false,
     minimizeToTrayOnStartup: false,
     showReasoningContent: true,
     zoom: {
@@ -300,7 +301,8 @@ function migrateConfig(raw: unknown): unknown {
     throwValidationError([{ path: '', message: 'Config must be an object.', code: 'invalid_type' }])
   }
 
-  const version = typeof raw.version === 'number' ? raw.version : CURRENT_SETTINGS_VERSION
+  const migrated = migrateInitializedFlag(raw)
+  const version = typeof migrated.version === 'number' ? migrated.version : CURRENT_SETTINGS_VERSION
   if (version > CURRENT_SETTINGS_VERSION) {
     throw new ConfigValidationError(
       configError(
@@ -322,12 +324,27 @@ function migrateConfig(raw: unknown): unknown {
 
   if (version < CURRENT_SETTINGS_VERSION) {
     return {
-      ...raw,
+      ...migrated,
       version: CURRENT_SETTINGS_VERSION,
     }
   }
 
-  return raw
+  return migrated
+}
+
+function migrateInitializedFlag(raw: Record<string, unknown>): Record<string, unknown> {
+  const app = raw.app
+  if (!isPlainObject(app) || typeof app.initialized === 'boolean') {
+    return raw
+  }
+
+  return {
+    ...raw,
+    app: {
+      ...app,
+      initialized: true,
+    },
+  }
 }
 
 function normalizeObject(defaultValue: unknown, rawValue: unknown, path: string): unknown {
@@ -516,6 +533,13 @@ function validateApp(config: DesktopSettingsConfig, issues: SettingsValidationIs
   if (typeof config.app.minimizeToTrayOnStartup !== 'boolean') {
     issues.push({
       path: 'app.minimizeToTrayOnStartup',
+      message: 'Value must be boolean.',
+      code: 'invalid_type',
+    })
+  }
+  if (typeof config.app.initialized !== 'boolean') {
+    issues.push({
+      path: 'app.initialized',
       message: 'Value must be boolean.',
       code: 'invalid_type',
     })

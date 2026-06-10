@@ -30,6 +30,7 @@ export interface DesktopSystemContextSettings {
 export interface DesktopBaseSettings {
   language: AppLanguage
   theme: AppTheme
+  initialized: boolean
   minimizeToTrayOnStartup: boolean
   showReasoningContent: boolean
   zoom: {

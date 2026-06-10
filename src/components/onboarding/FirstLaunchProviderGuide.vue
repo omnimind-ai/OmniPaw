@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useProviderStore } from '@/stores/provider'
+import { useSettingsStore } from '@/stores/settings'
 import { errorToText, useToast } from '@/utils/toast'
 
 type ProviderChoiceId = 'omniinfer-local' | 'ollama' | 'openai-compatible'
@@ -25,6 +26,7 @@ interface ProviderChoice {
 }
 
 const providerStore = useProviderStore()
+const settingsStore = useSettingsStore()
 const router = useRouter()
 const toast = useToast()
 const { rawProviders, providerPresets, loading, presetsLoading } = storeToRefs(providerStore)
@@ -88,16 +90,17 @@ async function continueSetup() {
 
     if (choice.id === 'openai-compatible') {
       await saveCloudProvider(preset)
-      return
+    } else {
+      const existing = findExistingProvider(preset)
+      const provider = existing ?? (await providerStore.createProviderFromPreset(choice.id))
+      if (choice.id === 'ollama' && provider?.id) {
+        await providerStore.refreshModels(provider.id)
+      }
+
+      await providerStore.loadProviders()
     }
 
-    const existing = findExistingProvider(preset)
-    const provider = existing ?? (await providerStore.createProviderFromPreset(choice.id))
-    if (choice.id === 'ollama' && provider?.id) {
-      await providerStore.refreshModels(provider.id)
-    }
-
-    await providerStore.loadProviders()
+    await markInitializationCompleted()
     toast.success('模型服务已配置。')
   } catch (error) {
     toast.error(errorToText(error, '模型服务配置失败。'))
@@ -107,6 +110,11 @@ async function continueSetup() {
 }
 
 async function openAdvancedSettings() {
+  try {
+    await markInitializationCompleted()
+  } catch (error) {
+    toast.error(errorToText(error, '初始化状态保存失败。'))
+  }
   await router.push({ name: 'settings', query: { tab: 'providers' } })
 }
 
@@ -177,7 +185,12 @@ async function saveCloudProvider(preset: BridgeProviderPreset) {
   await providerStore.saveProvider(request)
   await providerStore.setDefaultModelKey(`${providerId}:${modelId}`)
   await providerStore.loadProviders()
-  toast.success('Cloud API 已配置。')
+}
+
+async function markInitializationCompleted() {
+  await settingsStore.load()
+  settingsStore.updateAppSetting('initialized', true)
+  await settingsStore.save()
 }
 
 function mergeCloudModels(models: ProviderModel[], modelId: string): ProviderModel[] {
