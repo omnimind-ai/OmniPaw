@@ -8,6 +8,7 @@ import { registerObservationIpcHandlers } from './observation'
 import { registerPersonaIpcHandlers } from './persona'
 import { registerProviderIpcHandlers } from './provider'
 import { registerSettingsIpcHandlers } from './settings'
+import { registerShortcutIpcHandlers } from './shortcuts'
 import { registerSkillIpcHandlers } from './skill'
 import { registerTavernIpcHandlers } from './tavern'
 import { registerTerminalProcessIpcHandlers } from './terminal-process'
@@ -21,6 +22,7 @@ export function registerIpcHandlers(options: IpcHandlerOptions): void {
   registerAppIpcHandlers(options)
   registerWindowIpcHandlers(options)
   registerSettingsIpcHandlers(options)
+  registerShortcutIpcHandlers(options)
   registerMemoryIpcHandlers(options)
   registerChatIpcHandlers(options)
   registerProviderIpcHandlers(options)

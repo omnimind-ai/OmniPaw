@@ -60,6 +60,7 @@ import type {
   TestProviderRequest,
 } from '@shared/types/provider'
 import type { DesktopSettingsConfig, SaveDesktopSettingsRequest } from '@shared/types/settings'
+import type { ShortcutStatusChangedEvent } from '@shared/types/shortcuts'
 import type {
   CopyPersonaToTavernUserProfileRequest,
   CreateTavernCharacterRequest,
@@ -349,6 +350,16 @@ const bridge: OpenOmniClawBridge = {
     reset: () => invokeSettings(IPC_CHANNELS.settings.reset),
     status: () => invokeSettings(IPC_CHANNELS.settings.status),
     onChanged: (callback) => createUnsubscriber(IPC_CHANNELS.settings.changed, callback),
+  },
+  shortcuts: {
+    status: () =>
+      ipcRenderer.invoke(IPC_CHANNELS.shortcuts.status) as Promise<ShortcutStatusChangedEvent>,
+    setCaptureMode: (enabled) =>
+      ipcRenderer.invoke(
+        IPC_CHANNELS.shortcuts.setCaptureMode,
+        enabled
+      ) as Promise<ShortcutStatusChangedEvent>,
+    onChanged: (callback) => createUnsubscriber(IPC_CHANNELS.shortcuts.changed, callback),
   },
   memory: {
     list: (filters?: CompanionMemoryFilters) =>

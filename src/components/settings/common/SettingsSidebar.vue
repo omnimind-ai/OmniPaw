@@ -38,6 +38,7 @@ export type SettingsTab =
   | 'providers'
   | 'defaults'
   | 'general'
+  | 'shortcuts'
   | 'agent'
   | 'display'
   | 'data'
@@ -72,6 +73,7 @@ const primaryItems: SettingsNavItem[] = [
 
 const settingsItems: SettingsNavItem[] = [
   { value: 'general', label: '常规设置', icon: SlidersHorizontalIcon },
+  { value: 'shortcuts', label: '快捷键', icon: KeyboardIcon },
   { value: 'agent', label: 'Agent 能力', icon: TerminalIcon },
 ]
 
@@ -89,7 +91,6 @@ const aboutItems: SettingsNavItem[] = [{ value: 'about', label: '关于我们', 
 
 const placeholderItems = [
   { label: '网络搜索', icon: SearchIcon },
-  { label: '快捷键', icon: KeyboardIcon },
   { label: 'API 服务器', icon: ServerIcon },
 ]
 </script>

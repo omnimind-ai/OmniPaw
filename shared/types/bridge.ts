@@ -151,6 +151,7 @@ import type {
   DesktopSettingsStatus,
   SaveDesktopSettingsRequest,
 } from './settings'
+import type { ShortcutStatusChangedEvent } from './shortcuts'
 import type {
   ImportSkillRequest,
   ImportSkillResponse,
@@ -416,6 +417,11 @@ export interface OpenOmniClawBridge {
     reset: () => Promise<DesktopSettingsConfig>
     status: () => Promise<DesktopSettingsStatus>
     onChanged: (callback: (event: DesktopSettingsChangedEvent) => void) => Unsubscribe
+  }
+  shortcuts: {
+    status: () => Promise<ShortcutStatusChangedEvent>
+    setCaptureMode: (enabled: boolean) => Promise<ShortcutStatusChangedEvent>
+    onChanged: (callback: (event: ShortcutStatusChangedEvent) => void) => Unsubscribe
   }
   memory: {
     list: (filters?: CompanionMemoryFilters) => Promise<CompanionMemoryListResponse>

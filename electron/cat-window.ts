@@ -34,6 +34,7 @@ type CatSessionIdResolver = (
 interface OpenCatPanelOptions {
   sessionId?: string | null
   source?: string
+  activate?: boolean
 }
 
 interface StageCatDraftAttachmentsInput {
@@ -1114,7 +1115,11 @@ function openCatPanelWindow(options: OpenCatPanelOptions = {}): CatPanelToggleRe
   panelWindow.setBounds(placement.bounds)
   sendCatPanelPlacement(placement)
 
-  panelWindow.showInactive()
+  if (options.activate) {
+    panelWindow.show()
+  } else {
+    panelWindow.showInactive()
+  }
   catPanelVisible = true
   catPanelSide = placement.side
   hideCatBubbleWindow({ reason: 'replaced', source: 'panel' })
@@ -1236,7 +1241,7 @@ function registerCatWindowIpcHandlers(): void {
 
   ipcMain.handle(IPC_CHANNELS.catPanel.open, async (_event, request?: CatPanelOpenRequest) => {
     const sessionId = await ensureActiveCatSessionId(request?.sessionId)
-    return openCatPanelWindow({ sessionId, source: 'ipc' })
+    return openCatPanelWindow({ sessionId, source: 'ipc', activate: request?.activate })
   })
   ipcMain.handle(IPC_CHANNELS.catPanel.getActiveSession, async () => {
     await ensureActiveCatSessionId(activeCatSessionId)

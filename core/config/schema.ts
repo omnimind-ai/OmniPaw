@@ -15,6 +15,7 @@ import type {
   SettingsOperationError,
   SettingsValidationIssue,
 } from '@shared/types/settings'
+import { type DesktopShortcutSettings, SHORTCUT_ACTIONS } from '@shared/types/shortcuts'
 
 export const CURRENT_SETTINGS_VERSION = 1
 
@@ -92,6 +93,30 @@ export const defaultConfig: DesktopSettingsConfig = {
       },
     },
     compactSkillDescriptions: true,
+    shortcuts: {
+      bindings: {
+        'cat.toggleVisibility': {
+          enabled: true,
+          accelerator: 'CmdOrCtrl+Alt+K',
+        },
+        'cat.openPanel': {
+          enabled: true,
+          accelerator: 'CmdOrCtrl+Alt+P',
+        },
+        'app.zoomIn': {
+          enabled: true,
+          accelerator: 'CmdOrCtrl+=',
+        },
+        'app.zoomOut': {
+          enabled: true,
+          accelerator: 'CmdOrCtrl+-',
+        },
+        'app.zoomReset': {
+          enabled: true,
+          accelerator: 'CmdOrCtrl+0',
+        },
+      },
+    },
   },
   providers: {
     sources: [],
@@ -318,6 +343,10 @@ function normalizeObject(defaultValue: unknown, rawValue: unknown, path: string)
     return normalizeSystemContextSettings(rawValue)
   }
 
+  if (path === 'app.shortcuts') {
+    return normalizeShortcutSettings(rawValue)
+  }
+
   if (path === 'tools.agentToolProfile') {
     return isToolProfile(rawValue) ? rawValue : defaultConfig.tools.agentToolProfile
   }
@@ -519,6 +548,75 @@ function validateApp(config: DesktopSettingsConfig, issues: SettingsValidationIs
   validateChatContext(config, issues)
   validateMemory(config, issues)
   validateSystemContext(config, issues)
+  validateShortcuts(config, issues)
+}
+
+function validateShortcuts(config: DesktopSettingsConfig, issues: SettingsValidationIssue[]): void {
+  const settings = config.app.shortcuts
+  if (!isPlainObject(settings)) {
+    issues.push({
+      path: 'app.shortcuts',
+      message: 'Shortcut settings must be an object.',
+      code: 'invalid_type',
+    })
+    return
+  }
+  if (!isPlainObject(settings.bindings)) {
+    issues.push({
+      path: 'app.shortcuts.bindings',
+      message: 'Shortcut bindings must be an object.',
+      code: 'invalid_type',
+    })
+    return
+  }
+
+  const enabledAccelerators = new Map<string, string>()
+  for (const action of SHORTCUT_ACTIONS) {
+    const binding = settings.bindings[action]
+    const path = `app.shortcuts.bindings.${action}`
+    if (!isPlainObject(binding)) {
+      issues.push({
+        path,
+        message: 'Shortcut binding must be an object.',
+        code: 'invalid_type',
+      })
+      continue
+    }
+    if (typeof binding.enabled !== 'boolean') {
+      issues.push({
+        path: `${path}.enabled`,
+        message: 'Shortcut enabled flag must be boolean.',
+        code: 'invalid_type',
+      })
+    }
+    if (typeof binding.accelerator !== 'string') {
+      issues.push({
+        path: `${path}.accelerator`,
+        message: 'Shortcut accelerator must be a string.',
+        code: 'invalid_type',
+      })
+      continue
+    }
+    if (!isValidAcceleratorShape(binding.accelerator)) {
+      issues.push({
+        path: `${path}.accelerator`,
+        message: 'Shortcut accelerator must include a modifier and a key.',
+        code: 'invalid_accelerator',
+      })
+      continue
+    }
+    const normalized = binding.accelerator.toLowerCase()
+    const previousAction = enabledAccelerators.get(normalized)
+    if (previousAction) {
+      issues.push({
+        path: `${path}.accelerator`,
+        message: `Shortcut conflicts with ${previousAction}.`,
+        code: 'duplicate',
+      })
+      continue
+    }
+    enabledAccelerators.set(normalized, action)
+  }
 }
 
 function validateSystemContext(
@@ -1361,6 +1459,41 @@ function isObservationScreenshotRetention(
   return value === 'ephemeral' || value === 'persist'
 }
 
+function isValidAcceleratorShape(value: string): boolean {
+  const parts = value
+    .split('+')
+    .map((part) => part.trim())
+    .filter(Boolean)
+  if (parts.length < 2) {
+    return false
+  }
+
+  const modifiers = new Set([
+    'command',
+    'cmd',
+    'control',
+    'ctrl',
+    'commandorcontrol',
+    'cmdorctrl',
+    'alt',
+    'option',
+    'altgr',
+    'shift',
+    'super',
+    'meta',
+  ])
+  let hasModifier = false
+  let hasKey = false
+  for (const part of parts) {
+    if (modifiers.has(part.toLowerCase())) {
+      hasModifier = true
+    } else {
+      hasKey = true
+    }
+  }
+  return hasModifier && hasKey
+}
+
 function normalizeChatContextSettings(
   rawValue: unknown
 ): DesktopSettingsConfig['app']['chatContext'] {
@@ -1386,6 +1519,40 @@ function normalizeChatContextSettings(
     compactThresholdPercent: rawValue.compactThresholdPercent ?? defaults.compactThresholdPercent,
     compactModelId: rawValue.compactModelId,
   } as DesktopSettingsConfig['app']['chatContext']
+}
+
+function normalizeShortcutSettings(rawValue: unknown): DesktopShortcutSettings {
+  const defaults = defaultConfig.app.shortcuts
+  if (rawValue === undefined || rawValue === null) {
+    return cloneUnknown(defaults)
+  }
+  if (!isPlainObject(rawValue)) {
+    throwValidationError([
+      {
+        path: 'app.shortcuts',
+        message: 'Shortcut settings must be an object.',
+        code: 'invalid_type',
+      },
+    ])
+  }
+
+  const rawBindings = isPlainObject(rawValue.bindings) ? rawValue.bindings : {}
+  const bindings = cloneUnknown(defaults.bindings)
+  for (const action of SHORTCUT_ACTIONS) {
+    const rawBinding = rawBindings[action]
+    const defaultBinding = defaults.bindings[action]
+    bindings[action] = isPlainObject(rawBinding)
+      ? {
+          enabled: true,
+          accelerator:
+            typeof rawBinding.accelerator === 'string'
+              ? rawBinding.accelerator.trim()
+              : defaultBinding.accelerator,
+        }
+      : cloneUnknown(defaultBinding)
+  }
+
+  return { bindings }
 }
 
 function normalizeMemorySettings(rawValue: unknown): DesktopSettingsConfig['app']['memory'] {

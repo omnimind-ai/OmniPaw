@@ -63,6 +63,11 @@ export const IPC_CHANNELS = {
     status: 'settings:status',
     changed: 'settings:changed',
   },
+  shortcuts: {
+    status: 'shortcuts:status',
+    setCaptureMode: 'shortcuts:set-capture-mode',
+    changed: 'shortcuts:changed',
+  },
   memory: {
     list: 'memory:list',
     search: 'memory:search',

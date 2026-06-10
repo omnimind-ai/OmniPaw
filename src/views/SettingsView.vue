@@ -13,6 +13,7 @@ import ObservationSettingsForm from '@/components/settings/ObservationSettingsFo
 import PersonaSettingsForm from '@/components/settings/PersonaSettingsForm.vue'
 import ProviderSettingsForm from '@/components/settings/ProviderSettingsForm.vue'
 import ScheduledTaskSettingsForm from '@/components/settings/ScheduledTaskSettingsForm.vue'
+import ShortcutSettingsForm from '@/components/settings/ShortcutSettingsForm.vue'
 import SkillSettingsForm from '@/components/settings/SkillSettingsForm.vue'
 import TavernSettingsForm from '@/components/settings/TavernSettingsForm.vue'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -197,6 +198,7 @@ function normalizeSettingsTab(value: unknown): SettingsTab | undefined {
     tab === 'providers' ||
     tab === 'defaults' ||
     tab === 'general' ||
+    tab === 'shortcuts' ||
     tab === 'agent' ||
     tab === 'display' ||
     tab === 'data' ||
@@ -318,6 +320,11 @@ function normalizeSettingsTab(value: unknown): SettingsTab | undefined {
 
               <GeneralSettingsForm
                 v-else-if="activeTab === 'general'"
+                :draft="draft"
+              />
+
+              <ShortcutSettingsForm
+                v-else-if="activeTab === 'shortcuts'"
                 :draft="draft"
               />
 

@@ -9,6 +9,7 @@ import type {
   ProviderModel,
   ProviderType,
 } from './provider'
+import type { DesktopShortcutSettings } from './shortcuts'
 
 export type DesktopSettingsVersion = 1
 export type AppTheme = 'system' | 'light' | 'dark'
@@ -41,6 +42,7 @@ export interface DesktopBaseSettings {
   memory: DesktopMemorySettings
   systemContext: DesktopSystemContextSettings
   compactSkillDescriptions: boolean
+  shortcuts: DesktopShortcutSettings
   dataDir?: string
 }
 

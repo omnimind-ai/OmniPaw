@@ -12,6 +12,7 @@ import type {
   DesktopSettingsConfig,
   SettingsChangeReason,
 } from '@shared/types/settings'
+import type { ShortcutAction, ShortcutStatusChangedEvent } from '@shared/types/shortcuts'
 import { app, BrowserWindow, Menu, type MenuItemConstructorOptions } from 'electron'
 import {
   type CatNotificationController,
@@ -28,6 +29,7 @@ import {
   setCatSessionIdResolver,
   setCatWindowLogger,
   showCatWindow,
+  toggleCatVisibility,
 } from './cat-window'
 import {
   type CoreRuntime,
@@ -37,6 +39,7 @@ import {
 } from './core-runtime'
 import { registerIpcHandlers } from './ipc'
 import { createMainWindowController, type MainWindowController } from './main-window'
+import { createShortcutController, type ShortcutController } from './shortcut-controller'
 import { createTrayController, type TrayController } from './tray'
 
 const logSink = createElectronLogSink({
@@ -62,10 +65,18 @@ let runtime: CoreRuntime | undefined
 let mainWindowController: MainWindowController | undefined
 let trayController: TrayController | undefined
 let catNotificationController: CatNotificationController | undefined
+let shortcutController: ShortcutController | undefined
 let isQuitting = false
 const ZOOM_STEP = 0.05
 
+enablePlatformFeatures()
 registerProcessDiagnostics()
+
+function enablePlatformFeatures(): void {
+  if (process.platform === 'linux') {
+    app.commandLine.appendSwitch('enable-features', 'GlobalShortcutsPortal')
+  }
+}
 
 function resolveAppLogsPath(): string {
   try {
@@ -129,6 +140,7 @@ function markQuitting(): void {
 function quitApp(): void {
   markQuitting()
   catNotificationController?.destroy()
+  shortcutController?.destroy()
   closeCatWindow()
   trayController?.destroy()
   app.quit()
@@ -166,6 +178,9 @@ function updateTrayMenu(): void {
 function updateApplicationMenu(): void {
   const currentZoom = getConfiguredZoomFactor()
   const zoomBounds = getConfiguredZoomBounds()
+  const zoomInAccelerator = getConfiguredShortcutAccelerator('app.zoomIn', 'CmdOrCtrl+=')
+  const zoomOutAccelerator = getConfiguredShortcutAccelerator('app.zoomOut', 'CmdOrCtrl+-')
+  const zoomResetAccelerator = getConfiguredShortcutAccelerator('app.zoomReset', 'CmdOrCtrl+0')
   const isMac = process.platform === 'darwin'
   const template: MenuItemConstructorOptions[] = []
 
@@ -209,19 +224,19 @@ function updateApplicationMenu(): void {
         { type: 'separator' },
         {
           label: '放大',
-          accelerator: 'CmdOrCtrl+=',
+          ...(zoomInAccelerator ? { accelerator: zoomInAccelerator } : {}),
           enabled: currentZoom < zoomBounds.max,
           click: () => stepConfiguredZoomFactor(1),
         },
         {
           label: '缩小',
-          accelerator: 'CmdOrCtrl+-',
+          ...(zoomOutAccelerator ? { accelerator: zoomOutAccelerator } : {}),
           enabled: currentZoom > zoomBounds.min,
           click: () => stepConfiguredZoomFactor(-1),
         },
         {
           label: '重置缩放',
-          accelerator: 'CmdOrCtrl+0',
+          ...(zoomResetAccelerator ? { accelerator: zoomResetAccelerator } : {}),
           enabled: currentZoom !== getConfiguredDefaultZoomFactor(),
           click: resetConfiguredZoomFactor,
         },
@@ -249,6 +264,17 @@ function getConfiguredZoomFactor(config = runtime?.configStore.get()): number {
 
   const factor = Number.isFinite(zoom.factor) ? zoom.factor : 1
   return clampZoomFactor(factor, bounds)
+}
+
+function getConfiguredShortcutAccelerator(
+  action: ShortcutAction,
+  fallback: string
+): string | undefined {
+  const binding = runtime?.configStore.get().app.shortcuts.bindings[action]
+  if (!binding) {
+    return fallback
+  }
+  return binding.accelerator
 }
 
 function getConfiguredZoomBounds(config = runtime?.configStore.get()): {
@@ -380,6 +406,7 @@ function broadcastSettingsChanged(
   updateTrayMenu()
   applyMainWindowZoom(config)
   updateApplicationMenu()
+  shortcutController?.apply(config.app.shortcuts)
 
   const event: DesktopSettingsChangedEvent = {
     reason,
@@ -443,6 +470,12 @@ function broadcastObservationReaction(event: ObservationReactionEvent): void {
   sendCatObservationReaction(event)
 }
 
+function broadcastShortcutChanged(event: ShortcutStatusChangedEvent): void {
+  for (const window of BrowserWindow.getAllWindows()) {
+    window.webContents.send(IPC_CHANNELS.shortcuts.changed, event)
+  }
+}
+
 function createBroadcastChatEventTarget(): ChatRunEventTarget {
   return {
     send(channel, event) {
@@ -478,6 +511,42 @@ app
     createControllers()
     setCatWindowLogger(mainLogger.child({ scope: 'cat' }))
     setCatSessionIdResolver(resolveRuntimeCatSessionId)
+    shortcutController = createShortcutController({
+      logger: mainLogger,
+      getSettings: () =>
+        runtime?.configStore.get().app.shortcuts ?? {
+          bindings: {
+            'cat.toggleVisibility': {
+              enabled: false,
+              accelerator: 'CmdOrCtrl+Alt+K',
+            },
+            'cat.openPanel': {
+              enabled: false,
+              accelerator: 'CmdOrCtrl+Alt+P',
+            },
+            'app.zoomIn': {
+              enabled: false,
+              accelerator: 'CmdOrCtrl+=',
+            },
+            'app.zoomOut': {
+              enabled: false,
+              accelerator: 'CmdOrCtrl+-',
+            },
+            'app.zoomReset': {
+              enabled: false,
+              accelerator: 'CmdOrCtrl+0',
+            },
+          },
+        },
+      actions: {
+        'cat.toggleVisibility': toggleCatVisibility,
+        'cat.openPanel': () => {
+          openCatPanelWindow({ source: 'shortcut', activate: true })
+        },
+      },
+      onChanged: broadcastShortcutChanged,
+    })
+    shortcutController.apply(runtime.configStore.get().app.shortcuts)
     catNotificationController = createCatNotificationControllerForRuntime()
     catNotificationController.registerIpcHandlers()
     registerCatWindowIpcHandlers()
@@ -489,6 +558,7 @@ app
       ipcLogger,
       platform: process.platform,
       runtime,
+      shortcutController,
       onSettingsChanged: broadcastSettingsChanged,
       openChatSession: openMainChatSession,
     })
@@ -512,6 +582,7 @@ app.on('before-quit', () => {
   lifecycleLogger.info('App before-quit.')
   markQuitting()
   catNotificationController?.destroy()
+  shortcutController?.destroy()
   closeCatWindow()
   runtime?.dispose()
   trayController?.destroy()

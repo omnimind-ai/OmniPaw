@@ -92,6 +92,7 @@ export interface CatPanelSetActiveSessionRequest {
 
 export interface CatPanelOpenRequest {
   sessionId?: ID
+  activate?: boolean
 }
 
 export interface CatDraftAttachment {

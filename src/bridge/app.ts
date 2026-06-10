@@ -88,6 +88,8 @@ import type {
   StopObservationRequest,
   TriggerObservationRequest,
 } from '@shared/types/observation'
+import type { DesktopShortcutSettings, ShortcutStatusChangedEvent } from '@shared/types/shortcuts'
+import { SHORTCUT_ACTIONS } from '@shared/types/shortcuts'
 import type {
   CopyPersonaToTavernUserProfileRequest,
   CreateTavernCharacterRequest,
@@ -132,6 +134,7 @@ export type BridgeContextUsageSource = 'actual' | 'estimated' | 'mixed' | 'provi
 export type BridgeContextAttachmentPolicy = 'current-only' | 'recent' | 'never'
 export type BridgeObservationScope = 'primary_display' | 'selected_display' | 'selected_window'
 export type BridgeObservationScreenshotRetention = 'ephemeral' | 'persist'
+export type BridgeShortcutStatusChangedEvent = ShortcutStatusChangedEvent
 
 export interface BridgeChatContextSettings {
   recentMessages: number
@@ -191,6 +194,7 @@ export interface BridgeDesktopSettingsConfig {
     chatContext: BridgeChatContextSettings
     systemContext: BridgeSystemContextSettings
     compactSkillDescriptions: boolean
+    shortcuts: DesktopShortcutSettings
     memory: DesktopMemorySettings
     dataDir?: string
   }
@@ -934,6 +938,11 @@ export interface RendererOpenOmniClawBridge {
     status: () => Promise<BridgeDesktopSettingsStatus>
     onChanged: (callback: (event: BridgeDesktopSettingsChangedEvent) => void) => BridgeUnsubscribe
   }
+  shortcuts?: {
+    status: () => Promise<BridgeShortcutStatusChangedEvent>
+    setCaptureMode: (enabled: boolean) => Promise<BridgeShortcutStatusChangedEvent>
+    onChanged: (callback: (event: BridgeShortcutStatusChangedEvent) => void) => BridgeUnsubscribe
+  }
   memory?: {
     list: (filters?: CompanionMemoryFilters) => Promise<CompanionMemoryListResponse>
     search: (filters?: CompanionMemoryFilters) => Promise<CompanionMemoryListResponse>
@@ -1610,6 +1619,11 @@ const fallbackBridge: RendererOpenOmniClawBridge = {
     }),
     onChanged: () => () => {},
   },
+  shortcuts: {
+    status: async () => fallbackShortcutStatus(),
+    setCaptureMode: async () => fallbackShortcutStatus(),
+    onChanged: () => () => {},
+  },
   memory: {
     list: async () => ({ items: [], total: 0 }),
     search: async () => ({ items: [], total: 0 }),
@@ -2012,6 +2026,24 @@ const fallbackBridge: RendererOpenOmniClawBridge = {
   },
 }
 
+function fallbackShortcutStatus(): BridgeShortcutStatusChangedEvent {
+  const config = fallbackSettingsConfig()
+  const updatedAt = Date.now()
+  return {
+    statuses: SHORTCUT_ACTIONS.map((action) => {
+      const binding = config.app.shortcuts.bindings[action]
+      return {
+        action,
+        enabled: true,
+        accelerator: binding.accelerator,
+        state: 'disabled',
+        message: '快捷键仅在 Electron 桌面端可用。',
+        updatedAt,
+      }
+    }),
+  }
+}
+
 function fallbackSettingsConfig(): BridgeDesktopSettingsConfig {
   return {
     version: 1,
@@ -2042,6 +2074,30 @@ function fallbackSettingsConfig(): BridgeDesktopSettingsConfig {
         },
       },
       compactSkillDescriptions: true,
+      shortcuts: {
+        bindings: {
+          'cat.toggleVisibility': {
+            enabled: true,
+            accelerator: 'CmdOrCtrl+Alt+K',
+          },
+          'cat.openPanel': {
+            enabled: true,
+            accelerator: 'CmdOrCtrl+Alt+P',
+          },
+          'app.zoomIn': {
+            enabled: true,
+            accelerator: 'CmdOrCtrl+=',
+          },
+          'app.zoomOut': {
+            enabled: true,
+            accelerator: 'CmdOrCtrl+-',
+          },
+          'app.zoomReset': {
+            enabled: true,
+            accelerator: 'CmdOrCtrl+0',
+          },
+        },
+      },
       memory: {
         enabled: true,
         extractionEnabled: true,
@@ -2201,6 +2257,19 @@ function createSettingsBridge(
   }
 }
 
+function createShortcutsBridge(
+  bridge: RendererOpenOmniClawBridge['shortcuts'] | undefined
+): RendererOpenOmniClawBridge['shortcuts'] {
+  if (!bridge) {
+    return fallbackBridge.shortcuts
+  }
+
+  return {
+    ...fallbackBridge.shortcuts,
+    ...bridge,
+  }
+}
+
 function createMemoryBridge(
   bridge: RendererOpenOmniClawBridge['memory'] | undefined
 ): RendererOpenOmniClawBridge['memory'] {
@@ -2294,6 +2363,7 @@ export const appBridge: RendererOpenOmniClawBridge = exposedBridge
       cat: createCatBridge(exposedBridge.cat),
       logging: exposedBridge.logging ?? fallbackBridge.logging,
       settings: createSettingsBridge(exposedBridge.settings),
+      shortcuts: createShortcutsBridge(exposedBridge.shortcuts),
       memory: createMemoryBridge(exposedBridge.memory),
       observation: createObservationBridge(exposedBridge.observation),
       provider: createProviderBridge(exposedBridge.provider),
