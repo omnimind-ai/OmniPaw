@@ -1,4 +1,4 @@
-import type { AppInfo, OpenChatSessionRequest } from './app'
+import type { AppInfo, OpenChatSessionRequest, OpenDirectoryResponse } from './app'
 import type {
   CatBounds,
   CatBubbleDismissRequest,
@@ -81,7 +81,13 @@ import type {
   ReadWorkspaceFileRequest,
   ReadWorkspaceFileResponse,
 } from './local-agent'
-import type { LoggerHealthStatus, LoggerWriteResponse, RendererLogRequest } from './logging'
+import type {
+  ExportLogResponse,
+  LoggerHealthStatus,
+  LoggerWriteResponse,
+  OpenLogLocationResponse,
+  RendererLogRequest,
+} from './logging'
 import type {
   DeleteMcpServerRequest,
   McpServerChangedEvent,
@@ -358,6 +364,7 @@ export interface TestProviderRegistryRequest extends Omit<TestProviderRequest, '
 export interface OpenOmniClawBridge {
   app: {
     getInfo: () => Promise<AppInfo>
+    openSettingsDirectory: () => Promise<OpenDirectoryResponse>
     openChatSession: (request: OpenChatSessionRequest | string) => Promise<void>
     onOpenChatSession: (callback: (request: OpenChatSessionRequest) => void) => Unsubscribe
   }
@@ -371,6 +378,8 @@ export interface OpenOmniClawBridge {
   logging: {
     write: (request: RendererLogRequest) => Promise<LoggerWriteResponse>
     status: () => Promise<LoggerHealthStatus>
+    openLocation: () => Promise<OpenLogLocationResponse>
+    export: () => Promise<ExportLogResponse>
   }
   cat: {
     show: () => Promise<CatStatus>

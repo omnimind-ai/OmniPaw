@@ -54,3 +54,17 @@ export interface LoggerHealthStatus {
   startedAt: number
   updatedAt: number
 }
+
+export interface OpenLogLocationResponse {
+  opened: boolean
+  path?: string
+  kind?: 'file' | 'directory'
+}
+
+export interface ExportLogResponse {
+  exported: boolean
+  canceled?: boolean
+  sourcePath?: string
+  destinationPath?: string
+  reason?: 'unavailable'
+}

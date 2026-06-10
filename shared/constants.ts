@@ -7,6 +7,7 @@ export const SYSTEM_SESSION_IDS = {
 export const IPC_CHANNELS = {
   app: {
     getInfo: 'app:get-info',
+    openSettingsDirectory: 'app:open-settings-directory',
     openChatSession: 'app:open-chat-session',
     navigateToChat: 'app:navigate-to-chat',
   },
@@ -20,6 +21,8 @@ export const IPC_CHANNELS = {
   logging: {
     write: 'logging:write',
     status: 'logging:status',
+    openLocation: 'logging:open-location',
+    export: 'logging:export',
   },
   cat: {
     show: 'cat:show',

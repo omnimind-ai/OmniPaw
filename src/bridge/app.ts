@@ -1,4 +1,4 @@
-import type { OpenChatSessionRequest } from '@shared/types/app'
+import type { OpenChatSessionRequest, OpenDirectoryResponse } from '@shared/types/app'
 import type {
   CatBounds,
   CatBubbleDismissRequest,
@@ -59,8 +59,10 @@ import type {
   ReadWorkspaceFileResponse,
 } from '@shared/types/local-agent'
 import type {
+  ExportLogResponse,
   LoggerHealthStatus,
   LoggerWriteResponse,
+  OpenLogLocationResponse,
   RendererLogRequest,
 } from '@shared/types/logging'
 import type {
@@ -873,6 +875,7 @@ export interface BridgeSkillChangedEvent {
 export interface RendererOpenOmniClawBridge {
   app: {
     getInfo: () => Promise<{ name: string; version: string; platform: string }>
+    openSettingsDirectory: () => Promise<OpenDirectoryResponse>
     openChatSession?: (request: OpenChatSessionRequest | string) => Promise<void>
     onOpenChatSession?: (callback: (request: OpenChatSessionRequest) => void) => BridgeUnsubscribe
   }
@@ -888,6 +891,8 @@ export interface RendererOpenOmniClawBridge {
   logging: {
     write: (request: RendererLogRequest) => Promise<LoggerWriteResponse>
     status: () => Promise<LoggerHealthStatus>
+    openLocation?: () => Promise<OpenLogLocationResponse>
+    export?: () => Promise<ExportLogResponse>
   }
   cat: {
     show: () => Promise<CatStatus>
@@ -1407,6 +1412,9 @@ const fallbackBridge: RendererOpenOmniClawBridge = {
       version: 'dev',
       platform: 'win32',
     }),
+    openSettingsDirectory: async () => ({
+      opened: false,
+    }),
     openChatSession: async () => {},
     onOpenChatSession: () => () => {},
   },
@@ -1447,6 +1455,13 @@ const fallbackBridge: RendererOpenOmniClawBridge = {
         updatedAt: now,
       }
     },
+    openLocation: async () => ({
+      opened: false,
+    }),
+    export: async () => ({
+      exported: false,
+      reason: 'unavailable',
+    }),
   },
   cat: {
     show: async () => {
@@ -2314,6 +2329,19 @@ function createObservationBridge(
   }
 }
 
+function createLoggingBridge(
+  bridge: RendererOpenOmniClawBridge['logging'] | undefined
+): RendererOpenOmniClawBridge['logging'] {
+  if (!bridge) {
+    return fallbackBridge.logging
+  }
+
+  return {
+    ...fallbackBridge.logging,
+    ...bridge,
+  }
+}
+
 function createCronBridge(
   bridge: RendererOpenOmniClawBridge['cron'] | undefined
 ): RendererOpenOmniClawBridge['cron'] {
@@ -2363,7 +2391,7 @@ export const appBridge: RendererOpenOmniClawBridge = exposedBridge
       app: createAppBridge(exposedBridge.app),
       window: createWindowBridge(exposedBridge.window),
       cat: createCatBridge(exposedBridge.cat),
-      logging: exposedBridge.logging ?? fallbackBridge.logging,
+      logging: createLoggingBridge(exposedBridge.logging),
       settings: createSettingsBridge(exposedBridge.settings),
       shortcuts: createShortcutsBridge(exposedBridge.shortcuts),
       memory: createMemoryBridge(exposedBridge.memory),

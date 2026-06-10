@@ -3,6 +3,7 @@ import { useMediaQuery } from '@vueuse/core'
 import { storeToRefs } from 'pinia'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import AboutSettingsForm from '@/components/settings/AboutSettingsForm.vue'
 import SettingsSidebar, { type SettingsTab } from '@/components/settings/common/SettingsSidebar.vue'
 import DefaultModelSettingsForm from '@/components/settings/DefaultModelSettingsForm.vue'
 import GeneralSettingsForm from '@/components/settings/GeneralSettingsForm.vue'
@@ -339,6 +340,8 @@ function normalizeSettingsTab(value: unknown): SettingsTab | undefined {
                 v-else-if="activeTab === 'observation'"
                 :draft="draft"
               />
+
+              <AboutSettingsForm v-else-if="activeTab === 'about'" />
 
             </template>
           </div>

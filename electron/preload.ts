@@ -30,8 +30,10 @@ import type {
   ReadWorkspaceFileResponse,
 } from '@shared/types/local-agent'
 import type {
+  ExportLogResponse,
   LoggerHealthStatus,
   LoggerWriteResponse,
+  OpenLogLocationResponse,
   RendererLogRequest,
 } from '@shared/types/logging'
 import type {
@@ -279,6 +281,7 @@ async function getLoggingStatus(): Promise<LoggerHealthStatus> {
 const bridge: OpenOmniClawBridge = {
   app: {
     getInfo: () => ipcRenderer.invoke(IPC_CHANNELS.app.getInfo),
+    openSettingsDirectory: () => ipcRenderer.invoke(IPC_CHANNELS.app.openSettingsDirectory),
     openChatSession: (request) => ipcRenderer.invoke(IPC_CHANNELS.app.openChatSession, request),
     onOpenChatSession: (callback) => createUnsubscriber(IPC_CHANNELS.app.navigateToChat, callback),
   },
@@ -292,6 +295,9 @@ const bridge: OpenOmniClawBridge = {
   logging: {
     write: writeRendererLog,
     status: getLoggingStatus,
+    openLocation: () =>
+      ipcRenderer.invoke(IPC_CHANNELS.logging.openLocation) as Promise<OpenLogLocationResponse>,
+    export: () => ipcRenderer.invoke(IPC_CHANNELS.logging.export) as Promise<ExportLogResponse>,
   },
   cat: {
     show: () => ipcRenderer.invoke(IPC_CHANNELS.cat.show),

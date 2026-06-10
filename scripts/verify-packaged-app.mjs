@@ -94,6 +94,6 @@ function loadAsar() {
 }
 
 function fail(message) {
-  console.error(message)
+  process.stderr.write(`${message}\n`)
   process.exit(1)
 }

@@ -554,6 +554,7 @@ app
     registerIpcHandlers({
       appName: APP_NAME,
       appVersion: app.getVersion(),
+      appDataPath: app.getPath('appData'),
       logSink,
       rootLogger,
       ipcLogger,

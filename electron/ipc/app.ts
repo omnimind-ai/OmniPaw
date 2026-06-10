@@ -1,4 +1,7 @@
+import { mkdirSync } from 'node:fs'
+import { resolveOpenOmniClawDataPaths } from '@core/utils/data-paths'
 import { IPC_CHANNELS } from '@shared/constants'
+import { shell } from 'electron'
 import { isRecord, registerLoggedIpcHandler } from './common'
 import type { IpcHandlerOptions } from './types'
 
@@ -8,6 +11,19 @@ export function registerAppIpcHandlers(options: IpcHandlerOptions): void {
     version: options.appVersion,
     platform: options.platform,
   }))
+  registerLoggedIpcHandler(options, IPC_CHANNELS.app.openSettingsDirectory, async () => {
+    const directory = resolveOpenOmniClawDataPaths({
+      appDataPath: options.appDataPath,
+    }).configRoot
+    mkdirSync(directory, { recursive: true })
+
+    const errorMessage = await shell.openPath(directory)
+    if (errorMessage) {
+      throw new Error(errorMessage)
+    }
+
+    return { opened: true, path: directory }
+  })
   registerLoggedIpcHandler(
     options,
     IPC_CHANNELS.app.openChatSession,
