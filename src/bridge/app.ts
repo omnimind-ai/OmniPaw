@@ -563,6 +563,7 @@ export interface BridgeProviderRegistrySettings {
   defaultModelId?: string
   fallbackModelRefs: Array<{ providerId: string; modelId: string }>
   titleModelRef?: { providerId: string; modelId: string }
+  embeddingModelRef?: { providerId: string; modelId: string }
   observationVisionModelRef?: { providerId: string; modelId: string }
   observationReactionModelRef?: { providerId: string; modelId: string }
   streaming: boolean
@@ -602,6 +603,7 @@ export type BridgeProviderRegistryChangeReason =
   | 'default'
   | 'fallback'
   | 'title'
+  | 'embedding'
   | 'observation'
 
 export interface BridgeProviderRegistrySelection {
@@ -661,6 +663,11 @@ export interface BridgeSetFallbackProviderModelsRequest {
 }
 
 export interface BridgeSetTitleProviderModelRequest {
+  providerId?: string
+  modelId?: string
+}
+
+export interface BridgeSetEmbeddingProviderModelRequest {
   providerId?: string
   modelId?: string
 }
@@ -1033,6 +1040,9 @@ export interface RendererOpenOmniClawBridge {
     setTitleModel?: (
       request: BridgeSetTitleProviderModelRequest
     ) => Promise<BridgeProviderRegistryMutationResult>
+    setEmbeddingModel?: (
+      request: BridgeSetEmbeddingProviderModelRequest
+    ) => Promise<BridgeProviderRegistryMutationResult>
     setObservationModels?: (
       request: BridgeSetObservationProviderModelsRequest
     ) => Promise<BridgeProviderRegistryMutationResult>
@@ -1359,6 +1369,7 @@ function emptyProviderRegistry(): BridgeProviderRegistryConfig {
       defaultModelId: '',
       fallbackModelRefs: [],
       titleModelRef: undefined,
+      embeddingModelRef: undefined,
       observationVisionModelRef: undefined,
       observationReactionModelRef: undefined,
       streaming: true,
@@ -1833,6 +1844,8 @@ const fallbackBridge: RendererOpenOmniClawBridge = {
       rejectFallbackPersistence<BridgeProviderRegistryMutationResult>('provider.setFallbackModels'),
     setTitleModel: () =>
       rejectFallbackPersistence<BridgeProviderRegistryMutationResult>('provider.setTitleModel'),
+    setEmbeddingModel: () =>
+      rejectFallbackPersistence<BridgeProviderRegistryMutationResult>('provider.setEmbeddingModel'),
     setObservationModels: () =>
       rejectFallbackPersistence<BridgeProviderRegistryMutationResult>(
         'provider.setObservationModels'

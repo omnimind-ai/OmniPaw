@@ -158,11 +158,11 @@ function clearSearch() {
   <div class="flex h-full min-h-0 flex-1 flex-col overflow-hidden">
     <Card class="grid h-full min-h-0 flex-1 grid-rows-[auto_auto_minmax(0,1fr)] gap-0 rounded-md border border-border py-0 ring-0">
       <SettingsPanelHeader
-        title="MCP 服务器"
+        title="工具"
         :icon="ServerIcon"
       >
         <template #description>
-          管理外部 MCP 服务器。内置工具可以从右侧入口单独调整。
+          管理外部 MCP 服务器与内置工具
         </template>
       </SettingsPanelHeader>
 

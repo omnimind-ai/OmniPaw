@@ -23,6 +23,7 @@ export const defaultProviderRegistry: ProviderRegistry = {
   settings: {
     fallbackModelRefs: [],
     titleModelRef: undefined,
+    embeddingModelRef: undefined,
     observationVisionModelRef: undefined,
     observationReactionModelRef: undefined,
     streaming: true,
@@ -257,6 +258,11 @@ function normalizeSettings(
       issues
     ),
     titleModelRef: normalizeOptionalModelRef(raw.titleModelRef, 'settings.titleModelRef', issues),
+    embeddingModelRef: normalizeOptionalModelRef(
+      raw.embeddingModelRef,
+      'settings.embeddingModelRef',
+      issues
+    ),
     observationVisionModelRef: normalizeOptionalModelRef(
       raw.observationVisionModelRef,
       'settings.observationVisionModelRef',
@@ -469,6 +475,23 @@ function validateSettings(
       'Title summary model must reference an enabled provider model.',
       sourceIds,
       enabledModelKeys,
+      issues
+    )
+  }
+  if (settings.embeddingModelRef) {
+    validateOptionalModelRef(
+      settings.embeddingModelRef,
+      'settings.embeddingModelRef',
+      'Embedding model must reference an enabled provider model.',
+      sourceIds,
+      enabledModelKeys,
+      issues
+    )
+    validateModelRefInput(
+      settings.embeddingModelRef,
+      'settings.embeddingModelRef',
+      'text',
+      modelInputs,
       issues
     )
   }

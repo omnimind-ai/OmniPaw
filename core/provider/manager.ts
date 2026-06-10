@@ -644,6 +644,22 @@ export class ProviderManager {
     })
   }
 
+  async setEmbeddingModel(
+    selection: Partial<ProviderModelRef> | undefined
+  ): Promise<ProviderRegistryMutationResult> {
+    const registry = this.requireRegistryStore().get()
+    const nextSettings = { ...registry.settings }
+    nextSettings.embeddingModelRef = this.normalizeOptionalEnabledModelRefWithInput(
+      registry,
+      selection,
+      'Embedding model',
+      'text'
+    )
+    return this.registryResult(this.saveRegistry({ ...registry, settings: nextSettings }), {
+      ok: true,
+    })
+  }
+
   async setObservationModels(
     request: Pick<
       ProviderRegistrySettings,
@@ -884,6 +900,30 @@ export class ProviderManager {
       ok: true,
       nextSelection: findFirstEnabledSelection(saved),
     })
+  }
+
+  async resolveEmbeddingProvider(): Promise<
+    { provider: ProviderRecord; model: ProviderModelRecord } | undefined
+  > {
+    if (!this.registryStore) {
+      return undefined
+    }
+
+    const registry = this.registryStore.get()
+    const ref = registry.settings.embeddingModelRef
+    if (!ref) {
+      return undefined
+    }
+
+    const resolved = resolveRegistrySelection(registry, ref.providerId, ref.modelId)
+    if (!resolved) {
+      return undefined
+    }
+
+    const model = resolved.provider.models?.find(
+      (item) => item.id === resolved.modelId && item.enabled !== false
+    )
+    return model ? { provider: resolved.provider, model } : undefined
   }
 
   async createProviderClient(providerId: string): Promise<BaseProvider> {
@@ -1365,6 +1405,11 @@ function cleanupRegistryReferences(registry: ProviderRegistry): ProviderRegistry
       enabledModelRefs.has(modelRefKey(registry.settings.titleModelRef))
         ? { ...registry.settings.titleModelRef }
         : undefined,
+    embeddingModelRef:
+      registry.settings.embeddingModelRef &&
+      enabledModelRefs.has(modelRefKey(registry.settings.embeddingModelRef))
+        ? { ...registry.settings.embeddingModelRef }
+        : undefined,
     observationVisionModelRef:
       registry.settings.observationVisionModelRef &&
       enabledModelRefs.has(modelRefKey(registry.settings.observationVisionModelRef))
@@ -1495,6 +1540,9 @@ function sanitizeRegistry(registry: ProviderRegistry): ProviderRegistry {
       fallbackModelRefs: registry.settings.fallbackModelRefs.map((ref) => ({ ...ref })),
       titleModelRef: registry.settings.titleModelRef
         ? { ...registry.settings.titleModelRef }
+        : undefined,
+      embeddingModelRef: registry.settings.embeddingModelRef
+        ? { ...registry.settings.embeddingModelRef }
         : undefined,
       observationVisionModelRef: registry.settings.observationVisionModelRef
         ? { ...registry.settings.observationVisionModelRef }

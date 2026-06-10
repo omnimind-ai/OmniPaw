@@ -20,12 +20,14 @@ import type {
 } from '@shared/types/memory'
 import {
   hashEmbeddingText,
+  localMemoryEmbedding,
   localMemoryEmbeddingDimension,
   localMemoryEmbeddingModel,
   localMemoryEmbeddingProvider,
-  localTextEmbedding,
+  type MemoryEmbeddingMetadata,
+  type MemoryEmbeddingResult,
   memoryEmbeddingText,
-} from '../../memory/local-embedding'
+} from '../../memory/embedding'
 import type { DatabaseConnection } from '../client'
 import { decodeJson, encodeJson } from '../json'
 
@@ -622,8 +624,12 @@ export class CompanionMemoryRepo {
     return row ? mapProposal(row as ProposalRow) : undefined
   }
 
-  listEmbeddings(filters: CompanionMemoryFilters = {}): CompanionMemoryLocalEmbedding[] {
+  listEmbeddings(
+    filters: CompanionMemoryFilters = {},
+    embedding?: MemoryEmbeddingMetadata
+  ): CompanionMemoryLocalEmbedding[] {
     const { where, params } = this.buildFilter(filters, 'items')
+    const embeddingClauses = embedding ? embeddingFilterClauses(embedding) : []
     const limit = clampInteger(filters.limit ?? 500, 1, 5000)
     const rows = this.db
       .prepare(
@@ -631,16 +637,32 @@ export class CompanionMemoryRepo {
           SELECT embeddings.*
           FROM companion_memory_embeddings embeddings
           JOIN companion_memory_items items ON items.id = embeddings.memory_id
-          ${where}
+          ${appendWhere(where, embeddingClauses)}
           ORDER BY items.importance DESC, items.updated_at DESC
           LIMIT @limit
         `
       )
-      .all({ ...params, limit })
+      .all({ ...params, ...embeddingParams(embedding), limit })
     return rows.map((row) => mapEmbedding(row as EmbeddingRow)).filter((row) => row.vector.length)
   }
 
   ensureEmbeddings(filters: CompanionMemoryFilters = {}): number {
+    const rows = this.listMissingEmbeddings(filters, {
+      provider: localMemoryEmbeddingProvider,
+      model: localMemoryEmbeddingModel,
+      dimension: localMemoryEmbeddingDimension,
+    })
+
+    for (const memory of rows) {
+      this.replaceEmbedding(memory)
+    }
+    return rows.length
+  }
+
+  listMissingEmbeddings(
+    filters: CompanionMemoryFilters = {},
+    embedding: MemoryEmbeddingMetadata
+  ): CompanionMemorySearchResult[] {
     const { where, params } = this.buildFilter(filters, 'items')
     const rows = this.db
       .prepare(
@@ -648,29 +670,25 @@ export class CompanionMemoryRepo {
           SELECT items.*
           FROM companion_memory_items items
           LEFT JOIN companion_memory_embeddings embeddings ON embeddings.memory_id = items.id
-          ${where ? `${where} AND` : 'WHERE'}
-            (
+          ${appendWhere(where, [
+            `(
               embeddings.memory_id IS NULL
               OR embeddings.provider != @embeddingProvider
               OR embeddings.model != @embeddingModel
               OR embeddings.dimension != @embeddingDimension
-            )
+            )`,
+          ])}
           ORDER BY items.updated_at DESC
           LIMIT 1000
         `
       )
       .all({
         ...params,
-        embeddingProvider: localMemoryEmbeddingProvider,
-        embeddingModel: localMemoryEmbeddingModel,
-        embeddingDimension: localMemoryEmbeddingDimension,
+        ...embeddingParams(embedding),
       })
       .map((row) => mapMemory(row as MemoryItemRow))
 
-    for (const memory of rows) {
-      this.replaceEmbedding(memory)
-    }
-    return rows.length
+    return rows
   }
 
   private searchLike(filters: CompanionMemoryFilters): CompanionMemoryListResponse {
@@ -785,13 +803,14 @@ export class CompanionMemoryRepo {
       .run(memory.id, memory.subject ?? '', memory.content)
   }
 
-  private replaceEmbedding(memory: CompanionMemoryItem): void {
+  replaceEmbedding(memory: CompanionMemoryItem, embedding?: MemoryEmbeddingResult): void {
     this.db.prepare('DELETE FROM companion_memory_embeddings WHERE memory_id = ?').run(memory.id)
     if (memory.status === 'deleted') {
       return
     }
 
     const text = memoryEmbeddingText(memory)
+    const result = embedding ?? localMemoryEmbedding(text)
     const now = Date.now()
     this.db
       .prepare(
@@ -805,11 +824,11 @@ export class CompanionMemoryRepo {
       )
       .run({
         memoryId: memory.id,
-        provider: localMemoryEmbeddingProvider,
-        model: localMemoryEmbeddingModel,
-        dimension: localMemoryEmbeddingDimension,
-        contentHash: hashEmbeddingText(text),
-        vectorJson: encodeJson(localTextEmbedding(text)) ?? '[]',
+        provider: result.provider,
+        model: result.model,
+        dimension: result.dimension,
+        contentHash: result.contentHash || hashEmbeddingText(text),
+        vectorJson: encodeJson(result.vector) ?? '[]',
         createdAt: now,
         updatedAt: now,
       })
@@ -858,6 +877,34 @@ function mapMemory(row: MemoryItemRow): CompanionMemorySearchResult {
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     lexicalScore: row.lexical_score ?? undefined,
+  }
+}
+
+function appendWhere(where: string, clauses: string[]): string {
+  if (!clauses.length) {
+    return where
+  }
+  return where ? `${where} AND ${clauses.join(' AND ')}` : `WHERE ${clauses.join(' AND ')}`
+}
+
+function embeddingFilterClauses(embedding: MemoryEmbeddingMetadata): string[] {
+  return [
+    'embeddings.provider = @embeddingProvider',
+    'embeddings.model = @embeddingModel',
+    'embeddings.dimension = @embeddingDimension',
+  ]
+}
+
+function embeddingParams(
+  embedding: MemoryEmbeddingMetadata | undefined
+): Record<string, string | number> {
+  if (!embedding) {
+    return {}
+  }
+  return {
+    embeddingProvider: embedding.provider,
+    embeddingModel: embedding.model,
+    embeddingDimension: embedding.dimension,
   }
 }
 

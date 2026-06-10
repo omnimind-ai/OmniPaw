@@ -135,6 +135,7 @@ export interface ProviderRegistrySettings {
   defaultModelId?: string
   fallbackModelRefs: ProviderModelRef[]
   titleModelRef?: ProviderModelRef
+  embeddingModelRef?: ProviderModelRef
   observationVisionModelRef?: ProviderModelRef
   observationReactionModelRef?: ProviderModelRef
   streaming: boolean
@@ -188,6 +189,7 @@ export type ProviderRegistryChangeReason =
   | 'refresh'
   | 'settings'
   | 'title'
+  | 'embedding'
   | 'observation'
 
 export interface ProviderRegistryChangedEvent {
@@ -203,6 +205,8 @@ export interface SetProviderFallbackModelsRequest {
 }
 
 export interface SetProviderTitleModelRequest extends Partial<ProviderModelRef> {}
+
+export interface SetProviderEmbeddingModelRequest extends Partial<ProviderModelRef> {}
 
 export interface SetProviderObservationModelsRequest {
   observationVisionModelRef?: ProviderModelRef

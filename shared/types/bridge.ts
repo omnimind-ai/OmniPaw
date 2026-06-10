@@ -231,6 +231,7 @@ export interface ProviderRegistrySettings {
   defaultModelId?: string
   fallbackModelRefs: ProviderModelRef[]
   titleModelRef?: ProviderModelRef
+  embeddingModelRef?: ProviderModelRef
   observationVisionModelRef?: ProviderModelRef
   observationReactionModelRef?: ProviderModelRef
   streaming: boolean
@@ -270,6 +271,7 @@ export type ProviderRegistryChangeReason =
   | 'default'
   | 'fallback'
   | 'title'
+  | 'embedding'
   | 'observation'
 
 export interface ProviderSelectionRef {
@@ -329,6 +331,11 @@ export interface SetFallbackProviderModelsRequest {
 }
 
 export interface SetTitleProviderModelRequest {
+  providerId?: string
+  modelId?: string
+}
+
+export interface SetEmbeddingProviderModelRequest {
   providerId?: string
   modelId?: string
 }
@@ -506,6 +513,9 @@ export interface OpenOmniClawBridge {
     ) => Promise<ProviderRegistryMutationResult>
     setTitleModel: (
       request: SetTitleProviderModelRequest
+    ) => Promise<ProviderRegistryMutationResult>
+    setEmbeddingModel: (
+      request: SetEmbeddingProviderModelRequest
     ) => Promise<ProviderRegistryMutationResult>
     setObservationModels: (
       request: SetObservationProviderModelsRequest

@@ -102,9 +102,21 @@ export interface ChatCompletionRequest {
   abortSignal?: AbortSignal
 }
 
+export interface TextEmbeddingRequest {
+  modelId: string
+  input: string[]
+  abortSignal?: AbortSignal
+}
+
+export interface TextEmbeddingResponse {
+  embeddings: number[][]
+  modelId?: string
+}
+
 export interface BaseProvider {
   id: string
   streamChat: (request: ChatCompletionRequest) => AsyncIterable<ChatCompletionChunk>
+  embedTexts?: (request: TextEmbeddingRequest) => Promise<TextEmbeddingResponse>
   test?: (modelId?: string, signal?: AbortSignal) => Promise<void>
   listModels?: (signal?: AbortSignal) => Promise<ProviderModelCandidate[]>
 }

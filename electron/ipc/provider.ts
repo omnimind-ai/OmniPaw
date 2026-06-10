@@ -10,6 +10,7 @@ import type {
   ProviderRegistrySource,
   ProviderRegistryStatus,
   SetDefaultProviderModelRequest,
+  SetEmbeddingProviderModelRequest,
   SetFallbackProviderModelsRequest,
   SetObservationProviderModelsRequest,
   SetTitleProviderModelRequest,
@@ -49,6 +50,9 @@ interface ProviderRegistryApi {
     request: SetFallbackProviderModelsRequest
   ) => Promise<ProviderRegistryMutationResult>
   setTitleModel?: (request: SetTitleProviderModelRequest) => Promise<ProviderRegistryMutationResult>
+  setEmbeddingModel?: (
+    request: SetEmbeddingProviderModelRequest
+  ) => Promise<ProviderRegistryMutationResult>
   setObservationModels?: (
     request: SetObservationProviderModelsRequest
   ) => Promise<ProviderRegistryMutationResult>
@@ -159,6 +163,15 @@ export function registerProviderIpcHandlers(options: IpcHandlerOptions): void {
     async (event, request: SetTitleProviderModelRequest) => {
       const result = await callRegistryMutation(runtime, 'setTitleModel', request)
       emitProviderChanged(event, runtime, 'title', result)
+      return result
+    }
+  )
+  registerLoggedIpcHandler(
+    options,
+    IPC_CHANNELS.provider.setEmbeddingModel,
+    async (event, request: SetEmbeddingProviderModelRequest) => {
+      const result = await callRegistryMutation(runtime, 'setEmbeddingModel', request)
+      emitProviderChanged(event, runtime, 'embedding', result)
       return result
     }
   )

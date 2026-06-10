@@ -37,7 +37,13 @@ import type {
   UpdateCompanionMemoryProposalRequest,
   UpdateCompanionMemoryRequest,
 } from '@shared/types/memory'
-import { embeddingCosine, localTextEmbedding } from './local-embedding'
+import {
+  createMemoryEmbeddingProvider,
+  embeddingCosine,
+  type MemoryEmbeddingProvider,
+  type MemoryEmbeddingResult,
+  memoryEmbeddingText,
+} from './embedding'
 import type { CompanionMemoryPolicyService } from './policy'
 import {
   CompanionMemorySemanticExtractor,
@@ -99,11 +105,16 @@ export interface CompanionMemoryToolSearchResponse {
 
 export class CompanionMemoryService {
   private readonly semanticExtractor?: CompanionMemorySemanticExtractor
+  private readonly embeddingProvider: MemoryEmbeddingProvider
 
   constructor(private readonly options: CompanionMemoryServiceOptions) {
     this.semanticExtractor = options.providers
       ? new CompanionMemorySemanticExtractor(options.providers)
       : undefined
+    this.embeddingProvider = createMemoryEmbeddingProvider({
+      providers: options.providers,
+      logger: options.logger,
+    })
   }
 
   list(filters?: CompanionMemoryFilters): CompanionMemoryListResponse {
@@ -196,7 +207,9 @@ export class CompanionMemoryService {
     return Boolean(session && this.options.policy.canUseWriteTools(session))
   }
 
-  searchForTool(request: CompanionMemoryToolSearchRequest): CompanionMemoryToolSearchResponse {
+  async searchForTool(
+    request: CompanionMemoryToolSearchRequest
+  ): Promise<CompanionMemoryToolSearchResponse> {
     const session = this.options.sessions.get(request.sessionId)
     const query = request.query?.trim() ?? ''
     const mode = request.mode === 'overview' || !query ? 'overview' : 'search'
@@ -225,11 +238,8 @@ export class CompanionMemoryService {
       scopes: request.sessionOnly ? (['session'] as CompanionMemoryScope[]) : request.scopes,
     }
 
-    if (mode === 'search') {
-      this.options.repo.ensureEmbeddings(filters)
-    }
     const lexicalResults = mode === 'search' ? this.searchForRetrieval(filters) : []
-    const vectorResults = mode === 'search' ? this.searchVectorForRetrieval(filters) : []
+    const vectorResults = mode === 'search' ? await this.searchVectorForRetrieval(filters) : []
     const ranked =
       mode === 'overview'
         ? rankMemories(
@@ -411,11 +421,11 @@ export class CompanionMemoryService {
     }
   }
 
-  retrieveForRun(input: {
+  async retrieveForRun(input: {
     session: ChatSession
     messages: ChatMessage[]
     currentUserMessageId: string
-  }): CompanionMemoryContextPlan | undefined {
+  }): Promise<CompanionMemoryContextPlan | undefined> {
     const settings = this.options.policy.settingsSnapshot()
     const current = input.messages.find((message) => message.id === input.currentUserMessageId)
     const query = messageText(current).trim()
@@ -442,17 +452,13 @@ export class CompanionMemoryService {
     }
 
     const searchLimit = Math.max(50, settings.maxContextItems * 4)
-    this.options.repo.ensureEmbeddings({
-      sessionId: input.session.id,
-      minConfidence: settings.minConfidence,
-    })
     const lexicalResults = this.searchForRetrieval({
       query,
       sessionId: input.session.id,
       minConfidence: settings.minConfidence,
       limit: searchLimit,
     })
-    const vectorResults = this.searchVectorForRetrieval({
+    const vectorResults = await this.searchVectorForRetrieval({
       query,
       sessionId: input.session.id,
       minConfidence: settings.minConfidence,
@@ -563,26 +569,30 @@ export class CompanionMemoryService {
     return [...results.values()]
   }
 
-  private searchVectorForRetrieval(filters: {
+  private async searchVectorForRetrieval(filters: {
     query: string
     sessionId: string
     minConfidence: number
     limit: number
     kinds?: CompanionMemoryKind[]
     scopes?: CompanionMemoryScope[]
-  }): CompanionMemorySearchResult[] {
-    const queryVector = localTextEmbedding(filters.query)
-    const embeddings = this.options.repo.listEmbeddings({
-      sessionId: filters.sessionId,
-      minConfidence: filters.minConfidence,
-      limit: 1000,
-      kinds: filters.kinds,
-      scopes: filters.scopes,
-    })
+  }): Promise<CompanionMemorySearchResult[]> {
+    const queryEmbedding = await this.embeddingProvider.embedText(filters.query)
+    await this.ensureEmbeddings(filters, filters.query, queryEmbedding)
+    const embeddings = this.options.repo.listEmbeddings(
+      {
+        sessionId: filters.sessionId,
+        minConfidence: filters.minConfidence,
+        limit: 1000,
+        kinds: filters.kinds,
+        scopes: filters.scopes,
+      },
+      queryEmbedding
+    )
     const scored = embeddings
       .map((embedding) => ({
         embedding,
-        vectorScore: embeddingCosine(queryVector, embedding.vector),
+        vectorScore: embeddingCosine(queryEmbedding.vector, embedding.vector),
       }))
       .filter((item) => item.vectorScore > 0.03)
       .sort(
@@ -606,6 +616,31 @@ export class CompanionMemoryService {
       })
     }
     return results
+  }
+
+  private async ensureEmbeddings(
+    filters: CompanionMemoryFilters,
+    query: string,
+    queryEmbedding?: MemoryEmbeddingResult
+  ): Promise<number> {
+    const embedding = queryEmbedding ?? (await this.embeddingProvider.embedText(query))
+    const missing = this.options.repo.listMissingEmbeddings(filters, embedding)
+    if (!missing.length) {
+      return 0
+    }
+
+    const texts = missing.map((memory) => memoryEmbeddingText(memory))
+    const embeddings = await this.embeddingProvider.embedTexts(texts)
+    let written = 0
+    for (const [index, memory] of missing.entries()) {
+      const result = embeddings[index]
+      if (!result) {
+        continue
+      }
+      this.options.repo.replaceEmbedding(memory, result)
+      written += 1
+    }
+    return written
   }
 
   private async trySemanticExtraction(input: {

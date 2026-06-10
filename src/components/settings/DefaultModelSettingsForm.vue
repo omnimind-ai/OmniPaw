@@ -36,6 +36,7 @@ const props = defineProps<{
 const providerStore = useProviderStore()
 const {
   defaultModelKey,
+  embeddingModelKey,
   fallbackModelKeys,
   modelOptions,
   observationReactionModelKey,
@@ -89,6 +90,11 @@ function updateFallback(modelKey: string, checked: boolean | 'indeterminate') {
 function updateTitleModel(value: AcceptableValue) {
   const normalizedValue = typeof value === 'string' ? value : ''
   void providerStore.setTitleModelKey(normalizedValue === NONE_VALUE ? '' : normalizedValue)
+}
+
+function updateEmbeddingModel(value: AcceptableValue) {
+  const normalizedValue = typeof value === 'string' ? value : ''
+  void providerStore.setEmbeddingModelKey(normalizedValue === NONE_VALUE ? '' : normalizedValue)
 }
 
 function updateObservationVisionModel(value: AcceptableValue) {
@@ -207,6 +213,37 @@ function modelLabel(option: ProviderModelOption) {
             <SelectContent>
               <SelectGroup>
                 <SelectItem :value="NONE_VALUE">使用当前会话模型</SelectItem>
+                <SelectItem
+                  v-for="option in enabledTextOptions"
+                  :key="option.key"
+                  :value="option.key"
+                >
+                  {{ modelLabel(option) }}
+                </SelectItem>
+              </SelectGroup>
+            </SelectContent>
+          </Select>
+        </SettingEntry>
+
+        <SettingEntry
+          control-id="settings-memory-embedding-model"
+          title="记忆 Embedding 模型"
+          description="用于长期记忆的语义检索；留空时使用本地 hashing embedding。"
+        >
+          <Select
+            :model-value="embeddingModelKey || NONE_VALUE"
+            :disabled="saving || !enabledTextOptions.length || !persistenceAvailable"
+            @update:model-value="updateEmbeddingModel"
+          >
+            <SelectTrigger
+              id="settings-memory-embedding-model"
+              class="w-full md:w-72"
+            >
+              <SelectValue placeholder="使用本地 embedding" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectGroup>
+                <SelectItem :value="NONE_VALUE">使用本地 embedding</SelectItem>
                 <SelectItem
                   v-for="option in enabledTextOptions"
                   :key="option.key"

@@ -321,7 +321,7 @@ function createMemorySearchExecutor(options: BuiltinToolOptions): AgentTool['exe
     }
     const searchArgs = asMemorySearchArgs(args)
     const query = searchArgs.query?.trim()
-    const response = options.memoryService.searchForTool({
+    const response = await options.memoryService.searchForTool({
       sessionId: options.sessionId,
       mode: searchArgs.mode,
       query,

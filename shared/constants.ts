@@ -120,6 +120,7 @@ export const IPC_CHANNELS = {
     setDefaultModel: 'provider:set-default-model',
     setFallbackModels: 'provider:set-fallback-models',
     setTitleModel: 'provider:set-title-model',
+    setEmbeddingModel: 'provider:set-embedding-model',
     setObservationModels: 'provider:set-observation-models',
     test: 'provider:test',
     listModels: 'provider:list-models',

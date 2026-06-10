@@ -1,19 +1,18 @@
+import {
+  hashEmbeddingText,
+  hashEmbeddingToken,
+  type MemoryEmbeddingProvider,
+  type MemoryEmbeddingResult,
+} from './types'
+
 export const localMemoryEmbeddingProvider = 'local'
 export const localMemoryEmbeddingModel = 'hashing-char-gram-v1'
 export const localMemoryEmbeddingDimension = 256
 
-export function memoryEmbeddingText(input: {
-  kind?: string
-  subject?: string
-  content?: string
-}): string {
-  return [input.kind, input.subject, input.content].filter(Boolean).join('\n')
-}
-
 export function localTextEmbedding(text: string): number[] {
   const vector = new Array<number>(localMemoryEmbeddingDimension).fill(0)
   for (const token of embeddingTokens(text)) {
-    const hash = hashToken(token)
+    const hash = hashEmbeddingToken(token)
     const index = hash % localMemoryEmbeddingDimension
     vector[index] += hash & 1 ? 1 : -1
   }
@@ -24,29 +23,31 @@ export function localTextEmbedding(text: string): number[] {
   return vector.map((value) => Number((value / norm).toFixed(6)))
 }
 
-export function embeddingCosine(left: number[], right: number[]): number {
-  const length = Math.min(left.length, right.length)
-  if (!length) {
-    return 0
+export function localMemoryEmbedding(text: string): MemoryEmbeddingResult {
+  const vector = localTextEmbedding(text)
+  return {
+    provider: localMemoryEmbeddingProvider,
+    model: localMemoryEmbeddingModel,
+    dimension: localMemoryEmbeddingDimension,
+    contentHash: hashEmbeddingText(text),
+    vector,
   }
-  let dot = 0
-  let leftNorm = 0
-  let rightNorm = 0
-  for (let index = 0; index < length; index += 1) {
-    const leftValue = left[index] ?? 0
-    const rightValue = right[index] ?? 0
-    dot += leftValue * rightValue
-    leftNorm += leftValue * leftValue
-    rightNorm += rightValue * rightValue
-  }
-  if (!leftNorm || !rightNorm) {
-    return 0
-  }
-  return dot / Math.sqrt(leftNorm * rightNorm)
 }
 
-export function hashEmbeddingText(text: string): string {
-  return String(hashToken(text)).padStart(10, '0')
+export class LocalHashingMemoryEmbeddingProvider implements MemoryEmbeddingProvider {
+  readonly id = localMemoryEmbeddingProvider
+
+  async isAvailable(): Promise<boolean> {
+    return true
+  }
+
+  async embedText(text: string): Promise<MemoryEmbeddingResult> {
+    return localMemoryEmbedding(text)
+  }
+
+  async embedTexts(texts: string[]): Promise<MemoryEmbeddingResult[]> {
+    return texts.map((text) => localMemoryEmbedding(text ?? ''))
+  }
 }
 
 function embeddingTokens(text: string): string[] {
@@ -84,13 +85,4 @@ function isAsciiWord(value: string): boolean {
     }
   }
   return true
-}
-
-function hashToken(token: string): number {
-  let hash = 2166136261
-  for (let index = 0; index < token.length; index += 1) {
-    hash ^= token.charCodeAt(index)
-    hash = Math.imul(hash, 16777619)
-  }
-  return hash >>> 0
 }

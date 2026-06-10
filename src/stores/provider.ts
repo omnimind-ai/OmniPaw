@@ -35,6 +35,7 @@ export interface ProviderRegistrySettings {
   defaultModelRef?: ProviderModelRef
   fallbackModelRefs: ProviderModelRef[]
   titleModelRef?: ProviderModelRef
+  embeddingModelRef?: ProviderModelRef
   observationVisionModelRef?: ProviderModelRef
   observationReactionModelRef?: ProviderModelRef
   streaming: boolean
@@ -100,6 +101,7 @@ const emptyRegistrySettings = (): ProviderRegistrySettings => ({
   defaultModelRef: undefined,
   fallbackModelRefs: [],
   titleModelRef: undefined,
+  embeddingModelRef: undefined,
   observationVisionModelRef: undefined,
   observationReactionModelRef: undefined,
   streaming: true,
@@ -126,6 +128,7 @@ export const useProviderStore = defineStore('provider', () => {
     registrySettings.value.fallbackModelRefs.map(modelRefToKey).filter(Boolean)
   )
   const titleModelKey = computed(() => modelRefToKey(registrySettings.value.titleModelRef))
+  const embeddingModelKey = computed(() => modelRefToKey(registrySettings.value.embeddingModelRef))
   const observationVisionModelKey = computed(() =>
     modelRefToKey(registrySettings.value.observationVisionModelRef)
   )
@@ -327,6 +330,18 @@ export const useProviderStore = defineStore('provider', () => {
     )
   }
 
+  async function setEmbeddingModelKey(key: string): Promise<void> {
+    const nextEmbeddingModel = parseModelKey(key)
+    const nextSettings: ProviderRegistrySettings = {
+      ...registrySettings.value,
+      embeddingModelRef: nextEmbeddingModel,
+    }
+
+    await saveRegistrySettings(nextSettings, async () =>
+      providerBridge().setEmbeddingModel?.(nextEmbeddingModel ?? {})
+    )
+  }
+
   async function setObservationModelKeys(visionKey: string, reactionKey: string): Promise<void> {
     const observationVisionModelRef = parseModelKey(visionKey)
     const observationReactionModelRef = parseModelKey(reactionKey)
@@ -408,6 +423,7 @@ export const useProviderStore = defineStore('provider', () => {
     defaultModelKey,
     fallbackModelKeys,
     titleModelKey,
+    embeddingModelKey,
     observationVisionModelKey,
     observationReactionModelKey,
     loading,
@@ -425,6 +441,7 @@ export const useProviderStore = defineStore('provider', () => {
     setDefaultModelKey,
     setFallbackModelKeys,
     setTitleModelKey,
+    setEmbeddingModelKey,
     setObservationModelKeys,
     setStreaming,
     listModels,
@@ -623,6 +640,7 @@ function normalizeRegistrySettings(
     defaultModelRef,
     fallbackModelRefs: dedupeModelRefs(fallbackModelRefs),
     titleModelRef: normalizeSelection(value.titleModelRef),
+    embeddingModelRef: normalizeSelection(value.embeddingModelRef),
     observationVisionModelRef: normalizeSelection(value.observationVisionModelRef),
     observationReactionModelRef: normalizeSelection(value.observationReactionModelRef),
     streaming: value.streaming !== false,

@@ -6,6 +6,8 @@ import type {
   ProviderMessage,
   ProviderModelCandidate,
   ProviderToolCall,
+  TextEmbeddingRequest,
+  TextEmbeddingResponse,
   TokenUsage,
 } from '../base-provider'
 import { errorFromResponse, normalizeProviderError, throwProviderError } from '../errors'
@@ -206,6 +208,46 @@ export class OpenAICompatibleProvider implements BaseProvider {
 
     if (!response.ok) {
       throwProviderError(await errorFromResponse(response))
+    }
+  }
+
+  async embedTexts(request: TextEmbeddingRequest): Promise<TextEmbeddingResponse> {
+    try {
+      const response = await this.fetchImpl(this.url('/embeddings'), {
+        method: 'POST',
+        headers: this.buildHeaders(true, 'application/json'),
+        body: JSON.stringify({
+          model: request.modelId,
+          input: request.input,
+        }),
+        signal: request.abortSignal,
+      })
+
+      if (!response.ok) {
+        throwProviderError(await errorFromResponse(response))
+      }
+
+      const payload = await response.json().catch((error: unknown) => {
+        throwProviderError(normalizeProviderError(error), error)
+      })
+      const embeddings = parseEmbeddingPayload(payload, request.input.length)
+      if (!embeddings.length) {
+        throwProviderError({
+          code: 'provider_bad_request',
+          message: 'Provider returned an empty embedding response.',
+          retryable: false,
+          providerStatus: response.status,
+        })
+      }
+
+      return {
+        embeddings,
+        modelId: isRecord(payload)
+          ? stringValue(payload.model) || request.modelId
+          : request.modelId,
+      }
+    } catch (error) {
+      throwProviderError(normalizeProviderError(error), error)
     }
   }
 
@@ -471,6 +513,44 @@ function throwMalformedModelListPayload(error: unknown, body: string): never {
     },
     error
   )
+}
+
+function parseEmbeddingPayload(payload: unknown, expectedCount: number): number[][] {
+  if (!isRecord(payload) || !Array.isArray(payload.data)) {
+    throwProviderError({
+      code: 'provider_bad_request',
+      message: 'Provider returned malformed embedding JSON.',
+      retryable: false,
+    })
+  }
+
+  const rows = payload.data
+    .filter(isRecord)
+    .map((item) => ({
+      index: typeof item.index === 'number' ? item.index : undefined,
+      embedding: parseEmbeddingVector(item.embedding),
+    }))
+    .filter((item) => item.embedding.length)
+
+  if (!rows.length) {
+    return []
+  }
+
+  const sorted = rows.every((item) => item.index !== undefined)
+    ? rows.sort((left, right) => (left.index ?? 0) - (right.index ?? 0))
+    : rows
+  const embeddings = sorted.map((item) => item.embedding)
+  return expectedCount > 0 ? embeddings.slice(0, expectedCount) : embeddings
+}
+
+function parseEmbeddingVector(value: unknown): number[] {
+  if (!Array.isArray(value)) {
+    return []
+  }
+
+  return value
+    .map((item) => (typeof item === 'number' && Number.isFinite(item) ? item : undefined))
+    .filter((item): item is number => item !== undefined)
 }
 
 function parseChunk(event: string): OpenAIStreamChunk {

@@ -64,7 +64,7 @@ export async function prepareAgentRun(
       messages: sourceMessages,
       currentUserMessageId: input.run.userMessageId,
     })
-  const memoryContext = options.memoryService?.retrieveForRun({
+  const memoryContext = await options.memoryService?.retrieveForRun({
     session: input.session,
     messages: sourceMessages,
     currentUserMessageId: input.run.userMessageId,
