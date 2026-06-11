@@ -91,7 +91,15 @@ export class AttachmentService {
       updatedAt: now,
     }
 
-    this.repo.save(attachment)
+    const saved = this.repo.save(attachment)
+    if (!saved) {
+      const existingAfterConflict = this.repo.getBySha256(sha256)
+      if (existingAfterConflict) {
+        return { attachment: sanitizeAttachment(existingAfterConflict) }
+      }
+      throw new Error('Attachment upload failed after content hash conflict.')
+    }
+
     return { attachment: sanitizeAttachment(attachment) }
   }
 

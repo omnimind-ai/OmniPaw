@@ -35,8 +35,8 @@ export class AttachmentRepo {
     return row ? mapAttachment(row) : undefined
   }
 
-  save(attachment: InternalAttachmentRecord): void {
-    this.db
+  save(attachment: InternalAttachmentRecord): boolean {
+    const result = this.db
       .prepare(
         `
           INSERT INTO attachments (
@@ -61,6 +61,7 @@ export class AttachmentRepo {
             extracted_text_status = excluded.extracted_text_status,
             extracted_text_error = excluded.extracted_text_error,
             updated_at = excluded.updated_at
+          ON CONFLICT(sha256) DO NOTHING
         `
       )
       .run({
@@ -79,6 +80,7 @@ export class AttachmentRepo {
         createdAt: attachment.createdAt,
         updatedAt: attachment.updatedAt,
       })
+    return result.changes > 0
   }
 
   updateExtraction(

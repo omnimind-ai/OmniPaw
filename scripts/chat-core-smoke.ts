@@ -63,6 +63,21 @@ try {
   })
   assert.equal(textUpload.attachment.extractedTextStatus, 'complete')
 
+  const duplicateBytes = new TextEncoder().encode('same content').buffer
+  const [duplicateTextUploadA, duplicateTextUploadB] = await Promise.all([
+    attachments.upload({
+      name: 'duplicate-a.txt',
+      mimeType: 'text/plain',
+      bytes: duplicateBytes,
+    }),
+    attachments.upload({
+      name: 'duplicate-b.txt',
+      mimeType: 'text/plain',
+      bytes: duplicateBytes.slice(0),
+    }),
+  ])
+  assert.equal(duplicateTextUploadA.attachment.id, duplicateTextUploadB.attachment.id)
+
   const imageUpload = await attachments.upload({
     name: 'pixel.png',
     mimeType: 'image/png',
