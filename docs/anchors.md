@@ -106,12 +106,12 @@
 | npm 脚本 | `package.json` |
 | Electron native rebuild | `scripts/rebuild-electron-native.mjs` |
 | Electron Node 脚本运行器 | `scripts/run-electron-node.mjs` |
-| 配置 smoke | `scripts/settings-config-smoke.ts` |
-| Provider registry smoke | `scripts/provider-registry-smoke.ts` |
-| Persona registry smoke | `scripts/persona-registry-smoke.ts` |
-| 数据库 smoke | `scripts/db-smoke.ts` |
-| 聊天 core smoke | `scripts/chat-core-smoke.ts` |
-| Agent runtime smoke | `scripts/agent-runtime-smoke.ts` |
-| Tool management smoke | `scripts/tool-management-smoke.ts` |
-| Local agent smoke | `scripts/local-agent-smoke.ts` |
+| 配置 smoke | `tests/smoke/settings-config-smoke.ts` |
+| Provider registry smoke | `tests/smoke/provider-registry-smoke.ts` |
+| Persona registry smoke | `tests/smoke/persona-registry-smoke.ts` |
+| 数据库 smoke | `tests/smoke/db-smoke.ts` |
+| 聊天 core smoke | `tests/smoke/chat-core-smoke.ts` |
+| Agent runtime smoke | `tests/smoke/agent-runtime-smoke.ts` |
+| Tool management smoke | `tests/smoke/tool-management-smoke.ts` |
+| Local agent smoke | `tests/smoke/local-agent-smoke.ts` |
 | Playwright 配置 | `playwright.config.js` |

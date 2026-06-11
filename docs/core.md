@@ -123,7 +123,7 @@
 2. migration id 单调递增，不复用旧 id。
 3. migration SQL 必须幂等，空库和已有库都能跑通。
 4. 新表、新列、新索引同步 repo 映射和 shared 类型。
-5. 运行 `pnpm db:smoke` 和 typecheck。
+5. 运行 `node scripts/run-electron-node.mjs tests/smoke/db-smoke.ts` 和 typecheck。
 
 约束：
 
