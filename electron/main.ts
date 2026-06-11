@@ -2,7 +2,7 @@ import { join } from 'node:path'
 import type { ChatRunEventTarget } from '@core/chat/run-manager'
 import { createElectronLogSink, createProjectLogger } from '@core/logging'
 import { resolveOpenOmniClawDataPaths } from '@core/utils/data-paths'
-import { APP_NAME, IPC_CHANNELS } from '@shared/constants'
+import { APP_ID, APP_NAME, IPC_CHANNELS } from '@shared/constants'
 import type { OpenChatSessionRequest } from '@shared/types/app'
 import type { ChatSessionChangedEvent } from '@shared/types/chat'
 import type { CronTaskChangedEvent } from '@shared/types/cron'
@@ -14,6 +14,7 @@ import type {
 } from '@shared/types/settings'
 import type { ShortcutAction, ShortcutStatusChangedEvent } from '@shared/types/shortcuts'
 import { app, BrowserWindow, Menu, type MenuItemConstructorOptions } from 'electron'
+import { createAppIconImage, resolveAppIconPath } from './app-icon'
 import {
   type CatNotificationController,
   createCatNotificationController,
@@ -74,9 +75,29 @@ enablePlatformFeatures()
 registerProcessDiagnostics()
 
 function enablePlatformFeatures(): void {
+  if (process.platform === 'win32') {
+    app.setAppUserModelId(APP_ID)
+  }
+
   if (process.platform === 'linux') {
     app.commandLine.appendSwitch('enable-features', 'GlobalShortcutsPortal')
   }
+}
+
+function applyApplicationIcon(): void {
+  if (process.platform !== 'darwin') {
+    return
+  }
+
+  const icon = createAppIconImage(app)
+  if (icon.isEmpty()) {
+    lifecycleLogger.warn('Unable to load application icon.', {
+      iconPath: resolveAppIconPath(app),
+    })
+    return
+  }
+
+  app.dock?.setIcon(icon)
 }
 
 function resolveAppLogsPath(): string {
@@ -494,6 +515,7 @@ app
       version: app.getVersion(),
       logDir: logSink.status().logDir,
     })
+    applyApplicationIcon()
 
     runtime = createCoreRuntime({
       app,

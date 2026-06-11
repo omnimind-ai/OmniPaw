@@ -1,6 +1,5 @@
-import { join } from 'node:path'
-
-import { type app, Menu, nativeImage, Tray } from 'electron'
+import { type app, Menu, Tray } from 'electron'
+import { createTrayIconImage } from './app-icon'
 
 interface TrayControllerOptions {
   app: typeof app
@@ -78,8 +77,7 @@ export function createTrayController(options: TrayControllerOptions): TrayContro
 }
 
 function createTrayIcon(electronApp: typeof app) {
-  const trayIconPath = join(electronApp.getAppPath(), 'resources/tray.png')
-  const icon = nativeImage.createFromPath(trayIconPath)
+  const icon = createTrayIconImage(electronApp)
   const size = process.platform === 'darwin' ? 18 : 16
   const resized = icon.resize({ width: size, height: size })
 

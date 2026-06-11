@@ -4,6 +4,7 @@ import type { Logger } from '@core/logging'
 import { IPC_CHANNELS } from '@shared/constants'
 import type { DesktopWindowState } from '@shared/types/window'
 import { type app, BrowserWindow, shell } from 'electron'
+import { createAppIconImage } from './app-icon'
 
 interface MainWindowControllerOptions {
   app: typeof app
@@ -40,6 +41,7 @@ export function createMainWindowController(
       minHeight: 640,
       title: options.appName,
       backgroundColor: '#f7f4ed',
+      icon: createAppIconImage(options.app),
       ...(isMac
         ? {
             titleBarStyle: 'hiddenInset',
