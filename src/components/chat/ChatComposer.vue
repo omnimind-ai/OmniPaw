@@ -27,6 +27,7 @@ import {
   InputGroupButton,
   InputGroupTextarea,
 } from '@/components/ui/input-group'
+import { Kbd, KbdGroup } from '@/components/ui/kbd'
 import {
   ATTACHMENT_LIMITS,
   formatBytes,
@@ -61,6 +62,7 @@ const props = defineProps<{
   uploadPending?: boolean
   attachmentWarning?: string
   compactAttachments?: boolean
+  showAttachmentPresets?: boolean
   autoFocus?: boolean
   disabled?: boolean
   canSend?: boolean
@@ -108,6 +110,7 @@ const primaryActionLabel = computed(() => (props.running ? '停止生成' : '发
 const canUsePrimaryAction = computed(() =>
   props.running ? props.canStop !== false : props.canSend
 )
+const modifierKeyLabel = getPrimaryModifierLabel()
 const inputGroupClass = computed(() =>
   cn(
     props.compactAttachments ? 'min-h-28' : 'min-h-36',
@@ -116,6 +119,11 @@ const inputGroupClass = computed(() =>
   )
 )
 const textareaClass = computed(() => (props.compactAttachments ? 'min-h-16' : 'min-h-24'))
+const composerPlaceholder = computed(() => {
+  if (dragging.value) return '松开以上传附件'
+  if (showAttachmentPresetPanel.value) return ''
+  return 'Ask OmniClaw...'
+})
 const selectedToolProfile = computed(
   () =>
     props.toolProfileOptions.find((option) => option.value === props.toolProfile) ??
@@ -136,6 +144,28 @@ const selectedToolProfileDescription = computed(
   () => selectedToolProfile.value?.description ?? '选择 Agent 工具权限'
 )
 const showToolProfileControl = computed(() => props.showToolProfile !== false)
+const firstAttachmentForPresets = computed(() => props.stagedFiles[0] ?? null)
+const attachmentPresets = computed(() => {
+  const attachment = firstAttachmentForPresets.value
+  if (!attachment) return []
+  return presetsForAttachment(attachment).slice(0, 2)
+})
+const showAttachmentPresetPanel = computed(
+  () =>
+    props.showAttachmentPresets === true &&
+    !dragging.value &&
+    !props.running &&
+    !props.attachmentWarning &&
+    !textareaValue.value.trim() &&
+    attachmentPresets.value.length > 0
+)
+const canUseAttachmentPreset = computed(
+  () =>
+    showAttachmentPresetPanel.value &&
+    props.canSend === true &&
+    !props.uploadPending &&
+    !(props.disabled && !props.running)
+)
 
 function focus(options: FocusOptions = { preventScroll: true }) {
   const textarea = formRef.value?.querySelector<HTMLTextAreaElement>('textarea')
@@ -182,6 +212,7 @@ function handleCompositionEnd(event: CompositionEvent) {
 }
 
 function handleKeydown(event: KeyboardEvent) {
+  if (handleAttachmentPresetShortcut(event)) return
   if (event.key !== 'Enter' || event.shiftKey) return
 
   const recentCompositionEnd =
@@ -199,6 +230,40 @@ function handleKeydown(event: KeyboardEvent) {
   }
 
   event.preventDefault()
+  emit('submit')
+}
+
+function handleAttachmentPresetShortcut(event: KeyboardEvent) {
+  if (
+    compositionActive.value ||
+    event.isComposing ||
+    event.keyCode === 229 ||
+    !isPrimaryModifierPressed(event) ||
+    event.shiftKey ||
+    event.altKey
+  ) {
+    return false
+  }
+
+  const shortcutIndex = Number(event.key) - 1
+  if (!Number.isInteger(shortcutIndex) || shortcutIndex < 0 || shortcutIndex > 1) {
+    return false
+  }
+  if (!attachmentPresets.value[shortcutIndex] || !canUseAttachmentPreset.value) {
+    return false
+  }
+
+  event.preventDefault()
+  void submitAttachmentPreset(shortcutIndex)
+  return true
+}
+
+async function submitAttachmentPreset(index: number) {
+  const preset = attachmentPresets.value[index]
+  if (!preset || !canUseAttachmentPreset.value) return
+
+  textareaValue.value = preset.prompt
+  await nextTick()
   emit('submit')
 }
 
@@ -233,6 +298,116 @@ function compactModelLabel(label: string, providerName?: string): string {
 
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+}
+
+function presetsForAttachment(file: StagedFileInfo) {
+  const extension = fileExtension(file.filename || file.original_name)
+  const mimeType = file.mimeType || ''
+
+  if (file.type === 'image' || mimeType.startsWith('image/')) {
+    return [
+      { label: '描述图片', prompt: '帮我描述这张图片，指出关键信息' },
+      { label: '提取文字', prompt: '帮我提取这张图片里的文字' },
+    ]
+  }
+
+  if (isCodeExtension(extension)) {
+    return [
+      { label: '解释代码', prompt: '帮我解释这个代码文件的' },
+      { label: '补全文件', prompt: '帮我补全这个代码文件' },
+    ]
+  }
+
+  if (isDataExtension(extension) || isDataMimeType(mimeType)) {
+    return [
+      { label: '分析数据', prompt: '帮我分析这个数据文件，概括结构和关键字段。' },
+      { label: '提取要点', prompt: '帮我提取这个数据文件里的关键信息和异常点。' },
+    ]
+  }
+
+  if (isDocumentExtension(extension) || mimeType.startsWith('text/')) {
+    return [
+      { label: '总结文件', prompt: '帮我总结这个文件，列出核心内容。' },
+      { label: '补全文件', prompt: '帮我补全这个文件，保持原有语气和结构。' },
+    ]
+  }
+
+  return [
+    { label: '总结文件', prompt: '帮我总结这个文件，列出核心内容。' },
+    { label: '提取信息', prompt: '帮我提取这个文件里的关键信息，并整理成清单。' },
+  ]
+}
+
+function fileExtension(filename?: string) {
+  const name = filename?.trim() || ''
+  const lastDot = name.lastIndexOf('.')
+  if (lastDot <= 0 || lastDot === name.length - 1) return ''
+  return name.slice(lastDot + 1).toLowerCase()
+}
+
+function isCodeExtension(extension: string) {
+  return [
+    'c',
+    'cc',
+    'cpp',
+    'cs',
+    'css',
+    'go',
+    'h',
+    'hpp',
+    'html',
+    'java',
+    'js',
+    'jsx',
+    'kt',
+    'lua',
+    'mjs',
+    'php',
+    'py',
+    'rb',
+    'rs',
+    'scss',
+    'sh',
+    'svelte',
+    'swift',
+    'ts',
+    'tsx',
+    'vue',
+  ].includes(extension)
+}
+
+function isDataExtension(extension: string) {
+  return ['csv', 'json', 'jsonl', 'ndjson', 'toml', 'tsv', 'xml', 'yaml', 'yml'].includes(extension)
+}
+
+function isDataMimeType(mimeType: string) {
+  return [
+    'application/json',
+    'application/jsonl',
+    'application/x-ndjson',
+    'application/xml',
+    'text/csv',
+    'text/tab-separated-values',
+    'text/xml',
+    'text/yaml',
+  ].includes(mimeType)
+}
+
+function isDocumentExtension(extension: string) {
+  return ['conf', 'ini', 'log', 'md', 'mdx', 'rst', 'text', 'txt'].includes(extension)
+}
+
+function getPrimaryModifierLabel() {
+  return isMacLikePlatform() ? '⌘' : 'Ctrl'
+}
+
+function isPrimaryModifierPressed(event: KeyboardEvent) {
+  return isMacLikePlatform() ? event.metaKey && !event.ctrlKey : event.ctrlKey && !event.metaKey
+}
+
+function isMacLikePlatform() {
+  if (typeof navigator === 'undefined') return false
+  return /Mac|iPhone|iPad|iPod/i.test(navigator.platform)
 }
 
 function handleToolProfileSelect(value: unknown) {
@@ -311,18 +486,42 @@ function handleDrop(event: DragEvent) {
             </div>
           </InputGroupAddon>
 
-          <InputGroupTextarea
-            id="chat-composer"
-            v-model="textareaValue"
-            rows="3"
-            :placeholder="dragging ? '松开以上传附件' : 'Ask OmniClaw...'"
-            :class="textareaClass"
-            :disabled="disabled && !running"
-            @keydown="handleKeydown"
-            @paste="emit('paste', $event)"
-            @compositionstart="handleCompositionStart"
-            @compositionend="handleCompositionEnd"
-          />
+          <div class="relative w-full min-w-0">
+            <InputGroupTextarea
+              id="chat-composer"
+              v-model="textareaValue"
+              rows="3"
+              :placeholder="composerPlaceholder"
+              :class="textareaClass"
+              :disabled="disabled && !running"
+              @keydown="handleKeydown"
+              @paste="emit('paste', $event)"
+              @compositionstart="handleCompositionStart"
+              @compositionend="handleCompositionEnd"
+            />
+
+            <div
+              v-if="showAttachmentPresetPanel"
+              class="pointer-events-none absolute inset-x-2 top-2 flex max-h-[calc(100%-0.75rem)] flex-col gap-1 overflow-hidden"
+              aria-label="附件快捷预设"
+            >
+              <div
+                v-for="(preset, presetIndex) in attachmentPresets"
+                :key="preset.prompt"
+                class="flex min-h-6 w-full items-center justify-between gap-1.5 rounded-md border border-dashed border-border/35 bg-background/35 px-2 py-0.5 text-left text-[11px] text-muted-foreground/55 shadow-sm @min-[28rem]/chat-composer:min-h-7 @min-[28rem]/chat-composer:gap-2 @min-[28rem]/chat-composer:px-2.5 @min-[28rem]/chat-composer:text-xs"
+              >
+                <span class="min-w-0 truncate">{{ preset.prompt }}</span>
+                <KbdGroup class="shrink-0 opacity-60">
+                  <Kbd class="h-4 min-w-4 bg-muted/50 px-1 text-[10px] text-muted-foreground/70 @min-[28rem]/chat-composer:h-5 @min-[28rem]/chat-composer:min-w-5 @min-[28rem]/chat-composer:text-xs">
+                    {{ modifierKeyLabel }}
+                  </Kbd>
+                  <Kbd class="h-4 min-w-4 bg-muted/50 px-1 text-[10px] text-muted-foreground/70 @min-[28rem]/chat-composer:h-5 @min-[28rem]/chat-composer:min-w-5 @min-[28rem]/chat-composer:text-xs">
+                    {{ presetIndex + 1 }}
+                  </Kbd>
+                </KbdGroup>
+              </div>
+            </div>
+          </div>
 
           <InputGroupAddon
             align="block-end"

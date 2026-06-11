@@ -303,6 +303,7 @@ const timeGreeting = computed(() => {
         :upload-pending="uploadPending"
         :attachment-warning="attachmentWarning"
         compact-attachments
+        show-attachment-presets
         auto-focus
         :disabled="sending || currentSessionRunning || uploadPending || initializing"
         :can-send="canSend"

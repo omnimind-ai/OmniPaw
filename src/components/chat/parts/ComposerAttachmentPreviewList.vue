@@ -10,7 +10,6 @@ import {
 } from 'lucide-vue-next'
 import { computed, reactive, watch } from 'vue'
 import { appBridge } from '@/bridge/app'
-import { InputGroupButton } from '@/components/ui/input-group'
 import {
   formatBytes,
   type StagedFileInfo,
@@ -128,7 +127,10 @@ function handleImageError(file: AttachmentPreviewItem, index: number, scope: Ite
 function itemClass(file: AttachmentPreviewItem) {
   return cn(
     props.compact
-      ? 'relative flex h-16 w-28 shrink-0 overflow-hidden rounded-lg border bg-background text-xs shadow-sm'
+      ? [
+          'relative flex h-16 shrink-0 overflow-hidden rounded-lg border bg-background text-xs shadow-sm',
+          file.type === 'image' ? 'w-28' : 'w-40 items-center gap-2 px-3 pr-9',
+        ]
       : 'relative flex size-24 shrink-0 flex-col items-center justify-center gap-1 overflow-hidden rounded-lg border bg-background p-2 text-center text-xs shadow-sm',
     'status' in file && file.status === 'failed' && 'border-destructive/50'
   )
@@ -138,7 +140,7 @@ function mediaShellClass(file: AttachmentPreviewItem) {
   return cn(
     'flex min-h-0 w-full flex-1 items-center justify-center overflow-hidden bg-muted',
     props.compact ? 'rounded-lg' : 'rounded-md',
-    props.compact && file.type !== 'image' && 'max-w-full'
+    props.compact && file.type !== 'image' && 'size-9 flex-none rounded-md'
   )
 }
 
@@ -148,7 +150,7 @@ function imageClass() {
 
 function removeButtonClass() {
   return props.compact
-    ? 'absolute top-1.5 right-1.5 bg-background/90'
+    ? 'absolute top-1.5 right-1.5 grid size-7 place-items-center rounded-md bg-background/90 text-muted-foreground shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none'
     : 'absolute top-1 right-1 bg-background/90'
 }
 </script>
@@ -197,6 +199,13 @@ function removeButtonClass() {
         </p>
       </template>
 
+      <span
+        v-else-if="file.type !== 'image'"
+        class="min-w-0 flex-1 truncate pr-1 text-left font-medium"
+      >
+        {{ attachmentLabel(file) }}
+      </span>
+
       <div
         v-else-if="file.status === 'pending' || file.status === 'failed'"
         class="absolute bottom-1.5 left-1.5 rounded-md bg-background/90 p-1 shadow-sm"
@@ -213,14 +222,17 @@ function removeButtonClass() {
         />
       </div>
 
-      <InputGroupButton
-        size="icon-xs"
+      <button
+        type="button"
         :class="removeButtonClass()"
         :aria-label="`移除附件：${attachmentLabel(file)}`"
         @click="emit('removeUploadItem', fileIndex)"
       >
-        <XIcon data-icon="inline-start" />
-      </InputGroupButton>
+        <XIcon
+          class="size-4"
+          aria-hidden="true"
+        />
+      </button>
     </div>
   </div>
 
@@ -258,14 +270,24 @@ function removeButtonClass() {
         </span>
       </template>
 
-      <InputGroupButton
-        size="icon-xs"
+      <span
+        v-else-if="file.type !== 'image'"
+        class="min-w-0 flex-1 truncate pr-1 text-left font-medium"
+      >
+        {{ attachmentLabel(file) }}
+      </span>
+
+      <button
+        type="button"
         :class="removeButtonClass()"
         :aria-label="`移除附件：${attachmentLabel(file)}`"
         @click="emit('removeAttachment', fileIndex)"
       >
-        <XIcon data-icon="inline-start" />
-      </InputGroupButton>
+        <XIcon
+          class="size-4"
+          aria-hidden="true"
+        />
+      </button>
     </div>
   </div>
 </template>
