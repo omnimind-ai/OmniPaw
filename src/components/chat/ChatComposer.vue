@@ -508,7 +508,7 @@ function handleDrop(event: DragEvent) {
               <div
                 v-for="(preset, presetIndex) in attachmentPresets"
                 :key="preset.prompt"
-                class="flex min-h-6 w-full items-center justify-between gap-1.5 rounded-md border border-dashed border-border/35 bg-background/35 px-2 py-0.5 text-left text-[11px] text-muted-foreground/55 shadow-sm @min-[28rem]/chat-composer:min-h-7 @min-[28rem]/chat-composer:gap-2 @min-[28rem]/chat-composer:px-2.5 @min-[28rem]/chat-composer:text-xs"
+                class="flex min-h-6 w-full items-center justify-between gap-1.5 rounded-md bg-transparent px-2 py-0.5 text-left text-[11px] text-muted-foreground/50 @min-[28rem]/chat-composer:min-h-7 @min-[28rem]/chat-composer:gap-2 @min-[28rem]/chat-composer:px-2.5 @min-[28rem]/chat-composer:text-xs"
               >
                 <span class="min-w-0 truncate">{{ preset.prompt }}</span>
                 <KbdGroup class="shrink-0 opacity-60">
