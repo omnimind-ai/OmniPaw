@@ -1,11 +1,15 @@
 import assert from 'node:assert/strict'
 
-import { createBuiltinTools } from '../core/agent/tools/builtin-tools'
-import type { AttachmentService } from '../core/chat/attachment-service'
-import { ContextBuilder } from '../core/chat/context-manager'
-import type { ChatMessageRepo } from '../core/db/repos'
-import type { ChatMessage, InternalAttachmentRecord, MessageAttachment } from '../shared/types/chat'
-import type { ProviderConfig, ProviderModel } from '../shared/types/provider'
+import { createBuiltinTools } from '../../core/agent/tools/builtin-tools'
+import type { AttachmentService } from '../../core/chat/attachment-service'
+import { ContextBuilder } from '../../core/chat/context-manager'
+import type { ChatMessageRepo } from '../../core/db/repos'
+import type {
+  ChatMessage,
+  InternalAttachmentRecord,
+  MessageAttachment,
+} from '../../shared/types/chat'
+import type { ProviderConfig, ProviderModel } from '../../shared/types/provider'
 
 const attachment: InternalAttachmentRecord = {
   id: 'att-1',

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 
-import { IPC_CHANNELS } from '../shared/constants'
+import { IPC_CHANNELS } from '../../shared/constants'
 
 const preload = readFileSync('electron/preload.ts', 'utf8')
 const bridgeTypes = readFileSync('shared/types/bridge.ts', 'utf8')

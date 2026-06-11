@@ -4,17 +4,17 @@ import { createServer, type IncomingMessage, type ServerResponse } from 'node:ht
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-import type { AgentToolResult } from '../core/agent/tools/types'
-import { JsonRpcMcpClient, type McpClient, type McpClientTool } from '../core/mcp/client'
-import { McpServerManager } from '../core/mcp/manager'
+import type { AgentToolResult } from '../../core/agent/tools/types'
+import { JsonRpcMcpClient, type McpClient, type McpClientTool } from '../../core/mcp/client'
+import { McpServerManager } from '../../core/mcp/manager'
 import {
   McpValidationError,
   maskMcpTransport,
   normalizeMcpRegistry,
   serializeMcpRegistry,
-} from '../core/mcp/schema'
-import { McpRegistryStore } from '../core/mcp/store'
-import type { McpServerRecord } from '../shared/types/mcp'
+} from '../../core/mcp/schema'
+import { McpRegistryStore } from '../../core/mcp/store'
+import type { McpServerRecord } from '../../shared/types/mcp'
 
 const STDIO_MCP_SERVER_SOURCE = `
 let buffer = Buffer.alloc(0)

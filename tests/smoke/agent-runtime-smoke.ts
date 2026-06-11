@@ -1,18 +1,18 @@
 import assert from 'node:assert/strict'
 
-import { AgentRunner } from '../core/agent/agent-runner'
-import { ToolExecutor } from '../core/agent/tools/executor'
-import { defaultToolPolicy } from '../core/agent/tools/policy'
-import { ToolRegistry } from '../core/agent/tools/registry'
-import type { AgentTool } from '../core/agent/tools/types'
+import { AgentRunner } from '../../core/agent/agent-runner'
+import { ToolExecutor } from '../../core/agent/tools/executor'
+import { defaultToolPolicy } from '../../core/agent/tools/policy'
+import { ToolRegistry } from '../../core/agent/tools/registry'
+import type { AgentTool } from '../../core/agent/tools/types'
 import {
   type ChatCompletionChunk,
   type ChatCompletionRequest,
   ProviderError,
   type ProviderToolCall,
-} from '../core/provider/base-provider'
-import type { ChatMessage, ChatMessagePart, ChatRun, ChatSession } from '../shared/types/chat'
-import type { ProviderConfig, ProviderModel } from '../shared/types/provider'
+} from '../../core/provider/base-provider'
+import type { ChatMessage, ChatMessagePart, ChatRun, ChatSession } from '../../shared/types/chat'
+import type { ProviderConfig, ProviderModel } from '../../shared/types/provider'
 
 type ScriptedProviderResponse =
   | ChatCompletionChunk[]

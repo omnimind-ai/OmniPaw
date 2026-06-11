@@ -3,7 +3,7 @@ import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSy
 import { tmpdir } from 'node:os'
 import { join, relative } from 'node:path'
 
-import { createElectronLogSink, createProjectLogger } from '../core/logging'
+import { createElectronLogSink, createProjectLogger } from '../../core/logging'
 
 const tempDir = mkdtempSync(join(tmpdir(), 'openomniclaw-logging-smoke-'))
 

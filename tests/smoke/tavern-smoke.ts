@@ -3,28 +3,28 @@ import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'no
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-import { AttachmentService } from '../core/chat/attachment-service'
-import { ChatService } from '../core/chat/chat-service'
-import { ContextBuilder } from '../core/chat/context-manager'
-import { RunManager } from '../core/chat/run-manager'
-import { DatabaseClient, type DatabaseConnection } from '../core/db/client'
+import { AttachmentService } from '../../core/chat/attachment-service'
+import { ChatService } from '../../core/chat/chat-service'
+import { ContextBuilder } from '../../core/chat/context-manager'
+import { RunManager } from '../../core/chat/run-manager'
+import { DatabaseClient, type DatabaseConnection } from '../../core/db/client'
 import {
   AttachmentRepo,
   ChatContextSummaryRepo,
   ChatMessageRepo,
   ChatRunRepo,
   ChatSessionRepo,
-} from '../core/db/repos'
-import { seedDefaultChatData } from '../core/db/seed'
-import { PersonaManager } from '../core/persona/manager'
-import { PersonaRegistryStore } from '../core/persona/registry-store'
-import { TavernContextService } from '../core/tavern/context-service'
-import { TavernManager } from '../core/tavern/manager'
-import { TavernRegistryValidationError } from '../core/tavern/registry-schema'
-import { TavernRegistryStore } from '../core/tavern/registry-store'
-import { IPC_CHANNELS } from '../shared/constants'
-import type { ChatMessage, ChatSession } from '../shared/types/chat'
-import type { ProviderConfig, ProviderModel } from '../shared/types/provider'
+} from '../../core/db/repos'
+import { seedDefaultChatData } from '../../core/db/seed'
+import { PersonaManager } from '../../core/persona/manager'
+import { PersonaRegistryStore } from '../../core/persona/registry-store'
+import { TavernContextService } from '../../core/tavern/context-service'
+import { TavernManager } from '../../core/tavern/manager'
+import { TavernRegistryValidationError } from '../../core/tavern/registry-schema'
+import { TavernRegistryStore } from '../../core/tavern/registry-store'
+import { IPC_CHANNELS } from '../../shared/constants'
+import type { ChatMessage, ChatSession } from '../../shared/types/chat'
+import type { ProviderConfig, ProviderModel } from '../../shared/types/provider'
 
 const tempDir = mkdtempSync(join(tmpdir(), 'openomniclaw-tavern-smoke-'))
 const client = new DatabaseClient({ path: join(tempDir, 'smoke.sqlite3') })

@@ -3,14 +3,14 @@ import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-import { ConfigStore } from '../core/config/store'
-import { ProviderManager } from '../core/provider/manager'
+import { ConfigStore } from '../../core/config/store'
+import { ProviderManager } from '../../core/provider/manager'
 import {
   MODELS_DEV_METADATA_URL,
   OPENAI_COMPATIBLE_FALLBACK_CONTEXT_WINDOW,
-} from '../core/provider/models-dev-metadata'
-import { OpenAICompatibleProvider } from '../core/provider/providers/openai'
-import { ProviderRegistryStore } from '../core/provider/registry-store'
+} from '../../core/provider/models-dev-metadata'
+import { OpenAICompatibleProvider } from '../../core/provider/providers/openai'
+import { ProviderRegistryStore } from '../../core/provider/registry-store'
 
 function jsonResponse(body: unknown, init: ResponseInit = {}): Response {
   return new Response(JSON.stringify(body), {

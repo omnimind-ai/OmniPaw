@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict'
-import type { ChatCompletionChunk, ChatCompletionRequest } from '../core/provider/base-provider'
-import { ProviderError } from '../core/provider/base-provider'
-import { OPENAI_COMPATIBLE_FALLBACK_CONTEXT_WINDOW } from '../core/provider/models-dev-metadata'
-import { OpenAICompatibleProvider } from '../core/provider/providers/openai'
+import type { ChatCompletionChunk, ChatCompletionRequest } from '../../core/provider/base-provider'
+import { ProviderError } from '../../core/provider/base-provider'
+import { OPENAI_COMPATIBLE_FALLBACK_CONTEXT_WINDOW } from '../../core/provider/models-dev-metadata'
+import { OpenAICompatibleProvider } from '../../core/provider/providers/openai'
 
 await testToolCallAggregation()
 await testTextDeltaAndUsageFinal()

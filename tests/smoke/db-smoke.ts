@@ -3,9 +3,9 @@ import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-import { CronManager } from '../core/cron/cron-manager'
-import { nextRunAt, validateCronExpression } from '../core/cron/schedule'
-import { DatabaseClient } from '../core/db/client'
+import { CronManager } from '../../core/cron/cron-manager'
+import { nextRunAt, validateCronExpression } from '../../core/cron/schedule'
+import { DatabaseClient } from '../../core/db/client'
 import {
   AttachmentRepo,
   ChatContextSummaryRepo,
@@ -15,10 +15,15 @@ import {
   CompanionMemoryRepo,
   CronRunRepo,
   CronTaskRepo,
-} from '../core/db/repos'
-import { seedDefaultChatData } from '../core/db/seed'
-import type { ChatMessage, ChatRun, ChatSession, InternalAttachmentRecord } from '../core/db/types'
-import { SYSTEM_SESSION_IDS } from '../shared/constants'
+} from '../../core/db/repos'
+import { seedDefaultChatData } from '../../core/db/seed'
+import type {
+  ChatMessage,
+  ChatRun,
+  ChatSession,
+  InternalAttachmentRecord,
+} from '../../core/db/types'
+import { SYSTEM_SESSION_IDS } from '../../shared/constants'
 
 const tempDir = mkdtempSync(join(tmpdir(), 'openomniclaw-db-smoke-'))
 const client = new DatabaseClient({ path: join(tempDir, 'smoke.sqlite3') })

@@ -3,9 +3,9 @@ import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'no
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-import { PersonaManager } from '../core/persona/manager'
-import { PersonaRegistryValidationError } from '../core/persona/registry-schema'
-import { PersonaRegistryStore } from '../core/persona/registry-store'
+import { PersonaManager } from '../../core/persona/manager'
+import { PersonaRegistryValidationError } from '../../core/persona/registry-schema'
+import { PersonaRegistryStore } from '../../core/persona/registry-store'
 
 const tempDir = mkdtempSync(join(tmpdir(), 'openomniclaw-persona-registry-smoke-'))
 

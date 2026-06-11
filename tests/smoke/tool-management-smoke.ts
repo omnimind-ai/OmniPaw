@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 
-import { ToolManagementService } from '../core/agent/tools/management-service'
-import { providerToolsFromAgentTools, ToolRegistry } from '../core/agent/tools/registry'
+import { ToolManagementService } from '../../core/agent/tools/management-service'
+import { providerToolsFromAgentTools, ToolRegistry } from '../../core/agent/tools/registry'
 
 class MemorySettingsRepo {
   private readonly values = new Map<string, unknown>()

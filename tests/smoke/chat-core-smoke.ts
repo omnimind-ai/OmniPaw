@@ -3,24 +3,24 @@ import { mkdtempSync, rmSync } from 'node:fs'
 import { readFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { evaluateComplexDocumentAttachmentAdmission } from '../core/agent/run/document-attachments'
-import { toolFallbackReasonForProviderError } from '../core/agent/run/helpers'
-import { ToolRegistry } from '../core/agent/tools/registry'
-import type { AgentTool } from '../core/agent/tools/types'
-import { AgentWorkspaceService } from '../core/agent/workspace'
-import { AttachmentService } from '../core/chat/attachment-service'
-import { ChatService, ChatSessionKindMismatchError } from '../core/chat/chat-service'
-import { ContextCompactionService } from '../core/chat/context-compaction'
-import { ContextBuilder } from '../core/chat/context-manager'
-import { RunManager } from '../core/chat/run-manager'
-import { CAT_SESSION_TITLE } from '../core/chat/session-defaults'
+import { evaluateComplexDocumentAttachmentAdmission } from '../../core/agent/run/document-attachments'
+import { toolFallbackReasonForProviderError } from '../../core/agent/run/helpers'
+import { ToolRegistry } from '../../core/agent/tools/registry'
+import type { AgentTool } from '../../core/agent/tools/types'
+import { AgentWorkspaceService } from '../../core/agent/workspace'
+import { AttachmentService } from '../../core/chat/attachment-service'
+import { ChatService, ChatSessionKindMismatchError } from '../../core/chat/chat-service'
+import { ContextCompactionService } from '../../core/chat/context-compaction'
+import { ContextBuilder } from '../../core/chat/context-manager'
+import { RunManager } from '../../core/chat/run-manager'
+import { CAT_SESSION_TITLE } from '../../core/chat/session-defaults'
 import {
   stageWorkspaceDocumentAttachments,
   withWorkspaceDocumentAttachmentsMetadata,
-} from '../core/chat/workspace-document-attachments'
-import { cloneDefaultConfig } from '../core/config/schema'
-import { ScheduledTaskAgentExecutor } from '../core/cron/scheduled-task-executor'
-import { DatabaseClient } from '../core/db/client'
+} from '../../core/chat/workspace-document-attachments'
+import { cloneDefaultConfig } from '../../core/config/schema'
+import { ScheduledTaskAgentExecutor } from '../../core/cron/scheduled-task-executor'
+import { DatabaseClient } from '../../core/db/client'
 import {
   AttachmentRepo,
   ChatContextSummaryRepo,
@@ -28,18 +28,18 @@ import {
   ChatRunRepo,
   ChatSessionRepo,
   CompanionMemoryRepo,
-} from '../core/db/repos'
-import { seedDefaultChatData } from '../core/db/seed'
+} from '../../core/db/repos'
+import { seedDefaultChatData } from '../../core/db/seed'
 import {
   CompanionMemoryPolicyService,
   CompanionMemoryService,
   cleanMemoryContent,
   validateSemanticCandidates,
-} from '../core/memory'
-import { errorFromResponse, normalizeProviderError } from '../core/provider/errors'
-import { parseSseStream } from '../core/provider/providers/openai'
-import type { ChatMessage } from '../shared/types/chat'
-import type { ProviderConfig, ProviderModel } from '../shared/types/provider'
+} from '../../core/memory'
+import { errorFromResponse, normalizeProviderError } from '../../core/provider/errors'
+import { parseSseStream } from '../../core/provider/providers/openai'
+import type { ChatMessage } from '../../shared/types/chat'
+import type { ProviderConfig, ProviderModel } from '../../shared/types/provider'
 
 const tempDir = mkdtempSync(join(tmpdir(), 'openomniclaw-chat-core-smoke-'))
 const client = new DatabaseClient({ path: join(tempDir, 'smoke.sqlite3') })

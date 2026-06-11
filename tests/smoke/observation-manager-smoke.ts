@@ -4,27 +4,27 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { setTimeout as delay } from 'node:timers/promises'
 
-import { ChatSessionKindMismatchError } from '../core/chat/chat-service'
-import type { ChatRunEventTarget } from '../core/chat/run-manager'
+import { ChatSessionKindMismatchError } from '../../core/chat/chat-service'
+import type { ChatRunEventTarget } from '../../core/chat/run-manager'
 import {
   createDefaultSessionRecord,
   createVisionSessionRecord,
-} from '../core/chat/session-defaults'
+} from '../../core/chat/session-defaults'
 import {
   type DesktopCaptureAdapter,
   ObservationManager,
   ObservationRuntimeError,
-} from '../core/observation'
-import { OBSERVATION_PROMPTS } from '../core/prompts'
-import { cloneDefaultProviderRegistry } from '../core/provider/registry-schema'
-import type { ChatMessage, ChatMessagePart, ChatSession } from '../shared/types/chat'
+} from '../../core/observation'
+import { OBSERVATION_PROMPTS } from '../../core/prompts'
+import { cloneDefaultProviderRegistry } from '../../core/provider/registry-schema'
+import type { ChatMessage, ChatMessagePart, ChatSession } from '../../shared/types/chat'
 import type {
   ObservationCapturedFrame,
   ObservationPermissionStatus,
   ObservationReactionEvent,
-} from '../shared/types/observation'
-import type { ProviderConfig, ProviderRegistry } from '../shared/types/provider'
-import type { DesktopObservationSettings } from '../shared/types/settings'
+} from '../../shared/types/observation'
+import type { ProviderConfig, ProviderRegistry } from '../../shared/types/provider'
+import type { DesktopObservationSettings } from '../../shared/types/settings'
 
 const tempDir = mkdtempSync(join(tmpdir(), 'openomniclaw-observation-smoke-'))
 
