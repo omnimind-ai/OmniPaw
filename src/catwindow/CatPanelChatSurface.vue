@@ -4,11 +4,11 @@ import {
   CheckIcon,
   ChevronDownIcon,
   Loader2Icon,
-  MessageCircleIcon,
   MessageSquareIcon,
   PlusIcon,
   SettingsIcon,
 } from 'lucide-vue-next'
+import { computed } from 'vue'
 
 import ChatComposer from '@/components/chat/ChatComposer.vue'
 import ChatMessageList from '@/components/chat/ChatMessageList.vue'
@@ -95,6 +95,13 @@ const {
   sessionTitle,
   sessionUpdatedLabel,
 } = useCatPanelChatController()
+
+const timeGreeting = computed(() => {
+  const h = new Date().getHours()
+  if (h >= 6 && h < 12) return '早上'
+  if (h >= 12 && h < 18) return '下午'
+  return '晚上'
+})
 </script>
 
 <template>
@@ -258,15 +265,10 @@ const {
 
         <div
           v-else
-          class="flex h-full min-h-48 flex-col items-center justify-center gap-2 px-8 text-center"
+          class="flex h-full min-h-48 flex-col items-start justify-center gap-1 px-6"
         >
-          <MessageCircleIcon
-            class="text-muted-foreground"
-            aria-hidden="true"
-          />
-          <p class="text-xs leading-5 text-muted-foreground">
-            {{ selectedModel ? '等待消息' : '需要可用模型' }}
-          </p>
+          <p class="text-3xl font-bold">{{ timeGreeting }}好👋</p>
+          <p class="text-2xl font-bold">小万能帮你做什么</p>
         </div>
       </ScrollArea>
 
