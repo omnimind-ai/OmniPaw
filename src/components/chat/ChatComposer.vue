@@ -9,7 +9,7 @@ import {
   SquareIcon,
   XIcon,
 } from 'lucide-vue-next'
-import { computed, ref } from 'vue'
+import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import ChatContextUsageIndicator from '@/components/chat/ChatContextUsageIndicator.vue'
 import {
   DropdownMenu,
@@ -61,6 +61,7 @@ const props = defineProps<{
   uploadPending?: boolean
   attachmentWarning?: string
   compactAttachments?: boolean
+  autoFocus?: boolean
   disabled?: boolean
   canSend?: boolean
   canStop?: boolean
@@ -83,6 +84,7 @@ const emit = defineEmits<{
 const compositionActive = ref(false)
 const lastCompositionEndAt = ref<number | null>(null)
 const dragging = ref(false)
+const formRef = ref<HTMLFormElement | null>(null)
 const textareaValue = computed({
   get: () => props.modelValue,
   set: (value) => emit('update:modelValue', String(value)),
@@ -134,6 +136,41 @@ const selectedToolProfileDescription = computed(
   () => selectedToolProfile.value?.description ?? '选择 Agent 工具权限'
 )
 const showToolProfileControl = computed(() => props.showToolProfile !== false)
+
+function focus(options: FocusOptions = { preventScroll: true }) {
+  const textarea = formRef.value?.querySelector<HTMLTextAreaElement>('textarea')
+  if (!textarea || textarea.disabled) {
+    return
+  }
+
+  textarea.focus(options)
+  textarea.setSelectionRange(textarea.value.length, textarea.value.length)
+}
+
+function scheduleFocus() {
+  if (!props.autoFocus) {
+    return
+  }
+
+  void nextTick(() => {
+    window.requestAnimationFrame(() => focus())
+  })
+}
+
+onMounted(scheduleFocus)
+
+watch(
+  () => props.disabled,
+  (disabled) => {
+    if (!disabled) {
+      scheduleFocus()
+    }
+  }
+)
+
+defineExpose({
+  focus,
+})
 
 function handleCompositionStart() {
   compositionActive.value = true
@@ -233,6 +270,7 @@ function handleDrop(event: DragEvent) {
 
 <template>
   <form
+    ref="formRef"
     :class="cn('@container/chat-composer w-full rounded-xl transition-colors', dragging && 'bg-accent/40')"
     @submit.prevent="emit('submit')"
     @dragover.prevent="handleDragOver"

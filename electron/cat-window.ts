@@ -1170,6 +1170,8 @@ function openCatPanelWindow(options: OpenCatPanelOptions = {}): CatPanelToggleRe
 
   if (options.activate) {
     panelWindow.show()
+    panelWindow.focus()
+    panelWindow.webContents.focus()
   } else {
     panelWindow.showInactive()
   }
