@@ -334,10 +334,11 @@ try {
   const firstPreset = await providers.createFromPreset('omniinfer-local')
   const secondPreset = await providers.createFromPreset('omniinfer-local')
   assert.equal(firstPreset.id, 'omniinfer-local')
+  assert.equal(firstPreset.baseUrl, 'http://127.0.0.1:9000/v1')
+  assert.equal(firstPreset.models.length, 0)
   assert.equal(secondPreset.id, 'omniinfer-local_1')
   assert.equal(secondPreset.name, 'OmniInfer Local_1')
-  assert.equal(secondPreset.models[0]?.providerId, 'omniinfer-local_1')
-  assert.equal(secondPreset.models[0]?.id, 'omniinfer-local_1:local-small-model')
+  assert.equal(secondPreset.models.length, 0)
   const savedProvider = await providers.upsert({
     provider: {
       id: 'custom-openai',

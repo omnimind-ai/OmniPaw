@@ -119,9 +119,35 @@ try {
   const firstLocalPreset = await providers.createFromPreset('omniinfer-local')
   const secondLocalPreset = await providers.createFromPreset('omniinfer-local')
   assert.equal(firstLocalPreset.id, 'omniinfer-local')
-  assert.equal(firstLocalPreset.models[0]?.id, 'local-small-model')
+  assert.equal(firstLocalPreset.baseUrl, 'http://127.0.0.1:9000/v1')
+  assert.equal(firstLocalPreset.models.length, 0)
   assert.equal(secondLocalPreset.id, 'omniinfer-local_1')
-  assert.equal(secondLocalPreset.models[0]?.id, 'local-small-model')
+  assert.equal(secondLocalPreset.models.length, 0)
+
+  await providers.upsertModel({
+    providerId: 'omniinfer-local',
+    model: {
+      id: 'local-small-model',
+      name: 'Local Small Model',
+      remoteId: '/tmp/local-small-model.gguf',
+      enabled: true,
+      input: ['text'],
+      supportsStreaming: true,
+      supportsTools: false,
+    },
+  })
+  await providers.upsertModel({
+    providerId: 'omniinfer-local_1',
+    model: {
+      id: 'local-small-model',
+      name: 'Local Small Model',
+      remoteId: '/tmp/local-small-model.gguf',
+      enabled: true,
+      input: ['text'],
+      supportsStreaming: true,
+      supportsTools: false,
+    },
+  })
 
   const saved = await providers.upsert({
     provider: {
@@ -250,9 +276,26 @@ try {
     observationReactionModelRef: { providerId: 'omniinfer-local', modelId: 'local-small-model' },
   })
 
-  const refreshed = await providers.refreshModels('omniinfer-local')
-  assert.equal(refreshed.length, 1)
-  assert.equal(refreshed[0]?.id, 'local-small-model')
+  const fakeOmniInferFetch: typeof fetch = async (input) => {
+    const url = requestUrl(input)
+    if (url === 'http://127.0.0.1:9000/v1/models') {
+      return jsonResponse({
+        data: [{ id: 'local-small-model', name: 'Local Small Model' }],
+      })
+    }
+    if (url === MODELS_DEV_METADATA_URL) {
+      return jsonResponse({ openai: { models: {} } })
+    }
+    throw new Error(`Unexpected fetch URL: ${url}`)
+  }
+  globalThis.fetch = fakeOmniInferFetch
+  try {
+    const refreshed = await providers.refreshModels('omniinfer-local')
+    assert.equal(refreshed.length, 1)
+    assert.equal(refreshed[0]?.id, 'local-small-model')
+  } finally {
+    globalThis.fetch = originalFetch
+  }
   assert.equal(registryStore.get().settings.defaultProviderId, 'custom-openai')
 
   const resolvedBeforeDelete = await providers.resolveDefaultProvider()
