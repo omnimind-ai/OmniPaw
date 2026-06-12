@@ -292,9 +292,20 @@ export function createCoreRuntime(options: CoreRuntimeOptions): CoreRuntime {
     },
   })
   loadStartupProviderRegistry(providerManager, options.lifecycleLogger)
-  migrateOmniInferProvider(providerManager, omniInferLogger).catch((error: unknown) => {
-    omniInferLogger.warn('OmniInfer provider migration failed.', { error })
-  })
+  migrateOmniInferProvider(providerManager, omniInferLogger)
+    .then(async () => {
+      if (!omniInferRuntimeService) return
+      const providers = await providerManager.list()
+      const omniInferProvider = providers.find(
+        (item) => item.api === 'omniinfer' || item.type === 'omniinfer'
+      )
+      if (omniInferProvider?.baseUrl) {
+        omniInferRuntimeService.setBaseUrl(omniInferProvider.baseUrl)
+      }
+    })
+    .catch((error: unknown) => {
+      omniInferLogger.warn('OmniInfer provider migration failed.', { error })
+    })
   // Initial sync; main.ts will trigger another after the gateway is ready.
   void syncOmniInferProviderModels({
     providers: providerManager,
@@ -453,12 +464,10 @@ async function migrateOmniInferProvider(
   providerManager: ProviderManager,
   logger: Logger
 ): Promise<void> {
-  const KNOWN_LEGACY_URLS = new Set([
-    'http://localhost:11434/v1',
-    'http://127.0.0.1:11434/v1',
-    'http://localhost:9000/v1',
-    'http://127.0.0.1:9000/v1',
-  ])
+  // Only migrate URLs that were *never* a valid OmniInfer gateway. Port 9000 is a legitimate
+  // user choice (OmniInfer's own config port), so leave it alone — otherwise the migration
+  // overwrites the user's deliberate choice on every restart.
+  const KNOWN_LEGACY_URLS = new Set(['http://localhost:11434/v1', 'http://127.0.0.1:11434/v1'])
   const TARGET_URL = 'http://127.0.0.1:19157/v1'
   const providers = await providerManager.list()
   for (const provider of providers) {

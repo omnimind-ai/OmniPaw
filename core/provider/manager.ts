@@ -343,6 +343,7 @@ export class ProviderManager {
         enabled: provider.enabled,
         modelCount: provider.models?.length ?? 0,
       })
+      this.syncOmniInferGatewayUrl(provider)
       return
     }
 
@@ -354,6 +355,14 @@ export class ProviderManager {
       enabled: provider.enabled,
       modelCount: provider.models?.length ?? 0,
     })
+    this.syncOmniInferGatewayUrl(provider)
+  }
+
+  private syncOmniInferGatewayUrl(provider: ProviderRecord): void {
+    if (!this.omniInferRuntimeService) return
+    if (provider.api !== 'omniinfer' && provider.type !== 'omniinfer') return
+    if (!provider.baseUrl) return
+    this.omniInferRuntimeService.setBaseUrl(provider.baseUrl)
   }
 
   async listModels(providerId: string): Promise<ProviderModelRecord[]> {
@@ -944,6 +953,7 @@ export class ProviderManager {
         type: provider.type,
         kind: 'omniinfer',
       })
+      this.omniInferRuntimeService.setBaseUrl(provider.baseUrl)
       return new OmniInferProvider({
         id: provider.id,
         baseUrl: provider.baseUrl,

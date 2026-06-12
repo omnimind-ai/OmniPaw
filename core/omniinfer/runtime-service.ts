@@ -131,6 +131,31 @@ export class OmniInferRuntimeService {
     }
   }
 
+  /**
+   * Point the runtime control plane at a new gateway URL and immediately re-probe.
+   *
+   * Accepts either a gateway base URL (`http://host:port`) or the provider's OpenAI-compatible
+   * URL with a `/v1` suffix; the client strips it. No-op when the URL is unchanged.
+   */
+  setBaseUrl(url: string): void {
+    const previous = this.client.getBaseUrl()
+    this.client.setBaseUrl(url)
+    const next = this.client.getBaseUrl()
+    if (previous === next) return
+    this.logger?.info('OmniInfer gateway base URL updated.', { from: previous, to: next })
+    this.server = {
+      ...this.server,
+      online: false,
+      baseUrl: next,
+      host: parseHost(next),
+      port: parsePort(next),
+      lastCheckedAt: this.now(),
+    }
+    this.loadedModel = null
+    this.switchToSteadyPolling()
+    this.emit()
+  }
+
   async start(): Promise<OmniInferRuntimeSnapshot> {
     if (this.processState.state === 'not_bundled') {
       this.logger?.info('OmniInfer binary not bundled; skipping start.')
