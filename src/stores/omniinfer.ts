@@ -24,6 +24,7 @@ const EMPTY_SNAPSHOT: OmniInferRuntimeSnapshot = {
   loadedModel: null,
   thinking: false,
   backends: [],
+  externallyManaged: false,
 }
 
 export const useOmniInferStore = defineStore('omniinfer', () => {

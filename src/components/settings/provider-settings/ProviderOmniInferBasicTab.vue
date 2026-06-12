@@ -49,14 +49,30 @@ const stateClass: Record<OmniInferProcessState, string> = {
 }
 
 const loadedModelDetails = computed(() => snapshot.value.loadedModel)
+const isExternallyManaged = computed(() => snapshot.value.externallyManaged)
 const canStart = computed(
   () =>
-    snapshot.value.process.state === 'stopped' ||
-    snapshot.value.process.state === 'crashed' ||
-    snapshot.value.process.state === 'unhealthy'
+    !isExternallyManaged.value &&
+    (snapshot.value.process.state === 'stopped' ||
+      snapshot.value.process.state === 'crashed' ||
+      snapshot.value.process.state === 'unhealthy')
 )
-const canStop = computed(() => snapshot.value.process.state === 'running')
+const canStop = computed(
+  () => !isExternallyManaged.value && snapshot.value.process.state === 'running'
+)
 const isAvailable = computed(() => store.available)
+
+const effectiveStateLabel = computed(() =>
+  isExternallyManaged.value ? '外部运行中' : stateLabel[snapshot.value.process.state]
+)
+const effectiveStateClass = computed(() =>
+  isExternallyManaged.value
+    ? 'bg-sky-200 text-sky-900 dark:bg-sky-700 dark:text-sky-50'
+    : stateClass[snapshot.value.process.state]
+)
+const showNotBundledHint = computed(
+  () => snapshot.value.process.state === 'not_bundled' && !isExternallyManaged.value
+)
 
 async function handleStart(): Promise<void> {
   try {
@@ -167,8 +183,8 @@ onBeforeUnmount(() => {
       <div class="flex flex-col gap-3 rounded-lg border bg-card p-4">
         <div class="flex flex-wrap items-center justify-between gap-3">
           <div class="flex flex-wrap items-center gap-3">
-            <Badge :class="stateClass[snapshot.process.state]">
-              {{ stateLabel[snapshot.process.state] }}
+            <Badge :class="effectiveStateClass">
+              {{ effectiveStateLabel }}
             </Badge>
             <span class="text-sm text-muted-foreground">
               {{ snapshot.server.baseUrl }}
@@ -197,7 +213,7 @@ onBeforeUnmount(() => {
             <Button
               size="sm"
               variant="outline"
-              :disabled="snapshot.process.state === 'not_bundled'"
+              :disabled="showNotBundledHint"
               @click="handlePickGguf"
             >
               选择本地 .gguf
@@ -213,12 +229,23 @@ onBeforeUnmount(() => {
         </div>
 
         <div
-          v-if="snapshot.process.state === 'not_bundled'"
+          v-if="isExternallyManaged"
+          class="rounded border border-dashed border-sky-300 bg-sky-50/60 p-3 text-sm text-sky-900 dark:border-sky-700/60 dark:bg-sky-950/40 dark:text-sky-100"
+        >
+          已连接到由外部进程托管的 OmniInfer 网关 (<code class="font-mono">{{ snapshot.server.baseUrl }}</code>)。
+          启动/停止控制不可用；如需由 OmniClaw 管理生命周期，请将 OmniInfer
+          二进制放置到 <code class="font-mono">resources/omniinfer/</code> 或设置环境变量
+          <code class="font-mono">OMNICLAW_OMNIINFER_PATH</code> 后重启应用。
+        </div>
+
+        <div
+          v-else-if="showNotBundledHint"
           class="rounded border border-dashed bg-muted/30 p-3 text-sm text-muted-foreground"
         >
           当前安装包未内置 OmniInfer。可将 OmniInfer 二进制放置到
           <code class="font-mono">resources/omniinfer/</code> 或设置环境变量
           <code class="font-mono">OMNICLAW_OMNIINFER_PATH</code> 指向可执行文件，重启应用后即可启用。
+          也可先在本机手动启动 OmniInfer (默认 <code class="font-mono">http://127.0.0.1:19157</code>)，OmniClaw 会自动检测并连接。
         </div>
 
         <div

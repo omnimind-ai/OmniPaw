@@ -43,6 +43,11 @@ export interface OmniInferRuntimeSnapshot {
   loadedModel: OmniInferLoadedModel | null
   thinking: boolean
   backends: OmniInferBackendDescriptor[]
+  /**
+   * True when the gateway at `server.baseUrl` is reachable but the local process controller did
+   * not spawn it (no `binaryPath`, no managed `pid`). Indicates a user-supplied OmniInfer instance.
+   */
+  externallyManaged: boolean
 }
 
 export interface OmniInferBackendDescriptor {

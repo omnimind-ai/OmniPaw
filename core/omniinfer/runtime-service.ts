@@ -79,17 +79,17 @@ export class OmniInferRuntimeService {
       if (snapshot.state === 'running') {
         this.beginStartupPolling()
       } else if (snapshot.state === 'crashed' || snapshot.state === 'stopped') {
-        this.stopPolling()
         this.loadedModel = null
         this.server = { ...this.server, online: false, lastCheckedAt: this.now() }
+        this.switchToSteadyPolling()
       }
       this.emit()
     })
     this.offExit = this.process.onExit((snapshot) => {
       this.processState = snapshot
-      this.stopPolling()
       this.loadedModel = null
       this.server = { ...this.server, online: false, lastCheckedAt: this.now() }
+      this.switchToSteadyPolling()
       this.emit()
     })
     this.installedModels.onChanged(() => {
@@ -103,6 +103,10 @@ export class OmniInferRuntimeService {
         }
       }
     })
+
+    // Always probe the gateway at steady cadence so externally-managed instances are detected
+    // even when this controller has no binary to spawn.
+    this.switchToSteadyPolling()
   }
 
   getSnapshot(): OmniInferRuntimeSnapshot {
@@ -112,6 +116,11 @@ export class OmniInferRuntimeService {
       loadedModel: this.loadedModel ? { ...this.loadedModel } : null,
       thinking: this.thinking,
       backends: this.backends.map((item) => ({ ...item })),
+      externallyManaged:
+        this.server.online &&
+        this.processState.state !== 'running' &&
+        this.processState.state !== 'starting' &&
+        this.processState.state !== 'unhealthy',
     }
   }
 
@@ -141,7 +150,6 @@ export class OmniInferRuntimeService {
   }
 
   async stop(): Promise<OmniInferRuntimeSnapshot> {
-    this.stopPolling()
     try {
       this.processState = await this.process.stop({ shutdownTimeoutMs: 3_000 })
     } catch (error) {
@@ -149,6 +157,7 @@ export class OmniInferRuntimeService {
     }
     this.loadedModel = null
     this.server = { ...this.server, online: false, lastCheckedAt: this.now() }
+    this.switchToSteadyPolling()
     this.emit()
     return this.getSnapshot()
   }
@@ -270,6 +279,13 @@ export class OmniInferRuntimeService {
     this.scheduleNextPoll()
   }
 
+  private switchToSteadyPolling(): void {
+    this.stopPolling()
+    this.consecutiveFailures = 0
+    this.currentInterval = STEADY_POLL_INTERVAL_MS
+    this.scheduleNextPoll()
+  }
+
   private scheduleNextPoll(): void {
     this.pollGeneration += 1
     const generation = this.pollGeneration
@@ -288,9 +304,10 @@ export class OmniInferRuntimeService {
 
   private async pollHealth(generation: number): Promise<void> {
     if (generation !== this.pollGeneration) return
+    const wasOnline = this.server.online
     await this.refreshHealthOnce()
     if (this.server.online) {
-      if (this.currentInterval === STARTUP_POLL_INTERVAL_MS) {
+      if (!wasOnline) {
         await this.syncControlPlane()
       }
       this.currentInterval = STEADY_POLL_INTERVAL_MS
