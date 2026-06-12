@@ -7,6 +7,7 @@ import type {
   InstalledModelRecord,
   OmniInferRuntimeSnapshot,
   PickLocalGgufResponse,
+  PickModelsDirResponse,
   RescanInstalledModelsResponse,
   SelectModelRequest,
   SetThinkingRequest,
@@ -93,6 +94,29 @@ export function registerOmniInferIpcHandlers(options: IpcHandlerOptions): void {
         installedModels,
         logger,
       })
+      return { path: picked }
+    }
+  )
+
+  registerLoggedIpcHandler(
+    options,
+    IPC_CHANNELS.omniinfer.pickModelsDir,
+    async (event): Promise<PickModelsDirResponse> => {
+      const senderWindow = BrowserWindow.fromWebContents(event.sender) ?? undefined
+      const dialogOptions: Electron.OpenDialogOptions = {
+        title: '选择 OmniInfer 模型目录',
+        properties: ['openDirectory'],
+      }
+      const result = senderWindow
+        ? await dialog.showOpenDialog(senderWindow, dialogOptions)
+        : await dialog.showOpenDialog(dialogOptions)
+      if (result.canceled || result.filePaths.length === 0) {
+        return { path: null }
+      }
+      const picked = result.filePaths[0]
+      if (!isAbsolute(picked) || !existsSync(picked)) {
+        return { path: null }
+      }
       return { path: picked }
     }
   )

@@ -96,6 +96,7 @@ import type {
   OmniInferLogEntry,
   OmniInferRuntimeSnapshot,
   PickLocalGgufResponse,
+  PickModelsDirResponse,
   RescanInstalledModelsResponse,
   SelectModelRequest,
   SetThinkingRequest,
@@ -1129,6 +1130,7 @@ export interface RendererOpenOmniClawBridge {
     setThinking: (request: SetThinkingRequest) => Promise<OmniInferRuntimeSnapshot>
     getLogsPath: () => Promise<GetOmniInferLogsPathResponse>
     pickLocalGguf: () => Promise<PickLocalGgufResponse>
+    pickModelsDir: () => Promise<PickModelsDirResponse>
     rescanModels: () => Promise<RescanInstalledModelsResponse>
     listInstalledModels: () => Promise<InstalledModelRecord[]>
     onStatusChanged: (callback: (event: OmniInferRuntimeSnapshot) => void) => BridgeUnsubscribe

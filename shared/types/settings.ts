@@ -74,6 +74,7 @@ export interface DesktopProviderSource {
   compat?: ProviderCompat
   createdAt: number
   updatedAt: number
+  omniInferModelsDir?: string
 }
 
 export interface DesktopProviderModel

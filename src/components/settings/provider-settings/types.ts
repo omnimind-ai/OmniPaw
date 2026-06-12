@@ -25,6 +25,7 @@ export interface ProviderDraft {
   models: ProviderModelDraft[]
   createdAt?: number
   updatedAt?: number
+  omniInferModelsDir?: string
 }
 
 export interface ProviderModelDraft {

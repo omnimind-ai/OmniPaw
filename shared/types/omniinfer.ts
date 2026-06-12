@@ -137,6 +137,10 @@ export interface PickLocalGgufResponse {
   path: string | null
 }
 
+export interface PickModelsDirResponse {
+  path: string | null
+}
+
 export interface OmniInferStartOptions {
   /** Override base URL for testing; defaults to `http://127.0.0.1:19157`. */
   baseUrl?: string

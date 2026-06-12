@@ -584,6 +584,7 @@ const bridge: OpenOmniClawBridge = {
       ipcRenderer.invoke(IPC_CHANNELS.omniinfer.setThinking, request),
     getLogsPath: () => ipcRenderer.invoke(IPC_CHANNELS.omniinfer.getLogsPath),
     pickLocalGguf: () => ipcRenderer.invoke(IPC_CHANNELS.omniinfer.pickLocalGguf),
+    pickModelsDir: () => ipcRenderer.invoke(IPC_CHANNELS.omniinfer.pickModelsDir),
     rescanModels: () => ipcRenderer.invoke(IPC_CHANNELS.omniinfer.rescanModels),
     listInstalledModels: async () => {
       const result = await ipcRenderer.invoke(IPC_CHANNELS.omniinfer.rescanModels)

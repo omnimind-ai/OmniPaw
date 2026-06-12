@@ -64,6 +64,14 @@ export interface ProviderConfig {
   model?: string
   enable?: boolean
   model_metadata?: Record<string, unknown>
+
+  /**
+   * OmniInfer-only: when this provider points to an externally-managed OmniInfer instance,
+   * the user can set its models directory (e.g. `D:\omniinfer\OmniInfer\.local\models\`) so
+   * OmniClaw can scan it directly without needing a manual "选择本地 .gguf" round-trip.
+   * Ignored for non-OmniInfer providers and for OmniClaw-bundled OmniInfer instances.
+   */
+  omniInferModelsDir?: string
 }
 
 export interface ProviderPreset {
@@ -119,6 +127,7 @@ export interface ProviderRegistrySource {
   compat?: ProviderCompat
   createdAt: number
   updatedAt: number
+  omniInferModelsDir?: string
 }
 
 export interface ProviderRegistryModel

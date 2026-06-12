@@ -99,6 +99,11 @@ export function useProviderDraft(options: {
       },
     }
 
+    if (providerDraft.value.type === 'omniinfer') {
+      const dir = providerDraft.value.omniInferModelsDir?.trim()
+      request.provider.omniInferModelsDir = dir ? dir : undefined
+    }
+
     if (
       providerDraft.value.compat.reasoningFormat !== 'none' ||
       providerDraft.value.compat.maxTokensField !== 'max_tokens' ||
@@ -279,6 +284,8 @@ function draftFromProvider(provider: BridgeProviderConfig): ProviderDraft {
     models,
     createdAt: typeof provider.createdAt === 'number' ? provider.createdAt : undefined,
     updatedAt: typeof provider.updatedAt === 'number' ? provider.updatedAt : undefined,
+    omniInferModelsDir:
+      typeof provider.omniInferModelsDir === 'string' ? provider.omniInferModelsDir : undefined,
   }
 }
 

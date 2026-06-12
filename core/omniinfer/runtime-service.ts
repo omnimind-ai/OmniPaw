@@ -132,6 +132,24 @@ export class OmniInferRuntimeService {
   }
 
   /**
+   * Repoint the installed-models registry at a different directory and trigger a scan. Used
+   * when the user pins an externally-managed OmniInfer's models directory (e.g.
+   * `D:\omniinfer\OmniInfer\.local\models\`) from the provider settings UI. No-op when the
+   * directory is unchanged or empty.
+   */
+  setModelsDir(dir: string): void {
+    const trimmed = dir.trim()
+    if (!trimmed) return
+    const previous = this.installedModels.getModelsDir()
+    if (samePath(previous, trimmed)) return
+    this.installedModels.setModelsDir(trimmed)
+    this.logger?.info('OmniInfer models directory updated.', { from: previous, to: trimmed })
+    void this.installedModels.scan().catch((error) => {
+      this.logger?.warn('OmniInfer models directory scan failed.', { error, dir: trimmed })
+    })
+  }
+
+  /**
    * Point the runtime control plane at a new gateway URL and immediately re-probe.
    *
    * Accepts either a gateway base URL (`http://host:port`) or the provider's OpenAI-compatible
@@ -301,14 +319,25 @@ export class OmniInferRuntimeService {
     this.consecutiveFailures = 0
     this.startupDeadline = this.now() + STARTUP_POLL_TIMEOUT_MS
     this.currentInterval = STARTUP_POLL_INTERVAL_MS
-    this.scheduleNextPoll()
+    this.firePollNow()
   }
 
   private switchToSteadyPolling(): void {
     this.stopPolling()
     this.consecutiveFailures = 0
     this.currentInterval = STEADY_POLL_INTERVAL_MS
-    this.scheduleNextPoll()
+    this.firePollNow()
+  }
+
+  /**
+   * Fire one health probe immediately, then let pollHealth() schedule the next tick. This
+   * avoids the dead window where the UI shows "offline" for the full poll interval after
+   * boot, baseUrl changes, or a process transition.
+   */
+  private firePollNow(): void {
+    this.pollGeneration += 1
+    const generation = this.pollGeneration
+    void this.pollHealth(generation)
   }
 
   private scheduleNextPoll(): void {

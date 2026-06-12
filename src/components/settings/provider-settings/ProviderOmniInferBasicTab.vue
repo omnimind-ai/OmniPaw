@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import type { OmniInferProcessState } from '@shared/types/omniinfer'
-import { CloudIcon } from 'lucide-vue-next'
+import { CloudIcon, FolderOpenIcon } from 'lucide-vue-next'
 import { storeToRefs } from 'pinia'
 import { computed, onBeforeUnmount, onMounted } from 'vue'
+import { appBridge } from '@/bridge/app'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -22,7 +23,7 @@ import { useOmniInferStore } from '@/stores/omniinfer'
 import { errorToText, useToast } from '@/utils/toast'
 import type { ProviderDraft } from './types'
 
-defineProps<{
+const props = defineProps<{
   draft: ProviderDraft
 }>()
 
@@ -73,6 +74,25 @@ const effectiveStateClass = computed(() =>
 const showNotBundledHint = computed(
   () => snapshot.value.process.state === 'not_bundled' && !isExternallyManaged.value
 )
+
+/**
+ * Models-dir picker only shows when OmniClaw doesn't ship/manage the OmniInfer binary
+ * itself — in that case OmniClaw can't know where the user installed OmniInfer's
+ * `.local/models/` directory, so we let them point at it. When the binary IS bundled,
+ * OmniClaw owns the directory and the field would just confuse things.
+ */
+const showModelsDirField = computed(() => snapshot.value.process.state === 'not_bundled')
+
+async function handlePickModelsDir(): Promise<void> {
+  try {
+    const result = await appBridge.omniinfer?.pickModelsDir()
+    if (result?.path) {
+      props.draft.omniInferModelsDir = result.path
+    }
+  } catch (error) {
+    toast.error(errorToText(error, '选择目录失败。'))
+  }
+}
 
 async function handleStart(): Promise<void> {
   try {
@@ -157,6 +177,31 @@ onBeforeUnmount(() => {
           placeholder="http://127.0.0.1:19157/v1"
         />
       </InputGroup>
+    </Field>
+
+    <Field v-if="showModelsDirField">
+      <FieldLabel for="omniinfer-models-dir">OmniInfer 模型目录</FieldLabel>
+      <InputGroup>
+        <InputGroupAddon>
+          <FolderOpenIcon />
+        </InputGroupAddon>
+        <InputGroupInput
+          id="omniinfer-models-dir"
+          v-model="draft.omniInferModelsDir"
+          placeholder="例：D:\omniinfer\OmniInfer\.local\models"
+        />
+        <Button
+          size="sm"
+          variant="ghost"
+          @click="handlePickModelsDir"
+        >
+          选择目录
+        </Button>
+      </InputGroup>
+      <FieldDescription>
+        指向外部 OmniInfer 的 <code class="font-mono">.local/models/</code>
+        目录，保存后 OmniClaw 会自动扫描里面的 .gguf，不再需要逐个手动选择。
+      </FieldDescription>
     </Field>
 
     <Field
