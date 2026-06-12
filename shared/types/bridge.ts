@@ -124,6 +124,14 @@ import type {
   TriggerObservationRequest,
 } from './observation'
 import type {
+  OmniInferCatalogResponse,
+  OmniInferChangedEvent,
+  OmniInferDownloadAndActivateRequest,
+  OmniInferLoadModelRequest,
+  OmniInferOperationResult,
+  OmniInferStatus,
+} from './omniinfer'
+import type {
   CreatePersonaRequest,
   DeletePersonaRequest,
   PersonaRegistryChangedEvent,
@@ -542,6 +550,16 @@ export interface OpenOmniClawBridge {
     refreshModels: (request: RefreshProviderModelsRequest | string) => Promise<ProviderModel[]>
     setSessionModel: (request: SetSessionModelRequest) => Promise<ChatSession>
     onChanged: (callback: (event: ProviderRegistryChangedEvent) => void) => Unsubscribe
+  }
+  omniinfer: {
+    status: () => Promise<OmniInferStatus>
+    catalog: () => Promise<OmniInferCatalogResponse>
+    downloadAndActivate: (
+      request: OmniInferDownloadAndActivateRequest
+    ) => Promise<OmniInferOperationResult>
+    loadModel: (request: OmniInferLoadModelRequest) => Promise<OmniInferOperationResult>
+    stop: () => Promise<OmniInferStatus>
+    onChanged: (callback: (event: OmniInferChangedEvent) => void) => Unsubscribe
   }
   skill: {
     list: () => Promise<SkillListResponse>

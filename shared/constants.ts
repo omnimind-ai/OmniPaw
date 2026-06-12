@@ -137,6 +137,14 @@ export const IPC_CHANNELS = {
     setSessionModel: 'provider:set-session-model',
     changed: 'provider:changed',
   },
+  omniinfer: {
+    status: 'omniinfer:status',
+    catalog: 'omniinfer:catalog',
+    downloadAndActivate: 'omniinfer:download-and-activate',
+    loadModel: 'omniinfer:load-model',
+    stop: 'omniinfer:stop',
+    changed: 'omniinfer:changed',
+  },
   skill: {
     list: 'skill:list',
     refresh: 'skill:refresh',

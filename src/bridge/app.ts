@@ -81,6 +81,14 @@ import type {
   UpdateCompanionMemoryRequest,
 } from '@shared/types/memory'
 import type {
+  OmniInferCatalogResponse as BridgeOmniInferCatalogResponse,
+  OmniInferChangedEvent as BridgeOmniInferChangedEvent,
+  OmniInferDownloadAndActivateRequest as BridgeOmniInferDownloadAndActivateRequest,
+  OmniInferLoadModelRequest as BridgeOmniInferLoadModelRequest,
+  OmniInferOperationResult as BridgeOmniInferOperationResult,
+  OmniInferStatus as BridgeOmniInferStatus,
+} from '@shared/types/omniinfer'
+import type {
   ObservationChangedEvent,
   ObservationPermissionStatus,
   ObservationReactionEvent,
@@ -1071,6 +1079,18 @@ export interface RendererOpenOmniClawBridge {
     }) => Promise<BridgeChatSession>
     onChanged: (callback: (event: BridgeProviderRegistryChangedEvent) => void) => BridgeUnsubscribe
   }
+  omniinfer: {
+    status: () => Promise<BridgeOmniInferStatus>
+    catalog: () => Promise<BridgeOmniInferCatalogResponse>
+    downloadAndActivate: (
+      request: BridgeOmniInferDownloadAndActivateRequest
+    ) => Promise<BridgeOmniInferOperationResult>
+    loadModel?: (
+      request: BridgeOmniInferLoadModelRequest
+    ) => Promise<BridgeOmniInferOperationResult>
+    stop?: () => Promise<BridgeOmniInferStatus>
+    onChanged?: (callback: (event: BridgeOmniInferChangedEvent) => void) => BridgeUnsubscribe
+  }
   skill: {
     list: () => Promise<BridgeSkillListResponse>
     refresh?: () => Promise<BridgeSkillListResponse>
@@ -1852,7 +1872,7 @@ const fallbackBridge: RendererOpenOmniClawBridge = {
         name: 'OmniInfer Local',
         type: 'omniinfer',
         api: 'omniinfer',
-        baseUrl: 'http://localhost:11434/v1',
+        baseUrl: 'http://127.0.0.1:9000/v1',
         description: 'Local OmniInfer-compatible model service.',
       },
     ],
@@ -1884,6 +1904,18 @@ const fallbackBridge: RendererOpenOmniClawBridge = {
     refreshModels: () => rejectFallbackPersistence<BridgeProviderModel[]>('provider.refreshModels'),
     test: () => rejectFallbackPersistence<{ ok: boolean; error?: unknown }>('provider.test'),
     setSessionModel: () => rejectFallbackPersistence<BridgeChatSession>('provider.setSessionModel'),
+    onChanged: () => () => {},
+  },
+  omniinfer: {
+    status: () => rejectFallbackPersistence<BridgeOmniInferStatus>('omniinfer.status'),
+    catalog: () =>
+      rejectFallbackPersistence<BridgeOmniInferCatalogResponse>('omniinfer.catalog'),
+    downloadAndActivate: () =>
+      rejectFallbackPersistence<BridgeOmniInferOperationResult>(
+        'omniinfer.downloadAndActivate'
+      ),
+    loadModel: () => rejectFallbackPersistence<BridgeOmniInferOperationResult>('omniinfer.loadModel'),
+    stop: () => rejectFallbackPersistence<BridgeOmniInferStatus>('omniinfer.stop'),
     onChanged: () => () => {},
   },
   skill: {
@@ -2316,6 +2348,22 @@ function createProviderBridge(
   }
 }
 
+function createOmniInferBridge(
+  bridge: RendererOpenOmniClawBridge['omniinfer'] | undefined
+): NonNullable<RendererOpenOmniClawBridge['omniinfer']> {
+  if (!bridge) {
+    return fallbackBridge.omniinfer
+  }
+
+  return {
+    ...fallbackBridge.omniinfer,
+    ...bridge,
+    status: bridge.status ?? fallbackBridge.omniinfer.status,
+    catalog: bridge.catalog ?? fallbackBridge.omniinfer.catalog,
+    onChanged: bridge.onChanged ?? fallbackBridge.omniinfer.onChanged,
+  }
+}
+
 function createObservationBridge(
   bridge: RendererOpenOmniClawBridge['observation'] | undefined
 ): RendererOpenOmniClawBridge['observation'] {
@@ -2397,6 +2445,7 @@ export const appBridge: RendererOpenOmniClawBridge = exposedBridge
       memory: createMemoryBridge(exposedBridge.memory),
       observation: createObservationBridge(exposedBridge.observation),
       provider: createProviderBridge(exposedBridge.provider),
+      omniinfer: createOmniInferBridge(exposedBridge.omniinfer),
       cron: createCronBridge(exposedBridge.cron),
       persona: createPersonaBridge(exposedBridge.persona),
       tavern: createTavernBridge(exposedBridge.tavern),

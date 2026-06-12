@@ -48,6 +48,10 @@ import type {
   UpdateCompanionMemoryRequest,
 } from '@shared/types/memory'
 import type {
+  OmniInferDownloadAndActivateRequest,
+  OmniInferLoadModelRequest,
+} from '@shared/types/omniinfer'
+import type {
   CreatePersonaRequest,
   DeletePersonaRequest,
   SetDefaultPersonaRequest,
@@ -509,6 +513,16 @@ const bridge: OpenOmniClawBridge = {
     setSessionModel: (request: SetSessionModelRequest) =>
       ipcRenderer.invoke(IPC_CHANNELS.provider.setSessionModel, request),
     onChanged: (callback) => createUnsubscriber(IPC_CHANNELS.provider.changed, callback),
+  },
+  omniinfer: {
+    status: () => ipcRenderer.invoke(IPC_CHANNELS.omniinfer.status),
+    catalog: () => ipcRenderer.invoke(IPC_CHANNELS.omniinfer.catalog),
+    downloadAndActivate: (request: OmniInferDownloadAndActivateRequest) =>
+      ipcRenderer.invoke(IPC_CHANNELS.omniinfer.downloadAndActivate, request),
+    loadModel: (request: OmniInferLoadModelRequest) =>
+      ipcRenderer.invoke(IPC_CHANNELS.omniinfer.loadModel, request),
+    stop: () => ipcRenderer.invoke(IPC_CHANNELS.omniinfer.stop),
+    onChanged: (callback) => createUnsubscriber(IPC_CHANNELS.omniinfer.changed, callback),
   },
   skill: {
     list: () => invokeSkill(IPC_CHANNELS.skill.list),

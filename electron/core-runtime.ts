@@ -30,6 +30,7 @@ import type { Logger } from '@core/logging'
 import { McpRegistryStore, McpServerManager, McpValidationError } from '@core/mcp'
 import { CompanionMemoryPolicyService, CompanionMemoryService } from '@core/memory'
 import { ObservationManager } from '@core/observation'
+import { OmniInferManager } from '@core/omniinfer'
 import { PersonaManager } from '@core/persona/manager'
 import { PersonaRegistryValidationError } from '@core/persona/registry-schema'
 import { PersonaRegistryStore } from '@core/persona/registry-store'
@@ -45,9 +46,11 @@ import {
 } from '@core/tavern'
 import { resolveOpenOmniClawDataPaths } from '@core/utils/data-paths'
 import { SYSTEM_SESSION_IDS } from '@shared/constants'
+import type { ProviderRegistryChangedEvent } from '@shared/types/bridge'
 import type { ChatSession } from '@shared/types/chat'
 import type { CronTaskChangedEvent } from '@shared/types/cron'
 import type { ObservationChangedEvent, ObservationReactionEvent } from '@shared/types/observation'
+import type { OmniInferChangedEvent } from '@shared/types/omniinfer'
 import type { DesktopSettingsConfig, SettingsChangeReason } from '@shared/types/settings'
 import type { app } from 'electron'
 import { ElectronDesktopCaptureAdapter } from './desktop-capture-adapter'
@@ -71,6 +74,8 @@ interface CoreRuntimeOptions {
   onSkillChanged: (event: SkillChangedEvent) => void
   onObservationChanged: (event: ObservationChangedEvent) => void
   onObservationReaction: (event: ObservationReactionEvent) => void
+  onOmniInferChanged: (event: OmniInferChangedEvent) => void
+  onProviderRegistryChanged: (event: ProviderRegistryChangedEvent) => void
   chatEventTarget?: () => ChatRunEventTarget | undefined
   resolveCatSessionId?: () => Promise<string | null> | string | null
 }
@@ -86,6 +91,7 @@ export interface CoreRuntime {
   observationManager: ObservationManager
   personaManager: PersonaManager
   providerManager: ProviderManager
+  omniInferManager: OmniInferManager
   sessionRepo: ChatSessionRepo
   skillManager: SkillManager
   tavernManager: TavernManager
@@ -207,12 +213,19 @@ export function createCoreRuntime(options: CoreRuntimeOptions): CoreRuntime {
   })
   loadStartupTavernRegistry(tavernManager, options.lifecycleLogger)
 
+  const providerRegistryStore = new ProviderRegistryStore({
+    dataRootPath: dataPaths.root,
+  })
   const providerManager = new ProviderManager({
     configStore,
-    registryStore: new ProviderRegistryStore({
-      dataRootPath: dataPaths.root,
-    }),
+    registryStore: providerRegistryStore,
     onConfigSaved: (saved) => options.onSettingsChanged('save', saved),
+    onRegistryChanged: (registry) =>
+      options.onProviderRegistryChanged({
+        reason: 'save',
+        registry,
+        status: providerRegistryStore.status(),
+      }),
     logger: coreLogger.child({ scope: 'provider' }),
     sessions: {
       async getProviderOverride(sessionId: string) {
@@ -252,6 +265,12 @@ export function createCoreRuntime(options: CoreRuntimeOptions): CoreRuntime {
     },
   })
   loadStartupProviderRegistry(providerManager, options.lifecycleLogger)
+  const omniInferManager = new OmniInferManager({
+    dataRootPath: dataPaths.root,
+    providerManager,
+    logger: coreLogger.child({ scope: 'omniinfer' }),
+    onChanged: (status) => options.onOmniInferChanged({ status }),
+  })
   const attachmentService = new AttachmentService({
     repo: attachmentRepo,
     rootDir: dataPaths.attachments,
@@ -374,6 +393,7 @@ export function createCoreRuntime(options: CoreRuntimeOptions): CoreRuntime {
     observationManager,
     personaManager,
     providerManager,
+    omniInferManager,
     sessionRepo,
     skillManager,
     tavernManager,
@@ -381,6 +401,7 @@ export function createCoreRuntime(options: CoreRuntimeOptions): CoreRuntime {
     toolManagementService,
     dispose: () => {
       observationManager.dispose('app_exit')
+      omniInferManager.dispose()
       cronManager.stop()
       dbClient.close()
     },

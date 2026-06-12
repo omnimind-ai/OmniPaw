@@ -4,9 +4,11 @@ import { createElectronLogSink, createProjectLogger } from '@core/logging'
 import { resolveOpenOmniClawDataPaths } from '@core/utils/data-paths'
 import { APP_ID, APP_NAME, IPC_CHANNELS } from '@shared/constants'
 import type { OpenChatSessionRequest } from '@shared/types/app'
+import type { ProviderRegistryChangedEvent } from '@shared/types/bridge'
 import type { ChatSessionChangedEvent } from '@shared/types/chat'
 import type { CronTaskChangedEvent } from '@shared/types/cron'
 import type { ObservationChangedEvent, ObservationReactionEvent } from '@shared/types/observation'
+import type { OmniInferChangedEvent } from '@shared/types/omniinfer'
 import type {
   DesktopSettingsChangedEvent,
   DesktopSettingsConfig,
@@ -492,6 +494,18 @@ function broadcastObservationReaction(event: ObservationReactionEvent): void {
   sendCatObservationReaction(event)
 }
 
+function broadcastOmniInferChanged(event: OmniInferChangedEvent): void {
+  for (const window of BrowserWindow.getAllWindows()) {
+    window.webContents.send(IPC_CHANNELS.omniinfer.changed, event)
+  }
+}
+
+function broadcastProviderRegistryChanged(event: ProviderRegistryChangedEvent): void {
+  for (const window of BrowserWindow.getAllWindows()) {
+    window.webContents.send(IPC_CHANNELS.provider.changed, event)
+  }
+}
+
 function broadcastShortcutChanged(event: ShortcutStatusChangedEvent): void {
   for (const window of BrowserWindow.getAllWindows()) {
     window.webContents.send(IPC_CHANNELS.shortcuts.changed, event)
@@ -528,6 +542,8 @@ app
       onSkillChanged: broadcastSkillChanged,
       onObservationChanged: broadcastObservationChanged,
       onObservationReaction: broadcastObservationReaction,
+      onOmniInferChanged: broadcastOmniInferChanged,
+      onProviderRegistryChanged: broadcastProviderRegistryChanged,
       chatEventTarget: createBroadcastChatEventTarget,
       resolveCatSessionId: () => resolveRuntimeCatSessionId(getActiveCatSessionId()),
     })
