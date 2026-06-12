@@ -1,3 +1,4 @@
+import { join } from 'node:path'
 import { ProcessSupervisor, TerminalService } from '@core/agent/terminal'
 import { listBuiltinToolDefinitions } from '@core/agent/tools/builtin-tools'
 import { ToolManagementService } from '@core/agent/tools/management-service'
@@ -30,6 +31,14 @@ import type { Logger } from '@core/logging'
 import { McpRegistryStore, McpServerManager, McpValidationError } from '@core/mcp'
 import { CompanionMemoryPolicyService, CompanionMemoryService } from '@core/memory'
 import { ObservationManager } from '@core/observation'
+import type { OmniInferProcessController } from '@core/omniinfer'
+import {
+  InstalledModelRegistry,
+  OmniInferRuntimeClient,
+  OmniInferRuntimeService,
+  resolveModelsDir,
+  syncOmniInferProviderModels,
+} from '@core/omniinfer'
 import { PersonaManager } from '@core/persona/manager'
 import { PersonaRegistryValidationError } from '@core/persona/registry-schema'
 import { PersonaRegistryStore } from '@core/persona/registry-store'
@@ -73,6 +82,10 @@ interface CoreRuntimeOptions {
   onObservationReaction: (event: ObservationReactionEvent) => void
   chatEventTarget?: () => ChatRunEventTarget | undefined
   resolveCatSessionId?: () => Promise<string | null> | string | null
+  /** Constructed in main.ts because it must touch resourcesPath / child_process. */
+  omniInferProcessController?: OmniInferProcessController
+  /** Optional override of OmniInfer logs directory (used for "View logs" UI). */
+  omniInferLogsDir?: string
 }
 
 export interface CoreRuntime {
@@ -91,6 +104,10 @@ export interface CoreRuntime {
   tavernManager: TavernManager
   terminalService: TerminalService
   toolManagementService: ToolManagementService
+  omniInferRuntimeService?: OmniInferRuntimeService
+  omniInferInstalledModels?: InstalledModelRegistry
+  omniInferProcessController?: OmniInferProcessController
+  omniInferLogsDir?: string
   dispose: () => void
 }
 
@@ -207,6 +224,27 @@ export function createCoreRuntime(options: CoreRuntimeOptions): CoreRuntime {
   })
   loadStartupTavernRegistry(tavernManager, options.lifecycleLogger)
 
+  const omniInferLogger = coreLogger.child({ scope: 'omniinfer' })
+  const modelsDir = resolveModelsDir({
+    userDataPath: appDataPath,
+    repoRoot: options.app.isPackaged ? undefined : process.cwd(),
+  })
+  const omniInferInstalledModels = new InstalledModelRegistry({
+    storagePath: join(dataPaths.root, 'omniinfer-installed-models.json'),
+    modelsDir,
+    logger: omniInferLogger.child({ scope: 'installed-models' }),
+  })
+  const omniInferClient = new OmniInferRuntimeClient()
+  let omniInferRuntimeService: OmniInferRuntimeService | undefined
+  if (options.omniInferProcessController) {
+    omniInferRuntimeService = new OmniInferRuntimeService({
+      client: omniInferClient,
+      process: options.omniInferProcessController,
+      installedModels: omniInferInstalledModels,
+      logger: omniInferLogger.child({ scope: 'runtime' }),
+    })
+  }
+
   const providerManager = new ProviderManager({
     configStore,
     registryStore: new ProviderRegistryStore({
@@ -214,6 +252,8 @@ export function createCoreRuntime(options: CoreRuntimeOptions): CoreRuntime {
     }),
     onConfigSaved: (saved) => options.onSettingsChanged('save', saved),
     logger: coreLogger.child({ scope: 'provider' }),
+    omniInferRuntimeService,
+    omniInferInstalledModels,
     sessions: {
       async getProviderOverride(sessionId: string) {
         const session = sessionRepo.get(sessionId)
@@ -252,6 +292,23 @@ export function createCoreRuntime(options: CoreRuntimeOptions): CoreRuntime {
     },
   })
   loadStartupProviderRegistry(providerManager, options.lifecycleLogger)
+  migrateOmniInferProviderBaseUrl(providerManager, omniInferLogger).catch((error) => {
+    omniInferLogger.warn('OmniInfer baseUrl migration failed.', { error })
+  })
+  // Initial sync; main.ts will trigger another after the gateway is ready.
+  void syncOmniInferProviderModels({
+    providers: providerManager,
+    installedModels: omniInferInstalledModels,
+    logger: omniInferLogger,
+  })
+  omniInferInstalledModels.onChanged(() => {
+    void syncOmniInferProviderModels({
+      providers: providerManager,
+      installedModels: omniInferInstalledModels,
+      logger: omniInferLogger,
+    })
+  })
+
   const attachmentService = new AttachmentService({
     repo: attachmentRepo,
     rootDir: dataPaths.attachments,
@@ -379,11 +436,60 @@ export function createCoreRuntime(options: CoreRuntimeOptions): CoreRuntime {
     tavernManager,
     terminalService,
     toolManagementService,
+    omniInferRuntimeService,
+    omniInferInstalledModels,
+    omniInferProcessController: options.omniInferProcessController,
+    omniInferLogsDir: options.omniInferLogsDir,
     dispose: () => {
       observationManager.dispose('app_exit')
       cronManager.stop()
+      omniInferRuntimeService?.dispose()
       dbClient.close()
     },
+  }
+}
+
+async function migrateOmniInferProviderBaseUrl(
+  providerManager: ProviderManager,
+  logger: Logger
+): Promise<void> {
+  const KNOWN_LEGACY_URLS = new Set([
+    'http://localhost:11434/v1',
+    'http://127.0.0.1:11434/v1',
+    'http://localhost:9000/v1',
+    'http://127.0.0.1:9000/v1',
+  ])
+  const TARGET_URL = 'http://127.0.0.1:19157/v1'
+  const providers = await providerManager.list()
+  for (const provider of providers) {
+    if (provider.id !== 'omniinfer-local') continue
+    const normalized = (provider.baseUrl || '').trim().toLowerCase()
+    if (!KNOWN_LEGACY_URLS.has(normalized)) continue
+    await providerManager.save({
+      id: provider.id,
+      name: provider.name,
+      type: provider.type,
+      api: provider.api,
+      baseUrl: TARGET_URL,
+      enabled: provider.enabled,
+      credentialRef: provider.credentialRef,
+      authHeader: provider.authHeader,
+      headers: provider.headers,
+      extraBody: provider.extraBody,
+      defaultModelId: provider.defaultModelId,
+      capabilities: provider.capabilities,
+      models: provider.models?.map((model) => ({
+        ...model,
+        providerId: provider.id,
+        enabled: model.enabled !== false,
+      })),
+      updatedAt: Date.now(),
+    })
+    logger.info('Migrated omniinfer-local baseUrl.', {
+      providerId: provider.id,
+      from: provider.baseUrl,
+      to: TARGET_URL,
+    })
   }
 }
 

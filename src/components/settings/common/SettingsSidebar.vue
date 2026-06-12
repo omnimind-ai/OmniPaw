@@ -37,6 +37,7 @@ import {
 export type SettingsTab =
   | 'providers'
   | 'defaults'
+  | 'localModels'
   | 'general'
   | 'shortcuts'
   | 'agent'
@@ -68,6 +69,7 @@ const emit = defineEmits<{
 
 const primaryItems: SettingsNavItem[] = [
   { value: 'providers', label: '模型服务', icon: PlugIcon },
+  { value: 'localModels', label: '本地模型', icon: ServerIcon },
   { value: 'defaults', label: '默认模型', icon: BotIcon },
 ]
 

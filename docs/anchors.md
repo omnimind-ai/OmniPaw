@@ -15,6 +15,10 @@
 | Persona IPC | `electron/ipc/persona.ts` |
 | Workspace IPC | `electron/ipc/workspace.ts` |
 | Terminal process IPC | `electron/ipc/terminal-process.ts` |
+| OmniInfer IPC | `electron/ipc/omniinfer.ts` |
+| OmniInfer 二进制定位 | `electron/omniinfer/binary-locator.ts` |
+| OmniInfer 子进程监管 | `electron/omniinfer/process.ts` |
+| OmniInfer Windows 残留清理 | `electron/omniinfer/windows-cleanup.ts` |
 | 猫窗口和窗口专属 IPC | `electron/cat-window.ts` |
 | contextBridge 暴露、ipcRenderer 调用、事件订阅包装 | `electron/preload.ts` |
 | IPC channel 常量 | `shared/constants.ts` |
@@ -40,6 +44,8 @@
 | Provider 删除确认弹窗 | `src/components/settings/provider-settings/ProviderDeleteModal.vue` |
 | Persona 设置 | `src/components/settings/PersonaSettingsForm.vue` |
 | 本地 Agent 设置 | `src/components/settings/LocalAgentSettingsForm.vue` |
+| 本地模型 (OmniInfer) 设置 | `src/components/settings/LocalModelsSettingsForm.vue` |
+| OmniInfer renderer store | `src/stores/omniinfer.ts` |
 | shadcn-vue 组件 | `src/components/ui/` |
 | 聊天 composables | `src/composables/useSessions.ts`、`src/composables/useMessages.ts`、`src/composables/useMediaHandling.ts` |
 | Pinia stores | `src/stores/` |
@@ -72,6 +78,12 @@
 | Provider registry store | `core/provider/registry-store.ts` |
 | Provider 抽象 | `core/provider/base-provider.ts` |
 | OpenAI 兼容 Provider | `core/provider/providers/openai.ts` |
+| OmniInfer Provider | `core/provider/providers/omniinfer.ts` |
+| OmniInfer 控制面 HTTP 客户端 | `core/omniinfer/runtime-client.ts` |
+| OmniInfer 运行时状态服务 | `core/omniinfer/runtime-service.ts` |
+| OmniInfer 已安装模型索引 | `core/omniinfer/installed-models.ts` |
+| OmniInfer 同步 ProviderManager 模型 | `core/omniinfer/sync-provider-models.ts` |
+| OmniInfer 进程 controller 抽象 | `core/omniinfer/process-controller.ts` |
 | Provider 凭据解析 | `core/provider/credentials.ts` |
 | Provider 错误归一化 | `core/provider/errors.ts` |
 | Persona 管理 | `core/persona/manager.ts` |

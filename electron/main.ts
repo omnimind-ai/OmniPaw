@@ -1,6 +1,7 @@
 import { join } from 'node:path'
 import type { ChatRunEventTarget } from '@core/chat/run-manager'
 import { createElectronLogSink, createProjectLogger } from '@core/logging'
+import { OmniInferRuntimeClient, resolveModelsDir } from '@core/omniinfer'
 import { resolveOpenOmniClawDataPaths } from '@core/utils/data-paths'
 import { APP_ID, APP_NAME, IPC_CHANNELS } from '@shared/constants'
 import type { OpenChatSessionRequest } from '@shared/types/app'
@@ -41,6 +42,8 @@ import {
 } from './core-runtime'
 import { registerIpcHandlers } from './ipc'
 import { createMainWindowController, type MainWindowController } from './main-window'
+import { locateOmniInferBinary } from './omniinfer/binary-locator'
+import { defaultOmniInferLogsDir, OmniInferProcess } from './omniinfer/process'
 import { createShortcutController, type ShortcutController } from './shortcut-controller'
 import { createTrayController, type TrayController } from './tray'
 
@@ -68,6 +71,7 @@ let mainWindowController: MainWindowController | undefined
 let trayController: TrayController | undefined
 let catNotificationController: CatNotificationController | undefined
 let shortcutController: ShortcutController | undefined
+let omniInferProcess: OmniInferProcess | undefined
 let isQuitting = false
 const ZOOM_STEP = 0.05
 
@@ -517,6 +521,28 @@ app
     })
     applyApplicationIcon()
 
+    const omniInferLocator = locateOmniInferBinary({ app })
+    const omniInferLogsDir = defaultOmniInferLogsDir(
+      logSink.status().logDir ?? resolveAppLogsPath()
+    )
+    const modelsDir = resolveModelsDir({
+      userDataPath: app.getPath('appData'),
+      repoRoot: app.isPackaged ? undefined : process.cwd(),
+    })
+    const omniInferClient = new OmniInferRuntimeClient()
+    omniInferProcess = new OmniInferProcess({
+      binaryPath: omniInferLocator.binaryPath,
+      modelsDir,
+      logsDir: omniInferLogsDir,
+      client: omniInferClient,
+      logger: mainLogger.child({ scope: 'omniinfer.process' }),
+    })
+    if (!omniInferLocator.binaryPath) {
+      lifecycleLogger.info('OmniInfer binary not bundled; runtime stays inactive.', {
+        searched: omniInferLocator.searched.slice(0, 10),
+      })
+    }
+
     runtime = createCoreRuntime({
       app,
       appName: APP_NAME,
@@ -530,6 +556,8 @@ app
       onObservationReaction: broadcastObservationReaction,
       chatEventTarget: createBroadcastChatEventTarget,
       resolveCatSessionId: () => resolveRuntimeCatSessionId(getActiveCatSessionId()),
+      omniInferProcessController: omniInferProcess,
+      omniInferLogsDir,
     })
     createControllers()
     setCatWindowLogger(mainLogger.child({ scope: 'cat' }))
@@ -592,6 +620,14 @@ app
 
     lifecycleLogger.info('Desktop startup complete.')
 
+    // Asynchronously start OmniInfer and run the initial models scan; never blocks the main window.
+    void runtime.omniInferInstalledModels?.scan().catch((error) => {
+      lifecycleLogger.warn('OmniInfer installed-models scan failed.', { error })
+    })
+    void runtime.omniInferRuntimeService?.start().catch((error) => {
+      lifecycleLogger.warn('OmniInfer runtime start failed.', { error })
+    })
+
     app.on('activate', () => {
       lifecycleLogger.debug('App activate event.')
       showMainWindow()
@@ -602,12 +638,24 @@ app
     throw error
   })
 
-app.on('before-quit', () => {
+app.on('before-quit', (event) => {
   lifecycleLogger.info('App before-quit.')
   markQuitting()
   catNotificationController?.destroy()
   shortcutController?.destroy()
   closeCatWindow()
+  const omniInferShutdown = runtime?.omniInferRuntimeService?.shutdown()
+  if (omniInferShutdown) {
+    event.preventDefault()
+    Promise.race([omniInferShutdown, new Promise<void>((resolve) => setTimeout(resolve, 3_500))])
+      .catch((error) => lifecycleLogger.warn('OmniInfer shutdown errored.', { error }))
+      .finally(() => {
+        runtime?.dispose()
+        trayController?.destroy()
+        app.exit(0)
+      })
+    return
+  }
   runtime?.dispose()
   trayController?.destroy()
 })

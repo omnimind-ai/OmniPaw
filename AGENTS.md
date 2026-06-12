@@ -65,6 +65,10 @@ Electron 桌面客户端。
 | core 初始化 | `electron/core-runtime.ts` |
 | 数据库迁移 | `core/db/migrations.ts` |
 | 配置 schema | `core/config/schema.ts` |
+| OmniInfer 进程监管 | `electron/omniinfer/process.ts` |
+| OmniInfer 控制面服务 | `core/omniinfer/runtime-service.ts` |
+| OmniInfer provider | `core/provider/providers/omniinfer.ts` |
+| OmniInfer 设置 UI | `src/components/settings/LocalModelsSettingsForm.vue` |
 
 ## 渐进式披露阅读顺序
 

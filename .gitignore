@@ -34,3 +34,10 @@ OmniBot-example/
 openspec
 
 tmp/
+
+# OmniInfer 二进制资源：本地放置不入库，仅保留占位符
+resources/omniinfer/*
+!resources/omniinfer/.gitkeep
+
+# 开发态本地 gguf 模型目录
+models/

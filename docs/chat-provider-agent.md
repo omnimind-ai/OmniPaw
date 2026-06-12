@@ -66,7 +66,9 @@
 - MUST：Provider 调用通过 `ProviderManager.createProviderClient` 获取客户端。
 - MUST：Provider 错误通过 `normalizeProviderError` 归一化。
 - MUST：保存 Provider 配置时经过 `ProviderManager`，不要绕过配置 store。
-- MUST：认清当前传输实现边界：真正可执行的 Provider client 只有 OpenAI-compatible chat completions；Ollama 和 OmniInfer 当前主要是 preset/config 形态，接入执行前必须补 provider implementation。
+- MUST：认清当前传输实现边界：可执行的 Provider client 包括 OpenAI-compatible chat completions 与 OmniInfer（继承自前者，叠加懒加载语义）。Ollama 目前仍是 preset/config 形态，接入执行前必须补 provider implementation。
+- MUST：OmniInfer provider 走主进程 IPC + 控制面 HTTP，所有 `/omni/*` 请求经主进程；renderer 不直接 fetch `127.0.0.1:19157`。
+- MUST：OmniInfer provider 的 `streamChat` 在发请求前会调用 `OmniInferRuntimeService.ensureModelLoaded` 自动 `/omni/model/select`，调用方传递的 `modelId` 是 OmniClaw 内部 id，provider 会自动翻译为绝对路径。
 - SHOULD：对 Provider capability、model capability 和 compat 做显式判断，不靠 provider 名称硬编码。
 - SHOULD：对 fallback 到 `fast_chat` 的原因写入 run request snapshot。
 - SHOULD：保持 OpenAI 兼容 Provider 的 SSE 解析和 tool call 聚合集中在 provider 实现内。

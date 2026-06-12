@@ -115,6 +115,37 @@ pnpm dist
 3. Select the default chat model and fallback models under Default Models.
 4. Enable Persona, Tavern, Skills, MCP, local Agent tools, scheduled tasks, or visual observation as needed.
 
+## Local Models (OmniInfer)
+
+OpenOmniClaw can run small GGUF models locally via the embedded OmniInfer runtime.
+
+### Distribution Variants
+
+- **Full build** (`pnpm build:full`): bundles the OmniInfer binary under `resources/omniinfer/` via electron-builder `extraResources`. Users get a turnkey experience — drop a `.gguf` into the models directory and chat.
+- **Slim build** (`pnpm build:slim`): omits the OmniInfer binary to reduce installer size by hundreds of MB. Users supply OmniInfer themselves by either placing it in the install directory under `resources/omniinfer/` or setting `OMNICLAW_OMNIINFER_PATH` to the binary path.
+
+### Bundling OmniInfer for the Full Build
+
+Developers must drop an OmniInfer release (e.g. from the OmniStudio release package) into `resources/omniinfer/` before running `pnpm build:full`. The directory is `.gitignore`d except for `.gitkeep`. The build pre-check (`scripts/check-omniinfer-resources.mjs`) warns if expected binaries are missing.
+
+### Models Directory
+
+- Production: `<userData>/models/` (auto-created on first run)
+- Development: if `<repo-root>/models/` exists, it overrides the userData path
+
+Override at runtime via the `OMNIINFER_MODELS_DIR_OVERRIDE` environment variable.
+
+### Using a Local Model
+
+1. Place a `.gguf` file into the models directory, or use the "选择本地 .gguf" button in **Settings → 本地模型** to point to a file anywhere on disk.
+2. The Settings panel shows the OmniInfer process state (`运行中` / `已停止` / `未内置` / ...) and the list of installed models.
+3. Click "加载" on a model to invoke `/omni/model/select`; the badge "已加载" appears once OmniInfer reports the model ready.
+4. In **设置 → 模型服务** make sure the `OmniInfer Local` provider is enabled, then select it in any chat session and start talking — the provider lazily ensures the right model is loaded before sending the request.
+
+### Logs
+
+OmniInfer process stdout/stderr is written under `<app logs>/omniinfer/`. Open the directory via the "查看日志" button in the Local Models settings.
+
 ## Contributing
 
 Issues and pull requests are welcome. Before adding a new feature, please open an issue to describe the use case, UI entry point, and data boundary so it fits the current Electron / core / renderer architecture.

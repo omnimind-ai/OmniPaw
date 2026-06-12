@@ -5,6 +5,7 @@ import { registerLoggingIpcHandlers } from './logging'
 import { registerMcpIpcHandlers } from './mcp'
 import { registerMemoryIpcHandlers } from './memory'
 import { registerObservationIpcHandlers } from './observation'
+import { registerOmniInferIpcHandlers } from './omniinfer'
 import { registerPersonaIpcHandlers } from './persona'
 import { registerProviderIpcHandlers } from './provider'
 import { registerSettingsIpcHandlers } from './settings'
@@ -35,6 +36,7 @@ export function registerIpcHandlers(options: IpcHandlerOptions): void {
   registerWorkspaceIpcHandlers(options)
   registerTerminalProcessIpcHandlers(options)
   registerMcpIpcHandlers(options)
+  registerOmniInferIpcHandlers(options)
 }
 
 export type { IpcHandlerOptions }

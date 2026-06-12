@@ -15,6 +15,8 @@
     "test:smoke": "node scripts/run-smoke-tests.mjs",
     "pack": "pnpm rebuild:electron && pnpm build && electron-builder --dir",
     "dist": "pnpm rebuild:electron && pnpm build && electron-builder",
+    "build:full": "node scripts/build-with-omniinfer-variant.mjs full",
+    "build:slim": "node scripts/build-with-omniinfer-variant.mjs slim",
     "lint": "pnpm typecheck && biome check --write .",
     "lint:staged": "lint-staged",
     "lint:electron": "biome check electron",

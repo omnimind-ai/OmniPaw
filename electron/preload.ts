@@ -47,6 +47,7 @@ import type {
   UpdateCompanionMemoryProposalRequest,
   UpdateCompanionMemoryRequest,
 } from '@shared/types/memory'
+import type { SelectModelRequest, SetThinkingRequest } from '@shared/types/omniinfer'
 import type {
   CreatePersonaRequest,
   DeletePersonaRequest,
@@ -571,6 +572,26 @@ const bridge: OpenOmniClawBridge = {
     setDefault: (request: SetDefaultPersonaRequest) =>
       invokePersona(IPC_CHANNELS.persona.setDefault, request),
     onChanged: (callback) => createUnsubscriber(IPC_CHANNELS.persona.changed, callback),
+  },
+  omniinfer: {
+    getStatus: () => ipcRenderer.invoke(IPC_CHANNELS.omniinfer.getStatus),
+    start: () => ipcRenderer.invoke(IPC_CHANNELS.omniinfer.start),
+    stop: () => ipcRenderer.invoke(IPC_CHANNELS.omniinfer.stop),
+    selectModel: (request: SelectModelRequest) =>
+      ipcRenderer.invoke(IPC_CHANNELS.omniinfer.selectModel, request),
+    unloadModel: () => ipcRenderer.invoke(IPC_CHANNELS.omniinfer.unloadModel),
+    setThinking: (request: SetThinkingRequest) =>
+      ipcRenderer.invoke(IPC_CHANNELS.omniinfer.setThinking, request),
+    getLogsPath: () => ipcRenderer.invoke(IPC_CHANNELS.omniinfer.getLogsPath),
+    pickLocalGguf: () => ipcRenderer.invoke(IPC_CHANNELS.omniinfer.pickLocalGguf),
+    rescanModels: () => ipcRenderer.invoke(IPC_CHANNELS.omniinfer.rescanModels),
+    listInstalledModels: async () => {
+      const result = await ipcRenderer.invoke(IPC_CHANNELS.omniinfer.rescanModels)
+      return result?.models ?? []
+    },
+    onStatusChanged: (callback) =>
+      createUnsubscriber(IPC_CHANNELS.omniinfer.statusChanged, callback),
+    onLog: (callback) => createUnsubscriber(IPC_CHANNELS.omniinfer.log, callback),
   },
   tavern: {
     load: () => invokeTavern(IPC_CHANNELS.tavern.load),

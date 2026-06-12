@@ -124,6 +124,16 @@ import type {
   TriggerObservationRequest,
 } from './observation'
 import type {
+  GetOmniInferLogsPathResponse,
+  InstalledModelRecord,
+  OmniInferLogEntry,
+  OmniInferRuntimeSnapshot,
+  PickLocalGgufResponse,
+  RescanInstalledModelsResponse,
+  SelectModelRequest,
+  SetThinkingRequest,
+} from './omniinfer'
+import type {
   CreatePersonaRequest,
   DeletePersonaRequest,
   PersonaRegistryChangedEvent,
@@ -594,6 +604,20 @@ export interface OpenOmniClawBridge {
     delete: (request: DeletePersonaRequest | string) => Promise<PersonaRegistryMutationResult>
     setDefault: (request: SetDefaultPersonaRequest) => Promise<PersonaRegistryMutationResult>
     onChanged: (callback: (event: PersonaRegistryChangedEvent) => void) => Unsubscribe
+  }
+  omniinfer: {
+    getStatus: () => Promise<OmniInferRuntimeSnapshot>
+    start: () => Promise<OmniInferRuntimeSnapshot>
+    stop: () => Promise<OmniInferRuntimeSnapshot>
+    selectModel: (request: SelectModelRequest) => Promise<OmniInferRuntimeSnapshot>
+    unloadModel: () => Promise<OmniInferRuntimeSnapshot>
+    setThinking: (request: SetThinkingRequest) => Promise<OmniInferRuntimeSnapshot>
+    getLogsPath: () => Promise<GetOmniInferLogsPathResponse>
+    pickLocalGguf: () => Promise<PickLocalGgufResponse>
+    rescanModels: () => Promise<RescanInstalledModelsResponse>
+    listInstalledModels: () => Promise<InstalledModelRecord[]>
+    onStatusChanged: (callback: (event: OmniInferRuntimeSnapshot) => void) => Unsubscribe
+    onLog: (callback: (event: OmniInferLogEntry) => void) => Unsubscribe
   }
   tavern: {
     load: () => Promise<TavernRegistryLoadResponse>

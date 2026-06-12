@@ -1,5 +1,7 @@
 import type { ConfigStore } from '@core/config/store'
 import type { Logger } from '@core/logging'
+import type { InstalledModelRegistry } from '@core/omniinfer/installed-models'
+import type { OmniInferRuntimeService } from '@core/omniinfer/runtime-service'
 import type { ChatError } from '@shared/types/chat'
 import type {
   ModelConfig,
@@ -20,6 +22,7 @@ import type { BaseProvider, ProviderModelCandidate } from './base-provider'
 import type { ProviderCredentialRecord } from './credentials'
 import { resolveCredential } from './credentials'
 import { normalizeProviderError } from './errors'
+import { OmniInferProvider } from './providers/omniinfer'
 import { OpenAICompatibleProvider } from './providers/openai'
 import type { ProviderRegistryStore } from './registry-store'
 
@@ -96,6 +99,8 @@ export interface ProviderManagerOptions {
   onConfigSaved?: (config: DesktopSettingsConfig) => void
   onRegistryChanged?: (registry: ProviderRegistry) => void
   logger?: Logger
+  omniInferRuntimeService?: OmniInferRuntimeService
+  omniInferInstalledModels?: InstalledModelRegistry
 }
 
 export interface ProviderTestResult {
@@ -195,7 +200,7 @@ const providerPresets: ProviderPreset[] = [
     name: 'OmniInfer Local',
     type: 'omniinfer',
     api: 'omniinfer',
-    baseUrl: 'http://localhost:11434/v1',
+    baseUrl: 'http://127.0.0.1:19157/v1',
     enabled: true,
     description: 'Local OmniInfer-compatible model service.',
     defaultModelId: 'local-small-model',
@@ -228,6 +233,8 @@ export class ProviderManager {
   private readonly onConfigSaved?: (config: DesktopSettingsConfig) => void
   private readonly onRegistryChanged?: (registry: ProviderRegistry) => void
   private readonly logger?: Logger
+  private readonly omniInferRuntimeService?: OmniInferRuntimeService
+  private readonly omniInferInstalledModels?: InstalledModelRegistry
 
   constructor(options: ProviderManagerOptions) {
     if (!options.registryStore && !options.configStore) {
@@ -239,6 +246,8 @@ export class ProviderManager {
     this.onConfigSaved = options.onConfigSaved
     this.onRegistryChanged = options.onRegistryChanged
     this.logger = options.logger
+    this.omniInferRuntimeService = options.omniInferRuntimeService
+    this.omniInferInstalledModels = options.omniInferInstalledModels
   }
 
   async list(): Promise<ProviderConfig[]> {
@@ -935,6 +944,31 @@ export class ProviderManager {
       envVar: provider.envVar,
       apiKey: provider.apiKey,
     })
+
+    if (provider.api === 'omniinfer' || provider.type === 'omniinfer') {
+      if (!this.omniInferRuntimeService || !this.omniInferInstalledModels) {
+        throw new Error(
+          'OmniInfer provider is not available: runtime service has not been initialized.'
+        )
+      }
+      this.logger?.debug('Creating provider client.', {
+        providerId: provider.id,
+        api: provider.api,
+        type: provider.type,
+        kind: 'omniinfer',
+      })
+      return new OmniInferProvider({
+        id: provider.id,
+        baseUrl: provider.baseUrl,
+        apiKey: credential?.value,
+        authHeader: provider.authHeader,
+        headers: provider.headers,
+        extraBody: provider.extraBody,
+        maxTokensField: provider.compat?.maxTokensField,
+        runtimeService: this.omniInferRuntimeService,
+        installedModels: this.omniInferInstalledModels,
+      })
+    }
 
     if (provider.api === 'openai-chat-completions' || provider.type === 'openai-compatible') {
       this.logger?.debug('Creating provider client.', {

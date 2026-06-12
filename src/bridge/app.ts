@@ -90,6 +90,16 @@ import type {
   StopObservationRequest,
   TriggerObservationRequest,
 } from '@shared/types/observation'
+import type {
+  GetOmniInferLogsPathResponse,
+  InstalledModelRecord,
+  OmniInferLogEntry,
+  OmniInferRuntimeSnapshot,
+  PickLocalGgufResponse,
+  RescanInstalledModelsResponse,
+  SelectModelRequest,
+  SetThinkingRequest,
+} from '@shared/types/omniinfer'
 import type { DesktopShortcutSettings, ShortcutStatusChangedEvent } from '@shared/types/shortcuts'
 import { SHORTCUT_ACTIONS } from '@shared/types/shortcuts'
 import type {
@@ -1109,6 +1119,20 @@ export interface RendererOpenOmniClawBridge {
     list: (request?: ListLocalProcessesRequest) => Promise<LocalProcessSummary[]>
     get: (request: GetLocalProcessRequest | string) => Promise<LocalProcessSummary | null>
     kill: (request: KillLocalProcessRequest | string) => Promise<KillLocalProcessResponse>
+  }
+  omniinfer?: {
+    getStatus: () => Promise<OmniInferRuntimeSnapshot>
+    start: () => Promise<OmniInferRuntimeSnapshot>
+    stop: () => Promise<OmniInferRuntimeSnapshot>
+    selectModel: (request: SelectModelRequest) => Promise<OmniInferRuntimeSnapshot>
+    unloadModel: () => Promise<OmniInferRuntimeSnapshot>
+    setThinking: (request: SetThinkingRequest) => Promise<OmniInferRuntimeSnapshot>
+    getLogsPath: () => Promise<GetOmniInferLogsPathResponse>
+    pickLocalGguf: () => Promise<PickLocalGgufResponse>
+    rescanModels: () => Promise<RescanInstalledModelsResponse>
+    listInstalledModels: () => Promise<InstalledModelRecord[]>
+    onStatusChanged: (callback: (event: OmniInferRuntimeSnapshot) => void) => BridgeUnsubscribe
+    onLog: (callback: (event: OmniInferLogEntry) => void) => BridgeUnsubscribe
   }
   mcp?: {
     listServers: () => Promise<BridgeMcpServerListResponse>

@@ -17,6 +17,7 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Field, FieldGroup, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { cn } from '@/lib/utils'
+import { useOmniInferStore } from '@/stores/omniinfer'
 import { useProviderStore } from '@/stores/provider'
 import { useSettingsStore } from '@/stores/settings'
 import { errorToText, useToast } from '@/utils/toast'
@@ -35,9 +36,11 @@ interface ProviderChoice {
 
 const providerStore = useProviderStore()
 const settingsStore = useSettingsStore()
+const omniInferStore = useOmniInferStore()
 const router = useRouter()
 const toast = useToast()
 const { rawProviders, providerPresets, loading, presetsLoading } = storeToRefs(providerStore)
+const { processState: omniInferProcessState } = storeToRefs(omniInferStore)
 
 const selectedChoiceId = ref<ProviderChoiceId>('ollama')
 const submitting = ref(false)
@@ -45,15 +48,40 @@ const cloudBaseUrl = ref('https://api.openai.com/v1')
 const cloudApiKey = ref('')
 const cloudModelId = ref('gpt-4o-mini')
 
-const choices: ProviderChoice[] = [
+const omniInferBadge = computed((): { label: string; disabled: boolean; description: string } => {
+  switch (omniInferProcessState.value) {
+    case 'not_bundled':
+      return {
+        label: '未内置',
+        disabled: true,
+        description: '当前安装包未内置 OmniInfer；可在"本地模型"设置中查看放置位置',
+      }
+    case 'starting':
+      return { label: '启动中', disabled: true, description: 'OmniInfer 正在启动，请稍候' }
+    case 'running':
+      return { label: '本地', disabled: false, description: '使用本地 OmniInfer 服务运行小模型' }
+    case 'unhealthy':
+      return {
+        label: '不健康',
+        disabled: false,
+        description: 'OmniInfer 已启动但未就绪，可在"本地模型"页查看日志',
+      }
+    case 'crashed':
+      return { label: '已崩溃', disabled: false, description: 'OmniInfer 进程已退出，可尝试重启' }
+    default:
+      return { label: '已停止', disabled: false, description: 'OmniInfer 服务尚未启动' }
+  }
+})
+
+const choices = computed((): ProviderChoice[] => [
   {
     id: 'omniinfer-local',
     title: 'OmniInfer',
-    badge: '占位',
+    badge: omniInferBadge.value.label,
     badgeVariant: 'secondary',
-    description: '即将支持的一键本地推理服务',
+    description: omniInferBadge.value.description,
     icon: LaptopIcon,
-    disabled: true,
+    disabled: omniInferBadge.value.disabled,
   },
   {
     id: 'ollama',
@@ -71,14 +99,18 @@ const choices: ProviderChoice[] = [
     description: '使用 OpenAI-compatible API keys',
     icon: KeyRoundIcon,
   },
-]
+])
 
 const selectedChoice = computed(
-  () => choices.find((choice) => choice.id === selectedChoiceId.value) ?? choices[0]
+  () => choices.value.find((choice) => choice.id === selectedChoiceId.value) ?? choices.value[0]
 )
 const busy = computed(() => submitting.value || loading.value || presetsLoading.value)
 
 onMounted(async () => {
+  if (omniInferStore.available) {
+    omniInferStore.subscribe()
+    await omniInferStore.refreshStatus().catch(() => {})
+  }
   await Promise.allSettled([providerStore.loadProviders(), providerStore.loadProviderPresets()])
 })
 

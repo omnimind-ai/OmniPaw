@@ -8,6 +8,7 @@ import SettingsSidebar, { type SettingsTab } from '@/components/settings/common/
 import DefaultModelSettingsForm from '@/components/settings/DefaultModelSettingsForm.vue'
 import GeneralSettingsForm from '@/components/settings/GeneralSettingsForm.vue'
 import LocalAgentSettingsForm from '@/components/settings/LocalAgentSettingsForm.vue'
+import LocalModelsSettingsForm from '@/components/settings/LocalModelsSettingsForm.vue'
 import McpServerSettingsForm from '@/components/settings/McpServerSettingsForm.vue'
 import MemorySettingsForm from '@/components/settings/MemorySettingsForm.vue'
 import ObservationSettingsForm from '@/components/settings/ObservationSettingsForm.vue'
@@ -198,6 +199,7 @@ function normalizeSettingsTab(value: unknown): SettingsTab | undefined {
   if (
     tab === 'providers' ||
     tab === 'defaults' ||
+    tab === 'localModels' ||
     tab === 'general' ||
     tab === 'shortcuts' ||
     tab === 'agent' ||
@@ -313,6 +315,8 @@ function normalizeSettingsTab(value: unknown): SettingsTab | undefined {
 
             <template v-else>
               <ProviderSettingsForm v-if="activeTab === 'providers'" />
+
+              <LocalModelsSettingsForm v-else-if="activeTab === 'localModels'" />
 
               <DefaultModelSettingsForm
                 v-else-if="activeTab === 'defaults'"
