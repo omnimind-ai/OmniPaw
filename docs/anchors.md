@@ -44,7 +44,7 @@
 | Provider 删除确认弹窗 | `src/components/settings/provider-settings/ProviderDeleteModal.vue` |
 | Persona 设置 | `src/components/settings/PersonaSettingsForm.vue` |
 | 本地 Agent 设置 | `src/components/settings/LocalAgentSettingsForm.vue` |
-| 本地模型 (OmniInfer) 设置 | `src/components/settings/LocalModelsSettingsForm.vue` |
+| OmniInfer Provider 基础配置 Tab | `src/components/settings/provider-settings/ProviderOmniInferBasicTab.vue` |
 | OmniInfer renderer store | `src/stores/omniinfer.ts` |
 | shadcn-vue 组件 | `src/components/ui/` |
 | 聊天 composables | `src/composables/useSessions.ts`、`src/composables/useMessages.ts`、`src/composables/useMediaHandling.ts` |

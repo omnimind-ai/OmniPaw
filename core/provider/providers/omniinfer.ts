@@ -5,6 +5,7 @@ import {
   type ChatCompletionChunk,
   type ChatCompletionRequest,
   ProviderError,
+  type ProviderModelCandidate,
 } from '../base-provider'
 import { OpenAICompatibleProvider, type OpenAICompatibleProviderOptions } from './openai'
 
@@ -46,6 +47,21 @@ export class OmniInferProvider extends OpenAICompatibleProvider {
       ...request,
       modelId: absolutePath,
     })
+  }
+
+  override async listModels(_signal?: AbortSignal): Promise<ProviderModelCandidate[]> {
+    await this.installedModels.scan()
+    return this.installedModels
+      .list()
+      .filter((record) => !record.missing)
+      .map((record) => ({
+        id: record.id,
+        name: record.displayName || record.name,
+        input: record.supportsVision ? ['text', 'image'] : ['text'],
+        supportsTools: false,
+        supportsReasoning: record.supportsThinking ?? false,
+        contextWindow: record.contextLength,
+      }))
   }
 }
 

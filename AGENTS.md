@@ -68,7 +68,7 @@ Electron 桌面客户端。
 | OmniInfer 进程监管 | `electron/omniinfer/process.ts` |
 | OmniInfer 控制面服务 | `core/omniinfer/runtime-service.ts` |
 | OmniInfer provider | `core/provider/providers/omniinfer.ts` |
-| OmniInfer 设置 UI | `src/components/settings/LocalModelsSettingsForm.vue` |
+| OmniInfer 设置 UI（"模型服务"→ omniinfer-local provider 的"基础配置" tab） | `src/components/settings/provider-settings/ProviderOmniInferBasicTab.vue` |
 
 ## 渐进式披露阅读顺序
 

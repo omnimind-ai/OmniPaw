@@ -8,6 +8,7 @@ import ProviderAdvancedTab from '@/components/settings/provider-settings/Provide
 import ProviderBasicTab from '@/components/settings/provider-settings/ProviderBasicTab.vue'
 import ProviderDeleteModal from '@/components/settings/provider-settings/ProviderDeleteModal.vue'
 import ProviderModelsTab from '@/components/settings/provider-settings/ProviderModelsTab.vue'
+import ProviderOmniInferBasicTab from '@/components/settings/provider-settings/ProviderOmniInferBasicTab.vue'
 import ProviderSelectorSidebar from '@/components/settings/provider-settings/ProviderSelectorSidebar.vue'
 import type {
   ProviderDraftTab,
@@ -55,6 +56,9 @@ const currentProvider = computed(() =>
   rawProviders.value.find((provider) => provider.id === originalProviderId.value)
 )
 const isExistingProvider = computed(() => Boolean(currentProvider.value))
+const isOmniInferProvider = computed(
+  () => providerDraft.value.api === 'omniinfer' || providerDraft.value.type === 'omniinfer'
+)
 const hasDraft = computed(() => Boolean(activeProviderId.value && !isExistingProvider.value))
 const canAutosave = computed(() => Boolean(isExistingProvider.value && persistenceAvailable.value))
 const canRefreshModels = computed(() =>
@@ -62,7 +66,8 @@ const canRefreshModels = computed(() =>
     persistenceAvailable.value &&
       (providerDraft.value.capabilities.listModels ||
         providerDraft.value.api === 'openai-chat-completions' ||
-        providerDraft.value.type === 'openai-compatible')
+        providerDraft.value.type === 'openai-compatible' ||
+        isOmniInferProvider.value)
   )
 )
 const providerList = computed(() => rawProviders.value)
@@ -378,7 +383,12 @@ function clearMessages() {}
               value="basic"
               class="mt-0"
             >
+              <ProviderOmniInferBasicTab
+                v-if="isOmniInferProvider"
+                :draft="providerDraft"
+              />
               <ProviderBasicTab
+                v-else
                 v-model:credential-mode="credentialMode"
                 v-model:credential-value="credentialValue"
                 :draft="providerDraft"

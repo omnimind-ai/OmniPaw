@@ -203,26 +203,13 @@ const providerPresets: ProviderPreset[] = [
     baseUrl: 'http://127.0.0.1:19157/v1',
     enabled: true,
     description: 'Local OmniInfer-compatible model service.',
-    defaultModelId: 'local-small-model',
     capabilities: {
-      listModels: false,
+      listModels: true,
       streaming: true,
       tools: false,
       vision: false,
     },
-    models: [
-      {
-        id: 'local-small-model',
-        name: 'Local Small Model',
-        remoteId: 'local-small-model',
-        enabled: true,
-        input: ['text'],
-        supportsStreaming: true,
-        supportsTools: false,
-        supportsReasoning: false,
-        contextWindow: 8192,
-      },
-    ],
+    models: [],
   },
 ]
 

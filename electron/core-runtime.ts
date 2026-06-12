@@ -292,8 +292,8 @@ export function createCoreRuntime(options: CoreRuntimeOptions): CoreRuntime {
     },
   })
   loadStartupProviderRegistry(providerManager, options.lifecycleLogger)
-  migrateOmniInferProviderBaseUrl(providerManager, omniInferLogger).catch((error) => {
-    omniInferLogger.warn('OmniInfer baseUrl migration failed.', { error })
+  migrateOmniInferProvider(providerManager, omniInferLogger).catch((error: unknown) => {
+    omniInferLogger.warn('OmniInfer provider migration failed.', { error })
   })
   // Initial sync; main.ts will trigger another after the gateway is ready.
   void syncOmniInferProviderModels({
@@ -449,7 +449,7 @@ export function createCoreRuntime(options: CoreRuntimeOptions): CoreRuntime {
   }
 }
 
-async function migrateOmniInferProviderBaseUrl(
+async function migrateOmniInferProvider(
   providerManager: ProviderManager,
   logger: Logger
 ): Promise<void> {
@@ -464,20 +464,27 @@ async function migrateOmniInferProviderBaseUrl(
   for (const provider of providers) {
     if (provider.id !== 'omniinfer-local') continue
     const normalized = (provider.baseUrl || '').trim().toLowerCase()
-    if (!KNOWN_LEGACY_URLS.has(normalized)) continue
+    const needsUrlFix = KNOWN_LEGACY_URLS.has(normalized)
+    const needsCapabilityFix = provider.capabilities?.listModels !== true
+    if (!needsUrlFix && !needsCapabilityFix) continue
+    const nextBaseUrl = needsUrlFix ? TARGET_URL : provider.baseUrl
+    const nextCapabilities = {
+      ...(provider.capabilities ?? {}),
+      listModels: true,
+    }
     await providerManager.save({
       id: provider.id,
       name: provider.name,
       type: provider.type,
       api: provider.api,
-      baseUrl: TARGET_URL,
+      baseUrl: nextBaseUrl,
       enabled: provider.enabled,
       credentialRef: provider.credentialRef,
       authHeader: provider.authHeader,
       headers: provider.headers,
       extraBody: provider.extraBody,
       defaultModelId: provider.defaultModelId,
-      capabilities: provider.capabilities,
+      capabilities: nextCapabilities,
       models: provider.models?.map((model) => ({
         ...model,
         providerId: provider.id,
@@ -485,10 +492,11 @@ async function migrateOmniInferProviderBaseUrl(
       })),
       updatedAt: Date.now(),
     })
-    logger.info('Migrated omniinfer-local baseUrl.', {
+    logger.info('Migrated omniinfer-local provider.', {
       providerId: provider.id,
-      from: provider.baseUrl,
-      to: TARGET_URL,
+      baseUrlFrom: needsUrlFix ? provider.baseUrl : undefined,
+      baseUrlTo: needsUrlFix ? TARGET_URL : undefined,
+      listModelsFixed: needsCapabilityFix,
     })
   }
 }
