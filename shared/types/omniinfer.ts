@@ -7,6 +7,7 @@ export type OmniInferRuntimeState = 'stopped' | 'starting' | 'running' | 'unavai
 export type OmniInferInstallPhase =
   | 'idle'
   | 'preparing'
+  | 'installing-runtime'
   | 'starting'
   | 'downloading'
   | 'selecting-backend'

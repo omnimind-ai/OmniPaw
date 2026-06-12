@@ -16,6 +16,7 @@ import { existsSync } from 'node:fs'
 import { mkdir } from 'node:fs/promises'
 import { extname, join } from 'node:path'
 import { platform } from 'node:process'
+import { ensureOmniInferRuntime, findInstalledRuntime } from './bootstrapper'
 import { fetchOmniInferCatalog, platformFromNodePlatform } from './catalog'
 import { downloadFile, fileExists } from './downloader'
 
@@ -48,10 +49,12 @@ export class OmniInferManager {
   private readonly onChanged?: (status: OmniInferStatus) => void
   private readonly baseUrl = DEFAULT_BASE_URL
   private readonly modelDir: string
-  private readonly runtimePath?: string
+  private readonly installDir: string
+  private runtimePath?: string
   private process?: ChildProcessWithoutNullStreams
   private state: OmniInferStatus
   private activeTask?: Promise<OmniInferOperationResult>
+  private bootstrapTask?: Promise<string>
 
   constructor(options: OmniInferManagerOptions) {
     this.dataRootPath = join(options.dataRootPath, 'omniinfer')
@@ -60,6 +63,7 @@ export class OmniInferManager {
     this.fetchImpl = options.fetchImpl ?? fetch
     this.onChanged = options.onChanged
     this.modelDir = join(this.dataRootPath, '.local', 'models')
+    this.installDir = join(this.dataRootPath, 'runtime', 'OmniInfer')
     this.runtimePath =
       options.runtimePath ?? process.env.OPENOMNICLAW_OMNIINFER_PATH ?? devRuntimePath()
     this.state = {
@@ -82,7 +86,14 @@ export class OmniInferManager {
     if (this.state.state === 'starting') {
       return this.snapshot()
     }
-    return this.snapshot({ state: this.process ? 'error' : 'stopped' })
+    const runtimePath = this.runtimePath ?? (await findInstalledRuntime(this.installDir))
+    if (runtimePath && runtimePath !== this.runtimePath) {
+      this.runtimePath = runtimePath
+    }
+    return this.snapshot({
+      state: this.process ? 'error' : 'stopped',
+      runtimePath: this.runtimePath,
+    })
   }
 
   async catalog(): Promise<OmniInferCatalogResponse> {
@@ -293,10 +304,14 @@ export class OmniInferManager {
       return
     }
     if (!this.runtimePath) {
-      throw new Error('OmniInfer runtime path is not configured. Set OPENOMNICLAW_OMNIINFER_PATH.')
+      this.runtimePath = await this.bootstrapRuntime()
+      if (await this.health()) {
+        this.snapshot({ state: 'running', runtimePath: this.runtimePath })
+        return
+      }
     }
     await mkdir(this.dataRootPath, { recursive: true })
-    this.snapshot({ state: 'starting' })
+    this.snapshot({ state: 'starting', runtimePath: this.runtimePath })
     const command = buildServeCommand(this.runtimePath)
     this.process = spawn(command.command, command.args, {
       cwd: this.dataRootPath,
@@ -321,6 +336,29 @@ export class OmniInferManager {
       this.snapshot({ state: 'stopped' })
     })
     await this.waitForHealth()
+  }
+
+  private async bootstrapRuntime(): Promise<string> {
+    if (!this.bootstrapTask) {
+      this.snapshot({ state: 'starting' })
+      this.setProgress('installing-runtime', undefined, '安装 OmniInfer')
+      this.bootstrapTask = ensureOmniInferRuntime({
+        installDir: this.installDir,
+        fetchImpl: this.fetchImpl,
+        logger: this.logger,
+      })
+        .then((result) => {
+          this.logger?.info('OmniInfer runtime is ready.', {
+            runtimePath: result.runtimePath,
+            installed: result.installed,
+          })
+          return result.runtimePath
+        })
+        .finally(() => {
+          this.bootstrapTask = undefined
+        })
+    }
+    return this.bootstrapTask
   }
 
   private async waitForHealth(): Promise<void> {

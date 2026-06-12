@@ -1,5 +1,9 @@
 import assert from 'node:assert/strict'
+import { chmodSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 
+import { buildInstallerCommand, findInstalledRuntime } from '../../core/omniinfer/bootstrapper'
 import { normalizeCatalogModels, platformFromNodePlatform } from '../../core/omniinfer/catalog'
 
 const existing = new Set(['/models/Qwen3-4B-Q4_K_M.gguf'])
@@ -51,5 +55,31 @@ assert.equal(models[1]?.id, 'qwen2.5-vl')
 assert.equal(models[1]?.visionFilename, 'mmproj-qwen2.5-vl.gguf')
 assert.equal(models[1]?.visionSizeBytes, 644245094)
 assert.deepEqual(models[1]?.input, ['text', 'image'])
+
+const tempDir = mkdtempSync(join(tmpdir(), 'openomniclaw-omniinfer-smoke-'))
+try {
+  const installedRuntime =
+    process.platform === 'win32' ? join(tempDir, 'omniinfer.py') : join(tempDir, 'omniinfer')
+  writeFileSync(installedRuntime, process.platform === 'win32' ? '' : '#!/bin/sh\n')
+  if (process.platform !== 'win32') {
+    chmodSync(installedRuntime, 0o755)
+  }
+  assert.equal(await findInstalledRuntime(tempDir), installedRuntime)
+
+  const command = buildInstallerCommand(join(tempDir, 'installer'), join(tempDir, 'OmniInfer'))
+  assert.ok(command.args.some((arg) => arg.includes('OmniInfer')))
+  assert.ok(
+    process.platform === 'win32'
+      ? command.args.includes('-NonInteractive')
+      : command.args.includes('--non-interactive')
+  )
+  assert.ok(
+    process.platform === 'win32'
+      ? command.args.includes('-NoModel')
+      : command.args.includes('--no-model')
+  )
+} finally {
+  rmSync(tempDir, { recursive: true, force: true })
+}
 
 console.log('OmniInfer smoke check passed')
