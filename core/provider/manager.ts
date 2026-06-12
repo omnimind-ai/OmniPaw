@@ -195,31 +195,33 @@ const providerPresets: ProviderPreset[] = [
     name: 'OmniInfer Local',
     type: 'omniinfer',
     api: 'omniinfer',
-    baseUrl: 'http://localhost:11434/v1',
+    baseUrl: 'http://127.0.0.1:9000/v1',
     enabled: true,
     description: 'Local OmniInfer-compatible model service.',
-    defaultModelId: 'local-small-model',
     capabilities: {
-      listModels: false,
+      listModels: true,
       streaming: true,
       tools: false,
       vision: false,
     },
-    models: [
-      {
-        id: 'local-small-model',
-        name: 'Local Small Model',
-        remoteId: 'local-small-model',
-        enabled: true,
-        input: ['text'],
-        supportsStreaming: true,
-        supportsTools: false,
-        supportsReasoning: false,
-        contextWindow: 8192,
-      },
-    ],
+    compat: {
+      maxTokensField: 'max_tokens',
+      supportsSystemRole: true,
+      supportsJsonMode: false,
+      reasoningFormat: 'none',
+    },
+    models: [],
   },
 ]
+
+function isOpenAICompatibleTransport(provider: ProviderRecord): boolean {
+  return (
+    provider.api === 'openai-chat-completions' ||
+    provider.api === 'omniinfer' ||
+    provider.type === 'openai-compatible' ||
+    provider.type === 'omniinfer'
+  )
+}
 
 export class ProviderManager {
   private readonly sessions?: SessionProviderOverrideRepository
@@ -694,7 +696,10 @@ export class ProviderManager {
     try {
       const provider = await this.createProviderClient(providerId)
       const resolvedModelId = modelId ?? (await this.defaultModelId(providerId))
-      await provider.test?.(resolvedModelId, signal)
+      const selectedModel = resolvedModelId
+        ? (await this.listModels(providerId)).find((model) => model.id === resolvedModelId)
+        : undefined
+      await provider.test?.(selectedModel?.remoteId ?? resolvedModelId, signal)
       this.logger?.info('Provider test succeeded.', {
         providerId,
         modelId: resolvedModelId,
@@ -723,8 +728,7 @@ export class ProviderManager {
     const record = await this.requireRecord(providerId)
     if (
       !record.capabilities?.listModels &&
-      record.api !== 'openai-chat-completions' &&
-      record.type !== 'openai-compatible'
+      !isOpenAICompatibleTransport(record)
     ) {
       this.logger?.debug('Provider model refresh skipped.', { providerId, reason: 'unsupported' })
       return this.listModels(providerId)
@@ -936,7 +940,7 @@ export class ProviderManager {
       apiKey: provider.apiKey,
     })
 
-    if (provider.api === 'openai-chat-completions' || provider.type === 'openai-compatible') {
+    if (isOpenAICompatibleTransport(provider)) {
       this.logger?.debug('Creating provider client.', {
         providerId: provider.id,
         api: provider.api,
