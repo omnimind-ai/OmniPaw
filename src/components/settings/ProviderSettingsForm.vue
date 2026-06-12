@@ -4,6 +4,7 @@ import { storeToRefs } from 'pinia'
 import { computed, onMounted, ref, watch } from 'vue'
 import type { BridgeProviderPreset } from '@/bridge/app'
 import SettingsSection from '@/components/settings/common/SettingsSection.vue'
+import LocalModelSettingsPanel from '@/components/settings/LocalModelSettingsPanel.vue'
 import ProviderAdvancedTab from '@/components/settings/provider-settings/ProviderAdvancedTab.vue'
 import ProviderBasicTab from '@/components/settings/provider-settings/ProviderBasicTab.vue'
 import ProviderDeleteModal from '@/components/settings/provider-settings/ProviderDeleteModal.vue'
@@ -340,6 +341,8 @@ function clearMessages() {}
       </template>
 
       <div class="flex min-h-0 flex-col gap-4 p-4">
+        <LocalModelSettingsPanel />
+
         <div
           v-if="!activeProviderId"
           class="flex min-h-80 flex-col items-start justify-between gap-6 rounded-lg border bg-muted/20 p-6"
