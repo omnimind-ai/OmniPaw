@@ -1,7 +1,7 @@
 import { join } from 'node:path'
 import type { ChatRunEventTarget } from '@core/chat/run-manager'
 import { createElectronLogSink, createProjectLogger } from '@core/logging'
-import { OmniInferRuntimeClient, resolveModelsDir } from '@core/omniinfer'
+import { ensureOmniInferRuntime, OmniInferRuntimeClient, resolveModelsDir } from '@core/omniinfer'
 import { resolveOpenOmniClawDataPaths } from '@core/utils/data-paths'
 import { APP_ID, APP_NAME, IPC_CHANNELS } from '@shared/constants'
 import type { OpenChatSessionRequest } from '@shared/types/app'
@@ -114,6 +114,50 @@ function resolveAppLogsPath(): string {
       return join(process.cwd(), 'openomniclaw', 'logs')
     }
   }
+}
+
+function resolveManagedOmniInferInstallDir(): string {
+  const dataPaths = resolveOpenOmniClawDataPaths({ appDataPath: app.getPath('appData') })
+  return join(dataPaths.root, 'omniinfer', 'runtime')
+}
+
+function bootstrapOmniInferRuntimeIfNeeded(input: {
+  locator: ReturnType<typeof locateOmniInferBinary>
+  process: OmniInferProcess
+}): void {
+  if (input.locator.binaryPath) {
+    return
+  }
+
+  const installDir = resolveManagedOmniInferInstallDir()
+  lifecycleLogger.info('OmniInfer binary not bundled; installing managed runtime from GitHub.', {
+    installDir,
+    searched: input.locator.searched.slice(0, 10),
+  })
+
+  void ensureOmniInferRuntime({
+    installDir,
+    logger: mainLogger.child({ scope: 'omniinfer.bootstrap' }),
+  })
+    .then((result) => {
+      lifecycleLogger.info('OmniInfer managed runtime is ready.', {
+        runtimePath: result.runtimePath,
+        installed: result.installed,
+      })
+      input.process.setBinaryPath(result.runtimePath)
+      void runtime?.omniInferInstalledModels?.scan().catch((error) => {
+        lifecycleLogger.warn('OmniInfer installed-models scan failed after bootstrap.', { error })
+      })
+      void runtime?.omniInferRuntimeService?.start().catch((error) => {
+        lifecycleLogger.warn('OmniInfer runtime start failed after bootstrap.', { error })
+      })
+    })
+    .catch((error) => {
+      lifecycleLogger.warn('OmniInfer managed runtime bootstrap failed.', {
+        installDir,
+        error,
+      })
+    })
 }
 
 function registerProcessDiagnostics(): void {
@@ -537,11 +581,10 @@ app
       client: omniInferClient,
       logger: mainLogger.child({ scope: 'omniinfer.process' }),
     })
-    if (!omniInferLocator.binaryPath) {
-      lifecycleLogger.info('OmniInfer binary not bundled; runtime stays inactive.', {
-        searched: omniInferLocator.searched.slice(0, 10),
-      })
-    }
+    bootstrapOmniInferRuntimeIfNeeded({
+      locator: omniInferLocator,
+      process: omniInferProcess,
+    })
 
     runtime = createCoreRuntime({
       app,

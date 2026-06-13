@@ -1,7 +1,7 @@
 import { type ChildProcess, spawn } from 'node:child_process'
 import { EventEmitter } from 'node:events'
 import { existsSync, mkdirSync } from 'node:fs'
-import { dirname, join } from 'node:path'
+import { dirname, extname, join } from 'node:path'
 import type { Logger } from '@core/logging'
 import type {
   OmniInferProcessController,
@@ -136,7 +136,7 @@ export class OmniInferProcess implements OmniInferProcessController {
       OMNIINFER_SERVE_DIRECT: '1',
     }
 
-    const args = this.buildArgs()
+    const command = buildServeCommand(this.options.binaryPath, this.buildArgs())
     const spawnOptions: Parameters<typeof spawn>[2] = {
       cwd: dirname(this.options.binaryPath),
       env,
@@ -147,12 +147,13 @@ export class OmniInferProcess implements OmniInferProcessController {
       ;(spawnOptions as { creationFlags?: number }).creationFlags = CREATE_NO_WINDOW
     }
 
-    const child = spawn(this.options.binaryPath, args, spawnOptions)
+    const child = spawn(command.command, command.args, spawnOptions)
     this.child = child
     this.options.logger?.info('OmniInfer process spawned.', {
       binaryPath: this.options.binaryPath,
       pid: child.pid,
-      args,
+      command: command.command,
+      args: command.args,
     })
     this.transition({ pid: child.pid, state: 'running', errorMessage: undefined })
 
@@ -329,6 +330,36 @@ function attachLineReader(
       buffer = ''
     }
   })
+}
+
+function buildServeCommand(
+  binaryPath: string,
+  serveArgs: string[]
+): { command: string; args: string[] } {
+  const extension = extname(binaryPath).toLowerCase()
+  if (extension === '.py') {
+    const python =
+      process.env.OPENOMNICLAW_OMNIINFER_PYTHON ??
+      (process.platform === 'win32' ? 'python' : 'python3')
+    return { command: python, args: [binaryPath, ...serveArgs] }
+  }
+  if (extension === '.ps1') {
+    return {
+      command: 'powershell.exe',
+      args: ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', binaryPath, ...serveArgs],
+    }
+  }
+  if (extension === '.cmd' || extension === '.bat') {
+    return {
+      command: 'cmd.exe',
+      args: ['/d', '/s', '/c', `"${binaryPath}" ${serveArgs.map(quoteCmdArg).join(' ')}`],
+    }
+  }
+  return { command: binaryPath, args: serveArgs }
+}
+
+function quoteCmdArg(value: string): string {
+  return /^[A-Za-z0-9._:/=-]+$/.test(value) ? value : `"${value.replace(/"/g, '\\"')}"`
 }
 
 function waitForExit(child: ChildProcess, timeoutMs: number): Promise<boolean> {

@@ -25,4 +25,13 @@ export type {
   OmniInferRuntimeServiceOptions,
 } from './runtime-service'
 export { OmniInferRuntimeService } from './runtime-service'
+export type {
+  OmniInferRuntimeBootstrapOptions,
+  OmniInferRuntimeResolution,
+} from './bootstrapper'
+export {
+  buildInstallerCommand,
+  ensureOmniInferRuntime,
+  findInstalledRuntime,
+} from './bootstrapper'
 export { syncOmniInferProviderModels } from './sync-provider-models'
