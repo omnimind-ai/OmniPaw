@@ -5,6 +5,7 @@ import { OPENAI_COMPATIBLE_FALLBACK_CONTEXT_WINDOW } from '../../core/provider/m
 import { OpenAICompatibleProvider } from '../../core/provider/providers/openai'
 
 await testToolCallAggregation()
+await testToolCallArgumentIndexDrift()
 await testTextDeltaAndUsageFinal()
 await testJsonChatCompletionFallback()
 await testEmptySseFails()
@@ -139,6 +140,96 @@ async function testToolCallAggregation(): Promise<void> {
     cachedInput: 3,
     reasoning: 2,
   })
+}
+
+async function testToolCallArgumentIndexDrift(): Promise<void> {
+  const provider = new OpenAICompatibleProvider({
+    id: 'test',
+    baseUrl: 'https://example.test/v1',
+    apiKey: 'test-key',
+    fetch: (async () =>
+      new Response(
+        sseStream([
+          {
+            choices: [
+              {
+                delta: {
+                  tool_calls: [
+                    {
+                      index: 0,
+                      id: 'call_time',
+                      type: 'function',
+                      function: {
+                        name: 'system_time',
+                        arguments: '',
+                      },
+                    },
+                  ],
+                },
+              },
+            ],
+          },
+          {
+            choices: [
+              {
+                delta: {
+                  tool_calls: [
+                    {
+                      index: 1,
+                      function: {
+                        arguments: '{}',
+                      },
+                    },
+                  ],
+                },
+                finish_reason: 'tool_calls',
+              },
+            ],
+          },
+          '[DONE]',
+        ]),
+        { status: 200 }
+      )) as typeof fetch,
+  })
+
+  const chunks = await collect(
+    provider.streamChat({
+      modelId: 'model-a',
+      messages: [{ role: 'user', content: 'time?' }],
+      tools: [
+        {
+          type: 'function',
+          function: {
+            name: 'system_time',
+            parameters: { type: 'object', properties: {}, additionalProperties: false },
+          },
+        },
+      ],
+    })
+  )
+
+  assert.deepEqual(
+    chunks.map((chunk) => chunk.type),
+    ['tool_call_delta', 'tool_call_delta', 'tool_call_final', 'final']
+  )
+
+  const argumentDelta = chunks[1]
+  assert.equal(argumentDelta.type, 'tool_call_delta')
+  assert.equal(argumentDelta.index, 0)
+  assert.equal(argumentDelta.argumentsDelta, '{}')
+
+  const finalToolCall = chunks[2]
+  assert.equal(finalToolCall.type, 'tool_call_final')
+  assert.deepEqual(finalToolCall.toolCalls, [
+    {
+      id: 'call_time',
+      type: 'function',
+      function: {
+        name: 'system_time',
+        arguments: '{}',
+      },
+    },
+  ])
 }
 
 async function testMalformedStreamJson(): Promise<void> {

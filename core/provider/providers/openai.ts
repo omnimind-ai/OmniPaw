@@ -754,8 +754,7 @@ function parseToolCallDeltas(
       )
     }
 
-    const index = parseToolCallIndex(item.index)
-    const pending = getPendingToolCall(toolCallsByIndex, index)
+    const rawIndex = parseToolCallIndex(item.index)
     const id = optionalStringField(item, 'id', 'tool call id')
     const toolCallType = parseToolCallType(optionalStringField(item, 'type', 'tool call type'))
     const functionDelta = item.function
@@ -775,6 +774,16 @@ function parseToolCallDeltas(
         'tool call function arguments'
       )
     }
+
+    const index = normalizeToolCallDeltaIndex({
+      rawIndex,
+      id,
+      toolCallType,
+      nameDelta,
+      argumentsDelta,
+      toolCallsByIndex,
+    })
+    const pending = getPendingToolCall(toolCallsByIndex, index)
 
     if (id !== undefined) {
       pending.id = id
@@ -801,6 +810,34 @@ function parseToolCallDeltas(
   }
 
   return deltas
+}
+
+function normalizeToolCallDeltaIndex(input: {
+  rawIndex: number
+  id?: string
+  toolCallType?: ProviderToolCall['type']
+  nameDelta?: string
+  argumentsDelta?: string
+  toolCallsByIndex: Map<number, PendingToolCall>
+}): number {
+  if (input.toolCallsByIndex.has(input.rawIndex)) {
+    return input.rawIndex
+  }
+
+  if (
+    input.argumentsDelta !== undefined &&
+    !input.id &&
+    !input.toolCallType &&
+    !input.nameDelta &&
+    input.toolCallsByIndex.size === 1
+  ) {
+    const existingIndex = input.toolCallsByIndex.keys().next().value
+    if (typeof existingIndex === 'number') {
+      return existingIndex
+    }
+  }
+
+  return input.rawIndex
 }
 
 function buildFinalToolCalls(toolCallsByIndex: Map<number, PendingToolCall>): ProviderToolCall[] {
