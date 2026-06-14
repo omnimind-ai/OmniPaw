@@ -6,6 +6,8 @@ import { OpenAICompatibleProvider } from '../../core/provider/providers/openai'
 
 await testToolCallAggregation()
 await testTextDeltaAndUsageFinal()
+await testJsonChatCompletionFallback()
+await testEmptySseFails()
 await testMalformedStreamJson()
 await testListModelsUsesConfiguredAuthHeader()
 await testListModelsParsesSsePayload()
@@ -160,6 +162,79 @@ async function testMalformedStreamJson(): Promise<void> {
     (error) => {
       assert.equal(error instanceof ProviderError, true)
       assert.equal((error as ProviderError).chatError.code, 'provider_bad_request')
+      return true
+    }
+  )
+}
+
+async function testJsonChatCompletionFallback(): Promise<void> {
+  const provider = new OpenAICompatibleProvider({
+    id: 'test',
+    baseUrl: 'https://example.test/v1',
+    apiKey: 'test-key',
+    fetch: (async () =>
+      Response.json({
+        choices: [
+          {
+            message: {
+              content: 'plain json reply',
+            },
+            finish_reason: 'stop',
+          },
+        ],
+        usage: {
+          prompt_tokens: 2,
+          completion_tokens: 3,
+          total_tokens: 5,
+        },
+      })) as typeof fetch,
+  })
+
+  const chunks = await collect(
+    provider.streamChat({
+      modelId: 'model-a',
+      messages: [{ role: 'user', content: 'hello' }],
+    })
+  )
+
+  assert.deepEqual(
+    chunks.map((chunk) => chunk.type),
+    ['delta', 'final']
+  )
+  assert.equal(chunks[0].type, 'delta')
+  assert.equal(chunks[0].content, 'plain json reply')
+  assert.equal(chunks[1].type, 'final')
+  assert.equal(chunks[1].finishReason, 'stop')
+  assert.deepEqual(chunks[1].usage, {
+    input: 2,
+    output: 3,
+    total: 5,
+    cachedInput: undefined,
+    reasoning: undefined,
+  })
+}
+
+async function testEmptySseFails(): Promise<void> {
+  const provider = new OpenAICompatibleProvider({
+    id: 'test',
+    baseUrl: 'https://example.test/v1',
+    apiKey: 'test-key',
+    fetch: (async () => new Response('', { status: 200 })) as typeof fetch,
+  })
+
+  await assert.rejects(
+    async () => {
+      await collect(
+        provider.streamChat({
+          modelId: 'model-a',
+          messages: [{ role: 'user', content: 'hello' }],
+        })
+      )
+    },
+    (error) => {
+      assert.equal(error instanceof ProviderError, true)
+      assert.equal((error as ProviderError).chatError.code, 'provider_bad_request')
+      assert.match((error as ProviderError).chatError.message, /empty chat completion/)
       return true
     }
   )

@@ -43,6 +43,20 @@ interface OpenAIStreamChunk {
   usage?: unknown
 }
 
+interface OpenAIChatCompletionChoice {
+  message?: {
+    content?: unknown
+    reasoning_content?: unknown
+    tool_calls?: unknown
+  }
+  finish_reason?: string | null
+}
+
+interface OpenAIChatCompletionResponse {
+  choices?: OpenAIChatCompletionChoice[]
+  usage?: unknown
+}
+
 interface OpenAIModelListItem {
   id: string
   name?: string
@@ -102,6 +116,11 @@ export class OpenAICompatibleProvider implements BaseProvider {
         throwProviderError(await errorFromResponse(response))
       }
 
+      if (isJsonResponse(response)) {
+        yield* parseChatCompletionResponse(response)
+        return
+      }
+
       if (!response.body) {
         throwProviderError({
           code: 'network',
@@ -115,9 +134,15 @@ export class OpenAICompatibleProvider implements BaseProvider {
       let finishReason: string | undefined
       const toolCallsByIndex = new Map<number, PendingToolCall>()
       let yieldedToolCallFinal = false
+      let sawEvent = false
+      let sawOutput = false
 
       for await (const event of parseSseStream(response.body)) {
+        sawEvent = true
         if (event === '[DONE]') {
+          if (!sawOutput && !finalUsage && !finishReason) {
+            throwEmptyChatResponse()
+          }
           yield {
             type: 'final',
             done: true,
@@ -137,6 +162,7 @@ export class OpenAICompatibleProvider implements BaseProvider {
         finalUsage = parseUsage(chunk.usage) ?? finalUsage
 
         if (content || reasoning) {
+          sawOutput = true
           yield {
             type: 'delta',
             content,
@@ -149,6 +175,7 @@ export class OpenAICompatibleProvider implements BaseProvider {
         }
 
         for (const toolCallDelta of toolCallDeltas) {
+          sawOutput = true
           yield {
             type: 'tool_call_delta',
             ...toolCallDelta,
@@ -161,6 +188,7 @@ export class OpenAICompatibleProvider implements BaseProvider {
 
         if (choice?.finish_reason === 'tool_calls' && !yieldedToolCallFinal) {
           yieldedToolCallFinal = true
+          sawOutput = true
           yield {
             type: 'tool_call_final',
             toolCalls: buildFinalToolCalls(toolCallsByIndex),
@@ -170,6 +198,10 @@ export class OpenAICompatibleProvider implements BaseProvider {
             raw: chunk,
           }
         }
+      }
+
+      if (!sawEvent || (!sawOutput && !finalUsage && !finishReason)) {
+        throwEmptyChatResponse()
       }
 
       yield {
@@ -569,6 +601,136 @@ function parseChunk(event: string): OpenAIStreamChunk {
   }
 }
 
+async function* parseChatCompletionResponse(
+  response: Response
+): AsyncIterable<ChatCompletionChunk> {
+  const payload = (await response.json().catch((error: unknown) => {
+    throwProviderError(
+      {
+        code: 'provider_bad_request',
+        message: 'Provider returned malformed chat completion JSON.',
+        retryable: false,
+      },
+      error
+    )
+  })) as OpenAIChatCompletionResponse
+
+  if (!isRecord(payload)) {
+    throwMalformedChatCompletionResponse()
+  }
+
+  const choice = Array.isArray(payload.choices) ? payload.choices.find(isRecord) : undefined
+  const message = isRecord(choice?.message) ? choice.message : undefined
+  const content = parseMessageText(message?.content)
+  const reasoning = stringValue(message?.reasoning_content) || undefined
+  const usage = parseUsage(payload.usage)
+  const finishReason = typeof choice?.finish_reason === 'string' ? choice.finish_reason : undefined
+  const toolCalls = parseChatCompletionToolCalls(message?.tool_calls)
+
+  if (content || reasoning) {
+    yield {
+      type: 'delta',
+      content,
+      reasoning,
+      done: false,
+      finishReason,
+      usage,
+      raw: payload,
+    }
+  }
+
+  if (toolCalls.length) {
+    yield {
+      type: 'tool_call_final',
+      toolCalls,
+      done: false,
+      finishReason,
+      usage,
+      raw: payload,
+    }
+  }
+
+  if (!content && !reasoning && !toolCalls.length && !usage && !finishReason) {
+    throwEmptyChatResponse()
+  }
+
+  yield {
+    type: 'final',
+    done: true,
+    finishReason,
+    usage,
+    raw: payload,
+  }
+}
+
+function parseMessageText(value: unknown): string | undefined {
+  if (typeof value === 'string') {
+    return value || undefined
+  }
+  if (!Array.isArray(value)) {
+    return undefined
+  }
+
+  const text = value
+    .map((part) => {
+      if (!isRecord(part)) {
+        return undefined
+      }
+      return part.type === 'text' ? stringValue(part.text) : undefined
+    })
+    .filter((part): part is string => Boolean(part))
+    .join('')
+  return text || undefined
+}
+
+function parseChatCompletionToolCalls(value: unknown): ProviderToolCall[] {
+  if (value === undefined || value === null) {
+    return []
+  }
+  if (!Array.isArray(value)) {
+    throwMalformedChatCompletionResponse()
+  }
+
+  return value.map((item) => {
+    if (!isRecord(item) || !isRecord(item.function)) {
+      throwMalformedChatCompletionResponse()
+    }
+    const id = stringValue(item.id)
+    const name = stringValue(item.function.name)
+    const args = stringValue(item.function.arguments)
+    const type = stringValue(item.type) || 'function'
+    if (!id || type !== 'function' || !name) {
+      throwMalformedChatCompletionResponse()
+    }
+
+    return {
+      id,
+      type: 'function',
+      function: {
+        name,
+        arguments: args || '',
+      },
+    }
+  })
+}
+
+function throwMalformedChatCompletionResponse(): never {
+  throwProviderError({
+    code: 'provider_bad_request',
+    message: 'Provider returned malformed chat completion JSON.',
+    retryable: false,
+  })
+}
+
+function throwEmptyChatResponse(): never {
+  throwProviderError({
+    code: 'provider_bad_request',
+    message:
+      'Provider returned an empty chat completion response. Check the configured base URL, model ID, and streaming compatibility.',
+    retryable: false,
+  })
+}
+
 function parseToolCallDeltas(
   value: unknown,
   toolCallsByIndex: Map<number, PendingToolCall>
@@ -779,6 +941,10 @@ function toOpenAIToolCall(toolCall: ProviderToolCall): Record<string, unknown> {
 
 function numberValue(value: unknown): number | undefined {
   return typeof value === 'number' && Number.isFinite(value) ? value : undefined
+}
+
+function isJsonResponse(response: Response): boolean {
+  return response.headers.get('content-type')?.toLowerCase().includes('application/json') ?? false
 }
 
 function stringValue(value: unknown): string {
