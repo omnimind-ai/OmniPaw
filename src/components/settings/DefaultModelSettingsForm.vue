@@ -1,20 +1,29 @@
 <script setup lang="ts">
-import { BotIcon, EyeIcon, ListChecksIcon } from 'lucide-vue-next'
+import {
+  ArrowDownIcon,
+  ArrowUpIcon,
+  BotIcon,
+  EyeIcon,
+  GripVerticalIcon,
+  ListChecksIcon,
+  PlusIcon,
+  Trash2Icon,
+} from 'lucide-vue-next'
 import { storeToRefs } from 'pinia'
 import type { AcceptableValue } from 'reka-ui'
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import type { BridgeDesktopSettingsConfig } from '@/bridge/app'
 import SettingEntry from '@/components/settings/common/SettingEntry.vue'
 import SettingsSection from '@/components/settings/common/SettingsSection.vue'
+import FallbackModelPickerModal from '@/components/settings/default-model-settings/FallbackModelPickerModal.vue'
 import { Badge } from '@/components/ui/badge'
-import { Checkbox } from '@/components/ui/checkbox'
+import { Button } from '@/components/ui/button'
 import {
   Field,
   FieldContent,
   FieldDescription,
   FieldGroup,
   FieldLabel,
-  FieldLegend,
   FieldSet,
 } from '@/components/ui/field'
 import {
@@ -25,6 +34,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { cn } from '@/lib/utils'
 import { type ProviderModelOption, useProviderStore } from '@/stores/provider'
 
 const NONE_VALUE = '__none__'
@@ -63,28 +73,27 @@ const compactModelKey = computed(() => {
     )?.key ?? NONE_VALUE
   )
 })
-
-function fallbackChecked(modelKey: string) {
-  return fallbackModelKeys.value.includes(modelKey)
-}
+const fallbackPickerOpen = ref(false)
+const draggedFallbackModelKey = ref('')
+const dragOverFallbackModelKey = ref('')
+const fallbackControlsDisabled = computed(() => saving.value || !persistenceAvailable.value)
+const selectedFallbackKeySet = computed(() => new Set(fallbackModelKeys.value))
+const fallbackOptions = computed(() =>
+  fallbackModelKeys.value
+    .map((key) => enabledOptions.value.find((option) => option.key === key))
+    .filter((option): option is ProviderModelOption => Boolean(option))
+)
+const fallbackOptionKeys = computed(() => fallbackOptions.value.map((option) => option.key))
+const addableFallbackOptions = computed(() =>
+  enabledOptions.value.filter(
+    (option) =>
+      option.key !== defaultModelKey.value && !selectedFallbackKeySet.value.has(option.key)
+  )
+)
 
 function updateDefaultModel(value: AcceptableValue) {
   const normalizedValue = typeof value === 'string' ? value : ''
   void providerStore.setDefaultModelKey(normalizedValue === NONE_VALUE ? '' : normalizedValue)
-}
-
-function updateFallback(modelKey: string, checked: boolean | 'indeterminate') {
-  const selected = checked === true
-  const current = new Set(fallbackModelKeys.value)
-
-  if (selected) {
-    current.add(modelKey)
-  } else {
-    current.delete(modelKey)
-  }
-
-  current.delete(defaultModelKey.value)
-  void providerStore.setFallbackModelKeys([...current])
 }
 
 function updateTitleModel(value: AcceptableValue) {
@@ -117,6 +126,73 @@ function updateCompactModel(value: AcceptableValue) {
   const normalizedValue = typeof value === 'string' ? value : ''
   const selected = enabledTextOptions.value.find((option) => option.key === normalizedValue)
   chatContext.value.compactModelId = selected?.modelId
+}
+
+function addFallbackModels(modelKeys: string[]) {
+  const current = new Set(fallbackModelKeys.value)
+  const nextKeys = [...fallbackModelKeys.value]
+  for (const modelKey of modelKeys) {
+    if (modelKey && modelKey !== defaultModelKey.value && !current.has(modelKey)) {
+      current.add(modelKey)
+      nextKeys.push(modelKey)
+    }
+  }
+  void providerStore.setFallbackModelKeys(nextKeys)
+}
+
+function removeFallbackModel(modelKey: string) {
+  void providerStore.setFallbackModelKeys(fallbackModelKeys.value.filter((key) => key !== modelKey))
+}
+
+function clearFallbackModels() {
+  void providerStore.setFallbackModelKeys([])
+}
+
+function moveFallbackModel(modelKey: string, offset: -1 | 1) {
+  const current = [...fallbackOptionKeys.value]
+  const index = current.indexOf(modelKey)
+  const nextIndex = index + offset
+  if (index < 0 || nextIndex < 0 || nextIndex >= current.length) return
+
+  current.splice(index, 1)
+  current.splice(nextIndex, 0, modelKey)
+  void providerStore.setFallbackModelKeys(current)
+}
+
+function startFallbackDrag(event: DragEvent, modelKey: string) {
+  if (fallbackControlsDisabled.value) return
+
+  draggedFallbackModelKey.value = modelKey
+  event.dataTransfer?.setData('text/plain', modelKey)
+  if (event.dataTransfer) {
+    event.dataTransfer.effectAllowed = 'move'
+  }
+}
+
+function enterFallbackDropTarget(modelKey: string) {
+  if (!draggedFallbackModelKey.value || draggedFallbackModelKey.value === modelKey) return
+  dragOverFallbackModelKey.value = modelKey
+}
+
+function dropFallbackModel(event: DragEvent, targetKey: string) {
+  const sourceKey = draggedFallbackModelKey.value || event.dataTransfer?.getData('text/plain') || ''
+  draggedFallbackModelKey.value = ''
+  dragOverFallbackModelKey.value = ''
+  if (!sourceKey || sourceKey === targetKey) return
+
+  const current = [...fallbackOptionKeys.value]
+  const sourceIndex = current.indexOf(sourceKey)
+  const targetIndex = current.indexOf(targetKey)
+  if (sourceIndex < 0 || targetIndex < 0) return
+
+  current.splice(sourceIndex, 1)
+  current.splice(sourceIndex < targetIndex ? targetIndex - 1 : targetIndex, 0, sourceKey)
+  void providerStore.setFallbackModelKeys(current)
+}
+
+function endFallbackDrag() {
+  draggedFallbackModelKey.value = ''
+  dragOverFallbackModelKey.value = ''
 }
 
 function modelLabel(option: ProviderModelOption) {
@@ -337,46 +413,124 @@ function modelLabel(option: ProviderModelOption) {
 
     <SettingsSection
       title="备用模型"
-      description="选择默认模型不可用时的候选。"
-      :icon="ListChecksIcon"
+      description="添加默认模型不可用时的候选，列表顺序就是回退尝试顺序。"
     >
-      <FieldSet class="px-4 py-4">
+      <template #action>
+        <div class="flex flex-wrap items-center justify-end gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            :disabled="fallbackControlsDisabled || !addableFallbackOptions.length"
+            @click="fallbackPickerOpen = true"
+          >
+            <PlusIcon data-icon="inline-start" />
+            添加
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            :disabled="fallbackControlsDisabled || !fallbackOptions.length"
+            @click="clearFallbackModels"
+          >
+            <Trash2Icon data-icon="inline-start" />
+            清空列表
+          </Button>
+        </div>
+      </template>
+
+      <FieldSet class="flex flex-col gap-4 px-4 py-4">
         <FieldDescription v-if="!enabledOptions.length">
           还没有可用模型。
         </FieldDescription>
+        <FieldDescription v-else-if="!fallbackOptions.length">
+          还没有备用模型。请先从上方添加候选。
+        </FieldDescription>
         <FieldGroup
           v-else
-          data-slot="checkbox-group"
-          class="gap-3"
+          class="gap-2"
         >
           <Field
-            v-for="option in enabledOptions"
+            v-for="(option, index) in fallbackOptions"
             :key="option.key"
-            orientation="horizontal"
-            class="items-center"
-            :data-disabled="option.key === defaultModelKey"
+            orientation="responsive"
+            :class="cn(
+              'rounded-md border px-3 py-2 transition-colors',
+              fallbackControlsDisabled ? 'opacity-60' : 'cursor-grab hover:bg-muted/25',
+              draggedFallbackModelKey === option.key ? 'opacity-40' : '',
+              dragOverFallbackModelKey === option.key ? 'border-primary bg-muted/35' : '',
+            )"
+            :draggable="!fallbackControlsDisabled"
+            @dragstart="startFallbackDrag($event, option.key)"
+            @dragenter.prevent="enterFallbackDropTarget(option.key)"
+            @dragover.prevent
+            @drop.prevent="dropFallbackModel($event, option.key)"
+            @dragend="endFallbackDrag"
           >
-            <Checkbox
-              :id="`fallback-${option.key}`"
-              :model-value="fallbackChecked(option.key)"
-              :disabled="option.key === defaultModelKey || saving || !persistenceAvailable"
-              @update:model-value="updateFallback(option.key, $event)"
-            />
-            <FieldContent>
-              <FieldLabel :for="`fallback-${option.key}`">
-                {{ option.modelName }}
-                <Badge
-                  v-if="option.key === defaultModelKey"
-                  variant="secondary"
-                >
-                  默认
-                </Badge>
-              </FieldLabel>
-              <FieldDescription>{{ option.providerName }}</FieldDescription>
-            </FieldContent>
+            <div class="flex min-w-0 items-center gap-3">
+              <span
+                class="flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground"
+                aria-hidden="true"
+              >
+                <GripVerticalIcon />
+              </span>
+
+              <Badge
+                variant="secondary"
+                class="shrink-0 tabular-nums"
+              >
+                {{ index + 1 }}
+              </Badge>
+
+              <FieldContent class="min-w-0 gap-1">
+                <FieldLabel class="truncate">
+                  {{ option.modelName }}
+                </FieldLabel>
+                <FieldDescription class="truncate">{{ option.providerName }}</FieldDescription>
+              </FieldContent>
+            </div>
+
+            <div class="flex w-full items-center justify-end gap-1 @md/field-group:w-auto">
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                :disabled="fallbackControlsDisabled || index === 0"
+                aria-label="上移备用模型"
+                @click="moveFallbackModel(option.key, -1)"
+              >
+                <ArrowUpIcon />
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                :disabled="fallbackControlsDisabled || index === fallbackOptions.length - 1"
+                aria-label="下移备用模型"
+                @click="moveFallbackModel(option.key, 1)"
+              >
+                <ArrowDownIcon />
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                :disabled="fallbackControlsDisabled"
+                aria-label="移除备用模型"
+                @click="removeFallbackModel(option.key)"
+              >
+                <Trash2Icon />
+              </Button>
+            </div>
           </Field>
         </FieldGroup>
       </FieldSet>
     </SettingsSection>
+
+    <FallbackModelPickerModal
+      v-model:open="fallbackPickerOpen"
+      :options="addableFallbackOptions"
+      :disabled="fallbackControlsDisabled"
+      @confirm="addFallbackModels"
+    />
   </div>
 </template>
