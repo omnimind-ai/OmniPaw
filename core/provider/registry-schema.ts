@@ -785,13 +785,19 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
 }
 
 function isKnownProviderType(value: string): value is ProviderType {
-  return value === 'openai-compatible' || value === 'ollama' || value === 'omniinfer'
+  return (
+    value === 'openai-compatible' ||
+    value === 'openai-codex' ||
+    value === 'ollama' ||
+    value === 'omniinfer'
+  )
 }
 
 function isKnownProviderApi(value: string): value is ProviderApi {
   return (
     value === 'openai-chat-completions' ||
     value === 'openai-responses' ||
+    value === 'openai-codex-responses' ||
     value === 'ollama' ||
     value === 'omniinfer'
   )

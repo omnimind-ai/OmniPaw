@@ -24,9 +24,15 @@ import { resolveCredential } from './credentials'
 import { normalizeProviderError } from './errors'
 import { OmniInferProvider } from './providers/omniinfer'
 import { OpenAICompatibleProvider } from './providers/openai'
+import { OpenAICodexProvider } from './providers/openai-codex'
 import type { ProviderRegistryStore } from './registry-store'
 
-export type ProviderApi = 'openai-chat-completions' | 'openai-responses' | 'ollama' | 'omniinfer'
+export type ProviderApi =
+  | 'openai-chat-completions'
+  | 'openai-responses'
+  | 'openai-codex-responses'
+  | 'ollama'
+  | 'omniinfer'
 
 export interface ProviderCapabilities {
   listModels?: boolean
@@ -197,6 +203,80 @@ const providerPresets: ProviderPreset[] = [
     models: [],
   },
   {
+    id: 'openai-codex',
+    name: 'OpenAI Codex OAuth',
+    type: 'openai-codex',
+    api: 'openai-codex-responses',
+    baseUrl: 'https://chatgpt.com/backend-api',
+    enabled: true,
+    credentialRef: 'openai-codex:default',
+    authHeader: 'Authorization',
+    description: 'ChatGPT/Codex OAuth provider backed by OpenAI Codex Responses.',
+    capabilities: {
+      listModels: true,
+      streaming: true,
+      tools: true,
+      vision: true,
+    },
+    compat: {
+      maxTokensField: 'max_tokens',
+      supportsSystemRole: true,
+      supportsDeveloperRole: true,
+      supportsJsonMode: false,
+      reasoningFormat: 'openai',
+    },
+    defaultModelId: 'gpt-5.4',
+    models: [
+      {
+        id: 'gpt-5.4',
+        name: 'GPT-5.4 Codex',
+        enabled: true,
+        input: ['text', 'image'],
+        supportsStreaming: true,
+        supportsTools: true,
+        supportsReasoning: true,
+        contextWindow: 1_050_000,
+        maxOutputTokens: 128_000,
+      },
+      {
+        id: 'gpt-5.3-codex',
+        name: 'GPT-5.3 Codex',
+        enabled: true,
+        input: ['text', 'image'],
+        supportsStreaming: true,
+        supportsTools: true,
+        supportsReasoning: true,
+      },
+      {
+        id: 'gpt-5.3-codex-spark',
+        name: 'GPT-5.3 Codex Spark',
+        enabled: true,
+        input: ['text', 'image'],
+        supportsStreaming: true,
+        supportsTools: true,
+        supportsReasoning: true,
+      },
+      {
+        id: 'gpt-5.2-codex',
+        name: 'GPT-5.2 Codex',
+        enabled: true,
+        input: ['text', 'image'],
+        supportsStreaming: true,
+        supportsTools: true,
+        supportsReasoning: true,
+      },
+      {
+        id: 'gpt-5.1-codex',
+        name: 'GPT-5.1 Codex',
+        enabled: true,
+        input: ['text', 'image'],
+        supportsStreaming: true,
+        supportsTools: true,
+        supportsReasoning: true,
+      },
+    ],
+  },
+  {
     id: 'omniinfer-local',
     name: 'OmniInfer Local',
     type: 'omniinfer',
@@ -210,7 +290,17 @@ const providerPresets: ProviderPreset[] = [
       tools: false,
       vision: false,
     },
-    models: [],
+    models: [
+      {
+        id: 'local-small-model',
+        name: 'Local Small Model',
+        enabled: true,
+        input: ['text'],
+        supportsStreaming: true,
+        supportsTools: false,
+        supportsReasoning: false,
+      },
+    ],
   },
 ]
 
@@ -740,6 +830,8 @@ export class ProviderManager {
     if (
       !record.capabilities?.listModels &&
       record.api !== 'openai-chat-completions' &&
+      record.api !== 'openai-codex-responses' &&
+      record.type !== 'openai-codex' &&
       record.type !== 'openai-compatible'
     ) {
       this.logger?.debug('Provider model refresh skipped.', { providerId, reason: 'unsupported' })
@@ -976,6 +1068,24 @@ export class ProviderManager {
         maxTokensField: provider.compat?.maxTokensField,
         runtimeService: this.omniInferRuntimeService,
         installedModels: this.omniInferInstalledModels,
+      })
+    }
+
+    if (provider.api === 'openai-codex-responses' || provider.type === 'openai-codex') {
+      this.logger?.debug('Creating provider client.', {
+        providerId: provider.id,
+        api: provider.api,
+        type: provider.type,
+        hasCredential: Boolean(credential?.value || provider.credentialRef),
+      })
+      return new OpenAICodexProvider({
+        id: provider.id,
+        baseUrl: provider.baseUrl,
+        apiKey: credential?.value,
+        authHeader: provider.authHeader,
+        headers: provider.headers,
+        extraBody: provider.extraBody,
+        credentialProfileId: provider.credentialRef,
       })
     }
 
@@ -1618,6 +1728,9 @@ function toLegacyModel(model: ProviderModelRecord): ModelConfig {
 }
 
 function legacyTypeFromApi(api?: ProviderApi): ProviderType {
+  if (api === 'openai-codex-responses') {
+    return 'openai-codex'
+  }
   if (api === 'omniinfer') {
     return 'omniinfer'
   }
@@ -1628,6 +1741,9 @@ function legacyTypeFromApi(api?: ProviderApi): ProviderType {
 }
 
 function apiFromLegacyType(type?: ProviderType): ProviderApi {
+  if (type === 'openai-codex') {
+    return 'openai-codex-responses'
+  }
   if (type === 'omniinfer') {
     return 'omniinfer'
   }

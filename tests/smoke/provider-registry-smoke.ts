@@ -4,6 +4,8 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
 import { ConfigStore } from '../../core/config/store'
+import type { InstalledModelRegistry } from '../../core/omniinfer/installed-models'
+import type { OmniInferRuntimeService } from '../../core/omniinfer/runtime-service'
 import { ProviderManager } from '../../core/provider/manager'
 import {
   MODELS_DEV_METADATA_URL,
@@ -90,6 +92,15 @@ try {
   const registryStore = new ProviderRegistryStore({ appDataPath: tempDir })
   const configStore = new ConfigStore({ appDataPath: tempDir, appName: 'settings' })
   let cleanedSessionRefs: { providerId: string; modelIds?: string[] } | undefined
+  const localSmallModel = {
+    id: 'local-small-model',
+    name: 'local-small-model.gguf',
+    displayName: 'Local Small Model',
+    path: join(tempDir, 'local-small-model.gguf'),
+    sizeBytes: 1,
+    mtimeMs: Date.now(),
+    missing: false,
+  }
   const providers = new ProviderManager({
     configStore,
     registryStore,
@@ -102,6 +113,22 @@ try {
         return 1
       },
     },
+    omniInferRuntimeService: {
+      setBaseUrl() {},
+      setModelsDir() {},
+      async ensureModelLoaded() {},
+    } as unknown as OmniInferRuntimeService,
+    omniInferInstalledModels: {
+      async scan() {
+        return [localSmallModel]
+      },
+      list() {
+        return [localSmallModel]
+      },
+      resolveModelPath(modelId: string) {
+        return modelId === localSmallModel.id ? localSmallModel.path : undefined
+      },
+    } as unknown as InstalledModelRegistry,
   })
 
   const empty = registryStore.load()
@@ -292,6 +319,12 @@ try {
   assert.equal(runtimeFallback.modelId, 'local-small-model')
   assert.equal(registryStore.get().settings.defaultProviderId, undefined)
   assert.equal(registryStore.get().settings.defaultModelId, undefined)
+
+  const codexPreset = await providers.createFromPreset('openai-codex')
+  assert.equal(codexPreset.id, 'openai-codex')
+  assert.equal(codexPreset.type, 'openai-codex')
+  assert.equal(codexPreset.api, 'openai-codex-responses')
+  assert.equal(codexPreset.models[0]?.id, 'gpt-5.4')
 
   console.log('Provider registry smoke check passed')
 } finally {

@@ -411,12 +411,14 @@ function normalizeInput(value: unknown): ModelInput[] {
 }
 
 function providerType(value?: string): ProviderType {
+  if (value === 'openai-codex' || value === 'openai-codex-responses') return 'openai-codex'
   if (value === 'ollama') return 'ollama'
   if (value === 'omniinfer') return 'omniinfer'
   return 'openai-compatible'
 }
 
 function apiFromType(type: ProviderType): ProviderApi {
+  if (type === 'openai-codex') return 'openai-codex-responses'
   if (type === 'ollama') return 'ollama'
   if (type === 'omniinfer') return 'omniinfer'
   return 'openai-chat-completions'

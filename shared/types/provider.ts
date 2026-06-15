@@ -1,8 +1,13 @@
 import type { ChatError, ID, TokenUsage } from './chat'
 
-export type ProviderApi = 'openai-chat-completions' | 'openai-responses' | 'ollama' | 'omniinfer'
+export type ProviderApi =
+  | 'openai-chat-completions'
+  | 'openai-responses'
+  | 'openai-codex-responses'
+  | 'ollama'
+  | 'omniinfer'
 
-export type ProviderType = 'openai-compatible' | 'ollama' | 'omniinfer'
+export type ProviderType = 'openai-compatible' | 'openai-codex' | 'ollama' | 'omniinfer'
 
 export interface ProviderCapabilities {
   listModels?: boolean

@@ -537,7 +537,12 @@ export interface BridgeProviderConfig {
   id: string
   name: string
   type?: string
-  api: 'openai-chat-completions' | 'openai-responses' | 'ollama' | 'omniinfer'
+  api:
+    | 'openai-chat-completions'
+    | 'openai-responses'
+    | 'openai-codex-responses'
+    | 'ollama'
+    | 'omniinfer'
   baseUrl: string
   enabled?: boolean
   defaultModelId?: string
@@ -551,8 +556,13 @@ export interface BridgeProviderConfig {
 export interface BridgeProviderPreset {
   id: string
   name: string
-  type: 'openai-compatible' | 'ollama' | 'omniinfer'
-  api: 'openai-chat-completions' | 'openai-responses' | 'ollama' | 'omniinfer'
+  type: 'openai-compatible' | 'openai-codex' | 'ollama' | 'omniinfer'
+  api:
+    | 'openai-chat-completions'
+    | 'openai-responses'
+    | 'openai-codex-responses'
+    | 'ollama'
+    | 'omniinfer'
   baseUrl: string
   description?: string
   enabled?: boolean
@@ -1864,6 +1874,14 @@ const fallbackBridge: RendererOpenOmniClawBridge = {
         api: 'openai-chat-completions',
         baseUrl: 'https://api.openai.com/v1',
         description: 'OpenAI API and compatible services.',
+      },
+      {
+        id: 'openai-codex',
+        name: 'OpenAI Codex OAuth',
+        type: 'openai-codex',
+        api: 'openai-codex-responses',
+        baseUrl: 'https://chatgpt.com/backend-api',
+        description: 'ChatGPT/Codex OAuth provider backed by OpenAI Codex Responses.',
       },
       {
         id: 'ollama',

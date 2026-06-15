@@ -3,6 +3,7 @@ import type { ChatCompletionChunk, ChatCompletionRequest } from '../../core/prov
 import { ProviderError } from '../../core/provider/base-provider'
 import { OPENAI_COMPATIBLE_FALLBACK_CONTEXT_WINDOW } from '../../core/provider/models-dev-metadata'
 import { OpenAICompatibleProvider } from '../../core/provider/providers/openai'
+import { OpenAICodexProvider } from '../../core/provider/providers/openai-codex'
 
 await testToolCallAggregation()
 await testToolCallArgumentIndexDrift()
@@ -12,6 +13,7 @@ await testEmptySseFails()
 await testMalformedStreamJson()
 await testListModelsUsesConfiguredAuthHeader()
 await testListModelsParsesSsePayload()
+await testOpenAICodexOAuthResponsesStream()
 
 console.log('Provider stream smoke check passed')
 
@@ -469,6 +471,78 @@ async function testListModelsParsesSsePayload(): Promise<void> {
   assert.equal(models[0]?.contextWindow, 32000)
 }
 
+async function testOpenAICodexOAuthResponsesStream(): Promise<void> {
+  let requestHeaders: Headers
+  let requestBody: Record<string, unknown>
+  const token = jwtWithPayload({
+    'https://api.openai.com/auth': {
+      chatgpt_account_id: 'acct_test',
+    },
+  })
+  const provider = new OpenAICodexProvider({
+    id: 'codex-test',
+    baseUrl: 'https://chatgpt.com/backend-api',
+    apiKey: token,
+    fetch: (async (input, init) => {
+      assert.equal(requestUrl(input), 'https://chatgpt.com/backend-api/codex/responses')
+      requestHeaders = new Headers(init?.headers)
+      requestBody = JSON.parse(String(init?.body)) as Record<string, unknown>
+      return new Response(
+        sseStream([
+          { type: 'response.output_text.delta', delta: 'hello' },
+          { type: 'response.reasoning_summary_text.delta', delta: 'thinking' },
+          {
+            type: 'response.completed',
+            response: {
+              status: 'completed',
+              usage: {
+                input_tokens: 7,
+                output_tokens: 3,
+                total_tokens: 10,
+                input_tokens_details: { cached_tokens: 2 },
+                output_tokens_details: { reasoning_tokens: 1 },
+              },
+            },
+          },
+          '[DONE]',
+        ]),
+        { status: 200 }
+      )
+    }) as typeof fetch,
+  })
+
+  const chunks = await collect(
+    provider.streamChat({
+      modelId: 'gpt-5.4',
+      messages: [
+        { role: 'system', content: 'system prompt' },
+        { role: 'user', content: 'hello' },
+      ],
+    })
+  )
+
+  assert.equal(requestHeaders!.get('Authorization'), `Bearer ${token}`)
+  assert.equal(requestHeaders!.get('chatgpt-account-id'), 'acct_test')
+  assert.equal(requestHeaders!.get('OpenAI-Beta'), 'responses=experimental')
+  assert.equal(requestBody!.instructions, 'system prompt')
+  assert.deepEqual(requestBody!.input, [{ role: 'user', content: 'hello' }])
+  assert.deepEqual(
+    chunks.map((chunk) => chunk.type),
+    ['delta', 'delta', 'final']
+  )
+  assert.equal(chunks[0]?.type, 'delta')
+  assert.equal(chunks[0]?.content, 'hello')
+  assert.equal(chunks[1]?.type, 'delta')
+  assert.equal(chunks[1]?.reasoning, 'thinking')
+  assert.deepEqual(chunks[2]?.usage, {
+    input: 7,
+    output: 3,
+    cachedInput: 2,
+    reasoning: 1,
+    total: 10,
+  })
+}
+
 async function collect(stream: AsyncIterable<ChatCompletionChunk>): Promise<ChatCompletionChunk[]> {
   const chunks: ChatCompletionChunk[] = []
   for await (const chunk of stream) {
@@ -489,6 +563,18 @@ function requestUrl(input: Parameters<typeof fetch>[0]): string {
     return input.toString()
   }
   return input.url
+}
+
+function jwtWithPayload(payload: Record<string, unknown>): string {
+  return [
+    base64UrlEncode(JSON.stringify({ alg: 'none', typ: 'JWT' })),
+    base64UrlEncode(JSON.stringify(payload)),
+    'signature',
+  ].join('.')
+}
+
+function base64UrlEncode(value: string): string {
+  return Buffer.from(value, 'utf8').toString('base64url')
 }
 
 function rawSseStream(events: string[]): ReadableStream<Uint8Array> {

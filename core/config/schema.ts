@@ -889,7 +889,7 @@ function validateProviders(config: DesktopSettingsConfig, issues: SettingsValida
         code: 'invalid_type',
       })
     }
-    if (!['openai-compatible', 'ollama', 'omniinfer'].includes(source.type)) {
+    if (!['openai-compatible', 'openai-codex', 'ollama', 'omniinfer'].includes(source.type)) {
       issues.push({
         path: `${basePath}.type`,
         message: 'Provider source type is invalid.',
@@ -897,7 +897,13 @@ function validateProviders(config: DesktopSettingsConfig, issues: SettingsValida
       })
     }
     if (
-      !['openai-chat-completions', 'openai-responses', 'ollama', 'omniinfer'].includes(source.api)
+      ![
+        'openai-chat-completions',
+        'openai-responses',
+        'openai-codex-responses',
+        'ollama',
+        'omniinfer',
+      ].includes(source.api)
     ) {
       issues.push({
         path: `${basePath}.api`,

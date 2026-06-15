@@ -66,6 +66,8 @@ const canRefreshModels = computed(() =>
     persistenceAvailable.value &&
       (providerDraft.value.capabilities.listModels ||
         providerDraft.value.api === 'openai-chat-completions' ||
+        providerDraft.value.api === 'openai-codex-responses' ||
+        providerDraft.value.type === 'openai-codex' ||
         providerDraft.value.type === 'openai-compatible' ||
         isOmniInferProvider.value)
   )
