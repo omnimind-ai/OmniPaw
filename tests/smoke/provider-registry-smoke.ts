@@ -324,7 +324,7 @@ try {
   assert.equal(codexPreset.id, 'openai-codex')
   assert.equal(codexPreset.type, 'openai-codex')
   assert.equal(codexPreset.api, 'openai-codex-responses')
-  assert.equal(codexPreset.models[0]?.id, 'gpt-5.4')
+  assert.equal(codexPreset.models.length, 0)
 
   console.log('Provider registry smoke check passed')
 } finally {
