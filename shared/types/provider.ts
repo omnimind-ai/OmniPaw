@@ -264,6 +264,19 @@ export interface CreateProviderFromPresetRequest {
   presetId: ID
 }
 
+export interface OpenAICodexOAuthStatus {
+  providerId: ID
+  authenticated: boolean
+  accountId?: string
+  email?: string
+  expires?: number
+  updatedAt?: number
+}
+
+export interface OpenAICodexOAuthProviderRequest {
+  providerId: ID
+}
+
 export interface TestProviderRequest {
   providerId?: ID
   provider?: ProviderConfig

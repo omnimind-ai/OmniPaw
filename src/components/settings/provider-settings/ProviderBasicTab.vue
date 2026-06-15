@@ -1,6 +1,9 @@
 <script setup lang="ts">
-import { CloudIcon } from 'lucide-vue-next'
+import { CloudIcon, LogInIcon, LogOutIcon, RefreshCwIcon } from 'lucide-vue-next'
 import { computed } from 'vue'
+import type { BridgeOpenAICodexOAuthStatus } from '@/bridge/app'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import {
   Field,
   FieldContent,
@@ -29,11 +32,16 @@ const props = defineProps<{
   credentialValue: string
   draft: ProviderDraft
   isExistingProvider: boolean
+  oauthBusy?: boolean
+  oauthStatus?: BridgeOpenAICodexOAuthStatus | null
 }>()
 
 const emit = defineEmits<{
   'update:credentialMode': [value: CredentialMode]
   'update:credentialValue': [value: string]
+  oauthLogin: []
+  oauthLogout: []
+  oauthRefresh: []
 }>()
 
 const localCredentialMode = computed({
@@ -44,6 +52,27 @@ const localCredentialMode = computed({
 const localCredentialValue = computed({
   get: () => props.credentialValue,
   set: (value: string) => emit('update:credentialValue', value),
+})
+
+const isOpenAICodexProvider = computed(
+  () => props.draft.type === 'openai-codex' || props.draft.api === 'openai-codex-responses'
+)
+const oauthAuthenticated = computed(() => Boolean(props.oauthStatus?.authenticated))
+const oauthAccountLabel = computed(() => {
+  const status = props.oauthStatus
+  if (status?.email) return status.email
+  if (status?.accountId) return status.accountId
+  return '未连接'
+})
+const oauthExpiresLabel = computed(() => {
+  const expires = props.oauthStatus?.expires
+  if (!expires) return ''
+  return new Intl.DateTimeFormat(undefined, {
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date(expires))
 })
 </script>
 
@@ -99,7 +128,59 @@ const localCredentialValue = computed({
 
     <Separator />
 
-    <FieldSet>
+    <FieldSet v-if="isOpenAICodexProvider">
+      <FieldLegend>OpenAI OAuth</FieldLegend>
+      <FieldDescription>使用 OpenAI 账号登录后，访问令牌会加密保存在本机。</FieldDescription>
+
+      <Field class="rounded-lg border px-3 py-3">
+        <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <FieldContent>
+            <FieldLabel>登录状态</FieldLabel>
+            <FieldDescription>
+              {{ oauthAccountLabel }}
+              <span v-if="oauthExpiresLabel"> · 到期 {{ oauthExpiresLabel }}</span>
+            </FieldDescription>
+          </FieldContent>
+          <div class="flex flex-wrap items-center gap-2">
+            <Badge :variant="oauthAuthenticated ? 'default' : 'secondary'">
+              {{ oauthAuthenticated ? '已连接' : '未连接' }}
+            </Badge>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              :disabled="oauthBusy"
+              @click="emit('oauthRefresh')"
+            >
+              <RefreshCwIcon data-icon="inline-start" />
+              刷新
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              :disabled="oauthBusy"
+              @click="emit('oauthLogin')"
+            >
+              <LogInIcon data-icon="inline-start" />
+              {{ oauthAuthenticated ? '重新登录' : '使用 OpenAI 登录' }}
+            </Button>
+            <Button
+              v-if="oauthAuthenticated"
+              type="button"
+              variant="outline"
+              size="sm"
+              :disabled="oauthBusy"
+              @click="emit('oauthLogout')"
+            >
+              <LogOutIcon data-icon="inline-start" />
+              断开
+            </Button>
+          </div>
+        </div>
+      </Field>
+    </FieldSet>
+
+    <FieldSet v-else>
       <FieldLegend>凭证</FieldLegend>
       <FieldDescription>留空会保留已有凭证。</FieldDescription>
 

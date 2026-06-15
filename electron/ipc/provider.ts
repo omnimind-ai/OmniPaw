@@ -27,6 +27,7 @@ import type {
   SetSessionModelRequest,
   TestProviderRequest,
 } from '@shared/types/provider'
+import { shell } from 'electron'
 import { registerLoggedIpcHandler } from './common'
 import type { IpcHandlerOptions } from './types'
 
@@ -219,6 +220,34 @@ export function registerProviderIpcHandlers(options: IpcHandlerOptions): void {
         defaultModelId: request.modelId,
       })
   )
+  registerLoggedIpcHandler(
+    options,
+    IPC_CHANNELS.provider.openAICodexOAuthStatus,
+    (_event, request: { providerId?: string } | string) =>
+      runtime.openAICodexOAuthService.status(providerIdFromRequest(request))
+  )
+  registerLoggedIpcHandler(
+    options,
+    IPC_CHANNELS.provider.openAICodexOAuthLogin,
+    (_event, request: { providerId?: string } | string) =>
+      runtime.openAICodexOAuthService.login(providerIdFromRequest(request), {
+        openUrl: (url) => shell.openExternal(url),
+      })
+  )
+  registerLoggedIpcHandler(
+    options,
+    IPC_CHANNELS.provider.openAICodexOAuthLogout,
+    (_event, request: { providerId?: string } | string) =>
+      runtime.openAICodexOAuthService.logout(providerIdFromRequest(request))
+  )
+}
+
+function providerIdFromRequest(request: { providerId?: string } | string): string {
+  const providerId = typeof request === 'string' ? request : request.providerId
+  if (!providerId) {
+    throw new Error('Provider ID is required.')
+  }
+  return providerId
 }
 
 async function loadProviderRegistry(runtime: Runtime): Promise<ProviderRegistryLoadResponse> {

@@ -2,7 +2,7 @@
 import { PlugIcon } from 'lucide-vue-next'
 import { storeToRefs } from 'pinia'
 import { computed, onMounted, ref, watch } from 'vue'
-import type { BridgeProviderPreset } from '@/bridge/app'
+import type { BridgeOpenAICodexOAuthStatus, BridgeProviderPreset } from '@/bridge/app'
 import SettingsSection from '@/components/settings/common/SettingsSection.vue'
 import ProviderAdvancedTab from '@/components/settings/provider-settings/ProviderAdvancedTab.vue'
 import ProviderBasicTab from '@/components/settings/provider-settings/ProviderBasicTab.vue'
@@ -34,6 +34,8 @@ const providerSearchQuery = ref('')
 const deleteDialogOpen = ref(false)
 const deleteProviderTarget = ref<ProviderSidebarItem | undefined>()
 const refreshingModels = ref(false)
+const openAICodexOAuthBusy = ref(false)
+const openAICodexOAuthStatus = ref<BridgeOpenAICodexOAuthStatus | null>(null)
 let suppressDraftReload = false
 
 const {
@@ -58,6 +60,11 @@ const currentProvider = computed(() =>
 const isExistingProvider = computed(() => Boolean(currentProvider.value))
 const isOmniInferProvider = computed(
   () => providerDraft.value.api === 'omniinfer' || providerDraft.value.type === 'omniinfer'
+)
+const isOpenAICodexProvider = computed(
+  () =>
+    providerDraft.value.api === 'openai-codex-responses' ||
+    providerDraft.value.type === 'openai-codex'
 )
 const hasDraft = computed(() => Boolean(activeProviderId.value && !isExistingProvider.value))
 const canAutosave = computed(() => Boolean(isExistingProvider.value && persistenceAvailable.value))
@@ -156,6 +163,14 @@ watch([credentialMode, credentialValue], () => {
   autosave.queueAutosave()
 })
 
+watch(isOpenAICodexProvider, (enabled) => {
+  if (enabled) {
+    void refreshOpenAICodexOAuthStatus()
+  } else {
+    openAICodexOAuthStatus.value = null
+  }
+})
+
 onMounted(async () => {
   if (!rawProviders.value.length) {
     await providerStore.loadProviders()
@@ -183,6 +198,7 @@ function createNewProviderDraft() {
   originalProviderId.value = ''
   providerTab.value = 'basic'
   clearMessages()
+  void refreshOpenAICodexOAuthStatus()
 }
 
 function createProviderFromPreset(preset: BridgeProviderPreset) {
@@ -310,6 +326,63 @@ async function refreshProviderModels() {
   }
 }
 
+async function refreshOpenAICodexOAuthStatus() {
+  if (!isOpenAICodexProvider.value || !activeProviderId.value || !persistenceAvailable.value) {
+    openAICodexOAuthStatus.value = null
+    return
+  }
+
+  try {
+    openAICodexOAuthStatus.value = await providerStore.getOpenAICodexOAuthStatus(
+      activeProviderId.value
+    )
+  } catch {
+    openAICodexOAuthStatus.value = {
+      providerId: activeProviderId.value,
+      authenticated: false,
+    }
+  }
+}
+
+async function handleOpenAICodexOAuthLogin() {
+  if (openAICodexOAuthBusy.value || !isOpenAICodexProvider.value || !persistenceAvailable.value) {
+    return
+  }
+
+  openAICodexOAuthBusy.value = true
+  try {
+    const saved = await handleSaveProvider({ silent: true })
+    if (!saved || !originalProviderId.value) return
+
+    openAICodexOAuthStatus.value = await providerStore.loginOpenAICodexOAuth(
+      originalProviderId.value
+    )
+    toast.success('OpenAI OAuth 登录完成。')
+  } catch (error) {
+    toast.error(error, { description: 'OpenAI OAuth 登录失败' })
+  } finally {
+    openAICodexOAuthBusy.value = false
+  }
+}
+
+async function handleOpenAICodexOAuthLogout() {
+  if (openAICodexOAuthBusy.value || !originalProviderId.value || !persistenceAvailable.value) {
+    return
+  }
+
+  openAICodexOAuthBusy.value = true
+  try {
+    openAICodexOAuthStatus.value = await providerStore.logoutOpenAICodexOAuth(
+      originalProviderId.value
+    )
+    toast.success('OpenAI OAuth 已断开。')
+  } catch (error) {
+    toast.error(error, { description: 'OpenAI OAuth 断开失败' })
+  } finally {
+    openAICodexOAuthBusy.value = false
+  }
+}
+
 function clearMessages() {}
 </script>
 
@@ -395,6 +468,11 @@ function clearMessages() {}
                 v-model:credential-value="credentialValue"
                 :draft="providerDraft"
                 :is-existing-provider="isExistingProvider"
+                :oauth-busy="openAICodexOAuthBusy"
+                :oauth-status="openAICodexOAuthStatus"
+                @oauth-login="handleOpenAICodexOAuthLogin"
+                @oauth-logout="handleOpenAICodexOAuthLogout"
+                @oauth-refresh="refreshOpenAICodexOAuthStatus"
               />
             </TabsContent>
 

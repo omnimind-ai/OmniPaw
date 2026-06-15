@@ -135,6 +135,9 @@ export const IPC_CHANNELS = {
     listModels: 'provider:list-models',
     refreshModels: 'provider:refresh-models',
     setSessionModel: 'provider:set-session-model',
+    openAICodexOAuthStatus: 'provider:openai-codex-oauth-status',
+    openAICodexOAuthLogin: 'provider:openai-codex-oauth-login',
+    openAICodexOAuthLogout: 'provider:openai-codex-oauth-logout',
     changed: 'provider:changed',
   },
   skill: {

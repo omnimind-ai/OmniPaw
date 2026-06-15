@@ -11,6 +11,7 @@ import { defineStore } from 'pinia'
 import { computed, ref } from 'vue'
 import {
   appBridge,
+  type BridgeOpenAICodexOAuthStatus,
   type BridgeProviderConfig,
   type BridgeProviderPreset,
   type BridgeProviderRegistryChangedEvent,
@@ -394,6 +395,34 @@ export const useProviderStore = defineStore('provider', () => {
     }
   }
 
+  async function getOpenAICodexOAuthStatus(
+    providerId: string
+  ): Promise<BridgeOpenAICodexOAuthStatus> {
+    if (!appBridge.provider.openAICodexOAuthStatus) {
+      return {
+        providerId,
+        authenticated: false,
+      }
+    }
+    return appBridge.provider.openAICodexOAuthStatus({ providerId })
+  }
+
+  async function loginOpenAICodexOAuth(providerId: string): Promise<BridgeOpenAICodexOAuthStatus> {
+    ensureElectronBridge('OpenAI OAuth 登录')
+    if (!appBridge.provider.openAICodexOAuthLogin) {
+      throw new Error('当前 Electron bridge 缺少 provider.openAICodexOAuthLogin，无法登录。')
+    }
+    return appBridge.provider.openAICodexOAuthLogin({ providerId })
+  }
+
+  async function logoutOpenAICodexOAuth(providerId: string): Promise<BridgeOpenAICodexOAuthStatus> {
+    ensureElectronBridge('OpenAI OAuth 登出')
+    if (!appBridge.provider.openAICodexOAuthLogout) {
+      throw new Error('当前 Electron bridge 缺少 provider.openAICodexOAuthLogout，无法断开登录。')
+    }
+    return appBridge.provider.openAICodexOAuthLogout({ providerId })
+  }
+
   function subscribeToProviderChanges(): void {
     if (unsubscribeProviderChanges || !providerBridge().onChanged) {
       return
@@ -447,6 +476,9 @@ export const useProviderStore = defineStore('provider', () => {
     listModels,
     setSessionModel,
     testProvider,
+    getOpenAICodexOAuthStatus,
+    loginOpenAICodexOAuth,
+    logoutOpenAICodexOAuth,
     subscribeToProviderChanges,
     stopProviderSubscription,
   }

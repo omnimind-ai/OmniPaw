@@ -43,6 +43,7 @@ import { PersonaManager } from '@core/persona/manager'
 import { PersonaRegistryValidationError } from '@core/persona/registry-schema'
 import { PersonaRegistryStore } from '@core/persona/registry-store'
 import { ProviderManager } from '@core/provider/manager'
+import { OpenAICodexOAuthService } from '@core/provider/openai-codex-oauth'
 import { ProviderRegistryValidationError } from '@core/provider/registry-schema'
 import { ProviderRegistryStore } from '@core/provider/registry-store'
 import { SkillManager, SkillValidationError } from '@core/skill'
@@ -98,6 +99,7 @@ export interface CoreRuntime {
   memoryService: CompanionMemoryService
   observationManager: ObservationManager
   personaManager: PersonaManager
+  openAICodexOAuthService: OpenAICodexOAuthService
   providerManager: ProviderManager
   sessionRepo: ChatSessionRepo
   skillManager: SkillManager
@@ -244,6 +246,9 @@ export function createCoreRuntime(options: CoreRuntimeOptions): CoreRuntime {
       logger: omniInferLogger.child({ scope: 'runtime' }),
     })
   }
+  const openAICodexOAuthService = new OpenAICodexOAuthService({
+    dataRootPath: dataPaths.root,
+  })
 
   const providerManager = new ProviderManager({
     configStore,
@@ -254,6 +259,7 @@ export function createCoreRuntime(options: CoreRuntimeOptions): CoreRuntime {
     logger: coreLogger.child({ scope: 'provider' }),
     omniInferRuntimeService,
     omniInferInstalledModels,
+    openAICodexOAuthService,
     sessions: {
       async getProviderOverride(sessionId: string) {
         const session = sessionRepo.get(sessionId)
@@ -444,6 +450,7 @@ export function createCoreRuntime(options: CoreRuntimeOptions): CoreRuntime {
     memoryService,
     observationManager,
     personaManager,
+    openAICodexOAuthService,
     providerManager,
     sessionRepo,
     skillManager,

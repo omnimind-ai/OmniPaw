@@ -57,6 +57,7 @@ import type {
 import type {
   CreateProviderFromPresetRequest,
   DeleteProviderRequest,
+  OpenAICodexOAuthProviderRequest,
   RefreshProviderModelsRequest,
   SaveProviderRequest,
   SetSessionModelRequest,
@@ -509,6 +510,12 @@ const bridge: OpenOmniClawBridge = {
       ipcRenderer.invoke(IPC_CHANNELS.provider.refreshModels, request),
     setSessionModel: (request: SetSessionModelRequest) =>
       ipcRenderer.invoke(IPC_CHANNELS.provider.setSessionModel, request),
+    openAICodexOAuthStatus: (request: OpenAICodexOAuthProviderRequest | string) =>
+      ipcRenderer.invoke(IPC_CHANNELS.provider.openAICodexOAuthStatus, request),
+    openAICodexOAuthLogin: (request: OpenAICodexOAuthProviderRequest | string) =>
+      ipcRenderer.invoke(IPC_CHANNELS.provider.openAICodexOAuthLogin, request),
+    openAICodexOAuthLogout: (request: OpenAICodexOAuthProviderRequest | string) =>
+      ipcRenderer.invoke(IPC_CHANNELS.provider.openAICodexOAuthLogout, request),
     onChanged: (callback) => createUnsubscriber(IPC_CHANNELS.provider.changed, callback),
   },
   skill: {

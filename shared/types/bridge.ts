@@ -147,6 +147,8 @@ import type {
 import type {
   CreateProviderFromPresetRequest,
   DeleteProviderRequest,
+  OpenAICodexOAuthProviderRequest,
+  OpenAICodexOAuthStatus,
   ProviderApi,
   ProviderCapabilities,
   ProviderCompat,
@@ -552,6 +554,15 @@ export interface OpenOmniClawBridge {
     listModels: (providerId: string) => Promise<ProviderModel[]>
     refreshModels: (request: RefreshProviderModelsRequest | string) => Promise<ProviderModel[]>
     setSessionModel: (request: SetSessionModelRequest) => Promise<ChatSession>
+    openAICodexOAuthStatus: (
+      request: OpenAICodexOAuthProviderRequest | string
+    ) => Promise<OpenAICodexOAuthStatus>
+    openAICodexOAuthLogin: (
+      request: OpenAICodexOAuthProviderRequest | string
+    ) => Promise<OpenAICodexOAuthStatus>
+    openAICodexOAuthLogout: (
+      request: OpenAICodexOAuthProviderRequest | string
+    ) => Promise<OpenAICodexOAuthStatus>
     onChanged: (callback: (event: ProviderRegistryChangedEvent) => void) => Unsubscribe
   }
   skill: {

@@ -482,7 +482,10 @@ async function testOpenAICodexOAuthResponsesStream(): Promise<void> {
   const provider = new OpenAICodexProvider({
     id: 'codex-test',
     baseUrl: 'https://chatgpt.com/backend-api',
-    apiKey: token,
+    oauthCredentialResolver: async () => ({
+      access: token,
+      accountId: 'acct_test',
+    }),
     fetch: (async (input, init) => {
       assert.equal(requestUrl(input), 'https://chatgpt.com/backend-api/codex/responses')
       requestHeaders = new Headers(init?.headers)

@@ -22,6 +22,7 @@ import type { BaseProvider, ProviderModelCandidate } from './base-provider'
 import type { ProviderCredentialRecord } from './credentials'
 import { resolveCredential } from './credentials'
 import { normalizeProviderError } from './errors'
+import type { OpenAICodexOAuthService } from './openai-codex-oauth'
 import { OmniInferProvider } from './providers/omniinfer'
 import { OpenAICompatibleProvider } from './providers/openai'
 import { OpenAICodexProvider } from './providers/openai-codex'
@@ -108,6 +109,7 @@ export interface ProviderManagerOptions {
   logger?: Logger
   omniInferRuntimeService?: OmniInferRuntimeService
   omniInferInstalledModels?: InstalledModelRegistry
+  openAICodexOAuthService?: OpenAICodexOAuthService
 }
 
 export interface ProviderTestResult {
@@ -313,6 +315,7 @@ export class ProviderManager {
   private readonly logger?: Logger
   private readonly omniInferRuntimeService?: OmniInferRuntimeService
   private readonly omniInferInstalledModels?: InstalledModelRegistry
+  private readonly openAICodexOAuthService?: OpenAICodexOAuthService
 
   constructor(options: ProviderManagerOptions) {
     if (!options.registryStore && !options.configStore) {
@@ -326,6 +329,7 @@ export class ProviderManager {
     this.logger = options.logger
     this.omniInferRuntimeService = options.omniInferRuntimeService
     this.omniInferInstalledModels = options.omniInferInstalledModels
+    this.openAICodexOAuthService = options.openAICodexOAuthService
   }
 
   async list(): Promise<ProviderConfig[]> {
@@ -1085,7 +1089,8 @@ export class ProviderManager {
         authHeader: provider.authHeader,
         headers: provider.headers,
         extraBody: provider.extraBody,
-        credentialProfileId: provider.credentialRef,
+        oauthCredentialResolver: async () =>
+          this.openAICodexOAuthService?.resolveCredential(provider.id),
       })
     }
 

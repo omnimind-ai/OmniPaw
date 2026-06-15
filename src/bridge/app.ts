@@ -657,6 +657,15 @@ export interface BridgeProviderRegistryChangedEvent extends BridgeProviderRegist
   nextSelection?: BridgeProviderRegistrySelection
 }
 
+export interface BridgeOpenAICodexOAuthStatus {
+  providerId: string
+  authenticated: boolean
+  accountId?: string
+  email?: string
+  expires?: number
+  updatedAt?: number
+}
+
 export interface BridgeUpsertProviderSourceRequest {
   source: BridgeProviderRegistrySource
   credential?: {
@@ -1090,6 +1099,15 @@ export interface RendererOpenOmniClawBridge {
       providerId: string
       modelId: string
     }) => Promise<BridgeChatSession>
+    openAICodexOAuthStatus?: (
+      request: string | { providerId: string }
+    ) => Promise<BridgeOpenAICodexOAuthStatus>
+    openAICodexOAuthLogin?: (
+      request: string | { providerId: string }
+    ) => Promise<BridgeOpenAICodexOAuthStatus>
+    openAICodexOAuthLogout?: (
+      request: string | { providerId: string }
+    ) => Promise<BridgeOpenAICodexOAuthStatus>
     onChanged: (callback: (event: BridgeProviderRegistryChangedEvent) => void) => BridgeUnsubscribe
   }
   skill: {
@@ -1928,6 +1946,14 @@ const fallbackBridge: RendererOpenOmniClawBridge = {
     refreshModels: () => rejectFallbackPersistence<BridgeProviderModel[]>('provider.refreshModels'),
     test: () => rejectFallbackPersistence<{ ok: boolean; error?: unknown }>('provider.test'),
     setSessionModel: () => rejectFallbackPersistence<BridgeChatSession>('provider.setSessionModel'),
+    openAICodexOAuthStatus: async (request) => ({
+      providerId: typeof request === 'string' ? request : request.providerId,
+      authenticated: false,
+    }),
+    openAICodexOAuthLogin: () =>
+      rejectFallbackPersistence<BridgeOpenAICodexOAuthStatus>('provider.openAICodexOAuthLogin'),
+    openAICodexOAuthLogout: () =>
+      rejectFallbackPersistence<BridgeOpenAICodexOAuthStatus>('provider.openAICodexOAuthLogout'),
     onChanged: () => () => {},
   },
   skill: {

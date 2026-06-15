@@ -10,11 +10,7 @@ import type {
   TokenUsage,
 } from '../base-provider'
 import { errorFromResponse, normalizeProviderError, throwProviderError } from '../errors'
-import {
-  extractOpenAICodexAccountId,
-  type OpenAICodexOAuthCredential,
-  resolveOpenAICodexOAuthCredential,
-} from '../openai-codex-oauth'
+import { extractOpenAICodexAccountId, type OpenAICodexOAuthCredential } from '../openai-codex-oauth'
 import { parseSseStream } from './openai'
 
 export interface OpenAICodexProviderOptions {
@@ -24,7 +20,7 @@ export interface OpenAICodexProviderOptions {
   authHeader?: string
   headers?: Record<string, string>
   extraBody?: Record<string, unknown>
-  credentialProfileId?: string
+  oauthCredentialResolver?: () => Promise<OpenAICodexOAuthCredential | undefined>
   fetch?: typeof fetch
 }
 
@@ -54,7 +50,7 @@ export class OpenAICodexProvider implements BaseProvider {
   private readonly authHeader?: string
   private readonly headers: Record<string, string>
   private readonly extraBody: Record<string, unknown>
-  private readonly credentialProfileId?: string
+  private readonly oauthCredentialResolver?: () => Promise<OpenAICodexOAuthCredential | undefined>
   private readonly fetchImpl: typeof fetch
 
   constructor(options: OpenAICodexProviderOptions) {
@@ -64,7 +60,7 @@ export class OpenAICodexProvider implements BaseProvider {
     this.authHeader = options.authHeader
     this.headers = options.headers ?? {}
     this.extraBody = options.extraBody ?? {}
-    this.credentialProfileId = options.credentialProfileId
+    this.oauthCredentialResolver = options.oauthCredentialResolver
     this.fetchImpl = options.fetch ?? fetch
   }
 
@@ -280,15 +276,12 @@ export class OpenAICodexProvider implements BaseProvider {
       }
     }
 
-    const credential = await resolveOpenAICodexOAuthCredential(
-      this.credentialProfileId,
-      this.fetchImpl
-    )
+    const credential = await this.oauthCredentialResolver?.()
     if (!credential?.access) {
       throwProviderError({
         code: 'provider_auth',
         message:
-          'OpenAI Codex OAuth credential is not configured. Run OpenClaw/Codex OAuth login or provide a bearer token for this provider.',
+          'OpenAI Codex OAuth credential is not configured. Sign in with OpenAI in provider settings or provide a bearer token for this provider.',
         retryable: false,
       })
     }
