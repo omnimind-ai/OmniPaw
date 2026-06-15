@@ -138,10 +138,6 @@ export interface PickLocalGgufResponse {
   path: string | null
 }
 
-export interface PickModelsDirResponse {
-  path: string | null
-}
-
 export interface PickOmniInferInstallDirResponse {
   path: string | null
 }

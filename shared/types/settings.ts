@@ -74,7 +74,6 @@ export interface DesktopProviderSource {
   compat?: ProviderCompat
   createdAt: number
   updatedAt: number
-  omniInferModelsDir?: string
   omniInferInstallDir?: string
   /** @deprecated Use `omniInferInstallDir`; kept only for old config normalization. */
   omniInferBinaryPath?: string

@@ -311,9 +311,6 @@ export function createCoreRuntime(options: CoreRuntimeOptions): CoreRuntime {
       if (omniInferProvider?.omniInferInstallDir) {
         omniInferRuntimeService.setInstallDir(omniInferProvider.omniInferInstallDir)
       }
-      if (omniInferProvider?.omniInferModelsDir) {
-        omniInferRuntimeService.setModelsDir(omniInferProvider.omniInferModelsDir)
-      }
     })
     .catch((error: unknown) => {
       omniInferLogger.warn('OmniInfer provider migration failed.', { error })

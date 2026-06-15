@@ -200,7 +200,6 @@ function normalizeSourceRecord(
     extraBody: normalizeRecord(raw.extraBody, `${path}.extraBody`, issues),
     capabilities: normalizeRecord(raw.capabilities, `${path}.capabilities`, issues),
     compat: isPlainObject(raw.compat) ? structuredClone(raw.compat) : undefined,
-    omniInferModelsDir: stringValue(raw.omniInferModelsDir) || undefined,
     omniInferInstallDir:
       stringValue(raw.omniInferInstallDir) || stringValue(raw.omniInferBinaryPath) || undefined,
     createdAt: finiteNumber(raw.createdAt) ?? now,

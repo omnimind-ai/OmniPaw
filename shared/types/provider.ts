@@ -71,14 +71,6 @@ export interface ProviderConfig {
   model_metadata?: Record<string, unknown>
 
   /**
-   * OmniInfer-only: when this provider points to an externally-managed OmniInfer instance,
-   * the user can set its models directory (e.g. `D:\omniinfer\OmniInfer\.local\models\`) so
-   * OmniClaw can scan it directly without needing a manual "选择本地 .gguf" round-trip.
-   * Ignored for non-OmniInfer providers and for OmniClaw-bundled OmniInfer instances.
-   */
-  omniInferModelsDir?: string
-
-  /**
    * OmniInfer-only: absolute path to a user-installed OmniInfer project/install directory.
    * When set, OmniClaw can run the directory's `omniinfer` startup script and stop that
    * local installation instead of only probing an already-running external gateway.
@@ -141,7 +133,6 @@ export interface ProviderRegistrySource {
   compat?: ProviderCompat
   createdAt: number
   updatedAt: number
-  omniInferModelsDir?: string
   omniInferInstallDir?: string
   /** @deprecated Use `omniInferInstallDir`; kept only for old registry normalization. */
   omniInferBinaryPath?: string

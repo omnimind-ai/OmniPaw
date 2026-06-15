@@ -96,7 +96,6 @@ import type {
   OmniInferLogEntry,
   OmniInferRuntimeSnapshot,
   PickLocalGgufResponse,
-  PickModelsDirResponse,
   PickOmniInferInstallDirResponse,
   RescanInstalledModelsResponse,
   SelectModelRequest,
@@ -1159,7 +1158,6 @@ export interface RendererOpenOmniClawBridge {
     setThinking: (request: SetThinkingRequest) => Promise<OmniInferRuntimeSnapshot>
     getLogsPath: () => Promise<GetOmniInferLogsPathResponse>
     pickLocalGguf: () => Promise<PickLocalGgufResponse>
-    pickModelsDir: () => Promise<PickModelsDirResponse>
     pickInstallDir: () => Promise<PickOmniInferInstallDirResponse>
     rescanModels: () => Promise<RescanInstalledModelsResponse>
     listInstalledModels: () => Promise<InstalledModelRecord[]>
@@ -2048,8 +2046,6 @@ const fallbackBridge: RendererOpenOmniClawBridge = {
     getLogsPath: async () => ({ path: '', exists: false }),
     pickLocalGguf: () =>
       rejectFallbackPersistence<PickLocalGgufResponse>('omniinfer.pickLocalGguf'),
-    pickModelsDir: () =>
-      rejectFallbackPersistence<PickModelsDirResponse>('omniinfer.pickModelsDir'),
     pickInstallDir: () =>
       rejectFallbackPersistence<PickOmniInferInstallDirResponse>('omniinfer.pickInstallDir'),
     rescanModels: async () => ({ models: [], modelsDir: '' }),

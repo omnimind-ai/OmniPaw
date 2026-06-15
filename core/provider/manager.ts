@@ -87,7 +87,6 @@ export interface ProviderRecord {
   models?: ProviderModelRecord[]
   createdAt?: number
   updatedAt?: number
-  omniInferModelsDir?: string
   omniInferInstallDir?: string
 }
 
@@ -392,7 +391,6 @@ export class ProviderManager {
       })
       this.syncOmniInferGatewayUrl(provider)
       this.syncOmniInferInstallDir(provider)
-      this.syncOmniInferModelsDir(provider)
       return
     }
 
@@ -406,7 +404,6 @@ export class ProviderManager {
     })
     this.syncOmniInferGatewayUrl(provider)
     this.syncOmniInferInstallDir(provider)
-    this.syncOmniInferModelsDir(provider)
   }
 
   private syncOmniInferGatewayUrl(provider: ProviderRecord): void {
@@ -414,14 +411,6 @@ export class ProviderManager {
     if (provider.api !== 'omniinfer' && provider.type !== 'omniinfer') return
     if (!provider.baseUrl) return
     this.omniInferRuntimeService.setBaseUrl(provider.baseUrl)
-  }
-
-  private syncOmniInferModelsDir(provider: ProviderRecord): void {
-    if (!this.omniInferRuntimeService) return
-    if (provider.api !== 'omniinfer' && provider.type !== 'omniinfer') return
-    const dir = provider.omniInferModelsDir?.trim()
-    if (!dir) return
-    this.omniInferRuntimeService.setModelsDir(dir)
   }
 
   private syncOmniInferInstallDir(provider: ProviderRecord): void {
@@ -547,7 +536,6 @@ export class ProviderManager {
       extraBody: request.source.extraBody,
       capabilities: request.source.capabilities,
       compat: request.source.compat,
-      omniInferModelsDir: request.source.omniInferModelsDir,
       omniInferInstallDir: request.source.omniInferInstallDir,
       models: existingModels,
       createdAt: request.source.createdAt,
@@ -1025,7 +1013,6 @@ export class ProviderManager {
         kind: 'omniinfer',
       })
       this.omniInferRuntimeService.setBaseUrl(provider.baseUrl)
-      this.syncOmniInferModelsDir(provider)
       return new OmniInferProvider({
         id: provider.id,
         baseUrl: provider.baseUrl,
@@ -1345,7 +1332,6 @@ export function configToProviderRecords(config: DesktopSettingsConfig): Provider
     defaultModelId: source.defaultModelId,
     capabilities: source.capabilities,
     compat: source.compat,
-    omniInferModelsDir: source.omniInferModelsDir,
     omniInferInstallDir: source.omniInferInstallDir,
     models: config.providers.models
       .filter((model) => model.providerSourceId === source.id)
@@ -1393,7 +1379,6 @@ function registryToProviderRecords(registry: ProviderRegistry): ProviderRecord[]
       defaultModelId,
       capabilities: source.capabilities,
       compat: source.compat,
-      omniInferModelsDir: source.omniInferModelsDir,
       omniInferInstallDir: source.omniInferInstallDir,
       models: registry.models
         .filter((model) => model.providerId === source.id)
@@ -1471,7 +1456,6 @@ function upsertProviderInRegistry(
     extraBody: provider.extraBody ?? existingSource?.extraBody ?? {},
     capabilities: provider.capabilities ?? existingSource?.capabilities ?? {},
     compat: provider.compat ?? existingSource?.compat,
-    omniInferModelsDir: provider.omniInferModelsDir ?? existingSource?.omniInferModelsDir,
     omniInferInstallDir: provider.omniInferInstallDir ?? existingSource?.omniInferInstallDir,
     createdAt: provider.createdAt ?? existingSource?.createdAt ?? now,
     updatedAt: provider.updatedAt ?? now,
@@ -1651,7 +1635,6 @@ function sanitizeProvider(provider: ProviderRecord, models: ProviderModelRecord[
     capabilities: provider.capabilities ? { ...provider.capabilities } : undefined,
     createdAt: provider.createdAt,
     updatedAt: provider.updatedAt,
-    omniInferModelsDir: provider.omniInferModelsDir,
     omniInferInstallDir: provider.omniInferInstallDir,
     models: models.map(toLegacyModel),
   }
@@ -1791,7 +1774,6 @@ function upsertProviderInConfig(config: DesktopSettingsConfig, provider: Provide
     defaultModelId: provider.defaultModelId,
     capabilities: provider.capabilities ?? {},
     compat: provider.compat,
-    omniInferModelsDir: provider.omniInferModelsDir ?? existing?.omniInferModelsDir,
     omniInferInstallDir: provider.omniInferInstallDir ?? existing?.omniInferInstallDir,
     createdAt: provider.createdAt ?? existing?.createdAt ?? now,
     updatedAt: provider.updatedAt ?? now,

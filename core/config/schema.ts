@@ -35,7 +35,6 @@ const defaultProviderSource: DesktopProviderSource = {
   compat: undefined,
   createdAt: now,
   updatedAt: now,
-  omniInferModelsDir: undefined,
   omniInferInstallDir: undefined,
 }
 const defaultProviderModel: DesktopProviderModel = {
@@ -465,8 +464,6 @@ function normalizeProviderSource(item: unknown): DesktopProviderSource {
     extraBody: isPlainObject(raw.extraBody) ? raw.extraBody : merged.extraBody,
     capabilities: isPlainObject(raw.capabilities) ? raw.capabilities : merged.capabilities,
     compat: isPlainObject(raw.compat) ? raw.compat : merged.compat,
-    omniInferModelsDir:
-      typeof raw.omniInferModelsDir === 'string' ? raw.omniInferModelsDir : undefined,
     omniInferInstallDir:
       typeof raw.omniInferInstallDir === 'string'
         ? raw.omniInferInstallDir

@@ -75,25 +75,10 @@ const showNotBundledHint = computed(
   () => snapshot.value.process.state === 'not_bundled' && !isExternallyManaged.value
 )
 const showCustomInstallFields = computed(
-  () =>
-    snapshot.value.process.state === 'not_bundled' ||
-    Boolean(props.draft.omniInferInstallDir) ||
-    Boolean(props.draft.omniInferModelsDir)
+  () => snapshot.value.process.state === 'not_bundled' || Boolean(props.draft.omniInferInstallDir)
 )
 
-const showModelsDirField = computed(() => showCustomInstallFields.value)
 const showInstallDirField = computed(() => showCustomInstallFields.value)
-
-async function handlePickModelsDir(): Promise<void> {
-  try {
-    const result = await appBridge.omniinfer?.pickModelsDir()
-    if (result?.path) {
-      props.draft.omniInferModelsDir = result.path
-    }
-  } catch (error) {
-    toast.error(errorToText(error, '选择目录失败。'))
-  }
-}
 
 async function handlePickInstallDir(): Promise<void> {
   try {
@@ -210,31 +195,6 @@ onBeforeUnmount(() => {
           选择目录
         </Button>
       </InputGroup>
-    </Field>
-
-    <Field v-if="showModelsDirField">
-      <FieldLabel for="omniinfer-models-dir">OmniInfer 模型目录</FieldLabel>
-      <InputGroup>
-        <InputGroupAddon>
-          <FolderOpenIcon />
-        </InputGroupAddon>
-        <InputGroupInput
-          id="omniinfer-models-dir"
-          v-model="draft.omniInferModelsDir"
-          placeholder="例：D:\omniinfer\OmniInfer\.local\models"
-        />
-        <Button
-          size="sm"
-          variant="ghost"
-          @click="handlePickModelsDir"
-        >
-          选择目录
-        </Button>
-      </InputGroup>
-      <FieldDescription>
-        指向外部 OmniInfer 的 <code class="font-mono">.local/models/</code>
-        目录，保存后 OmniClaw 会自动扫描里面的 .gguf，不再需要逐个手动选择。
-      </FieldDescription>
     </Field>
 
     <Field

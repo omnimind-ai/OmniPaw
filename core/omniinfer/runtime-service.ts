@@ -1,5 +1,5 @@
 import { EventEmitter } from 'node:events'
-import { isAbsolute, resolve } from 'node:path'
+import { isAbsolute, join, resolve } from 'node:path'
 import type { Logger } from '@core/logging'
 import type {
   OmniInferBackendDescriptor,
@@ -107,6 +107,10 @@ export class OmniInferRuntimeService {
       }
     })
 
+    if (this.processState.installDir) {
+      this.setModelsDir(modelsDirFromInstallDir(this.processState.installDir))
+    }
+
     // Always probe the gateway at steady cadence so externally-managed instances are detected
     // even when this controller has no binary to spawn.
     this.switchToSteadyPolling()
@@ -135,10 +139,8 @@ export class OmniInferRuntimeService {
   }
 
   /**
-   * Repoint the installed-models registry at a different directory and trigger a scan. Used
-   * when the user pins an externally-managed OmniInfer's models directory (e.g.
-   * `D:\omniinfer\OmniInfer\.local\models\`) from the provider settings UI. No-op when the
-   * directory is unchanged or empty.
+   * Repoint the installed-models registry at a different directory and trigger a scan. This is
+   * kept as an internal runtime hook; the user-facing configuration only exposes installDir.
    */
   setModelsDir(dir: string): void {
     const trimmed = dir.trim()
@@ -162,11 +164,15 @@ export class OmniInferRuntimeService {
   setInstallDir(installDir: string | undefined): void {
     const trimmed = installDir?.trim()
     const previous = this.processState.installDir
-    if (sameOptionalPath(previous, trimmed)) return
-    this.process.setInstallDir?.(trimmed || undefined)
-    this.processState = this.process.getState()
-    this.logger?.info('OmniInfer install directory updated.', { from: previous, to: trimmed })
-    this.emit()
+    if (!sameOptionalPath(previous, trimmed)) {
+      this.process.setInstallDir?.(trimmed || undefined)
+      this.processState = this.process.getState()
+      this.logger?.info('OmniInfer install directory updated.', { from: previous, to: trimmed })
+      this.emit()
+    }
+    if (trimmed) {
+      this.setModelsDir(modelsDirFromInstallDir(trimmed))
+    }
   }
 
   /**
@@ -533,6 +539,10 @@ function sameOptionalPath(a: string | undefined, b: string | undefined): boolean
 
 function normalizePath(value: string): string {
   return value.replace(/\\/g, '/').toLowerCase()
+}
+
+function modelsDirFromInstallDir(installDir: string): string {
+  return join(installDir, '.local', 'models')
 }
 
 function parseHost(baseUrl: string): string {
