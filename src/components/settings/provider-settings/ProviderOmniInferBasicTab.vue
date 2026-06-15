@@ -74,14 +74,15 @@ const effectiveStateClass = computed(() =>
 const showNotBundledHint = computed(
   () => snapshot.value.process.state === 'not_bundled' && !isExternallyManaged.value
 )
+const showCustomInstallFields = computed(
+  () =>
+    snapshot.value.process.state === 'not_bundled' ||
+    Boolean(props.draft.omniInferInstallDir) ||
+    Boolean(props.draft.omniInferModelsDir)
+)
 
-/**
- * Models-dir picker only shows when OmniClaw doesn't ship/manage the OmniInfer binary
- * itself — in that case OmniClaw can't know where the user installed OmniInfer's
- * `.local/models/` directory, so we let them point at it. When the binary IS bundled,
- * OmniClaw owns the directory and the field would just confuse things.
- */
-const showModelsDirField = computed(() => snapshot.value.process.state === 'not_bundled')
+const showModelsDirField = computed(() => showCustomInstallFields.value)
+const showInstallDirField = computed(() => showCustomInstallFields.value)
 
 async function handlePickModelsDir(): Promise<void> {
   try {
@@ -91,6 +92,17 @@ async function handlePickModelsDir(): Promise<void> {
     }
   } catch (error) {
     toast.error(errorToText(error, '选择目录失败。'))
+  }
+}
+
+async function handlePickInstallDir(): Promise<void> {
+  try {
+    const result = await appBridge.omniinfer?.pickInstallDir()
+    if (result?.path) {
+      props.draft.omniInferInstallDir = result.path
+    }
+  } catch (error) {
+    toast.error(errorToText(error, '选择 OmniInfer 安装目录失败。'))
   }
 }
 
@@ -176,6 +188,27 @@ onBeforeUnmount(() => {
           v-model="draft.baseUrl"
           placeholder="http://127.0.0.1:19157/v1"
         />
+      </InputGroup>
+    </Field>
+
+    <Field v-if="showInstallDirField">
+      <FieldLabel for="omniinfer-install-dir">OmniInfer 安装目录</FieldLabel>
+      <InputGroup>
+        <InputGroupAddon>
+          <FolderOpenIcon />
+        </InputGroupAddon>
+        <InputGroupInput
+          id="omniinfer-install-dir"
+          v-model="draft.omniInferInstallDir"
+          placeholder="例：D:\omniinfer\OmniInfer"
+        />
+        <Button
+          size="sm"
+          variant="ghost"
+          @click="handlePickInstallDir"
+        >
+          选择目录
+        </Button>
       </InputGroup>
     </Field>
 
@@ -271,26 +304,6 @@ onBeforeUnmount(() => {
               查看日志
             </Button>
           </div>
-        </div>
-
-        <div
-          v-if="isExternallyManaged"
-          class="rounded border border-dashed border-sky-300 bg-sky-50/60 p-3 text-sm text-sky-900 dark:border-sky-700/60 dark:bg-sky-950/40 dark:text-sky-100"
-        >
-          已连接到由外部进程托管的 OmniInfer 网关 (<code class="font-mono">{{ snapshot.server.baseUrl }}</code>)。
-          启动/停止控制不可用；如需由 OmniClaw 管理生命周期，请将 OmniInfer
-          二进制放置到 <code class="font-mono">resources/omniinfer/</code> 或设置环境变量
-          <code class="font-mono">OMNICLAW_OMNIINFER_PATH</code> 后重启应用。
-        </div>
-
-        <div
-          v-else-if="showNotBundledHint"
-          class="rounded border border-dashed bg-muted/30 p-3 text-sm text-muted-foreground"
-        >
-          当前安装包未内置 OmniInfer。可将 OmniInfer 二进制放置到
-          <code class="font-mono">resources/omniinfer/</code> 或设置环境变量
-          <code class="font-mono">OMNICLAW_OMNIINFER_PATH</code> 指向可执行文件，重启应用后即可启用。
-          也可先在本机手动启动 OmniInfer (默认 <code class="font-mono">http://127.0.0.1:19157</code>)，OmniClaw 会自动检测并连接。
         </div>
 
         <div

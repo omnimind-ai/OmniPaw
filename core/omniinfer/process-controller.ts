@@ -21,6 +21,15 @@ export interface OmniInferProcessController {
   /** Latest process snapshot. */
   getState(): OmniInferProcessSnapshot
 
+  /** Update the managed OmniInfer project/install directory. */
+  setInstallDir?(installDir: string | undefined): void
+
+  /** Update the models directory passed to the managed OmniInfer process. */
+  setModelsDir?(dir: string): void
+
+  /** Update the host/port used when spawning the managed gateway. */
+  setEndpoint?(endpoint: { host: string; port: number }): void
+
   /** Subscribe to log lines emitted by the child process. */
   onLog(listener: OmniInferProcessLogListener): () => void
 

@@ -42,7 +42,7 @@ import {
 } from './core-runtime'
 import { registerIpcHandlers } from './ipc'
 import { createMainWindowController, type MainWindowController } from './main-window'
-import { locateOmniInferBinary } from './omniinfer/binary-locator'
+import { locateOmniInferInstall } from './omniinfer/binary-locator'
 import { defaultOmniInferLogsDir, OmniInferProcess } from './omniinfer/process'
 import { createShortcutController, type ShortcutController } from './shortcut-controller'
 import { createTrayController, type TrayController } from './tray'
@@ -521,7 +521,7 @@ app
     })
     applyApplicationIcon()
 
-    const omniInferLocator = locateOmniInferBinary({ app })
+    const omniInferLocator = locateOmniInferInstall({ app })
     const omniInferLogsDir = defaultOmniInferLogsDir(
       logSink.status().logDir ?? resolveAppLogsPath()
     )
@@ -531,14 +531,14 @@ app
     })
     const omniInferClient = new OmniInferRuntimeClient()
     omniInferProcess = new OmniInferProcess({
-      binaryPath: omniInferLocator.binaryPath,
+      installDir: omniInferLocator.installDir,
       modelsDir,
       logsDir: omniInferLogsDir,
       client: omniInferClient,
       logger: mainLogger.child({ scope: 'omniinfer.process' }),
     })
-    if (!omniInferLocator.binaryPath) {
-      lifecycleLogger.info('OmniInfer binary not bundled; automatic runtime install is disabled.', {
+    if (!omniInferLocator.installDir) {
+      lifecycleLogger.info('OmniInfer install not bundled; automatic runtime start is disabled.', {
         searched: omniInferLocator.searched.slice(0, 10),
       })
     }

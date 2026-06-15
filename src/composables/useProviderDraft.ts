@@ -101,7 +101,9 @@ export function useProviderDraft(options: {
 
     if (providerDraft.value.type === 'omniinfer') {
       const dir = providerDraft.value.omniInferModelsDir?.trim()
+      const installDir = providerDraft.value.omniInferInstallDir?.trim()
       request.provider.omniInferModelsDir = dir ? dir : undefined
+      request.provider.omniInferInstallDir = installDir ? installDir : undefined
     }
 
     if (
@@ -286,6 +288,12 @@ function draftFromProvider(provider: BridgeProviderConfig): ProviderDraft {
     updatedAt: typeof provider.updatedAt === 'number' ? provider.updatedAt : undefined,
     omniInferModelsDir:
       typeof provider.omniInferModelsDir === 'string' ? provider.omniInferModelsDir : undefined,
+    omniInferInstallDir:
+      typeof provider.omniInferInstallDir === 'string'
+        ? provider.omniInferInstallDir
+        : typeof provider.omniInferBinaryPath === 'string'
+          ? provider.omniInferBinaryPath
+          : undefined,
   }
 }
 

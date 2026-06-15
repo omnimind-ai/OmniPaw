@@ -1,7 +1,7 @@
 import { type ChildProcess, spawn } from 'node:child_process'
 import { EventEmitter } from 'node:events'
-import { existsSync, mkdirSync } from 'node:fs'
-import { dirname, extname, join } from 'node:path'
+import { existsSync, mkdirSync, statSync } from 'node:fs'
+import { dirname, extname, join, resolve } from 'node:path'
 import type { Logger } from '@core/logging'
 import type {
   OmniInferProcessController,
@@ -24,10 +24,28 @@ import { cleanupStaleOmniInferProcesses } from './windows-cleanup'
 const DEFAULT_PORT = 19157
 const DEFAULT_HOST = '127.0.0.1'
 const CREATE_NO_WINDOW = 0x0800_0000
+const DEFAULT_CLI_NAMES_WINDOWS = [
+  'omniinfer.ps1',
+  'omniinfer.cmd',
+  'omniinfer.bat',
+  'omniinfer.py',
+  'omniinfer',
+  'OmniInfer.exe',
+  'omniinfer.exe',
+  'omniinfer-cli.exe',
+  'omniinfer_gateway.exe',
+]
+const DEFAULT_CLI_NAMES_POSIX = [
+  'omniinfer',
+  'omniinfer.py',
+  'OmniInfer',
+  'omniinfer-cli',
+  'omniinfer_gateway',
+]
 
 export interface OmniInferProcessOptions {
-  /** Absolute path to OmniInfer binary; undefined → controller stays in `not_bundled`. */
-  binaryPath?: string
+  /** Absolute path to OmniInfer project/install directory; undefined -> `not_bundled`. */
+  installDir?: string
   modelsDir: string
   logsDir: string
   /** Client used for graceful `/omni/shutdown` calls during stop(). */
@@ -44,9 +62,10 @@ export class OmniInferProcess implements OmniInferProcessController {
   private child?: ChildProcess
   private readonly emitter = new EventEmitter()
   private readonly options: Required<
-    Omit<OmniInferProcessOptions, 'logger' | 'binaryPath' | 'apiKey' | 'client' | 'now'>
+    Omit<OmniInferProcessOptions, 'logger' | 'installDir' | 'apiKey' | 'client' | 'now'>
   > & {
-    binaryPath?: string
+    installDir?: string
+    cliPath?: string
     apiKey?: string
     logger?: Logger
     client: OmniInferRuntimeClient
@@ -55,7 +74,7 @@ export class OmniInferProcess implements OmniInferProcessController {
 
   constructor(options: OmniInferProcessOptions) {
     this.options = {
-      binaryPath: options.binaryPath,
+      installDir: options.installDir,
       modelsDir: options.modelsDir,
       logsDir: options.logsDir,
       client: options.client,
@@ -65,10 +84,10 @@ export class OmniInferProcess implements OmniInferProcessController {
       logger: options.logger,
       now: options.now ?? Date.now,
     }
-    const initialState: OmniInferProcessState = options.binaryPath ? 'stopped' : 'not_bundled'
+    const initialState: OmniInferProcessState = options.installDir ? 'stopped' : 'not_bundled'
     this.state = {
       state: initialState,
-      binaryPath: options.binaryPath,
+      installDir: options.installDir,
       modelsDir: options.modelsDir,
       lastUpdatedAt: this.options.now(),
     }
@@ -88,12 +107,15 @@ export class OmniInferProcess implements OmniInferProcessController {
     return this.options.logsDir
   }
 
-  setBinaryPath(binaryPath: string | undefined): void {
-    this.options.binaryPath = binaryPath
-    if (this.state.state === 'not_bundled' && binaryPath) {
-      this.transition({ state: 'stopped', binaryPath })
-    } else if (!binaryPath && this.state.state === 'stopped') {
-      this.transition({ state: 'not_bundled', binaryPath: undefined })
+  setInstallDir(installDir: string | undefined): void {
+    this.options.installDir = installDir
+    this.options.cliPath = undefined
+    if (this.state.state === 'not_bundled' && installDir) {
+      this.transition({ state: 'stopped', installDir, cliPath: undefined })
+    } else if (!installDir && this.state.state === 'stopped') {
+      this.transition({ state: 'not_bundled', installDir: undefined, cliPath: undefined })
+    } else {
+      this.transition({ installDir, cliPath: undefined })
     }
   }
 
@@ -102,25 +124,36 @@ export class OmniInferProcess implements OmniInferProcessController {
     this.transition({ modelsDir: dir })
   }
 
+  setEndpoint(endpoint: { host: string; port: number }): void {
+    if (!endpoint.host || !Number.isFinite(endpoint.port)) return
+    this.options.host = endpoint.host
+    this.options.port = Math.round(endpoint.port)
+  }
+
   async start(): Promise<OmniInferProcessSnapshot> {
-    if (!this.options.binaryPath) {
+    if (!this.options.installDir) {
       this.transition({ state: 'not_bundled' })
       return this.getState()
     }
     if (this.state.state === 'running' || this.state.state === 'starting') {
       return this.getState()
     }
-    if (!existsSync(this.options.binaryPath)) {
+    const resolvedCli = resolveConfiguredCli(this.options.installDir)
+    if (!resolvedCli) {
       this.transition({
         state: 'not_bundled',
-        errorMessage: `Binary not found: ${this.options.binaryPath}`,
+        errorMessage: `OmniInfer startup script not found: ${this.options.installDir}`,
       })
       return this.getState()
     }
+    this.options.installDir = resolvedCli.installDir
+    this.options.cliPath = resolvedCli.cliPath
+    this.transition({ installDir: resolvedCli.installDir, cliPath: resolvedCli.cliPath })
 
     if (process.platform === 'win32') {
       await cleanupStaleOmniInferProcesses({
-        binaryPath: this.options.binaryPath,
+        cliPath: resolvedCli.cliPath,
+        installDir: resolvedCli.installDir,
         port: this.options.port,
         logger: this.options.logger,
       })
@@ -136,9 +169,9 @@ export class OmniInferProcess implements OmniInferProcessController {
       OMNIINFER_SERVE_DIRECT: '1',
     }
 
-    const command = buildServeCommand(this.options.binaryPath, this.buildArgs())
+    const command = buildServeCommand(resolvedCli.cliPath, this.buildArgs())
     const spawnOptions: Parameters<typeof spawn>[2] = {
-      cwd: dirname(this.options.binaryPath),
+      cwd: resolvedCli.installDir,
       env,
       stdio: ['ignore', 'pipe', 'pipe'],
       windowsHide: true,
@@ -150,7 +183,8 @@ export class OmniInferProcess implements OmniInferProcessController {
     const child = spawn(command.command, command.args, spawnOptions)
     this.child = child
     this.options.logger?.info('OmniInfer process spawned.', {
-      binaryPath: this.options.binaryPath,
+      installDir: resolvedCli.installDir,
+      cliPath: resolvedCli.cliPath,
       pid: child.pid,
       command: command.command,
       args: command.args,
@@ -222,9 +256,10 @@ export class OmniInferProcess implements OmniInferProcessController {
       }
     }
 
-    if (process.platform === 'win32' && this.options.binaryPath) {
+    if (process.platform === 'win32' && this.options.cliPath) {
       await cleanupStaleOmniInferProcesses({
-        binaryPath: this.options.binaryPath,
+        cliPath: this.options.cliPath,
+        installDir: this.options.installDir,
         port: this.options.port,
         logger: this.options.logger,
       })
@@ -333,33 +368,57 @@ function attachLineReader(
 }
 
 function buildServeCommand(
-  binaryPath: string,
+  cliPath: string,
   serveArgs: string[]
 ): { command: string; args: string[] } {
-  const extension = extname(binaryPath).toLowerCase()
+  const extension = extname(cliPath).toLowerCase()
   if (extension === '.py') {
     const python =
       process.env.OPENOMNICLAW_OMNIINFER_PYTHON ??
       (process.platform === 'win32' ? 'python' : 'python3')
-    return { command: python, args: [binaryPath, ...serveArgs] }
+    return { command: python, args: [cliPath, ...serveArgs] }
   }
   if (extension === '.ps1') {
     return {
       command: 'powershell.exe',
-      args: ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', binaryPath, ...serveArgs],
+      args: ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', cliPath, ...serveArgs],
     }
   }
   if (extension === '.cmd' || extension === '.bat') {
     return {
       command: 'cmd.exe',
-      args: ['/d', '/s', '/c', `"${binaryPath}" ${serveArgs.map(quoteCmdArg).join(' ')}`],
+      args: ['/d', '/s', '/c', `"${cliPath}" ${serveArgs.map(quoteCmdArg).join(' ')}`],
     }
   }
-  return { command: binaryPath, args: serveArgs }
+  return { command: cliPath, args: serveArgs }
 }
 
 function quoteCmdArg(value: string): string {
   return /^[A-Za-z0-9._:/=-]+$/.test(value) ? value : `"${value.replace(/"/g, '\\"')}"`
+}
+
+function resolveConfiguredCli(
+  configuredPath: string
+): { installDir: string; cliPath: string } | undefined {
+  if (!existsSync(configuredPath)) return undefined
+  try {
+    const absolute = resolve(configuredPath)
+    const stat = statSync(absolute)
+    if (!stat.isDirectory()) {
+      return { installDir: dirname(absolute), cliPath: absolute }
+    }
+    const cliNames =
+      process.platform === 'win32' ? DEFAULT_CLI_NAMES_WINDOWS : DEFAULT_CLI_NAMES_POSIX
+    for (const cliName of cliNames) {
+      const candidate = join(absolute, cliName)
+      if (existsSync(candidate)) {
+        return { installDir: absolute, cliPath: candidate }
+      }
+    }
+  } catch {
+    return undefined
+  }
+  return undefined
 }
 
 function waitForExit(child: ChildProcess, timeoutMs: number): Promise<boolean> {

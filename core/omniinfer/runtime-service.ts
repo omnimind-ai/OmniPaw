@@ -1,5 +1,5 @@
 import { EventEmitter } from 'node:events'
-import { resolve } from 'node:path'
+import { isAbsolute, resolve } from 'node:path'
 import type { Logger } from '@core/logging'
 import type {
   OmniInferBackendDescriptor,
@@ -37,6 +37,8 @@ interface PendingLoad {
   promise: Promise<void>
 }
 
+type HealthProbeResult = 'online' | 'offline' | 'stale'
+
 export class OmniInferRuntimeService {
   private readonly emitter = new EventEmitter()
   private readonly client: OmniInferRuntimeClient
@@ -58,6 +60,7 @@ export class OmniInferRuntimeService {
   private pendingLoad: PendingLoad | null = null
   private offChange?: () => void
   private offExit?: () => void
+  private healthProbeGeneration = 0
 
   constructor(options: OmniInferRuntimeServiceOptions) {
     this.client = options.client
@@ -143,10 +146,27 @@ export class OmniInferRuntimeService {
     const previous = this.installedModels.getModelsDir()
     if (samePath(previous, trimmed)) return
     this.installedModels.setModelsDir(trimmed)
+    this.process.setModelsDir?.(trimmed)
+    this.processState = this.process.getState()
     this.logger?.info('OmniInfer models directory updated.', { from: previous, to: trimmed })
     void this.installedModels.scan().catch((error) => {
       this.logger?.warn('OmniInfer models directory scan failed.', { error, dir: trimmed })
     })
+    this.emit()
+  }
+
+  /**
+   * Let a provider setting point at a user-installed OmniInfer directory. Bundled builds
+   * initialize this from the app resources locator, so this is mainly for external installs.
+   */
+  setInstallDir(installDir: string | undefined): void {
+    const trimmed = installDir?.trim()
+    const previous = this.processState.installDir
+    if (sameOptionalPath(previous, trimmed)) return
+    this.process.setInstallDir?.(trimmed || undefined)
+    this.processState = this.process.getState()
+    this.logger?.info('OmniInfer install directory updated.', { from: previous, to: trimmed })
+    this.emit()
   }
 
   /**
@@ -163,12 +183,12 @@ export class OmniInferRuntimeService {
     this.logger?.info('OmniInfer gateway base URL updated.', { from: previous, to: next })
     this.server = {
       ...this.server,
-      online: false,
       baseUrl: next,
       host: parseHost(next),
       port: parsePort(next),
       lastCheckedAt: this.now(),
     }
+    this.process.setEndpoint?.({ host: this.server.host, port: this.server.port })
     this.loadedModel = null
     this.switchToSteadyPolling()
     this.emit()
@@ -176,7 +196,7 @@ export class OmniInferRuntimeService {
 
   async start(): Promise<OmniInferRuntimeSnapshot> {
     if (this.processState.state === 'not_bundled') {
-      this.logger?.info('OmniInfer binary not bundled; skipping start.')
+      this.logger?.info('OmniInfer install directory is not configured; skipping start.')
       return this.getSnapshot()
     }
     if (this.processState.state === 'running') {
@@ -295,15 +315,17 @@ export class OmniInferRuntimeService {
   /** Convenience used by main.ts on quit. */
   async shutdown(): Promise<void> {
     this.stopPolling()
-    try {
-      await this.client.shutdown()
-    } catch (error) {
-      this.logger?.debug?.('OmniInfer shutdown control call failed.', { error })
-    }
-    try {
-      this.processState = await this.process.stop({ shutdownTimeoutMs: 2_000 })
-    } catch (error) {
-      this.logger?.warn('OmniInfer process stop failed during shutdown.', { error })
+    const managedProcessRunning =
+      Boolean(this.processState.pid) &&
+      (this.processState.state === 'running' ||
+        this.processState.state === 'starting' ||
+        this.processState.state === 'unhealthy')
+    if (managedProcessRunning) {
+      try {
+        this.processState = await this.process.stop({ shutdownTimeoutMs: 2_000 })
+      } catch (error) {
+        this.logger?.warn('OmniInfer process stop failed during shutdown.', { error })
+      }
     }
   }
 
@@ -359,15 +381,19 @@ export class OmniInferRuntimeService {
   private async pollHealth(generation: number): Promise<void> {
     if (generation !== this.pollGeneration) return
     const wasOnline = this.server.online
-    await this.refreshHealthOnce()
-    if (this.server.online) {
+    const result = await this.refreshHealthOnce()
+    if (generation !== this.pollGeneration) return
+    if (result === 'online') {
       if (!wasOnline) {
         await this.syncControlPlane()
       }
       this.currentInterval = STEADY_POLL_INTERVAL_MS
       this.consecutiveFailures = 0
-    } else {
+    } else if (result === 'offline') {
       this.consecutiveFailures += 1
+      if (!this.server.online || this.consecutiveFailures >= UNHEALTHY_FAILURE_THRESHOLD) {
+        this.markServerOffline()
+      }
       if (this.processState.state === 'starting' && this.now() > this.startupDeadline) {
         this.transitionToUnhealthy()
       }
@@ -383,10 +409,17 @@ export class OmniInferRuntimeService {
     }
   }
 
-  private async refreshHealthOnce(): Promise<void> {
+  private async refreshHealthOnce(): Promise<HealthProbeResult> {
+    const healthGeneration = ++this.healthProbeGeneration
     const baseUrl = this.client.getBaseUrl()
     try {
       const health = await this.client.getHealth()
+      if (healthGeneration !== this.healthProbeGeneration || baseUrl !== this.client.getBaseUrl()) {
+        return 'stale'
+      }
+      if (!health.online) {
+        return 'offline'
+      }
       this.server = {
         online: health.online,
         baseUrl,
@@ -396,13 +429,17 @@ export class OmniInferRuntimeService {
       }
       const previousModelPath = this.loadedModel?.path
       if (health.loadedModel) {
-        const id = this.installedModels.resolveModelId(health.loadedModel.path)
-        if (!id) {
-          // Auto-register path that wasn't seen via scan.
-          const record = this.installedModels.registerManualPath(health.loadedModel.path)
-          health.loadedModel.id = record.id
+        const installedModel = this.findInstalledModelByHealthPath(health.loadedModel.path)
+        if (installedModel) {
+          health.loadedModel.id = installedModel.id
+          health.loadedModel.path = installedModel.path
         } else {
-          health.loadedModel.id = id
+          // Auto-register absolute paths that weren't seen via scan. Some OmniInfer versions
+          // report model paths relative to their models directory; keep those as display-only.
+          if (isAbsolute(health.loadedModel.path)) {
+            const record = this.installedModels.registerManualPath(health.loadedModel.path)
+            health.loadedModel.id = record.id
+          }
         }
         this.loadedModel = health.loadedModel
       } else {
@@ -417,17 +454,55 @@ export class OmniInferRuntimeService {
         // Server status changed at minimum
         this.emit()
       }
+      return 'online'
     } catch (error) {
-      this.server = {
-        ...this.server,
-        online: false,
-        lastCheckedAt: this.now(),
+      if (healthGeneration !== this.healthProbeGeneration || baseUrl !== this.client.getBaseUrl()) {
+        return 'stale'
       }
       if (!(error instanceof OmniInferControlException)) {
         this.logger?.debug?.('OmniInfer health request failed.', { error })
       }
+      return 'offline'
+    }
+  }
+
+  private markServerOffline(): void {
+    const baseUrl = this.client.getBaseUrl()
+    const next: OmniInferServerStatus = {
+      ...this.server,
+      online: false,
+      baseUrl,
+      host: parseHost(baseUrl),
+      port: parsePort(baseUrl),
+      lastCheckedAt: this.now(),
+    }
+    if (
+      this.server.online !== next.online ||
+      this.server.baseUrl !== next.baseUrl ||
+      this.server.lastCheckedAt !== next.lastCheckedAt
+    ) {
+      this.server = next
       this.emit()
     }
+  }
+
+  private findInstalledModelByHealthPath(path: string) {
+    const directId = this.installedModels.resolveModelId(path)
+    const records = this.installedModels.list()
+    if (directId) {
+      return records.find((record) => record.id === directId)
+    }
+
+    const normalizedPath = normalizePath(path)
+    const filename = normalizedPath.split('/').pop()
+    return records.find((record) => {
+      const recordPath = normalizePath(record.path)
+      return (
+        normalizePath(record.name) === normalizedPath ||
+        recordPath.endsWith(`/${normalizedPath}`) ||
+        (filename ? recordPath.endsWith(`/${filename}`) : false)
+      )
+    })
   }
 
   private transitionToUnhealthy(): void {
@@ -447,7 +522,17 @@ export class OmniInferRuntimeService {
 }
 
 function samePath(a: string, b: string): boolean {
-  return a.replace(/\\/g, '/').toLowerCase() === b.replace(/\\/g, '/').toLowerCase()
+  return normalizePath(a) === normalizePath(b)
+}
+
+function sameOptionalPath(a: string | undefined, b: string | undefined): boolean {
+  if (!a && !b) return true
+  if (!a || !b) return false
+  return samePath(a, b)
+}
+
+function normalizePath(value: string): string {
+  return value.replace(/\\/g, '/').toLowerCase()
 }
 
 function parseHost(baseUrl: string): string {

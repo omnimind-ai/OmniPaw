@@ -82,7 +82,10 @@ export class OmniInferRuntimeClient {
       online: raw?.status === 'ok',
       backend: typeof omni.backend === 'string' ? omni.backend : undefined,
       backendReady: omni.backend_ready === true,
-      thinking: omni.thinking === true || omni.thinking === false ? omni.thinking : undefined,
+      thinking:
+        raw?.thinking?.default_enabled === true || raw?.thinking?.default_enabled === false
+          ? raw.thinking.default_enabled
+          : undefined,
       loadedModel: modelPath
         ? {
             path: modelPath,
@@ -169,7 +172,10 @@ export class OmniInferRuntimeClient {
   }
 
   async getThinking(): Promise<boolean | undefined> {
-    const raw = await this.requestJson<{ enabled?: unknown }>('/omni/thinking')
+    const raw = await this.requestJson<{ default_enabled?: unknown; enabled?: unknown }>(
+      '/omni/thinking'
+    )
+    if (typeof raw?.default_enabled === 'boolean') return raw.default_enabled
     return typeof raw?.enabled === 'boolean' ? raw.enabled : undefined
   }
 
@@ -257,6 +263,9 @@ export class OmniInferRuntimeClient {
 
 interface HealthResponseShape {
   status?: unknown
+  thinking?: {
+    default_enabled?: unknown
+  }
   omni?: {
     backend?: unknown
     model?: unknown

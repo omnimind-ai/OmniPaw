@@ -1,44 +1,59 @@
-import { existsSync } from 'node:fs'
+import { existsSync, statSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import type { App } from 'electron'
 
-const DEFAULT_BINARY_NAMES_WINDOWS = [
+const DEFAULT_CLI_NAMES_WINDOWS = [
+  'omniinfer.ps1',
+  'omniinfer.cmd',
+  'omniinfer.bat',
+  'omniinfer.py',
+  'omniinfer',
   'OmniInfer.exe',
   'omniinfer.exe',
   'omniinfer-cli.exe',
   'omniinfer_gateway.exe',
 ]
-const DEFAULT_BINARY_NAMES_POSIX = ['OmniInfer', 'omniinfer', 'omniinfer-cli', 'omniinfer_gateway']
+const DEFAULT_CLI_NAMES_POSIX = [
+  'omniinfer',
+  'omniinfer.py',
+  'OmniInfer',
+  'omniinfer-cli',
+  'omniinfer_gateway',
+]
 
-export interface LocateBinaryContext {
+export interface LocateInstallContext {
   app: App
   /** Override repo root path; used for tests / migration. */
   repoRoot?: string
 }
 
-export interface LocateBinaryResult {
-  binaryPath?: string
+export interface LocateInstallResult {
+  installDir?: string
+  cliPath?: string
   searched: string[]
   envOverride?: string
 }
 
 /**
- * Locate the OmniInfer binary. Precedence:
- *   1. `OMNICLAW_OMNIINFER_PATH` env var (absolute path)
- *   2. `<repoRoot>/resources/omniinfer/<binaryName>` (dev mode)
- *   3. `<process.resourcesPath>/omniinfer/<binaryName>` (packaged)
+ * Locate the OmniInfer install directory. Precedence:
+ *   1. `OMNICLAW_OMNIINFER_HOME` env var (project/install directory)
+ *   2. legacy `OMNICLAW_OMNIINFER_PATH` env var (directory or startup script)
+ *   3. `<repoRoot>/resources/omniinfer/<cliName>` (dev mode)
+ *   4. `<process.resourcesPath>/omniinfer/<cliName>` (packaged)
  *   4. Common Tauri-style layouts as fallback
  */
-export function locateOmniInferBinary(ctx: LocateBinaryContext): LocateBinaryResult {
-  const envOverride = process.env.OMNICLAW_OMNIINFER_PATH?.trim()
+export function locateOmniInferInstall(ctx: LocateInstallContext): LocateInstallResult {
+  const envOverride =
+    process.env.OMNICLAW_OMNIINFER_HOME?.trim() ?? process.env.OMNICLAW_OMNIINFER_PATH?.trim()
   const candidates: string[] = []
 
-  if (envOverride && existsSync(envOverride)) {
-    return { binaryPath: envOverride, searched: [envOverride], envOverride }
+  if (envOverride) {
+    const resolved = resolveInstallCandidate(envOverride)
+    if (resolved) {
+      return { ...resolved, searched: [envOverride], envOverride }
+    }
   }
 
-  const binaryNames =
-    process.platform === 'win32' ? DEFAULT_BINARY_NAMES_WINDOWS : DEFAULT_BINARY_NAMES_POSIX
   const searched: string[] = []
 
   // Dev mode: repo root resources/omniinfer/
@@ -65,14 +80,40 @@ export function locateOmniInferBinary(ctx: LocateBinaryContext): LocateBinaryRes
   }
 
   for (const dir of candidates) {
-    for (const binary of binaryNames) {
-      const candidate = resolve(dir, binary)
-      searched.push(candidate)
-      if (existsSync(candidate)) {
-        return { binaryPath: candidate, searched, envOverride: undefined }
-      }
+    const resolved = resolveInstallCandidate(dir, searched)
+    if (resolved) {
+      return { ...resolved, searched, envOverride: undefined }
     }
   }
 
-  return { binaryPath: undefined, searched, envOverride: undefined }
+  return { installDir: undefined, cliPath: undefined, searched, envOverride: undefined }
+}
+
+function resolveInstallCandidate(
+  candidatePath: string,
+  searched: string[] = []
+): { installDir: string; cliPath: string } | undefined {
+  const absolute = resolve(candidatePath)
+  searched.push(absolute)
+  if (!existsSync(absolute)) return undefined
+
+  try {
+    const stat = statSync(absolute)
+    if (!stat.isDirectory()) {
+      return { installDir: dirname(absolute), cliPath: absolute }
+    }
+
+    const cliNames =
+      process.platform === 'win32' ? DEFAULT_CLI_NAMES_WINDOWS : DEFAULT_CLI_NAMES_POSIX
+    for (const cliName of cliNames) {
+      const cliPath = join(absolute, cliName)
+      searched.push(cliPath)
+      if (existsSync(cliPath)) {
+        return { installDir: absolute, cliPath }
+      }
+    }
+  } catch {
+    return undefined
+  }
+  return undefined
 }

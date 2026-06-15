@@ -35,6 +35,8 @@ const defaultProviderSource: DesktopProviderSource = {
   compat: undefined,
   createdAt: now,
   updatedAt: now,
+  omniInferModelsDir: undefined,
+  omniInferInstallDir: undefined,
 }
 const defaultProviderModel: DesktopProviderModel = {
   id: '',
@@ -441,7 +443,7 @@ function normalizeProviderSource(item: unknown): DesktopProviderSource {
       },
     ])
   }
-  const raw = item
+  const raw = item as Record<string, unknown>
   const merged = normalizeObject(defaults, raw, 'providers.sources[]') as DesktopProviderSource
 
   return {
@@ -463,6 +465,14 @@ function normalizeProviderSource(item: unknown): DesktopProviderSource {
     extraBody: isPlainObject(raw.extraBody) ? raw.extraBody : merged.extraBody,
     capabilities: isPlainObject(raw.capabilities) ? raw.capabilities : merged.capabilities,
     compat: isPlainObject(raw.compat) ? raw.compat : merged.compat,
+    omniInferModelsDir:
+      typeof raw.omniInferModelsDir === 'string' ? raw.omniInferModelsDir : undefined,
+    omniInferInstallDir:
+      typeof raw.omniInferInstallDir === 'string'
+        ? raw.omniInferInstallDir
+        : typeof raw.omniInferBinaryPath === 'string'
+          ? raw.omniInferBinaryPath
+          : undefined,
     defaultModelId:
       typeof raw.defaultModelId === 'string' ? raw.defaultModelId : merged.defaultModelId,
     createdAt: typeof raw.createdAt === 'number' ? raw.createdAt : Date.now(),

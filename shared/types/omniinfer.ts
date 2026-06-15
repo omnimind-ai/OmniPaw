@@ -9,7 +9,8 @@ export type OmniInferProcessState =
 export interface OmniInferProcessSnapshot {
   state: OmniInferProcessState
   previousState?: OmniInferProcessState
-  binaryPath?: string
+  installDir?: string
+  cliPath?: string
   modelsDir?: string
   pid?: number
   exitCode?: number | null
@@ -45,7 +46,7 @@ export interface OmniInferRuntimeSnapshot {
   backends: OmniInferBackendDescriptor[]
   /**
    * True when the gateway at `server.baseUrl` is reachable but the local process controller did
-   * not spawn it (no `binaryPath`, no managed `pid`). Indicates a user-supplied OmniInfer instance.
+   * not spawn it (no managed `pid`). Indicates a user-supplied OmniInfer instance.
    */
   externallyManaged: boolean
 }
@@ -138,6 +139,10 @@ export interface PickLocalGgufResponse {
 }
 
 export interface PickModelsDirResponse {
+  path: string | null
+}
+
+export interface PickOmniInferInstallDirResponse {
   path: string | null
 }
 

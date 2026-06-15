@@ -130,6 +130,7 @@ import type {
   OmniInferRuntimeSnapshot,
   PickLocalGgufResponse,
   PickModelsDirResponse,
+  PickOmniInferInstallDirResponse,
   RescanInstalledModelsResponse,
   SelectModelRequest,
   SetThinkingRequest,
@@ -234,6 +235,8 @@ export interface ProviderRegistrySource {
   defaultModelId?: string
   capabilities?: ProviderCapabilities
   compat?: ProviderCompat
+  omniInferModelsDir?: string
+  omniInferInstallDir?: string
   createdAt?: number
   updatedAt?: number
 }
@@ -627,6 +630,7 @@ export interface OpenOmniClawBridge {
     getLogsPath: () => Promise<GetOmniInferLogsPathResponse>
     pickLocalGguf: () => Promise<PickLocalGgufResponse>
     pickModelsDir: () => Promise<PickModelsDirResponse>
+    pickInstallDir: () => Promise<PickOmniInferInstallDirResponse>
     rescanModels: () => Promise<RescanInstalledModelsResponse>
     listInstalledModels: () => Promise<InstalledModelRecord[]>
     onStatusChanged: (callback: (event: OmniInferRuntimeSnapshot) => void) => Unsubscribe

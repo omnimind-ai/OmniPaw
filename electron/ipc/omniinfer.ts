@@ -8,6 +8,7 @@ import type {
   OmniInferRuntimeSnapshot,
   PickLocalGgufResponse,
   PickModelsDirResponse,
+  PickOmniInferInstallDirResponse,
   RescanInstalledModelsResponse,
   SelectModelRequest,
   SetThinkingRequest,
@@ -123,6 +124,25 @@ export function registerOmniInferIpcHandlers(options: IpcHandlerOptions): void {
 
   registerLoggedIpcHandler(
     options,
+    IPC_CHANNELS.omniinfer.pickInstallDir,
+    async (event): Promise<PickOmniInferInstallDirResponse> => {
+      const senderWindow = BrowserWindow.fromWebContents(event.sender) ?? undefined
+      const result = senderWindow
+        ? await dialog.showOpenDialog(senderWindow, installDirDialogOptions())
+        : await dialog.showOpenDialog(installDirDialogOptions())
+      if (result.canceled || result.filePaths.length === 0) {
+        return { path: null }
+      }
+      const picked = result.filePaths[0]
+      if (!isAbsolute(picked) || !existsSync(picked)) {
+        return { path: null }
+      }
+      return { path: picked }
+    }
+  )
+
+  registerLoggedIpcHandler(
+    options,
     IPC_CHANNELS.omniinfer.rescanModels,
     async (): Promise<RescanInstalledModelsResponse> => {
       const models = await installedModels.scan()
@@ -164,6 +184,13 @@ function gguDialogOptions(): Electron.OpenDialogOptions {
     title: '选择本地 GGUF 模型',
     properties: ['openFile'],
     filters: [{ name: 'GGUF 模型', extensions: ['gguf'] }],
+  }
+}
+
+function installDirDialogOptions(): Electron.OpenDialogOptions {
+  return {
+    title: '选择 OmniInfer 安装目录',
+    properties: ['openDirectory'],
   }
 }
 

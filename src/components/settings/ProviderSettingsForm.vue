@@ -19,10 +19,12 @@ import { Button } from '@/components/ui/button'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useProviderAutosave } from '@/composables/useProviderAutosave'
 import { useProviderDraft } from '@/composables/useProviderDraft'
+import { useOmniInferStore } from '@/stores/omniinfer'
 import { useProviderStore } from '@/stores/provider'
 import { useToast } from '@/utils/toast'
 
 const providerStore = useProviderStore()
+const omniInferStore = useOmniInferStore()
 const toast = useToast()
 const { rawProviders, loading, saving, providerPresets, presetsLoading, persistenceAvailable } =
   storeToRefs(providerStore)
@@ -317,6 +319,9 @@ async function refreshProviderModels() {
 
     const models = await providerStore.refreshModels(originalProviderId.value)
     replaceModels(models)
+    if (isOmniInferProvider.value) {
+      await omniInferStore.refreshStatus()
+    }
     toast.success(wasExistingProvider ? '模型列表已更新。' : 'Provider 已保存，模型列表已更新。')
   } catch (error) {
     toast.error(error)

@@ -308,6 +308,9 @@ export function createCoreRuntime(options: CoreRuntimeOptions): CoreRuntime {
       if (omniInferProvider?.baseUrl) {
         omniInferRuntimeService.setBaseUrl(omniInferProvider.baseUrl)
       }
+      if (omniInferProvider?.omniInferInstallDir) {
+        omniInferRuntimeService.setInstallDir(omniInferProvider.omniInferInstallDir)
+      }
       if (omniInferProvider?.omniInferModelsDir) {
         omniInferRuntimeService.setModelsDir(omniInferProvider.omniInferModelsDir)
       }

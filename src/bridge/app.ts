@@ -97,6 +97,7 @@ import type {
   OmniInferRuntimeSnapshot,
   PickLocalGgufResponse,
   PickModelsDirResponse,
+  PickOmniInferInstallDirResponse,
   RescanInstalledModelsResponse,
   SelectModelRequest,
   SetThinkingRequest,
@@ -1159,6 +1160,7 @@ export interface RendererOpenOmniClawBridge {
     getLogsPath: () => Promise<GetOmniInferLogsPathResponse>
     pickLocalGguf: () => Promise<PickLocalGgufResponse>
     pickModelsDir: () => Promise<PickModelsDirResponse>
+    pickInstallDir: () => Promise<PickOmniInferInstallDirResponse>
     rescanModels: () => Promise<RescanInstalledModelsResponse>
     listInstalledModels: () => Promise<InstalledModelRecord[]>
     onStatusChanged: (callback: (event: OmniInferRuntimeSnapshot) => void) => BridgeUnsubscribe
@@ -2020,6 +2022,41 @@ const fallbackBridge: RendererOpenOmniClawBridge = {
     get: async () => null,
     kill: () => rejectFallbackPersistence<KillLocalProcessResponse>('terminalProcess.kill'),
   },
+  omniinfer: {
+    getStatus: async () => ({
+      process: {
+        state: 'not_bundled',
+        lastUpdatedAt: 0,
+      },
+      server: {
+        online: false,
+        baseUrl: 'http://127.0.0.1:19157',
+        host: '127.0.0.1',
+        port: 19157,
+        lastCheckedAt: 0,
+      },
+      loadedModel: null,
+      thinking: false,
+      backends: [],
+      externallyManaged: false,
+    }),
+    start: () => rejectFallbackPersistence<OmniInferRuntimeSnapshot>('omniinfer.start'),
+    stop: () => rejectFallbackPersistence<OmniInferRuntimeSnapshot>('omniinfer.stop'),
+    selectModel: () => rejectFallbackPersistence<OmniInferRuntimeSnapshot>('omniinfer.selectModel'),
+    unloadModel: () => rejectFallbackPersistence<OmniInferRuntimeSnapshot>('omniinfer.unloadModel'),
+    setThinking: () => rejectFallbackPersistence<OmniInferRuntimeSnapshot>('omniinfer.setThinking'),
+    getLogsPath: async () => ({ path: '', exists: false }),
+    pickLocalGguf: () =>
+      rejectFallbackPersistence<PickLocalGgufResponse>('omniinfer.pickLocalGguf'),
+    pickModelsDir: () =>
+      rejectFallbackPersistence<PickModelsDirResponse>('omniinfer.pickModelsDir'),
+    pickInstallDir: () =>
+      rejectFallbackPersistence<PickOmniInferInstallDirResponse>('omniinfer.pickInstallDir'),
+    rescanModels: async () => ({ models: [], modelsDir: '' }),
+    listInstalledModels: async () => [],
+    onStatusChanged: () => () => {},
+    onLog: () => () => {},
+  },
   mcp: {
     listServers: async () => ({
       servers: [],
@@ -2428,6 +2465,19 @@ function createCronBridge(
   }
 }
 
+function createOmniInferBridge(
+  bridge: RendererOpenOmniClawBridge['omniinfer'] | undefined
+): RendererOpenOmniClawBridge['omniinfer'] {
+  if (!bridge) {
+    return fallbackBridge.omniinfer
+  }
+
+  return {
+    ...fallbackBridge.omniinfer,
+    ...bridge,
+  }
+}
+
 function createPersonaBridge(
   bridge: RendererOpenOmniClawBridge['persona'] | undefined
 ): RendererOpenOmniClawBridge['persona'] {
@@ -2468,6 +2518,7 @@ export const appBridge: RendererOpenOmniClawBridge = exposedBridge
       observation: createObservationBridge(exposedBridge.observation),
       provider: createProviderBridge(exposedBridge.provider),
       cron: createCronBridge(exposedBridge.cron),
+      omniinfer: createOmniInferBridge(exposedBridge.omniinfer),
       persona: createPersonaBridge(exposedBridge.persona),
       tavern: createTavernBridge(exposedBridge.tavern),
     }

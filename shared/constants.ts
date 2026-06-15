@@ -205,6 +205,7 @@ export const IPC_CHANNELS = {
     getLogsPath: 'omniinfer:get-logs-path',
     pickLocalGguf: 'omniinfer:pick-local-gguf',
     pickModelsDir: 'omniinfer:pick-models-dir',
+    pickInstallDir: 'omniinfer:pick-install-dir',
     rescanModels: 'omniinfer:rescan-models',
   },
   tavern: {

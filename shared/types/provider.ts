@@ -77,6 +77,15 @@ export interface ProviderConfig {
    * Ignored for non-OmniInfer providers and for OmniClaw-bundled OmniInfer instances.
    */
   omniInferModelsDir?: string
+
+  /**
+   * OmniInfer-only: absolute path to a user-installed OmniInfer project/install directory.
+   * When set, OmniClaw can run the directory's `omniinfer` startup script and stop that
+   * local installation instead of only probing an already-running external gateway.
+   */
+  omniInferInstallDir?: string
+  /** @deprecated Use `omniInferInstallDir`; kept only for old provider objects. */
+  omniInferBinaryPath?: string
 }
 
 export interface ProviderPreset {
@@ -133,6 +142,9 @@ export interface ProviderRegistrySource {
   createdAt: number
   updatedAt: number
   omniInferModelsDir?: string
+  omniInferInstallDir?: string
+  /** @deprecated Use `omniInferInstallDir`; kept only for old registry normalization. */
+  omniInferBinaryPath?: string
 }
 
 export interface ProviderRegistryModel
