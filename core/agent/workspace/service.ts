@@ -330,6 +330,19 @@ export class AgentWorkspaceService {
     }
   }
 
+  async revealFile(input: {
+    sessionId: string
+    path: string
+  }): Promise<{ sessionId: string; path: string; absolutePath: string }> {
+    const workspace = await this.ensureWorkspace(input.sessionId)
+    const target = await this.resolveExistingPath(workspace, input.path)
+    return {
+      sessionId: input.sessionId,
+      path: target.relativePath,
+      absolutePath: target.absolutePath,
+    }
+  }
+
   async cleanupWorkspace(sessionId: string): Promise<{ sessionId: string; deleted: boolean }> {
     const workspace = await this.ensureWorkspace(sessionId)
     await rm(workspace.root, { recursive: true, force: true })

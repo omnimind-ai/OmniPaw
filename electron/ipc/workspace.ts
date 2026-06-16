@@ -9,8 +9,10 @@ import type {
   ListWorkspaceFilesRequest,
   LocalAgentOperationError,
   ReadWorkspaceFileRequest,
+  RevealWorkspaceFileRequest,
+  RevealWorkspaceFileResponse,
 } from '@shared/types/local-agent'
-import { dialog } from 'electron'
+import { dialog, shell } from 'electron'
 import { registerLoggedIpcHandler } from './common'
 import type { IpcHandlerOptions } from './types'
 
@@ -62,6 +64,21 @@ export function registerWorkspaceIpcHandlers(options: IpcHandlerOptions): void {
           path: request.path,
           destinationPath: result.filePath,
         })
+      })
+  )
+  registerLoggedIpcHandler(
+    options,
+    IPC_CHANNELS.workspace.revealFile,
+    (_event, request: RevealWorkspaceFileRequest) =>
+      localResult<RevealWorkspaceFileResponse>(async () => {
+        const resolved = await runtime.agentWorkspaceService.revealFile(request)
+        shell.showItemInFolder(resolved.absolutePath)
+        return {
+          sessionId: resolved.sessionId,
+          path: resolved.path,
+          absolutePath: resolved.absolutePath,
+          opened: true,
+        }
       })
   )
   registerLoggedIpcHandler(

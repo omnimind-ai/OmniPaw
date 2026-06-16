@@ -80,6 +80,8 @@ import type {
   LocalProcessSummary,
   ReadWorkspaceFileRequest,
   ReadWorkspaceFileResponse,
+  RevealWorkspaceFileRequest,
+  RevealWorkspaceFileResponse,
 } from './local-agent'
 import type {
   ExportLogResponse,
@@ -591,6 +593,7 @@ export interface OpenOmniClawBridge {
     listFiles: (request: ListWorkspaceFilesRequest) => Promise<ListWorkspaceFilesResponse>
     readFile: (request: ReadWorkspaceFileRequest) => Promise<ReadWorkspaceFileResponse>
     exportFile: (request: ExportWorkspaceFileRequest) => Promise<ExportWorkspaceFileResponse>
+    revealFile: (request: RevealWorkspaceFileRequest) => Promise<RevealWorkspaceFileResponse>
     deleteFile: (request: DeleteWorkspaceFileRequest) => Promise<DeleteWorkspaceFileResponse>
     cleanup: (request: CleanupWorkspaceRequest | string) => Promise<CleanupWorkspaceResponse>
   }

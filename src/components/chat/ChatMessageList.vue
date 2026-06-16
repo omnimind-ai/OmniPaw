@@ -11,6 +11,7 @@ import type {
   MessagePart,
 } from '@/composables/useMessages'
 import { cn } from '@/lib/utils'
+import { extractWorkspaceFileChanges } from '@/utils/chat-file-changes'
 import type { RefItem } from './chat-display'
 import {
   contentText,
@@ -22,6 +23,7 @@ import {
   recordId,
 } from './chat-display'
 import MessageAttachmentGrid from './parts/MessageAttachmentGrid.vue'
+import MessageFilesChangedCard from './parts/MessageFilesChangedCard.vue'
 import MessagePartRenderer from './parts/MessagePartRenderer.vue'
 import MessageToolbar from './parts/MessageToolbar.vue'
 import ReasoningBlock from './parts/ReasoningBlock.vue'
@@ -33,6 +35,7 @@ const props = withDefaults(
     loading?: boolean
     highlightedMessageId?: string
     showReasoningContent?: boolean
+    sessionId?: string
     isUserMessage: (record: ChatRecord) => boolean
     messageContent: (record: ChatRecord) => ChatContent
     messageBlocks: (content: ChatContent) => MessageDisplayBlock[]
@@ -42,6 +45,7 @@ const props = withDefaults(
     loading: false,
     highlightedMessageId: '',
     showReasoningContent: true,
+    sessionId: '',
   }
 )
 
@@ -53,6 +57,7 @@ const emit = defineEmits<{
   continueMessage: [record: ChatRecord]
   quoteMessage: [record: ChatRecord, text: string]
   jumpMessage: [messageId: string]
+  openWorkspaceFile: [payload: { path: string; lineStart?: number; lineEnd?: number }]
 }>()
 
 const editingRecordId = ref('')
@@ -201,6 +206,11 @@ function isLocalTavernGreeting(record: ChatRecord) {
       (tavern as { greeting?: unknown }).greeting === true
   )
 }
+
+function fileChangesFor(record: ChatRecord) {
+  if (props.isUserMessage(record)) return []
+  return extractWorkspaceFileChanges(record)
+}
 </script>
 
 <template>
@@ -282,6 +292,7 @@ function isLocalTavernGreeting(record: ChatRecord) {
                 @jump-message="emit('jumpMessage', $event)"
                 @open-refs="openRefs"
                 @copy-code="emit('copyCode', $event)"
+                @open-workspace-file="emit('openWorkspaceFile', $event)"
               />
             </div>
           </template>
@@ -304,6 +315,12 @@ function isLocalTavernGreeting(record: ChatRecord) {
           >
             正在思考...
           </span>
+
+          <MessageFilesChangedCard
+            v-if="!isUserMessage(record) && sessionId && fileChangesFor(record).length"
+            :session-id="sessionId"
+            :changes="fileChangesFor(record)"
+          />
         </template>
 
         <MessageToolbar

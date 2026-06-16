@@ -162,6 +162,18 @@ export interface ExportWorkspaceFileResponse {
   canceled?: boolean
 }
 
+export interface RevealWorkspaceFileRequest {
+  sessionId: string
+  path: string
+}
+
+export interface RevealWorkspaceFileResponse {
+  sessionId: string
+  path: string
+  absolutePath: string
+  opened: boolean
+}
+
 export interface DeleteWorkspaceFileRequest {
   sessionId: string
   path: string

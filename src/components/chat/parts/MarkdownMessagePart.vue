@@ -25,6 +25,7 @@ const props = withDefaults(
 
 const emit = defineEmits<{
   copyCode: [code: string]
+  openWorkspaceFile: [payload: { path: string; lineStart?: number; lineEnd?: number }]
 }>()
 
 interface CodeBlock {
@@ -89,6 +90,7 @@ function createMarkdownRenderer() {
   md.enable(['table', 'strikethrough'])
   installMathRules(md)
   installTaskListRule(md)
+  installWorkspaceFileRefRule(md)
 
   md.renderer.rules.table_open = () => '<div class="chat-markdown__table"><table>'
   md.renderer.rules.table_close = () => '</table></div>'
@@ -252,6 +254,23 @@ async function handleRenderedClick(event: MouseEvent) {
   const target = event.target
   if (!(target instanceof Element)) return
 
+  const fileRef = target.closest<HTMLElement>('.chat-ws-file-ref')
+  if (fileRef) {
+    event.preventDefault()
+    const path = fileRef.dataset.wsPath || ''
+    if (!path) return
+    const lineStartRaw = fileRef.dataset.wsLineStart
+    const lineEndRaw = fileRef.dataset.wsLineEnd
+    const lineStart = lineStartRaw ? Number(lineStartRaw) : undefined
+    const lineEnd = lineEndRaw ? Number(lineEndRaw) : undefined
+    emit('openWorkspaceFile', {
+      path,
+      lineStart: Number.isFinite(lineStart) ? lineStart : undefined,
+      lineEnd: Number.isFinite(lineEnd) ? lineEnd : undefined,
+    })
+    return
+  }
+
   const copyButton = target.closest<HTMLButtonElement>('[data-code-copy]')
   if (!copyButton) return
 
@@ -285,9 +304,14 @@ function finalizeRenderedHtml(html: string) {
       'data-code-copy',
       'data-code-id',
       'data-math-id',
+      'data-ws-path',
+      'data-ws-line-start',
+      'data-ws-line-end',
       'disabled',
       'open',
       'rel',
+      'role',
+      'tabindex',
       'target',
       'type',
     ],
@@ -510,6 +534,76 @@ function findListItemOpen(tokens: Array<{ type: string }>, startIndex: number) {
   }
   return null
 }
+
+function installWorkspaceFileRefRule(md: MarkdownIt) {
+  md.inline.ruler.before('escape', 'chat_workspace_file_ref', workspaceFileRefRule)
+  md.renderer.rules.chat_workspace_file_ref = (tokens: MarkdownIt.Token[], index: number) => {
+    const meta = tokens[index]?.meta as
+      | { path: string; lineStart?: number; lineEnd?: number }
+      | undefined
+    if (!meta?.path) return ''
+    return renderWorkspaceFileRef(meta.path, meta.lineStart, meta.lineEnd)
+  }
+}
+
+function workspaceFileRefRule(state: MarkdownIt.StateInline, silent: boolean) {
+  const start = state.pos
+  const src = state.src
+  if (src.charCodeAt(start) !== 0x5b /* [ */ || src.charCodeAt(start + 1) !== 0x5b /* [ */) {
+    return false
+  }
+  if (src.slice(start + 2, start + 5).toLowerCase() !== 'ws:') return false
+
+  const closeIdx = src.indexOf(']]', start + 5)
+  if (closeIdx < 0) return false
+
+  const body = src.slice(start + 5, closeIdx).trim()
+  if (!body) return false
+
+  let path = body
+  let lineStart: number | undefined
+  let lineEnd: number | undefined
+  const hashIdx = body.indexOf('#')
+  if (hashIdx >= 0) {
+    path = body.slice(0, hashIdx).trim()
+    const anchor = body.slice(hashIdx + 1).trim()
+    const match = anchor.match(/^L(\d+)(?:-L?(\d+))?$/i)
+    if (match) {
+      lineStart = Number(match[1])
+      if (match[2]) lineEnd = Number(match[2])
+    }
+  }
+  if (!path) return false
+
+  if (!silent) {
+    const token = state.push('chat_workspace_file_ref', '', 0)
+    token.meta = { path, lineStart, lineEnd }
+  }
+
+  state.pos = closeIdx + 2
+  return true
+}
+
+function renderWorkspaceFileRef(path: string, lineStart?: number, lineEnd?: number) {
+  const safePath = escapeHtml(path)
+  const lineLabel =
+    lineStart != null && Number.isFinite(lineStart)
+      ? lineEnd != null && Number.isFinite(lineEnd) && lineEnd !== lineStart
+        ? `:L${lineStart}-L${lineEnd}`
+        : `:L${lineStart}`
+      : ''
+  const dataLineStart = lineStart != null ? ` data-ws-line-start="${lineStart}"` : ''
+  const dataLineEnd = lineEnd != null ? ` data-ws-line-end="${lineEnd}"` : ''
+  return (
+    `<span class="chat-ws-file-ref" role="button" tabindex="0"` +
+    ` data-ws-path="${safePath}"${dataLineStart}${dataLineEnd}` +
+    ` aria-label="打开工作区文件 ${safePath}">` +
+    `<span class="chat-ws-file-ref__icon" aria-hidden="true"></span>` +
+    `<code class="chat-ws-file-ref__path">${safePath}</code>` +
+    (lineLabel ? `<span class="chat-ws-file-ref__line">${escapeHtml(lineLabel)}</span>` : '') +
+    `</span>`
+  )
+}
 </script>
 
 <template>
@@ -536,6 +630,61 @@ function findListItemOpen(tokens: Array<{ type: string }>, startIndex: number) {
 
 .chat-markdown :deep(.chat-markdown__content > :last-child) {
   margin-bottom: 0;
+}
+
+.chat-markdown :deep(.chat-ws-file-ref) {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3em;
+  padding: 0.05em 0.5em;
+  margin: 0 0.1em;
+  border-radius: 0.4rem;
+  border: 1px solid var(--border);
+  background: var(--muted);
+  color: var(--foreground);
+  cursor: pointer;
+  font-size: 0.92em;
+  line-height: 1.4;
+  vertical-align: baseline;
+  transition: background-color 0.15s ease, border-color 0.15s ease;
+  user-select: none;
+}
+
+.chat-markdown :deep(.chat-ws-file-ref:hover),
+.chat-markdown :deep(.chat-ws-file-ref:focus-visible) {
+  background: var(--accent);
+  border-color: var(--ring);
+  outline: none;
+}
+
+.chat-markdown :deep(.chat-ws-file-ref__icon) {
+  display: inline-block;
+  width: 0.95em;
+  height: 0.95em;
+  background-color: currentColor;
+  -webkit-mask-image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z'/%3E%3Cpath d='M14 2v6h6'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z'/%3E%3Cpath d='M14 2v6h6'/%3E%3C/svg%3E");
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  mask-position: center;
+  -webkit-mask-size: contain;
+  mask-size: contain;
+  opacity: 0.75;
+}
+
+.chat-markdown :deep(.chat-ws-file-ref__path) {
+  background: transparent;
+  padding: 0;
+  font-family: inherit;
+  font-size: inherit;
+  color: inherit;
+}
+
+.chat-markdown :deep(.chat-ws-file-ref__line) {
+  font-variant-numeric: tabular-nums;
+  font-size: 0.85em;
+  color: var(--muted-foreground);
 }
 
 .chat-markdown :deep(h1),

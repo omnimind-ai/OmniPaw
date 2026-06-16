@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { ArrowDownIcon } from 'lucide-vue-next'
 
+import { appBridge } from '@/bridge/app'
 import ChatComposerDock from '@/components/chat/ChatComposerDock.vue'
 import ChatMessageList from '@/components/chat/ChatMessageList.vue'
 import { useChatWorkspaceContext } from '@/components/chat/chat-workspace-context'
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
+import { errorToText, useToast } from '@/utils/toast'
 
 const {
   setMessagesScrollArea,
@@ -14,6 +16,7 @@ const {
   showMessageSkeleton,
   highlightedMessageId,
   showReasoningContent,
+  currSessionId,
   isUserMessage,
   messageContent,
   messageBlocks,
@@ -28,6 +31,24 @@ const {
   showScrollToBottom,
   scrollToLatestMessage,
 } = useChatWorkspaceContext()
+
+const toast = useToast()
+
+async function handleOpenWorkspaceFile(payload: {
+  path: string
+  lineStart?: number
+  lineEnd?: number
+}) {
+  if (!appBridge.workspace || !currSessionId.value || !payload.path) return
+  try {
+    await appBridge.workspace.revealFile({
+      sessionId: currSessionId.value,
+      path: payload.path,
+    })
+  } catch (err) {
+    toast.error(errorToText(err, '无法在文件夹中显示文件。'))
+  }
+}
 </script>
 
 <template>
@@ -42,6 +63,7 @@ const {
         :loading="showMessageSkeleton"
         :highlighted-message-id="highlightedMessageId"
         :show-reasoning-content="showReasoningContent"
+        :session-id="currSessionId"
         :is-user-message="isUserMessage"
         :message-content="messageContent"
         :message-blocks="messageBlocks"
@@ -53,6 +75,7 @@ const {
         @regenerate-message="handleRegenerateMessage"
         @quote-message="handleQuoteMessage"
         @jump-message="handleJumpMessage"
+        @open-workspace-file="handleOpenWorkspaceFile"
       />
     </ScrollArea>
 

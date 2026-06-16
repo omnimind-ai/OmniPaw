@@ -38,6 +38,7 @@ const emit = defineEmits<{
   jumpMessage: [messageId: string]
   openRefs: [refs: Array<{ id: string; title?: string; url?: string; snippet?: string }>]
   copyCode: [code: string]
+  openWorkspaceFile: [payload: { path: string; lineStart?: number; lineEnd?: number }]
 }>()
 
 const url = computed(() => partUrl(props.part))
@@ -68,6 +69,7 @@ function openImageViewer() {
     :content="part.text || ''"
     :user="user"
     @copy-code="emit('copyCode', $event)"
+    @open-workspace-file="emit('openWorkspaceFile', $event)"
   />
 
   <Button
@@ -167,6 +169,7 @@ function openImageViewer() {
       v-for="(toolCall, toolIndex) in toolCalls(part)"
       :key="String(toolCall.id || toolCall.index || toolIndex)"
       :tool-call="toolCall"
+      @open-workspace-file="emit('openWorkspaceFile', $event)"
     />
   </div>
 

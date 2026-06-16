@@ -57,6 +57,8 @@ import type {
   LocalProcessSummary,
   ReadWorkspaceFileRequest,
   ReadWorkspaceFileResponse,
+  RevealWorkspaceFileRequest,
+  RevealWorkspaceFileResponse,
 } from '@shared/types/local-agent'
 import type {
   ExportLogResponse,
@@ -1141,6 +1143,7 @@ export interface RendererOpenOmniClawBridge {
     listFiles: (request: ListWorkspaceFilesRequest) => Promise<ListWorkspaceFilesResponse>
     readFile: (request: ReadWorkspaceFileRequest) => Promise<ReadWorkspaceFileResponse>
     exportFile: (request: ExportWorkspaceFileRequest) => Promise<ExportWorkspaceFileResponse>
+    revealFile: (request: RevealWorkspaceFileRequest) => Promise<RevealWorkspaceFileResponse>
     deleteFile: (request: DeleteWorkspaceFileRequest) => Promise<DeleteWorkspaceFileResponse>
     cleanup: (request: CleanupWorkspaceRequest | string) => Promise<CleanupWorkspaceResponse>
   }
@@ -2011,6 +2014,8 @@ const fallbackBridge: RendererOpenOmniClawBridge = {
     readFile: () => rejectFallbackPersistence<ReadWorkspaceFileResponse>('workspace.readFile'),
     exportFile: () =>
       rejectFallbackPersistence<ExportWorkspaceFileResponse>('workspace.exportFile'),
+    revealFile: () =>
+      rejectFallbackPersistence<RevealWorkspaceFileResponse>('workspace.revealFile'),
     deleteFile: () =>
       rejectFallbackPersistence<DeleteWorkspaceFileResponse>('workspace.deleteFile'),
     cleanup: () => rejectFallbackPersistence<CleanupWorkspaceResponse>('workspace.cleanup'),

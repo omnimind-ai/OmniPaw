@@ -28,6 +28,7 @@ import type {
   LocalAgentOperationError,
   LocalProcessSummary,
   ReadWorkspaceFileResponse,
+  RevealWorkspaceFileResponse,
 } from '@shared/types/local-agent'
 import type {
   ExportLogResponse,
@@ -546,6 +547,8 @@ const bridge: OpenOmniClawBridge = {
       invokeLocal<ReadWorkspaceFileResponse>(IPC_CHANNELS.workspace.readFile, request),
     exportFile: (request) =>
       invokeLocal<ExportWorkspaceFileResponse>(IPC_CHANNELS.workspace.exportFile, request),
+    revealFile: (request) =>
+      invokeLocal<RevealWorkspaceFileResponse>(IPC_CHANNELS.workspace.revealFile, request),
     deleteFile: (request) =>
       invokeLocal<DeleteWorkspaceFileResponse>(IPC_CHANNELS.workspace.deleteFile, request),
     cleanup: (request) =>

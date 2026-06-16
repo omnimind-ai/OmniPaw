@@ -165,6 +165,7 @@ export const IPC_CHANNELS = {
     listFiles: 'workspace:list-files',
     readFile: 'workspace:read-file',
     exportFile: 'workspace:export-file',
+    revealFile: 'workspace:reveal-file',
     deleteFile: 'workspace:delete-file',
     cleanup: 'workspace:cleanup',
   },

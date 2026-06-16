@@ -4,6 +4,7 @@ import {
   CheckCircle2Icon,
   ChevronDownIcon,
   CircleDashedIcon,
+  FolderOpenIcon,
   PlayIcon,
   ShieldOffIcon,
   WrenchIcon,
@@ -23,11 +24,42 @@ const props = defineProps<{
   toolCall: ToolCall
 }>()
 
+const emit = defineEmits<{
+  openWorkspaceFile: [payload: { path: string; lineStart?: number; lineEnd?: number }]
+}>()
+
 const open = ref(false)
 const deciding = ref(false)
 const toast = useToast()
 const status = computed(() => toolCallStatus(props.toolCall))
 const label = computed(() => toolCallLabel(props.toolCall))
+
+const workspaceFilePath = computed(() => {
+  const name = props.toolCall.name || props.toolCall.toolName || props.toolCall.tool_name
+  if (name !== 'workspace_file') return ''
+  if (status.value !== 'complete') return ''
+  const result = props.toolCall.result
+  if (!result || typeof result !== 'object') return ''
+  const payload = result as Record<string, unknown>
+  const action = payload.action
+  if (action !== 'write' && action !== 'patch') return ''
+  const entry = payload.entry
+  if (!entry || typeof entry !== 'object') return ''
+  const path = (entry as Record<string, unknown>).path
+  return typeof path === 'string' ? path : ''
+})
+
+function workspaceFileName(path: string) {
+  const cleaned = path.replace(/\\+/g, '/')
+  const slash = cleaned.lastIndexOf('/')
+  return slash >= 0 ? cleaned.slice(slash + 1) : cleaned
+}
+
+function openWorkspaceFile() {
+  const path = workspaceFilePath.value
+  if (!path) return
+  emit('openWorkspaceFile', { path })
+}
 const approval = computed(() =>
   props.toolCall.approval && typeof props.toolCall.approval === 'object'
     ? props.toolCall.approval
@@ -160,6 +192,23 @@ async function decideToolApproval(action: 'approve' | 'reject') {
           </span>
         </Button>
       </CollapsibleTrigger>
+
+      <button
+        v-if="workspaceFilePath"
+        type="button"
+        class="group/file flex w-fit items-center gap-1.5 rounded-md border bg-background/80 px-2 py-0.5 text-[0.7rem] text-muted-foreground transition-colors hover:border-ring hover:bg-accent hover:text-foreground"
+        :aria-label="`在文件夹中显示 ${workspaceFilePath}`"
+        :title="workspaceFilePath"
+        @click="openWorkspaceFile"
+      >
+        <FolderOpenIcon
+          data-icon="inline-start"
+          aria-hidden="true"
+        />
+        <span class="truncate font-mono">
+          {{ workspaceFileName(workspaceFilePath) }}
+        </span>
+      </button>
 
       <div
         v-if="approvalPending"

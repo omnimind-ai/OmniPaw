@@ -297,7 +297,7 @@ export const BUILTIN_TOOL_PROMPTS = {
   workspaceFile: {
     label: 'Workspace file',
     description:
-      'Work with files in the managed agent workspace. Use action=list/read/search for reads, write to create or replace a text file, and patch with oldText/newText to edit text.',
+      'Work with files in the managed agent workspace. Use action=list/read/search for reads, write to create or replace a text file, and patch with oldText/newText to edit text. When mentioning a workspace file in your reply text, render it as a clickable badge using the syntax [[ws:<relative/path>]] or [[ws:<relative/path>#L1-L8]] for a line range. Use the exact relative path returned in entry.path; do not wrap the badge in backticks.',
     pathDescription: 'Relative path inside the managed workspace.',
   },
   terminalExec: {
