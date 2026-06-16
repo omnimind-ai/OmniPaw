@@ -3,7 +3,6 @@ import {
   ChevronDownIcon,
   DownloadIcon,
   EyeIcon,
-  FileTextIcon,
   FolderOpenIcon,
   PencilIcon,
   PlusIcon,
@@ -13,12 +12,12 @@ import { appBridge } from '@/bridge/app'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from '@/components/ui/sheet'
 import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
 import type { WorkspaceFileChange } from '@/utils/chat-file-changes'
@@ -63,13 +62,6 @@ function fileDir(path: string) {
   const cleaned = path.replace(/\\+/g, '/')
   const slash = cleaned.lastIndexOf('/')
   return slash >= 0 ? cleaned.slice(0, slash) : ''
-}
-
-function formatBytes(value?: number) {
-  if (value == null || !Number.isFinite(value)) return ''
-  if (value < 1024) return `${value} B`
-  if (value < 1024 * 1024) return `${Math.round(value / 1024)} KB`
-  return `${(value / 1024 / 1024).toFixed(1)} MB`
 }
 
 async function reveal(change: WorkspaceFileChange) {
@@ -218,13 +210,16 @@ const previewIsMarkdown = computed(() => /\.(md|markdown|mdx)$/i.test(previewPat
       {{ expanded ? '收起' : `展开剩余 ${hiddenCount} 个` }}
     </Button>
 
-    <Dialog v-model:open="previewOpen">
-      <DialogContent class="sm:max-w-2xl">
-        <DialogHeader>
-          <DialogTitle class="truncate">
+    <Sheet v-model:open="previewOpen">
+      <SheetContent
+        side="right"
+        class="flex w-full flex-col gap-0 p-0 sm:max-w-xl"
+      >
+        <SheetHeader class="border-b">
+          <SheetTitle class="truncate pr-8">
             {{ previewPath || '文件预览' }}
-          </DialogTitle>
-          <DialogDescription>
+          </SheetTitle>
+          <SheetDescription>
             <span class="flex flex-wrap items-center gap-2 text-xs">
               <Badge variant="outline">工作区文件</Badge>
               <span
@@ -236,10 +231,10 @@ const previewIsMarkdown = computed(() => /\.(md|markdown|mdx)$/i.test(previewPat
                 class="text-muted-foreground"
               >二进制文件，仅显示元信息</span>
             </span>
-          </DialogDescription>
-        </DialogHeader>
+          </SheetDescription>
+        </SheetHeader>
 
-        <div class="max-h-[60vh] overflow-auto">
+        <div class="min-h-0 flex-1 overflow-auto p-4">
           <div
             v-if="previewLoading"
             class="flex flex-col gap-2"
@@ -270,7 +265,7 @@ const previewIsMarkdown = computed(() => /\.(md|markdown|mdx)$/i.test(previewPat
             class="whitespace-pre-wrap break-words rounded-md bg-muted p-3 text-xs leading-5 text-muted-foreground"
           >{{ previewContent || '(文件为空)' }}</pre>
         </div>
-      </DialogContent>
-    </Dialog>
+      </SheetContent>
+    </Sheet>
   </div>
 </template>

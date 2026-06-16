@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import AgentWorkspacePanel from '@/components/chat/AgentWorkspacePanel.vue'
 import ChatComposer from '@/components/chat/ChatComposer.vue'
 import TavernRuntimeDock from '@/components/tavern/TavernRuntimeDock.vue'
 import { Button } from '@/components/ui/button'
@@ -84,7 +83,6 @@ const {
         </Button>
       </div>
 
-      <AgentWorkspacePanel class="mb-2" />
       <TavernRuntimeDock class="mb-2" />
 
       <ChatComposer
