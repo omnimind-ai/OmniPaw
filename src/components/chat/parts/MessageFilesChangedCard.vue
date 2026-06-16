@@ -49,10 +49,6 @@ const visibleChanges = computed(() =>
 const hiddenCount = computed(() => Math.max(0, props.changes.length - VISIBLE_LIMIT))
 const workspaceAvailable = computed(() => Boolean(appBridge.workspace && props.sessionId))
 
-function actionLabel(action: WorkspaceFileChange['action']) {
-  return action === 'write' ? '写入' : '修改'
-}
-
 function actionIcon(action: WorkspaceFileChange['action']) {
   return action === 'write' ? PlusIcon : PencilIcon
 }
@@ -137,12 +133,8 @@ const previewIsMarkdown = computed(() => /\.(md|markdown|mdx)$/i.test(previewPat
     class="flex flex-col gap-1.5 rounded-lg border bg-background/60 p-2 text-xs"
   >
     <div class="flex items-center gap-2 px-1 py-0.5 text-muted-foreground">
-      <FileTextIcon
-        data-icon="inline-start"
-        aria-hidden="true"
-      />
       <span class="font-medium text-foreground">
-        已修改 {{ changes.length }} 个工作区文件
+        已修改 {{ changes.length }} 个文件
       </span>
     </div>
 
@@ -152,7 +144,7 @@ const previewIsMarkdown = computed(() => /\.(md|markdown|mdx)$/i.test(previewPat
         :key="change.path"
         class="flex items-center gap-2 rounded-md border bg-background/80 px-2 py-1.5"
       >
-        <div class="flex size-7 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
+        <div class="flex size-4 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
           <component
             :is="actionIcon(change.action)"
             aria-hidden="true"
@@ -162,18 +154,6 @@ const previewIsMarkdown = computed(() => /\.(md|markdown|mdx)$/i.test(previewPat
           <div class="flex flex-wrap items-center gap-1.5">
             <span class="truncate text-sm font-medium text-foreground">
               {{ fileName(change.path) }}
-            </span>
-            <Badge
-              variant="outline"
-              class="font-normal"
-            >
-              {{ actionLabel(change.action) }}
-            </Badge>
-            <span
-              v-if="change.sizeBytes != null"
-              class="text-[0.7rem] text-muted-foreground"
-            >
-              {{ formatBytes(change.sizeBytes) }}
             </span>
           </div>
           <p
