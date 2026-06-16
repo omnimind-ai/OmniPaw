@@ -12,6 +12,7 @@ import BuiltinToolSettingsModal from '@/components/settings/mcp-server-settings/
 import McpServerDeleteModal from '@/components/settings/mcp-server-settings/McpServerDeleteModal.vue'
 import McpServerFormModal from '@/components/settings/mcp-server-settings/McpServerFormModal.vue'
 import McpServerList from '@/components/settings/mcp-server-settings/McpServerList.vue'
+import McpServerToolsModal from '@/components/settings/mcp-server-settings/McpServerToolsModal.vue'
 import type {
   McpKeyValueRow,
   McpSecretRowType,
@@ -34,8 +35,10 @@ const pendingKeys = ref<Set<string>>(new Set())
 const formOpen = ref(false)
 const builtinToolModalOpen = ref(false)
 const deleteDialogOpen = ref(false)
+const toolsModalOpen = ref(false)
 const editingServer = ref<BridgeMcpServerSummary>()
 const deleteTarget = ref<BridgeMcpServerSummary>()
+const toolsTarget = ref<BridgeMcpServerSummary>()
 const formErrors = ref<Record<string, string>>({})
 const draft = ref(createEmptyDraft())
 let nextRowId = 1
@@ -55,6 +58,11 @@ const existingSecretKeys = computed(() => {
 const deletePending = computed(() =>
   deleteTarget.value ? isPending(`delete:${deleteTarget.value.id}`) : false
 )
+const toolsModalServer = computed(() => {
+  const target = toolsTarget.value
+  if (!target) return undefined
+  return servers.value.find((server) => server.id === target.id) ?? target
+})
 const showServerListSkeleton = useDelayedFlag(() => loading.value)
 
 onMounted(async () => {
@@ -181,6 +189,11 @@ function closeForm() {
 function openDeleteDialog(server: BridgeMcpServerSummary) {
   deleteTarget.value = server
   deleteDialogOpen.value = true
+}
+
+function openServerTools(server: BridgeMcpServerSummary) {
+  toolsTarget.value = server
+  toolsModalOpen.value = true
 }
 
 async function saveServer() {
@@ -434,6 +447,7 @@ function redactDraftSecrets(message: string) {
       @edit="openEditForm"
       @enable="setServerEnabled"
       @delete="openDeleteDialog"
+      @details="openServerTools"
     />
 
     <BuiltinToolSettingsModal
@@ -463,6 +477,11 @@ function redactDraftSecrets(message: string) {
       :target="deleteTarget"
       :pending="deletePending"
       @delete="deleteServer"
+    />
+
+    <McpServerToolsModal
+      v-model:open="toolsModalOpen"
+      :server="toolsModalServer"
     />
   </div>
 </template>

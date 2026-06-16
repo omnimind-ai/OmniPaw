@@ -10,11 +10,11 @@ import {
   SlidersHorizontalIcon,
   TerminalIcon,
   Trash2Icon,
+  WrenchIcon,
   XIcon,
 } from 'lucide-vue-next'
 import { computed, ref } from 'vue'
 import type {
-  BridgeMcpDiscoveredToolSummary,
   BridgeMcpDiscoveryStatus,
   BridgeMcpSafeTransport,
   BridgeMcpServerSummary,
@@ -53,6 +53,7 @@ const emit = defineEmits<{
   edit: [server: BridgeMcpServerSummary]
   enable: [server: BridgeMcpServerSummary, enabled: boolean]
   delete: [server: BridgeMcpServerSummary]
+  details: [server: BridgeMcpServerSummary]
 }>()
 
 const searchQuery = ref('')
@@ -80,23 +81,6 @@ function statusVariant(status: BridgeMcpDiscoveryStatus): BadgeVariants['variant
   if (status === 'error') return 'destructive'
   if (status === 'available') return 'secondary'
   return 'outline'
-}
-
-function riskLabel(risk: BridgeMcpDiscoveredToolSummary['risk'] | string) {
-  const labels: Record<string, string> = {
-    safe: '安全',
-    read: '读取',
-    network: '网络',
-    write: '写入',
-    exec: '执行',
-  }
-  return labels[risk] || risk
-}
-
-function riskVariant(
-  risk: BridgeMcpDiscoveredToolSummary['risk'] | string
-): BadgeVariants['variant'] {
-  return ['write', 'exec', 'network'].includes(risk) ? 'destructive' : 'outline'
 }
 
 function transportLabel(transport: BridgeMcpSafeTransport) {
@@ -137,7 +121,6 @@ function serverSearchText(server: BridgeMcpServerSummary) {
       tool.label,
       tool.providerName,
       tool.description,
-      riskLabel(tool.risk),
       ...tool.profiles,
     ]),
   ]
@@ -324,22 +307,6 @@ function clearSearch() {
                   </Badge>
                 </template>
 
-                <template #meta>
-                  <p class="truncate text-xs text-muted-foreground">
-                    {{ server.id }}
-                  </p>
-                  <div class="flex flex-wrap gap-2 text-xs text-muted-foreground">
-                    <span
-                      v-for="detail in transportDetails(server.transport)"
-                      :key="detail"
-                    >
-                      {{ detail }}
-                    </span>
-                    <span>连接 {{ server.timeoutMs }}ms</span>
-                    <span>工具 {{ server.toolTimeoutMs }}ms</span>
-                  </div>
-                </template>
-
                 <template #actions>
                   <Switch
                     :id="`mcp-enabled-${server.id}`"
@@ -349,6 +316,15 @@ function clearSearch() {
                     :aria-label="`${server.enabled ? '停用' : '启用'} ${server.name}`"
                     @update:model-value="emit('enable', server, $event)"
                   />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    @click="emit('details', server)"
+                  >
+                    <WrenchIcon data-icon="inline-start" />
+                    工具 {{ server.tools.length }}
+                  </Button>
                   <Button
                     type="button"
                     variant="ghost"
@@ -374,13 +350,13 @@ function clearSearch() {
                   </Button>
                   <Button
                     type="button"
-                    variant="destructive"
-                    size="sm"
+                    variant="ghost"
+                    size="icon-sm"
                     :disabled="isServerPending(server.id) || mcpUnavailable"
+                    aria-label="删除"
                     @click="emit('delete', server)"
                   >
-                    <Trash2Icon data-icon="inline-start" />
-                    删除
+                    <Trash2Icon data-icon />
                   </Button>
                 </template>
 
@@ -389,56 +365,6 @@ function clearSearch() {
                   class="mt-3 rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive"
                 >
                   {{ server.error }}
-                </div>
-
-                <div
-                  v-if="server.tools.length"
-                  class="mt-3 flex flex-col gap-2"
-                >
-                  <div class="text-xs font-medium text-muted-foreground">
-                    已发现工具
-                  </div>
-                  <div class="grid grid-cols-1 gap-2 xl:grid-cols-2">
-                    <div
-                      v-for="tool in server.tools"
-                      :key="`${server.id}:${tool.providerName}`"
-                      class="flex min-w-0 flex-col gap-2 rounded-md border bg-background px-3 py-2"
-                    >
-                      <div class="flex flex-wrap items-center gap-2">
-                        <span class="truncate text-sm font-medium">
-                          {{ tool.label || tool.name }}
-                        </span>
-                        <Badge variant="outline">
-                          {{ tool.providerName }}
-                        </Badge>
-                        <Badge :variant="riskVariant(tool.risk)">
-                          {{ riskLabel(tool.risk) }}
-                        </Badge>
-                        <Badge :variant="tool.enabled ? 'secondary' : 'outline'">
-                          {{ tool.enabled ? '可用' : '不可用' }}
-                        </Badge>
-                      </div>
-                      <p class="line-clamp-2 text-sm text-muted-foreground">
-                        {{ tool.description || '未提供描述。' }}
-                      </p>
-                      <div class="flex flex-wrap gap-1">
-                        <Badge
-                          v-for="profile in tool.profiles"
-                          :key="profile"
-                          variant="outline"
-                        >
-                          {{ profile }}
-                        </Badge>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                <div
-                  v-else
-                  class="mt-3 rounded-md border px-3 py-2 text-sm text-muted-foreground"
-                >
-                  当前没有可展示的 MCP 工具。
                 </div>
               </SettingsPanelItem>
             </div>
