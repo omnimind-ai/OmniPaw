@@ -452,7 +452,7 @@ function modelLabel(option: ProviderModelOption) {
           <Field
             v-for="(option, index) in fallbackOptions"
             :key="option.key"
-            orientation="responsive"
+            orientation="horizontal"
             :class="cn(
               'rounded-md border px-3 py-2 transition-colors',
               fallbackControlsDisabled ? 'opacity-60' : 'cursor-grab hover:bg-muted/25',
@@ -466,7 +466,7 @@ function modelLabel(option: ProviderModelOption) {
             @drop.prevent="dropFallbackModel($event, option.key)"
             @dragend="endFallbackDrag"
           >
-            <div class="flex min-w-0 items-center gap-3">
+            <div class="flex min-w-0 flex-1 items-center gap-3">
               <span
                 class="flex size-7 shrink-0 items-center justify-center rounded-md text-muted-foreground"
                 aria-hidden="true"
@@ -489,7 +489,7 @@ function modelLabel(option: ProviderModelOption) {
               </FieldContent>
             </div>
 
-            <div class="flex w-full items-center justify-end gap-1 @md/field-group:w-auto">
+            <div class="ml-auto flex shrink-0 items-center justify-end gap-1">
               <Button
                 type="button"
                 variant="ghost"
