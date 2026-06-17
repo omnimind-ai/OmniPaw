@@ -514,7 +514,7 @@ function profileIsPending(profile: BridgePersonaProfile): boolean {
       :open="deleteOpen"
       @update:open="handleDeleteOpenChange"
     >
-      <DialogContent class=”sm:max-w-md”>
+      <DialogContent class="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>{{ t('settings.persona.dialogDelete.title') }}</DialogTitle>
           <DialogDescription>
@@ -523,18 +523,18 @@ function profileIsPending(profile: BridgePersonaProfile): boolean {
         </DialogHeader>
         <DialogFooter>
           <Button
-            type=”button”
-            variant=”outline”
-            :disabled=”Boolean(pendingId)”
-            @click=”handleDeleteOpenChange(false)”
+            type="button"
+            variant="outline"
+            :disabled="Boolean(pendingId)"
+            @click="handleDeleteOpenChange(false)"
           >
             {{ t('settings.persona.dialogDelete.cancelButton') }}
           </Button>
           <Button
-            type=”button”
-            variant=”destructive”
-            :disabled=”Boolean(pendingId)”
-            @click=”confirmDelete”
+            type="button"
+            variant="destructive"
+            :disabled="Boolean(pendingId)"
+            @click="confirmDelete"
           >
             {{ t('settings.persona.dialogDelete.deleteButton') }}
           </Button>

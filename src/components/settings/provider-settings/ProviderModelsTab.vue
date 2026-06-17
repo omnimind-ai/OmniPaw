@@ -79,15 +79,15 @@ function setModelOpen(model: ProviderModelDraft, open: boolean) {
 </script>
 
 <template>
-  <div class=”flex flex-col gap-4”>
+  <div class="flex flex-col gap-4">
     <SettingsSearchBar
-      v-model=”searchQuery”
-      :placeholder=”t('settings.provider.models.searchPlaceholder')”
-      :label=”t('settings.provider.models.search')”
-      class=”border-b-0 px-0 sm:px-0”
+      v-model="searchQuery"
+      :placeholder="t('settings.provider.models.searchPlaceholder')"
+      :label="t('settings.provider.models.search')"
+      class="border-b-0 px-0 sm:px-0"
     >
       <template #summary>
-        <Badge variant=”secondary”>
+        <Badge variant="secondary">
           {{
             searchQuery.trim()
               ? `${filteredModels.length}/${draft.models.length}`
@@ -97,36 +97,36 @@ function setModelOpen(model: ProviderModelDraft, open: boolean) {
       </template>
       <template #actions>
         <Button
-          type=”button”
-          variant=”outline”
-          :disabled=”refreshingModels || !canRefreshModels”
-          @click=”emit('refresh-models')”
+          type="button"
+          variant="outline"
+          :disabled="refreshingModels || !canRefreshModels"
+          @click="emit('refresh-models')"
         >
-          <RefreshCwIcon data-icon=”inline-start” />
+          <RefreshCwIcon data-icon="inline-start" />
           {{ refreshingModels ? t('settings.provider.models.refreshing') : t('settings.provider.models.refreshButton') }}
         </Button>
 
         <Button
-          type=”button”
-          variant=”outline”
-          @click=”emit('add-model')”
+          type="button"
+          variant="outline"
+          @click="emit('add-model')"
         >
-          <PlusIcon data-icon=”inline-start” />
+          <PlusIcon data-icon="inline-start" />
           {{ t('settings.provider.models.addButton') }}
         </Button>
       </template>
     </SettingsSearchBar>
 
     <div
-      v-if=”!draft.models.length”
-      class=”rounded-lg border px-3 py-4 text-sm text-muted-foreground”
+      v-if="!draft.models.length"
+      class="rounded-lg border px-3 py-4 text-sm text-muted-foreground"
     >
       {{ t('settings.provider.models.empty') }}
     </div>
 
     <div
-      v-else-if=”!filteredModels.length”
-      class=”rounded-lg border px-3 py-4 text-sm text-muted-foreground”
+      v-else-if="!filteredModels.length"
+      class="rounded-lg border px-3 py-4 text-sm text-muted-foreground"
     >
       {{ t('settings.provider.models.noResults', { query: searchQuery }) }}
     </div>
