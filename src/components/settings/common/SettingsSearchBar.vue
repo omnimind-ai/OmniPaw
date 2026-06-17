@@ -12,30 +12,29 @@ import {
 } from '@/components/ui/input-group'
 import { cn } from '@/lib/utils'
 
-const { t } = useI18n()
-
-const props = withDefaults(
-  defineProps<{
-    modelValue: string
-    placeholder?: string
-    label?: string
-    clearLabel?: string
-    disabled?: boolean
-    class?: HTMLAttributes['class']
-    searchClass?: HTMLAttributes['class']
-    actionsClass?: HTMLAttributes['class']
-  }>(),
-  {
-    placeholder: () => t('settings.common.searchBar.placeholder'),
-    label: () => t('settings.common.searchBar.label'),
-    clearLabel: () => t('settings.common.searchBar.clearLabel'),
-  }
-)
+const props = defineProps<{
+  modelValue: string
+  placeholder?: string
+  label?: string
+  clearLabel?: string
+  disabled?: boolean
+  class?: HTMLAttributes['class']
+  searchClass?: HTMLAttributes['class']
+  actionsClass?: HTMLAttributes['class']
+}>()
 
 const emit = defineEmits<{
   'update:modelValue': [value: string]
   clear: []
 }>()
+
+const { t } = useI18n()
+
+const placeholderText = computed(
+  () => props.placeholder ?? t('settings.common.searchBar.placeholder')
+)
+const labelText = computed(() => props.label ?? t('settings.common.searchBar.label'))
+const clearLabelText = computed(() => props.clearLabel ?? t('settings.common.searchBar.clearLabel'))
 
 const searchValue = computed({
   get: () => props.modelValue,
@@ -61,8 +60,8 @@ function clearSearch(): void {
         </InputGroupAddon>
         <InputGroupInput
           v-model="searchValue"
-          :aria-label="label"
-          :placeholder="placeholder"
+          :aria-label="labelText"
+          :placeholder="placeholderText"
           :disabled="disabled"
         />
         <InputGroupAddon
@@ -71,7 +70,7 @@ function clearSearch(): void {
         >
           <InputGroupButton
             size="icon-xs"
-            :aria-label="clearLabel"
+            :aria-label="clearLabelText"
             :disabled="disabled"
             @click="clearSearch"
           >
