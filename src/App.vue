@@ -7,10 +7,12 @@ import { appBridge, type BridgeStreamEvent } from '@/bridge/app'
 import AppTopBar from '@/components/common/AppTopBar.vue'
 import FirstLaunchProviderGuide from '@/components/onboarding/FirstLaunchProviderGuide.vue'
 import { Toaster } from '@/components/ui/sonner'
+import { useAppLanguage } from '@/composables/useAppLanguage'
 import { useAppTheme } from '@/composables/useAppTheme'
 import { useProviderStore } from '@/stores/provider'
 import { useSettingsStore } from '@/stores/settings'
 
+useAppLanguage()
 useAppTheme()
 
 const router = useRouter()

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { MessagesSquareIcon, SlidersHorizontalIcon } from 'lucide-vue-next'
 import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import type {
   BridgeAppLanguage,
   BridgeAppTheme,
@@ -24,6 +25,8 @@ import { Switch } from '@/components/ui/switch'
 const props = defineProps<{
   draft: BridgeDesktopSettingsConfig
 }>()
+
+const { t } = useI18n()
 
 const language = computed({
   get: () => props.draft.app.language,
@@ -120,15 +123,15 @@ function clampPercent(value: string | number): number {
 <template>
   <div class="flex flex-col gap-6">
     <SettingsSection
-      title="常规设置"
-      description="调整界面显示和窗口行为。"
+      :title="t('settings.general.title')"
+      :description="t('settings.general.description')"
       :icon="SlidersHorizontalIcon"
     >
       <FieldGroup class="gap-0">
         <SettingEntry
           control-id="settings-language"
-          title="语言"
-          description="切换桌面端界面语言。"
+          :title="t('settings.general.language.title')"
+          :description="t('settings.general.language.description')"
         >
           <Select
             v-model="language"
@@ -138,13 +141,13 @@ function clampPercent(value: string | number): number {
               id="settings-language"
               class="w-full md:w-48"
             >
-              <SelectValue placeholder="选择语言" />
+              <SelectValue :placeholder="t('settings.general.language.placeholder')" />
             </SelectTrigger>
             <SelectContent>
               <SelectGroup>
-                <SelectItem value="system">系统默认</SelectItem>
-                <SelectItem value="zh-CN">中文</SelectItem>
-                <SelectItem value="en-US">English</SelectItem>
+                <SelectItem value="system">{{ t('settings.general.language.system') }}</SelectItem>
+                <SelectItem value="zh-CN">{{ t('settings.general.language.zhCN') }}</SelectItem>
+                <SelectItem value="en-US">{{ t('settings.general.language.enUS') }}</SelectItem>
               </SelectGroup>
             </SelectContent>
           </Select>
@@ -152,8 +155,8 @@ function clampPercent(value: string | number): number {
 
         <SettingEntry
           control-id="settings-theme"
-          title="主题"
-          description="跟随系统或固定为亮色、深色。"
+          :title="t('settings.general.theme.title')"
+          :description="t('settings.general.theme.description')"
         >
           <Select
             v-model="theme"
@@ -163,21 +166,24 @@ function clampPercent(value: string | number): number {
               id="settings-theme"
               class="w-full md:w-48"
             >
-              <SelectValue placeholder="选择主题" />
+              <SelectValue :placeholder="t('settings.general.theme.placeholder')" />
             </SelectTrigger>
             <SelectContent>
               <SelectGroup>
-                <SelectItem value="system">系统默认</SelectItem>
-                <SelectItem value="light">亮色</SelectItem>
-                <SelectItem value="dark">深色</SelectItem>
+                <SelectItem value="system">{{ t('settings.general.theme.system') }}</SelectItem>
+                <SelectItem value="light">{{ t('settings.general.theme.light') }}</SelectItem>
+                <SelectItem value="dark">{{ t('settings.general.theme.dark') }}</SelectItem>
               </SelectGroup>
             </SelectContent>
           </Select>
         </SettingEntry>
 
-        <SettingEntry control-id="settings-zoom" title="缩放比例">
+        <SettingEntry
+          control-id="settings-zoom"
+          :title="t('settings.general.zoom.title')"
+        >
           <template #description>
-            当前范围 {{ draft.app.zoom.min }} - {{ draft.app.zoom.max }}。
+            {{ t('settings.general.zoom.description', draft.app.zoom) }}
           </template>
           <Input
             id="settings-zoom"
@@ -192,40 +198,40 @@ function clampPercent(value: string | number): number {
 
         <SettingEntry
           control-id="settings-minimize-tray"
-          title="关闭/最小化到托盘"
-          description="关闭或最小化主窗口后保持后台可用。"
+          :title="t('settings.general.minimizeToTray.title')"
+          :description="t('settings.general.minimizeToTray.description')"
         >
           <Switch
             id="settings-minimize-tray"
             v-model="minimizeToTrayOnStartup"
-            aria-label="关闭/最小化到托盘"
+            :aria-label="t('settings.general.minimizeToTray.title')"
           />
         </SettingEntry>
 
         <SettingEntry
           control-id="settings-show-reasoning"
-          title="显示模型思考内容"
-          description="关闭后对话中隐藏模型推理和思考内容块。"
+          :title="t('settings.general.showReasoning.title')"
+          :description="t('settings.general.showReasoning.description')"
         >
           <Switch
             id="settings-show-reasoning"
             v-model="showReasoningContent"
-            aria-label="显示模型思考内容"
+            :aria-label="t('settings.general.showReasoning.title')"
           />
         </SettingEntry>
       </FieldGroup>
     </SettingsSection>
 
     <SettingsSection
-      title="对话设置"
-      description="控制上下文、附件和压缩策略。"
+      :title="t('settings.general.chat.title')"
+      :description="t('settings.general.chat.description')"
       :icon="MessagesSquareIcon"
     >
       <FieldGroup class="gap-0">
         <SettingEntry
           control-id="settings-max-recent"
-          title="上下文最近消息数"
-          description="发送给模型前保留的最近消息数量。"
+          :title="t('settings.general.chat.maxRecent.title')"
+          :description="t('settings.general.chat.maxRecent.description')"
         >
           <Input
             id="settings-max-recent"
@@ -240,8 +246,8 @@ function clampPercent(value: string | number): number {
         <template v-if="chatContext">
           <SettingEntry
             control-id="settings-context-budget"
-            title="输入预算上限"
-            description="按模型上下文窗口保留的最大输入比例。"
+            :title="t('settings.general.chat.inputBudget.title')"
+            :description="t('settings.general.chat.inputBudget.description')"
           >
             <Input
               id="settings-context-budget"
@@ -256,8 +262,8 @@ function clampPercent(value: string | number): number {
 
           <SettingEntry
             control-id="settings-context-attachments"
-            title="附件策略"
-            description="选择默认进入上下文的附件范围。"
+            :title="t('settings.general.chat.attachments.title')"
+            :description="t('settings.general.chat.attachments.description')"
           >
             <Select
               v-model="includeAttachments"
@@ -267,13 +273,19 @@ function clampPercent(value: string | number): number {
                 id="settings-context-attachments"
                 class="w-full md:w-48"
               >
-                <SelectValue placeholder="选择附件策略" />
+                <SelectValue :placeholder="t('settings.general.chat.attachments.placeholder')" />
               </SelectTrigger>
               <SelectContent>
                 <SelectGroup>
-                  <SelectItem value="current-only">仅当前消息</SelectItem>
-                  <SelectItem value="recent">最近消息</SelectItem>
-                  <SelectItem value="never">不包含附件</SelectItem>
+                  <SelectItem value="current-only">
+                    {{ t('settings.general.chat.attachments.currentOnly') }}
+                  </SelectItem>
+                  <SelectItem value="recent">
+                    {{ t('settings.general.chat.attachments.recent') }}
+                  </SelectItem>
+                  <SelectItem value="never">
+                    {{ t('settings.general.chat.attachments.never') }}
+                  </SelectItem>
                 </SelectGroup>
               </SelectContent>
             </Select>
@@ -281,20 +293,20 @@ function clampPercent(value: string | number): number {
 
           <SettingEntry
             control-id="settings-context-auto-compact"
-            title="自动压缩上下文"
-            description="达到阈值后自动维护会话上下文摘要。"
+            :title="t('settings.general.chat.autoCompact.title')"
+            :description="t('settings.general.chat.autoCompact.description')"
           >
             <Switch
               id="settings-context-auto-compact"
               v-model="autoCompact"
-              aria-label="自动压缩上下文"
+              :aria-label="t('settings.general.chat.autoCompact.title')"
             />
           </SettingEntry>
 
           <SettingEntry
             control-id="settings-context-compact-threshold"
-            title="压缩阈值"
-            description="按输入预算百分比触发自动压缩。"
+            :title="t('settings.general.chat.compactThreshold.title')"
+            :description="t('settings.general.chat.compactThreshold.description')"
             :disabled="!autoCompact"
           >
             <Input
@@ -312,13 +324,13 @@ function clampPercent(value: string | number): number {
 
         <SettingEntry
           control-id="settings-compact-skills"
-          title="压缩工具描述"
-          description="减少工具描述占用的上下文长度。"
+          :title="t('settings.general.chat.compactSkills.title')"
+          :description="t('settings.general.chat.compactSkills.description')"
         >
           <Switch
             id="settings-compact-skills"
             v-model="compactSkillDescriptions"
-            aria-label="压缩工具描述"
+            :aria-label="t('settings.general.chat.compactSkills.title')"
           />
         </SettingEntry>
       </FieldGroup>

@@ -2,6 +2,7 @@ import { createPinia } from 'pinia'
 import { createApp } from 'vue'
 
 import App from './App.vue'
+import { i18n } from './i18n'
 import { router } from './router'
 import { logger } from './utils/logger'
 import { errorToText, useToast } from './utils/toast'
@@ -24,4 +25,4 @@ window.addEventListener('unhandledrejection', (event) => {
   toast.error(errorToText(event.reason, '操作失败。'))
 })
 
-app.use(pinia).use(router).mount('#app')
+app.use(pinia).use(i18n).use(router).mount('#app')

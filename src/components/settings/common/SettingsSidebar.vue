@@ -18,6 +18,7 @@ import {
   WrenchIcon,
 } from 'lucide-vue-next'
 import type { Component } from 'vue'
+import { useI18n } from 'vue-i18n'
 
 import { Button } from '@/components/ui/button'
 import {
@@ -53,7 +54,7 @@ export type SettingsTab =
 
 interface SettingsNavItem {
   value: SettingsTab
-  label: string
+  labelKey: string
   icon: Component
 }
 
@@ -66,28 +67,32 @@ const emit = defineEmits<{
   back: []
 }>()
 
+const { t } = useI18n()
+
 const primaryItems: SettingsNavItem[] = [
-  { value: 'providers', label: '模型服务', icon: PlugIcon },
-  { value: 'defaults', label: '默认模型', icon: BotIcon },
+  { value: 'providers', labelKey: 'settings.sidebar.nav.providers', icon: PlugIcon },
+  { value: 'defaults', labelKey: 'settings.sidebar.nav.defaults', icon: BotIcon },
 ]
 
 const settingsItems: SettingsNavItem[] = [
-  { value: 'general', label: '常规设置', icon: SlidersHorizontalIcon },
-  { value: 'shortcuts', label: '快捷键', icon: KeyboardIcon },
-  { value: 'agent', label: 'Agent 能力', icon: TerminalIcon },
+  { value: 'general', labelKey: 'settings.sidebar.nav.general', icon: SlidersHorizontalIcon },
+  { value: 'shortcuts', labelKey: 'settings.sidebar.nav.shortcuts', icon: KeyboardIcon },
+  { value: 'agent', labelKey: 'settings.sidebar.nav.agent', icon: TerminalIcon },
 ]
 
 const capabilityItems: SettingsNavItem[] = [
-  { value: 'personas', label: '人格', icon: UserIcon },
-  { value: 'memory', label: '记忆', icon: BrainIcon },
-  { value: 'tavern', label: '酒馆', icon: DramaIcon },
-  { value: 'tools', label: '工具', icon: WrenchIcon },
-  { value: 'observation', label: '视觉观察', icon: EyeIcon },
-  { value: 'skills', label: '技能', icon: BookOpenIcon },
-  { value: 'schedule', label: '计划任务', icon: CalendarClockIcon },
+  { value: 'personas', labelKey: 'settings.sidebar.nav.personas', icon: UserIcon },
+  { value: 'memory', labelKey: 'settings.sidebar.nav.memory', icon: BrainIcon },
+  { value: 'tavern', labelKey: 'settings.sidebar.nav.tavern', icon: DramaIcon },
+  { value: 'tools', labelKey: 'settings.sidebar.nav.tools', icon: WrenchIcon },
+  { value: 'observation', labelKey: 'settings.sidebar.nav.observation', icon: EyeIcon },
+  { value: 'skills', labelKey: 'settings.sidebar.nav.skills', icon: BookOpenIcon },
+  { value: 'schedule', labelKey: 'settings.sidebar.nav.schedule', icon: CalendarClockIcon },
 ]
 
-const aboutItems: SettingsNavItem[] = [{ value: 'about', label: '关于我们', icon: InfoIcon }]
+const aboutItems: SettingsNavItem[] = [
+  { value: 'about', labelKey: 'settings.sidebar.nav.about', icon: InfoIcon },
+]
 
 const placeholderItems = [
   { label: '网络搜索', icon: SearchIcon },
@@ -106,12 +111,12 @@ const placeholderItems = [
         <Button
           variant="ghost"
           size="icon-sm"
-          aria-label="返回对话"
+          :aria-label="t('settings.sidebar.backToChat')"
           @click="emit('back')"
         >
           <ArrowLeftIcon />
         </Button>
-        <span class="truncate text-sm font-medium">设置</span>
+        <span class="truncate text-sm font-medium">{{ t('settings.sidebar.title') }}</span>
       </div>
     </SidebarHeader>
 
@@ -127,11 +132,11 @@ const placeholderItems = [
             >
               <SidebarMenuButton
                 :is-active="item.value === activeTab"
-                :tooltip="item.label"
+                :tooltip="t(item.labelKey)"
                 @click="emit('select', item.value)"
               >
                 <component :is="item.icon" />
-                <span>{{ item.label }}</span>
+                <span>{{ t(item.labelKey) }}</span>
               </SidebarMenuButton>
             </SidebarMenuItem>
           </SidebarMenu>
@@ -149,11 +154,11 @@ const placeholderItems = [
             >
               <SidebarMenuButton
                 :is-active="item.value === activeTab"
-                :tooltip="item.label"
+                :tooltip="t(item.labelKey)"
                 @click="emit('select', item.value)"
               >
                 <component :is="item.icon" />
-                <span>{{ item.label }}</span>
+                <span>{{ t(item.labelKey) }}</span>
               </SidebarMenuButton>
             </SidebarMenuItem>
           </SidebarMenu>
@@ -163,7 +168,7 @@ const placeholderItems = [
       <SidebarSeparator />
 
       <SidebarGroup>
-        <SidebarGroupLabel>能力</SidebarGroupLabel>
+        <SidebarGroupLabel>{{ t('settings.sidebar.capabilities') }}</SidebarGroupLabel>
         <SidebarGroupContent>
           <SidebarMenu>
             <SidebarMenuItem
@@ -172,11 +177,11 @@ const placeholderItems = [
             >
               <SidebarMenuButton
                 :is-active="item.value === activeTab"
-                :tooltip="item.label"
+                :tooltip="t(item.labelKey)"
                 @click="emit('select', item.value)"
               >
                 <component :is="item.icon" />
-                <span>{{ item.label }}</span>
+                <span>{{ t(item.labelKey) }}</span>
               </SidebarMenuButton>
             </SidebarMenuItem>
           </SidebarMenu>
@@ -194,11 +199,11 @@ const placeholderItems = [
             >
               <SidebarMenuButton
                 :is-active="item.value === activeTab"
-                :tooltip="item.label"
+                :tooltip="t(item.labelKey)"
                 @click="emit('select', item.value)"
               >
                 <component :is="item.icon" />
-                <span>{{ item.label }}</span>
+                <span>{{ t(item.labelKey) }}</span>
               </SidebarMenuButton>
             </SidebarMenuItem>
           </SidebarMenu>
