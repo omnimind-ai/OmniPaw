@@ -143,11 +143,20 @@ async function updateProposal(
 }
 
 async function setMemoryEnabled(memory: CompanionMemoryItem, enabled: boolean): Promise<void> {
-  await updateMemoryStatus(memory, enabled ? 'active' : 'disabled', '记忆状态更新失败。')
+  await updateMemoryStatus(
+    memory,
+    enabled ? 'active' : 'disabled',
+    t('settings.memory.toast.statusUpdateFailed')
+  )
 }
 
 async function archiveMemory(memory: CompanionMemoryItem): Promise<void> {
-  await updateMemoryStatus(memory, 'archived', '记忆归档失败。', '记忆已归档。')
+  await updateMemoryStatus(
+    memory,
+    'archived',
+    t('settings.memory.toast.archiveFailed'),
+    t('settings.memory.toast.archived')
+  )
 }
 
 async function updateMemoryStatus(
@@ -236,8 +245,8 @@ function clampInteger(value: string | number, min: number, max: number): number 
     >
       <div class="flex flex-wrap items-center justify-between gap-2">
         <div class="flex items-center gap-2">
-          <Badge variant="outline">维护建议 {{ proposalTotal }}</Badge>
-          <span class="text-sm text-muted-foreground">待确认、归档、删除或复核。</span>
+          <Badge variant="outline">{{ t('settings.memory.maintenance.title') }} {{ proposalTotal }}</Badge>
+          <span class="text-sm text-muted-foreground">{{ t('settings.memory.maintenance.description') }}</span>
         </div>
         <Button
           type="button"
@@ -245,7 +254,7 @@ function clampInteger(value: string | number, min: number, max: number): number 
           size="sm"
           @click="reloadProposals"
         >
-          刷新
+          {{ t('settings.memory.maintenance.refresh') }}
         </Button>
       </div>
       <div class="flex flex-col gap-2">
@@ -268,7 +277,7 @@ function clampInteger(value: string | number, min: number, max: number): number 
               :disabled="saving"
               @click="updateProposal(proposal, 'ignored')"
             >
-              忽略
+              {{ t('settings.memory.maintenance.ignore') }}
             </Button>
             <Button
               type="button"
@@ -276,7 +285,7 @@ function clampInteger(value: string | number, min: number, max: number): number 
               :disabled="saving"
               @click="updateProposal(proposal, 'accepted')"
             >
-              接受
+              {{ t('settings.memory.maintenance.accept') }}
             </Button>
           </div>
         </div>

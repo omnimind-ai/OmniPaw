@@ -105,19 +105,19 @@ defineProps<{
 
         <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
           <Field class="rounded-md border px-3 py-2">
-            <FieldLabel>任务 ID</FieldLabel>
+            <FieldLabel>{{ t('settings.scheduledTask.detailModal.taskId') }}</FieldLabel>
             <FieldDescription class="break-all">{{ task.id }}</FieldDescription>
           </Field>
           <Field class="rounded-md border px-3 py-2">
-            <FieldLabel>源会话</FieldLabel>
+            <FieldLabel>{{ t('settings.scheduledTask.detailModal.sourceSession') }}</FieldLabel>
             <FieldDescription class="break-all">{{ task.sourceSessionId }}</FieldDescription>
           </Field>
           <Field class="rounded-md border px-3 py-2">
-            <FieldLabel>创建时间</FieldLabel>
+            <FieldLabel>{{ t('settings.scheduledTask.detailModal.createdAt') }}</FieldLabel>
             <FieldDescription>{{ formatTime(task.createdAt) }}</FieldDescription>
           </Field>
           <Field class="rounded-md border px-3 py-2">
-            <FieldLabel>更新时间</FieldLabel>
+            <FieldLabel>{{ t('settings.scheduledTask.detailModal.updatedAt') }}</FieldLabel>
             <FieldDescription>{{ formatTime(task.updatedAt) }}</FieldDescription>
           </Field>
         </div>
@@ -129,7 +129,7 @@ defineProps<{
           variant="outline"
           @click="open = false"
         >
-          关闭
+          {{ t('settings.scheduledTask.detailModal.close') }}
         </Button>
       </DialogFooter>
     </DialogContent>

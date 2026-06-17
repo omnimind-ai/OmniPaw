@@ -120,17 +120,17 @@ async function triggerDevReaction(): Promise<void> {
 async function showDirectDevCatBubble(): Promise<void> {
   directCatBubblePending.value = true
   try {
-    ensureElectronBridge('直接弹气泡')
+    ensureElectronBridge(t('settings.observation.directBubbleOperation'))
     await appBridge.cat.show()
     await delay(250)
     const event = await appBridge.cat.showBubble?.({
-      text: `气泡窗口测试 ${new Date().toLocaleTimeString()}`,
+      text: t('settings.observation.bubbleTestLabel', { time: new Date().toLocaleTimeString() }),
       kind: 'observation',
       autoDismissMs: 7_000,
       source: 'dev-direct-bubble',
     })
     if (!event) {
-      throw new Error('小猫气泡窗口没有返回可见事件。')
+      throw new Error(t('settings.observation.errors.bubbleWindowNoEvent'))
     }
   } catch (error) {
     toast.error(errorToText(error, t('settings.observation.errors.bubbleDirectFailed')))
@@ -309,7 +309,7 @@ function clampInteger(value: string | number, min: number, max = Number.MAX_SAFE
               id="observation-scope"
               class="w-full md:w-48"
             >
-              <SelectValue placeholder="选择范围" />
+              <SelectValue :placeholder="t('settings.observation.defaultScope.placeholder')" />
             </SelectTrigger>
             <SelectContent>
               <SelectGroup>
@@ -342,7 +342,7 @@ function clampInteger(value: string | number, min: number, max = Number.MAX_SAFE
               id="observation-retention"
               class="w-full md:w-48"
             >
-              <SelectValue placeholder="选择截图保留" />
+              <SelectValue :placeholder="t('settings.observation.screenshotRetention.placeholder')" />
             </SelectTrigger>
             <SelectContent>
               <SelectGroup>

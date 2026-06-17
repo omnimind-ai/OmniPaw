@@ -2,10 +2,13 @@
 import type { TavernUserProfile } from '@shared/types/tavern'
 import { IdCardIcon, PencilIcon, PlusIcon, Trash2Icon } from 'lucide-vue-next'
 import { computed, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import SettingsPanelItem from '@/components/settings/common/SettingsPanelItem.vue'
 import SettingsSearchBar from '@/components/settings/common/SettingsSearchBar.vue'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+
+const { t } = useI18n()
 
 const props = defineProps<{
   userProfiles: TavernUserProfile[]
@@ -41,13 +44,13 @@ function clearSearch() {
     <SettingsSearchBar
       v-model="searchQuery"
       class="-mx-4 -mt-4 border-b-0 sm:-mx-5"
-      label="搜索用户"
-      placeholder="搜索用户名称或描述"
-      clear-label="清除用户搜索"
+      :label="t('settings.tavern.userProfilesTab.searchLabel')"
+      :placeholder="t('settings.tavern.userProfilesTab.searchPlaceholder')"
+      :clear-label="t('settings.tavern.userProfilesTab.searchClearLabel')"
       @clear="clearSearch"
     >
       <template #summary>
-        <Badge variant="secondary">{{ userProfiles.length }} 个用户</Badge>
+        <Badge variant="secondary">{{ t('settings.tavern.userProfilesTab.userCount', { count: userProfiles.length }) }}</Badge>
       </template>
       <template #actions>
         <Button
@@ -55,7 +58,7 @@ function clearSearch() {
           @click="createUserProfile"
         >
           <PlusIcon data-icon="inline-start" />
-          新建用户
+          {{ t('settings.tavern.userProfilesTab.createButton') }}
         </Button>
       </template>
     </SettingsSearchBar>
@@ -65,20 +68,20 @@ function clearSearch() {
         v-if="!userProfiles.length"
         class="flex flex-1 items-center justify-center rounded-md border border-dashed px-3 py-10 text-center text-sm text-muted-foreground"
       >
-        暂无酒馆用户 profile
+        {{ t('settings.tavern.userProfilesTab.emptyState') }}
       </p>
 
       <div
         v-else-if="searchEmpty"
         class="flex flex-1 flex-col items-center justify-center gap-3 rounded-md border border-dashed px-3 py-10 text-center text-sm text-muted-foreground"
       >
-        <p>没有匹配的用户。</p>
+        <p>{{ t('settings.tavern.userProfilesTab.noMatchMessage') }}</p>
         <Button
           type="button"
           variant="outline"
           @click="clearSearch"
         >
-          清空搜索
+          {{ t('settings.tavern.userProfilesTab.clearSearchButton') }}
         </Button>
       </div>
 
@@ -94,12 +97,12 @@ function clearSearch() {
           :icon="IdCardIcon"
         >
           <template #badges>
-            <Badge variant="outline">快照</Badge>
+            <Badge variant="outline">{{ t('settings.tavern.userProfilesTab.snapshotBadge') }}</Badge>
             <Badge
               v-if="!profile.enabled"
               variant="secondary"
             >
-              禁用
+              {{ t('settings.tavern.userProfilesTab.disabledBadge') }}
             </Badge>
           </template>
 
@@ -111,13 +114,13 @@ function clearSearch() {
               @click="editUserProfile(profile)"
             >
               <PencilIcon data-icon="inline-start" />
-              编辑
+              {{ t('settings.tavern.userProfilesTab.editButton') }}
             </Button>
             <Button
               type="button"
               variant="ghost"
               size="icon-sm"
-              aria-label="删除酒馆用户 profile"
+              :aria-label="t('settings.tavern.userProfilesTab.deleteAriaLabel')"
               @click="deleteUserProfile(profile)"
             >
               <Trash2Icon data-icon />

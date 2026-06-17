@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { TavernLorebookEntryDraft } from '@shared/types/tavern'
 import { PlusIcon, Trash2Icon } from 'lucide-vue-next'
+import { useI18n } from 'vue-i18n'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Field, FieldGroup, FieldLabel } from '@/components/ui/field'
@@ -16,6 +17,8 @@ import {
 import { Textarea } from '@/components/ui/textarea'
 import type { TavernLorebookDraftState } from './types'
 
+const { t } = useI18n()
+
 defineProps<{
   draft: TavernLorebookDraftState
   disabled?: boolean
@@ -30,7 +33,7 @@ defineProps<{
   <div class="flex min-w-0 flex-col gap-4">
     <FieldGroup>
       <Field>
-        <FieldLabel for="tavern-lorebook-name">名称</FieldLabel>
+        <FieldLabel for="tavern-lorebook-name">{{ t('settings.tavern.lorebookEditor.nameLabel') }}</FieldLabel>
         <Input
           id="tavern-lorebook-name"
           v-model="draft.name"
@@ -38,7 +41,7 @@ defineProps<{
         />
       </Field>
       <Field>
-        <FieldLabel for="tavern-lorebook-desc">描述</FieldLabel>
+        <FieldLabel for="tavern-lorebook-desc">{{ t('settings.tavern.lorebookEditor.descriptionLabel') }}</FieldLabel>
         <Textarea
           id="tavern-lorebook-desc"
           v-model="draft.description"
@@ -48,7 +51,7 @@ defineProps<{
     </FieldGroup>
 
     <div class="flex items-center justify-between gap-3">
-      <p class="text-sm font-medium">条目</p>
+      <p class="text-sm font-medium">{{ t('settings.tavern.lorebookEditor.entriesLabel') }}</p>
       <Button
         type="button"
         variant="outline"
@@ -57,7 +60,7 @@ defineProps<{
         @click="addLorebookEntry"
       >
         <PlusIcon data-icon="inline-start" />
-        添加条目
+        {{ t('settings.tavern.lorebookEditor.addEntryButton') }}
       </Button>
     </div>
 
@@ -74,14 +77,14 @@ defineProps<{
                 v-model:checked="entry.enabled"
                 :disabled="disabled"
               />
-              启用条目
+              {{ t('settings.tavern.lorebookEditor.enableEntryLabel') }}
             </label>
             <Button
               type="button"
               variant="ghost"
               size="icon-sm"
               :disabled="disabled"
-              aria-label="删除世界书条目"
+              :aria-label="t('settings.tavern.lorebookEditor.deleteEntryAriaLabel')"
               @click="removeLorebookEntry(index)"
             >
               <Trash2Icon data-icon="inline-start" />
@@ -89,24 +92,25 @@ defineProps<{
           </div>
           <div class="grid gap-3 md:grid-cols-2">
             <Field>
-              <FieldLabel>关键词</FieldLabel>
+              <FieldLabel>{{ t('settings.tavern.lorebookEditor.keysLabel') }}</FieldLabel>
               <Input
                 :model-value="entry.keys.join(', ')"
-                placeholder="keyword-a, keyword-b"
+                :placeholder="t('settings.tavern.lorebookEditor.keysPlaceholder')"
                 :disabled="disabled"
                 @update:model-value="setEntryKeys(entry, $event)"
               />
             </Field>
             <Field>
-              <FieldLabel>Secondary keys</FieldLabel>
+              <FieldLabel>{{ t('settings.tavern.lorebookEditor.secondaryKeysLabel') }}</FieldLabel>
               <Input
                 :model-value="(entry.secondaryKeys ?? []).join(', ')"
+                :placeholder="t('settings.tavern.lorebookEditor.secondaryKeysPlaceholder')"
                 :disabled="disabled"
                 @update:model-value="setEntrySecondaryKeys(entry, $event)"
               />
             </Field>
             <Field>
-              <FieldLabel>Priority</FieldLabel>
+              <FieldLabel>{{ t('settings.tavern.lorebookEditor.priorityLabel') }}</FieldLabel>
               <Input
                 v-model="entry.priority"
                 type="number"
@@ -114,7 +118,7 @@ defineProps<{
               />
             </Field>
             <Field>
-              <FieldLabel>Order</FieldLabel>
+              <FieldLabel>{{ t('settings.tavern.lorebookEditor.orderLabel') }}</FieldLabel>
               <Input
                 v-model="entry.order"
                 type="number"
@@ -128,14 +132,14 @@ defineProps<{
                 v-model:checked="entry.constant"
                 :disabled="disabled"
               />
-              Constant
+              {{ t('settings.tavern.lorebookEditor.constantLabel') }}
             </label>
             <label class="flex items-center gap-2 text-sm">
               <Checkbox
                 v-model:checked="entry.selective"
                 :disabled="disabled"
               />
-              Selective
+              {{ t('settings.tavern.lorebookEditor.selectiveLabel') }}
             </label>
             <Select
               v-model="entry.position"
@@ -146,15 +150,15 @@ defineProps<{
               </SelectTrigger>
               <SelectContent>
                 <SelectGroup>
-                  <SelectItem value="after-character">After character</SelectItem>
-                  <SelectItem value="before-history">Before history</SelectItem>
-                  <SelectItem value="after-history">After history</SelectItem>
+                  <SelectItem value="after-character">{{ t('settings.tavern.lorebookEditor.positionAfterCharacter') }}</SelectItem>
+                  <SelectItem value="before-history">{{ t('settings.tavern.lorebookEditor.positionBeforeHistory') }}</SelectItem>
+                  <SelectItem value="after-history">{{ t('settings.tavern.lorebookEditor.positionAfterHistory') }}</SelectItem>
                 </SelectGroup>
               </SelectContent>
             </Select>
           </div>
           <Field>
-            <FieldLabel>正文</FieldLabel>
+            <FieldLabel>{{ t('settings.tavern.lorebookEditor.contentLabel') }}</FieldLabel>
             <Textarea
               v-model="entry.content"
               class="min-h-24"

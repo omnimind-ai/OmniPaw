@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { CronRun, CronTask } from '@shared/types/cron'
 import { RefreshCwIcon } from 'lucide-vue-next'
+import { useI18n } from 'vue-i18n'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -14,6 +15,8 @@ import {
 import { Field, FieldDescription, FieldGroup, FieldLabel } from '@/components/ui/field'
 import { Separator } from '@/components/ui/separator'
 import { formatTime, reasonLabel, runStatusLabel } from './format'
+
+const { t } = useI18n()
 
 const open = defineModel<boolean>('open', { required: true })
 
@@ -32,9 +35,9 @@ const emit = defineEmits<{
   <Dialog v-model:open="open">
     <DialogContent class="max-h-[calc(100vh-2rem)] overflow-y-auto sm:max-w-3xl">
       <DialogHeader>
-        <DialogTitle>运行审计</DialogTitle>
+        <DialogTitle>{{ t('settings.scheduledTask.auditModal.title') }}</DialogTitle>
         <DialogDescription>
-          {{ task ? task.name : '选择一个任务查看运行记录。' }}
+          {{ task ? task.name : t('settings.scheduledTask.auditModal.selectTaskPrompt') }}
         </DialogDescription>
       </DialogHeader>
 
@@ -42,21 +45,21 @@ const emit = defineEmits<{
         v-if="loading"
         class="px-1 py-6 text-sm text-muted-foreground"
       >
-        正在加载运行记录。
+        {{ t('settings.scheduledTask.auditModal.loadingRuns') }}
       </div>
 
       <div
         v-else-if="!task"
         class="px-1 py-6 text-sm text-muted-foreground"
       >
-        尚未选择任务。
+        {{ t('settings.scheduledTask.auditModal.noTaskSelected') }}
       </div>
 
       <div
         v-else-if="!runs.length"
         class="px-1 py-6 text-sm text-muted-foreground"
       >
-        暂无运行记录。
+        {{ t('settings.scheduledTask.auditModal.noRuns') }}
       </div>
 
       <div
@@ -83,38 +86,38 @@ const emit = defineEmits<{
           <FieldGroup>
             <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
               <Field class="rounded-md border px-3 py-2">
-                <FieldLabel>计划时间</FieldLabel>
+                <FieldLabel>{{ t('settings.scheduledTask.auditModal.scheduledTime') }}</FieldLabel>
                 <FieldDescription>{{ formatTime(run.scheduledFor) }}</FieldDescription>
               </Field>
               <Field class="rounded-md border px-3 py-2">
-                <FieldLabel>完成时间</FieldLabel>
+                <FieldLabel>{{ t('settings.scheduledTask.auditModal.completionTime') }}</FieldLabel>
                 <FieldDescription>{{ formatTime(run.completedAt) }}</FieldDescription>
               </Field>
               <Field class="rounded-md border px-3 py-2">
-                <FieldLabel>结果消息</FieldLabel>
+                <FieldLabel>{{ t('settings.scheduledTask.auditModal.resultMessage') }}</FieldLabel>
                 <FieldDescription class="break-all">
-                  {{ run.resultMessageId || '无' }}
+                  {{ run.resultMessageId || t('settings.scheduledTask.auditModal.none') }}
                 </FieldDescription>
               </Field>
               <Field class="rounded-md border px-3 py-2">
-                <FieldLabel>记录 ID</FieldLabel>
+                <FieldLabel>{{ t('settings.scheduledTask.auditModal.recordId') }}</FieldLabel>
                 <FieldDescription class="break-all">{{ run.id }}</FieldDescription>
               </Field>
             </div>
 
             <Field v-if="run.resultSummary">
-              <FieldLabel>结果摘要</FieldLabel>
+              <FieldLabel>{{ t('settings.scheduledTask.auditModal.resultSummary') }}</FieldLabel>
               <p class="whitespace-pre-wrap break-words text-sm">
                 {{ run.resultSummary }}
               </p>
             </Field>
 
             <Field v-if="run.error">
-              <FieldLabel>错误</FieldLabel>
+              <FieldLabel>{{ t('settings.scheduledTask.auditModal.error') }}</FieldLabel>
               <FieldDescription>
                 {{ run.error.code }} · {{ run.error.message }}
                 <template v-if="run.error.retryable !== undefined">
-                  · {{ run.error.retryable ? '可重试' : '不可重试' }}
+                  · {{ run.error.retryable ? t('settings.scheduledTask.auditModal.retryable') : t('settings.scheduledTask.auditModal.notRetryable') }}
                 </template>
               </FieldDescription>
             </Field>
@@ -132,14 +135,14 @@ const emit = defineEmits<{
           @click="emit('refresh')"
         >
           <RefreshCwIcon data-icon="inline-start" />
-          刷新
+          {{ t('settings.scheduledTask.auditModal.refresh') }}
         </Button>
         <Button
           type="button"
           variant="outline"
           @click="open = false"
         >
-          关闭
+          {{ t('settings.scheduledTask.auditModal.close') }}
         </Button>
       </DialogFooter>
     </DialogContent>

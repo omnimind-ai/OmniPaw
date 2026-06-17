@@ -1,9 +1,12 @@
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Field, FieldContent, FieldGroup, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import type { TavernPromptPresetDraftState } from './types'
+
+const { t } = useI18n()
 
 defineProps<{
   draft: TavernPromptPresetDraftState
@@ -15,7 +18,7 @@ defineProps<{
   <FieldGroup>
     <Field orientation="horizontal">
       <FieldContent>
-        <FieldLabel for="tavern-preset-enabled">启用 preset</FieldLabel>
+        <FieldLabel for="tavern-preset-enabled">{{ t('settings.tavern.presetEditor.enableLabel') }}</FieldLabel>
       </FieldContent>
       <Checkbox
         id="tavern-preset-enabled"
@@ -24,7 +27,7 @@ defineProps<{
       />
     </Field>
     <Field>
-      <FieldLabel for="tavern-preset-name">名称</FieldLabel>
+      <FieldLabel for="tavern-preset-name">{{ t('settings.tavern.presetEditor.nameLabel') }}</FieldLabel>
       <Input
         id="tavern-preset-name"
         v-model="draft.name"
@@ -32,7 +35,7 @@ defineProps<{
       />
     </Field>
     <Field>
-      <FieldLabel for="tavern-preset-description">描述</FieldLabel>
+      <FieldLabel for="tavern-preset-description">{{ t('settings.tavern.presetEditor.descriptionLabel') }}</FieldLabel>
       <Textarea
         id="tavern-preset-description"
         v-model="draft.description"
@@ -42,7 +45,7 @@ defineProps<{
     </Field>
     <Field orientation="horizontal">
       <FieldContent>
-        <FieldLabel for="tavern-preset-main-enabled">启用 main prompt</FieldLabel>
+        <FieldLabel for="tavern-preset-main-enabled">{{ t('settings.tavern.presetEditor.mainPromptEnableLabel') }}</FieldLabel>
       </FieldContent>
       <Checkbox
         id="tavern-preset-main-enabled"
@@ -51,7 +54,7 @@ defineProps<{
       />
     </Field>
     <Field>
-      <FieldLabel for="tavern-preset-main">Main prompt</FieldLabel>
+      <FieldLabel for="tavern-preset-main">{{ t('settings.tavern.presetEditor.mainPromptLabel') }}</FieldLabel>
       <Textarea
         id="tavern-preset-main"
         v-model="draft.mainPrompt"
@@ -62,7 +65,7 @@ defineProps<{
     </Field>
     <Field orientation="horizontal">
       <FieldContent>
-        <FieldLabel for="tavern-preset-final-enabled">启用 final prompt</FieldLabel>
+        <FieldLabel for="tavern-preset-final-enabled">{{ t('settings.tavern.presetEditor.finalPromptEnableLabel') }}</FieldLabel>
       </FieldContent>
       <Checkbox
         id="tavern-preset-final-enabled"
@@ -71,12 +74,12 @@ defineProps<{
       />
     </Field>
     <Field>
-      <FieldLabel for="tavern-preset-final">Final / post-history prompt</FieldLabel>
+      <FieldLabel for="tavern-preset-final">{{ t('settings.tavern.presetEditor.finalPromptLabel') }}</FieldLabel>
       <Textarea
         id="tavern-preset-final"
         v-model="draft.finalPrompt"
         class="min-h-32"
-        placeholder="会放在普通历史之后，靠近当前用户回合"
+        :placeholder="t('settings.tavern.presetEditor.finalPromptPlaceholder')"
         :disabled="disabled"
       />
     </Field>

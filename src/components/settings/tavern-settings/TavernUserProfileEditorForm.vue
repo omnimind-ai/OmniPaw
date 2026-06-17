@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { PersonaProfile } from '@shared/types/persona'
+import { useI18n } from 'vue-i18n'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import {
@@ -21,6 +22,8 @@ import {
 import { Textarea } from '@/components/ui/textarea'
 import type { TavernUserProfileDraftState } from './types'
 
+const { t } = useI18n()
+
 defineProps<{
   draft: TavernUserProfileDraftState
   personaProfiles: PersonaProfile[]
@@ -33,11 +36,11 @@ defineProps<{
 <template>
   <FieldGroup>
     <FieldDescription>
-      酒馆用户 profile 是独立快照，不自动同步普通 Persona，也不回写普通 Persona。
+      {{ t('settings.tavern.profileEditor.fieldDescription') }}
     </FieldDescription>
     <Field orientation="horizontal">
       <FieldContent>
-        <FieldLabel for="tavern-profile-enabled">启用 profile</FieldLabel>
+        <FieldLabel for="tavern-profile-enabled">{{ t('settings.tavern.profileEditor.enableLabel') }}</FieldLabel>
       </FieldContent>
       <Checkbox
         id="tavern-profile-enabled"
@@ -46,7 +49,7 @@ defineProps<{
       />
     </Field>
     <Field>
-      <FieldLabel for="tavern-profile-name">名称</FieldLabel>
+      <FieldLabel for="tavern-profile-name">{{ t('settings.tavern.profileEditor.nameLabel') }}</FieldLabel>
       <Input
         id="tavern-profile-name"
         v-model="draft.name"
@@ -54,17 +57,17 @@ defineProps<{
       />
     </Field>
     <Field>
-      <FieldLabel for="tavern-profile-description">描述</FieldLabel>
+      <FieldLabel for="tavern-profile-description">{{ t('settings.tavern.profileEditor.descriptionLabel') }}</FieldLabel>
       <Textarea
         id="tavern-profile-description"
         v-model="draft.description"
         class="min-h-40"
-        placeholder="{{persona}} 会使用这里的文本"
+        :placeholder="t('settings.tavern.profileEditor.descriptionPlaceholder')"
         :disabled="disabled"
       />
     </Field>
     <Field>
-      <FieldLabel for="tavern-profile-copy">从普通 Persona 复制</FieldLabel>
+      <FieldLabel for="tavern-profile-copy">{{ t('settings.tavern.profileEditor.copyLabel') }}</FieldLabel>
       <div class="flex gap-2">
         <Select
           v-model="draft.copyPersonaId"
@@ -74,7 +77,7 @@ defineProps<{
             id="tavern-profile-copy"
             class="min-w-0 flex-1"
           >
-            <SelectValue placeholder="选择 Persona" />
+            <SelectValue :placeholder="t('settings.tavern.profileEditor.selectPlaceholder')" />
           </SelectTrigger>
           <SelectContent>
             <SelectGroup>
@@ -94,7 +97,7 @@ defineProps<{
           :disabled="disabled || !draft.copyPersonaId || savingUserProfile"
           @click="copyPersonaToUserProfile"
         >
-          复制
+          {{ t('settings.tavern.profileEditor.copyButton') }}
         </Button>
       </div>
     </Field>

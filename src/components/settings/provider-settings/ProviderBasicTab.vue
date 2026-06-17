@@ -65,7 +65,7 @@ const oauthAccountLabel = computed(() => {
   const status = props.oauthStatus
   if (status?.email) return status.email
   if (status?.accountId) return status.accountId
-  return '未连接'
+  return t('settings.provider.basic.oauth.notConnected')
 })
 const oauthExpiresLabel = computed(() => {
   const expires = props.oauthStatus?.expires

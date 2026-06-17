@@ -104,7 +104,9 @@ function skillErrorMessage(skill: BridgeLocalSkillSummary) {
 function metadataBadges(skill: BridgeLocalSkillSummary) {
   return [
     skill.compatibility ? `${t('settings.skill.title')}: ${skill.compatibility}` : '',
-    skill.metadata.license ? `许可: ${skill.metadata.license}` : '',
+    skill.metadata.license
+      ? t('settings.skill.licensePrefix', { license: skill.metadata.license })
+      : '',
   ].filter(Boolean)
 }
 
@@ -166,7 +168,7 @@ function clearSearch() {
             @click="emit('import-file')"
           >
             <UploadIcon data-icon="inline-start" />
-            导入
+            {{ t('settings.skill.importSkill') }}
           </Button>
         </template>
       </SettingsSearchBar>

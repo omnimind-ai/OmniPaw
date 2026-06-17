@@ -294,7 +294,7 @@ function profileIsPending(profile: BridgePersonaProfile): boolean {
             v-if="!persistenceAvailable"
             class="shrink-0 border-b px-4 py-3 text-sm text-muted-foreground sm:px-5"
           >
-            当前未连接 Electron 主进程，人格无法保存。
+            {{ t('settings.persona.persistenceUnavailable') }}
           </div>
 
           <div
@@ -302,7 +302,7 @@ function profileIsPending(profile: BridgePersonaProfile): boolean {
             class="shrink-0 border-b px-4 py-3 sm:px-5"
           >
             <div class="rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive">
-              人格注册表加载错误：{{ recoveryError.message }}
+              {{ t('settings.persona.recoveryError', { message: recoveryError.message }) }}
             </div>
           </div>
 

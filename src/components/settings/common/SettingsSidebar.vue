@@ -95,8 +95,8 @@ const aboutItems: SettingsNavItem[] = [
 ]
 
 const placeholderItems = [
-  { label: '网络搜索', icon: SearchIcon },
-  { label: 'API 服务器', icon: ServerIcon },
+  { label: t('settings.sidebar.upcoming.webSearch'), icon: SearchIcon },
+  { label: t('settings.sidebar.upcoming.apiServer'), icon: ServerIcon },
 ]
 </script>
 

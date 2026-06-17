@@ -1,10 +1,13 @@
 <script setup lang="ts">
 import type { TavernLorebook } from '@shared/types/tavern'
+import { useI18n } from 'vue-i18n'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Field, FieldGroup, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
 import type { TavernCharacterDraftState } from './types'
+
+const { t } = useI18n()
 
 defineProps<{
   draft: TavernCharacterDraftState
@@ -19,16 +22,16 @@ defineProps<{
   <div class="flex min-w-0 flex-col gap-4">
     <FieldGroup>
       <Field>
-        <FieldLabel for="tavern-character-name">名称</FieldLabel>
+        <FieldLabel for="tavern-character-name">{{ t('settings.tavern.characterEditor.nameLabel') }}</FieldLabel>
         <Input
           id="tavern-character-name"
           v-model="draft.name"
-          placeholder="角色名称"
+          :placeholder="t('settings.tavern.characterEditor.namePlaceholder')"
           :disabled="disabled"
         />
       </Field>
       <Field>
-        <FieldLabel for="tavern-character-desc">描述</FieldLabel>
+        <FieldLabel for="tavern-character-desc">{{ t('settings.tavern.characterEditor.descriptionLabel') }}</FieldLabel>
         <Textarea
           id="tavern-character-desc"
           v-model="draft.description"
@@ -37,7 +40,7 @@ defineProps<{
         />
       </Field>
       <Field>
-        <FieldLabel for="tavern-character-personality">人格</FieldLabel>
+        <FieldLabel for="tavern-character-personality">{{ t('settings.tavern.characterEditor.personalityLabel') }}</FieldLabel>
         <Textarea
           id="tavern-character-personality"
           v-model="draft.personality"
@@ -46,7 +49,7 @@ defineProps<{
         />
       </Field>
       <Field>
-        <FieldLabel for="tavern-character-scenario">场景</FieldLabel>
+        <FieldLabel for="tavern-character-scenario">{{ t('settings.tavern.characterEditor.scenarioLabel') }}</FieldLabel>
         <Textarea
           id="tavern-character-scenario"
           v-model="draft.scenario"
@@ -55,7 +58,7 @@ defineProps<{
         />
       </Field>
       <Field>
-        <FieldLabel for="tavern-character-system">System prompt</FieldLabel>
+        <FieldLabel for="tavern-character-system">{{ t('settings.tavern.characterEditor.systemPromptLabel') }}</FieldLabel>
         <Textarea
           id="tavern-character-system"
           v-model="draft.systemPrompt"
@@ -64,7 +67,7 @@ defineProps<{
         />
       </Field>
       <Field>
-        <FieldLabel for="tavern-character-post-history">Post-history instructions</FieldLabel>
+        <FieldLabel for="tavern-character-post-history">{{ t('settings.tavern.characterEditor.postHistoryLabel') }}</FieldLabel>
         <Textarea
           id="tavern-character-post-history"
           v-model="draft.postHistoryInstructions"
@@ -73,7 +76,7 @@ defineProps<{
         />
       </Field>
       <Field>
-        <FieldLabel for="tavern-character-first-message">首条开场白</FieldLabel>
+        <FieldLabel for="tavern-character-first-message">{{ t('settings.tavern.characterEditor.firstMessageLabel') }}</FieldLabel>
         <Textarea
           id="tavern-character-first-message"
           v-model="draft.firstMessage"
@@ -82,38 +85,38 @@ defineProps<{
         />
       </Field>
       <Field>
-        <FieldLabel for="tavern-character-alt">Alternate greetings</FieldLabel>
+        <FieldLabel for="tavern-character-alt">{{ t('settings.tavern.characterEditor.alternateGreetingsLabel') }}</FieldLabel>
         <Textarea
           id="tavern-character-alt"
           v-model="draft.alternateGreetingsText"
           class="min-h-24"
-          placeholder="每段之间空一行"
+          :placeholder="t('settings.tavern.characterEditor.separatorPlaceholder')"
           :disabled="disabled"
         />
       </Field>
       <Field>
-        <FieldLabel for="tavern-character-examples">Message examples</FieldLabel>
+        <FieldLabel for="tavern-character-examples">{{ t('settings.tavern.characterEditor.messageExamplesLabel') }}</FieldLabel>
         <Textarea
           id="tavern-character-examples"
           v-model="draft.messageExamplesText"
           class="min-h-24"
-          placeholder="每段之间空一行"
+          :placeholder="t('settings.tavern.characterEditor.separatorPlaceholder')"
           :disabled="disabled"
         />
       </Field>
       <Field>
-        <FieldLabel for="tavern-character-tags">标签</FieldLabel>
+        <FieldLabel for="tavern-character-tags">{{ t('settings.tavern.characterEditor.tagsLabel') }}</FieldLabel>
         <Input
           id="tavern-character-tags"
           v-model="draft.tagsText"
-          placeholder="tag-a, tag-b"
+          :placeholder="t('settings.tavern.characterEditor.tagsPlaceholder')"
           :disabled="disabled"
         />
       </Field>
     </FieldGroup>
 
     <div class="flex flex-col gap-2 rounded-md border p-3">
-      <p class="text-sm font-medium">默认绑定世界书</p>
+      <p class="text-sm font-medium">{{ t('settings.tavern.characterEditor.lorebookSectionTitle') }}</p>
       <label
         v-for="lorebook in lorebooks"
         :key="lorebook.id"
@@ -130,7 +133,7 @@ defineProps<{
         v-if="!lorebooks.length"
         class="text-sm text-muted-foreground"
       >
-        暂无世界书。
+        {{ t('settings.tavern.characterEditor.noLorebooksMessage') }}
       </p>
     </div>
   </div>

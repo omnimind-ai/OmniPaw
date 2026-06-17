@@ -2,10 +2,13 @@
 import type { TavernPromptPreset } from '@shared/types/tavern'
 import { PencilIcon, PlusIcon, ScrollTextIcon, Trash2Icon } from 'lucide-vue-next'
 import { computed, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import SettingsPanelItem from '@/components/settings/common/SettingsPanelItem.vue'
 import SettingsSearchBar from '@/components/settings/common/SettingsSearchBar.vue'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+
+const { t } = useI18n()
 
 const props = defineProps<{
   promptPresets: TavernPromptPreset[]
@@ -45,13 +48,13 @@ function clearSearch() {
     <SettingsSearchBar
       v-model="searchQuery"
       class="-mx-4 -mt-4 border-b-0 sm:-mx-5"
-      label="搜索 preset"
-      placeholder="搜索 preset 名称、描述或提示词"
-      clear-label="清除 preset 搜索"
+      :label="t('settings.tavern.presetsTab.searchLabel')"
+      :placeholder="t('settings.tavern.presetsTab.searchPlaceholder')"
+      :clear-label="t('settings.tavern.presetsTab.clearLabel')"
       @clear="clearSearch"
     >
       <template #summary>
-        <Badge variant="secondary">{{ promptPresets.length }} 个 preset</Badge>
+        <Badge variant="secondary">{{ t('settings.tavern.presetsTab.presetCountBadge', { count: promptPresets.length }) }}</Badge>
       </template>
       <template #actions>
         <Button
@@ -59,7 +62,7 @@ function clearSearch() {
           @click="createPromptPreset"
         >
           <PlusIcon data-icon="inline-start" />
-          新建 preset
+          {{ t('settings.tavern.presetsTab.createButton') }}
         </Button>
       </template>
     </SettingsSearchBar>
@@ -69,20 +72,20 @@ function clearSearch() {
         v-if="!promptPresets.length"
         class="flex flex-1 items-center justify-center rounded-md border border-dashed px-3 py-10 text-center text-sm text-muted-foreground"
       >
-        暂无 prompt preset
+        {{ t('settings.tavern.presetsTab.emptyStateTitle') }}
       </p>
 
       <div
         v-else-if="searchEmpty"
         class="flex flex-1 flex-col items-center justify-center gap-3 rounded-md border border-dashed px-3 py-10 text-center text-sm text-muted-foreground"
       >
-        <p>没有匹配的 preset。</p>
+        <p>{{ t('settings.tavern.presetsTab.noMatchTitle') }}</p>
         <Button
           type="button"
           variant="outline"
           @click="clearSearch"
         >
-          清空搜索
+          {{ t('settings.tavern.presetsTab.clearSearchButton') }}
         </Button>
       </div>
 
@@ -98,12 +101,12 @@ function clearSearch() {
           :icon="ScrollTextIcon"
         >
           <template #badges>
-            <Badge variant="outline">{{ preset.slots.length }} 段</Badge>
+            <Badge variant="outline">{{ t('settings.tavern.presetsTab.slotCountBadge', { count: preset.slots.length }) }}</Badge>
             <Badge
               v-if="!preset.enabled"
               variant="secondary"
             >
-              禁用
+              {{ t('settings.tavern.presetsTab.disabledBadge') }}
             </Badge>
           </template>
 
@@ -115,13 +118,13 @@ function clearSearch() {
               @click="editPromptPreset(preset)"
             >
               <PencilIcon data-icon="inline-start" />
-              编辑
+              {{ t('settings.tavern.presetsTab.editButton') }}
             </Button>
             <Button
               type="button"
               variant="ghost"
               size="icon-sm"
-              aria-label="删除 prompt preset"
+              :aria-label="t('settings.tavern.presetsTab.deleteAriaLabel')"
               @click="deletePromptPreset(preset)"
             >
               <Trash2Icon data-icon />

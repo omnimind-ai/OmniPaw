@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { DownloadIcon, FileJsonIcon } from 'lucide-vue-next'
 import { ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { Button } from '@/components/ui/button'
 import { Field, FieldDescription, FieldGroup, FieldLabel } from '@/components/ui/field'
 import { Textarea } from '@/components/ui/textarea'
@@ -13,20 +14,21 @@ defineProps<{
 
 const importText = defineModel<string>('importText', { required: true })
 const fileInput = ref<HTMLInputElement | null>(null)
+const { t } = useI18n()
 </script>
 
 <template>
   <div class="flex flex-col gap-4">
     <FieldGroup>
       <Field>
-        <FieldLabel for="tavern-import-json">角色卡 JSON</FieldLabel>
+        <FieldLabel for="tavern-import-json">{{ t('settings.tavern.importTab.cardJsonLabel') }}</FieldLabel>
         <Textarea
           id="tavern-import-json"
           v-model="importText"
           class="min-h-56 font-mono text-xs"
           placeholder="{ &quot;spec&quot;: &quot;chara_card_v2&quot;, &quot;data&quot;: { ... } }"
         />
-        <FieldDescription>支持 SillyTavern V1/V2 JSON、PNG 和 WebP 角色卡。</FieldDescription>
+        <FieldDescription>{{ t('settings.tavern.importTab.supportDescription') }}</FieldDescription>
       </Field>
     </FieldGroup>
     <div class="flex flex-wrap gap-2">
@@ -36,7 +38,7 @@ const fileInput = ref<HTMLInputElement | null>(null)
         @click="importFromText"
       >
         <FileJsonIcon data-icon="inline-start" />
-        导入文本
+        {{ t('settings.tavern.importTab.importTextButton') }}
       </Button>
       <Button
         type="button"
@@ -44,7 +46,7 @@ const fileInput = ref<HTMLInputElement | null>(null)
         @click="fileInput?.click()"
       >
         <DownloadIcon data-icon="inline-start" />
-        选择文件
+        {{ t('settings.tavern.importTab.selectFileButton') }}
       </Button>
       <input
         ref="fileInput"

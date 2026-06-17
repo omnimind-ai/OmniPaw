@@ -2,10 +2,13 @@
 import type { TavernCharacter } from '@shared/types/tavern'
 import { PencilIcon, PlusIcon, Trash2Icon, UserRoundIcon } from 'lucide-vue-next'
 import { computed, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import SettingsPanelItem from '@/components/settings/common/SettingsPanelItem.vue'
 import SettingsSearchBar from '@/components/settings/common/SettingsSearchBar.vue'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+
+const { t } = useI18n()
 
 const props = defineProps<{
   characters: TavernCharacter[]
@@ -47,13 +50,13 @@ function clearSearch() {
     <SettingsSearchBar
       v-model="searchQuery"
       class="-mx-4 -mt-4 border-b-0 sm:-mx-5"
-      label="搜索角色"
-      placeholder="搜索角色名称、描述或标签"
-      clear-label="清除角色搜索"
+      :label="t('settings.tavern.charactersTab.searchLabel')"
+      :placeholder="t('settings.tavern.charactersTab.searchPlaceholder')"
+      :clear-label="t('settings.tavern.charactersTab.clearLabel')"
       @clear="clearSearch"
     >
       <template #summary>
-        <Badge variant="secondary">{{ characters.length }} 个角色</Badge>
+        <Badge variant="secondary">{{ t('settings.tavern.charactersTab.countBadge', { count: characters.length }) }}</Badge>
       </template>
       <template #actions>
         <Button
@@ -61,7 +64,7 @@ function clearSearch() {
           @click="createCharacter"
         >
           <PlusIcon data-icon="inline-start" />
-          新建角色
+          {{ t('settings.tavern.charactersTab.createButton') }}
         </Button>
       </template>
     </SettingsSearchBar>
@@ -71,20 +74,20 @@ function clearSearch() {
         v-if="!characters.length"
         class="flex flex-1 items-center justify-center rounded-md border border-dashed px-3 py-10 text-center text-sm text-muted-foreground"
       >
-        暂无角色
+        {{ t('settings.tavern.charactersTab.emptyState') }}
       </p>
 
       <div
         v-else-if="searchEmpty"
         class="flex flex-1 flex-col items-center justify-center gap-3 rounded-md border border-dashed px-3 py-10 text-center text-sm text-muted-foreground"
       >
-        <p>没有匹配的角色。</p>
+        <p>{{ t('settings.tavern.charactersTab.noMatch') }}</p>
         <Button
           type="button"
           variant="outline"
           @click="clearSearch"
         >
-          清空搜索
+          {{ t('settings.tavern.charactersTab.clearSearchButton') }}
         </Button>
       </div>
 
@@ -104,7 +107,7 @@ function clearSearch() {
               v-if="character.defaultLorebookIds.length"
               variant="outline"
             >
-              世界书 {{ character.defaultLorebookIds.length }}
+              {{ t('settings.tavern.charactersTab.lorebookBadge', { count: character.defaultLorebookIds.length }) }}
             </Badge>
           </template>
 
@@ -116,13 +119,13 @@ function clearSearch() {
               @click="editCharacter(character)"
             >
               <PencilIcon data-icon="inline-start" />
-              编辑
+              {{ t('settings.tavern.charactersTab.editButton') }}
             </Button>
             <Button
               type="button"
               variant="ghost"
               size="icon-sm"
-              aria-label="删除角色"
+              :aria-label="t('settings.tavern.charactersTab.deleteAriaLabel')"
               @click="deleteCharacter(character)"
             >
               <Trash2Icon data-icon />

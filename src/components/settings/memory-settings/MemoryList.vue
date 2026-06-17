@@ -110,7 +110,7 @@ const emit = defineEmits<{
           @click="emit('create')"
         >
           <PlusIcon data-icon="inline-start" />
-          新建
+          {{ t('settings.memory.list.createButton') }}
         </Button>
       </template>
     </SettingsSearchBar>
@@ -134,8 +134,8 @@ const emit = defineEmits<{
         >
           <SearchIcon class="size-8 opacity-50" />
           <div class="flex flex-col gap-1">
-            <p class="font-medium text-foreground">没有匹配的记忆</p>
-            <p>换一个关键词，或清空搜索后查看全部记忆。</p>
+            <p class="font-medium text-foreground">{{ t('settings.memory.list.noMatch') }}</p>
+            <p>{{ t('settings.memory.list.noMatchHint') }}</p>
           </div>
           <Button
             type="button"
@@ -143,7 +143,7 @@ const emit = defineEmits<{
             @click="searchQuery = ''; emit('clearSearch')"
           >
             <XIcon data-icon="inline-start" />
-            清空搜索
+            {{ t('settings.memory.list.clearSearchButton') }}
           </Button>
         </div>
 
@@ -153,8 +153,8 @@ const emit = defineEmits<{
         >
           <BrainIcon class="size-8 opacity-50" />
           <div class="flex flex-col gap-1">
-            <p class="font-medium text-foreground">暂无记忆</p>
-            <p>新建记忆后，可以在这里启停、查看、归档和删除。</p>
+            <p class="font-medium text-foreground">{{ t('settings.memory.list.emptyTitle') }}</p>
+            <p>{{ t('settings.memory.list.emptyHint') }}</p>
           </div>
           <Button
             type="button"
@@ -162,7 +162,7 @@ const emit = defineEmits<{
             @click="emit('create')"
           >
             <PlusIcon data-icon="inline-start" />
-            新建
+            {{ t('settings.memory.list.createButton') }}
           </Button>
         </div>
 
@@ -183,12 +183,12 @@ const emit = defineEmits<{
                 {{ memoryStatusLabel(memory.status) }}
               </Badge>
               <Badge variant="outline">{{ memoryScopeLabel(memory.scope) }}</Badge>
-              <Badge variant="outline">重要度 {{ memory.importance }}</Badge>
+              <Badge variant="outline">{{ t('settings.memory.list.importanceBadge', { value: memory.importance }) }}</Badge>
             </template>
 
             <template #meta>
               <p class="text-sm text-muted-foreground">
-                更新于 {{ formatMemoryTime(memory.updatedAt) }}
+                {{ t('settings.memory.list.updatedAt', { time: formatMemoryTime(memory.updatedAt) }) }}
               </p>
             </template>
 
@@ -198,14 +198,14 @@ const emit = defineEmits<{
                 size="sm"
                 :model-value="memory.status === 'active'"
                 :disabled="saving || memory.status === 'archived' || memory.status === 'deleted'"
-                :aria-label="`${memory.status === 'active' ? '停用' : '启用'}记忆`"
+                :aria-label="t('settings.memory.list.toggleAriaLabel', { action: memory.status === 'active' ? t('settings.memory.list.disable') : t('settings.memory.list.enable') })"
                 @update:model-value="emit('enable', memory, $event)"
               />
               <Button
                 type="button"
                 variant="ghost"
                 size="icon-sm"
-                aria-label="降低重要度"
+                :aria-label="t('settings.memory.list.decreaseImportanceAriaLabel')"
                 :disabled="saving || memory.importance <= 1"
                 @click="emit('importance', memory, -1)"
               >
@@ -215,7 +215,7 @@ const emit = defineEmits<{
                 type="button"
                 variant="ghost"
                 size="icon-sm"
-                aria-label="提高重要度"
+                :aria-label="t('settings.memory.list.increaseImportanceAriaLabel')"
                 :disabled="saving || memory.importance >= 5"
                 @click="emit('importance', memory, 1)"
               >
@@ -225,7 +225,7 @@ const emit = defineEmits<{
                 type="button"
                 variant="ghost"
                 size="icon-sm"
-                aria-label="查看记忆详情"
+                :aria-label="t('settings.memory.list.detailAriaLabel')"
                 :disabled="saving"
                 @click="emit('detail', memory)"
               >
@@ -235,7 +235,7 @@ const emit = defineEmits<{
                 type="button"
                 variant="ghost"
                 size="icon-sm"
-                aria-label="归档记忆"
+                :aria-label="t('settings.memory.list.archiveAriaLabel')"
                 :disabled="saving || memory.status !== 'active'"
                 @click="emit('archive', memory)"
               >
@@ -249,7 +249,7 @@ const emit = defineEmits<{
                 @click="emit('delete', memory)"
               >
                 <Trash2Icon data-icon="inline-start" />
-                {{ confirmDeleteMemoryId === memory.id ? '确认删除' : '删除' }}
+                {{ confirmDeleteMemoryId === memory.id ? t('settings.memory.list.confirmDeleteButton') : t('settings.memory.list.deleteButton') }}
               </Button>
             </template>
           </SettingsPanelItem>

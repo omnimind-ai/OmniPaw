@@ -10,6 +10,7 @@ import type {
   UpdateCompanionMemoryRequest,
 } from '@shared/types/memory'
 import { computed, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -47,6 +48,8 @@ import {
   memoryStatusVariant,
   percentLabel,
 } from './format'
+
+const { t } = useI18n()
 
 const open = defineModel<boolean>('open', { required: true })
 
@@ -111,10 +114,12 @@ function resetDraft(memory: CompanionMemoryItem): void {
 }
 
 function sourceKindLabel(source: CompanionMemorySourceEvidence): string {
-  if (source.sourceKind === 'chat-turn') return '聊天回合'
-  if (source.sourceKind === 'message-window') return '消息窗口'
-  if (source.sourceKind === 'tool' || source.sourceKind === 'manual-intent') return '工具写入'
-  return '手动写入'
+  if (source.sourceKind === 'chat-turn') return t('settings.memory.detailModal.sourceKindChatTurn')
+  if (source.sourceKind === 'message-window')
+    return t('settings.memory.detailModal.sourceKindMessageWindow')
+  if (source.sourceKind === 'tool' || source.sourceKind === 'manual-intent')
+    return t('settings.memory.detailModal.sourceKindToolWrite')
+  return t('settings.memory.detailModal.sourceKindManualWrite')
 }
 
 function sourceTime(source: CompanionMemorySourceEvidence): string {
@@ -122,16 +127,16 @@ function sourceTime(source: CompanionMemorySourceEvidence): string {
 }
 
 function attributionLabel(value: string | undefined): string {
-  if (value === 'assistant-provided') return '助手提供'
-  if (value === 'mixed') return '混合来源'
-  return '用户陈述'
+  if (value === 'assistant-provided') return t('settings.memory.detailModal.attributionAssistant')
+  if (value === 'mixed') return t('settings.memory.detailModal.attributionMixed')
+  return t('settings.memory.detailModal.attributionUser')
 }
 
 function extractionLabel(value: string | undefined): string {
-  if (value === 'semantic') return '语义抽取'
-  if (value === 'heuristic-fallback') return '本地降级'
-  if (value === 'tool') return '工具写入'
-  return '手动'
+  if (value === 'semantic') return t('settings.memory.detailModal.extractionSemantic')
+  if (value === 'heuristic-fallback') return t('settings.memory.detailModal.extractionHeuristic')
+  if (value === 'tool') return t('settings.memory.detailModal.extractionTool')
+  return t('settings.memory.detailModal.extractionManual')
 }
 
 function shouldShowExtractionBadge(
@@ -154,9 +159,9 @@ function clampInteger(value: string | number, min: number, max: number): number 
   <Dialog v-model:open="open">
     <DialogContent class="max-h-[calc(100vh-2rem)] overflow-y-auto sm:max-w-3xl">
       <DialogHeader>
-        <DialogTitle>记忆详情</DialogTitle>
+        <DialogTitle>{{ t('settings.memory.detailModal.title') }}</DialogTitle>
         <DialogDescription>
-          {{ memory ? `${memoryKindLabel(memory.kind)} · ${formatMemoryTime(memory.updatedAt)}` : '选择一条记忆查看或修改。' }}
+          {{ memory ? `${memoryKindLabel(memory.kind)} · ${formatMemoryTime(memory.updatedAt)}` : t('settings.memory.detailModal.selectMemory') }}
         </DialogDescription>
       </DialogHeader>
 
@@ -175,55 +180,55 @@ function clampInteger(value: string | number, min: number, max: number): number 
             {{ memoryStatusLabel(memory.status) }}
           </Badge>
           <Badge variant="outline">{{ memoryScopeLabel(memory.scope) }}</Badge>
-          <Badge variant="outline">置信度 {{ percentLabel(memory.confidence) }}</Badge>
+          <Badge variant="outline">{{ t('settings.memory.detailModal.confidence', { value: percentLabel(memory.confidence) }) }}</Badge>
         </div>
 
         <div class="grid grid-cols-1 gap-3 md:grid-cols-3">
           <Field>
-            <FieldLabel for="memory-detail-kind">类型</FieldLabel>
+            <FieldLabel for="memory-detail-kind">{{ t('settings.memory.detailModal.kind') }}</FieldLabel>
             <Select v-model="kind">
               <SelectTrigger
                 id="memory-detail-kind"
                 class="w-full"
               >
-                <SelectValue placeholder="选择类型" />
+                <SelectValue :placeholder="t('settings.memory.detailModal.selectKind')" />
               </SelectTrigger>
               <SelectContent>
                 <SelectGroup>
-                  <SelectItem value="fact">事实</SelectItem>
-                  <SelectItem value="preference">偏好</SelectItem>
-                  <SelectItem value="profile">画像</SelectItem>
-                  <SelectItem value="relationship">关系</SelectItem>
-                  <SelectItem value="episode">经历</SelectItem>
-                  <SelectItem value="plan">计划</SelectItem>
-                  <SelectItem value="boundary">边界</SelectItem>
+                  <SelectItem value="fact">{{ t('settings.memory.detailModal.kindFact') }}</SelectItem>
+                  <SelectItem value="preference">{{ t('settings.memory.detailModal.kindPreference') }}</SelectItem>
+                  <SelectItem value="profile">{{ t('settings.memory.detailModal.kindProfile') }}</SelectItem>
+                  <SelectItem value="relationship">{{ t('settings.memory.detailModal.kindRelationship') }}</SelectItem>
+                  <SelectItem value="episode">{{ t('settings.memory.detailModal.kindEpisode') }}</SelectItem>
+                  <SelectItem value="plan">{{ t('settings.memory.detailModal.kindPlan') }}</SelectItem>
+                  <SelectItem value="boundary">{{ t('settings.memory.detailModal.kindBoundary') }}</SelectItem>
                 </SelectGroup>
               </SelectContent>
             </Select>
           </Field>
 
           <Field>
-            <FieldLabel for="memory-detail-status">状态</FieldLabel>
+            <FieldLabel for="memory-detail-status">{{ t('settings.memory.detailModal.status') }}</FieldLabel>
             <Select v-model="status">
               <SelectTrigger
                 id="memory-detail-status"
                 class="w-full"
               >
-                <SelectValue placeholder="选择状态" />
+                <SelectValue :placeholder="t('settings.memory.detailModal.selectStatus')" />
               </SelectTrigger>
               <SelectContent>
                 <SelectGroup>
-                  <SelectItem value="active">活跃</SelectItem>
-                  <SelectItem value="pending">待确认</SelectItem>
-                  <SelectItem value="disabled">停用</SelectItem>
-                  <SelectItem value="archived">归档</SelectItem>
+                  <SelectItem value="active">{{ t('settings.memory.detailModal.statusActive') }}</SelectItem>
+                  <SelectItem value="pending">{{ t('settings.memory.detailModal.statusPending') }}</SelectItem>
+                  <SelectItem value="disabled">{{ t('settings.memory.detailModal.statusDisabled') }}</SelectItem>
+                  <SelectItem value="archived">{{ t('settings.memory.detailModal.statusArchived') }}</SelectItem>
                 </SelectGroup>
               </SelectContent>
             </Select>
           </Field>
 
           <Field>
-            <FieldLabel for="memory-detail-importance">重要度</FieldLabel>
+            <FieldLabel for="memory-detail-importance">{{ t('settings.memory.detailModal.importance') }}</FieldLabel>
             <Input
               id="memory-detail-importance"
               v-model="importance"
@@ -236,7 +241,7 @@ function clampInteger(value: string | number, min: number, max: number): number 
         </div>
 
         <Field>
-          <FieldLabel for="memory-detail-content">记忆内容</FieldLabel>
+          <FieldLabel for="memory-detail-content">{{ t('settings.memory.detailModal.content') }}</FieldLabel>
           <Textarea
             id="memory-detail-content"
             v-model="content"
@@ -248,19 +253,19 @@ function clampInteger(value: string | number, min: number, max: number): number 
 
         <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
           <Field class="rounded-md border px-3 py-2">
-            <FieldLabel>记忆 ID</FieldLabel>
+            <FieldLabel>{{ t('settings.memory.detailModal.memoryId') }}</FieldLabel>
             <FieldDescription class="break-all">{{ memory.id }}</FieldDescription>
           </Field>
           <Field class="rounded-md border px-3 py-2">
-            <FieldLabel>创建时间</FieldLabel>
+            <FieldLabel>{{ t('settings.memory.detailModal.createdAt') }}</FieldLabel>
             <FieldDescription>{{ formatMemoryTime(memory.createdAt) }}</FieldDescription>
           </Field>
           <Field class="rounded-md border px-3 py-2">
-            <FieldLabel>更新时间</FieldLabel>
+            <FieldLabel>{{ t('settings.memory.detailModal.updatedAt') }}</FieldLabel>
             <FieldDescription>{{ formatMemoryTime(memory.updatedAt) }}</FieldDescription>
           </Field>
           <Field class="rounded-md border px-3 py-2">
-            <FieldLabel>观察时间</FieldLabel>
+            <FieldLabel>{{ t('settings.memory.detailModal.observedAt') }}</FieldLabel>
             <FieldDescription>{{ formatMemoryTime(memory.observedAt) }}</FieldDescription>
           </Field>
         </div>
@@ -268,7 +273,7 @@ function clampInteger(value: string | number, min: number, max: number): number 
         <template v-if="sources.length">
           <Field>
             <FieldContent>
-              <FieldLabel>来源</FieldLabel>
+              <FieldLabel>{{ t('settings.memory.detailModal.sources') }}</FieldLabel>
             </FieldContent>
           </Field>
 
@@ -293,7 +298,7 @@ function clampInteger(value: string | number, min: number, max: number): number 
                 v-if="source.sessionId"
                 class="mt-2 break-all text-xs text-muted-foreground"
               >
-                会话 {{ source.sessionId }}
+                {{ t('settings.memory.detailModal.session', { id: source.sessionId }) }}
               </p>
             </div>
           </div>
@@ -302,8 +307,8 @@ function clampInteger(value: string | number, min: number, max: number): number 
         <template v-if="links?.length">
           <Field>
             <FieldContent>
-              <FieldLabel>相关记忆</FieldLabel>
-              <FieldDescription>维护流水线记录的非破坏性关联。</FieldDescription>
+              <FieldLabel>{{ t('settings.memory.detailModal.relatedMemories') }}</FieldLabel>
+              <FieldDescription>{{ t('settings.memory.detailModal.relatedMemoriesDescription') }}</FieldDescription>
             </FieldContent>
           </Field>
 
@@ -318,7 +323,7 @@ function clampInteger(value: string | number, min: number, max: number): number 
                 <span class="break-all text-muted-foreground">
                   {{ link.memoryId === memory.id ? link.linkedMemoryId : link.memoryId }}
                 </span>
-                <span class="text-muted-foreground">置信度 {{ percentLabel(link.confidence) }}</span>
+                <span class="text-muted-foreground">{{ t('settings.memory.detailModal.linkConfidence', { value: percentLabel(link.confidence) }) }}</span>
               </div>
             </div>
           </div>
@@ -327,8 +332,8 @@ function clampInteger(value: string | number, min: number, max: number): number 
         <template v-if="proposals?.length">
           <Field>
             <FieldContent>
-              <FieldLabel>维护建议</FieldLabel>
-              <FieldDescription>需要用户确认或忽略的候选操作。</FieldDescription>
+              <FieldLabel>{{ t('settings.memory.detailModal.proposals') }}</FieldLabel>
+              <FieldDescription>{{ t('settings.memory.detailModal.proposalsDescription') }}</FieldDescription>
             </FieldContent>
           </Field>
 
@@ -342,7 +347,7 @@ function clampInteger(value: string | number, min: number, max: number): number 
                 <Badge variant="outline">{{ proposal.kind }}</Badge>
                 <Badge variant="outline">{{ proposal.status }}</Badge>
                 <span class="text-muted-foreground">
-                  置信度 {{ percentLabel(proposal.confidence) }}
+                  {{ t('settings.memory.detailModal.proposalConfidence', { value: percentLabel(proposal.confidence) }) }}
                 </span>
               </div>
               <p class="mt-2 text-muted-foreground">{{ proposal.reason }}</p>
@@ -355,7 +360,7 @@ function clampInteger(value: string | number, min: number, max: number): number 
         v-else
         class="rounded-md border px-4 py-6 text-sm text-muted-foreground"
       >
-        记忆详情尚未加载。
+        {{ t('settings.memory.detailModal.notLoaded') }}
       </div>
 
       <DialogFooter>
@@ -364,14 +369,14 @@ function clampInteger(value: string | number, min: number, max: number): number 
           variant="outline"
           @click="open = false"
         >
-          关闭
+          {{ t('settings.memory.detailModal.close') }}
         </Button>
         <Button
           type="button"
           :disabled="saving || !canSubmit"
           @click="submit"
         >
-          保存修改
+          {{ t('settings.memory.detailModal.save') }}
         </Button>
       </DialogFooter>
     </DialogContent>

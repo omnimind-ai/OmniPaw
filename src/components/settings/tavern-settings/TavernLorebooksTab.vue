@@ -2,10 +2,13 @@
 import type { TavernLorebook } from '@shared/types/tavern'
 import { BookOpenIcon, PencilIcon, PlusIcon, Trash2Icon } from 'lucide-vue-next'
 import { computed, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import SettingsPanelItem from '@/components/settings/common/SettingsPanelItem.vue'
 import SettingsSearchBar from '@/components/settings/common/SettingsSearchBar.vue'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+
+const { t } = useI18n()
 
 const props = defineProps<{
   lorebooks: TavernLorebook[]
@@ -45,13 +48,13 @@ function clearSearch() {
     <SettingsSearchBar
       v-model="searchQuery"
       class="-mx-4 -mt-4 border-b-0 sm:-mx-5"
-      label="搜索世界书"
-      placeholder="搜索世界书名称、描述或条目"
-      clear-label="清除世界书搜索"
+      :label="t('settings.tavern.lorebooksTab.searchLabel')"
+      :placeholder="t('settings.tavern.lorebooksTab.searchPlaceholder')"
+      :clear-label="t('settings.tavern.lorebooksTab.clearSearchLabel')"
       @clear="clearSearch"
     >
       <template #summary>
-        <Badge variant="secondary">{{ lorebooks.length }} 本世界书</Badge>
+        <Badge variant="secondary">{{ t('settings.tavern.lorebooksTab.totalBadge', { count: lorebooks.length }) }}</Badge>
       </template>
       <template #actions>
         <Button
@@ -59,7 +62,7 @@ function clearSearch() {
           @click="createLorebook"
         >
           <PlusIcon data-icon="inline-start" />
-          新建世界书
+          {{ t('settings.tavern.lorebooksTab.createButton') }}
         </Button>
       </template>
     </SettingsSearchBar>
@@ -69,20 +72,20 @@ function clearSearch() {
         v-if="!lorebooks.length"
         class="flex flex-1 items-center justify-center rounded-md border border-dashed px-3 py-10 text-center text-sm text-muted-foreground"
       >
-        暂无世界书
+        {{ t('settings.tavern.lorebooksTab.emptyMessage') }}
       </p>
 
       <div
         v-else-if="searchEmpty"
         class="flex flex-1 flex-col items-center justify-center gap-3 rounded-md border border-dashed px-3 py-10 text-center text-sm text-muted-foreground"
       >
-        <p>没有匹配的世界书。</p>
+        <p>{{ t('settings.tavern.lorebooksTab.noMatchMessage') }}</p>
         <Button
           type="button"
           variant="outline"
           @click="clearSearch"
         >
-          清空搜索
+          {{ t('settings.tavern.lorebooksTab.clearSearchButton') }}
         </Button>
       </div>
 
@@ -98,7 +101,7 @@ function clearSearch() {
           :icon="BookOpenIcon"
         >
           <template #badges>
-            <Badge variant="outline">{{ lorebook.entries.length }} 条</Badge>
+            <Badge variant="outline">{{ t('settings.tavern.lorebooksTab.entryCountBadge', { count: lorebook.entries.length }) }}</Badge>
           </template>
 
           <template #actions>
@@ -109,13 +112,13 @@ function clearSearch() {
               @click="editLorebook(lorebook)"
             >
               <PencilIcon data-icon="inline-start" />
-              编辑
+              {{ t('settings.tavern.lorebooksTab.editButton') }}
             </Button>
             <Button
               type="button"
               variant="ghost"
               size="icon-sm"
-              aria-label="删除世界书"
+              :aria-label="t('settings.tavern.lorebooksTab.deleteAriaLabel')"
               @click="deleteLorebook(lorebook)"
             >
               <Trash2Icon data-icon />

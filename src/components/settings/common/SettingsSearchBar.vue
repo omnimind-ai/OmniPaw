@@ -2,6 +2,7 @@
 import { SearchIcon, XIcon } from 'lucide-vue-next'
 import type { HTMLAttributes } from 'vue'
 import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 
 import {
   InputGroup,
@@ -10,6 +11,8 @@ import {
   InputGroupInput,
 } from '@/components/ui/input-group'
 import { cn } from '@/lib/utils'
+
+const { t } = useI18n()
 
 const props = withDefaults(
   defineProps<{
@@ -23,9 +26,9 @@ const props = withDefaults(
     actionsClass?: HTMLAttributes['class']
   }>(),
   {
-    placeholder: '搜索',
-    label: '搜索',
-    clearLabel: '清除搜索',
+    placeholder: () => t('settings.common.searchBar.placeholder'),
+    label: () => t('settings.common.searchBar.label'),
+    clearLabel: () => t('settings.common.searchBar.clearLabel'),
   }
 )
 

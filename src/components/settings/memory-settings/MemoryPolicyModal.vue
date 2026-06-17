@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import type { BridgeDesktopSettingsConfig } from '@/bridge/app'
 import { Button } from '@/components/ui/button'
 import {
@@ -20,6 +21,8 @@ import {
 } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
+
+const { t } = useI18n()
 
 const open = defineModel<boolean>('open', { required: true })
 
@@ -64,9 +67,9 @@ function clampInteger(value: string | number, min: number, max: number): number 
   <Dialog v-model:open="open">
     <DialogContent class="sm:max-w-2xl">
       <DialogHeader>
-        <DialogTitle>记忆策略</DialogTitle>
+        <DialogTitle>{{ t('settings.memory.policyModal.title') }}</DialogTitle>
         <DialogDescription>
-          管理自动提取、上下文检索和每次请求的记忆预算。
+          {{ t('settings.memory.policyModal.description') }}
         </DialogDescription>
       </DialogHeader>
 
@@ -76,13 +79,13 @@ function clampInteger(value: string | number, min: number, max: number): number 
           class="border-b px-4 py-3"
         >
           <FieldContent>
-            <FieldLabel for="memory-enabled">启用伙伴记忆</FieldLabel>
-            <FieldDescription>关闭后停止自动提取和检索，手动管理仍可用。</FieldDescription>
+            <FieldLabel for="memory-enabled">{{ t('settings.memory.policyModal.enabled') }}</FieldLabel>
+            <FieldDescription>{{ t('settings.memory.policyModal.enabledDescription') }}</FieldDescription>
           </FieldContent>
           <Switch
             id="memory-enabled"
             v-model="memorySettings.enabled"
-            aria-label="启用伙伴记忆"
+            :aria-label="t('settings.memory.policyModal.enabled')"
           />
         </Field>
 
@@ -91,14 +94,14 @@ function clampInteger(value: string | number, min: number, max: number): number 
           class="border-b px-4 py-3"
         >
           <FieldContent>
-            <FieldLabel for="memory-semantic-extraction">语义抽取</FieldLabel>
-            <FieldDescription>优先使用已配置模型理解长期事实，失败时降级为本地规则。</FieldDescription>
+            <FieldLabel for="memory-semantic-extraction">{{ t('settings.memory.policyModal.semanticExtraction') }}</FieldLabel>
+            <FieldDescription>{{ t('settings.memory.policyModal.semanticExtractionDescription') }}</FieldDescription>
           </FieldContent>
           <Switch
             id="memory-semantic-extraction"
             v-model="memorySettings.semanticExtractionEnabled"
             :disabled="!memorySettings.enabled || !memorySettings.extractionEnabled"
-            aria-label="语义抽取记忆"
+            :aria-label="t('settings.memory.policyModal.semanticExtraction')"
           />
         </Field>
 
@@ -107,14 +110,14 @@ function clampInteger(value: string | number, min: number, max: number): number 
           class="border-b px-4 py-3"
         >
           <FieldContent>
-            <FieldLabel for="memory-tool-write">主动工具写入</FieldLabel>
-            <FieldDescription>用户明确要求记住、更新或忘记时，允许助手调用受控记忆工具。</FieldDescription>
+            <FieldLabel for="memory-tool-write">{{ t('settings.memory.policyModal.activeToolWrite') }}</FieldLabel>
+            <FieldDescription>{{ t('settings.memory.policyModal.activeToolWriteDescription') }}</FieldDescription>
           </FieldContent>
           <Switch
             id="memory-tool-write"
             v-model="memorySettings.activeToolWriteEnabled"
             :disabled="!memorySettings.enabled"
-            aria-label="主动工具写入记忆"
+            :aria-label="t('settings.memory.policyModal.activeToolWrite')"
           />
         </Field>
 
@@ -123,14 +126,14 @@ function clampInteger(value: string | number, min: number, max: number): number 
           class="border-b px-4 py-3"
         >
           <FieldContent>
-            <FieldLabel for="memory-maintenance">维护建议</FieldLabel>
-            <FieldDescription>异步生成去重、关联、冲突和过期计划建议。</FieldDescription>
+            <FieldLabel for="memory-maintenance">{{ t('settings.memory.policyModal.maintenance') }}</FieldLabel>
+            <FieldDescription>{{ t('settings.memory.policyModal.maintenanceDescription') }}</FieldDescription>
           </FieldContent>
           <Switch
             id="memory-maintenance"
             v-model="memorySettings.maintenanceEnabled"
             :disabled="!memorySettings.enabled"
-            aria-label="维护记忆"
+            :aria-label="t('settings.memory.policyModal.maintenance')"
           />
         </Field>
 
@@ -139,14 +142,14 @@ function clampInteger(value: string | number, min: number, max: number): number 
           class="border-b px-4 py-3"
         >
           <FieldContent>
-            <FieldLabel for="memory-destructive-confirm">破坏性操作确认</FieldLabel>
-            <FieldDescription>删除、归档或覆盖记忆默认生成待确认建议。</FieldDescription>
+            <FieldLabel for="memory-destructive-confirm">{{ t('settings.memory.policyModal.destructiveConfirm') }}</FieldLabel>
+            <FieldDescription>{{ t('settings.memory.policyModal.destructiveConfirmDescription') }}</FieldDescription>
           </FieldContent>
           <Switch
             id="memory-destructive-confirm"
             v-model="memorySettings.destructiveToolRequiresConfirmation"
             :disabled="!memorySettings.enabled"
-            aria-label="破坏性记忆操作需要确认"
+            :aria-label="t('settings.memory.policyModal.destructiveConfirm')"
           />
         </Field>
 
@@ -155,14 +158,14 @@ function clampInteger(value: string | number, min: number, max: number): number 
           class="border-b px-4 py-3"
         >
           <FieldContent>
-            <FieldLabel for="memory-extraction">自动提取</FieldLabel>
-            <FieldDescription>成功回复后异步提取新记忆，不会自动覆盖或删除已有记忆。</FieldDescription>
+            <FieldLabel for="memory-extraction">{{ t('settings.memory.policyModal.extraction') }}</FieldLabel>
+            <FieldDescription>{{ t('settings.memory.policyModal.extractionDescription') }}</FieldDescription>
           </FieldContent>
           <Switch
             id="memory-extraction"
             v-model="memorySettings.extractionEnabled"
             :disabled="!memorySettings.enabled"
-            aria-label="自动提取记忆"
+            :aria-label="t('settings.memory.policyModal.extraction')"
           />
         </Field>
 
@@ -171,14 +174,14 @@ function clampInteger(value: string | number, min: number, max: number): number 
           class="border-b px-4 py-3"
         >
           <FieldContent>
-            <FieldLabel for="memory-retrieval">上下文检索</FieldLabel>
-            <FieldDescription>发送前检索相关记忆，并按预算注入为独立上下文。</FieldDescription>
+            <FieldLabel for="memory-retrieval">{{ t('settings.memory.policyModal.retrieval') }}</FieldLabel>
+            <FieldDescription>{{ t('settings.memory.policyModal.retrievalDescription') }}</FieldDescription>
           </FieldContent>
           <Switch
             id="memory-retrieval"
             v-model="memorySettings.retrievalEnabled"
             :disabled="!memorySettings.enabled"
-            aria-label="上下文检索记忆"
+            :aria-label="t('settings.memory.policyModal.retrieval')"
           />
         </Field>
 
@@ -187,8 +190,8 @@ function clampInteger(value: string | number, min: number, max: number): number 
           class="border-b px-4 py-3"
         >
           <FieldContent>
-            <FieldLabel for="memory-max-items">最大记忆条数</FieldLabel>
-            <FieldDescription>每次请求最多选入的相关记忆数量。</FieldDescription>
+            <FieldLabel for="memory-max-items">{{ t('settings.memory.policyModal.maxItems') }}</FieldLabel>
+            <FieldDescription>{{ t('settings.memory.policyModal.maxItemsDescription') }}</FieldDescription>
           </FieldContent>
           <Input
             id="memory-max-items"
@@ -206,8 +209,8 @@ function clampInteger(value: string | number, min: number, max: number): number 
           class="border-b px-4 py-3"
         >
           <FieldContent>
-            <FieldLabel for="memory-max-tokens">上下文 token 预算</FieldLabel>
-            <FieldDescription>记忆上下文在单次请求中的最大 token 数。</FieldDescription>
+            <FieldLabel for="memory-max-tokens">{{ t('settings.memory.policyModal.maxTokens') }}</FieldLabel>
+            <FieldDescription>{{ t('settings.memory.policyModal.maxTokensDescription') }}</FieldDescription>
           </FieldContent>
           <Input
             id="memory-max-tokens"
@@ -225,8 +228,8 @@ function clampInteger(value: string | number, min: number, max: number): number 
           class="border-b px-4 py-3"
         >
           <FieldContent>
-            <FieldLabel for="memory-min-confidence">最低置信度</FieldLabel>
-            <FieldDescription>低于该百分比的记忆不会进入检索候选。</FieldDescription>
+            <FieldLabel for="memory-min-confidence">{{ t('settings.memory.policyModal.minConfidence') }}</FieldLabel>
+            <FieldDescription>{{ t('settings.memory.policyModal.minConfidenceDescription') }}</FieldDescription>
           </FieldContent>
           <Input
             id="memory-min-confidence"
@@ -244,8 +247,8 @@ function clampInteger(value: string | number, min: number, max: number): number 
           class="px-4 py-3"
         >
           <FieldContent>
-            <FieldLabel for="memory-low-confidence">低置信复核阈值</FieldLabel>
-            <FieldDescription>低于该百分比的自动候选会进入待确认状态。</FieldDescription>
+            <FieldLabel for="memory-low-confidence">{{ t('settings.memory.policyModal.lowConfidenceReview') }}</FieldLabel>
+            <FieldDescription>{{ t('settings.memory.policyModal.lowConfidenceReviewDescription') }}</FieldDescription>
           </FieldContent>
           <Input
             id="memory-low-confidence"
@@ -261,7 +264,7 @@ function clampInteger(value: string | number, min: number, max: number): number 
 
       <DialogFooter>
         <DialogClose as-child>
-          <Button type="button">完成</Button>
+          <Button type="button">{{ t('settings.memory.policyModal.done') }}</Button>
         </DialogClose>
       </DialogFooter>
     </DialogContent>
