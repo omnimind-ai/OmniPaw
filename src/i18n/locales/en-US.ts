@@ -1249,4 +1249,174 @@ export default {
       },
     },
   },
+  chat: {
+    errors: {
+      openFileFailed: 'Unable to reveal file in folder.',
+    },
+    scrollToBottom: {
+      label: 'Back to bottom',
+      ariaLabel: 'Back to bottom',
+    },
+    sidebar: {
+      newChat: 'New conversation',
+      mode: {
+        chat: {
+          label: 'Chat',
+          title: 'Regular conversation',
+        },
+        tavern: {
+          label: 'Tavern',
+          title: 'Tavern conversation',
+        },
+      },
+      kind: {
+        chat: {
+          label: 'Regular',
+          title: 'Regular conversation',
+        },
+        tavern: {
+          label: 'Tavern',
+          title: 'Tavern conversation',
+        },
+        cat: {
+          label: 'Cat',
+          title: 'Cat conversation',
+        },
+        cron: {
+          label: 'Task',
+          title: 'Task conversation',
+        },
+        vision: {
+          label: 'Vision',
+          title: 'Vision conversation',
+        },
+      },
+      collapsedTooltip: '{current}, click to switch to {next}',
+      search: {
+        placeholder: 'Search conversations...',
+        ariaLabel: 'Search conversations',
+        clearAriaLabel: 'Clear conversation search',
+        filterAriaLabel: 'Filter {kind}',
+        kindLabel: 'Session type',
+      },
+      session: {
+        defaultTitle: 'New conversation',
+        running: 'Running',
+        actionAriaLabel: '{title} actions',
+        rename: 'Rename',
+        delete: 'Delete',
+      },
+      empty: {
+        noSessions: 'No {kind}',
+        noResults: 'No conversations found',
+        createHint: 'After creating a new conversation, it will appear here.',
+        kindHint: '{kindTitle} will be displayed here.',
+        searchHint: 'Adjust search keywords or create a new conversation directly.',
+      },
+      footer: {
+        cat: 'Cat floating bubble',
+        settings: 'Settings',
+      },
+      renameDialog: {
+        title: 'Rename conversation',
+        description: 'Edit the conversation name displayed in the sidebar.',
+        label: 'Conversation name',
+        placeholder: 'New conversation',
+        cancel: 'Cancel',
+        save: 'Save',
+      },
+      deleteDialog: {
+        title: 'Delete conversation',
+        description:
+          'After deleting {target}, the conversation and its messages will be removed from the list.',
+        activeWarning:
+          'If it is the current conversation, the page needs to return to an empty conversation state.',
+        runningWarning: 'This conversation is still running. Please confirm before deleting.',
+        cancel: 'Cancel',
+        confirm: 'Delete',
+        fallbackTarget: 'this conversation',
+      },
+    },
+    welcome: {
+      title: '👋 Welcome to OmniClaw',
+    },
+    noModel: {
+      message: 'No models configured',
+      openSettings: 'Open Settings',
+    },
+    composer: {
+      inputLabel: 'Input message',
+      uploadDragPlaceholder: 'Release to upload attachments',
+      stop: 'Stop generation',
+      send: 'Send',
+      permissionFallbackLabel: 'Permission',
+      permissionFallbackDescription: 'Select agent tool permissions',
+      uploadingAttachments: 'Uploading attachments',
+      attachmentPresetsAria: 'Attachment quick presets',
+      clearReplyAria: 'Clear reply',
+      addAttachmentAria: 'Add attachment',
+      switchModelAria: 'Switch model: {model}',
+      switchModel: 'Switch model',
+      agentPermissionAria: 'Agent permission: {description}',
+      agentPermission: 'Agent permission',
+    },
+    toolProfile: {
+      minimal: {
+        label: 'Minimal',
+        description: 'Only expose basic safe and read-only capabilities.',
+      },
+      assistant: {
+        label: 'Assistant',
+        description: 'Default tier. Local writes and terminal commands require per-call approval.',
+      },
+      power: {
+        label: 'Advanced',
+        description: 'Full local access, no per-command interception.',
+      },
+    },
+    tavernDock: {
+      welcomeTitle: 'What role do you want Xiaoman to become today?',
+      noCharacter: {
+        message: 'No character cards configured',
+        openSettings: 'Open Tavern Settings',
+      },
+      character: 'Character',
+      characterAria: 'Character: {name}',
+      lorebook: 'Lorebook',
+      lorebookAria: 'Lorebook: {name}',
+      entriesCount: '{count} entries',
+      noPreset: 'No preset',
+      presetAria: 'Prompt preset: {name}',
+      slotsCount: '{count} slots',
+      userProfile: 'Tavern User Profile',
+      userProfileAria: 'Tavern User: {name}',
+      noUserProfile: 'No Tavern User',
+      userProfileSnapshotNote:
+        'Independent snapshot that does not auto-sync or write back to regular Persona.',
+      minimalProfile: {
+        label: 'Minimal',
+        description: 'Tavern mode always uses a low-noise context.',
+      },
+    },
+  },
+  vision: {
+    title: 'Active Vision',
+    placeholderSession: 'No vision session created yet',
+    status: {
+      notRunning: 'Not running',
+      running: 'Running',
+    },
+    actions: {
+      start: 'Start',
+      stop: 'Stop',
+      observeNow: 'Observe now',
+    },
+    latestDecision: 'Latest decision: {decision}',
+    errors: {
+      loadFailed: 'Failed to load vision history.',
+      startFailed: 'Failed to start vision observation.',
+      stopFailed: 'Failed to stop vision observation.',
+      triggerFailed: 'Failed to trigger observation.',
+    },
+  },
 }

@@ -10,6 +10,7 @@ import {
   XIcon,
 } from 'lucide-vue-next'
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import ChatContextUsageIndicator from '@/components/chat/ChatContextUsageIndicator.vue'
 import {
   DropdownMenu,
@@ -38,6 +39,8 @@ import { cn } from '@/lib/utils'
 import type { SessionContextUsage } from '@/stores/chat'
 import type { ProviderModelOption } from '@/stores/provider'
 import ComposerAttachmentPreviewList from './parts/ComposerAttachmentPreviewList.vue'
+
+const { t } = useI18n()
 
 const props = defineProps<{
   modelValue: string
@@ -106,7 +109,9 @@ const attachmentStatusText = computed(
 const showAttachmentStatus = computed(() =>
   Boolean(props.attachmentWarning || props.uploadPending || attachmentStatusText.value)
 )
-const primaryActionLabel = computed(() => (props.running ? '停止生成' : '发送'))
+const primaryActionLabel = computed(() =>
+  props.running ? t('chat.composer.stop') : t('chat.composer.send')
+)
 const canUsePrimaryAction = computed(() =>
   props.running ? props.canStop !== false : props.canSend
 )
@@ -120,7 +125,7 @@ const inputGroupClass = computed(() =>
 )
 const textareaClass = computed(() => (props.compactAttachments ? 'min-h-16' : 'min-h-24'))
 const composerPlaceholder = computed(() => {
-  if (dragging.value) return '松开以上传附件'
+  if (dragging.value) return t('chat.composer.uploadDragPlaceholder')
   if (showAttachmentPresetPanel.value) return ''
   return 'Ask OmniClaw...'
 })
@@ -139,9 +144,11 @@ const selectedModelCompactLabel = computed(() =>
     selectedModelOption.value?.providerName
   )
 )
-const selectedToolProfileLabel = computed(() => selectedToolProfile.value?.label ?? '权限')
+const selectedToolProfileLabel = computed(
+  () => selectedToolProfile.value?.label ?? t('chat.composer.permissionFallbackLabel')
+)
 const selectedToolProfileDescription = computed(
-  () => selectedToolProfile.value?.description ?? '选择 Agent 工具权限'
+  () => selectedToolProfile.value?.description ?? t('chat.composer.permissionFallbackDescription')
 )
 const showToolProfileControl = computed(() => props.showToolProfile !== false)
 const firstAttachmentForPresets = computed(() => props.stagedFiles[0] ?? null)
@@ -458,7 +465,7 @@ function handleDrop(event: DragEvent) {
           for="chat-composer"
           class="sr-only"
         >
-          输入消息
+          {{ t('chat.composer.inputLabel') }}
         </FieldLabel>
 
         <InputGroup :class="inputGroupClass">
@@ -482,7 +489,7 @@ function handleDrop(event: DragEvent) {
               <span :class="cn(attachmentWarning && 'text-destructive')">
                 {{ attachmentStatusText }}
               </span>
-              <span v-if="uploadPending">附件上传中</span>
+              <span v-if="uploadPending">{{ t('chat.composer.uploadingAttachments') }}</span>
             </div>
           </InputGroupAddon>
 
@@ -503,7 +510,7 @@ function handleDrop(event: DragEvent) {
             <div
               v-if="showAttachmentPresetPanel"
               class="pointer-events-none absolute inset-x-2 top-2 flex max-h-[calc(100%-0.75rem)] flex-col gap-1 overflow-hidden"
-              aria-label="附件快捷预设"
+              :aria-label="t('chat.composer.attachmentPresetsAria')"
             >
               <div
                 v-for="(preset, presetIndex) in attachmentPresets"
@@ -537,7 +544,7 @@ function handleDrop(event: DragEvent) {
               </div>
               <InputGroupButton
                 size="icon-xs"
-                aria-label="取消引用"
+                :aria-label="t('chat.composer.clearReplyAria')"
                 @click="emit('clearReply')"
               >
                 <XIcon data-icon="inline-start" />
@@ -548,7 +555,7 @@ function handleDrop(event: DragEvent) {
               <div class="flex min-w-0 flex-1 items-center gap-1.5">
                 <InputGroupButton
                   size="icon-sm"
-                  aria-label="添加附件"
+                  :aria-label="t('chat.composer.addAttachmentAria')"
                   :disabled="disabled && !running"
                   @click="emit('addAttachment')"
                 >
@@ -562,7 +569,7 @@ function handleDrop(event: DragEvent) {
                     <InputGroupButton
                       class="max-w-9 justify-start px-1.5 @min-[30rem]/chat-composer:max-w-36 @min-[44rem]/chat-composer:max-w-64"
                       :disabled="!modelOptions.length"
-                      :aria-label="`切换模型：${selectedModelLabel}`"
+                      :aria-label="t('chat.composer.switchModelAria', { model: selectedModelLabel })"
                     >
                       <SparklesIcon data-icon="inline-start" />
                       <span class="hidden truncate @min-[30rem]/chat-composer:inline @min-[44rem]/chat-composer:hidden">
@@ -578,7 +585,7 @@ function handleDrop(event: DragEvent) {
                     align="start"
                     class="w-80"
                   >
-                    <DropdownMenuLabel>切换模型</DropdownMenuLabel>
+                    <DropdownMenuLabel>{{ t('chat.composer.switchModel') }}</DropdownMenuLabel>
                     <DropdownMenuSeparator />
                     <DropdownMenuRadioGroup
                       :model-value="selectedModelKey"
@@ -606,7 +613,7 @@ function handleDrop(event: DragEvent) {
                     <InputGroupButton
                       class="min-w-0 max-w-28 justify-start px-1.5 @min-[44rem]/chat-composer:max-w-40"
                       :disabled="toolProfileSaving || !toolProfileOptions.length"
-                      :aria-label="`Agent 权限：${selectedToolProfileDescription}`"
+                      :aria-label="t('chat.composer.agentPermissionAria', { description: selectedToolProfileDescription })"
                     >
                       <ShieldCheckIcon data-icon="inline-start" />
                       <span class="truncate">
@@ -619,7 +626,7 @@ function handleDrop(event: DragEvent) {
                     align="start"
                     class="w-72"
                   >
-                    <DropdownMenuLabel>Agent 权限</DropdownMenuLabel>
+                    <DropdownMenuLabel>{{ t('chat.composer.agentPermission') }}</DropdownMenuLabel>
                     <DropdownMenuSeparator />
                     <DropdownMenuRadioGroup
                       :model-value="toolProfile"

@@ -2,6 +2,7 @@ import { isComplexDocumentAttachment } from '@shared/attachment-documents'
 import type { ChatSessionKind, ToolProfile } from '@shared/types/chat'
 import type { TavernLorebook, TavernPromptPreviewResult } from '@shared/types/tavern'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import { appBridge } from '@/bridge/app'
 import { contentText } from '@/components/chat/chat-display'
@@ -41,6 +42,7 @@ function isSessionMode(value: unknown): value is SessionMode {
 export function useChatWorkspaceController() {
   const router = useRouter()
   const route = useRoute()
+  const { t } = useI18n()
   const chatStore = useChatStore()
   const settingsStore = useSettingsStore()
   const tavernStore = useTavernStore()
@@ -248,27 +250,29 @@ export function useChatWorkspaceController() {
       Boolean(tavernSelectedCharacter.value) &&
       !attachmentWarning.value
   )
-  const toolProfileOptions: Array<{
-    value: ToolProfile
-    label: string
-    description: string
-  }> = [
+  const toolProfileOptions = computed<
+    Array<{
+      value: ToolProfile
+      label: string
+      description: string
+    }>
+  >(() => [
     {
       value: 'minimal',
-      label: '最小',
-      description: '仅暴露基础安全与只读能力。',
+      label: t('chat.toolProfile.minimal.label'),
+      description: t('chat.toolProfile.minimal.description'),
     },
     {
       value: 'assistant',
-      label: '助手',
-      description: '默认等级，本地写入和 terminal 逐条授权。',
+      label: t('chat.toolProfile.assistant.label'),
+      description: t('chat.toolProfile.assistant.description'),
     },
     {
       value: 'power',
-      label: '高级',
-      description: 'Full local access，不按命令内容拦截。',
+      label: t('chat.toolProfile.power.label'),
+      description: t('chat.toolProfile.power.description'),
     },
-  ]
+  ])
 
   const workspaceContext: ChatWorkspaceContext = {
     currSessionId,

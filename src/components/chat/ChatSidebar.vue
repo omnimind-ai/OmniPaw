@@ -14,6 +14,7 @@ import {
   XIcon,
 } from 'lucide-vue-next'
 import { computed, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 
 import { Button } from '@/components/ui/button'
 import {
@@ -90,6 +91,8 @@ const emit = defineEmits<{
   deleteSession: [sessionId: string]
 }>()
 
+const { t } = useI18n()
+
 const searchQuery = ref('')
 const renameDialogOpen = ref(false)
 const renameSessionId = ref<string | null>(null)
@@ -97,41 +100,55 @@ const renameTitleDraft = ref('')
 const deleteDialogOpen = ref(false)
 const deleteSessionId = ref<string | null>(null)
 
-const sessionModeOptions: Array<{
-  value: SessionMode
-  label: string
-  title: string
-  newLabel: string
-  icon: typeof MessageSquareIcon
-}> = [
+const sessionModeOptions = computed(() => [
   {
-    value: 'chat',
-    label: '聊天',
-    title: '普通对话',
-    newLabel: '新建对话',
+    value: 'chat' as SessionMode,
+    label: t('chat.sidebar.mode.chat.label'),
+    title: t('chat.sidebar.mode.chat.title'),
+    newLabel: t('chat.sidebar.newChat'),
     icon: MessageSquareIcon,
   },
   {
-    value: 'tavern',
-    label: '酒馆',
-    title: '酒馆会话',
-    newLabel: '新建对话',
+    value: 'tavern' as SessionMode,
+    label: t('chat.sidebar.mode.tavern.label'),
+    title: t('chat.sidebar.mode.tavern.title'),
+    newLabel: t('chat.sidebar.newChat'),
     icon: DramaIcon,
   },
-]
+])
 
-const sessionKindOptions: Array<{
-  value: SessionKindFilter
-  label: string
-  title: string
-  icon: typeof MessageSquareIcon
-}> = [
-  { value: 'chat', label: '普通', title: '普通对话', icon: MessageSquareIcon },
-  { value: 'tavern', label: '酒馆', title: '酒馆会话', icon: DramaIcon },
-  { value: 'cat', label: '小猫', title: '小猫会话', icon: CatIcon },
-  { value: 'cron', label: '任务', title: '任务会话', icon: ClockIcon },
-  { value: 'vision', label: '视觉', title: '视觉会话', icon: EyeIcon },
-]
+const sessionKindOptions = computed(() => [
+  {
+    value: 'chat' as SessionKindFilter,
+    label: t('chat.sidebar.kind.chat.label'),
+    title: t('chat.sidebar.kind.chat.title'),
+    icon: MessageSquareIcon,
+  },
+  {
+    value: 'tavern' as SessionKindFilter,
+    label: t('chat.sidebar.kind.tavern.label'),
+    title: t('chat.sidebar.kind.tavern.title'),
+    icon: DramaIcon,
+  },
+  {
+    value: 'cat' as SessionKindFilter,
+    label: t('chat.sidebar.kind.cat.label'),
+    title: t('chat.sidebar.kind.cat.title'),
+    icon: CatIcon,
+  },
+  {
+    value: 'cron' as SessionKindFilter,
+    label: t('chat.sidebar.kind.cron.label'),
+    title: t('chat.sidebar.kind.cron.title'),
+    icon: ClockIcon,
+  },
+  {
+    value: 'vision' as SessionKindFilter,
+    label: t('chat.sidebar.kind.vision.label'),
+    title: t('chat.sidebar.kind.vision.title'),
+    icon: EyeIcon,
+  },
+])
 
 const normalizedSearchQuery = computed(() => searchQuery.value.trim().toLowerCase())
 const hasSearchQuery = computed(() => normalizedSearchQuery.value.length > 0)
@@ -139,26 +156,29 @@ const runningSessionIdSet = computed(() => new Set(props.runningSessionIds))
 const activeSessionMode = computed<SessionMode>(() => props.sessionMode)
 const activeSessionModeOption = computed(
   () =>
-    sessionModeOptions.find((option) => option.value === activeSessionMode.value) ||
-    sessionModeOptions[0]
+    sessionModeOptions.value.find((option) => option.value === activeSessionMode.value) ||
+    sessionModeOptions.value[0]
 )
 const nextCollapsedMode = computed<SessionMode>(() =>
   activeSessionMode.value === 'tavern' ? 'chat' : 'tavern'
 )
 const nextCollapsedModeOption = computed(
   () =>
-    sessionModeOptions.find((option) => option.value === nextCollapsedMode.value) ||
-    sessionModeOptions[0]
+    sessionModeOptions.value.find((option) => option.value === nextCollapsedMode.value) ||
+    sessionModeOptions.value[0]
 )
 const activeSessionKindOption = computed(
   () =>
-    sessionKindOptions.find((option) => option.value === props.sessionKindFilter) ||
-    sessionKindOptions[0]
+    sessionKindOptions.value.find((option) => option.value === props.sessionKindFilter) ||
+    sessionKindOptions.value[0]
 )
 const sessionListLabel = computed(() => activeSessionKindOption.value.title)
 const newChatLabel = computed(() => activeSessionModeOption.value.newLabel)
-const collapsedModeTooltip = computed(
-  () => `${activeSessionModeOption.value.title}，点击切换到${nextCollapsedModeOption.value.label}`
+const collapsedModeTooltip = computed(() =>
+  t('chat.sidebar.collapsedTooltip', {
+    current: activeSessionModeOption.value.title,
+    next: nextCollapsedModeOption.value.label,
+  })
 )
 
 const filteredSessions = computed(() => {
@@ -184,7 +204,9 @@ const deleteTarget = computed(() =>
 )
 
 const deleteTargetTitle = computed(() =>
-  deleteTarget.value ? sessionTitle(deleteTarget.value) : '该会话'
+  deleteTarget.value
+    ? sessionTitle(deleteTarget.value)
+    : t('chat.sidebar.deleteDialog.fallbackTarget')
 )
 
 const deleteTargetIsActive = computed(() =>
@@ -195,17 +217,22 @@ const deleteTargetIsRunning = computed(() =>
   Boolean(deleteSessionId.value && isSessionRunning(deleteSessionId.value))
 )
 
-const emptyTitle = computed(() =>
-  props.sessions.length === 0 ? `暂无${sessionListLabel.value}` : '未找到会话'
-)
+const emptyTitle = computed(() => {
+  if (props.sessions.length === 0) {
+    return t('chat.sidebar.empty.noSessions', { kind: sessionListLabel.value })
+  }
+  return t('chat.sidebar.empty.noResults')
+})
 
-const emptyDescription = computed(() =>
-  props.sessions.length === 0
-    ? props.sessionKindFilter === activeSessionMode.value
-      ? `${newChatLabel.value}后，会话会出现在这里。`
-      : `${activeSessionKindOption.value.title}会在这里显示。`
-    : '调整搜索关键词，或直接新建对话。'
-)
+const emptyDescription = computed(() => {
+  if (props.sessions.length === 0) {
+    if (props.sessionKindFilter === activeSessionMode.value) {
+      return t('chat.sidebar.empty.createHint', { newLabel: newChatLabel.value })
+    }
+    return t('chat.sidebar.empty.kindHint', { kindTitle: activeSessionKindOption.value.title })
+  }
+  return t('chat.sidebar.empty.searchHint')
+})
 
 watch(renameDialogOpen, (open) => {
   if (open) return
@@ -223,7 +250,7 @@ function sessionRawTitle(session: Session) {
 }
 
 function sessionTitle(session: Session) {
-  return sessionRawTitle(session) || '新会话'
+  return sessionRawTitle(session) || t('chat.sidebar.session.defaultTitle')
 }
 
 function isSessionRunning(sessionId: string) {
@@ -305,12 +332,12 @@ function toggleCollapsedMode() {
           <SidebarMenuButton
             size="sm"
             :disabled="creating"
-            :tooltip="newChatLabel"
-            :aria-label="newChatLabel"
+            :tooltip="t('chat.sidebar.newChat')"
+            :aria-label="t('chat.sidebar.newChat')"
             @click="emit('newChat')"
           >
             <PlusIcon />
-            <span>{{ newChatLabel }}</span>
+            <span>{{ t('chat.sidebar.newChat') }}</span>
           </SidebarMenuButton>
         </SidebarMenuItem>
       </SidebarMenu>
@@ -362,8 +389,8 @@ function toggleCollapsedMode() {
               </InputGroupAddon>
               <InputGroupInput
                 v-model="searchQuery"
-                aria-label="搜索会话"
-                placeholder="搜索会话..."
+                :aria-label="t('chat.sidebar.search.ariaLabel')"
+                :placeholder="t('chat.sidebar.search.placeholder')"
               />
               <InputGroupAddon
                 v-if="hasSearchQuery"
@@ -371,7 +398,7 @@ function toggleCollapsedMode() {
               >
                 <InputGroupButton
                   size="icon-xs"
-                  aria-label="清除会话搜索"
+                  :aria-label="t('chat.sidebar.search.clearAriaLabel')"
                   @click="clearSearch"
                 >
                   <XIcon data-icon="inline-start" />
@@ -384,7 +411,7 @@ function toggleCollapsedMode() {
                 <Button
                   variant="outline"
                   size="icon-sm"
-                  :aria-label="`筛选${activeSessionKindOption.title}`"
+                  :aria-label="t('chat.sidebar.search.filterAriaLabel', { kind: activeSessionKindOption.title })"
                 >
                   <component
                     :is="activeSessionKindOption.icon"
@@ -396,7 +423,7 @@ function toggleCollapsedMode() {
                 align="end"
                 class="w-36"
               >
-                <DropdownMenuLabel>会话类型</DropdownMenuLabel>
+                <DropdownMenuLabel>{{ t('chat.sidebar.search.kindLabel') }}</DropdownMenuLabel>
                 <DropdownMenuRadioGroup
                   :model-value="sessionKindFilter"
                   @update:model-value="updateSessionKindFilter"
@@ -440,14 +467,14 @@ function toggleCollapsedMode() {
                 v-if="isSessionRunning(session.id)"
                 class="sr-only"
               >
-                运行中
+                {{ t('chat.sidebar.session.running') }}
               </span>
 
               <DropdownMenu>
                 <DropdownMenuTrigger as-child>
                   <SidebarMenuAction
                     show-on-hover
-                    :aria-label="`${sessionTitle(session)} 操作`"
+                    :aria-label="t('chat.sidebar.session.actionAriaLabel', { title: sessionTitle(session) })"
                     @click.stop
                   >
                     <MoreHorizontalIcon />
@@ -460,14 +487,14 @@ function toggleCollapsedMode() {
                   <DropdownMenuGroup>
                     <DropdownMenuItem @select="openRenameDialog(session)">
                       <PencilIcon />
-                      重命名
+                      {{ t('chat.sidebar.session.rename') }}
                     </DropdownMenuItem>
                     <DropdownMenuItem
                       variant="destructive"
                       @select="openDeleteDialog(session)"
                     >
                       <Trash2Icon />
-                      删除
+                      {{ t('chat.sidebar.session.delete') }}
                     </DropdownMenuItem>
                   </DropdownMenuGroup>
                 </DropdownMenuContent>
@@ -488,8 +515,8 @@ function toggleCollapsedMode() {
           <SidebarMenuButton
             class="w-auto"
             size="default"
-            tooltip="小猫悬浮球"
-            aria-label="小猫悬浮球"
+            :tooltip="t('chat.sidebar.footer.cat')"
+            :aria-label="t('chat.sidebar.footer.cat')"
             @click="emit('toggleCat')"
           >
             <CatIcon />
@@ -498,8 +525,8 @@ function toggleCollapsedMode() {
           <SidebarMenuButton
             class="w-auto"
             size="default"
-            tooltip="设置"
-            aria-label="设置"
+            :tooltip="t('chat.sidebar.footer.settings')"
+            :aria-label="t('chat.sidebar.footer.settings')"
             @click="emit('openSettings')"
           >
             <SettingsIcon />
@@ -512,9 +539,9 @@ function toggleCollapsedMode() {
   <Dialog v-model:open="renameDialogOpen">
     <DialogContent>
       <DialogHeader>
-        <DialogTitle>重命名会话</DialogTitle>
+        <DialogTitle>{{ t('chat.sidebar.renameDialog.title') }}</DialogTitle>
         <DialogDescription>
-          修改侧栏中显示的会话名称。
+          {{ t('chat.sidebar.renameDialog.description') }}
         </DialogDescription>
       </DialogHeader>
 
@@ -525,13 +552,13 @@ function toggleCollapsedMode() {
         <FieldGroup>
           <Field>
             <FieldLabel for="chat-session-title">
-              会话名称
+              {{ t('chat.sidebar.renameDialog.label') }}
             </FieldLabel>
             <Input
               id="chat-session-title"
               v-model="renameTitleDraft"
               autofocus
-              placeholder="新会话"
+              :placeholder="t('chat.sidebar.renameDialog.placeholder')"
             />
           </Field>
         </FieldGroup>
@@ -542,10 +569,10 @@ function toggleCollapsedMode() {
             variant="outline"
             @click="renameDialogOpen = false"
           >
-            取消
+            {{ t('chat.sidebar.renameDialog.cancel') }}
           </Button>
           <Button type="submit">
-            保存
+            {{ t('chat.sidebar.renameDialog.save') }}
           </Button>
         </DialogFooter>
       </form>
@@ -555,14 +582,14 @@ function toggleCollapsedMode() {
   <Dialog v-model:open="deleteDialogOpen">
     <DialogContent>
       <DialogHeader>
-        <DialogTitle>删除会话</DialogTitle>
+        <DialogTitle>{{ t('chat.sidebar.deleteDialog.title') }}</DialogTitle>
         <DialogDescription>
-          删除 {{ deleteTargetTitle }} 后，该会话和消息将从列表中移除。
+          {{ t('chat.sidebar.deleteDialog.description', { target: deleteTargetTitle }) }}
           <span v-if="deleteTargetIsActive">
-            如果它是当前会话，页面需要回到空对话状态。
+            {{ t('chat.sidebar.deleteDialog.activeWarning') }}
           </span>
           <span v-if="deleteTargetIsRunning">
-            该会话仍在运行，请确认后再删除。
+            {{ t('chat.sidebar.deleteDialog.runningWarning') }}
           </span>
         </DialogDescription>
       </DialogHeader>
@@ -573,14 +600,14 @@ function toggleCollapsedMode() {
           variant="outline"
           @click="deleteDialogOpen = false"
         >
-          取消
+          {{ t('chat.sidebar.deleteDialog.cancel') }}
         </Button>
         <Button
           type="button"
           variant="destructive"
           @click="confirmDelete"
         >
-          删除
+          {{ t('chat.sidebar.deleteDialog.confirm') }}
         </Button>
       </DialogFooter>
     </DialogContent>

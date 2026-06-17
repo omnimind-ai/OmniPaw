@@ -1,9 +1,12 @@
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n'
 import ChatComposer from '@/components/chat/ChatComposer.vue'
 import TavernRuntimeDock from '@/components/tavern/TavernRuntimeDock.vue'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { useChatWorkspaceContext } from './chat-workspace-context'
+
+const { t } = useI18n()
 
 const props = withDefaults(
   defineProps<{
@@ -64,7 +67,7 @@ const {
       v-if="props.welcome && showWelcome"
       class="text-center text-3xl font-semibold tracking-normal md:text-4xl"
     >
-      👋 欢迎使用 OmniClaw
+      {{ t('chat.welcome.title') }}
     </h1>
 
     <div class="w-full max-w-4xl">
@@ -72,14 +75,14 @@ const {
         v-if="!selectedModel && !providersLoading"
         class="mb-3 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-dashed px-3 py-2 text-sm text-muted-foreground"
       >
-        <span>未配置可用模型</span>
+        <span>{{ t('chat.noModel.message') }}</span>
         <Button
           type="button"
           variant="outline"
           size="sm"
           @click="openSettings"
         >
-          打开设置
+          {{ t('chat.noModel.openSettings') }}
         </Button>
       </div>
 

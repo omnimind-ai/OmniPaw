@@ -59,11 +59,13 @@ export interface ChatWorkspaceContext {
   selectedModelLabel: ComputedRef<string>
   selectedModelMeta: ComputedRef<string>
   agentToolProfile: ComputedRef<ToolProfile>
-  toolProfileOptions: Array<{
-    value: ToolProfile
-    label: string
-    description: string
-  }>
+  toolProfileOptions: ComputedRef<
+    Array<{
+      value: ToolProfile
+      label: string
+      description: string
+    }>
+  >
   toolProfileSaving: Ref<boolean>
   currentSessionRunning: ComputedRef<boolean>
   sending: Ref<boolean>

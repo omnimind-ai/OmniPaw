@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ArrowDownIcon } from 'lucide-vue-next'
+import { useI18n } from 'vue-i18n'
 
 import { appBridge } from '@/bridge/app'
 import ChatComposerDock from '@/components/chat/ChatComposerDock.vue'
@@ -8,6 +9,8 @@ import { useChatWorkspaceContext } from '@/components/chat/chat-workspace-contex
 import { Button } from '@/components/ui/button'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { errorToText, useToast } from '@/utils/toast'
+
+const { t } = useI18n()
 
 const {
   setMessagesScrollArea,
@@ -46,7 +49,7 @@ async function handleOpenWorkspaceFile(payload: {
       path: payload.path,
     })
   } catch (err) {
-    toast.error(errorToText(err, '无法在文件夹中显示文件。'))
+    toast.error(errorToText(err, t('chat.errors.openFileFailed')))
   }
 }
 </script>
@@ -85,11 +88,11 @@ async function handleOpenWorkspaceFile(payload: {
       variant="outline"
       size="sm"
       class="absolute bottom-4 left-1/2 -translate-x-1/2 border-border/70 bg-background/35 shadow-md backdrop-blur-xl hover:bg-background/50"
-      aria-label="回到底部"
+      :aria-label="t('chat.scrollToBottom.ariaLabel')"
       @click="scrollToLatestMessage('smooth', true)"
     >
       <ArrowDownIcon data-icon="inline-start" />
-      回到底部
+      {{ t('chat.scrollToBottom.label') }}
     </Button>
   </div>
 

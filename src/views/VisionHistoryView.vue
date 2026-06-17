@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useRoute } from 'vue-router'
 import {
   appBridge,
@@ -20,6 +21,7 @@ import { errorToText, useToast } from '@/utils/toast'
 
 const route = useRoute()
 const toast = useToast()
+const { t } = useI18n()
 const observationStore = useObservationStore()
 const settingsStore = useSettingsStore()
 const sessions = ref<BridgeChatSession[]>([])
@@ -32,8 +34,8 @@ let unsubscribeObservation: BridgeUnsubscribe | undefined
 
 const activeRun = computed(() => observationStore.activeRun)
 const statusLabel = computed(() => {
-  if (!activeRun.value) return '未运行'
-  return '运行中'
+  if (!activeRun.value) return t('vision.status.notRunning')
+  return t('vision.status.running')
 })
 const latestDecision = computed(() => activeRun.value?.lastDecision)
 const showReasoningContent = computed(() => settingsStore.showReasoningContent)
@@ -63,7 +65,7 @@ async function loadSessions(): Promise<void> {
       await loadMessages(activeSessionId.value)
     }
   } catch (error) {
-    toast.error(errorToText(error, '主动视觉历史加载失败。'))
+    toast.error(errorToText(error, t('vision.errors.loadFailed')))
   } finally {
     loading.value = false
   }
@@ -82,7 +84,7 @@ async function startRuntime(): Promise<void> {
     )
     await loadSessions()
   } catch (error) {
-    toast.error(errorToText(error, '主动视觉启动失败。'))
+    toast.error(errorToText(error, t('vision.errors.startFailed')))
   }
 }
 
@@ -93,7 +95,7 @@ async function stopRuntime(): Promise<void> {
       reason: 'user',
     })
   } catch (error) {
-    toast.error(errorToText(error, '主动视觉停止失败。'))
+    toast.error(errorToText(error, t('vision.errors.stopFailed')))
   }
 }
 
@@ -101,7 +103,7 @@ async function triggerRuntime(): Promise<void> {
   try {
     await observationStore.trigger(activeRun.value ? { runId: activeRun.value.id } : undefined)
   } catch (error) {
-    toast.error(errorToText(error, '立即观察失败。'))
+    toast.error(errorToText(error, t('vision.errors.triggerFailed')))
   }
 }
 
@@ -175,9 +177,9 @@ function mapMessage(message: BridgeChatMessage): ChatRecord {
   <main class="flex h-full min-h-0 flex-col bg-background text-foreground">
     <header class="flex shrink-0 flex-wrap items-center gap-3 border-b px-4 py-3">
       <div class="min-w-0 flex-1">
-        <h1 class="truncate text-base font-semibold">主动视觉</h1>
+        <h1 class="truncate text-base font-semibold">{{ t('vision.title') }}</h1>
         <p class="truncate text-sm text-muted-foreground">
-          {{ activeSessionId || '尚未创建 vision session' }}
+          {{ activeSessionId || t('vision.placeholderSession') }}
         </p>
       </div>
       <Badge variant="secondary">{{ statusLabel }}</Badge>
@@ -188,7 +190,7 @@ function mapMessage(message: BridgeChatMessage): ChatRecord {
         :disabled="observationStore.running"
         @click="activeRun ? stopRuntime() : startRuntime()"
       >
-        {{ activeRun ? '停止' : '启动' }}
+        {{ activeRun ? t('vision.actions.stop') : t('vision.actions.start') }}
       </Button>
       <Button
         type="button"
@@ -196,7 +198,7 @@ function mapMessage(message: BridgeChatMessage): ChatRecord {
         :disabled="!activeRun || observationStore.running"
         @click="triggerRuntime"
       >
-        立即观察
+        {{ t('vision.actions.observeNow') }}
       </Button>
     </header>
 
@@ -204,7 +206,7 @@ function mapMessage(message: BridgeChatMessage): ChatRecord {
       v-if="latestDecision"
       class="shrink-0 border-b px-4 py-2 text-sm text-muted-foreground"
     >
-      最近决定：{{ latestDecision.decision }}
+      {{ t('vision.latestDecision', { decision: latestDecision.decision }) }}
     </section>
 
     <div class="min-h-0 flex-1 overflow-auto">

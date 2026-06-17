@@ -1197,4 +1197,171 @@ export default {
       },
     },
   },
+  chat: {
+    errors: {
+      openFileFailed: '无法在文件夹中显示文件。',
+    },
+    scrollToBottom: {
+      label: '回到底部',
+      ariaLabel: '回到底部',
+    },
+    sidebar: {
+      newChat: '新建对话',
+      mode: {
+        chat: {
+          label: '聊天',
+          title: '普通对话',
+        },
+        tavern: {
+          label: '酒馆',
+          title: '酒馆会话',
+        },
+      },
+      kind: {
+        chat: {
+          label: '普通',
+          title: '普通对话',
+        },
+        tavern: {
+          label: '酒馆',
+          title: '酒馆会话',
+        },
+        cat: {
+          label: '小猫',
+          title: '小猫会话',
+        },
+        cron: {
+          label: '任务',
+          title: '任务会话',
+        },
+        vision: {
+          label: '视觉',
+          title: '视觉会话',
+        },
+      },
+      collapsedTooltip: '{current}，点击切换到{next}',
+      search: {
+        placeholder: '搜索会话...',
+        ariaLabel: '搜索会话',
+        clearAriaLabel: '清除会话搜索',
+        filterAriaLabel: '筛选{kind}',
+        kindLabel: '会话类型',
+      },
+      session: {
+        defaultTitle: '新会话',
+        running: '运行中',
+        actionAriaLabel: '{title} 操作',
+        rename: '重命名',
+        delete: '删除',
+      },
+      empty: {
+        noSessions: '暂无{kind}',
+        noResults: '未找到会话',
+        createHint: '{newLabel}后，会话会出现在这里。',
+        kindHint: '{kindTitle}会在这里显示。',
+        searchHint: '调整搜索关键词，或直接新建对话。',
+      },
+      footer: {
+        cat: '小猫悬浮球',
+        settings: '设置',
+      },
+      renameDialog: {
+        title: '重命名会话',
+        description: '修改侧栏中显示的会话名称。',
+        label: '会话名称',
+        placeholder: '新会话',
+        cancel: '取消',
+        save: '保存',
+      },
+      deleteDialog: {
+        title: '删除会话',
+        description: '删除 {target} 后，该会话和消息将从列表中移除。',
+        activeWarning: '如果它是当前会话，页面需要回到空对话状态。',
+        runningWarning: '该会话仍在运行，请确认后再删除。',
+        cancel: '取消',
+        confirm: '删除',
+        fallbackTarget: '该会话',
+      },
+    },
+    welcome: {
+      title: '👋 欢迎使用 OmniClaw',
+    },
+    noModel: {
+      message: '未配置可用模型',
+      openSettings: '打开设置',
+    },
+    composer: {
+      inputLabel: '输入消息',
+      uploadDragPlaceholder: '松开以上传附件',
+      stop: '停止生成',
+      send: '发送',
+      permissionFallbackLabel: '权限',
+      permissionFallbackDescription: '选择 Agent 工具权限',
+      uploadingAttachments: '附件上传中',
+      attachmentPresetsAria: '附件快捷预设',
+      clearReplyAria: '取消引用',
+      addAttachmentAria: '添加附件',
+      switchModelAria: '切换模型：{model}',
+      switchModel: '切换模型',
+      agentPermissionAria: 'Agent 权限：{description}',
+      agentPermission: 'Agent 权限',
+    },
+    toolProfile: {
+      minimal: {
+        label: '最小',
+        description: '仅暴露基础安全与只读能力。',
+      },
+      assistant: {
+        label: '助手',
+        description: '默认等级，本地写入和 terminal 逐条授权。',
+      },
+      power: {
+        label: '高级',
+        description: 'Full local access，不按命令内容拦截。',
+      },
+    },
+    tavernDock: {
+      welcomeTitle: '今天想让小万化身什么角色',
+      noCharacter: {
+        message: '未配置可用角色卡',
+        openSettings: '打开酒馆设置',
+      },
+      character: '角色卡',
+      characterAria: '角色卡：{name}',
+      lorebook: '世界书',
+      lorebookAria: '世界书：{name}',
+      entriesCount: '{count} 个条目',
+      noPreset: '无 preset',
+      presetAria: 'Prompt preset：{name}',
+      slotsCount: '{count} 个 slot',
+      userProfile: '酒馆用户 profile',
+      userProfileAria: '酒馆用户：{name}',
+      noUserProfile: '无酒馆用户',
+      userProfileSnapshotNote: '独立快照，不自动同步、不回写普通 Persona。',
+      minimalProfile: {
+        label: '最小',
+        description: '酒馆模式固定使用低噪声上下文。',
+      },
+    },
+  },
+  vision: {
+    title: '主动视觉',
+    placeholderSession: '尚未创建 vision session',
+    status: {
+      notRunning: '未运行',
+      running: '运行中',
+    },
+    actions: {
+      start: '启动',
+      stop: '停止',
+      observeNow: '立即观察',
+    },
+    latestDecision: '最近决定：{decision}',
+    errors: {
+      loadFailed: '主动视觉历史加载失败。',
+      startFailed: '主动视觉启动失败。',
+      stopFailed: '主动视觉停止失败。',
+      triggerFailed: '立即观察失败。',
+    },
+  },
 }

@@ -8,6 +8,7 @@ import {
   UserRoundIcon,
 } from 'lucide-vue-next'
 import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 
 import ChatComposer from '@/components/chat/ChatComposer.vue'
 import { useChatWorkspaceContext } from '@/components/chat/chat-workspace-context'
@@ -25,17 +26,17 @@ import {
 import { InputGroupButton } from '@/components/ui/input-group'
 import { cn } from '@/lib/utils'
 
-const minimalToolProfileOptions: Array<{
-  value: ToolProfile
-  label: string
-  description: string
-}> = [
+const { t } = useI18n()
+
+const minimalToolProfileOptions = computed<
+  Array<{ value: ToolProfile; label: string; description: string }>
+>(() => [
   {
     value: 'minimal',
-    label: '最小',
-    description: '酒馆模式固定使用低噪声上下文。',
+    label: t('chat.tavernDock.minimalProfile.label'),
+    description: t('chat.tavernDock.minimalProfile.description'),
   },
-]
+])
 
 const {
   selectedModel,
@@ -89,7 +90,7 @@ const selectedLorebookSet = computed(() => new Set(tavernSelectedLorebookIds.val
 <template>
   <div class="flex w-full flex-1 flex-col items-center justify-center gap-8 px-6 pb-6 md:px-10 lg:px-16">
     <h1 class="text-center text-3xl font-semibold tracking-normal md:text-4xl">
-      今天想让小万化身什么角色
+      {{ t('chat.tavernDock.welcomeTitle') }}
     </h1>
 
     <div class="w-full max-w-4xl">
@@ -97,14 +98,14 @@ const selectedLorebookSet = computed(() => new Set(tavernSelectedLorebookIds.val
         v-if="!selectedModel && !providersLoading"
         class="mb-3 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-dashed px-3 py-2 text-sm text-muted-foreground"
       >
-        <span>未配置可用模型</span>
+        <span>{{ t('chat.noModel.message') }}</span>
         <Button
           type="button"
           variant="outline"
           size="sm"
           @click="openSettings"
         >
-          打开设置
+          {{ t('chat.noModel.openSettings') }}
         </Button>
       </div>
 
@@ -112,7 +113,7 @@ const selectedLorebookSet = computed(() => new Set(tavernSelectedLorebookIds.val
         v-if="!tavernCharacters.length"
         class="mb-3 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-dashed px-3 py-2 text-sm text-muted-foreground"
       >
-        <span>未配置可用角色卡</span>
+        <span>{{ t('chat.tavernDock.noCharacter.message') }}</span>
         <Button
           type="button"
           variant="outline"
@@ -120,7 +121,7 @@ const selectedLorebookSet = computed(() => new Set(tavernSelectedLorebookIds.val
           @click="openTavernSettings"
         >
           <SettingsIcon data-icon="inline-start" />
-          打开酒馆设置
+          {{ t('chat.tavernDock.noCharacter.openSettings') }}
         </Button>
       </div>
 
@@ -158,7 +159,7 @@ const selectedLorebookSet = computed(() => new Set(tavernSelectedLorebookIds.val
               <InputGroupButton
                 class="max-w-9 justify-start px-1.5 @min-[34rem]/chat-composer:max-w-36 @min-[44rem]/chat-composer:max-w-44"
                 :disabled="!tavernCharacters.length"
-                :aria-label="`角色卡：${tavernSelectedCharacterLabel}`"
+                :aria-label="t('chat.tavernDock.characterAria', { name: tavernSelectedCharacterLabel })"
               >
                 <UserRoundIcon data-icon="inline-start" />
                 <span class="hidden truncate @min-[34rem]/chat-composer:inline">
@@ -170,7 +171,7 @@ const selectedLorebookSet = computed(() => new Set(tavernSelectedLorebookIds.val
               align="start"
               class="w-80"
             >
-              <DropdownMenuLabel>角色卡</DropdownMenuLabel>
+              <DropdownMenuLabel>{{ t('chat.tavernDock.character') }}</DropdownMenuLabel>
               <DropdownMenuSeparator />
               <DropdownMenuRadioGroup
                 :model-value="tavernSelectedCharacterId"
@@ -201,7 +202,7 @@ const selectedLorebookSet = computed(() => new Set(tavernSelectedLorebookIds.val
               <InputGroupButton
                 class="max-w-9 justify-start px-1.5 @min-[34rem]/chat-composer:max-w-36 @min-[44rem]/chat-composer:max-w-44"
                 :disabled="!tavernLorebooks.length"
-                :aria-label="`世界书：${tavernSelectedLorebookLabel}`"
+                :aria-label="t('chat.tavernDock.lorebookAria', { name: tavernSelectedLorebookLabel })"
               >
                 <BookOpenIcon data-icon="inline-start" />
                 <span
@@ -218,7 +219,7 @@ const selectedLorebookSet = computed(() => new Set(tavernSelectedLorebookIds.val
               align="start"
               class="w-80"
             >
-              <DropdownMenuLabel>世界书</DropdownMenuLabel>
+              <DropdownMenuLabel>{{ t('chat.tavernDock.lorebook') }}</DropdownMenuLabel>
               <DropdownMenuSeparator />
               <DropdownMenuCheckboxItem
                 v-for="lorebook in tavernLorebooks"
@@ -231,7 +232,7 @@ const selectedLorebookSet = computed(() => new Set(tavernSelectedLorebookIds.val
                 <div class="flex min-w-0 flex-1 flex-col gap-0.5">
                   <span class="truncate">{{ lorebook.name }}</span>
                   <span class="text-xs text-muted-foreground">
-                    {{ lorebook.entries.length }} 个条目
+                    {{ t('chat.tavernDock.entriesCount', { count: lorebook.entries.length }) }}
                   </span>
                 </div>
               </DropdownMenuCheckboxItem>
@@ -243,7 +244,7 @@ const selectedLorebookSet = computed(() => new Set(tavernSelectedLorebookIds.val
               <InputGroupButton
                 class="max-w-9 justify-start px-1.5 @min-[34rem]/chat-composer:max-w-36 @min-[44rem]/chat-composer:max-w-44"
                 :disabled="!tavernPromptPresets.length"
-                :aria-label="`Prompt preset：${tavernSelectedPromptPresetLabel}`"
+                :aria-label="t('chat.tavernDock.presetAria', { name: tavernSelectedPromptPresetLabel })"
               >
                 <ScrollTextIcon data-icon="inline-start" />
                 <span class="hidden truncate @min-[34rem]/chat-composer:inline">
@@ -262,7 +263,7 @@ const selectedLorebookSet = computed(() => new Set(tavernSelectedLorebookIds.val
                 @update:model-value="handleTavernPromptPresetChange"
               >
                 <DropdownMenuRadioItem value="">
-                  无 preset
+                  {{ t('chat.tavernDock.noPreset') }}
                 </DropdownMenuRadioItem>
                 <DropdownMenuRadioItem
                   v-for="preset in tavernPromptPresets"
@@ -273,7 +274,7 @@ const selectedLorebookSet = computed(() => new Set(tavernSelectedLorebookIds.val
                   <div class="flex min-w-0 flex-1 flex-col gap-0.5">
                     <span class="truncate">{{ preset.name }}</span>
                     <span class="text-xs text-muted-foreground">
-                      {{ preset.slots.length }} 个 slot
+                      {{ t('chat.tavernDock.slotsCount', { count: preset.slots.length }) }}
                     </span>
                   </div>
                 </DropdownMenuRadioItem>
@@ -286,7 +287,7 @@ const selectedLorebookSet = computed(() => new Set(tavernSelectedLorebookIds.val
               <InputGroupButton
                 class="max-w-9 justify-start px-1.5 @min-[34rem]/chat-composer:max-w-36 @min-[44rem]/chat-composer:max-w-44"
                 :disabled="!tavernUserProfiles.length"
-                :aria-label="`酒馆用户：${tavernSelectedUserProfileLabel}`"
+                :aria-label="t('chat.tavernDock.userProfileAria', { name: tavernSelectedUserProfileLabel })"
               >
                 <IdCardIcon data-icon="inline-start" />
                 <span class="hidden truncate @min-[34rem]/chat-composer:inline">
@@ -298,14 +299,14 @@ const selectedLorebookSet = computed(() => new Set(tavernSelectedLorebookIds.val
               align="start"
               class="w-80"
             >
-              <DropdownMenuLabel>酒馆用户 profile</DropdownMenuLabel>
+              <DropdownMenuLabel>{{ t('chat.tavernDock.userProfile') }}</DropdownMenuLabel>
               <DropdownMenuSeparator />
               <DropdownMenuRadioGroup
                 :model-value="tavernSelectedUserProfileId"
                 @update:model-value="handleTavernUserProfileChange"
               >
                 <DropdownMenuRadioItem value="">
-                  无酒馆用户
+                  {{ t('chat.tavernDock.noUserProfile') }}
                 </DropdownMenuRadioItem>
                 <DropdownMenuRadioItem
                   v-for="profile in tavernUserProfiles"
@@ -316,7 +317,7 @@ const selectedLorebookSet = computed(() => new Set(tavernSelectedLorebookIds.val
                   <div class="flex min-w-0 flex-1 flex-col gap-0.5">
                     <span class="truncate">{{ profile.name }}</span>
                     <span class="line-clamp-2 text-xs text-muted-foreground">
-                      独立快照，不自动同步、不回写普通 Persona。
+                      {{ t('chat.tavernDock.userProfileSnapshotNote') }}
                     </span>
                   </div>
                 </DropdownMenuRadioItem>
