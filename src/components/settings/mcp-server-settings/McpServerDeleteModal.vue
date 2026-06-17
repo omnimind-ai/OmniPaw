@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n'
 import type { BridgeMcpServerSummary } from '@/bridge/app'
 import { Button } from '@/components/ui/button'
 import {
@@ -20,15 +21,17 @@ defineProps<{
 const emit = defineEmits<{
   delete: []
 }>()
+
+const { t } = useI18n()
 </script>
 
 <template>
   <Dialog v-model:open="open">
     <DialogContent>
       <DialogHeader>
-        <DialogTitle>删除 MCP 服务器</DialogTitle>
+        <DialogTitle>{{ t('settings.mcpServer.delete.title') }}</DialogTitle>
         <DialogDescription>
-          删除 {{ target?.name || '该服务器' }} 后，它发现的 MCP 工具会从后续聊天运行中移除。
+          {{ t('settings.mcpServer.delete.description', { name: target?.name || t('settings.mcpServer.delete.serverName') }) }}
         </DialogDescription>
       </DialogHeader>
       <DialogFooter>
@@ -37,14 +40,14 @@ const emit = defineEmits<{
           :disabled="pending"
           @click="open = false"
         >
-          取消
+          {{ t('settings.mcpServer.delete.cancelButton') }}
         </Button>
         <Button
           variant="destructive"
           :disabled="!target || pending"
           @click="emit('delete')"
         >
-          删除
+          {{ t('settings.mcpServer.delete.deleteButton') }}
         </Button>
       </DialogFooter>
     </DialogContent>

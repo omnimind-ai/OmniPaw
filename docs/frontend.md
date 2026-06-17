@@ -8,9 +8,10 @@
 2. 设置页/Provider 设置：读 `状态管理`、`设置页面`
 3. Persona 或本地 Agent 设置：读 `Persona 设置页面`、`本地 Agent 设置`
 4. 组件/样式：读 `shadcn-vue 与样式`
-5. 错误提示/操作反馈：读 `错误与反馈`
-6. 聊天 UI：读 `聊天页面`
-7. 需要 main/core 能力：再读 [electron-ipc.md](electron-ipc.md)
+5. 用户可见文案/语言切换：读 `国际化`
+6. 错误提示/操作反馈：读 `错误与反馈`
+7. 聊天 UI：读 `聊天页面`
+8. 需要 main/core 能力：再读 [electron-ipc.md](electron-ipc.md)
 
 ---
 
@@ -48,6 +49,14 @@
 - SHOULD：页面组件负责编排，composables 和 stores 承担可复用逻辑。
 - SHOULD：聊天会话、消息流、附件处理分别放在 `useSessions`、`useMessages`、`useMediaHandling` 对应边界内。
 - MAY：页面局部 UI 状态使用组件本地 `ref` / `computed`。
+
+## 国际化
+
+- MUST：renderer 用户可见静态文案使用 `vue-i18n`，翻译入口在 `src/i18n/`。
+- MUST：语言来源复用设置里的 `app.language`，通过 `useAppLanguage` 同步 locale，不在组件里自行读取浏览器语言。
+- MUST：新增翻译 key 同步更新 `src/i18n/locales/zh-CN.ts` 和 `src/i18n/locales/en-US.ts`。
+- SHOULD：翻译 key 按功能域分组，避免在组件内拼接动态 key。
+- SHOULD：用户生成内容、Provider 返回内容、日志原文和模型消息不做界面翻译。
 
 ## 设置页面
 
@@ -195,6 +204,8 @@
 | Persona 设置 | `src/components/settings/PersonaSettingsForm.vue` |
 | 本地 Agent 设置 | `src/components/settings/LocalAgentSettingsForm.vue` |
 | 基础 UI | `src/components/ui/` |
+| 国际化入口 | `src/i18n/index.ts` |
+| 国际化语言同步 | `src/composables/useAppLanguage.ts` |
 | 聊天状态 | `src/stores/chat.ts` |
 | 设置状态 | `src/stores/settings.ts` |
 | Provider 状态 | `src/stores/provider.ts` |

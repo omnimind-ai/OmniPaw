@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -9,6 +10,7 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog'
 
+const { t } = useI18n()
 const open = defineModel<boolean>('open', { default: false })
 
 defineProps<{
@@ -25,9 +27,9 @@ const emit = defineEmits<{
   <Dialog v-model:open="open">
     <DialogContent>
       <DialogHeader>
-        <DialogTitle>删除 Provider</DialogTitle>
+        <DialogTitle>{{ t('settings.provider.delete.title') }}</DialogTitle>
         <DialogDescription>
-          删除 {{ providerName }} 后，其下模型也会从配置中移除。
+          {{ t('settings.provider.delete.description', { name: providerName }) }}
         </DialogDescription>
       </DialogHeader>
       <DialogFooter>
@@ -36,7 +38,7 @@ const emit = defineEmits<{
           variant="outline"
           @click="open = false"
         >
-          取消
+          {{ t('settings.provider.cancelButton') }}
         </Button>
         <Button
           type="button"
@@ -44,7 +46,7 @@ const emit = defineEmits<{
           :disabled="saving"
           @click="emit('confirm')"
         >
-          删除
+          {{ t('settings.provider.deleteButton') }}
         </Button>
       </DialogFooter>
     </DialogContent>

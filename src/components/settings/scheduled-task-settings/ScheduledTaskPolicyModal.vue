@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import type { BridgeDesktopSettingsConfig } from '@/bridge/app'
 import { Button } from '@/components/ui/button'
 import {
@@ -29,6 +30,7 @@ import {
 } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 
+const { t } = useI18n()
 const open = defineModel<boolean>('open', { required: true })
 
 const props = defineProps<{
@@ -55,9 +57,9 @@ const misfireStartupLimit = computed({
   <Dialog v-model:open="open">
     <DialogContent class="sm:max-w-2xl">
       <DialogHeader>
-        <DialogTitle>计划任务策略</DialogTitle>
+        <DialogTitle>{{ t('settings.scheduledTask.policyModal.title') }}</DialogTitle>
         <DialogDescription>
-          管理本地计划任务运行、补跑策略和启动补跑限制。
+          {{ t('settings.scheduledTask.policyModal.description') }}
         </DialogDescription>
       </DialogHeader>
 
@@ -67,13 +69,13 @@ const misfireStartupLimit = computed({
           class="border-b px-4 py-3"
         >
           <FieldContent>
-            <FieldLabel for="scheduled-enabled">启用计划任务</FieldLabel>
-            <FieldDescription>关闭后不会自动运行或补跑，手动运行和管理仍可用。</FieldDescription>
+            <FieldLabel for="scheduled-enabled">{{ t('settings.scheduledTask.policyModal.enabled') }}</FieldLabel>
+            <FieldDescription>{{ t('settings.scheduledTask.policyModal.enabledDescription') }}</FieldDescription>
           </FieldContent>
           <Switch
             id="scheduled-enabled"
             v-model="draft.scheduledTasks.enabled"
-            aria-label="启用计划任务"
+            :aria-label="t('settings.scheduledTask.policyModal.enabled')"
           />
         </Field>
 
@@ -82,8 +84,8 @@ const misfireStartupLimit = computed({
           class="border-b px-4 py-3"
         >
           <FieldContent>
-            <FieldLabel for="scheduled-misfire-policy">补跑策略</FieldLabel>
-            <FieldDescription>桌面端关闭期间错过的重复任务如何处理。</FieldDescription>
+            <FieldLabel for="scheduled-misfire-policy">{{ t('settings.scheduledTask.policyModal.misfirePolicy') }}</FieldLabel>
+            <FieldDescription>{{ t('settings.scheduledTask.policyModal.misfirePolicyDescription') }}</FieldDescription>
           </FieldContent>
           <Select
             v-model="draft.scheduledTasks.misfirePolicy"
@@ -93,12 +95,12 @@ const misfireStartupLimit = computed({
               id="scheduled-misfire-policy"
               class="w-full md:w-48"
             >
-              <SelectValue placeholder="选择补跑策略" />
+              <SelectValue :placeholder="t('settings.scheduledTask.policyModal.misfirePolicyPlaceholder')" />
             </SelectTrigger>
             <SelectContent>
               <SelectGroup>
-                <SelectItem value="run_once">最多补跑一次</SelectItem>
-                <SelectItem value="skip">跳过错过任务</SelectItem>
+                <SelectItem value="run_once">{{ t('settings.scheduledTask.policyModal.runOnce') }}</SelectItem>
+                <SelectItem value="skip">{{ t('settings.scheduledTask.policyModal.runNow') }}</SelectItem>
               </SelectGroup>
             </SelectContent>
           </Select>
@@ -109,8 +111,8 @@ const misfireStartupLimit = computed({
           class="border-b px-4 py-3"
         >
           <FieldContent>
-            <FieldLabel for="scheduled-grace">单次任务宽限分钟</FieldLabel>
-            <FieldDescription>超过宽限时间的单次任务会记录为错过。</FieldDescription>
+            <FieldLabel for="scheduled-grace">{{ t('settings.scheduledTask.policyModal.graceMinutes') }}</FieldLabel>
+            <FieldDescription>{{ t('settings.scheduledTask.policyModal.graceMinutesDescription') }}</FieldDescription>
           </FieldContent>
           <Input
             id="scheduled-grace"
@@ -127,8 +129,8 @@ const misfireStartupLimit = computed({
           class="px-4 py-3"
         >
           <FieldContent>
-            <FieldLabel for="scheduled-limit">启动补跑上限</FieldLabel>
-            <FieldDescription>应用启动时最多补跑的任务数量。</FieldDescription>
+            <FieldLabel for="scheduled-limit">{{ t('settings.scheduledTask.policyModal.startupLimit') }}</FieldLabel>
+            <FieldDescription>{{ t('settings.scheduledTask.policyModal.startupLimitDescription') }}</FieldDescription>
           </FieldContent>
           <Input
             id="scheduled-limit"
@@ -143,7 +145,7 @@ const misfireStartupLimit = computed({
 
       <DialogFooter>
         <DialogClose as-child>
-          <Button type="button">完成</Button>
+          <Button type="button">{{ t('settings.scheduledTask.policyModal.done') }}</Button>
         </DialogClose>
       </DialogFooter>
     </DialogContent>

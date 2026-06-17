@@ -21,6 +21,7 @@ import {
   UserRoundIcon,
 } from 'lucide-vue-next'
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 
 import SettingsPanelHeader from '@/components/settings/common/SettingsPanelHeader.vue'
 import TavernCharacterEditorForm from '@/components/settings/tavern-settings/TavernCharacterEditorForm.vue'
@@ -51,6 +52,7 @@ const tavernStore = useTavernStore()
 const personaStore = usePersonaStore()
 const toast = useToast()
 const confirmDialog = useConfirmDialog()
+const { t } = useI18n()
 const activeTab = ref('characters')
 const importText = ref('')
 const selectedCharacterId = ref('')
@@ -134,13 +136,25 @@ const canSaveUserProfile = computed(
   () => Boolean(userProfileDraft.name.trim()) && !tavernStore.saving
 )
 const importDisabled = computed(() => !importText.value.trim() || tavernStore.saving)
-const characterEditorTitle = computed(() => (selectedCharacterId.value ? '编辑角色' : '新建角色'))
-const lorebookEditorTitle = computed(() => (selectedLorebookId.value ? '编辑世界书' : '新建世界书'))
+const characterEditorTitle = computed(() =>
+  selectedCharacterId.value
+    ? t('settings.tavern.characterEditor.editTitle')
+    : t('settings.tavern.characterEditor.createTitle')
+)
+const lorebookEditorTitle = computed(() =>
+  selectedLorebookId.value
+    ? t('settings.tavern.lorebookEditor.editTitle')
+    : t('settings.tavern.lorebookEditor.createTitle')
+)
 const promptPresetEditorTitle = computed(() =>
-  selectedPromptPresetId.value ? '编辑 prompt preset' : '新建 prompt preset'
+  selectedPromptPresetId.value
+    ? t('settings.tavern.presetEditor.editTitle')
+    : t('settings.tavern.presetEditor.createTitle')
 )
 const userProfileEditorTitle = computed(() =>
-  selectedUserProfileId.value ? '编辑酒馆用户 profile' : '新建酒馆用户 profile'
+  selectedUserProfileId.value
+    ? t('settings.tavern.profileEditor.editTitle')
+    : t('settings.tavern.profileEditor.createTitle')
 )
 
 onMounted(async () => {
@@ -159,7 +173,7 @@ onMounted(async () => {
       selectUserProfile(tavernStore.userProfiles[0].id)
     }
   } catch (error) {
-    toast.error(error, { description: '酒馆配置加载失败' })
+    toast.error(error, { description: t('settings.tavern.errors.loadFailed') })
   }
 })
 
@@ -358,9 +372,9 @@ async function importFromText() {
     selectCharacter(result.character.id)
     if (result.lorebooks[0]) selectLorebook(result.lorebooks[0].id)
     activeTab.value = 'characters'
-    toast.success('角色卡已导入')
+    toast.success(t('settings.tavern.import.textSuccess'))
   } catch (error) {
-    toast.error(error, { description: '角色卡导入失败' })
+    toast.error(error, { description: t('settings.tavern.import.textFailed') })
   }
 }
 
@@ -381,9 +395,9 @@ async function importFromFile(event: Event) {
     selectCharacter(result.character.id)
     if (result.lorebooks[0]) selectLorebook(result.lorebooks[0].id)
     activeTab.value = 'characters'
-    toast.success('角色卡已导入')
+    toast.success(t('settings.tavern.import.fileSuccess'))
   } catch (error) {
-    toast.error(error, { description: '角色卡文件导入失败' })
+    toast.error(error, { description: t('settings.tavern.import.fileFailed') })
   }
 }
 
@@ -411,9 +425,9 @@ async function saveCharacter() {
       selectCharacter(result.character.id)
     }
     characterEditorOpen.value = false
-    toast.success('角色已保存')
+    toast.success(t('settings.tavern.character.saveSuccess'))
   } catch (error) {
-    toast.error(error, { description: '角色保存失败' })
+    toast.error(error, { description: t('settings.tavern.character.saveFailed') })
   } finally {
     savingCharacter.value = false
   }
@@ -422,7 +436,10 @@ async function saveCharacter() {
 async function deleteSelectedCharacter() {
   const character = selectedCharacter.value
   if (!character) return
-  const confirmed = await askForConfirmation(`删除角色“${character.name}”？`, confirmDialog)
+  const confirmed = await askForConfirmation(
+    t('settings.tavern.character.deleteConfirm', { name: character.name }),
+    confirmDialog
+  )
   if (!confirmed) return
   try {
     await tavernStore.deleteCharacter(character.id)
@@ -430,9 +447,9 @@ async function deleteSelectedCharacter() {
     if (next) selectCharacter(next.id)
     else newCharacterDraft()
     characterEditorOpen.value = false
-    toast.success('角色已删除')
+    toast.success(t('settings.tavern.character.deleteSuccess'))
   } catch (error) {
-    toast.error(error, { description: '角色删除失败' })
+    toast.error(error, { description: t('settings.tavern.character.deleteFailed') })
   }
 }
 
@@ -444,11 +461,11 @@ async function exportPersona() {
       characterId: character.id,
       includeExamples: false,
     })
-    toast.success('已另存为 Persona', {
-      description: '导出结果是独立快照，默认不包含世界书和开场白。',
+    toast.success(t('settings.tavern.character.exportSuccess'), {
+      description: t('settings.tavern.character.exportDescription'),
     })
   } catch (error) {
-    toast.error(error, { description: 'Persona 导出失败' })
+    toast.error(error, { description: t('settings.tavern.character.exportFailed') })
   }
 }
 
@@ -464,9 +481,9 @@ async function saveLorebook() {
       selectLorebook(result.lorebook.id)
     }
     lorebookEditorOpen.value = false
-    toast.success('世界书已保存')
+    toast.success(t('settings.tavern.lorebook.saveSuccess'))
   } catch (error) {
-    toast.error(error, { description: '世界书保存失败' })
+    toast.error(error, { description: t('settings.tavern.lorebook.saveFailed') })
   } finally {
     savingLorebook.value = false
   }
@@ -475,7 +492,10 @@ async function saveLorebook() {
 async function deleteSelectedLorebook() {
   const lorebook = selectedLorebook.value
   if (!lorebook) return
-  const confirmed = await askForConfirmation(`删除世界书“${lorebook.name}”？`, confirmDialog)
+  const confirmed = await askForConfirmation(
+    t('settings.tavern.lorebook.deleteConfirm', { name: lorebook.name }),
+    confirmDialog
+  )
   if (!confirmed) return
   try {
     await tavernStore.deleteLorebook(lorebook.id)
@@ -486,9 +506,9 @@ async function deleteSelectedLorebook() {
     if (next) selectLorebook(next.id)
     else newLorebookDraft()
     lorebookEditorOpen.value = false
-    toast.success('世界书已删除')
+    toast.success(t('settings.tavern.lorebook.deleteSuccess'))
   } catch (error) {
-    toast.error(error, { description: '世界书删除失败' })
+    toast.error(error, { description: t('settings.tavern.lorebook.deleteFailed') })
   }
 }
 
@@ -531,9 +551,9 @@ async function savePromptPreset() {
       : await tavernStore.createPromptPreset({ preset: draft })
     if (result.promptPreset) selectPromptPreset(result.promptPreset.id)
     promptPresetEditorOpen.value = false
-    toast.success('Prompt preset 已保存')
+    toast.success(t('settings.tavern.preset.saveSuccess'))
   } catch (error) {
-    toast.error(error, { description: 'Prompt preset 保存失败' })
+    toast.error(error, { description: t('settings.tavern.preset.saveFailed') })
   } finally {
     savingPromptPreset.value = false
   }
@@ -542,7 +562,10 @@ async function savePromptPreset() {
 async function deleteSelectedPromptPreset() {
   const preset = selectedPromptPreset.value
   if (!preset) return
-  const confirmed = await askForConfirmation(`删除 preset“${preset.name}”？`, confirmDialog)
+  const confirmed = await askForConfirmation(
+    t('settings.tavern.preset.deleteConfirm', { name: preset.name }),
+    confirmDialog
+  )
   if (!confirmed) return
   try {
     await tavernStore.deletePromptPreset(preset.id)
@@ -550,9 +573,9 @@ async function deleteSelectedPromptPreset() {
     if (next) selectPromptPreset(next.id)
     else newPromptPresetDraft()
     promptPresetEditorOpen.value = false
-    toast.success('Prompt preset 已删除')
+    toast.success(t('settings.tavern.preset.deleteSuccess'))
   } catch (error) {
-    toast.error(error, { description: 'Prompt preset 删除失败' })
+    toast.error(error, { description: t('settings.tavern.preset.deleteFailed') })
   }
 }
 
@@ -566,9 +589,9 @@ async function saveUserProfile() {
       : await tavernStore.createUserProfile({ profile: draft })
     if (result.userProfile) selectUserProfile(result.userProfile.id)
     userProfileEditorOpen.value = false
-    toast.success('酒馆用户 profile 已保存')
+    toast.success(t('settings.tavern.userProfile.saveSuccess'))
   } catch (error) {
-    toast.error(error, { description: '酒馆用户 profile 保存失败' })
+    toast.error(error, { description: t('settings.tavern.userProfile.saveFailed') })
   } finally {
     savingUserProfile.value = false
   }
@@ -577,7 +600,10 @@ async function saveUserProfile() {
 async function deleteSelectedUserProfile() {
   const profile = selectedUserProfile.value
   if (!profile) return
-  const confirmed = await askForConfirmation(`删除 profile“${profile.name}”？`, confirmDialog)
+  const confirmed = await askForConfirmation(
+    t('settings.tavern.userProfile.deleteConfirm', { name: profile.name }),
+    confirmDialog
+  )
   if (!confirmed) return
   try {
     await tavernStore.deleteUserProfile(profile.id)
@@ -585,9 +611,9 @@ async function deleteSelectedUserProfile() {
     if (next) selectUserProfile(next.id)
     else newUserProfileDraft()
     userProfileEditorOpen.value = false
-    toast.success('酒馆用户 profile 已删除')
+    toast.success(t('settings.tavern.userProfile.deleteSuccess'))
   } catch (error) {
-    toast.error(error, { description: '酒馆用户 profile 删除失败' })
+    toast.error(error, { description: t('settings.tavern.userProfile.deleteFailed') })
   }
 }
 
@@ -600,11 +626,11 @@ async function copyPersonaToUserProfile() {
       name: userProfileDraft.name || undefined,
     })
     if (result.userProfile) selectUserProfile(result.userProfile.id)
-    toast.success('已复制为独立酒馆用户 profile', {
-      description: '复制结果不自动同步、不回写普通 Persona。',
+    toast.success(t('settings.tavern.userProfile.copySuccess'), {
+      description: t('settings.tavern.userProfile.copyDescription'),
     })
   } catch (error) {
-    toast.error(error, { description: '复制 Persona 失败' })
+    toast.error(error, { description: t('settings.tavern.userProfile.copyFailed') })
   } finally {
     savingUserProfile.value = false
   }
@@ -715,8 +741,8 @@ function setEntrySecondaryKeys(entry: TavernLorebookEntryDraft, value: string | 
   <div class="flex h-full min-h-0 flex-1 flex-col overflow-hidden">
     <Card class="grid h-full min-h-0 flex-1 grid-rows-[auto_auto_minmax(0,1fr)] gap-0 rounded-md border border-border py-0 ring-0">
       <SettingsPanelHeader
-        title="酒馆角色扮演"
-        description="导入角色卡并管理世界书"
+        :title="t('settings.tavern.title')"
+        :description="t('settings.tavern.description')"
         :icon="DramaIcon"
       />
 
@@ -728,23 +754,23 @@ function setEntrySecondaryKeys(entry: TavernLorebookEntryDraft, value: string | 
           <TabsList class="w-full justify-start overflow-x-auto">
             <TabsTrigger value="characters">
               <UserRoundIcon data-icon="inline-start" />
-              角色
+              {{ t('settings.tavern.tabs.characters') }}
             </TabsTrigger>
             <TabsTrigger value="lorebooks">
               <BookOpenIcon data-icon="inline-start" />
-              世界书
+              {{ t('settings.tavern.tabs.lorebooks') }}
             </TabsTrigger>
             <TabsTrigger value="presets">
               <ScrollTextIcon data-icon="inline-start" />
-              Preset
+              {{ t('settings.tavern.tabs.presets') }}
             </TabsTrigger>
             <TabsTrigger value="profiles">
               <IdCardIcon data-icon="inline-start" />
-              用户
+              {{ t('settings.tavern.tabs.profiles') }}
             </TabsTrigger>
             <TabsTrigger value="import">
               <FileJsonIcon data-icon="inline-start" />
-              导入
+              {{ t('settings.tavern.tabs.import') }}
             </TabsTrigger>
           </TabsList>
         </div>
@@ -826,7 +852,7 @@ function setEntrySecondaryKeys(entry: TavernLorebookEntryDraft, value: string | 
     <TavernEditorModal
       :open="characterEditorOpen"
       :title="characterEditorTitle"
-      description="编辑角色卡基础设定、开场白、样例消息和默认绑定世界书。"
+      :description="t('settings.tavern.characterEditor.description')"
       @update:open="handleCharacterEditorOpenChange"
     >
       <TavernCharacterEditorForm
@@ -846,7 +872,7 @@ function setEntrySecondaryKeys(entry: TavernLorebookEntryDraft, value: string | 
               :disabled="!selectedCharacter || savingCharacter"
               @click="exportPersona"
             >
-              另存为 Persona
+              {{ t('settings.tavern.character.exportButton') }}
             </Button>
             <Button
               type="button"
@@ -855,7 +881,7 @@ function setEntrySecondaryKeys(entry: TavernLorebookEntryDraft, value: string | 
               @click="deleteSelectedCharacter"
             >
               <Trash2Icon data-icon="inline-start" />
-              删除角色
+              {{ t('settings.tavern.character.deleteButton') }}
             </Button>
           </div>
           <Button
@@ -864,7 +890,7 @@ function setEntrySecondaryKeys(entry: TavernLorebookEntryDraft, value: string | 
             @click="saveCharacter"
           >
             <SaveIcon data-icon="inline-start" />
-            保存角色
+            {{ t('settings.tavern.character.saveButton') }}
           </Button>
         </div>
       </template>
@@ -873,7 +899,7 @@ function setEntrySecondaryKeys(entry: TavernLorebookEntryDraft, value: string | 
     <TavernEditorModal
       :open="lorebookEditorOpen"
       :title="lorebookEditorTitle"
-      description="编辑世界书信息、触发关键词、位置和正文条目。"
+      :description="t('settings.tavern.lorebookEditor.description')"
       @update:open="handleLorebookEditorOpenChange"
     >
       <TavernLorebookEditorForm
@@ -894,7 +920,7 @@ function setEntrySecondaryKeys(entry: TavernLorebookEntryDraft, value: string | 
             @click="deleteSelectedLorebook"
           >
             <Trash2Icon data-icon="inline-start" />
-            删除世界书
+            {{ t('settings.tavern.lorebook.deleteButton') }}
           </Button>
           <Button
             type="button"
@@ -902,7 +928,7 @@ function setEntrySecondaryKeys(entry: TavernLorebookEntryDraft, value: string | 
             @click="saveLorebook"
           >
             <SaveIcon data-icon="inline-start" />
-            保存世界书
+            {{ t('settings.tavern.lorebook.saveButton') }}
           </Button>
         </div>
       </template>
@@ -911,7 +937,7 @@ function setEntrySecondaryKeys(entry: TavernLorebookEntryDraft, value: string | 
     <TavernEditorModal
       :open="promptPresetEditorOpen"
       :title="promptPresetEditorTitle"
-      description="编辑酒馆 prompt preset 的主提示词和后置提示词。"
+      :description="t('settings.tavern.presetEditor.description')"
       @update:open="handlePromptPresetEditorOpenChange"
     >
       <TavernPromptPresetEditorForm
@@ -928,7 +954,7 @@ function setEntrySecondaryKeys(entry: TavernLorebookEntryDraft, value: string | 
             @click="deleteSelectedPromptPreset"
           >
             <Trash2Icon data-icon="inline-start" />
-            删除 preset
+            {{ t('settings.tavern.preset.deleteButton') }}
           </Button>
           <Button
             type="button"
@@ -936,7 +962,7 @@ function setEntrySecondaryKeys(entry: TavernLorebookEntryDraft, value: string | 
             @click="savePromptPreset"
           >
             <SaveIcon data-icon="inline-start" />
-            保存 preset
+            {{ t('settings.tavern.preset.saveButton') }}
           </Button>
         </div>
       </template>
@@ -945,7 +971,7 @@ function setEntrySecondaryKeys(entry: TavernLorebookEntryDraft, value: string | 
     <TavernEditorModal
       :open="userProfileEditorOpen"
       :title="userProfileEditorTitle"
-      description="维护酒馆模式专用的用户 profile 快照。"
+      :description="t('settings.tavern.profileEditor.description')"
       @update:open="handleUserProfileEditorOpenChange"
     >
       <TavernUserProfileEditorForm
@@ -965,7 +991,7 @@ function setEntrySecondaryKeys(entry: TavernLorebookEntryDraft, value: string | 
             @click="deleteSelectedUserProfile"
           >
             <Trash2Icon data-icon="inline-start" />
-            删除用户
+            {{ t('settings.tavern.userProfile.deleteButton') }}
           </Button>
           <Button
             type="button"
@@ -973,7 +999,7 @@ function setEntrySecondaryKeys(entry: TavernLorebookEntryDraft, value: string | 
             @click="saveUserProfile"
           >
             <SaveIcon data-icon="inline-start" />
-            保存用户
+            {{ t('settings.tavern.userProfile.saveButton') }}
           </Button>
         </div>
       </template>

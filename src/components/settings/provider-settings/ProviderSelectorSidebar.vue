@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { CloudIcon, PlusIcon, SearchIcon, Trash2Icon } from 'lucide-vue-next'
 import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import type { BridgeProviderPreset } from '@/bridge/app'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -14,6 +15,8 @@ import {
 import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group'
 import { cn } from '@/lib/utils'
 import type { ProviderSidebarItem } from './types'
+
+const { t } = useI18n()
 
 const props = defineProps<{
   activeProviderId: string
@@ -50,8 +53,8 @@ const hasSearchQuery = computed(() => Boolean(localSearchQuery.value.trim()))
         </InputGroupAddon>
         <InputGroupInput
           v-model="localSearchQuery"
-          aria-label="搜索 Provider"
-          placeholder="搜索模型平台..."
+          :aria-label="t('settings.provider.search.placeholder')"
+          :placeholder="t('settings.provider.search.placeholder')"
         />
       </InputGroup>
 
@@ -60,7 +63,7 @@ const hasSearchQuery = computed(() => Boolean(localSearchQuery.value.trim()))
           <Button
             variant="outline"
             size="icon"
-            aria-label="添加 Provider"
+            :aria-label="t('settings.provider.createNew')"
             :disabled="saving || presetsLoading"
           >
             <PlusIcon />
@@ -75,13 +78,13 @@ const hasSearchQuery = computed(() => Boolean(localSearchQuery.value.trim()))
               v-if="presetsLoading"
               disabled
             >
-              正在加载...
+              {{ t('settings.provider.presetsLoading') }}
             </DropdownMenuItem>
             <DropdownMenuItem
               v-else-if="!providerPresets.length"
               disabled
             >
-              暂无 Provider 预设。
+              {{ t('settings.provider.noPresets') }}
             </DropdownMenuItem>
             <template v-else>
               <DropdownMenuItem
@@ -107,14 +110,14 @@ const hasSearchQuery = computed(() => Boolean(localSearchQuery.value.trim()))
         v-if="loading"
         class="rounded-lg border px-3 py-2 text-sm text-muted-foreground"
       >
-        正在加载...
+        {{ t('settings.provider.loading') }}
       </div>
 
       <div
         v-else-if="!providerSidebarList.length"
         class="rounded-lg border px-3 py-2 text-sm text-muted-foreground"
       >
-        {{ hasSearchQuery ? '暂无匹配 Provider。' : '暂无 Provider。' }}
+        {{ hasSearchQuery ? t('settings.provider.search.noResults') : t('settings.provider.search.empty') }}
       </div>
 
       <div
@@ -144,13 +147,13 @@ const hasSearchQuery = computed(() => Boolean(localSearchQuery.value.trim()))
               v-if="provider.unsaved"
               variant="secondary"
             >
-              新增
+              {{ t('settings.provider.createNew') }}
             </Badge>
             <Badge
               v-else-if="provider.enabled === false"
               variant="outline"
             >
-              禁用
+              {{ t('settings.provider.models.item.disabled') }}
             </Badge>
           </button>
 
@@ -160,7 +163,7 @@ const hasSearchQuery = computed(() => Boolean(localSearchQuery.value.trim()))
             variant="ghost"
             size="icon-sm"
             class="mr-2 shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
-            :aria-label="`删除 ${provider.name}`"
+            :aria-label="t('settings.provider.delete.title')"
             :disabled="saving || !persistenceAvailable"
             @click.stop="emit('delete-provider', provider)"
           >

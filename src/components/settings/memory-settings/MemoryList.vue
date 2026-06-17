@@ -14,6 +14,7 @@ import {
   XIcon,
 } from 'lucide-vue-next'
 import type { HTMLAttributes } from 'vue'
+import { useI18n } from 'vue-i18n'
 import SettingsPanelHeader from '@/components/settings/common/SettingsPanelHeader.vue'
 import SettingsPanelItem from '@/components/settings/common/SettingsPanelItem.vue'
 import SettingsSearchBar from '@/components/settings/common/SettingsSearchBar.vue'
@@ -30,6 +31,8 @@ import {
   memoryStatusLabel,
   memoryStatusVariant,
 } from './format'
+
+const { t } = useI18n()
 
 const searchQuery = defineModel<string>('searchQuery', { required: true })
 
@@ -61,24 +64,24 @@ const emit = defineEmits<{
 <template>
   <Card :class="cn('grid h-full min-h-0 flex-1 grid-rows-[auto_auto_minmax(0,1fr)] gap-0 rounded-md border border-border py-0 ring-0', props.class)">
     <SettingsPanelHeader
-      title="伙伴记忆"
-      description="管理普通聊天和桌面伙伴会话使用的长期记忆。酒馆、主动视觉和计划任务不会参与这条记忆流水线。"
+      :title="t('settings.memory.panelTitle')"
+      :description="t('settings.memory.panelDescription')"
       :icon="BrainIcon"
     />
 
     <SettingsSearchBar
       v-model="searchQuery"
       class="border-b-0"
-      label="搜索记忆"
-      placeholder="搜索记忆内容"
-      clear-label="清除记忆搜索"
+      :label="t('settings.memory.searchLabel')"
+      :placeholder="t('settings.memory.searchPlaceholder')"
+      :clear-label="t('settings.memory.clearSearchLabel')"
       :disabled="loading"
       @clear="emit('clearSearch')"
       @keyup.enter="emit('refresh')"
     >
       <template #summary>
         <Badge variant="secondary">
-          {{ total }} 条记忆
+          {{ t('settings.memory.totalBadge', { count: total }) }}
         </Badge>
       </template>
 
@@ -89,13 +92,13 @@ const emit = defineEmits<{
           @click="emit('policy')"
         >
           <SlidersHorizontalIcon data-icon="inline-start" />
-          策略设置
+          {{ t('settings.memory.policyButton') }}
         </Button>
         <Button
           type="button"
           variant="outline"
           size="icon-sm"
-          aria-label="刷新记忆"
+          :aria-label="t('settings.memory.refreshAriaLabel')"
           :disabled="loading"
           @click="emit('refresh')"
         >

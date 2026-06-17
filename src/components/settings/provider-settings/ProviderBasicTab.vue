@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { CloudIcon, LogInIcon, LogOutIcon, RefreshCwIcon } from 'lucide-vue-next'
 import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import type { BridgeOpenAICodexOAuthStatus } from '@/bridge/app'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -26,6 +27,8 @@ import {
 import { Separator } from '@/components/ui/separator'
 import { Switch } from '@/components/ui/switch'
 import type { CredentialMode, ProviderDraft } from './types'
+
+const { t } = useI18n()
 
 const props = defineProps<{
   credentialMode: CredentialMode
@@ -80,7 +83,7 @@ const oauthExpiresLabel = computed(() => {
   <FieldGroup>
     <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
       <Field>
-        <FieldLabel for="provider-name">名称</FieldLabel>
+        <FieldLabel for="provider-name">{{ t('settings.provider.basic.name') }}</FieldLabel>
         <Input
           id="provider-name"
           v-model="draft.name"
@@ -88,7 +91,7 @@ const oauthExpiresLabel = computed(() => {
       </Field>
 
       <Field>
-        <FieldLabel for="provider-id">Provider ID</FieldLabel>
+        <FieldLabel for="provider-id">{{ t('settings.provider.basic.id') }}</FieldLabel>
         <Input
           id="provider-id"
           v-model="draft.id"
@@ -98,7 +101,7 @@ const oauthExpiresLabel = computed(() => {
     </div>
 
     <Field>
-      <FieldLabel for="provider-base-url">Base URL</FieldLabel>
+      <FieldLabel for="provider-base-url">{{ t('settings.provider.basic.baseUrl') }}</FieldLabel>
       <InputGroup>
         <InputGroupAddon>
           <CloudIcon />
@@ -118,32 +121,32 @@ const oauthExpiresLabel = computed(() => {
       <Switch
         id="provider-enabled"
         v-model="draft.enabled"
-        aria-label="启用 Provider"
+        :aria-label="t('settings.provider.basic.enabled')"
       />
       <FieldContent>
-        <FieldLabel for="provider-enabled">启用 Provider</FieldLabel>
-        <FieldDescription>禁用后该 Provider 下模型不会出现在可选列表中。</FieldDescription>
+        <FieldLabel for="provider-enabled">{{ t('settings.provider.basic.enabled') }}</FieldLabel>
+        <FieldDescription>{{ t('settings.provider.basic.enabledDescription') }}</FieldDescription>
       </FieldContent>
     </Field>
 
     <Separator />
 
     <FieldSet v-if="isOpenAICodexProvider">
-      <FieldLegend>OpenAI OAuth</FieldLegend>
-      <FieldDescription>使用 OpenAI 账号登录后，访问令牌会加密保存在本机。</FieldDescription>
+      <FieldLegend>{{ t('settings.provider.basic.oauth.title') }}</FieldLegend>
+      <FieldDescription>{{ t('settings.provider.basic.oauth.description') }}</FieldDescription>
 
       <Field class="rounded-lg border px-3 py-3">
         <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <FieldContent>
-            <FieldLabel>登录状态</FieldLabel>
+            <FieldLabel>{{ t('settings.provider.basic.oauth.status') }}</FieldLabel>
             <FieldDescription>
               {{ oauthAccountLabel }}
-              <span v-if="oauthExpiresLabel"> · 到期 {{ oauthExpiresLabel }}</span>
+              <span v-if="oauthExpiresLabel"> · {{ t('settings.provider.basic.oauth.expires') }} {{ oauthExpiresLabel }}</span>
             </FieldDescription>
           </FieldContent>
           <div class="flex flex-wrap items-center gap-2">
             <Badge :variant="oauthAuthenticated ? 'default' : 'secondary'">
-              {{ oauthAuthenticated ? '已连接' : '未连接' }}
+              {{ oauthAuthenticated ? t('settings.provider.basic.oauth.connected') : t('settings.provider.basic.oauth.notConnected') }}
             </Badge>
             <Button
               type="button"
@@ -153,7 +156,7 @@ const oauthExpiresLabel = computed(() => {
               @click="emit('oauthRefresh')"
             >
               <RefreshCwIcon data-icon="inline-start" />
-              刷新
+              {{ t('settings.provider.basic.oauth.refresh') }}
             </Button>
             <Button
               type="button"
@@ -162,7 +165,7 @@ const oauthExpiresLabel = computed(() => {
               @click="emit('oauthLogin')"
             >
               <LogInIcon data-icon="inline-start" />
-              {{ oauthAuthenticated ? '重新登录' : '使用 OpenAI 登录' }}
+              {{ oauthAuthenticated ? t('settings.provider.basic.oauth.relogin') : t('settings.provider.basic.oauth.login') }}
             </Button>
             <Button
               v-if="oauthAuthenticated"
@@ -173,7 +176,7 @@ const oauthExpiresLabel = computed(() => {
               @click="emit('oauthLogout')"
             >
               <LogOutIcon data-icon="inline-start" />
-              断开
+              {{ t('settings.provider.basic.oauth.logout') }}
             </Button>
           </div>
         </div>
@@ -181,24 +184,24 @@ const oauthExpiresLabel = computed(() => {
     </FieldSet>
 
     <FieldSet v-else>
-      <FieldLegend>凭证</FieldLegend>
-      <FieldDescription>留空会保留已有凭证。</FieldDescription>
+      <FieldLegend>{{ t('settings.provider.basic.credential.title') }}</FieldLegend>
+      <FieldDescription>{{ t('settings.provider.basic.credential.description') }}</FieldDescription>
 
       <div class="grid grid-cols-1 gap-4 lg:grid-cols-[12rem_minmax(0,1fr)]">
         <Field>
-          <FieldLabel for="credential-mode">凭证类型</FieldLabel>
+          <FieldLabel for="credential-mode">{{ t('settings.provider.basic.credential.type') }}</FieldLabel>
           <Select v-model="localCredentialMode">
             <SelectTrigger
               id="credential-mode"
               class="w-full"
             >
-              <SelectValue placeholder="选择凭证类型" />
+              <SelectValue :placeholder="t('settings.provider.basic.credential.placeholder')" />
             </SelectTrigger>
             <SelectContent>
               <SelectGroup>
-                <SelectItem value="api-key">API Key</SelectItem>
-                <SelectItem value="env">环境变量</SelectItem>
-                <SelectItem value="none">不更新</SelectItem>
+                <SelectItem value="api-key">{{ t('settings.provider.basic.credential.apiKey') }}</SelectItem>
+                <SelectItem value="env">{{ t('settings.provider.basic.credential.env') }}</SelectItem>
+                <SelectItem value="none">{{ t('settings.provider.basic.credential.noUpdate') }}</SelectItem>
               </SelectGroup>
             </SelectContent>
           </Select>
@@ -206,14 +209,14 @@ const oauthExpiresLabel = computed(() => {
 
         <Field :data-disabled="localCredentialMode === 'none'">
           <FieldLabel for="credential-value">
-            {{ localCredentialMode === 'env' ? '环境变量名' : 'API Key' }}
+            {{ localCredentialMode === 'env' ? t('settings.provider.basic.credential.envName') : t('settings.provider.basic.credential.value') }}
           </FieldLabel>
           <Input
             id="credential-value"
             v-model="localCredentialValue"
             :disabled="localCredentialMode === 'none'"
             :type="localCredentialMode === 'api-key' ? 'password' : 'text'"
-            placeholder="留空保留已有值"
+            :placeholder="t('settings.provider.basic.credential.valuePlaceholder')"
           />
         </Field>
       </div>

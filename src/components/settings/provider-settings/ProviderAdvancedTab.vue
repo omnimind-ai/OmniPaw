@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n'
 import { Field, FieldGroup, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import {
@@ -13,6 +14,8 @@ import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
 import type { ProviderDraft } from './types'
 
+const { t } = useI18n()
+
 defineProps<{
   draft: ProviderDraft
 }>()
@@ -22,7 +25,7 @@ defineProps<{
   <FieldGroup>
     <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
       <Field>
-        <FieldLabel for="provider-auth-header">认证 Header</FieldLabel>
+        <FieldLabel for="provider-auth-header">{{ t('settings.provider.advanced.authHeader') }}</FieldLabel>
         <Input
           id="provider-auth-header"
           v-model="draft.authHeader"
@@ -30,18 +33,18 @@ defineProps<{
       </Field>
 
       <Field>
-        <FieldLabel for="provider-max-token-field">Max Tokens 字段</FieldLabel>
+        <FieldLabel for="provider-max-token-field">{{ t('settings.provider.advanced.maxTokensField') }}</FieldLabel>
         <Select v-model="draft.compat.maxTokensField">
           <SelectTrigger
             id="provider-max-token-field"
             class="w-full"
           >
-            <SelectValue placeholder="选择字段" />
+            <SelectValue :placeholder="t('settings.provider.advanced.fieldPlaceholder')" />
           </SelectTrigger>
           <SelectContent>
             <SelectGroup>
-              <SelectItem value="max_tokens">max_tokens</SelectItem>
-              <SelectItem value="max_completion_tokens">max_completion_tokens</SelectItem>
+              <SelectItem value="max_tokens">{{ t('settings.provider.advanced.maxTokensValue') }}</SelectItem>
+              <SelectItem value="max_completion_tokens">{{ t('settings.provider.advanced.maxCompletionTokensValue') }}</SelectItem>
             </SelectGroup>
           </SelectContent>
         </Select>
@@ -56,9 +59,9 @@ defineProps<{
         <Switch
           id="provider-list-models"
           v-model="draft.capabilities.listModels"
-          aria-label="支持列出模型"
+          :aria-label="t('settings.provider.advanced.capabilities.listModels')"
         />
-        <FieldLabel for="provider-list-models">支持列出模型</FieldLabel>
+        <FieldLabel for="provider-list-models">{{ t('settings.provider.advanced.capabilities.listModels') }}</FieldLabel>
       </Field>
       <Field
         orientation="horizontal"
@@ -67,9 +70,9 @@ defineProps<{
         <Switch
           id="provider-tools"
           v-model="draft.capabilities.tools"
-          aria-label="默认支持工具"
+          :aria-label="t('settings.provider.advanced.capabilities.tools')"
         />
-        <FieldLabel for="provider-tools">默认支持工具</FieldLabel>
+        <FieldLabel for="provider-tools">{{ t('settings.provider.advanced.capabilities.tools') }}</FieldLabel>
       </Field>
       <Field
         orientation="horizontal"
@@ -78,9 +81,9 @@ defineProps<{
         <Switch
           id="provider-system-role"
           v-model="draft.compat.supportsSystemRole"
-          aria-label="支持 system role"
+          :aria-label="t('settings.provider.advanced.capabilities.systemRole')"
         />
-        <FieldLabel for="provider-system-role">System role</FieldLabel>
+        <FieldLabel for="provider-system-role">{{ t('settings.provider.advanced.capabilities.systemRole') }}</FieldLabel>
       </Field>
       <Field
         orientation="horizontal"
@@ -89,15 +92,15 @@ defineProps<{
         <Switch
           id="provider-json-mode"
           v-model="draft.compat.supportsJsonMode"
-          aria-label="支持 JSON mode"
+          :aria-label="t('settings.provider.advanced.capabilities.jsonMode')"
         />
-        <FieldLabel for="provider-json-mode">JSON mode</FieldLabel>
+        <FieldLabel for="provider-json-mode">{{ t('settings.provider.advanced.capabilities.jsonMode') }}</FieldLabel>
       </Field>
     </div>
 
     <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
       <Field>
-        <FieldLabel for="provider-headers">Headers JSON</FieldLabel>
+        <FieldLabel for="provider-headers">{{ t('settings.provider.advanced.headers') }}</FieldLabel>
         <Textarea
           id="provider-headers"
           v-model="draft.headersText"
@@ -106,7 +109,7 @@ defineProps<{
       </Field>
 
       <Field>
-        <FieldLabel for="provider-extra-body">Extra Body JSON</FieldLabel>
+        <FieldLabel for="provider-extra-body">{{ t('settings.provider.advanced.extraBody') }}</FieldLabel>
         <Textarea
           id="provider-extra-body"
           v-model="draft.extraBodyText"

@@ -6,6 +6,7 @@ import type {
 } from '@shared/types/shortcuts'
 import { KeyboardIcon, RotateCcwIcon } from 'lucide-vue-next'
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import type { BridgeDesktopSettingsConfig } from '@/bridge/app'
 import { appBridge } from '@/bridge/app'
 import SettingEntry from '@/components/settings/common/SettingEntry.vue'
@@ -19,33 +20,33 @@ import { useToast } from '@/utils/toast'
 const shortcutItems = [
   {
     action: 'cat.toggleVisibility',
-    title: '显示/隐藏小猫',
-    description: '切换小猫悬浮窗显示状态。',
+    titleKey: 'settings.shortcut.entries.toggleVisibility.title',
+    descriptionKey: 'settings.shortcut.entries.toggleVisibility.description',
   },
   {
     action: 'cat.openPanel',
-    title: '打开/关闭小猫面板',
-    description: '切换小猫对话面板并激活输入。',
+    titleKey: 'settings.shortcut.entries.openPanel.title',
+    descriptionKey: 'settings.shortcut.entries.openPanel.description',
   },
   {
     action: 'app.zoomIn',
-    title: '放大',
-    description: '增加主窗口缩放比例。',
+    titleKey: 'settings.shortcut.entries.zoomIn.title',
+    descriptionKey: 'settings.shortcut.entries.zoomIn.description',
   },
   {
     action: 'app.zoomOut',
-    title: '缩小',
-    description: '降低主窗口缩放比例。',
+    titleKey: 'settings.shortcut.entries.zoomOut.title',
+    descriptionKey: 'settings.shortcut.entries.zoomOut.description',
   },
   {
     action: 'app.zoomReset',
-    title: '重置缩放',
-    description: '恢复默认缩放比例。',
+    titleKey: 'settings.shortcut.entries.zoomReset.title',
+    descriptionKey: 'settings.shortcut.entries.zoomReset.description',
   },
 ] as const satisfies ReadonlyArray<{
   action: ShortcutAction
-  title: string
-  description: string
+  titleKey: string
+  descriptionKey: string
 }>
 
 const defaultShortcutAccelerators: Record<ShortcutAction, string> = {
@@ -61,6 +62,7 @@ const props = defineProps<{
 }>()
 
 const toast = useToast()
+const { t } = useI18n()
 const shortcutStatuses = ref<ShortcutRegistrationStatus[]>([])
 const recordingAction = ref<ShortcutAction | null>(null)
 let unsubscribeShortcutStatus: (() => void) | undefined
@@ -93,7 +95,7 @@ async function refreshShortcutStatus(): Promise<void> {
       applyShortcutStatus(event)
     }
   } catch (error) {
-    toast.warning(error, { description: '无法读取快捷键状态' })
+    toast.warning(error, { description: t('settings.shortcut.errors.failedToReadStatus') })
   }
 }
 
@@ -127,7 +129,7 @@ async function beginShortcutRecording(action: ShortcutAction): Promise<void> {
   } catch (error) {
     recordingAction.value = null
     window.removeEventListener('keydown', handleShortcutRecordingKeydown, { capture: true })
-    toast.error(error, { description: '无法进入快捷键录制模式' })
+    toast.error(error, { description: t('settings.shortcut.errors.failedEnterCaptureMode') })
   }
 }
 
@@ -141,7 +143,7 @@ async function stopShortcutCaptureMode(): Promise<void> {
   try {
     await appBridge.shortcuts?.setCaptureMode?.(false)
   } catch (error) {
-    toast.warning(error, { description: '无法恢复全局快捷键' })
+    toast.warning(error, { description: t('settings.shortcut.errors.failedRestoreShortcuts') })
   }
 }
 
@@ -240,8 +242,8 @@ function acceleratorParts(accelerator: string): string[] {
 
 <template>
   <SettingsSection
-    title="快捷键"
-    description="调整全局快捷组合键。"
+    :title="t('settings.shortcut.title')"
+    :description="t('settings.shortcut.description')"
     :icon="KeyboardIcon"
   >
     <FieldGroup class="gap-0">
@@ -249,8 +251,8 @@ function acceleratorParts(accelerator: string): string[] {
         v-for="item in shortcutItems"
         :key="item.action"
         :control-id="`settings-shortcut-${item.action}`"
-        :title="item.title"
-        :description="item.description"
+        :title="t(item.titleKey)"
+        :description="t(item.descriptionKey)"
         control-class="flex-wrap @md/field-group:flex-nowrap"
       >
         <Button
@@ -266,7 +268,7 @@ function acceleratorParts(accelerator: string): string[] {
             v-if="recordingAction === item.action"
             class="truncate"
           >
-            按下组合键
+            {{ $t('settings.shortcut.recording.prompt') }}
           </span>
           <KbdGroup
             v-else
@@ -286,7 +288,7 @@ function acceleratorParts(accelerator: string): string[] {
           variant="ghost"
           size="icon-sm"
           :disabled="recordingAction !== null"
-          :aria-label="`重置${item.title}快捷键`"
+          :aria-label="t('settings.shortcut.reset.label', { title: t(item.titleKey) })"
           @click="resetShortcut(item.action)"
         >
           <RotateCcwIcon />

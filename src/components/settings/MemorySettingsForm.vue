@@ -8,6 +8,7 @@ import type {
 } from '@shared/types/memory'
 import { storeToRefs } from 'pinia'
 import { computed, onMounted, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import type { BridgeDesktopSettingsConfig } from '@/bridge/app'
 import MemoryCreateModal from '@/components/settings/memory-settings/MemoryCreateModal.vue'
 import MemoryDetailModal from '@/components/settings/memory-settings/MemoryDetailModal.vue'
@@ -23,6 +24,7 @@ defineProps<{
   draft: BridgeDesktopSettingsConfig
 }>()
 
+const { t } = useI18n()
 const toast = useToast()
 const memoryStore = useMemoryStore()
 const { items, selected, loading, saving, total, proposals, proposalTotal } =
@@ -66,7 +68,7 @@ async function reload(): Promise<void> {
       await memoryStore.load(filters)
     }
   } catch (error) {
-    toast.error(errorToText(error, '记忆列表加载失败。'))
+    toast.error(errorToText(error, t('settings.memory.toast.listLoadFailed')))
   }
 }
 
@@ -74,7 +76,7 @@ async function reloadProposals(): Promise<void> {
   try {
     await memoryStore.loadProposals({ status: 'pending', limit: 50 })
   } catch (error) {
-    toast.error(errorToText(error, '维护建议加载失败。'))
+    toast.error(errorToText(error, t('settings.memory.toast.proposalsLoadFailed')))
   }
 }
 
@@ -101,9 +103,9 @@ async function submitCreateMemory(request: CreateCompanionMemoryRequest): Promis
     await reload()
     detailModalOpen.value = true
     await inspectMemory(memory.id)
-    toast.success('记忆已创建。')
+    toast.success(t('settings.memory.toast.created'))
   } catch (error) {
-    toast.error(errorToText(error, '记忆创建失败。'))
+    toast.error(errorToText(error, t('settings.memory.toast.createFailed')))
   }
 }
 
@@ -113,10 +115,10 @@ async function submitMemoryUpdate(request: UpdateCompanionMemoryRequest): Promis
     if (updated) {
       await reload()
       await inspectMemory(updated.id)
-      toast.success('记忆已保存。')
+      toast.success(t('settings.memory.toast.saved'))
     }
   } catch (error) {
-    toast.error(errorToText(error, '记忆保存失败。'))
+    toast.error(errorToText(error, t('settings.memory.toast.saveFailed')))
   }
 }
 
@@ -130,9 +132,13 @@ async function updateProposal(
     if (selectedMemory.value?.id) {
       await inspectMemory(selectedMemory.value.id)
     }
-    toast.success(status === 'accepted' ? '维护建议已接受。' : '维护建议已忽略。')
+    toast.success(
+      status === 'accepted'
+        ? t('settings.memory.toast.proposalAccepted')
+        : t('settings.memory.toast.proposalIgnored')
+    )
   } catch (error) {
-    toast.error(errorToText(error, '维护建议处理失败。'))
+    toast.error(errorToText(error, t('settings.memory.toast.proposalFailed')))
   }
 }
 
@@ -175,7 +181,7 @@ async function setImportance(memory: CompanionMemoryItem, delta: number): Promis
       await inspectMemory(memory.id)
     }
   } catch (error) {
-    toast.error(errorToText(error, '重要度更新失败。'))
+    toast.error(errorToText(error, t('settings.memory.toast.importanceFailed')))
   }
 }
 
@@ -193,9 +199,9 @@ async function deleteMemory(memory: CompanionMemoryItem): Promise<void> {
       selected.value = null
     }
     await reload()
-    toast.success('记忆已删除。')
+    toast.success(t('settings.memory.toast.deleted'))
   } catch (error) {
-    toast.error(errorToText(error, '记忆删除失败。'))
+    toast.error(errorToText(error, t('settings.memory.toast.deleteFailed')))
   }
 }
 
@@ -204,7 +210,7 @@ async function inspectMemory(memoryId: string): Promise<void> {
   try {
     await memoryStore.inspect(memoryId)
   } catch (error) {
-    toast.error(errorToText(error, '记忆详情加载失败。'))
+    toast.error(errorToText(error, t('settings.memory.toast.detailLoadFailed')))
   } finally {
     detailLoading.value = false
   }

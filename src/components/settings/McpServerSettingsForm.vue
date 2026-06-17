@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import type {
   BridgeManagedToolInfo,
   BridgeMcpChangedEvent,
@@ -25,6 +26,7 @@ const DEFAULT_TIMEOUT_MS = '15000'
 const DEFAULT_TOOL_TIMEOUT_MS = '30000'
 
 const toast = useToast()
+const { t } = useI18n()
 
 const servers = ref<BridgeMcpServerSummary[]>([])
 const managedTools = ref<BridgeManagedToolInfo[]>([])
@@ -128,7 +130,7 @@ async function loadInventory() {
 
 async function loadServers() {
   if (!appBridge.mcp) {
-    operationError.value = 'MCP 管理桥接尚未就绪。'
+    operationError.value = t('settings.mcpServer.mcpUnavailableMsg')
     return
   }
 
@@ -142,20 +144,20 @@ async function loadServers() {
       servers.value = inventory.servers
     }
   } catch (error) {
-    showOperationError(error, 'MCP 服务器加载失败。')
+    showOperationError(error, t('settings.mcpServer.serverLoadErrorToast'))
   }
 }
 
 async function loadManagedTools() {
   if (!appBridge.tools) {
-    operationError.value = operationError.value || '工具管理桥接尚未就绪。'
+    operationError.value = operationError.value || t('settings.mcpServer.toolsUnavailableMsg')
     return
   }
 
   try {
     managedTools.value = await appBridge.tools.list()
   } catch (error) {
-    showOperationError(error, '内置工具加载失败。')
+    showOperationError(error, t('settings.mcpServer.toolsLoadErrorToast'))
   }
 }
 
@@ -207,9 +209,9 @@ async function saveServer() {
       const saved = await appBridge.mcp?.saveServer(request)
       if (saved) upsertServer(saved)
       closeForm()
-      toast.success(`${request.server.name} 已保存。`)
+      toast.success(t('settings.mcpServer.form.saveSuccessToast', { name: request.server.name }))
     } catch (error) {
-      showOperationError(error, 'MCP 服务器保存失败。')
+      showOperationError(error, t('settings.mcpServer.form.saveErrorToast'))
     }
   })
 }
@@ -227,9 +229,9 @@ async function deleteServer() {
       }
       deleteDialogOpen.value = false
       deleteTarget.value = undefined
-      toast.success(`${target.name} 已删除。`)
+      toast.success(t('settings.mcpServer.delete.deleteSuccessToast', { name: target.name }))
     } catch (error) {
-      showOperationError(error, 'MCP 服务器删除失败。')
+      showOperationError(error, t('settings.mcpServer.delete.deleteErrorToast'))
     }
   })
 }
@@ -241,9 +243,16 @@ async function setServerEnabled(server: BridgeMcpServerSummary, enabled: boolean
     try {
       const updated = await appBridge.mcp?.setServerEnabled({ serverId: server.id, enabled })
       if (updated) upsertServer(updated)
-      toast.success(`${server.name} 已${enabled ? '启用' : '停用'}。`)
+      toast.success(
+        t(
+          enabled
+            ? 'settings.mcpServer.enableSuccessToast'
+            : 'settings.mcpServer.disableSuccessToast',
+          { name: server.name }
+        )
+      )
     } catch (error) {
-      showOperationError(error, 'MCP 服务器状态更新失败。')
+      showOperationError(error, t('settings.mcpServer.setStatusErrorToast'))
     }
   })
 }
@@ -257,9 +266,16 @@ async function setToolEnabled(tool: BridgeManagedToolInfo, enabled: boolean) {
       if (response) {
         managedTools.value = response.tools
       }
-      toast.success(`${tool.label || tool.name} 已${enabled ? '启用' : '停用'}。`)
+      toast.success(
+        t(
+          enabled
+            ? 'settings.mcpServer.builtin.toolEnableSuccessToast'
+            : 'settings.mcpServer.builtin.toolDisableSuccessToast',
+          { name: tool.label || tool.name }
+        )
+      )
     } catch (error) {
-      showOperationError(error, '内置工具状态更新失败。')
+      showOperationError(error, t('settings.mcpServer.builtin.toolStatusErrorToast'))
     }
   })
 }
@@ -275,9 +291,13 @@ async function refreshServers(serverId?: string) {
         servers.value = response.servers
         registryStatus.value = response.status
       }
-      toast.success(serverId ? 'MCP 服务器已刷新。' : 'MCP 服务器列表已刷新。')
+      toast.success(
+        serverId
+          ? t('settings.mcpServer.refreshServerSuccessToast')
+          : t('settings.mcpServer.refreshSuccessToast')
+      )
     } catch (error) {
-      showOperationError(error, 'MCP 服务器刷新失败。')
+      showOperationError(error, t('settings.mcpServer.refreshErrorToast'))
     }
   })
 }
@@ -289,13 +309,13 @@ function buildSaveRequest(): BridgeSaveMcpServerRequest | undefined {
   const toolTimeoutMs = parsePositiveInteger(draft.value.toolTimeoutMs)
 
   if (!name) {
-    nextErrors.name = '请输入服务器名称。'
+    nextErrors.name = t('settings.mcpServer.form.validationNameRequired')
   }
   if (!timeoutMs) {
-    nextErrors.timeoutMs = '请输入有效的连接超时时间。'
+    nextErrors.timeoutMs = t('settings.mcpServer.form.validationTimeoutRequired')
   }
   if (!toolTimeoutMs) {
-    nextErrors.toolTimeoutMs = '请输入有效的工具超时时间。'
+    nextErrors.toolTimeoutMs = t('settings.mcpServer.form.validationToolTimeoutRequired')
   }
 
   const server: BridgeSaveMcpServerRequest['server'] = {
@@ -315,7 +335,7 @@ function buildSaveRequest(): BridgeSaveMcpServerRequest | undefined {
   if (draft.value.transportType === 'stdio') {
     const command = draft.value.command.trim()
     if (!command) {
-      nextErrors.command = '请输入启动命令。'
+      nextErrors.command = t('settings.mcpServer.form.validationCommandRequired')
     }
     server.transport = {
       type: 'stdio',
@@ -327,7 +347,7 @@ function buildSaveRequest(): BridgeSaveMcpServerRequest | undefined {
   } else {
     const url = draft.value.url.trim()
     if (!/^https?:\/\//i.test(url)) {
-      nextErrors.url = '请输入 http 或 https 地址。'
+      nextErrors.url = t('settings.mcpServer.form.validationUrlRequired')
     }
     server.transport = {
       type: 'http',

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { SlidersHorizontalIcon, WrenchIcon } from 'lucide-vue-next'
+import { useI18n } from 'vue-i18n'
 import type { BridgeManagedToolInfo } from '@/bridge/app'
 import { Badge, type BadgeVariants } from '@/components/ui/badge'
 import {
@@ -30,13 +31,15 @@ const emit = defineEmits<{
   enable: [tool: BridgeManagedToolInfo, enabled: boolean]
 }>()
 
+const { t } = useI18n()
+
 function riskLabel(risk: string) {
   const labels: Record<string, string> = {
-    safe: '安全',
-    read: '读取',
-    network: '网络',
-    write: '写入',
-    exec: '执行',
+    safe: t('settings.mcpServer.builtin.riskLabels.safe'),
+    read: t('settings.mcpServer.builtin.riskLabels.read'),
+    network: t('settings.mcpServer.builtin.riskLabels.network'),
+    write: t('settings.mcpServer.builtin.riskLabels.write'),
+    exec: t('settings.mcpServer.builtin.riskLabels.exec'),
   }
   return labels[risk] || risk
 }
@@ -50,9 +53,9 @@ function riskVariant(risk: string): BadgeVariants['variant'] {
   <Dialog v-model:open="open">
     <DialogContent class="sm:max-w-3xl">
       <DialogHeader>
-        <DialogTitle>内置工具</DialogTitle>
+        <DialogTitle>{{ t('settings.mcpServer.builtin.title') }}</DialogTitle>
         <DialogDescription>
-          调整 OpenOmniClaw 内置工具是否参与 Agent 工具清单。
+          {{ t('settings.mcpServer.builtin.description') }}
         </DialogDescription>
       </DialogHeader>
 
@@ -92,7 +95,7 @@ function riskVariant(risk: string): BadgeVariants['variant'] {
             :id="`builtin-tool-enabled-${tool.name}`"
             :model-value="tool.enabled"
             :disabled="pending(`tool:${tool.name}`) || disabled"
-            :aria-label="`${tool.enabled ? '停用' : '启用'} ${tool.label || tool.name}`"
+            :aria-label="`${tool.enabled ? t('settings.mcpServer.builtin.toolEnabledSwitch') : t('settings.mcpServer.builtin.toolDisabledSwitch')} ${tool.label || tool.name}`"
             @update:model-value="emit('enable', tool, $event)"
           />
         </Field>
@@ -105,10 +108,10 @@ function riskVariant(risk: string): BadgeVariants['variant'] {
             <FieldLabel>
               <span class="flex items-center gap-2">
                 <SlidersHorizontalIcon data-icon="inline-start" />
-                暂无内置工具
+                {{ t('settings.mcpServer.builtin.noTools') }}
               </span>
             </FieldLabel>
-            <FieldDescription>内置工具清单尚未加载。</FieldDescription>
+            <FieldDescription>{{ t('settings.mcpServer.builtin.noToolsDesc') }}</FieldDescription>
           </FieldContent>
         </Field>
       </FieldGroup>

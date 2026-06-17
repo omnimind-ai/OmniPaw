@@ -1,12 +1,15 @@
 <script setup lang="ts">
 import { PlusIcon, RefreshCwIcon } from 'lucide-vue-next'
 import { computed, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 
 import SettingsSearchBar from '@/components/settings/common/SettingsSearchBar.vue'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import ProviderModelItem from './ProviderModelItem.vue'
 import type { ModelInput, ProviderDraft, ProviderModelDraft } from './types'
+
+const { t } = useI18n()
 
 const props = defineProps<{
   draft: ProviderDraft
@@ -76,15 +79,15 @@ function setModelOpen(model: ProviderModelDraft, open: boolean) {
 </script>
 
 <template>
-  <div class="flex flex-col gap-4">
+  <div class=”flex flex-col gap-4”>
     <SettingsSearchBar
-      v-model="searchQuery"
-      placeholder="搜索模型"
-      label="搜索模型"
-      class="border-b-0 px-0 sm:px-0"
+      v-model=”searchQuery”
+      :placeholder=”t('settings.provider.models.searchPlaceholder')”
+      :label=”t('settings.provider.models.search')”
+      class=”border-b-0 px-0 sm:px-0”
     >
       <template #summary>
-        <Badge variant="secondary">
+        <Badge variant=”secondary”>
           {{
             searchQuery.trim()
               ? `${filteredModels.length}/${draft.models.length}`
@@ -94,38 +97,38 @@ function setModelOpen(model: ProviderModelDraft, open: boolean) {
       </template>
       <template #actions>
         <Button
-          type="button"
-          variant="outline"
-          :disabled="refreshingModels || !canRefreshModels"
-          @click="emit('refresh-models')"
+          type=”button”
+          variant=”outline”
+          :disabled=”refreshingModels || !canRefreshModels”
+          @click=”emit('refresh-models')”
         >
-          <RefreshCwIcon data-icon="inline-start" />
-          {{ refreshingModels ? '探测中...' : '探测模型' }}
+          <RefreshCwIcon data-icon=”inline-start” />
+          {{ refreshingModels ? t('settings.provider.models.refreshing') : t('settings.provider.models.refreshButton') }}
         </Button>
 
         <Button
-          type="button"
-          variant="outline"
-          @click="emit('add-model')"
+          type=”button”
+          variant=”outline”
+          @click=”emit('add-model')”
         >
-          <PlusIcon data-icon="inline-start" />
-          添加模型
+          <PlusIcon data-icon=”inline-start” />
+          {{ t('settings.provider.models.addButton') }}
         </Button>
       </template>
     </SettingsSearchBar>
 
     <div
-      v-if="!draft.models.length"
-      class="rounded-lg border px-3 py-4 text-sm text-muted-foreground"
+      v-if=”!draft.models.length”
+      class=”rounded-lg border px-3 py-4 text-sm text-muted-foreground”
     >
-      还没有模型，先添加一个模型或探测远程模型列表。
+      {{ t('settings.provider.models.empty') }}
     </div>
 
     <div
-      v-else-if="!filteredModels.length"
-      class="rounded-lg border px-3 py-4 text-sm text-muted-foreground"
+      v-else-if=”!filteredModels.length”
+      class=”rounded-lg border px-3 py-4 text-sm text-muted-foreground”
     >
-      没有匹配 “{{ searchQuery }}” 的模型。
+      {{ t('settings.provider.models.noResults', { query: searchQuery }) }}
     </div>
 
     <ProviderModelItem

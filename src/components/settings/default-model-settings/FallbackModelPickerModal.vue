@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
@@ -32,10 +33,14 @@ const emit = defineEmits<{
   confirm: [modelKeys: string[]]
 }>()
 
+const { t } = useI18n()
+
 const selectedKeys = ref<string[]>([])
 const selectedKeySet = computed(() => new Set(selectedKeys.value))
 const confirmLabel = computed(() =>
-  selectedKeys.value.length ? `添加 ${selectedKeys.value.length}` : '添加'
+  selectedKeys.value.length
+    ? t('settings.defaultModel.fallback.confirmAdd', { count: selectedKeys.value.length })
+    : t('settings.defaultModel.fallback.addButton')
 )
 
 watch(open, (value) => {
@@ -82,9 +87,9 @@ function confirmSelection() {
   <Dialog v-model:open="open">
     <DialogContent class="max-h-[calc(100vh-2rem)] overflow-y-auto sm:max-w-2xl">
       <DialogHeader>
-        <DialogTitle>添加备用模型</DialogTitle>
+        <DialogTitle>{{ t('settings.defaultModel.fallback.pickerTitle') }}</DialogTitle>
         <DialogDescription>
-          一次选择多个候选模型。添加后可在备用模型列表中拖动调整回退顺序。
+          {{ t('settings.defaultModel.fallback.pickerDescription') }}
         </DialogDescription>
       </DialogHeader>
 
@@ -126,9 +131,9 @@ function confirmSelection() {
           class="rounded-md border px-4 py-6"
         >
           <FieldContent>
-            <FieldLabel>没有可添加的模型</FieldLabel>
+            <FieldLabel>{{ t('settings.defaultModel.fallback.noAddable') }}</FieldLabel>
             <FieldDescription>
-              已启用模型都已经在备用列表中，或当前没有可用模型。
+              {{ t('settings.defaultModel.fallback.noAddableDesc') }}
             </FieldDescription>
           </FieldContent>
         </Field>
@@ -141,14 +146,14 @@ function confirmSelection() {
           :disabled="disabled || !options.length"
           @click="selectAll"
         >
-          全选
+          {{ t('settings.defaultModel.fallback.selectAll') }}
         </Button>
         <Button
           type="button"
           variant="outline"
           @click="open = false"
         >
-          取消
+          {{ t('settings.defaultModel.fallback.cancel') }}
         </Button>
         <Button
           type="button"

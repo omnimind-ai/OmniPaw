@@ -2,6 +2,7 @@
 import type { CreateCronTaskRequest, CronTask, UpdateCronTaskRequest } from '@shared/types/cron'
 import { PlusIcon, SaveIcon, XIcon } from 'lucide-vue-next'
 import { computed, reactive, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -26,6 +27,7 @@ import type { ScheduledTaskSubmitPayload } from './types'
 
 type ScheduleMode = 'at' | 'cron'
 
+const { t } = useI18n()
 const open = defineModel<boolean>('open', { required: true })
 
 const props = defineProps<{
@@ -50,7 +52,11 @@ const form = reactive({
 })
 
 const editing = computed(() => Boolean(props.task))
-const title = computed(() => (editing.value ? '编辑任务' : '新建任务'))
+const title = computed(() =>
+  editing.value
+    ? t('settings.scheduledTask.editModal.editTitle')
+    : t('settings.scheduledTask.editModal.createTitle')
+)
 
 watch(
   () => ({ open: open.value, task: props.task }),
@@ -80,7 +86,12 @@ function submitTask(): void {
   try {
     schedule = formSchedulePayload()
   } catch (error) {
-    emit('invalid', error instanceof Error ? error.message : '计划任务参数无效。')
+    emit(
+      'invalid',
+      error instanceof Error
+        ? error.message
+        : t('settings.scheduledTask.editModal.invalidScheduleParams')
+    )
     return
   }
 
@@ -116,7 +127,7 @@ function formSchedulePayload():
   if (form.scheduleMode === 'at') {
     const runAt = Date.parse(form.runAtLocal)
     if (!Number.isFinite(runAt)) {
-      throw new Error('请输入有效的运行时间。')
+      throw new Error(t('settings.scheduledTask.editModal.invalidRunAt'))
     }
     return { runAt }
   }
@@ -136,7 +147,7 @@ function toDatetimeLocal(value: number): string {
       <DialogHeader>
         <DialogTitle>{{ title }}</DialogTitle>
         <DialogDescription>
-          新任务会使用独立的计划任务会话保存上下文和结果。
+          {{ t('settings.scheduledTask.editModal.description') }}
         </DialogDescription>
       </DialogHeader>
 
@@ -146,28 +157,28 @@ function toDatetimeLocal(value: number): string {
       >
         <FieldGroup>
           <Field>
-            <FieldLabel for="cron-task-name">名称</FieldLabel>
+            <FieldLabel for="cron-task-name">{{ t('settings.scheduledTask.editModal.nameLabel') }}</FieldLabel>
             <Input
               id="cron-task-name"
               v-model="form.name"
-              placeholder="例如：每日总结"
+              :placeholder="t('settings.scheduledTask.editModal.namePlaceholder')"
             />
           </Field>
 
           <Field>
-            <FieldLabel for="cron-task-note">任务说明</FieldLabel>
+            <FieldLabel for="cron-task-note">{{ t('settings.scheduledTask.editModal.noteLabel') }}</FieldLabel>
             <Textarea
               id="cron-task-note"
               v-model="form.note"
-              placeholder="写给 Agent 的计划任务说明"
+              :placeholder="t('settings.scheduledTask.editModal.notePlaceholder')"
               class="min-h-24"
             />
           </Field>
 
           <Field orientation="responsive">
             <FieldContent>
-              <FieldLabel>计划类型</FieldLabel>
-              <FieldDescription>单次时间或五字段 cron 表达式。</FieldDescription>
+              <FieldLabel>{{ t('settings.scheduledTask.editModal.scheduleType') }}</FieldLabel>
+              <FieldDescription>{{ t('settings.scheduledTask.editModal.scheduleTypeDescription') }}</FieldDescription>
             </FieldContent>
             <ToggleGroup
               v-model="form.scheduleMode"
@@ -179,19 +190,19 @@ function toDatetimeLocal(value: number): string {
                 value="at"
                 class="flex-1 md:flex-none"
               >
-                单次
+                {{ t('settings.scheduledTask.editModal.scheduleOnce') }}
               </ToggleGroupItem>
               <ToggleGroupItem
                 value="cron"
                 class="flex-1 md:flex-none"
               >
-                重复
+                {{ t('settings.scheduledTask.editModal.scheduleRepeat') }}
               </ToggleGroupItem>
             </ToggleGroup>
           </Field>
 
           <Field v-if="form.scheduleMode === 'at'">
-            <FieldLabel for="cron-task-run-at">运行时间</FieldLabel>
+            <FieldLabel for="cron-task-run-at">{{ t('settings.scheduledTask.editModal.runAtLabel') }}</FieldLabel>
             <Input
               id="cron-task-run-at"
               v-model="form.runAtLocal"
@@ -200,24 +211,24 @@ function toDatetimeLocal(value: number): string {
           </Field>
 
           <Field v-else>
-            <FieldLabel for="cron-task-expression">Cron 表达式</FieldLabel>
+            <FieldLabel for="cron-task-expression">{{ t('settings.scheduledTask.editModal.cronLabel') }}</FieldLabel>
             <Input
               id="cron-task-expression"
               v-model="form.cronExpression"
-              placeholder="0 9 * * *"
+              :placeholder="t('settings.scheduledTask.editModal.cronPlaceholder')"
             />
-            <FieldDescription>支持五字段：分钟 小时 日期 月份 星期。</FieldDescription>
+            <FieldDescription>{{ t('settings.scheduledTask.editModal.cronDescription') }}</FieldDescription>
           </Field>
 
           <Field orientation="responsive">
             <FieldContent>
-              <FieldLabel for="cron-task-enabled">启用任务</FieldLabel>
-              <FieldDescription>停用后不会自动触发。</FieldDescription>
+              <FieldLabel for="cron-task-enabled">{{ t('settings.scheduledTask.editModal.enabledLabel') }}</FieldLabel>
+              <FieldDescription>{{ t('settings.scheduledTask.editModal.enabledDescription') }}</FieldDescription>
             </FieldContent>
             <Switch
               id="cron-task-enabled"
               v-model="form.enabled"
-              aria-label="启用任务"
+              :aria-label="t('settings.scheduledTask.editModal.enabledLabel')"
             />
           </Field>
         </FieldGroup>
@@ -230,7 +241,7 @@ function toDatetimeLocal(value: number): string {
             @click="resetForm()"
           >
             <PlusIcon data-icon="inline-start" />
-            清空
+            {{ t('settings.scheduledTask.editModal.clearButton') }}
           </Button>
           <Button
             v-else
@@ -239,14 +250,14 @@ function toDatetimeLocal(value: number): string {
             @click="open = false"
           >
             <XIcon data-icon="inline-start" />
-            取消
+            {{ t('settings.scheduledTask.editModal.cancelButton') }}
           </Button>
           <Button
             type="submit"
             :disabled="saving || !persistenceAvailable"
           >
             <SaveIcon data-icon="inline-start" />
-            保存
+            {{ t('settings.scheduledTask.editModal.saveButton') }}
           </Button>
         </DialogFooter>
       </form>

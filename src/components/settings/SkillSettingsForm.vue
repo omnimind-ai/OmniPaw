@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 
 import {
   appBridge,
@@ -33,6 +34,7 @@ interface LegacySkillSummary {
   error?: string | { message?: string }
 }
 
+const { t } = useI18n()
 const toast = useToast()
 const skillBridge = appBridge.skill
 
@@ -72,7 +74,7 @@ async function loadSkills() {
   try {
     applyListResponse(await skillBridge.list())
   } catch (error) {
-    showOperationError(error, '技能列表加载失败。')
+    showOperationError(error, t('settings.skill.errors.listLoadFailed'))
   } finally {
     loading.value = false
   }
@@ -83,9 +85,9 @@ async function refreshSkills() {
     try {
       const response = skillBridge.refresh ? await skillBridge.refresh() : await skillBridge.list()
       applyListResponse(response)
-      toast.success('技能列表已刷新。')
+      toast.success(t('settings.skill.errors.skillRefreshed'))
     } catch (error) {
-      showOperationError(error, '技能列表刷新失败。')
+      showOperationError(error, t('settings.skill.errors.listRefreshFailed'))
     }
   })
 }
@@ -105,7 +107,10 @@ async function importSkillFile(event: Event) {
     return
   }
   if (!skillBridge.importSkill) {
-    showOperationError(new Error('当前运行时不支持导入技能。'), '技能导入失败。')
+    showOperationError(
+      new Error(t('settings.skill.skillUnavailableReason')),
+      t('settings.skill.errors.importFailed')
+    )
     return
   }
 
@@ -119,17 +124,23 @@ async function importSkillFile(event: Event) {
       if (response) {
         applyImportResponse(response)
         const names = response.imported.map((skill) => skill.name).join('、')
-        toast.success(names ? `已导入 ${names}。` : '技能已导入。')
+        const message = names
+          ? t('settings.skill.errors.skillImported', { names })
+          : t('settings.skill.errors.skillImportedEmpty')
+        toast.success(message)
       }
     } catch (error) {
-      showOperationError(error, '技能导入失败。')
+      showOperationError(error, t('settings.skill.errors.importFailed'))
     }
   })
 }
 
 async function setSkillEnabled(skill: LocalSkillSummary, enabled: boolean) {
   if (!skillBridge.setEnabled) {
-    showOperationError(new Error('当前运行时不支持保存技能启用状态。'), '技能状态更新失败。')
+    showOperationError(
+      new Error(t('settings.skill.enableUnavailableReason')),
+      t('settings.skill.errors.statusUpdateFailed')
+    )
     return
   }
 
@@ -137,9 +148,12 @@ async function setSkillEnabled(skill: LocalSkillSummary, enabled: boolean) {
     try {
       const updated = await skillBridge.setEnabled?.({ skillId: skill.id, enabled })
       if (updated) upsertSkill(updated)
-      toast.success(`${skill.name} 已${enabled ? '启用' : '停用'}。`)
+      const action = enabled
+        ? t('settings.skill.errors.skillEnabledAction')
+        : t('settings.skill.errors.skillDisabledAction')
+      toast.success(t('settings.skill.errors.skillEnabled', { name: skill.name, action }))
     } catch (error) {
-      showOperationError(error, '技能状态更新失败。')
+      showOperationError(error, t('settings.skill.errors.statusUpdateFailed'))
     }
   })
 }

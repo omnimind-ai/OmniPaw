@@ -8,6 +8,7 @@ import {
   XIcon,
 } from 'lucide-vue-next'
 import { computed, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import type { BridgeLocalSkillSummary } from '@/bridge/app'
 
 import SettingsPanelHeader from '@/components/settings/common/SettingsPanelHeader.vue'
@@ -43,6 +44,7 @@ const emit = defineEmits<{
   enable: [skill: BridgeLocalSkillSummary, enabled: boolean]
 }>()
 
+const { t } = useI18n()
 const searchQuery = ref('')
 const enabledCount = computed(() => props.skills.filter((skill) => skill.enabled).length)
 const invalidCount = computed(() => props.skills.filter((skill) => isInvalidSkill(skill)).length)
@@ -70,23 +72,23 @@ function isInvalidSkill(skill: BridgeLocalSkillSummary) {
 }
 
 function statusLabel(status?: LocalSkillStatus) {
-  const labels: Record<string, string> = {
-    valid: '可用',
-    available: '可用',
-    invalid: '无效',
-    error: '错误',
-    disabled: '已停用',
-    missing: '缺失',
+  const statusMap: Record<string, string> = {
+    valid: t('settings.skill.skillStatus.valid'),
+    available: t('settings.skill.skillStatus.available'),
+    invalid: t('settings.skill.skillStatus.invalid'),
+    error: t('settings.skill.skillStatus.error'),
+    disabled: t('settings.skill.skillStatus.disabled'),
+    missing: t('settings.skill.skillStatus.missing'),
   }
-  return labels[String(status || 'valid')] || String(status)
+  return statusMap[String(status || 'valid')] || String(status)
 }
 
 function statusVariant(status?: LocalSkillStatus): BadgeVariants['variant'] {
   return isInvalidStatus(status) ? 'destructive' : 'secondary'
 }
 
-function sourceLabel(source: BridgeLocalSkillSummary['source']) {
-  return source === 'local' ? '本地' : '本地'
+function sourceLabel() {
+  return t('settings.skill.sourceLabel')
 }
 
 function safeLocationLabel(skill: BridgeLocalSkillSummary) {
@@ -101,7 +103,7 @@ function skillErrorMessage(skill: BridgeLocalSkillSummary) {
 
 function metadataBadges(skill: BridgeLocalSkillSummary) {
   return [
-    skill.compatibility ? `兼容性: ${skill.compatibility}` : '',
+    skill.compatibility ? `${t('settings.skill.title')}: ${skill.compatibility}` : '',
     skill.metadata.license ? `许可: ${skill.metadata.license}` : '',
   ].filter(Boolean)
 }
@@ -123,24 +125,24 @@ function clearSearch() {
   <div class="flex h-full min-h-0 flex-1 flex-col overflow-hidden">
     <Card class="grid h-full min-h-0 flex-1 grid-rows-[auto_auto_minmax(0,1fr)] gap-0 rounded-md border border-border py-0 ring-0">
       <SettingsPanelHeader
-        title="技能"
+        :title="t('settings.skill.title')"
         :icon="BookOpenIcon"
       >
         <template #description>
-          管理本地技能包。技能只提供本地提示词说明，不会授予新的文件、命令或网络权限。
+          {{ t('settings.skill.description') }}
         </template>
       </SettingsPanelHeader>
 
       <SettingsSearchBar
         v-model="searchQuery"
         class="border-b-0"
-        label="搜索技能"
-        placeholder="搜索技能名称、描述或路径"
-        clear-label="清除技能搜索"
+        :label="t('settings.skill.searchLabel')"
+        :placeholder="t('settings.skill.searchPlaceholder')"
+        :clear-label="t('settings.skill.clearSearchLabel')"
       >
         <template #summary>
           <Badge variant="secondary">
-            {{ skills.length }} 个技能
+            {{ t('settings.skill.skillCount', { count: skills.length }) }}
           </Badge>
         </template>
 
@@ -155,7 +157,7 @@ function clearSearch() {
               data-icon="inline-start"
               :class="cn(isRefreshPending && 'animate-spin')"
             />
-            刷新
+            {{ t('settings.skill.refreshSkills') }}
           </Button>
           <Button
             type="button"
@@ -175,14 +177,14 @@ function clearSearch() {
             v-if="skillUnavailable"
             class="shrink-0 border-b px-4 py-4 text-sm text-muted-foreground sm:px-5"
           >
-            技能管理桥接尚未就绪，请在 Electron 运行时中打开设置。
+            {{ t('settings.skill.bridgeNotReady') }}
           </div>
 
           <div
             v-if="readOnly"
             class="shrink-0 border-b px-4 py-3 text-sm text-muted-foreground sm:px-5"
           >
-            当前是预览或只读运行时，可以查看技能列表，但导入和启用状态不会写入本地技能状态。
+            {{ t('settings.skill.readOnlyMode') }}
           </div>
 
           <div
@@ -211,8 +213,8 @@ function clearSearch() {
           >
             <BookOpenIcon class="size-8 opacity-50" />
             <div class="flex flex-col gap-1">
-              <p class="font-medium text-foreground">暂无本地技能。</p>
-              <p>本地技能根目录中发现包含 SKILL.md 的技能包后，会显示在这里。</p>
+              <p class="font-medium text-foreground">{{ t('settings.skill.noSkills') }}</p>
+              <p>{{ t('settings.skill.noSkillsHint') }}</p>
             </div>
             <div class="flex flex-wrap justify-center gap-2">
               <Button
@@ -223,7 +225,7 @@ function clearSearch() {
                 @click="emit('import-file')"
               >
                 <UploadIcon data-icon="inline-start" />
-                导入技能
+                {{ t('settings.skill.importSkill') }}
               </Button>
             </div>
           </div>
@@ -234,8 +236,8 @@ function clearSearch() {
           >
             <SearchIcon class="size-8 opacity-50" />
             <div class="flex flex-col gap-1">
-              <p class="font-medium text-foreground">没有匹配的技能。</p>
-              <p>换一个名称、描述或路径关键词试试。</p>
+              <p class="font-medium text-foreground">{{ t('settings.skill.noMatch') }}</p>
+              <p>{{ t('settings.skill.noMatchHint') }}</p>
             </div>
             <Button
               type="button"
@@ -244,7 +246,7 @@ function clearSearch() {
               @click="clearSearch"
             >
               <XIcon data-icon="inline-start" />
-              清除搜索
+              {{ t('settings.skill.clearSearch') }}
             </Button>
           </div>
 
@@ -256,7 +258,7 @@ function clearSearch() {
               v-for="skill in filteredSkills"
               :key="skill.id"
               :title="skill.name"
-              :description="skill.description || '未提供描述。'"
+              :description="skill.description || t('settings.skill.noDescription')"
               :icon="BookOpenIcon"
               :pending="isSkillPending(skill.id)"
               :avatar-class="isInvalidSkill(skill) ? 'bg-destructive/10 text-destructive' : undefined"
@@ -266,10 +268,10 @@ function clearSearch() {
                   {{ statusLabel(skill.status) }}
                 </Badge>
                 <Badge variant="outline">
-                  {{ sourceLabel(skill.source) }}
+                  {{ sourceLabel() }}
                 </Badge>
                 <Badge :variant="skill.enabled ? 'secondary' : 'outline'">
-                  {{ skill.enabled ? '已启用' : '已停用' }}
+                  {{ skill.enabled ? t('settings.skill.enabled') : t('settings.skill.disabled') }}
                 </Badge>
               </template>
 
@@ -303,7 +305,7 @@ function clearSearch() {
                   size="sm"
                   :model-value="skill.enabled"
                   :disabled="isSkillPending(skill.id) || persistenceUnavailable || isInvalidSkill(skill)"
-                  :aria-label="`${skill.enabled ? '停用' : '启用'} ${skill.name}`"
+                  :aria-label="`${skill.enabled ? t('settings.skill.toggleAction.disable') : t('settings.skill.toggleAction.enable')} ${skill.name}`"
                   @update:model-value="emit('enable', skill, $event)"
                 />
               </template>
@@ -315,7 +317,7 @@ function clearSearch() {
               >
                 <FieldContent>
                   <FieldLabel class="text-destructive">
-                    技能异常
+                    {{ t('settings.skill.errorLabel') }}
                   </FieldLabel>
                   <FieldDescription class="text-destructive">
                     {{ skillErrorMessage(skill) }}

@@ -10,6 +10,7 @@ import {
   XIcon,
 } from 'lucide-vue-next'
 import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 
 import type { BridgePersonaProfile, BridgePersonaProfileDraft } from '@/bridge/app'
 import SettingsPanelHeader from '@/components/settings/common/SettingsPanelHeader.vue'
@@ -42,6 +43,7 @@ import { errorToText, useToast } from '@/utils/toast'
 
 const personaStore = usePersonaStore()
 const toast = useToast()
+const { t } = useI18n()
 
 interface DraftState {
   id?: string
@@ -70,7 +72,9 @@ const deleteOpen = ref(false)
 
 const isEditing = computed(() => Boolean(editingId.value))
 const isSaving = computed(() => personaStore.saving)
-const profileSummary = computed(() => `${profiles.value.length} 个人格`)
+const profileSummary = computed(
+  () => `${profiles.value.length} ${t('settings.persona.summaryCount')}`
+)
 const filteredProfiles = computed(() => {
   const query = normalizeSearchText(searchQuery.value)
   if (!query) return profiles.value
@@ -85,7 +89,7 @@ onMounted(async () => {
   try {
     await personaStore.load()
   } catch (error) {
-    toast.error(errorToText(error, '人格加载失败。'))
+    toast.error(errorToText(error, t('settings.persona.loadErrorToast')))
   }
 })
 
@@ -146,8 +150,8 @@ function cancelDraft(): void {
 }
 
 function validate(): string {
-  if (!draft.name.trim()) return '请填写人格名称。'
-  if (!draft.prompt.trim()) return '请填写人格提示词。'
+  if (!draft.name.trim()) return t('settings.persona.dialogCreate.validationNameRequired')
+  if (!draft.prompt.trim()) return t('settings.persona.dialogCreate.validationPromptRequired')
   return ''
 }
 
@@ -169,15 +173,15 @@ async function saveDraft(): Promise<void> {
     if (editingId.value) {
       pendingId.value = editingId.value
       await personaStore.updateProfile(editingId.value, payload)
-      toast.success('人格已更新。')
+      toast.success(t('settings.persona.dialogCreate.updateSuccessToast'))
     } else {
       await personaStore.createProfile(payload)
-      toast.success('人格已创建。')
+      toast.success(t('settings.persona.dialogCreate.createSuccessToast'))
     }
     draftOpen.value = false
     resetDraft()
   } catch (error) {
-    toast.error(errorToText(error, '人格保存失败。'))
+    toast.error(errorToText(error, t('settings.persona.dialogCreate.saveErrorToast')))
   } finally {
     pendingId.value = ''
   }
@@ -187,9 +191,9 @@ async function activatePersona(profile: BridgePersonaProfile): Promise<void> {
   pendingId.value = profile.id
   try {
     await personaStore.setActivePersona(profile.id)
-    toast.success(`已启用人格 "${profile.name}"。`)
+    toast.success(t('settings.persona.activateSuccessToast', { name: profile.name }))
   } catch (error) {
-    toast.error(errorToText(error, '启用人格失败。'))
+    toast.error(errorToText(error, t('settings.persona.activateErrorToast')))
   } finally {
     pendingId.value = ''
   }
@@ -200,9 +204,9 @@ async function deactivatePersona(): Promise<void> {
   pendingId.value = 'clear-default'
   try {
     await personaStore.setActivePersona(undefined)
-    toast.success('已停用人格。')
+    toast.success(t('settings.persona.deactivateSuccessToast'))
   } catch (error) {
-    toast.error(errorToText(error, '停用人格失败。'))
+    toast.error(errorToText(error, t('settings.persona.deactivateErrorToast')))
   } finally {
     pendingId.value = ''
   }
@@ -228,7 +232,7 @@ async function confirmDelete(): Promise<void> {
   pendingId.value = profile.id
   try {
     await personaStore.deleteProfile(profile.id)
-    toast.success('人格已删除。')
+    toast.success(t('settings.persona.dialogDelete.deleteSuccessToast'))
     if (editingId.value === profile.id) {
       draftOpen.value = false
       resetDraft()
@@ -236,7 +240,7 @@ async function confirmDelete(): Promise<void> {
     deleteOpen.value = false
     deleteTarget.value = null
   } catch (error) {
-    toast.error(errorToText(error, '人格删除失败。'))
+    toast.error(errorToText(error, t('settings.persona.dialogDelete.deleteErrorToast')))
   } finally {
     pendingId.value = ''
   }
@@ -251,20 +255,20 @@ function profileIsPending(profile: BridgePersonaProfile): boolean {
   <div class="flex h-full min-h-0 flex-1 flex-col overflow-hidden">
     <Card class="grid h-full min-h-0 flex-1 grid-rows-[auto_auto_minmax(0,1fr)] gap-0 rounded-md border border-border py-0 ring-0">
       <SettingsPanelHeader
-        title="人格"
+        :title="t('settings.persona.title')"
         :icon="UserIcon"
       >
         <template #description>
-          管理对话使用的人格 profile。当前启用的人格会应用到新会话。
+          {{ t('settings.persona.description') }}
         </template>
       </SettingsPanelHeader>
 
       <SettingsSearchBar
         v-model="searchQuery"
         class="border-b-0"
-        label="搜索人格"
-        placeholder="搜索人格名称或描述"
-        clear-label="清除人格搜索"
+        :label="t('settings.persona.searchLabel')"
+        :placeholder="t('settings.persona.searchPlaceholder')"
+        :clear-label="t('settings.persona.searchClearLabel')"
       >
         <template #summary>
           <Badge variant="secondary">
@@ -279,7 +283,7 @@ function profileIsPending(profile: BridgePersonaProfile): boolean {
             @click="openCreateDraft"
           >
             <PlusIcon data-icon="inline-start" />
-            新建人格
+            {{ t('settings.persona.createButton') }}
           </Button>
         </template>
       </SettingsSearchBar>
@@ -316,8 +320,8 @@ function profileIsPending(profile: BridgePersonaProfile): boolean {
           >
             <UserIcon class="size-8 opacity-50" />
             <div class="flex flex-col gap-1">
-              <p class="font-medium text-foreground">尚未创建任何人格。</p>
-              <p>创建后可在新会话中启用不同的系统上下文。</p>
+              <p class="font-medium text-foreground">{{ t('settings.persona.noPersonasTitle') }}</p>
+              <p>{{ t('settings.persona.noPersonasDesc') }}</p>
             </div>
             <Button
               v-if="persistenceAvailable"
@@ -327,7 +331,7 @@ function profileIsPending(profile: BridgePersonaProfile): boolean {
               @click="openCreateDraft"
             >
               <PlusIcon data-icon="inline-start" />
-              创建第一个人格
+              {{ t('settings.persona.firstCreateButton') }}
             </Button>
           </div>
 
@@ -337,8 +341,8 @@ function profileIsPending(profile: BridgePersonaProfile): boolean {
           >
             <SearchIcon class="size-8 opacity-50" />
             <div class="flex flex-col gap-1">
-              <p class="font-medium text-foreground">没有匹配的人格。</p>
-              <p>换一个名称或描述关键词试试。</p>
+              <p class="font-medium text-foreground">{{ t('settings.persona.noMatchTitle') }}</p>
+              <p>{{ t('settings.persona.noMatchDesc') }}</p>
             </div>
             <Button
               type="button"
@@ -347,7 +351,7 @@ function profileIsPending(profile: BridgePersonaProfile): boolean {
               @click="clearSearch"
             >
               <XIcon data-icon="inline-start" />
-              清除搜索
+              {{ t('settings.persona.clearSearchButton') }}
             </Button>
           </div>
 
@@ -359,7 +363,7 @@ function profileIsPending(profile: BridgePersonaProfile): boolean {
               v-for="profile in filteredProfiles"
               :key="profile.id"
               :title="profile.name"
-              :description="profile.description || '未提供描述。'"
+              :description="profile.description || t('settings.persona.noDescriptionProvided')"
               :icon="UserIcon"
               :pending="profileIsPending(profile)"
             >
@@ -368,7 +372,7 @@ function profileIsPending(profile: BridgePersonaProfile): boolean {
                   v-if="activePersonaId === profile.id"
                   variant="default"
                 >
-                  当前启用
+                  {{ t('settings.persona.currentlyEnabled') }}
                 </Badge>
               </template>
 
@@ -379,11 +383,11 @@ function profileIsPending(profile: BridgePersonaProfile): boolean {
                   variant="ghost"
                   size="sm"
                   :disabled="!persistenceAvailable || profileIsPending(profile)"
-                  aria-label="启用人格"
+                  :aria-label="t('settings.persona.activateAriaLabel')"
                   @click="activatePersona(profile)"
                 >
                   <StarIcon data-icon="inline-start" />
-                  启用
+                  {{ t('settings.persona.activateButton') }}
                 </Button>
                 <Button
                   v-else
@@ -391,11 +395,11 @@ function profileIsPending(profile: BridgePersonaProfile): boolean {
                   variant="ghost"
                   size="sm"
                   :disabled="!persistenceAvailable || pendingId === 'clear-default'"
-                  aria-label="停用人格"
+                  :aria-label="t('settings.persona.deactivateAriaLabel')"
                   @click="deactivatePersona"
                 >
                   <CheckCircle2Icon data-icon="inline-start" />
-                  停用
+                  {{ t('settings.persona.deactivateButton') }}
                 </Button>
                 <Button
                   type="button"
@@ -405,14 +409,14 @@ function profileIsPending(profile: BridgePersonaProfile): boolean {
                   @click="openEditDraft(profile)"
                 >
                   <PencilIcon data-icon="inline-start" />
-                  编辑
+                  {{ t('settings.persona.editButton') }}
                 </Button>
                 <Button
                   type="button"
                   variant="ghost"
                   size="icon-sm"
                   :disabled="!persistenceAvailable || profileIsPending(profile)"
-                  aria-label="删除"
+                  :aria-label="t('settings.persona.deleteAriaLabel')"
                   @click="openDeleteDialog(profile)"
                 >
                   <Trash2Icon data-icon />
@@ -430,9 +434,9 @@ function profileIsPending(profile: BridgePersonaProfile): boolean {
     >
       <DialogContent class="max-h-[calc(100vh-2rem)] overflow-y-auto sm:max-w-2xl">
         <DialogHeader>
-          <DialogTitle>{{ isEditing ? '编辑人格' : '新建人格' }}</DialogTitle>
+          <DialogTitle>{{ isEditing ? t('settings.persona.dialogCreate.editTitle') : t('settings.persona.dialogCreate.title') }}</DialogTitle>
           <DialogDescription>
-            当前启用的人格 prompt 仅作为对话头部上下文注入，不会写入聊天消息、日志或请求快照。
+            {{ t('settings.persona.dialogCreate.description') }}
           </DialogDescription>
         </DialogHeader>
 
@@ -442,38 +446,38 @@ function profileIsPending(profile: BridgePersonaProfile): boolean {
         >
           <FieldGroup class="gap-4">
             <Field>
-              <FieldLabel>名称</FieldLabel>
+              <FieldLabel>{{ t('settings.persona.dialogCreate.nameLabel') }}</FieldLabel>
               <FieldContent>
                 <Input
                   v-model="draft.name"
-                  placeholder="如：温暖小助手"
+                  :placeholder="t('settings.persona.dialogCreate.namePlaceholder')"
                   :disabled="isSaving"
                 />
               </FieldContent>
             </Field>
 
             <Field>
-              <FieldLabel>描述（可选）</FieldLabel>
+              <FieldLabel>{{ t('settings.persona.dialogCreate.descriptionLabel') }}</FieldLabel>
               <FieldContent>
                 <Input
                   v-model="draft.description"
-                  placeholder="对人格特征的简短说明"
+                  :placeholder="t('settings.persona.dialogCreate.descriptionPlaceholder')"
                   :disabled="isSaving"
                 />
               </FieldContent>
             </Field>
 
             <Field>
-              <FieldLabel>人格 Prompt</FieldLabel>
+              <FieldLabel>{{ t('settings.persona.dialogCreate.promptLabel') }}</FieldLabel>
               <FieldContent>
                 <Textarea
                   v-model="draft.prompt"
                   rows="8"
-                  placeholder="例如：你是一个温暖、耐心的助手……"
+                  :placeholder="t('settings.persona.dialogCreate.promptPlaceholder')"
                   :disabled="isSaving"
                 />
                 <FieldDescription>
-                  此 prompt 仅作为对话头部上下文，不会写入聊天消息或日志。
+                  {{ t('settings.persona.dialogCreate.promptHelp') }}
                 </FieldDescription>
               </FieldContent>
             </Field>
@@ -493,13 +497,13 @@ function profileIsPending(profile: BridgePersonaProfile): boolean {
               :disabled="isSaving"
               @click="cancelDraft"
             >
-              取消
+              {{ t('settings.persona.dialogCreate.cancelButton') }}
             </Button>
             <Button
               type="submit"
               :disabled="!persistenceAvailable || isSaving"
             >
-              {{ isEditing ? '保存修改' : '创建人格' }}
+              {{ isEditing ? t('settings.persona.dialogCreate.submitEditButton') : t('settings.persona.dialogCreate.submitButton') }}
             </Button>
           </DialogFooter>
         </form>
@@ -510,29 +514,29 @@ function profileIsPending(profile: BridgePersonaProfile): boolean {
       :open="deleteOpen"
       @update:open="handleDeleteOpenChange"
     >
-      <DialogContent class="sm:max-w-md">
+      <DialogContent class=”sm:max-w-md”>
         <DialogHeader>
-          <DialogTitle>删除人格</DialogTitle>
+          <DialogTitle>{{ t('settings.persona.dialogDelete.title') }}</DialogTitle>
           <DialogDescription>
-            确认要删除人格 “{{ deleteTarget?.name ?? '' }}” 吗？该操作不可撤销，已应用此人格的会话快照不会改变。
+            {{ t('settings.persona.dialogDelete.description', { name: deleteTarget?.name ?? '' }) }}
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>
           <Button
-            type="button"
-            variant="outline"
-            :disabled="Boolean(pendingId)"
-            @click="handleDeleteOpenChange(false)"
+            type=”button”
+            variant=”outline”
+            :disabled=”Boolean(pendingId)”
+            @click=”handleDeleteOpenChange(false)”
           >
-            取消
+            {{ t('settings.persona.dialogDelete.cancelButton') }}
           </Button>
           <Button
-            type="button"
-            variant="destructive"
-            :disabled="Boolean(pendingId)"
-            @click="confirmDelete"
+            type=”button”
+            variant=”destructive”
+            :disabled=”Boolean(pendingId)”
+            @click=”confirmDelete”
           >
-            删除
+            {{ t('settings.persona.dialogDelete.deleteButton') }}
           </Button>
         </DialogFooter>
       </DialogContent>

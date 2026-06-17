@@ -2,6 +2,7 @@
 import type { CronRun, CronTask } from '@shared/types/cron'
 import { storeToRefs } from 'pinia'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import type { BridgeDesktopSettingsConfig } from '@/bridge/app'
 import ScheduledTaskAuditModal from '@/components/settings/scheduled-task-settings/ScheduledTaskAuditModal.vue'
 import ScheduledTaskDetailModal from '@/components/settings/scheduled-task-settings/ScheduledTaskDetailModal.vue'
@@ -17,6 +18,7 @@ defineProps<{
   draft: BridgeDesktopSettingsConfig
 }>()
 
+const { t } = useI18n()
 const cronStore = useCronStore()
 const toast = useToast()
 const { tasks, runsByTaskId, loading, saving, persistenceAvailable } = storeToRefs(cronStore)
@@ -60,7 +62,7 @@ onMounted(async () => {
   try {
     await cronStore.loadTasks()
   } catch (error) {
-    toast.error(errorToText(error, '计划任务加载失败。'))
+    toast.error(errorToText(error, t('settings.scheduledTask.errors.loadFailed')))
   }
 })
 
@@ -98,7 +100,7 @@ async function submitTask(payload: ScheduledTaskSubmitPayload): Promise<void> {
     }
     editModalOpen.value = false
   } catch (error) {
-    toast.error(errorToText(error, '计划任务保存失败。'))
+    toast.error(errorToText(error, t('settings.scheduledTask.errors.saveFailed')))
   }
 }
 
@@ -131,7 +133,7 @@ async function loadAuditRuns(taskId: string): Promise<void> {
   try {
     await cronStore.loadRuns({ taskId })
   } catch (error) {
-    toast.error(errorToText(error, '运行记录加载失败。'))
+    toast.error(errorToText(error, t('settings.scheduledTask.errors.auditLoadFailed')))
   } finally {
     auditLoading.value = false
   }
@@ -142,7 +144,7 @@ async function runTask(task: CronTask): Promise<void> {
   try {
     await cronStore.runNow({ taskId: task.id })
   } catch (error) {
-    toast.error(errorToText(error, '计划任务运行失败。'))
+    toast.error(errorToText(error, t('settings.scheduledTask.errors.runFailed')))
   }
 }
 
@@ -151,7 +153,7 @@ async function setTaskEnabled(task: CronTask, enabled: boolean): Promise<void> {
   try {
     await cronStore.updateTask({ taskId: task.id, enabled })
   } catch (error) {
-    toast.error(errorToText(error, '计划任务状态更新失败。'))
+    toast.error(errorToText(error, t('settings.scheduledTask.errors.statusUpdateFailed')))
   }
 }
 
@@ -165,7 +167,7 @@ async function deleteTask(task: CronTask): Promise<void> {
     confirmDeleteTaskId.value = undefined
     closeTaskSurfaces(task.id)
   } catch (error) {
-    toast.error(errorToText(error, '计划任务删除失败。'))
+    toast.error(errorToText(error, t('settings.scheduledTask.errors.deleteFailed')))
   }
 }
 

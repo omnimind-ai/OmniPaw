@@ -13,6 +13,7 @@ import {
   XIcon,
 } from 'lucide-vue-next'
 import { computed, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import SettingsPanelHeader from '@/components/settings/common/SettingsPanelHeader.vue'
 import SettingsPanelItem from '@/components/settings/common/SettingsPanelItem.vue'
 import SettingsSearchBar from '@/components/settings/common/SettingsSearchBar.vue'
@@ -42,6 +43,7 @@ const emit = defineEmits<{
   delete: [task: CronTask]
 }>()
 
+const { t } = useI18n()
 const searchQuery = ref('')
 const enabledCount = computed(() => props.tasks.filter((task) => task.enabled).length)
 const runningCount = computed(() => props.tasks.filter((task) => task.state === 'running').length)
@@ -75,23 +77,23 @@ function clearSearch() {
 <template>
   <Card class="grid h-full min-h-0 flex-1 grid-rows-[auto_auto_minmax(0,1fr)] gap-0 rounded-md border border-border py-0 ring-0">
     <SettingsPanelHeader
-      title="计划任务"
-      description="计划任务会使用独立的任务会话保存上下文和执行结果。"
+      :title="t('settings.scheduledTask.title')"
+      :description="t('settings.scheduledTask.description')"
       :icon="ClipboardListIcon"
     />
 
     <SettingsSearchBar
       v-model="searchQuery"
       class="border-b-0"
-      label="搜索任务"
-      placeholder="搜索任务名称、备注或会话"
-      clear-label="清除任务搜索"
+      :label="t('settings.scheduledTask.searchLabel')"
+      :placeholder="t('settings.scheduledTask.searchPlaceholder')"
+      :clear-label="t('settings.scheduledTask.clearSearchLabel')"
       :disabled="loading"
       @clear="clearSearch"
     >
       <template #summary>
         <Badge variant="secondary">
-          {{ tasks.length }} 个任务
+          {{ t('settings.scheduledTask.taskCount', { count: tasks.length }) }}
         </Badge>
       </template>
 
@@ -102,7 +104,7 @@ function clearSearch() {
           @click="emit('policy')"
         >
           <SlidersHorizontalIcon data-icon="inline-start" />
-          策略设置
+          {{ t('settings.scheduledTask.policySettings') }}
         </Button>
         <Button
           type="button"
@@ -110,7 +112,7 @@ function clearSearch() {
           @click="emit('create')"
         >
           <PlusIcon data-icon="inline-start" />
-          新建
+          {{ t('settings.scheduledTask.createNew') }}
         </Button>
       </template>
     </SettingsSearchBar>
@@ -133,8 +135,8 @@ function clearSearch() {
         >
           <ClipboardListIcon class="size-8 opacity-50" />
           <div class="flex flex-col gap-1">
-            <p class="font-medium text-foreground">暂无计划任务</p>
-            <p>新建任务后，可以在这里查看任务状态、手动运行和打开审计记录。</p>
+            <p class="font-medium text-foreground">{{ t('settings.scheduledTask.noTasks') }}</p>
+            <p>{{ t('settings.scheduledTask.noTasksHint') }}</p>
           </div>
           <Button
             type="button"
@@ -142,7 +144,7 @@ function clearSearch() {
             @click="emit('create')"
           >
             <PlusIcon data-icon="inline-start" />
-            新建
+            {{ t('settings.scheduledTask.createNew') }}
           </Button>
         </div>
 
@@ -152,8 +154,8 @@ function clearSearch() {
         >
           <SearchIcon class="size-8 opacity-50" />
           <div class="flex flex-col gap-1">
-            <p class="font-medium text-foreground">没有匹配的任务</p>
-            <p>换一个关键词，或清空搜索后查看全部任务。</p>
+            <p class="font-medium text-foreground">{{ t('settings.scheduledTask.noMatch') }}</p>
+            <p>{{ t('settings.scheduledTask.noMatchHint') }}</p>
           </div>
           <Button
             type="button"
@@ -161,7 +163,7 @@ function clearSearch() {
             @click="clearSearch"
           >
             <XIcon data-icon="inline-start" />
-            清空搜索
+            {{ t('settings.scheduledTask.clearSearch') }}
           </Button>
         </div>
 
@@ -183,13 +185,13 @@ function clearSearch() {
                 v-if="task.schedule.kind === 'cron'"
                 variant="outline"
               >
-                重复
+                {{ t('settings.scheduledTask.listItem.repeat') }}
               </Badge>
             </template>
 
             <template #meta>
               <p class="text-sm text-muted-foreground">
-                {{ scheduleSummary(task.schedule) }} · {{ taskSessionLabel(task) }} · 下次
+                {{ scheduleSummary(task.schedule) }} · {{ taskSessionLabel(task) }} · {{ t('settings.scheduledTask.detailFields.nextRun') }}
                 {{ formatTime(task.nextRunAt) }}
               </p>
               <p
@@ -206,7 +208,7 @@ function clearSearch() {
                 size="sm"
                 :model-value="task.enabled"
                 :disabled="saving"
-                :aria-label="`${task.enabled ? '停用' : '启用'} ${task.name}`"
+                :aria-label="`${task.enabled ? t('settings.scheduledTask.listItem.toggleAction.disable') : t('settings.scheduledTask.listItem.toggleAction.enable')} ${task.name}`"
                 @update:model-value="emit('enable', task, $event)"
               />
               <Button
@@ -214,7 +216,7 @@ function clearSearch() {
                 variant="ghost"
                 size="icon-sm"
                 :disabled="saving"
-                aria-label="查看详情"
+                :aria-label="t('settings.scheduledTask.listItem.viewDetails')"
                 @click="emit('detail', task)"
               >
                 <InfoIcon />
@@ -224,7 +226,7 @@ function clearSearch() {
                 variant="ghost"
                 size="icon-sm"
                 :disabled="saving"
-                aria-label="查看审计"
+                :aria-label="t('settings.scheduledTask.listItem.viewAudit')"
                 @click="emit('audit', task)"
               >
                 <HistoryIcon />
@@ -234,7 +236,7 @@ function clearSearch() {
                 variant="ghost"
                 size="icon-sm"
                 :disabled="saving"
-                aria-label="立即运行"
+                :aria-label="t('settings.scheduledTask.listItem.runNow')"
                 @click="emit('run', task)"
               >
                 <PlayIcon />
@@ -244,7 +246,7 @@ function clearSearch() {
                 variant="ghost"
                 size="icon-sm"
                 :disabled="saving"
-                aria-label="编辑任务"
+                :aria-label="t('settings.scheduledTask.listItem.editTask')"
                 @click="emit('edit', task)"
               >
                 <PencilIcon />
@@ -257,7 +259,7 @@ function clearSearch() {
                 @click="emit('delete', task)"
               >
                 <Trash2Icon data-icon="inline-start" />
-                {{ confirmDeleteTaskId === task.id ? '确认删除' : '删除' }}
+                {{ confirmDeleteTaskId === task.id ? t('settings.scheduledTask.listItem.confirmDelete') : t('settings.scheduledTask.listItem.deleteTask') }}
               </Button>
             </template>
           </SettingsPanelItem>

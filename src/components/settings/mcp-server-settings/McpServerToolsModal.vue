@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { GlobeIcon, TerminalIcon, WrenchIcon } from 'lucide-vue-next'
 import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import type {
   BridgeMcpDiscoveredToolSummary,
   BridgeMcpSafeTransport,
@@ -21,10 +22,14 @@ const props = defineProps<{
   server?: BridgeMcpServerSummary
 }>()
 
+const { t } = useI18n()
+
 const tools = computed(() => props.server?.tools ?? [])
 const transportLabel = computed(() => {
   if (!props.server) return ''
-  return props.server.transport.type === 'stdio' ? '本地命令' : 'HTTP'
+  return props.server.transport.type === 'stdio'
+    ? t('settings.mcpServer.transportLabels.stdio')
+    : t('settings.mcpServer.transportLabels.http')
 })
 const transportIcon = computed(() => {
   if (!props.server) return WrenchIcon
@@ -39,11 +44,11 @@ function transportTargetOf(transport: BridgeMcpSafeTransport | undefined) {
 
 function riskLabel(risk: BridgeMcpDiscoveredToolSummary['risk'] | string) {
   const labels: Record<string, string> = {
-    safe: '安全',
-    read: '读取',
-    network: '网络',
-    write: '写入',
-    exec: '执行',
+    safe: t('settings.mcpServer.tools.riskLabels.safe'),
+    read: t('settings.mcpServer.tools.riskLabels.read'),
+    network: t('settings.mcpServer.tools.riskLabels.network'),
+    write: t('settings.mcpServer.tools.riskLabels.write'),
+    exec: t('settings.mcpServer.tools.riskLabels.exec'),
   }
   return labels[risk] || risk
 }
@@ -60,7 +65,7 @@ function riskVariant(
     <DialogContent class="sm:max-w-3xl">
       <DialogHeader>
         <DialogTitle>
-          {{ server?.name ?? 'MCP 服务器' }} 工具
+          {{ server?.name ?? t('settings.mcpServer.tools.title') }} {{ t('settings.mcpServer.tools.title') }}
         </DialogTitle>
         <DialogDescription>
           <span class="flex flex-wrap items-center gap-2">
@@ -102,11 +107,11 @@ function riskVariant(
                 {{ riskLabel(tool.risk) }}
               </Badge>
               <Badge :variant="tool.enabled ? 'secondary' : 'outline'">
-                {{ tool.enabled ? '可用' : '不可用' }}
+                {{ tool.enabled ? t('settings.mcpServer.tools.toolAvailable') : t('settings.mcpServer.tools.toolUnavailable') }}
               </Badge>
             </div>
             <p class="line-clamp-3 text-sm text-muted-foreground">
-              {{ tool.description || '未提供描述。' }}
+              {{ tool.description || t('settings.mcpServer.tools.noDescription') }}
             </p>
             <div
               v-if="tool.profiles.length"
@@ -129,8 +134,8 @@ function riskVariant(
         >
           <WrenchIcon class="size-8 opacity-50" />
           <div class="flex flex-col gap-1">
-            <p class="font-medium text-foreground">当前没有可展示的 MCP 工具。</p>
-            <p>启动 MCP 服务器或刷新后，发现到的工具会显示在这里。</p>
+            <p class="font-medium text-foreground">{{ t('settings.mcpServer.tools.noToolsTitle') }}</p>
+            <p>{{ t('settings.mcpServer.tools.noToolsDesc') }}</p>
           </div>
         </div>
       </div>

@@ -3,6 +3,7 @@ import type { OmniInferProcessState } from '@shared/types/omniinfer'
 import { CloudIcon, FolderOpenIcon } from 'lucide-vue-next'
 import { storeToRefs } from 'pinia'
 import { computed, onBeforeUnmount, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { appBridge } from '@/bridge/app'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -23,6 +24,8 @@ import { useOmniInferStore } from '@/stores/omniinfer'
 import { errorToText, useToast } from '@/utils/toast'
 import type { ProviderDraft } from './types'
 
+const { t } = useI18n()
+
 const props = defineProps<{
   draft: ProviderDraft
 }>()
@@ -32,12 +35,12 @@ const { snapshot, loadingStatus } = storeToRefs(store)
 const toast = useToast()
 
 const stateLabel: Record<OmniInferProcessState, string> = {
-  not_bundled: '未内置',
-  stopped: '已停止',
-  starting: '启动中',
-  running: '运行中',
-  unhealthy: '不健康',
-  crashed: '已崩溃',
+  not_bundled: t('settings.provider.omniInfer.notBundled'),
+  stopped: t('settings.provider.omniInfer.stopped'),
+  starting: t('settings.provider.omniInfer.starting'),
+  running: t('settings.provider.omniInfer.running'),
+  unhealthy: t('settings.provider.omniInfer.unhealthy'),
+  crashed: t('settings.provider.omniInfer.crashed'),
 }
 
 const stateClass: Record<OmniInferProcessState, string> = {
@@ -64,7 +67,9 @@ const canStop = computed(
 const isAvailable = computed(() => store.available)
 
 const effectiveStateLabel = computed(() =>
-  isExternallyManaged.value ? '外部运行中' : stateLabel[snapshot.value.process.state]
+  isExternallyManaged.value
+    ? t('settings.provider.omniInfer.externallyManaged')
+    : stateLabel[snapshot.value.process.state]
 )
 const effectiveStateClass = computed(() =>
   isExternallyManaged.value
@@ -87,7 +92,7 @@ async function handlePickInstallDir(): Promise<void> {
       props.draft.omniInferInstallDir = result.path
     }
   } catch (error) {
-    toast.error(errorToText(error, '选择 OmniInfer 安装目录失败。'))
+    toast.error(errorToText(error, t('settings.provider.messages.pickInstallDirFailed')))
   }
 }
 
@@ -95,7 +100,7 @@ async function handleStart(): Promise<void> {
   try {
     await store.start()
   } catch (error) {
-    toast.error(errorToText(error, '启动 OmniInfer 失败。'))
+    toast.error(errorToText(error, t('settings.provider.messages.startOmniInferFailed')))
   }
 }
 
@@ -103,7 +108,7 @@ async function handleStop(): Promise<void> {
   try {
     await store.stop()
   } catch (error) {
-    toast.error(errorToText(error, '停止 OmniInfer 失败。'))
+    toast.error(errorToText(error, t('settings.provider.messages.stopOmniInferFailed')))
   }
 }
 
@@ -111,10 +116,10 @@ async function handlePickGguf(): Promise<void> {
   try {
     const path = await store.pickLocalGguf()
     if (path) {
-      toast.success('已选择本地模型，可在“模型配置”中启用。')
+      toast.success(t('settings.provider.messages.pickGgufSuccess'))
     }
   } catch (error) {
-    toast.error(errorToText(error, '选择文件失败。'))
+    toast.error(errorToText(error, t('settings.provider.messages.pickFileFailed')))
   }
 }
 
@@ -122,7 +127,7 @@ async function handleToggleThinking(value: boolean): Promise<void> {
   try {
     await store.setThinking(value)
   } catch (error) {
-    toast.error(errorToText(error, '切换 think 模式失败。'))
+    toast.error(errorToText(error, t('settings.provider.messages.toggleThinkingFailed')))
   }
 }
 
@@ -145,7 +150,7 @@ onBeforeUnmount(() => {
   <FieldGroup>
     <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
       <Field>
-        <FieldLabel for="provider-name">名称</FieldLabel>
+        <FieldLabel for="provider-name">{{ t('settings.provider.basic.name') }}</FieldLabel>
         <Input
           id="provider-name"
           v-model="draft.name"
@@ -153,7 +158,7 @@ onBeforeUnmount(() => {
       </Field>
 
       <Field>
-        <FieldLabel for="provider-id">Provider ID</FieldLabel>
+        <FieldLabel for="provider-id">{{ t('settings.provider.basic.id') }}</FieldLabel>
         <Input
           id="provider-id"
           v-model="draft.id"
@@ -163,7 +168,7 @@ onBeforeUnmount(() => {
     </div>
 
     <Field>
-      <FieldLabel for="provider-base-url">Base URL</FieldLabel>
+      <FieldLabel for="provider-base-url">{{ t('settings.provider.basic.baseUrl') }}</FieldLabel>
       <InputGroup>
         <InputGroupAddon>
           <CloudIcon />
@@ -177,7 +182,7 @@ onBeforeUnmount(() => {
     </Field>
 
     <Field v-if="showInstallDirField">
-      <FieldLabel for="omniinfer-install-dir">OmniInfer 安装目录</FieldLabel>
+      <FieldLabel for="omniinfer-install-dir">{{ t('settings.provider.omniInfer.installDir') }}</FieldLabel>
       <InputGroup>
         <InputGroupAddon>
           <FolderOpenIcon />
@@ -185,14 +190,14 @@ onBeforeUnmount(() => {
         <InputGroupInput
           id="omniinfer-install-dir"
           v-model="draft.omniInferInstallDir"
-          placeholder="例：D:\omniinfer\OmniInfer"
+          :placeholder="t('settings.provider.omniInfer.installDirExample')"
         />
         <Button
           size="sm"
           variant="ghost"
           @click="handlePickInstallDir"
         >
-          选择目录
+          {{ t('settings.provider.omniInfer.selectDir') }}
         </Button>
       </InputGroup>
     </Field>
@@ -204,19 +209,19 @@ onBeforeUnmount(() => {
       <Switch
         id="provider-enabled"
         v-model="draft.enabled"
-        aria-label="启用 Provider"
+        :aria-label="t('settings.provider.basic.enabled')"
       />
       <FieldContent>
-        <FieldLabel for="provider-enabled">启用 Provider</FieldLabel>
-        <FieldDescription>禁用后该 Provider 下模型不会出现在可选列表中。</FieldDescription>
+        <FieldLabel for="provider-enabled">{{ t('settings.provider.basic.enabled') }}</FieldLabel>
+        <FieldDescription>{{ t('settings.provider.basic.enabledDescription') }}</FieldDescription>
       </FieldContent>
     </Field>
 
     <Separator />
 
     <FieldSet>
-      <FieldLegend>网关状态</FieldLegend>
-      <FieldDescription>OmniInfer 本地推理网关的运行状态与控制。</FieldDescription>
+      <FieldLegend>{{ t('settings.provider.omniInfer.gatewayStatus') }}</FieldLegend>
+      <FieldDescription>{{ t('settings.provider.omniInfer.gatewayDescription') }}</FieldDescription>
 
       <div class="flex flex-col gap-3 rounded-lg border bg-card p-4">
         <div class="flex flex-wrap items-center justify-between gap-3">
@@ -226,8 +231,8 @@ onBeforeUnmount(() => {
             </Badge>
             <span class="text-sm text-muted-foreground">
               {{ snapshot.server.baseUrl }}
-              <template v-if="snapshot.server.online">· 网关在线</template>
-              <template v-else>· 网关离线</template>
+              <template v-if="snapshot.server.online">· {{ t('settings.provider.omniInfer.online') }}</template>
+              <template v-else>· {{ t('settings.provider.omniInfer.offline') }}</template>
             </span>
           </div>
           <div class="flex flex-wrap gap-2">
@@ -237,7 +242,7 @@ onBeforeUnmount(() => {
               :disabled="loadingStatus"
               @click="handleStart"
             >
-              启动服务
+              {{ t('settings.provider.omniInfer.startButton') }}
             </Button>
             <Button
               v-if="canStop"
@@ -246,7 +251,7 @@ onBeforeUnmount(() => {
               :disabled="loadingStatus"
               @click="handleStop"
             >
-              停止服务
+              {{ t('settings.provider.omniInfer.stopButton') }}
             </Button>
             <Button
               size="sm"
@@ -254,14 +259,14 @@ onBeforeUnmount(() => {
               :disabled="showNotBundledHint"
               @click="handlePickGguf"
             >
-              选择本地 .gguf
+              {{ t('settings.provider.omniInfer.selectGguf') }}
             </Button>
             <Button
               size="sm"
               variant="ghost"
               @click="handleOpenLogs"
             >
-              查看日志
+              {{ t('settings.provider.omniInfer.viewLogs') }}
             </Button>
           </div>
         </div>
@@ -271,20 +276,20 @@ onBeforeUnmount(() => {
           class="grid grid-cols-1 gap-2 text-sm md:grid-cols-2"
         >
           <div class="min-w-0">
-            <span class="text-muted-foreground">当前模型：</span>
+            <span class="text-muted-foreground">{{ t('settings.provider.omniInfer.currentModel') }}</span>
             <span class="break-all font-mono">{{ loadedModelDetails.path }}</span>
           </div>
           <div>
-            <span class="text-muted-foreground">Backend：</span>
+            <span class="text-muted-foreground">{{ t('settings.provider.omniInfer.backend') }}</span>
             {{ loadedModelDetails.backend ?? '—' }}
           </div>
           <div>
-            <span class="text-muted-foreground">上下文长度：</span>
+            <span class="text-muted-foreground">{{ t('settings.provider.omniInfer.contextLength') }}</span>
             {{ loadedModelDetails.ctxSize ?? '—' }}
           </div>
           <div>
-            <span class="text-muted-foreground">就绪：</span>
-            {{ loadedModelDetails.ready ? '是' : '否' }}
+            <span class="text-muted-foreground">{{ t('settings.provider.omniInfer.ready') }}</span>
+            {{ loadedModelDetails.ready ? t('settings.provider.omniInfer.readyYes') : t('settings.provider.omniInfer.readyNo') }}
           </div>
         </div>
       </div>
@@ -297,13 +302,13 @@ onBeforeUnmount(() => {
       <Switch
         id="omniinfer-thinking"
         :model-value="snapshot.thinking"
-        aria-label="Think 模式"
+        :aria-label="t('settings.provider.omniInfer.thinkingMode')"
         @update:model-value="handleToggleThinking"
       />
       <FieldContent>
-        <FieldLabel for="omniinfer-thinking">Think 模式</FieldLabel>
+        <FieldLabel for="omniinfer-thinking">{{ t('settings.provider.omniInfer.thinkingMode') }}</FieldLabel>
         <FieldDescription>
-          开启后模型可以输出思考过程；部分小模型在关闭 think 时响应更稳定。
+          {{ t('settings.provider.omniInfer.thinkingDescription') }}
         </FieldDescription>
       </FieldContent>
     </Field>

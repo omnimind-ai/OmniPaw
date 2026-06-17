@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { PlusIcon, RefreshCwIcon } from 'lucide-vue-next'
+import { useI18n } from 'vue-i18n'
 
 import { Button } from '@/components/ui/button'
 import {
@@ -48,15 +49,17 @@ const emit = defineEmits<{
   addRow: [type: McpSecretRowType]
   removeRow: [type: McpSecretRowType, rowId: string]
 }>()
+
+const { t } = useI18n()
 </script>
 
 <template>
   <Dialog v-model:open="open">
     <DialogContent class="max-h-[calc(100vh-2rem)] overflow-y-auto sm:max-w-2xl">
       <DialogHeader>
-        <DialogTitle>{{ editing ? '编辑 MCP 服务器' : '添加 MCP 服务器' }}</DialogTitle>
+        <DialogTitle>{{ editing ? t('settings.mcpServer.form.editTitle') : t('settings.mcpServer.form.title') }}</DialogTitle>
         <DialogDescription>
-          保存请求只提交当前输入的环境变量或请求头值，已存在的秘密值不会在此处显示。
+          {{ t('settings.mcpServer.form.description') }}
         </DialogDescription>
       </DialogHeader>
 
@@ -67,21 +70,21 @@ const emit = defineEmits<{
         <FieldGroup>
           <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
             <Field :data-invalid="formErrors.name ? '' : undefined">
-              <FieldLabel for="mcp-server-name">名称</FieldLabel>
+              <FieldLabel for="mcp-server-name">{{ t('settings.mcpServer.form.nameLabel') }}</FieldLabel>
               <Input
                 id="mcp-server-name"
                 v-model="draft.name"
                 :aria-invalid="Boolean(formErrors.name)"
-                placeholder="Context7"
+                :placeholder="t('settings.mcpServer.form.namePlaceholder')"
               />
               <FieldError :errors="[formErrors.name]" />
             </Field>
 
             <Field>
-              <FieldLabel for="mcp-server-id">服务器 ID</FieldLabel>
+              <FieldLabel for="mcp-server-id">{{ t('settings.mcpServer.form.serverIdLabel') }}</FieldLabel>
               <Input
                 id="mcp-server-id"
-                :model-value="draft.id || '保存时自动生成'"
+                :model-value="draft.id || t('settings.mcpServer.form.serverIdAutoGen')"
                 disabled
               />
             </Field>
@@ -94,35 +97,35 @@ const emit = defineEmits<{
             <Switch
               id="mcp-server-enabled"
               v-model="draft.enabled"
-              aria-label="启用 MCP 服务器"
+              :aria-label="t('settings.mcpServer.form.enableLabel')"
             />
             <FieldContent>
-              <FieldLabel for="mcp-server-enabled">启用服务器</FieldLabel>
-              <FieldDescription>启用后会参与发现，失败的服务器不会进入聊天工具列表。</FieldDescription>
+              <FieldLabel for="mcp-server-enabled">{{ t('settings.mcpServer.form.enableLabel') }}</FieldLabel>
+              <FieldDescription>{{ t('settings.mcpServer.form.enableDesc') }}</FieldDescription>
             </FieldContent>
           </Field>
 
           <div class="grid grid-cols-1 gap-4 md:grid-cols-3">
             <Field>
-              <FieldLabel for="mcp-transport-type">连接类型</FieldLabel>
+              <FieldLabel for="mcp-transport-type">{{ t('settings.mcpServer.form.transportTypeLabel') }}</FieldLabel>
               <Select v-model="draft.transportType">
                 <SelectTrigger
                   id="mcp-transport-type"
                   class="w-full"
                 >
-                  <SelectValue placeholder="选择连接类型" />
+                  <SelectValue :placeholder="t('settings.mcpServer.form.transportTypePlaceholder')" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectGroup>
-                    <SelectItem value="stdio">本地命令</SelectItem>
-                    <SelectItem value="http">HTTP</SelectItem>
+                    <SelectItem value="stdio">{{ t('settings.mcpServer.transportLabels.stdio') }}</SelectItem>
+                    <SelectItem value="http">{{ t('settings.mcpServer.transportLabels.http') }}</SelectItem>
                   </SelectGroup>
                 </SelectContent>
               </Select>
             </Field>
 
             <Field :data-invalid="formErrors.timeoutMs ? '' : undefined">
-              <FieldLabel for="mcp-timeout-ms">连接超时 ms</FieldLabel>
+              <FieldLabel for="mcp-timeout-ms">{{ t('settings.mcpServer.form.timeoutMsLabel') }}</FieldLabel>
               <Input
                 id="mcp-timeout-ms"
                 v-model="draft.timeoutMs"
@@ -134,7 +137,7 @@ const emit = defineEmits<{
             </Field>
 
             <Field :data-invalid="formErrors.toolTimeoutMs ? '' : undefined">
-              <FieldLabel for="mcp-tool-timeout-ms">工具超时 ms</FieldLabel>
+              <FieldLabel for="mcp-tool-timeout-ms">{{ t('settings.mcpServer.form.toolTimeoutMsLabel') }}</FieldLabel>
               <Input
                 id="mcp-tool-timeout-ms"
                 v-model="draft.toolTimeoutMs"
@@ -148,39 +151,39 @@ const emit = defineEmits<{
 
           <template v-if="draft.transportType === 'stdio'">
             <Field :data-invalid="formErrors.command ? '' : undefined">
-              <FieldLabel for="mcp-command">启动命令</FieldLabel>
+              <FieldLabel for="mcp-command">{{ t('settings.mcpServer.form.commandLabel') }}</FieldLabel>
               <Input
                 id="mcp-command"
                 v-model="draft.command"
                 :aria-invalid="Boolean(formErrors.command)"
-                placeholder="npx"
+                :placeholder="t('settings.mcpServer.form.commandPlaceholder')"
               />
               <FieldError :errors="[formErrors.command]" />
             </Field>
 
             <Field>
-              <FieldLabel for="mcp-args">参数</FieldLabel>
+              <FieldLabel for="mcp-args">{{ t('settings.mcpServer.form.argsLabel') }}</FieldLabel>
               <Textarea
                 id="mcp-args"
                 v-model="draft.argsText"
-                placeholder="-y&#10;@modelcontextprotocol/server-filesystem"
+                :placeholder="t('settings.mcpServer.form.argPlaceholder')"
               />
-              <FieldDescription>每行一个参数。</FieldDescription>
+              <FieldDescription>{{ t('settings.mcpServer.form.argsHelp') }}</FieldDescription>
             </Field>
 
             <Field>
-              <FieldLabel for="mcp-cwd">工作目录</FieldLabel>
+              <FieldLabel for="mcp-cwd">{{ t('settings.mcpServer.form.cwdLabel') }}</FieldLabel>
               <Input
                 id="mcp-cwd"
                 v-model="draft.cwd"
-                placeholder="留空使用默认工作目录"
+                :placeholder="t('settings.mcpServer.form.cwdPlaceholder')"
               />
             </Field>
 
             <Field>
-              <FieldLabel>环境变量</FieldLabel>
+              <FieldLabel>{{ t('settings.mcpServer.form.envVarsLabel') }}</FieldLabel>
               <FieldDescription v-if="existingSecretKeys.length">
-                已保存的键：{{ existingSecretKeys.join(', ') }}。值已隐藏，填写同名键可更新。
+                {{ t('settings.mcpServer.form.envVarsSavedKeysPrefix') }}{{ existingSecretKeys.join(', ') }}{{ t('settings.mcpServer.form.envVarsSavedKeysSuffix') }}
               </FieldDescription>
               <div class="flex flex-col gap-2">
                 <div
@@ -190,12 +193,12 @@ const emit = defineEmits<{
                 >
                   <Input
                     v-model="row.key"
-                    placeholder="KEY"
+                    :placeholder="t('settings.mcpServer.form.keyPlaceholder')"
                   />
                   <Input
                     v-model="row.value"
                     type="password"
-                    placeholder="VALUE"
+                    :placeholder="t('settings.mcpServer.form.valuePlaceholder')"
                   />
                   <Button
                     type="button"
@@ -203,7 +206,7 @@ const emit = defineEmits<{
                     size="sm"
                     @click="emit('removeRow', 'env', row.id)"
                   >
-                    删除
+                    {{ t('settings.mcpServer.form.removeRowButton') }}
                   </Button>
                 </div>
                 <Button
@@ -214,7 +217,7 @@ const emit = defineEmits<{
                   @click="emit('addRow', 'env')"
                 >
                   <PlusIcon data-icon="inline-start" />
-                  添加环境变量
+                  {{ t('settings.mcpServer.form.addEnvVarButton') }}
                 </Button>
               </div>
             </Field>
@@ -222,20 +225,20 @@ const emit = defineEmits<{
 
           <template v-else>
             <Field :data-invalid="formErrors.url ? '' : undefined">
-              <FieldLabel for="mcp-url">服务器地址</FieldLabel>
+              <FieldLabel for="mcp-url">{{ t('settings.mcpServer.form.urlLabel') }}</FieldLabel>
               <Input
                 id="mcp-url"
                 v-model="draft.url"
                 :aria-invalid="Boolean(formErrors.url)"
-                placeholder="http://localhost:3000/mcp"
+                :placeholder="t('settings.mcpServer.form.urlPlaceholder')"
               />
               <FieldError :errors="[formErrors.url]" />
             </Field>
 
             <Field>
-              <FieldLabel>请求头</FieldLabel>
+              <FieldLabel>{{ t('settings.mcpServer.form.headersLabel') }}</FieldLabel>
               <FieldDescription v-if="existingSecretKeys.length">
-                已保存的键：{{ existingSecretKeys.join(', ') }}。值已隐藏，填写同名键可更新。
+                {{ t('settings.mcpServer.form.envVarsSavedKeysPrefix') }}{{ existingSecretKeys.join(', ') }}{{ t('settings.mcpServer.form.envVarsSavedKeysSuffix') }}
               </FieldDescription>
               <div class="flex flex-col gap-2">
                 <div
@@ -245,12 +248,12 @@ const emit = defineEmits<{
                 >
                   <Input
                     v-model="row.key"
-                    placeholder="Authorization"
+                    :placeholder="t('settings.mcpServer.form.headerKeyPlaceholder')"
                   />
                   <Input
                     v-model="row.value"
                     type="password"
-                    placeholder="Bearer ..."
+                    :placeholder="t('settings.mcpServer.form.headerValuePlaceholder')"
                   />
                   <Button
                     type="button"
@@ -258,7 +261,7 @@ const emit = defineEmits<{
                     size="sm"
                     @click="emit('removeRow', 'header', row.id)"
                   >
-                    删除
+                    {{ t('settings.mcpServer.form.removeRowButton') }}
                   </Button>
                 </div>
                 <Button
@@ -269,7 +272,7 @@ const emit = defineEmits<{
                   @click="emit('addRow', 'header')"
                 >
                   <PlusIcon data-icon="inline-start" />
-                  添加请求头
+                  {{ t('settings.mcpServer.form.addHeaderButton') }}
                 </Button>
               </div>
             </Field>
@@ -283,7 +286,7 @@ const emit = defineEmits<{
             :disabled="saving"
             @click="emit('close')"
           >
-            取消
+            {{ t('settings.mcpServer.form.cancelButton') }}
           </Button>
           <Button
             type="submit"
@@ -294,7 +297,7 @@ const emit = defineEmits<{
               data-icon="inline-start"
               class="animate-spin"
             />
-            保存
+            {{ t('settings.mcpServer.form.submitButton') }}
           </Button>
         </DialogFooter>
       </form>

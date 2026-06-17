@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { CronTask } from '@shared/types/cron'
+import { useI18n } from 'vue-i18n'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -20,6 +21,7 @@ import {
 import { Separator } from '@/components/ui/separator'
 import { formatTime, scheduleSummary, statusLabel, taskSessionLabel } from './format'
 
+const { t } = useI18n()
 const open = defineModel<boolean>('open', { required: true })
 
 defineProps<{
@@ -31,16 +33,16 @@ defineProps<{
   <Dialog v-model:open="open">
     <DialogContent class="max-h-[calc(100vh-2rem)] overflow-y-auto sm:max-w-2xl">
       <DialogHeader>
-        <DialogTitle>任务详情</DialogTitle>
+        <DialogTitle>{{ t('settings.scheduledTask.detailModal.title') }}</DialogTitle>
         <DialogDescription>
-          {{ task ? task.name : '选择一个任务查看完整配置。' }}
+          {{ task ? task.name : t('settings.scheduledTask.selectTask') }}
         </DialogDescription>
       </DialogHeader>
 
       <FieldGroup v-if="task">
         <Field>
           <FieldContent>
-            <FieldLabel>状态</FieldLabel>
+            <FieldLabel>{{ t('settings.scheduledTask.statusField.title') }}</FieldLabel>
             <FieldDescription>
               <Badge variant="secondary">{{ statusLabel(task) }}</Badge>
             </FieldDescription>
@@ -48,51 +50,51 @@ defineProps<{
         </Field>
 
         <Field>
-          <FieldLabel>任务说明</FieldLabel>
-          <p class="whitespace-pre-wrap break-words text-sm">
-            {{ task.note || '未填写。' }}
+          <FieldLabel>{{ t('settings.scheduledTask.taskNote') }}</FieldLabel>
+          <p class="whitespace-pre-wrap wrap-break-word text-sm">
+            {{ task.note || t('settings.scheduledTask.noNote') }}
           </p>
         </Field>
 
         <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
           <Field class="rounded-md border px-3 py-2">
-            <FieldLabel>计划</FieldLabel>
+            <FieldLabel>{{ t('settings.scheduledTask.detailFields.schedule') }}</FieldLabel>
             <FieldDescription>{{ scheduleSummary(task.schedule) }}</FieldDescription>
           </Field>
           <Field class="rounded-md border px-3 py-2">
-            <FieldLabel>目标会话</FieldLabel>
+            <FieldLabel>{{ t('settings.scheduledTask.detailFields.targetSession') }}</FieldLabel>
             <FieldDescription>{{ taskSessionLabel(task) }}</FieldDescription>
           </Field>
           <Field class="rounded-md border px-3 py-2">
-            <FieldLabel>下次运行</FieldLabel>
+            <FieldLabel>{{ t('settings.scheduledTask.detailFields.nextRun') }}</FieldLabel>
             <FieldDescription>{{ formatTime(task.nextRunAt) }}</FieldDescription>
           </Field>
           <Field class="rounded-md border px-3 py-2">
-            <FieldLabel>正在运行</FieldLabel>
+            <FieldLabel>{{ t('settings.scheduledTask.detailFields.running') }}</FieldLabel>
             <FieldDescription>{{ formatTime(task.runningAt) }}</FieldDescription>
           </Field>
           <Field class="rounded-md border px-3 py-2">
-            <FieldLabel>上次运行</FieldLabel>
+            <FieldLabel>{{ t('settings.scheduledTask.detailFields.lastRun') }}</FieldLabel>
             <FieldDescription>{{ formatTime(task.lastRunAt) }}</FieldDescription>
           </Field>
           <Field class="rounded-md border px-3 py-2">
-            <FieldLabel>上次完成</FieldLabel>
+            <FieldLabel>{{ t('settings.scheduledTask.detailFields.lastCompleted') }}</FieldLabel>
             <FieldDescription>{{ formatTime(task.lastCompletedAt) }}</FieldDescription>
           </Field>
           <Field class="rounded-md border px-3 py-2">
-            <FieldLabel>失败次数</FieldLabel>
+            <FieldLabel>{{ t('settings.scheduledTask.detailFields.failureCount') }}</FieldLabel>
             <FieldDescription>{{ task.failureCount }}</FieldDescription>
           </Field>
           <Field class="rounded-md border px-3 py-2">
-            <FieldLabel>启用状态</FieldLabel>
-            <FieldDescription>{{ task.enabled ? '已启用' : '已停用' }}</FieldDescription>
+            <FieldLabel>{{ t('settings.scheduledTask.detailFields.enabled') }}</FieldLabel>
+            <FieldDescription>{{ task.enabled ? t('settings.scheduledTask.detailFields.enabledValue') : t('settings.scheduledTask.detailFields.disabledValue') }}</FieldDescription>
           </Field>
         </div>
 
         <template v-if="task.lastError">
           <Separator />
           <Field>
-            <FieldLabel>最近错误</FieldLabel>
+            <FieldLabel>{{ t('settings.scheduledTask.detailFields.lastError') }}</FieldLabel>
             <FieldDescription>
               {{ task.lastError.code }} · {{ task.lastError.message }}
             </FieldDescription>

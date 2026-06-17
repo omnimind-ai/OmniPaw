@@ -2,6 +2,7 @@
 import { PlugIcon } from 'lucide-vue-next'
 import { storeToRefs } from 'pinia'
 import { computed, onMounted, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import type { BridgeOpenAICodexOAuthStatus, BridgeProviderPreset } from '@/bridge/app'
 import SettingsSection from '@/components/settings/common/SettingsSection.vue'
 import ProviderAdvancedTab from '@/components/settings/provider-settings/ProviderAdvancedTab.vue'
@@ -22,6 +23,8 @@ import { useProviderDraft } from '@/composables/useProviderDraft'
 import { useOmniInferStore } from '@/stores/omniinfer'
 import { useProviderStore } from '@/stores/provider'
 import { useToast } from '@/utils/toast'
+
+const { t } = useI18n()
 
 const providerStore = useProviderStore()
 const omniInferStore = useOmniInferStore()
@@ -253,14 +256,17 @@ async function handleSaveProvider(options: { silent?: boolean } = {}): Promise<b
       }
     }
     if (!options.silent) {
-      toast.success('Provider 已保存。')
+      toast.success(t('settings.provider.messages.saved'))
     }
     return true
   } catch (error) {
     toast.error(
       error,
       options.silent
-        ? { id: 'provider-autosave-error', description: 'Provider 自动保存失败' }
+        ? {
+            id: 'provider-autosave-error',
+            description: t('settings.provider.messages.autosaveFailed'),
+          }
         : undefined
     )
     return false
@@ -294,7 +300,7 @@ async function handleDeleteProvider() {
       activeProviderId.value = ''
       originalProviderId.value = ''
     }
-    toast.success('Provider 已删除。')
+    toast.success(t('settings.provider.messages.deleted'))
   } catch (error) {
     toast.error(error)
   }
@@ -322,7 +328,11 @@ async function refreshProviderModels() {
     if (isOmniInferProvider.value) {
       await omniInferStore.refreshStatus()
     }
-    toast.success(wasExistingProvider ? '模型列表已更新。' : 'Provider 已保存，模型列表已更新。')
+    toast.success(
+      wasExistingProvider
+        ? t('settings.provider.messages.modelsUpdated')
+        : t('settings.provider.messages.savedAndModelsUpdated')
+    )
   } catch (error) {
     toast.error(error)
   } finally {
@@ -362,9 +372,9 @@ async function handleOpenAICodexOAuthLogin() {
     openAICodexOAuthStatus.value = await providerStore.loginOpenAICodexOAuth(
       originalProviderId.value
     )
-    toast.success('OpenAI OAuth 登录完成。')
+    toast.success(t('settings.provider.messages.oauthLoginSuccess'))
   } catch (error) {
-    toast.error(error, { description: 'OpenAI OAuth 登录失败' })
+    toast.error(error, { description: t('settings.provider.messages.oauthLoginFailed') })
   } finally {
     openAICodexOAuthBusy.value = false
   }
@@ -380,9 +390,9 @@ async function handleOpenAICodexOAuthLogout() {
     openAICodexOAuthStatus.value = await providerStore.logoutOpenAICodexOAuth(
       originalProviderId.value
     )
-    toast.success('OpenAI OAuth 已断开。')
+    toast.success(t('settings.provider.messages.oauthLogoutSuccess'))
   } catch (error) {
-    toast.error(error, { description: 'OpenAI OAuth 断开失败' })
+    toast.error(error, { description: t('settings.provider.messages.oauthLogoutFailed') })
   } finally {
     openAICodexOAuthBusy.value = false
   }
@@ -408,7 +418,7 @@ function clearMessages() {}
     />
 
     <SettingsSection
-      title="模型服务"
+      :title="t('settings.provider.title')"
       class="min-w-0 flex-1 self-stretch"
     >
       <template #actions>
@@ -420,7 +430,7 @@ function clearMessages() {}
           :disabled="saving || !persistenceAvailable"
           @click="handleSaveProvider"
         >
-          保存
+          {{ t('settings.provider.saveButton') }}
         </Button>
       </template>
 
@@ -431,7 +441,7 @@ function clearMessages() {}
         >
           <div class="flex max-w-2xl flex-col gap-2">
             <div class="flex items-center gap-2">
-              <h3 class="text-base font-semibold">当前没有 Provider</h3>
+              <h3 class="text-base font-semibold">{{ t('settings.provider.emptyState') }}</h3>
             </div>
           </div>
 
@@ -442,7 +452,7 @@ function clearMessages() {}
               :disabled="saving || presetsLoading"
               @click="createNewProviderDraft"
             >
-              新建 Provider
+              {{ t('settings.provider.createNew') }}
             </Button>
           </div>
         </div>
@@ -454,9 +464,9 @@ function clearMessages() {}
             class="gap-4"
           >
             <TabsList class="w-full justify-start">
-              <TabsTrigger value="basic">基础配置</TabsTrigger>
-              <TabsTrigger value="models">模型配置</TabsTrigger>
-              <TabsTrigger value="advanced">高级配置</TabsTrigger>
+              <TabsTrigger value="basic">{{ t('settings.provider.basic.tab') }}</TabsTrigger>
+              <TabsTrigger value="models">{{ t('settings.provider.models.tab') }}</TabsTrigger>
+              <TabsTrigger value="advanced">{{ t('settings.provider.advanced.tab') }}</TabsTrigger>
             </TabsList>
 
             <TabsContent
@@ -510,7 +520,7 @@ function clearMessages() {}
 
     <ProviderDeleteModal
       v-model:open="deleteDialogOpen"
-      :provider-name="deleteProviderTarget?.name || '该 Provider'"
+      :provider-name="deleteProviderTarget?.name || t('settings.provider.delete.title')"
       :saving="saving"
       @confirm="handleDeleteProvider"
     />

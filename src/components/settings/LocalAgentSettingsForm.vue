@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { TerminalIcon } from 'lucide-vue-next'
 import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import type { BridgeDesktopSettingsConfig } from '@/bridge/app'
 import SettingEntry from '@/components/settings/common/SettingEntry.vue'
 import SettingsSection from '@/components/settings/common/SettingsSection.vue'
@@ -10,6 +11,8 @@ import { Input } from '@/components/ui/input'
 const props = defineProps<{
   draft: BridgeDesktopSettingsConfig
 }>()
+
+const { t } = useI18n()
 
 const workspaceMaxReadMb = computed({
   get: () => bytesToMb(props.draft.tools.workspace.maxReadBytes),
@@ -72,15 +75,15 @@ function clampInteger(value: string | number, min: number, max: number, fallback
 
 <template>
   <SettingsSection
-    title="本地 Agent 能力"
-    description="配置 workspace 和 terminal 的运行限制。"
+    :title="t('settings.localAgent.title')"
+    :description="t('settings.localAgent.description')"
     :icon="TerminalIcon"
   >
     <FieldGroup class="gap-0">
       <SettingEntry
         control-id="local-agent-max-steps"
-        title="Agent 最大步骤"
-        description="单次回复中模型可连续调用工具的最大轮数，过高会增加延迟和成本。"
+        :title="t('settings.localAgent.maxSteps.title')"
+        :description="t('settings.localAgent.maxSteps.description')"
       >
         <Input
           id="local-agent-max-steps"
@@ -95,8 +98,8 @@ function clampInteger(value: string | number, min: number, max: number, fallback
 
       <SettingEntry
         control-id="local-workspace-read-limit"
-        title="Workspace 读取上限"
-        description="单次 workspace read/search 可进入工具结果的内容上限。"
+        :title="t('settings.localAgent.workspaceReadLimit.title')"
+        :description="t('settings.localAgent.workspaceReadLimit.description')"
       >
         <Input
           id="local-workspace-read-limit"
@@ -110,8 +113,8 @@ function clampInteger(value: string | number, min: number, max: number, fallback
 
       <SettingEntry
         control-id="local-workspace-write-limit"
-        title="Workspace 写入上限"
-        description="单次 workspace write/patch 的文本大小上限，单位 MB。"
+        :title="t('settings.localAgent.workspaceWriteLimit.title')"
+        :description="t('settings.localAgent.workspaceWriteLimit.description')"
       >
         <Input
           id="local-workspace-write-limit"
@@ -125,8 +128,8 @@ function clampInteger(value: string | number, min: number, max: number, fallback
 
       <SettingEntry
         control-id="local-terminal-timeout"
-        title="Terminal 超时"
-        description="前台命令默认运行时间上限，单位秒。"
+        :title="t('settings.localAgent.terminalTimeout.title')"
+        :description="t('settings.localAgent.terminalTimeout.description')"
       >
         <Input
           id="local-terminal-timeout"
@@ -139,8 +142,8 @@ function clampInteger(value: string | number, min: number, max: number, fallback
 
       <SettingEntry
         control-id="local-terminal-output-limit"
-        title="Terminal 输出上限"
-        description="stdout/stderr 只保留尾部内容，单位 KB。"
+        :title="t('settings.localAgent.terminalOutputLimit.title')"
+        :description="t('settings.localAgent.terminalOutputLimit.description')"
       >
         <Input
           id="local-terminal-output-limit"

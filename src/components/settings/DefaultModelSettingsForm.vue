@@ -12,6 +12,7 @@ import {
 import { storeToRefs } from 'pinia'
 import type { AcceptableValue } from 'reka-ui'
 import { computed, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import type { BridgeDesktopSettingsConfig } from '@/bridge/app'
 import SettingEntry from '@/components/settings/common/SettingEntry.vue'
 import SettingsSection from '@/components/settings/common/SettingsSection.vue'
@@ -43,6 +44,7 @@ const props = defineProps<{
   draft: BridgeDesktopSettingsConfig
 }>()
 
+const { t } = useI18n()
 const providerStore = useProviderStore()
 const {
   defaultModelKey,
@@ -203,15 +205,15 @@ function modelLabel(option: ProviderModelOption) {
 <template>
   <div class="flex flex-col gap-6">
     <SettingsSection
-      title="默认模型"
-      description="设置新会话与辅助任务的首选模型。"
+      :title="t('settings.defaultModel.title')"
+      :description="t('settings.defaultModel.description')"
       :icon="BotIcon"
     >
       <FieldGroup class="gap-0">
         <SettingEntry
           control-id="settings-default-model"
-          title="默认模型"
-          description="新会话默认使用的模型。"
+          :title="t('settings.defaultModel.model.title')"
+          :description="t('settings.defaultModel.model.description')"
         >
           <Select
             :model-value="defaultModelKey || NONE_VALUE"
@@ -222,11 +224,11 @@ function modelLabel(option: ProviderModelOption) {
               id="settings-default-model"
               class="w-full md:w-72"
             >
-              <SelectValue placeholder="未设置默认模型" />
+              <SelectValue :placeholder="t('settings.defaultModel.model.placeholder')" />
             </SelectTrigger>
             <SelectContent>
               <SelectGroup>
-                <SelectItem :value="NONE_VALUE">不设置</SelectItem>
+                <SelectItem :value="NONE_VALUE">{{ t('settings.defaultModel.model.none') }}</SelectItem>
                 <SelectItem
                   v-for="option in enabledOptions"
                   :key="option.key"
@@ -241,8 +243,8 @@ function modelLabel(option: ProviderModelOption) {
 
         <SettingEntry
           control-id="settings-title-model"
-          title="标题总结模型"
-          description="新聊天首次出现明确主题时，用于生成侧栏标题。"
+          :title="t('settings.defaultModel.titleModel.title')"
+          :description="t('settings.defaultModel.titleModel.description')"
         >
           <Select
             :model-value="titleModelKey || NONE_VALUE"
@@ -253,11 +255,11 @@ function modelLabel(option: ProviderModelOption) {
               id="settings-title-model"
               class="w-full md:w-72"
             >
-              <SelectValue placeholder="使用默认模型" />
+              <SelectValue :placeholder="t('settings.defaultModel.titleModel.placeholder')" />
             </SelectTrigger>
             <SelectContent>
               <SelectGroup>
-                <SelectItem :value="NONE_VALUE">使用默认模型</SelectItem>
+                <SelectItem :value="NONE_VALUE">{{ t('settings.defaultModel.titleModel.useDefault') }}</SelectItem>
                 <SelectItem
                   v-for="option in enabledTextOptions"
                   :key="option.key"
@@ -272,8 +274,8 @@ function modelLabel(option: ProviderModelOption) {
 
         <SettingEntry
           control-id="settings-context-compact-model"
-          title="压缩默认模型"
-          description="上下文压缩时默认使用的模型，留空时使用当前会话模型。"
+          :title="t('settings.defaultModel.compactModel.title')"
+          :description="t('settings.defaultModel.compactModel.description')"
         >
           <Select
             :model-value="compactModelKey"
@@ -284,11 +286,11 @@ function modelLabel(option: ProviderModelOption) {
               id="settings-context-compact-model"
               class="w-full md:w-72"
             >
-              <SelectValue placeholder="使用当前会话模型" />
+              <SelectValue :placeholder="t('settings.defaultModel.compactModel.placeholder')" />
             </SelectTrigger>
             <SelectContent>
               <SelectGroup>
-                <SelectItem :value="NONE_VALUE">使用当前会话模型</SelectItem>
+                <SelectItem :value="NONE_VALUE">{{ t('settings.defaultModel.compactModel.useCurrent') }}</SelectItem>
                 <SelectItem
                   v-for="option in enabledTextOptions"
                   :key="option.key"
@@ -303,8 +305,8 @@ function modelLabel(option: ProviderModelOption) {
 
         <SettingEntry
           control-id="settings-memory-embedding-model"
-          title="记忆 Embedding 模型"
-          description="用于长期记忆的语义检索；留空时使用本地 hashing embedding。"
+          :title="t('settings.defaultModel.embeddingModel.title')"
+          :description="t('settings.defaultModel.embeddingModel.description')"
         >
           <Select
             :model-value="embeddingModelKey || NONE_VALUE"
@@ -315,11 +317,11 @@ function modelLabel(option: ProviderModelOption) {
               id="settings-memory-embedding-model"
               class="w-full md:w-72"
             >
-              <SelectValue placeholder="使用本地 embedding" />
+              <SelectValue :placeholder="t('settings.defaultModel.embeddingModel.placeholder')" />
             </SelectTrigger>
             <SelectContent>
               <SelectGroup>
-                <SelectItem :value="NONE_VALUE">使用本地 embedding</SelectItem>
+                <SelectItem :value="NONE_VALUE">{{ t('settings.defaultModel.embeddingModel.useLocal') }}</SelectItem>
                 <SelectItem
                   v-for="option in enabledTextOptions"
                   :key="option.key"
@@ -336,14 +338,14 @@ function modelLabel(option: ProviderModelOption) {
     </SettingsSection>
 
     <SettingsSection
-      title="主动视觉观察模型"
-      description="指定视觉理解和短反应的模型链路。"
+      :title="t('settings.defaultModel.observation.title')"
+      :description="t('settings.defaultModel.observation.description')"
       :icon="EyeIcon"
     >
       <FieldGroup class="gap-0">
-        <SettingEntry control-id="settings-observation-vision-model" title="视觉观察模型">
+        <SettingEntry control-id="settings-observation-vision-model" :title="t('settings.defaultModel.observation.visionModel.title')">
           <template #description>
-            用于理解截图。未选择时会从当前会话、默认模型和备用模型中寻找图片模型。
+            {{ t('settings.defaultModel.observation.visionModel.description') }}
           </template>
           <Select
             :model-value="observationVisionModelKey || NONE_VALUE"
@@ -354,11 +356,11 @@ function modelLabel(option: ProviderModelOption) {
               id="settings-observation-vision-model"
               class="w-full md:w-72"
             >
-              <SelectValue placeholder="自动选择图片模型" />
+              <SelectValue :placeholder="t('settings.defaultModel.observation.visionModel.placeholder')" />
             </SelectTrigger>
             <SelectContent>
               <SelectGroup>
-                <SelectItem :value="NONE_VALUE">自动选择图片模型</SelectItem>
+                <SelectItem :value="NONE_VALUE">{{ t('settings.defaultModel.observation.visionModel.auto') }}</SelectItem>
                 <SelectItem
                   v-for="option in enabledImageOptions"
                   :key="option.key"
@@ -371,9 +373,9 @@ function modelLabel(option: ProviderModelOption) {
           </Select>
         </SettingEntry>
 
-        <SettingEntry control-id="settings-observation-reaction-model" title="Reaction 模型">
+        <SettingEntry control-id="settings-observation-reaction-model" :title="t('settings.defaultModel.observation.reactionModel.title')">
           <template #description>
-            用于把视觉摘要转成短反应。选择支持图片的模型时也可承担完整链路。
+            {{ t('settings.defaultModel.observation.reactionModel.description') }}
           </template>
           <Select
             :model-value="observationReactionModelKey || NONE_VALUE"
@@ -384,11 +386,11 @@ function modelLabel(option: ProviderModelOption) {
               id="settings-observation-reaction-model"
               class="w-full md:w-72"
             >
-              <SelectValue placeholder="复用视觉模型" />
+              <SelectValue :placeholder="t('settings.defaultModel.observation.reactionModel.placeholder')" />
             </SelectTrigger>
             <SelectContent>
               <SelectGroup>
-                <SelectItem :value="NONE_VALUE">复用视觉模型</SelectItem>
+                <SelectItem :value="NONE_VALUE">{{ t('settings.defaultModel.observation.reactionModel.reuseVision') }}</SelectItem>
                 <SelectItem
                   v-for="option in enabledTextOptions"
                   :key="option.key"
@@ -404,16 +406,16 @@ function modelLabel(option: ProviderModelOption) {
         <SettingEntry
           :description="
             enabledImageOptions.length
-              ? '只选择一个支持图片输入的模型时，它会承担截图理解和 reaction。'
-              : '还没有启用支持图片输入的模型。'
+              ? t('settings.defaultModel.observation.singleImageModelHint')
+              : t('settings.defaultModel.observation.noImageModelsHint')
           "
         />
       </FieldGroup>
     </SettingsSection>
 
     <SettingsSection
-      title="备用模型"
-      description="添加默认模型不可用时的候选，列表顺序就是回退尝试顺序。"
+      :title="t('settings.defaultModel.fallback.title')"
+      :description="t('settings.defaultModel.fallback.description')"
     >
       <template #action>
         <div class="flex flex-wrap items-center justify-end gap-2">
@@ -424,7 +426,7 @@ function modelLabel(option: ProviderModelOption) {
             @click="fallbackPickerOpen = true"
           >
             <PlusIcon data-icon="inline-start" />
-            添加
+            {{ t('settings.defaultModel.fallback.addButton') }}
           </Button>
           <Button
             type="button"
@@ -433,17 +435,17 @@ function modelLabel(option: ProviderModelOption) {
             @click="clearFallbackModels"
           >
             <Trash2Icon data-icon="inline-start" />
-            清空列表
+            {{ t('settings.defaultModel.fallback.clearButton') }}
           </Button>
         </div>
       </template>
 
       <FieldSet class="flex flex-col gap-4 px-4 py-4">
         <FieldDescription v-if="!enabledOptions.length">
-          还没有可用模型。
+          {{ t('settings.defaultModel.fallback.emptyNoModels') }}
         </FieldDescription>
         <FieldDescription v-else-if="!fallbackOptions.length">
-          还没有备用模型。请先从上方添加候选。
+          {{ t('settings.defaultModel.fallback.emptyNoFallback') }}
         </FieldDescription>
         <FieldGroup
           v-else
@@ -495,7 +497,7 @@ function modelLabel(option: ProviderModelOption) {
                 variant="ghost"
                 size="icon-sm"
                 :disabled="fallbackControlsDisabled || index === 0"
-                aria-label="上移备用模型"
+                :aria-label="t('settings.defaultModel.fallback.moveUpAriaLabel')"
                 @click="moveFallbackModel(option.key, -1)"
               >
                 <ArrowUpIcon />
@@ -505,7 +507,7 @@ function modelLabel(option: ProviderModelOption) {
                 variant="ghost"
                 size="icon-sm"
                 :disabled="fallbackControlsDisabled || index === fallbackOptions.length - 1"
-                aria-label="下移备用模型"
+                :aria-label="t('settings.defaultModel.fallback.moveDownAriaLabel')"
                 @click="moveFallbackModel(option.key, 1)"
               >
                 <ArrowDownIcon />
@@ -515,7 +517,7 @@ function modelLabel(option: ProviderModelOption) {
                 variant="ghost"
                 size="icon-sm"
                 :disabled="fallbackControlsDisabled"
-                aria-label="移除备用模型"
+                :aria-label="t('settings.defaultModel.fallback.removeAriaLabel')"
                 @click="removeFallbackModel(option.key)"
               >
                 <Trash2Icon />

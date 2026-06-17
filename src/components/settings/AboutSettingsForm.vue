@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { DownloadIcon, FolderOpenIcon, GithubIcon, RotateCwIcon } from 'lucide-vue-next'
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 
 import aboutIconUrl from '@/asserts/about_icon.png'
 import { appBridge } from '@/bridge/app'
@@ -10,6 +11,7 @@ import { errorToText, useToast } from '@/utils/toast'
 const GITHUB_URL = 'https://github.com/omnimind-ai/OpenOmniClaw-electron'
 
 const toast = useToast()
+const { t } = useI18n()
 const appInfo = ref({
   name: 'OpenOmniClaw',
   version: 'dev',
@@ -36,7 +38,7 @@ async function loadAppInfo() {
   try {
     appInfo.value = await appBridge.app.getInfo()
   } catch (error) {
-    toast.error(errorToText(error, '应用信息加载失败。'))
+    toast.error(errorToText(error, t('settings.about.errors.loadInfoFailed')))
   }
 }
 
@@ -45,7 +47,7 @@ async function checkForUpdates() {
   updateTimer = window.setTimeout(() => {
     checkingUpdates.value = false
     updateTimer = undefined
-    toast.info('检查更新能力待接入。')
+    toast.info(t('settings.about.messages.checkUpdatesComingSoon'))
   }, 500)
 }
 
@@ -54,19 +56,19 @@ async function exportLog() {
   try {
     const response = await appBridge.logging.export?.()
     if (!response || response.reason === 'unavailable') {
-      toast.warning('当前运行环境没有可导出的日志文件。')
+      toast.warning(t('settings.about.messages.noLogsAvailable'))
       return
     }
     if (response.canceled) {
       return
     }
     if (response.exported) {
-      toast.success('日志已导出。')
+      toast.success(t('settings.about.messages.logExportedSuccess'))
       return
     }
-    toast.warning('日志未导出。')
+    toast.warning(t('settings.about.messages.logNotExported'))
   } catch (error) {
-    toast.error(errorToText(error, '日志导出失败。'))
+    toast.error(errorToText(error, t('settings.about.errors.exportLogFailed')))
   } finally {
     exportingLog.value = false
   }
@@ -77,12 +79,12 @@ async function openSettingsDirectory() {
   try {
     const response = await appBridge.app.openSettingsDirectory()
     if (!response.opened) {
-      toast.warning('当前运行环境没有可打开的设置目录。')
+      toast.warning(t('settings.about.messages.noSettingsDirAvailable'))
       return
     }
-    toast.success('已打开设置目录。')
+    toast.success(t('settings.about.messages.settingsDirOpenedSuccess'))
   } catch (error) {
-    toast.error(errorToText(error, '设置目录打开失败。'))
+    toast.error(errorToText(error, t('settings.about.errors.openSettingsDirFailed')))
   } finally {
     openingSettingsDirectory.value = false
   }
@@ -119,7 +121,7 @@ function openGithub() {
           @click="checkForUpdates"
         >
           <RotateCwIcon data-icon="inline-start" />
-          {{ checkingUpdates ? '检查中' : '检查更新' }}
+          {{ checkingUpdates ? $t('settings.about.buttons.checkingUpdates') : $t('settings.about.buttons.checkForUpdates') }}
         </Button>
 
         <Button
@@ -129,7 +131,7 @@ function openGithub() {
           @click="exportLog"
         >
           <DownloadIcon data-icon="inline-start" />
-          {{ exportingLog ? '导出中' : '导出日志' }}
+          {{ exportingLog ? $t('settings.about.buttons.exportingLog') : $t('settings.about.buttons.exportLog') }}
         </Button>
 
         <Button
@@ -139,7 +141,7 @@ function openGithub() {
           @click="openSettingsDirectory"
         >
           <FolderOpenIcon data-icon="inline-start" />
-          {{ openingSettingsDirectory ? '打开中' : '查看设置目录' }}
+          {{ openingSettingsDirectory ? $t('settings.about.buttons.opening') : $t('settings.about.buttons.viewSettingsDir') }}
         </Button>
 
         <Button
@@ -148,7 +150,7 @@ function openGithub() {
           @click="openGithub"
         >
           <GithubIcon data-icon="inline-start" />
-          打开 GitHub
+          {{ $t('settings.about.buttons.openGithub') }}
         </Button>
       </div>
     </div>

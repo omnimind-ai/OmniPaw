@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { MessageCircleIcon, PlayCircleIcon, ShieldIcon, TimerIcon } from 'lucide-vue-next'
 import { computed, onMounted, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { appBridge, type BridgeDesktopSettingsConfig, ensureElectronBridge } from '@/bridge/app'
 import SettingEntry from '@/components/settings/common/SettingEntry.vue'
 import SettingsSection from '@/components/settings/common/SettingsSection.vue'
@@ -23,6 +24,7 @@ const props = defineProps<{
   draft: BridgeDesktopSettingsConfig
 }>()
 
+const { t } = useI18n()
 const observationStore = useObservationStore()
 const toast = useToast()
 const observation = computed(() => props.draft.observation)
@@ -74,7 +76,7 @@ const notificationCooldownSeconds = computed({
 
 onMounted(() => {
   void observationStore.load().catch((error) => {
-    toast.error(errorToText(error, '主动视觉状态加载失败。'))
+    toast.error(errorToText(error, t('settings.observation.errors.loadFailed')))
   })
 })
 
@@ -89,7 +91,10 @@ async function toggleRuntime(enabled: boolean): Promise<void> {
       await observationStore.stop({ reason: 'user' })
     }
   } catch (error) {
-    toast.error(errorToText(error, enabled ? '主动视觉启动失败。' : '主动视觉停止失败。'))
+    const errorKey = enabled
+      ? 'settings.observation.errors.startFailed'
+      : 'settings.observation.errors.stopFailed'
+    toast.error(errorToText(error, t(errorKey)))
   }
 }
 
@@ -108,7 +113,7 @@ async function triggerDevReaction(): Promise<void> {
       devForceReaction: true,
     })
   } catch (error) {
-    toast.error(errorToText(error, '开发测试气泡触发失败。'))
+    toast.error(errorToText(error, t('settings.observation.errors.devReactionFailed')))
   }
 }
 
@@ -128,7 +133,7 @@ async function showDirectDevCatBubble(): Promise<void> {
       throw new Error('小猫气泡窗口没有返回可见事件。')
     }
   } catch (error) {
-    toast.error(errorToText(error, '手动气泡测试失败。'))
+    toast.error(errorToText(error, t('settings.observation.errors.bubbleDirectFailed')))
   } finally {
     directCatBubblePending.value = false
   }
@@ -150,26 +155,26 @@ function clampInteger(value: string | number, min: number, max = Number.MAX_SAFE
 <template>
   <div class="flex flex-col gap-6">
     <SettingsSection
-      title="主动视觉运行"
-      description="控制当前应用生命周期内的观察运行态。"
+      :title="t('settings.observation.title')"
+      :description="t('settings.observation.description')"
       :icon="PlayCircleIcon"
     >
       <FieldGroup class="gap-0">
-        <SettingEntry control-id="observation-runtime" title="运行主动视觉">
+        <SettingEntry control-id="observation-runtime" :title="t('settings.observation.runtime.title')">
           <template #description>
-            开启后创建或恢复独立主动视觉会话，并按已保存策略评估是否截图。
+            {{ t('settings.observation.runtime.description') }}
           </template>
           <Switch
             id="observation-runtime"
             v-model="runtimeEnabled"
             :disabled="observationStore.running"
-            aria-label="运行主动视觉"
+            :aria-label="t('settings.observation.runtime.title')"
           />
         </SettingEntry>
 
-        <SettingEntry title="当前状态" control-class="flex-wrap @md/field-group:min-w-fit">
+        <SettingEntry :title="t('settings.observation.status.title')" control-class="flex-wrap @md/field-group:min-w-fit">
           <template #description>
-            {{ runtime.active ? '运行中，手动关闭前会持续观察' : '未运行' }}
+            {{ runtime.active ? t('settings.observation.status.running') : t('settings.observation.status.notRunning') }}
           </template>
           <div class="flex flex-wrap items-center gap-2">
             <Button
@@ -179,7 +184,7 @@ function clampInteger(value: string | number, min: number, max = Number.MAX_SAFE
               :disabled="!runtime.active || observationStore.running"
               @click="observationStore.trigger()"
             >
-              立即观察
+              {{ t('settings.observation.immediateObserve') }}
             </Button>
             <Button
               v-if="showDevReactionTrigger"
@@ -190,7 +195,7 @@ function clampInteger(value: string | number, min: number, max = Number.MAX_SAFE
               @click="triggerDevReaction"
             >
               <MessageCircleIcon data-icon="inline-start" />
-              模型测气泡
+              {{ t('settings.observation.devTestBubble') }}
             </Button>
             <Button
               v-if="showDevReactionTrigger"
@@ -201,7 +206,7 @@ function clampInteger(value: string | number, min: number, max = Number.MAX_SAFE
               @click="showDirectDevCatBubble"
             >
               <MessageCircleIcon data-icon="inline-start" />
-              直接弹气泡
+              {{ t('settings.observation.directTestBubble') }}
             </Button>
           </div>
         </SettingEntry>
@@ -209,15 +214,15 @@ function clampInteger(value: string | number, min: number, max = Number.MAX_SAFE
     </SettingsSection>
 
     <SettingsSection
-      title="触发策略"
-      description="设置观察频率、概率和主动反应倾向。"
+      :title="t('settings.observation.triggerPolicy.title')"
+      :description="t('settings.observation.triggerPolicy.description')"
       :icon="TimerIcon"
     >
       <FieldGroup class="gap-0">
         <SettingEntry
           control-id="observation-evaluation-interval"
-          title="评估间隔（秒）"
-          description="每次评估先按概率和限制决定是否截图。"
+          :title="t('settings.observation.evaluationInterval.title')"
+          :description="t('settings.observation.evaluationInterval.description')"
         >
           <Input
             id="observation-evaluation-interval"
@@ -231,8 +236,8 @@ function clampInteger(value: string | number, min: number, max = Number.MAX_SAFE
 
         <SettingEntry
           control-id="observation-reaction-nudge-after"
-          title="连续静默提升（次）"
-          description="达到次数后，后续观察会更积极考虑短问候或寒暄。"
+          :title="t('settings.observation.reactionNudgeAfter.title')"
+          :description="t('settings.observation.reactionNudgeAfter.description')"
         >
           <Input
             id="observation-reaction-nudge-after"
@@ -246,8 +251,8 @@ function clampInteger(value: string | number, min: number, max = Number.MAX_SAFE
 
         <SettingEntry
           control-id="observation-reaction-nudge-probability"
-          title="寒暄倾向（%）"
-          description="连续静默达到阈值后，每次观察提升主动寒暄倾向的基础概率。"
+          :title="t('settings.observation.reactionNudgeProbability.title')"
+          :description="t('settings.observation.reactionNudgeProbability.description')"
         >
           <Input
             id="observation-reaction-nudge-probability"
@@ -262,8 +267,8 @@ function clampInteger(value: string | number, min: number, max = Number.MAX_SAFE
 
         <SettingEntry
           control-id="observation-capture-probability"
-          title="截图概率（%）"
-          description="未命中概率时不会截图、调用模型或创建消息。"
+          :title="t('settings.observation.captureProbability.title')"
+          :description="t('settings.observation.captureProbability.description')"
         >
           <Input
             id="observation-capture-probability"
@@ -278,8 +283,8 @@ function clampInteger(value: string | number, min: number, max = Number.MAX_SAFE
 
         <SettingEntry
           control-id="observation-min-capture-interval"
-          title="最小截图间隔（秒）"
-          description="概率命中后仍会执行硬冷却。"
+          :title="t('settings.observation.minCaptureInterval.title')"
+          :description="t('settings.observation.minCaptureInterval.description')"
         >
           <Input
             id="observation-min-capture-interval"
@@ -293,8 +298,8 @@ function clampInteger(value: string | number, min: number, max = Number.MAX_SAFE
 
         <SettingEntry
           control-id="observation-scope"
-          title="默认范围"
-          description="第一版优先使用主显示器；窗口范围依赖系统可用源。"
+          :title="t('settings.observation.defaultScope.title')"
+          :description="t('settings.observation.defaultScope.description')"
         >
           <Select
             v-model="observation.defaultScope"
@@ -308,9 +313,9 @@ function clampInteger(value: string | number, min: number, max = Number.MAX_SAFE
             </SelectTrigger>
             <SelectContent>
               <SelectGroup>
-                <SelectItem value="primary_display">主显示器</SelectItem>
-                <SelectItem value="selected_display">显示器</SelectItem>
-                <SelectItem value="selected_window">窗口</SelectItem>
+                <SelectItem value="primary_display">{{ t('settings.observation.defaultScope.primaryDisplay') }}</SelectItem>
+                <SelectItem value="selected_display">{{ t('settings.observation.defaultScope.selectedDisplay') }}</SelectItem>
+                <SelectItem value="selected_window">{{ t('settings.observation.defaultScope.selectedWindow') }}</SelectItem>
               </SelectGroup>
             </SelectContent>
           </Select>
@@ -319,15 +324,15 @@ function clampInteger(value: string | number, min: number, max = Number.MAX_SAFE
     </SettingsSection>
 
     <SettingsSection
-      title="隐私与限制"
-      description="限制截图保留、外部模型和失败边界。"
+      :title="t('settings.observation.privacy.title')"
+      :description="t('settings.observation.privacy.description')"
       :icon="ShieldIcon"
     >
       <FieldGroup class="gap-0">
         <SettingEntry
           control-id="observation-retention"
-          title="截图保留"
-          description="默认仅保留观察文字和安全 capture marker。"
+          :title="t('settings.observation.screenshotRetention.title')"
+          :description="t('settings.observation.screenshotRetention.description')"
         >
           <Select
             v-model="observation.screenshotRetention"
@@ -341,8 +346,8 @@ function clampInteger(value: string | number, min: number, max = Number.MAX_SAFE
             </SelectTrigger>
             <SelectContent>
               <SelectGroup>
-                <SelectItem value="ephemeral">临时输入</SelectItem>
-                <SelectItem value="persist">保存附件</SelectItem>
+                <SelectItem value="ephemeral">{{ t('settings.observation.screenshotRetention.ephemeral') }}</SelectItem>
+                <SelectItem value="persist">{{ t('settings.observation.screenshotRetention.persist') }}</SelectItem>
               </SelectGroup>
             </SelectContent>
           </Select>
@@ -350,32 +355,32 @@ function clampInteger(value: string | number, min: number, max = Number.MAX_SAFE
 
         <SettingEntry
           control-id="observation-remote"
-          title="允许外部 Provider"
-          description="关闭时，外部 Provider 会在截图前被拒绝。"
+          :title="t('settings.observation.allowRemoteProviders.title')"
+          :description="t('settings.observation.allowRemoteProviders.description')"
         >
           <Switch
             id="observation-remote"
             v-model="observation.allowRemoteProviders"
-            aria-label="允许外部 Provider"
+            :aria-label="t('settings.observation.allowRemoteProviders.title')"
           />
         </SettingEntry>
 
         <SettingEntry
           control-id="observation-local-only"
-          title="仅本地执行"
-          description="开启时会阻止外部视觉或 reaction 模型。"
+          :title="t('settings.observation.localOnly.title')"
+          :description="t('settings.observation.localOnly.description')"
         >
           <Switch
             id="observation-local-only"
             v-model="observation.localOnly"
-            aria-label="仅本地执行"
+            :aria-label="t('settings.observation.localOnly.title')"
           />
         </SettingEntry>
 
         <SettingEntry
           control-id="observation-daily-limit"
-          title="每日截图上限"
-          description="达到上限后当天不再执行观察。"
+          :title="t('settings.observation.dailyLimit.title')"
+          :description="t('settings.observation.dailyLimit.description')"
         >
           <Input
             id="observation-daily-limit"
@@ -389,8 +394,8 @@ function clampInteger(value: string | number, min: number, max = Number.MAX_SAFE
 
         <SettingEntry
           control-id="observation-failure-limit"
-          title="连续失败上限"
-          description="截图或模型调用连续失败后停止运行态。"
+          :title="t('settings.observation.failureLimit.title')"
+          :description="t('settings.observation.failureLimit.description')"
         >
           <Input
             id="observation-failure-limit"
@@ -404,8 +409,8 @@ function clampInteger(value: string | number, min: number, max = Number.MAX_SAFE
 
         <SettingEntry
           control-id="observation-cooldown"
-          title="通知冷却（秒）"
-          description="冷却期间 notify/ask 决定只写入主动视觉历史。"
+          :title="t('settings.observation.notificationCooldown.title')"
+          :description="t('settings.observation.notificationCooldown.description')"
         >
           <Input
             id="observation-cooldown"
