@@ -123,12 +123,12 @@ function downloadImage() {
   <Dialog v-model:open="open">
     <DialogPortal>
       <DialogOverlay
-        class="fixed inset-x-0 bottom-0 isolate z-50 bg-transparent duration-100 data-closed:animate-out data-closed:fade-out-0 data-open:animate-in data-open:fade-in-0 supports-backdrop-filter:backdrop-blur-md"
-        style="top: var(--app-topbar-height)"
+        class="fixed isolate z-50 bg-transparent duration-100 data-closed:animate-out data-closed:fade-out-0 data-open:animate-in data-open:fade-in-0 supports-backdrop-filter:backdrop-blur-md"
+        style="top: var(--image-viewer-inset-top, var(--app-topbar-height)); right: var(--image-viewer-inset-right, 0); bottom: var(--image-viewer-inset-bottom, 0); left: var(--image-viewer-inset-left, 0); border-radius: var(--image-viewer-radius, 0);"
       />
       <DialogContent
-        class="fixed inset-x-0 bottom-0 z-50 flex min-h-0 flex-col overflow-hidden bg-transparent p-0 outline-none duration-100 data-closed:animate-out data-closed:fade-out-0 data-open:animate-in data-open:fade-in-0"
-        style="top: var(--app-topbar-height)"
+        class="fixed z-50 flex min-h-0 flex-col overflow-hidden bg-transparent p-0 outline-none duration-100 data-closed:animate-out data-closed:fade-out-0 data-open:animate-in data-open:fade-in-0"
+        style="top: var(--image-viewer-inset-top, var(--app-topbar-height)); right: var(--image-viewer-inset-right, 0); bottom: var(--image-viewer-inset-bottom, 0); left: var(--image-viewer-inset-left, 0); border-radius: var(--image-viewer-radius, 0);"
       >
         <DialogTitle class="sr-only">
           {{ titleText }}

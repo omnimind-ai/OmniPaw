@@ -88,5 +88,10 @@ onBeforeUnmount(() => {
 :global(body) {
   min-width: 0;
   min-height: 0;
+  --image-viewer-inset-top: 1.25rem;
+  --image-viewer-inset-right: 1.25rem;
+  --image-viewer-inset-bottom: 1.25rem;
+  --image-viewer-inset-left: 1.25rem;
+  --image-viewer-radius: var(--radius);
 }
 </style>
