@@ -25,6 +25,12 @@ const pointerClass = computed(() =>
     ? 'left-3.5 -translate-y-1/2 rotate-45 border-r-0 border-t-0'
     : 'right-3.5 -translate-y-1/2 rotate-[225deg] border-r-0 border-t-0'
 )
+const pointerClasses = computed(() =>
+  cn(
+    'absolute top-1/2 z-10 size-3.5 border border-border bg-background shadow-sm',
+    pointerClass.value
+  )
+)
 
 function applyPlacement(placement: CatPanelPlacement) {
   side.value = placement.side === 'left' ? 'left' : 'right'
@@ -44,12 +50,7 @@ onBeforeUnmount(() => {
     aria-label="小猫聊天面板"
   >
     <div
-      :class="
-        cn(
-          'absolute top-1/2 z-10 size-3.5 border border-border bg-background shadow-sm',
-          pointerClass,
-        )
-      "
+      :class="pointerClasses"
       aria-hidden="true"
     />
 

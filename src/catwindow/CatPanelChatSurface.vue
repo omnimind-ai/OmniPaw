@@ -102,6 +102,10 @@ const timeGreeting = computed(() => {
   if (h >= 12 && h < 18) return '下午'
   return '晚上'
 })
+
+function sessionItemClass(sessionId: string) {
+  return cn('items-start gap-2', sessionId === currSessionId.value && 'bg-accent/50')
+}
 </script>
 
 <template>
@@ -170,7 +174,7 @@ const timeGreeting = computed(() => {
               v-for="session in sessions"
               :key="session.id"
               :disabled="uploadPending"
-              :class="cn('items-start gap-2', session.id === currSessionId && 'bg-accent/50')"
+              :class="sessionItemClass(session.id)"
               @select="handleSelectSession(session.id)"
             >
               <CheckIcon

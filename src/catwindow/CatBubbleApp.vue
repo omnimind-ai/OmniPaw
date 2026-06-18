@@ -25,6 +25,9 @@ const pointerClass = computed(() =>
     ? '-left-1.5 -translate-y-1/2 rotate-45 border-r-0 border-t-0'
     : '-right-1.5 -translate-y-1/2 rotate-[225deg] border-r-0 border-t-0'
 )
+const pointerClasses = computed(() =>
+  cn('absolute top-1/2 size-3 border border-border bg-popover shadow-sm', pointerClass.value)
+)
 
 const bubbleClass = computed(() =>
   cn(
@@ -161,7 +164,7 @@ onBeforeUnmount(() => {
       @focusout="resumeAutoDismiss"
     >
       <div
-        :class="cn('absolute top-1/2 size-3 border border-border bg-popover shadow-sm', pointerClass)"
+        :class="pointerClasses"
         aria-hidden="true"
       />
 

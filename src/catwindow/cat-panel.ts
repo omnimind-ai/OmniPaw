@@ -1,5 +1,6 @@
 import { createPinia } from 'pinia'
 import { createApp } from 'vue'
+import { i18n } from '@/i18n'
 import { logger } from '@/utils/logger'
 import { errorToText, useToast } from '@/utils/toast'
 import CatPanelApp from './CatPanelApp.vue'
@@ -22,4 +23,4 @@ window.addEventListener('unhandledrejection', (event) => {
   toast.error(errorToText(event.reason, '小猫面板操作失败。'))
 })
 
-app.use(pinia).mount('#app')
+app.use(pinia).use(i18n).mount('#app')

@@ -123,6 +123,12 @@ const inputGroupClass = computed(() =>
     dragging.value && 'border-ring ring-3 ring-ring/30'
   )
 )
+const formClass = computed(() =>
+  cn(
+    '@container/chat-composer w-full rounded-xl transition-colors',
+    dragging.value && 'bg-accent/40'
+  )
+)
 const textareaClass = computed(() => (props.compactAttachments ? 'min-h-16' : 'min-h-24'))
 const composerPlaceholder = computed(() => {
   if (dragging.value) return t('chat.composer.uploadDragPlaceholder')
@@ -173,6 +179,7 @@ const canUseAttachmentPreset = computed(
     !props.uploadPending &&
     !(props.disabled && !props.running)
 )
+const attachmentStatusClass = computed(() => cn(props.attachmentWarning && 'text-destructive'))
 
 function focus(options: FocusOptions = { preventScroll: true }) {
   const textarea = formRef.value?.querySelector<HTMLTextAreaElement>('textarea')
@@ -453,7 +460,7 @@ function handleDrop(event: DragEvent) {
 <template>
   <form
     ref="formRef"
-    :class="cn('@container/chat-composer w-full rounded-xl transition-colors', dragging && 'bg-accent/40')"
+    :class="formClass"
     @submit.prevent="emit('submit')"
     @dragover.prevent="handleDragOver"
     @dragleave.prevent="handleDragLeave"
@@ -486,7 +493,7 @@ function handleDrop(event: DragEvent) {
               v-if="showAttachmentStatus"
               class="flex w-full flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground"
             >
-              <span :class="cn(attachmentWarning && 'text-destructive')">
+              <span :class="attachmentStatusClass">
                 {{ attachmentStatusText }}
               </span>
               <span v-if="uploadPending">{{ t('chat.composer.uploadingAttachments') }}</span>

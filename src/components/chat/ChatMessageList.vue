@@ -197,6 +197,14 @@ function messageStatusClass(record: ChatRecord) {
   )
 }
 
+function messageErrorStatusClass(record: ChatRecord) {
+  return cn(messageStatusClass(record), 'text-destructive')
+}
+
+function messageThinkingStatusClass(record: ChatRecord) {
+  return cn(messageStatusClass(record), 'text-muted-foreground')
+}
+
 function isLocalTavernGreeting(record: ChatRecord) {
   const tavern = record.metadata?.tavern
   return Boolean(
@@ -299,7 +307,7 @@ function fileChangesFor(record: ChatRecord) {
 
           <div
             v-if="isRecordErrored(record) && errorText(record)"
-            :class="cn(messageStatusClass(record), 'text-destructive')"
+            :class="messageErrorStatusClass(record)"
           >
             <p class="font-medium">
               生成失败
@@ -311,7 +319,7 @@ function fileChangesFor(record: ChatRecord) {
 
           <span
             v-else-if="showThinkingFallback(record, recordIndex)"
-            :class="cn(messageStatusClass(record), 'text-muted-foreground')"
+            :class="messageThinkingStatusClass(record)"
           >
             正在思考...
           </span>
