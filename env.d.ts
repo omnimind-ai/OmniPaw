@@ -1,5 +1,10 @@
 /// <reference types="vite/client" />
 
+declare const __APP_VERSION__: string
+declare const __BUILD_TIME__: string
+declare const __GIT_COMMIT__: string
+declare const __OMNIINFER_PACKAGED__: boolean
+
 declare module '*.vue' {
   import type { DefineComponent } from 'vue'
 

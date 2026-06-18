@@ -7,6 +7,10 @@ import type { ShortcutController } from '../shortcut-controller'
 export interface IpcHandlerOptions {
   appName: string
   appVersion: string
+  buildTime: string
+  commit: string
+  isPackaged: boolean
+  omniInferPackaged: boolean
   appDataPath: string
   logSink: LogSink
   rootLogger: Logger

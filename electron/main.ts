@@ -47,10 +47,15 @@ import { defaultOmniInferLogsDir, OmniInferProcess } from './omniinfer/process'
 import { createShortcutController, type ShortcutController } from './shortcut-controller'
 import { createTrayController, type TrayController } from './tray'
 
+const appVersion = app.getVersion() || __APP_VERSION__
+const appBuildTime = __BUILD_TIME__
+const appCommit = __GIT_COMMIT__
+const omniInferPackaged = __OMNIINFER_PACKAGED__
+
 const logSink = createElectronLogSink({
   logDir: resolveAppLogsPath(),
   appName: APP_NAME,
-  appVersion: app.getVersion(),
+  appVersion,
 })
 const rootLogger = createProjectLogger({
   sink: logSink,
@@ -58,7 +63,7 @@ const rootLogger = createProjectLogger({
   meta: {
     pid: process.pid,
     processType: process.type ?? 'main',
-    appVersion: app.getVersion(),
+    appVersion,
     platform: process.platform,
   },
 })
@@ -603,7 +608,11 @@ app
     registerCatWindowIpcHandlers()
     registerIpcHandlers({
       appName: APP_NAME,
-      appVersion: app.getVersion(),
+      appVersion,
+      buildTime: appBuildTime,
+      commit: appCommit,
+      isPackaged: app.isPackaged,
+      omniInferPackaged,
       appDataPath: app.getPath('appData'),
       logSink,
       rootLogger,

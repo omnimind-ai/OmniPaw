@@ -14,7 +14,11 @@ const toast = useToast()
 const { t } = useI18n()
 const appInfo = ref({
   name: 'OpenOmniClaw',
-  version: 'dev',
+  version: '0.1.1',
+  buildTime: '',
+  commit: '',
+  isPackaged: false,
+  omniInferPackaged: false,
   platform: '',
 })
 const checkingUpdates = ref(false)

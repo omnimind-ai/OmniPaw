@@ -1,6 +1,10 @@
 export interface AppInfo {
   name: string
   version: string
+  buildTime: string
+  commit: string
+  isPackaged: boolean
+  omniInferPackaged: boolean
   platform: string
 }
 

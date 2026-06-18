@@ -1,4 +1,4 @@
-import type { OpenChatSessionRequest, OpenDirectoryResponse } from '@shared/types/app'
+import type { AppInfo, OpenChatSessionRequest, OpenDirectoryResponse } from '@shared/types/app'
 import type {
   CatBounds,
   CatBubbleDismissRequest,
@@ -906,7 +906,7 @@ export interface BridgeSkillChangedEvent {
 
 export interface RendererOpenOmniClawBridge {
   app: {
-    getInfo: () => Promise<{ name: string; version: string; platform: string }>
+    getInfo: () => Promise<AppInfo>
     openSettingsDirectory: () => Promise<OpenDirectoryResponse>
     openChatSession?: (request: OpenChatSessionRequest | string) => Promise<void>
     onOpenChatSession?: (callback: (request: OpenChatSessionRequest) => void) => BridgeUnsubscribe
@@ -1466,7 +1466,11 @@ const fallbackBridge: RendererOpenOmniClawBridge = {
   app: {
     getInfo: async () => ({
       name: 'OpenOmniClaw',
-      version: 'dev',
+      version: '0.1.1',
+      buildTime: __BUILD_TIME__,
+      commit: __GIT_COMMIT__,
+      isPackaged: false,
+      omniInferPackaged: __OMNIINFER_PACKAGED__,
       platform: 'win32',
     }),
     openSettingsDirectory: async () => ({

@@ -9,6 +9,10 @@ export function registerAppIpcHandlers(options: IpcHandlerOptions): void {
   registerLoggedIpcHandler(options, IPC_CHANNELS.app.getInfo, () => ({
     name: options.appName,
     version: options.appVersion,
+    buildTime: options.buildTime,
+    commit: options.commit,
+    isPackaged: options.isPackaged,
+    omniInferPackaged: options.omniInferPackaged,
     platform: options.platform,
   }))
   registerLoggedIpcHandler(options, IPC_CHANNELS.app.openSettingsDirectory, async () => {
