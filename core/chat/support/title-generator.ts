@@ -7,6 +7,7 @@ import type { ProviderManager } from '@core/provider/manager'
 import { IPC_CHANNELS } from '@shared/constants'
 import { resolveSelectedProviderAndModel } from '../run/provider-selector'
 import type { ChatRunEventTarget } from '../run-manager'
+import { CAT_SESSION_TITLE } from '../session-defaults'
 import { textFromParts } from './message-text'
 
 export interface SessionTitleGeneratorOptions {
@@ -25,10 +26,15 @@ interface TitleCompletion {
 const TITLE_GENERATION_MAX_OUTPUT_TOKENS = 512
 
 const autoTitlePlaceholders = new Set([
+  CAT_SESSION_TITLE,
   '新会话',
   '新标题',
   '新的聊天',
   '默认会话',
+  'Cat chat',
+  'Cat Chat',
+  'Cat session',
+  'Cat Session',
   'New chat',
   'New Chat',
   'New conversation',

@@ -164,6 +164,10 @@ try {
         provider: mimoProvider,
         modelId: 'mimo',
       }),
+      resolveTitleProvider: async () => ({
+        provider: kimiProvider,
+        modelId: 'kimi',
+      }),
       createProviderClient: async (providerId: string) => ({
         id: providerId,
         streamChat: async function* (request) {
@@ -365,6 +369,31 @@ try {
     ).id,
     catSession.id
   )
+  const catTitleEvents: string[] = []
+  await sessionModelService.sendMessage(
+    {
+      sessionId: catSession.id,
+      content: 'Plan a small TypeScript refactor checklist.',
+      providerId: kimiProvider.id,
+      modelId: 'kimi',
+      mode: 'fast_chat',
+      toolProfile: 'minimal',
+      maxSteps: 1,
+    },
+    {
+      send(channel, event) {
+        if (
+          channel === 'chat:session-changed' &&
+          (event as { reason?: string }).reason === 'title_generated'
+        ) {
+          catTitleEvents.push((event as { session?: { title?: string } }).session?.title ?? '')
+        }
+      },
+    } as never
+  )
+  await waitFor(() => sessionRepo.get(catSession.id)?.title !== CAT_SESSION_TITLE)
+  assert.equal(sessionRepo.get(catSession.id)?.title, 'internal vision result')
+  assert.deepEqual(catTitleEvents, ['internal vision result'])
   const visionSession = await sessionModelService.getOrCreateSession({ kind: 'vision' })
   assert.equal(visionSession.kind, 'vision')
   assert.equal(visionSession.title, '主动视觉')
@@ -967,4 +996,14 @@ function waitForMicrotasks(): Promise<void> {
   return new Promise((resolve) => {
     setTimeout(resolve, 0)
   })
+}
+
+async function waitFor(predicate: () => boolean, timeoutMs = 1000): Promise<void> {
+  const startedAt = Date.now()
+  while (!predicate()) {
+    if (Date.now() - startedAt > timeoutMs) {
+      throw new Error('Timed out waiting for smoke condition.')
+    }
+    await waitForMicrotasks()
+  }
 }
