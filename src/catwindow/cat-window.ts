@@ -10,6 +10,7 @@ import firstShowFallbackImage from '@/asserts/cat/ic_cat_first_show.png'
 import idleImage from '@/asserts/cat/ic_cat_normal.png'
 import draggedFallbackImage from '@/asserts/cat/ic_cat_normal_dragging.png'
 import { appBridge } from '@/bridge/app'
+import { i18n } from '@/i18n'
 
 const surface = document.querySelector<HTMLElement>('.cat-surface')
 const stage = document.querySelector<HTMLButtonElement>('#cat-stage')
@@ -254,7 +255,7 @@ async function ensureCatDropSessionId(): Promise<string> {
     (
       await appBridge.chat.createSession({
         kind: 'cat',
-        title: '小猫会话',
+        title: i18n.global.t('catWindow.chat.defaultSessionTitle'),
       })
     ).id
 

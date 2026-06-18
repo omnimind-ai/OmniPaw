@@ -1,6 +1,7 @@
 import type { CatDraftAttachment, CatDraftChangedEvent } from '@shared/types/cat'
 import type { ToolProfile } from '@shared/types/chat'
 import { computed, nextTick, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { appBridge, type BridgeChatSession, type BridgeUnsubscribe } from '@/bridge/app'
 import { contentText } from '@/components/chat/chat-display'
 import { useChatWorkspaceModel } from '@/composables/chat/useChatWorkspaceModel'
@@ -50,6 +51,7 @@ const emptyDraftSnapshot = (): CatPanelDraftSnapshot => ({
 })
 
 export function useCatPanelChatController() {
+  const { t } = useI18n()
   const toast = useToast()
   const settingsStore = useSettingsStore()
   const sessions = ref<Session[]>([])
@@ -94,11 +96,11 @@ export function useCatPanelChatController() {
   )
   const currentSessionTitle = computed(() => sessionTitle(getCurrentSession.value))
   const currentSessionSubtitle = computed(() => {
-    if (initializing.value) return '正在加载'
-    if (media.uploadPending.value) return '上传附件'
-    if (currentSessionRunning.value) return '生成中'
-    if (messages.loadingMessages.value) return '加载消息'
-    return '就绪'
+    if (initializing.value) return t('catWindow.chat.status.initializing')
+    if (media.uploadPending.value) return t('catWindow.chat.status.uploading')
+    if (currentSessionRunning.value) return t('catWindow.chat.status.generating')
+    if (messages.loadingMessages.value) return t('catWindow.chat.status.loadingMessages')
+    return t('catWindow.chat.status.ready')
   })
   const agentToolProfile = computed(() => settingsStore.agentToolProfile)
   const showReasoningContent = computed(() => settingsStore.showReasoningContent)
@@ -109,38 +111,47 @@ export function useCatPanelChatController() {
   }> = [
     {
       value: 'minimal',
-      label: '最小',
-      description: '仅暴露基础安全与只读能力。',
+      label: t('catWindow.chat.toolProfile.minimal.label'),
+      description: t('catWindow.chat.toolProfile.minimal.description'),
     },
     {
       value: 'assistant',
-      label: '助手',
-      description: '默认等级，允许常用助手工具。',
+      label: t('catWindow.chat.toolProfile.assistant.label'),
+      description: t('catWindow.chat.toolProfile.assistant.description'),
     },
     {
       value: 'power',
-      label: '高级',
-      description: '暴露更完整的工具清单，高风险工具仍需要授权。',
+      label: t('catWindow.chat.toolProfile.power.label'),
+      description: t('catWindow.chat.toolProfile.power.description'),
     },
   ]
   const attachmentWarning = computed(() => {
     if (!media.stagedFiles.value.length) return ''
     if (media.stagedFiles.value.length > ATTACHMENT_LIMITS.maxFilesPerMessage) {
-      return `每条消息最多添加 ${ATTACHMENT_LIMITS.maxFilesPerMessage} 个附件。`
+      return t('catWindow.chat.errors.tooManyAttachments', {
+        max: ATTACHMENT_LIMITS.maxFilesPerMessage,
+      })
     }
 
     const oversized = media.stagedFiles.value.find(
       (file) => Number(file.size || 0) > ATTACHMENT_LIMITS.maxFileBytes
     )
     if (oversized) {
-      return `${oversized.filename} 超过 ${formatBytes(ATTACHMENT_LIMITS.maxFileBytes)}。`
+      return t('catWindow.chat.errors.fileTooLarge', {
+        filename: oversized.filename,
+        maxSize: formatBytes(ATTACHMENT_LIMITS.maxFileBytes),
+      })
     }
 
     const unsupported = media.stagedFiles.value.find(
       (file) => !model.modelSupportsAttachment(file.type)
     )
     if (unsupported) {
-      return `${model.selectedModel.value?.modelName || '当前模型'} 不支持${model.attachmentTypeLabel(unsupported.type)}输入。`
+      return t('catWindow.chat.errors.unsupportedAttachmentType', {
+        modelName:
+          model.selectedModel.value?.modelName || t('catWindow.chat.defaults.currentModel'),
+        type: model.attachmentTypeLabel(unsupported.type),
+      })
     }
 
     return ''
@@ -229,7 +240,7 @@ export function useCatPanelChatController() {
       ])
       results.forEach((result) => {
         if (result.status === 'rejected') {
-          toast.error(result.reason, { description: '小猫聊天加载失败' })
+          toast.error(result.reason, { description: t('catWindow.chat.errors.loadFailed') })
         }
       })
 
@@ -263,7 +274,7 @@ export function useCatPanelChatController() {
       return sessions.value
     } catch (error) {
       controllerLogger.error('Failed to load cat sessions.', { error })
-      toast.error(error, { description: '小猫会话加载失败' })
+      toast.error(error, { description: t('catWindow.chat.errors.loadSessionsFailed') })
       throw error
     } finally {
       loadingSessions.value = false
@@ -297,7 +308,7 @@ export function useCatPanelChatController() {
     try {
       const created = await appBridge.chat.createSession({
         kind: 'cat',
-        title: '小猫会话',
+        title: t('catWindow.chat.defaults.sessionTitle'),
         ...(providerId ? { providerId } : {}),
         ...(modelId ? { modelId } : {}),
       })
@@ -312,7 +323,7 @@ export function useCatPanelChatController() {
       return session
     } catch (error) {
       controllerLogger.error('Failed to create cat session.', { error })
-      toast.error(error, { description: '新建小猫会话失败' })
+      toast.error(error, { description: t('catWindow.chat.errors.createSessionFailed') })
       throw error
     } finally {
       creatingSession.value = false
@@ -538,7 +549,7 @@ export function useCatPanelChatController() {
       settingsStore.updateToolProfile(value)
       await settingsStore.save()
     } catch (error) {
-      toast.error(error, { description: 'Agent 权限保存失败' })
+      toast.error(error, { description: t('catWindow.chat.errors.toolProfileSaveFailed') })
     } finally {
       toolProfileSaving.value = false
     }
@@ -637,19 +648,21 @@ export function useCatPanelChatController() {
     try {
       await messages.stopSession(currSessionId.value)
     } catch (error) {
-      toast.error(error, { description: '停止生成失败' })
+      toast.error(error, { description: t('catWindow.chat.errors.stopGenerationFailed') })
     }
   }
 
   async function handleCopyMessage(record: ChatRecord) {
     const ok = await copyToClipboard(contentText(messages.messageContent(record)))
     if (!ok) {
-      toast.error('复制失败', { description: '无法写入剪贴板' })
+      toast.error(t('catWindow.chat.errors.copyFailed'), {
+        description: t('catWindow.chat.errors.clipboardWriteFailed'),
+      })
     }
   }
 
   function handleCopyCode() {
-    toast.success('已复制代码')
+    toast.success(t('catWindow.chat.toasts.codeCopied'))
   }
 
   async function handleEditMessage(record: ChatRecord, text: string) {
@@ -657,10 +670,12 @@ export function useCatPanelChatController() {
     try {
       const result = await messages.editMessage(currSessionId.value, record, text)
       if (result.needsRegenerate) {
-        toast.info('消息已更新', { description: '可继续生成新的回复' })
+        toast.info(t('catWindow.chat.toasts.messageUpdated'), {
+          description: t('catWindow.chat.toasts.canContinueGenerating'),
+        })
       }
     } catch (error) {
-      toast.error(error, { description: '编辑消息失败' })
+      toast.error(error, { description: t('catWindow.chat.errors.editMessageFailed') })
     }
   }
 
@@ -680,7 +695,7 @@ export function useCatPanelChatController() {
         enableStreaming: true,
       })
     } catch (error) {
-      toast.error(error, { description: '继续生成失败' })
+      toast.error(error, { description: t('catWindow.chat.errors.continueGenerationFailed') })
     }
   }
 
@@ -699,7 +714,7 @@ export function useCatPanelChatController() {
         agentToolProfile.value
       )
     } catch (error) {
-      toast.error(error, { description: '重新生成失败' })
+      toast.error(error, { description: t('catWindow.chat.errors.regenerateMessageFailed') })
     }
   }
 
@@ -733,7 +748,9 @@ export function useCatPanelChatController() {
   }
 
   function notifyConfigureModel() {
-    toast.info('未配置可用模型', { description: '请在主窗口设置中启用 Provider 模型。' })
+    toast.info(t('catWindow.chat.errors.noModelConfigured'), {
+      description: t('catWindow.chat.errors.enableProviderModels'),
+    })
   }
 
   function setMessagesScrollArea(value: MessageScrollAreaRef) {
@@ -859,14 +876,17 @@ function cloneUploadItem(item: StagedUploadItem): StagedUploadItem {
 }
 
 function mapDraftAttachmentToStagedFile(attachment: CatDraftAttachment): StagedFileInfo | null {
+  const { t } = useI18n()
   const attachmentId = attachment.attachmentId || attachment.attachment_id
   if (!attachmentId) return null
 
   return {
     attachmentId,
     attachment_id: attachmentId,
-    filename: attachment.filename || attachment.originalName || '附件',
-    original_name: attachment.originalName || attachment.filename || '附件',
+    filename:
+      attachment.filename || attachment.originalName || t('catWindow.chat.defaults.attachmentName'),
+    original_name:
+      attachment.originalName || attachment.filename || t('catWindow.chat.defaults.attachmentName'),
     url: attachment.previewUrl || '',
     type: mapDraftAttachmentType(attachment),
     size: attachment.sizeBytes,
@@ -892,14 +912,16 @@ function revokeBlobUrl(url?: string) {
 }
 
 function sessionTitle(session: Session | null | undefined) {
-  return session?.title?.trim() || '小猫会话'
+  const { t } = useI18n()
+  return session?.title?.trim() || t('catWindow.chat.defaults.sessionTitle')
 }
 
 function sessionUpdatedLabel(session: Session) {
+  const { t, locale } = useI18n()
   const timestamp = Number(session.updatedAt || session.lastMessageAt || session.createdAt || 0)
-  if (!timestamp) return '刚刚'
+  if (!timestamp) return t('catWindow.chat.defaults.justNow')
 
-  return new Intl.DateTimeFormat('zh-CN', {
+  return new Intl.DateTimeFormat(locale.value, {
     month: '2-digit',
     day: '2-digit',
     hour: '2-digit',

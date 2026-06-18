@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { CatPanelPlacement } from '@shared/types/cat'
 import { computed, onBeforeUnmount, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { appBridge } from '@/bridge/app'
 import { Toaster } from '@/components/ui/sonner'
 import { useAppTheme } from '@/composables/useAppTheme'
@@ -10,12 +11,13 @@ import CatPanelChatSurface from './CatPanelChatSurface.vue'
 type PanelSide = NonNullable<CatPanelPlacement['side']>
 
 useAppTheme()
+const { t } = useI18n()
 
 const side = ref<PanelSide>('right')
 
 const sideLabels: Record<PanelSide, string> = {
-  left: '左侧',
-  right: '右侧',
+  left: t('catWindow.panel.alignmentLeft'),
+  right: t('catWindow.panel.alignmentRight'),
 }
 
 const sideLabel = computed(() => sideLabels[side.value])
@@ -47,7 +49,7 @@ onBeforeUnmount(() => {
   <main
     class="relative size-full p-5 text-foreground"
     :data-side="side"
-    aria-label="小猫聊天面板"
+    :aria-label="t('catWindow.panel.chatPanelLabel')"
   >
     <div
       :class="pointerClasses"

@@ -2,6 +2,7 @@
 import type { CatBubbleDismissReason, CatBubbleEvent, CatPanelPlacement } from '@shared/types/cat'
 import { XIcon } from 'lucide-vue-next'
 import { computed, onBeforeUnmount, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { appBridge } from '@/bridge/app'
 import { useAppTheme } from '@/composables/useAppTheme'
 import { cn } from '@/lib/utils'
@@ -9,6 +10,7 @@ import { cn } from '@/lib/utils'
 type PanelSide = NonNullable<CatPanelPlacement['side']>
 
 useAppTheme()
+const { t } = useI18n()
 
 const bubble = ref<CatBubbleEvent | null>(null)
 const side = ref<PanelSide>('right')
@@ -155,7 +157,7 @@ onBeforeUnmount(() => {
       :class="bubbleClass"
       :role="isObservation ? 'button' : undefined"
       :tabindex="isObservation ? 0 : undefined"
-      :aria-label="isObservation ? '查看观察反应来源' : undefined"
+      :aria-label="isObservation ? t('catWindow.bubble.viewObservationSource') : undefined"
       @click="handleBubbleClick"
       @keydown="handleBubbleKeydown"
       @mouseenter="pauseAutoDismiss"
@@ -176,7 +178,7 @@ onBeforeUnmount(() => {
         v-if="isObservation"
         type="button"
         class="grid size-6 shrink-0 place-items-center rounded-md text-muted-foreground outline-none hover:bg-accent hover:text-accent-foreground focus-visible:ring-2"
-        aria-label="关闭观察反应"
+        :aria-label="t('catWindow.bubble.closeBubble')"
         @click.stop="dismissBubble('close')"
       >
         <XIcon

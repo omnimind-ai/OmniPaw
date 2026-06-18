@@ -9,6 +9,7 @@ import {
   SettingsIcon,
 } from 'lucide-vue-next'
 import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 
 import ChatComposer from '@/components/chat/ChatComposer.vue'
 import ChatMessageList from '@/components/chat/ChatMessageList.vue'
@@ -31,6 +32,8 @@ import { useCatPanelChatController } from './useCatPanelChatController'
 defineProps<{
   sideLabel: string
 }>()
+
+const { t } = useI18n()
 
 const {
   sessions,
@@ -98,9 +101,9 @@ const {
 
 const timeGreeting = computed(() => {
   const h = new Date().getHours()
-  if (h >= 6 && h < 12) return '早上'
-  if (h >= 12 && h < 18) return '下午'
-  return '晚上'
+  if (h >= 6 && h < 12) return t('catWindow.chat.greetingMorning')
+  if (h >= 12 && h < 18) return t('catWindow.chat.greetingAfternoon')
+  return t('catWindow.chat.greetingEvening')
 })
 
 function sessionItemClass(sessionId: string) {
@@ -111,12 +114,12 @@ function sessionItemClass(sessionId: string) {
 <template>
   <section
     class="cat-panel-chat flex h-full min-h-0 w-full flex-col overflow-hidden rounded-lg border border-border/80 bg-background/95 text-foreground shadow-xl backdrop-blur"
-    aria-label="小猫聊天"
+    :aria-label="t('catWindow.chat.chatLabel')"
   >
     <header class="flex shrink-0 items-center gap-2 border-b border-border/70 px-3 py-2">
       <div class="min-w-0 flex-1">
         <div class="flex min-w-0 items-center gap-2">
-          <p class="truncate text-sm font-semibold">小万</p>
+          <p class="truncate text-sm font-semibold">{{ t('catWindow.chat.appName') }}</p>
           <Badge
             variant="secondary"
             class="shrink-0"
@@ -155,7 +158,7 @@ function sessionItemClass(sessionId: string) {
           align="end"
           class="w-72"
         >
-          <DropdownMenuLabel>会话</DropdownMenuLabel>
+          <DropdownMenuLabel>{{ t('catWindow.chat.sessionsLabel') }}</DropdownMenuLabel>
           <DropdownMenuSeparator />
 
           <DropdownMenuGroup>
@@ -167,7 +170,7 @@ function sessionItemClass(sessionId: string) {
                 data-icon="inline-start"
                 class="animate-spin"
               />
-              加载中
+              {{ t('catWindow.chat.loading') }}
             </DropdownMenuItem>
 
             <DropdownMenuItem
@@ -211,7 +214,7 @@ function sessionItemClass(sessionId: string) {
               v-else
               data-icon="inline-start"
             />
-            新会话
+            {{ t('catWindow.chat.newSession') }}
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
@@ -221,7 +224,7 @@ function sessionItemClass(sessionId: string) {
       v-if="!selectedModel && !providersLoading"
       class="flex shrink-0 items-center justify-between gap-2 border-b border-border/70 bg-muted/40 px-3 py-2 text-xs text-muted-foreground"
     >
-      <span class="truncate">未配置可用模型</span>
+      <span class="truncate">{{ t('catWindow.chat.noModelConfigured') }}</span>
       <Button
         type="button"
         variant="outline"
@@ -230,7 +233,7 @@ function sessionItemClass(sessionId: string) {
         @click="notifyConfigureModel"
       >
         <SettingsIcon data-icon="inline-start" />
-        设置
+        {{ t('catWindow.chat.settingsButton') }}
       </Button>
     </div>
 
@@ -271,8 +274,8 @@ function sessionItemClass(sessionId: string) {
           v-else
           class="flex h-full min-h-48 flex-col items-start justify-center gap-1 px-6"
         >
-          <p class="text-3xl font-bold">{{ timeGreeting }}好👋</p>
-          <p class="text-2xl font-bold">小万能帮你做什么</p>
+          <p class="text-3xl font-bold">{{ timeGreeting }}👋</p>
+          <p class="text-2xl font-bold">{{ t('catWindow.chat.whatCanHelp') }}</p>
         </div>
       </ScrollArea>
 
@@ -282,11 +285,11 @@ function sessionItemClass(sessionId: string) {
         variant="outline"
         size="sm"
         class="absolute bottom-3 left-1/2 h-8 -translate-x-1/2 border-border/70 bg-background/70 px-2 shadow-md backdrop-blur"
-        aria-label="回到底部"
+        :aria-label="t('catWindow.chat.scrollToBottom')"
         @click="scrollToLatestMessage('smooth', true)"
       >
         <ArrowDownIcon data-icon="inline-start" />
-        底部
+        {{ t('catWindow.chat.bottom') }}
       </Button>
     </div>
 
