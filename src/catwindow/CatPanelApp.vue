@@ -1,17 +1,25 @@
 <script setup lang="ts">
 import type { CatPanelPlacement } from '@shared/types/cat'
-import { computed, onBeforeUnmount, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { appBridge } from '@/bridge/app'
 import { Toaster } from '@/components/ui/sonner'
+import { useAppLanguage } from '@/composables/useAppLanguage'
 import { useAppTheme } from '@/composables/useAppTheme'
 import { cn } from '@/lib/utils'
+import { useSettingsStore } from '@/stores/settings'
 import CatPanelChatSurface from './CatPanelChatSurface.vue'
 
 type PanelSide = NonNullable<CatPanelPlacement['side']>
 
+const settingsStore = useSettingsStore()
+useAppLanguage()
 useAppTheme()
 const { t } = useI18n()
+
+onMounted(() => {
+  void settingsStore.load().catch(() => {})
+})
 
 const side = ref<PanelSide>('right')
 

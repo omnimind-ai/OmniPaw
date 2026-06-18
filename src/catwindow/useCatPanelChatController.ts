@@ -25,6 +25,7 @@ import {
   useMessages,
 } from '@/composables/useMessages'
 import type { Session } from '@/composables/useSessions'
+import { i18n } from '@/i18n'
 import { useSettingsStore } from '@/stores/settings'
 import { copyToClipboard } from '@/utils/clipboard'
 import { logger } from '@/utils/logger'
@@ -876,17 +877,15 @@ function cloneUploadItem(item: StagedUploadItem): StagedUploadItem {
 }
 
 function mapDraftAttachmentToStagedFile(attachment: CatDraftAttachment): StagedFileInfo | null {
-  const { t } = useI18n()
   const attachmentId = attachment.attachmentId || attachment.attachment_id
   if (!attachmentId) return null
 
+  const fallbackName = i18n.global.t('catWindow.chat.defaults.attachmentName')
   return {
     attachmentId,
     attachment_id: attachmentId,
-    filename:
-      attachment.filename || attachment.originalName || t('catWindow.chat.defaults.attachmentName'),
-    original_name:
-      attachment.originalName || attachment.filename || t('catWindow.chat.defaults.attachmentName'),
+    filename: attachment.filename || attachment.originalName || fallbackName,
+    original_name: attachment.originalName || attachment.filename || fallbackName,
     url: attachment.previewUrl || '',
     type: mapDraftAttachmentType(attachment),
     size: attachment.sizeBytes,
@@ -912,16 +911,14 @@ function revokeBlobUrl(url?: string) {
 }
 
 function sessionTitle(session: Session | null | undefined) {
-  const { t } = useI18n()
-  return session?.title?.trim() || t('catWindow.chat.defaults.sessionTitle')
+  return session?.title?.trim() || i18n.global.t('catWindow.chat.defaults.sessionTitle')
 }
 
 function sessionUpdatedLabel(session: Session) {
-  const { t, locale } = useI18n()
   const timestamp = Number(session.updatedAt || session.lastMessageAt || session.createdAt || 0)
-  if (!timestamp) return t('catWindow.chat.defaults.justNow')
+  if (!timestamp) return i18n.global.t('catWindow.chat.defaults.justNow')
 
-  return new Intl.DateTimeFormat(locale.value, {
+  return new Intl.DateTimeFormat(i18n.global.locale.value, {
     month: '2-digit',
     day: '2-digit',
     hour: '2-digit',
