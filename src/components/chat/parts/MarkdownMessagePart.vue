@@ -924,8 +924,7 @@ function renderWorkspaceFileRef(path: string, lineStart?: number, lineEnd?: numb
 }
 
 .chat-markdown :deep(pre.shiki .line) {
-  display: block;
-  min-height: 1.55em;
+  display: inline;
 }
 
 .chat-markdown :deep(.chat-markdown__table) {
