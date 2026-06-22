@@ -1,16 +1,28 @@
 <script setup lang="ts">
 import {
   AlertTriangleIcon,
-  CheckCircle2Icon,
+  BookOpenIcon,
+  BrainIcon,
+  CalculatorIcon,
+  CalendarClockIcon,
   ChevronDownIcon,
   CircleDashedIcon,
+  ClockIcon,
+  EyeIcon,
+  FilePenLineIcon,
+  FileSearchIcon,
+  FileTextIcon,
   FolderOpenIcon,
+  PaperclipIcon,
   PlayIcon,
+  SearchIcon,
   ShieldOffIcon,
+  SquareTerminalIcon,
   WrenchIcon,
   XCircleIcon,
 } from 'lucide-vue-next'
-import { computed, ref } from 'vue'
+import { type Component, computed, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 
 import { appBridge } from '@/bridge/app'
 import { Button } from '@/components/ui/button'
@@ -31,12 +43,15 @@ const emit = defineEmits<{
 const open = ref(false)
 const deciding = ref(false)
 const toast = useToast()
+const { t } = useI18n()
 const status = computed(() => toolCallStatus(props.toolCall))
-const label = computed(() => toolCallLabel(props.toolCall))
+const label = computed(() => toolCallLabel(props.toolCall, t))
+const toolName = computed(() =>
+  String(props.toolCall.name || props.toolCall.toolName || props.toolCall.tool_name || '')
+)
 
 const workspaceFilePath = computed(() => {
-  const name = props.toolCall.name || props.toolCall.toolName || props.toolCall.tool_name
-  if (name !== 'workspace_file') return ''
+  if (toolName.value !== 'workspace_file') return ''
   if (status.value !== 'complete') return ''
   const result = props.toolCall.result
   if (!result || typeof result !== 'object') return ''
@@ -117,13 +132,46 @@ const statusLabel = computed(() => {
 })
 
 const statusIcon = computed(() => {
-  if (status.value === 'complete') return CheckCircle2Icon
   if (status.value === 'error') return XCircleIcon
   if (status.value === 'denied') return ShieldOffIcon
   if (status.value === 'aborted') return AlertTriangleIcon
   if (status.value === 'pending') return CircleDashedIcon
-  return WrenchIcon
+  if (status.value === 'complete') return toolIcon(toolName.value)
+  if (status.value === 'running') return WrenchIcon
+  return toolIcon(toolName.value)
 })
+
+function toolIcon(name: string): Component {
+  if (name === 'system_time') return ClockIcon
+  if (name === 'calculator') return CalculatorIcon
+  if (name === 'attachment_text_read') return PaperclipIcon
+  if (name === 'attachment_text_search') return SearchIcon
+  if (name === 'memory_search') return BrainIcon
+  if (
+    name === 'memory_create' ||
+    name === 'memory_update_proposal' ||
+    name === 'memory_forget_proposal'
+  ) {
+    return BrainIcon
+  }
+  if (name === 'skill_read') return BookOpenIcon
+  if (name === 'future_task') return CalendarClockIcon
+  if (name === 'screen_observe') return EyeIcon
+  if (name === 'terminal_exec') return SquareTerminalIcon
+  if (name === 'workspace_file') {
+    const action = workspaceAction(props.toolCall.args ?? props.toolCall.arguments)
+    if (action === 'write' || action === 'patch') return FilePenLineIcon
+    if (action === 'search') return FileSearchIcon
+    return FileTextIcon
+  }
+  return WrenchIcon
+}
+
+function workspaceAction(value: unknown): string {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return ''
+  const action = (value as Record<string, unknown>).action
+  return typeof action === 'string' ? action : ''
+}
 
 async function decideToolApproval(action: 'approve' | 'reject') {
   if (!appBridge.chat.approveToolCall || !runId.value || !toolCallId.value) {
@@ -170,7 +218,7 @@ async function decideToolApproval(action: 'approve' | 'reject') {
               :class="cn(status === 'running' && 'animate-spin')"
               aria-hidden="true"
             />
-            <span class="min-w-0 truncate font-mono">
+            <span class="min-w-0 truncate font-medium">
               {{ label }}
             </span>
             <span class="shrink-0 text-muted-foreground/70">

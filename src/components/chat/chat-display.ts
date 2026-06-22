@@ -3,6 +3,8 @@ import type { Component } from 'vue'
 
 import type { ChatContent, ChatRecord, MessagePart, ToolCall } from '@/composables/useMessages'
 
+type ToolCallTranslate = (key: string, named?: Record<string, unknown>) => string
+
 export function recordId(record: ChatRecord) {
   return record.id == null ? '' : String(record.id)
 }
@@ -129,7 +131,9 @@ export function toolCalls(part: MessagePart): ToolCall[] {
   return Array.isArray(calls) ? calls : []
 }
 
-export function toolCallLabel(toolCall: ToolCall) {
+export function toolCallLabel(toolCall: ToolCall, t?: ToolCallTranslate) {
+  const summary = builtinToolCallSummary(toolCall, t)
+  if (summary) return summary
   return toolCall.name || toolCall.toolName || toolCall.tool_name || toolCall.id || '工具调用'
 }
 
@@ -156,4 +160,234 @@ export function formatTime(value?: string) {
     hour: '2-digit',
     minute: '2-digit',
   }).format(date)
+}
+
+function builtinToolCallSummary(toolCall: ToolCall, t?: ToolCallTranslate): string {
+  const name = toolName(toolCall)
+  const args = payloadRecord(toolCall.args ?? toolCall.arguments)
+  const result = payloadRecord(toolCall.result)
+
+  switch (name) {
+    case 'system_time':
+      return summary(t, 'systemTime', '查看了系统时间')
+    case 'calculator':
+      return summary(t, 'calculator', '完成了计算')
+    case 'attachment_text_read':
+      return countedSummary(t, {
+        count: attachmentCount(args),
+        countedKey: 'attachmentRead',
+        pendingKey: 'attachmentReadPending',
+        countedFallback: '查看了 {count} 个附件',
+        pendingFallback: '查看附件',
+      })
+    case 'attachment_text_search':
+      return countedSummary(t, {
+        count: resultCount(result, ['matchCount'], ['matches']),
+        countedKey: 'attachmentSearch',
+        pendingKey: 'attachmentSearchPending',
+        countedFallback: '搜索了 {count} 处附件文本',
+        pendingFallback: '搜索附件文本',
+      })
+    case 'memory_search':
+      return countedSummary(t, {
+        count: resultCount(result, ['resultCount'], ['results']),
+        countedKey: 'memorySearch',
+        pendingKey: 'memorySearchPending',
+        countedFallback: '查看了 {count} 条记忆',
+        pendingFallback: '查看记忆',
+      })
+    case 'memory_create':
+      return countedSummary(t, {
+        count: result ? 1 : undefined,
+        countedKey: 'memoryCreate',
+        pendingKey: 'memoryCreatePending',
+        countedFallback: '记录了 {count} 条记忆',
+        pendingFallback: '记录记忆',
+      })
+    case 'memory_update_proposal':
+      return countedSummary(t, {
+        count: result ? 1 : undefined,
+        countedKey: 'memoryUpdate',
+        pendingKey: 'memoryUpdatePending',
+        countedFallback: '提出了 {count} 条记忆更新',
+        pendingFallback: '提出记忆更新',
+      })
+    case 'memory_forget_proposal':
+      return countedSummary(t, {
+        count: result ? 1 : undefined,
+        countedKey: result?.action === 'archive' ? 'memoryArchive' : 'memoryForget',
+        pendingKey: 'memoryForgetPending',
+        countedFallback:
+          result?.action === 'archive' ? '归档了 {count} 条记忆' : '提出遗忘 {count} 条记忆',
+        pendingFallback: '处理记忆遗忘',
+      })
+    case 'skill_read':
+      return summary(t, 'skillRead', '查看了技能')
+    case 'future_task':
+      return futureTaskSummary(args, result, t)
+    case 'screen_observe':
+      return summary(t, 'screenObserve', '观察了屏幕')
+    case 'workspace_file':
+      return workspaceFileSummary(args, result, t)
+    case 'terminal_exec':
+      return summary(t, 'terminalExec', '运行了命令')
+    default:
+      return ''
+  }
+}
+
+function workspaceFileSummary(
+  args: Record<string, unknown> | undefined,
+  result: Record<string, unknown> | undefined,
+  t?: ToolCallTranslate
+): string {
+  const action = stringValue(result?.action) || stringValue(args?.action)
+  if (action === 'write' || action === 'patch') {
+    return countedSummary(t, {
+      count: result ? 1 : undefined,
+      countedKey: 'workspaceWrite',
+      pendingKey: 'workspaceWritePending',
+      countedFallback: '编辑了 {count} 个文件',
+      pendingFallback: '编辑文件',
+    })
+  }
+  if (action === 'read') {
+    return countedSummary(t, {
+      count: result ? 1 : undefined,
+      countedKey: 'workspaceRead',
+      pendingKey: 'workspaceReadPending',
+      countedFallback: '查看了 {count} 个文件',
+      pendingFallback: '查看文件',
+    })
+  }
+  if (action === 'search') {
+    return countedSummary(t, {
+      count: resultCount(result, ['matchCount'], ['matches']),
+      countedKey: 'workspaceSearch',
+      pendingKey: 'workspaceSearchPending',
+      countedFallback: '搜索了 {count} 处文件内容',
+      pendingFallback: '搜索文件',
+    })
+  }
+  return countedSummary(t, {
+    count: resultCount(result, [], ['entries']),
+    countedKey: 'workspaceList',
+    pendingKey: 'workspaceListPending',
+    countedFallback: '查看了 {count} 个文件',
+    pendingFallback: '查看文件列表',
+  })
+}
+
+function futureTaskSummary(
+  args: Record<string, unknown> | undefined,
+  result: Record<string, unknown> | undefined,
+  t?: ToolCallTranslate
+): string {
+  const action = stringValue(result?.action) || stringValue(args?.action)
+  if (action === 'create') return summary(t, 'futureTaskCreate', '创建了计划任务')
+  if (action === 'edit') return summary(t, 'futureTaskEdit', '编辑了计划任务')
+  if (action === 'delete') return summary(t, 'futureTaskDelete', '删除了计划任务')
+  return countedSummary(t, {
+    count: resultCount(result, ['taskCount'], ['tasks']),
+    countedKey: 'futureTaskList',
+    pendingKey: 'futureTaskListPending',
+    countedFallback: '查看了 {count} 个计划任务',
+    pendingFallback: '查看计划任务',
+  })
+}
+
+function countedSummary(
+  t: ToolCallTranslate | undefined,
+  input: {
+    count: number | undefined
+    countedKey: string
+    pendingKey: string
+    countedFallback: string
+    pendingFallback: string
+  }
+): string {
+  if (input.count !== undefined) {
+    return summary(t, input.countedKey, input.countedFallback, { count: input.count })
+  }
+  return summary(t, input.pendingKey, input.pendingFallback)
+}
+
+function summary(
+  t: ToolCallTranslate | undefined,
+  key: string,
+  fallback: string,
+  values: Record<string, unknown> = {}
+): string {
+  const fullKey = `chat.toolCall.summary.${key}`
+  const translated = t?.(fullKey, values)
+  if (translated && translated !== fullKey) {
+    return translated
+  }
+  return interpolate(fallback, values)
+}
+
+function toolName(toolCall: ToolCall): string {
+  return String(toolCall.name || toolCall.toolName || toolCall.tool_name || '')
+}
+
+function payloadRecord(value: unknown): Record<string, unknown> | undefined {
+  const parsed = parsePayload(value)
+  if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+    return undefined
+  }
+  return parsed as Record<string, unknown>
+}
+
+function parsePayload(value: unknown): unknown {
+  if (typeof value !== 'string') return value
+  try {
+    return JSON.parse(value) as unknown
+  } catch {
+    return value
+  }
+}
+
+function resultCount(
+  payload: Record<string, unknown> | undefined,
+  numberKeys: string[],
+  arrayKeys: string[]
+): number | undefined {
+  if (!payload) return undefined
+  for (const key of numberKeys) {
+    const count = finiteCount(payload[key])
+    if (count !== undefined) return count
+  }
+  for (const key of arrayKeys) {
+    const value = payload[key]
+    if (Array.isArray(value)) return value.length
+  }
+  return undefined
+}
+
+function attachmentCount(args: Record<string, unknown> | undefined): number | undefined {
+  if (!args) return undefined
+  const ids = new Set<string>()
+  const attachmentId = stringValue(args.attachmentId)
+  if (attachmentId) ids.add(attachmentId)
+  if (Array.isArray(args.attachmentIds)) {
+    for (const item of args.attachmentIds) {
+      const id = stringValue(item)
+      if (id) ids.add(id)
+    }
+  }
+  return ids.size || undefined
+}
+
+function finiteCount(value: unknown): number | undefined {
+  const count = Number(value)
+  if (!Number.isFinite(count) || count < 0) return undefined
+  return Math.floor(count)
+}
+
+function stringValue(value: unknown): string {
+  return typeof value === 'string' ? value.trim() : ''
+}
+
+function interpolate(template: string, values: Record<string, unknown>): string {
+  return template.replace(/\{(\w+)\}/g, (_, key: string) => String(values[key] ?? ''))
 }
