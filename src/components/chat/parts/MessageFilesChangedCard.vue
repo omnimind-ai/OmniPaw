@@ -227,7 +227,6 @@ const previewIsMarkdown = computed(() => /\.(md|markdown|mdx)$/i.test(previewPat
           </SheetTitle>
           <SheetDescription>
             <span class="flex flex-wrap items-center gap-2 text-xs">
-              <Badge variant="outline">{{ t('chat.fileChanges.preview.badge') }}</Badge>
               <span
                 v-if="previewTruncated"
                 class="text-muted-foreground"

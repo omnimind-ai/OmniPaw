@@ -1021,7 +1021,7 @@ export interface RendererOpenOmniClawBridge {
       patch: Partial<BridgeChatSession>
     ) => Promise<BridgeChatSession>
     updateSessionTitle?: (sessionId: string, title: string) => Promise<BridgeChatSession>
-    deleteSession?: (sessionId: string) => Promise<void>
+    deleteSession?: (sessionId: string) => Promise<{ deleted: boolean }>
     listMessages?: (sessionId: string) => Promise<BridgeChatMessage[]>
     sendMessage: (request: BridgeSendMessageRequest) => Promise<BridgeSendMessageResponse>
     abortRun?: (runId: string, reason?: string) => Promise<void>
@@ -1842,7 +1842,7 @@ const fallbackBridge: RendererOpenOmniClawBridge = {
       createdAt: Date.now(),
       updatedAt: Date.now(),
     }),
-    deleteSession: async () => {},
+    deleteSession: async () => ({ deleted: true }),
     listMessages: async () => [],
     sendMessage: async () => ({
       runId: crypto.randomUUID(),

@@ -1065,15 +1065,16 @@ export function useChatWorkspaceController() {
   }
 
   async function handleDeleteSession(sessionId: string) {
-    const deletingCurrentSession = sessionId === currSessionId.value
+    const activeRouteSessionId = routeSessionId()
+    const deletingCurrentSession = Boolean(
+      activeRouteSessionId && sessionId === activeRouteSessionId
+    )
     try {
-      const deleted = await deleteSession(sessionId)
+      const deleted = await deleteSession(sessionId, { reload: false })
       if (!deleted) return
       await getFilteredSessions()
       if (deletingCurrentSession) {
-        currSessionId.value = ''
-        selectedSessions.value = []
-        chatStore.activeSessionId = undefined
+        resetActiveSession()
         await router.push('/')
       }
     } catch (error) {

@@ -35,6 +35,10 @@ export interface NewSessionOptions {
   modelId?: string
 }
 
+export interface DeleteSessionOptions {
+  reload?: boolean
+}
+
 const sessionsLogger = logger.child('chat.sessions')
 
 export function useSessions(chatboxMode: boolean = false) {
@@ -110,11 +114,19 @@ export function useSessions(chatboxMode: boolean = false) {
     }
   }
 
-  async function deleteSession(sessionId: string) {
+  async function deleteSession(sessionId: string, options: DeleteSessionOptions = {}) {
     try {
+      const { reload = true } = options
       const wasCurrent = sessionId === currSessionId.value
-      await appBridge.chat.deleteSession?.(sessionId)
-      await getSessions()
+      const result = await appBridge.chat.deleteSession?.(sessionId)
+      if (result?.deleted === false) {
+        return false
+      }
+      if (reload) {
+        await getSessions()
+      } else {
+        sessions.value = sessions.value.filter((session) => session.id !== sessionId)
+      }
       if (wasCurrent) {
         currSessionId.value = ''
         selectedSessions.value = []
