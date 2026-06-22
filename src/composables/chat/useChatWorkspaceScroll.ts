@@ -15,12 +15,13 @@ export function useChatWorkspaceScroll({ isHomeMode, hasMessages }: UseChatWorks
   const showScrollToBottom = ref(false)
 
   let messagesScrollViewport: HTMLElement | null = null
+  let messagesScrollRootElement: HTMLElement | null = null
   let messagesResizeObserver: ResizeObserver | null = null
   let observedMessagesContent: Element | null = null
   let autoScrollFrame = 0
   let programmaticScrollUntil = 0
   let scrollStateTimer = 0
-  let lastKnownScrollHeight = 0
+  let userScrollIntentUntil = 0
 
   onBeforeUnmount(() => {
     cleanupMessageScroll()
@@ -40,6 +41,7 @@ export function useChatWorkspaceScroll({ isHomeMode, hasMessages }: UseChatWorks
   function attachMessageScrollViewport() {
     const nextViewport = resolveMessageScrollViewport()
     if (nextViewport === messagesScrollViewport) {
+      attachUserScrollIntentListeners()
       attachMessagesResizeObserver()
       updateScrollFollowState()
       return
@@ -47,16 +49,17 @@ export function useChatWorkspaceScroll({ isHomeMode, hasMessages }: UseChatWorks
 
     detachMessageScrollViewport()
     messagesScrollViewport = nextViewport
-    messagesScrollViewport?.addEventListener('scroll', updateScrollFollowState, { passive: true })
+    messagesScrollViewport?.addEventListener('scroll', handleViewportScroll, { passive: true })
+    attachUserScrollIntentListeners()
     attachMessagesResizeObserver()
     updateScrollFollowState()
   }
 
   function detachMessageScrollViewport() {
-    messagesScrollViewport?.removeEventListener('scroll', updateScrollFollowState)
+    messagesScrollViewport?.removeEventListener('scroll', handleViewportScroll)
     messagesScrollViewport = null
+    detachUserScrollIntentListeners()
     detachMessagesResizeObserver()
-    lastKnownScrollHeight = 0
   }
 
   function attachMessagesResizeObserver() {
@@ -67,9 +70,7 @@ export function useChatWorkspaceScroll({ isHomeMode, hasMessages }: UseChatWorks
     observedMessagesContent = content
     if (!content || typeof ResizeObserver === 'undefined') return
 
-    messagesResizeObserver = new ResizeObserver(() => {
-      updateScrollFollowState()
-    })
+    messagesResizeObserver = new ResizeObserver(handleMessagesResize)
     messagesResizeObserver.observe(content)
   }
 
@@ -96,7 +97,27 @@ export function useChatWorkspaceScroll({ isHomeMode, hasMessages }: UseChatWorks
     autoScrollFrame = requestAnimationFrame(() => {
       autoScrollFrame = requestAnimationFrame(() => {
         autoScrollFrame = 0
-        scrollToLatestMessage(behavior, true)
+        scrollToLatestMessage(behavior, force)
+      })
+    })
+  }
+
+  function scheduleScrollToMessage(
+    messageId: string,
+    behavior: ScrollBehavior = 'auto',
+    block: ScrollLogicalPosition = 'start'
+  ) {
+    if (isHomeMode.value || !messageId) {
+      updateScrollFollowState()
+      return
+    }
+
+    followingLatestMessage.value = false
+    if (autoScrollFrame) cancelAnimationFrame(autoScrollFrame)
+    autoScrollFrame = requestAnimationFrame(() => {
+      autoScrollFrame = requestAnimationFrame(() => {
+        autoScrollFrame = 0
+        scrollToMessage(messageId, behavior, block)
       })
     })
   }
@@ -105,6 +126,10 @@ export function useChatWorkspaceScroll({ isHomeMode, hasMessages }: UseChatWorks
     attachMessageScrollViewport()
     const viewport = messagesScrollViewport
     if (!viewport || (!force && !followingLatestMessage.value)) return
+    if (!force && userScrollIntentUntil >= performance.now() && !isNearMessageBottom(viewport)) {
+      updateScrollFollowState()
+      return
+    }
 
     programmaticScrollUntil = performance.now() + programmaticScrollDuration(behavior)
     followingLatestMessage.value = true
@@ -114,20 +139,58 @@ export function useChatWorkspaceScroll({ isHomeMode, hasMessages }: UseChatWorks
       behavior,
     })
 
-    if (scrollStateTimer) window.clearTimeout(scrollStateTimer)
-    scrollStateTimer = window.setTimeout(
-      () => {
-        scrollStateTimer = 0
-        updateScrollFollowState()
-      },
-      behavior === 'smooth' ? 350 : 0
-    )
+    scheduleScrollStateUpdate(behavior)
   }
 
-  function resetScrollFollowState() {
-    followingLatestMessage.value = true
+  function scrollToMessage(
+    messageId: string,
+    behavior: ScrollBehavior = 'smooth',
+    block: ScrollLogicalPosition = 'start'
+  ) {
+    attachMessageScrollViewport()
+    const viewport = messagesScrollViewport
+    const root = messageScrollRoot()
+    if (!viewport || !root) return false
+    const target = findMessageElement(root, messageId)
+    if (!target) return false
+
+    const viewportRect = viewport.getBoundingClientRect()
+    const targetRect = target.getBoundingClientRect()
+    const targetStyle = window.getComputedStyle(target)
+    const scrollMarginTop = Number.parseFloat(targetStyle.scrollMarginTop || '0') || 0
+    const scrollMarginBottom = Number.parseFloat(targetStyle.scrollMarginBottom || '0') || 0
+    let top = viewport.scrollTop + targetRect.top - viewportRect.top - scrollMarginTop
+
+    if (block === 'center') {
+      top = viewport.scrollTop + targetRect.top - viewportRect.top
+      top -= Math.max(0, viewport.clientHeight - targetRect.height) / 2
+    } else if (block === 'end') {
+      top = viewport.scrollTop + targetRect.bottom - viewportRect.bottom + scrollMarginBottom
+    } else if (block === 'nearest') {
+      const above = targetRect.top - scrollMarginTop < viewportRect.top
+      const below = targetRect.bottom + scrollMarginBottom > viewportRect.bottom
+      if (!above && !below) {
+        updateScrollFollowState()
+        return true
+      }
+      if (below) {
+        top = viewport.scrollTop + targetRect.bottom - viewportRect.bottom + scrollMarginBottom
+      }
+    }
+
+    top = Math.max(0, Math.min(top, viewport.scrollHeight - viewport.clientHeight))
+    programmaticScrollUntil = performance.now() + programmaticScrollDuration(behavior)
+    followingLatestMessage.value = false
+    viewport.scrollTo({ top, behavior })
+    scheduleScrollStateUpdate(behavior)
+    return true
+  }
+
+  function resetScrollFollowState(followLatest = true) {
+    followingLatestMessage.value = followLatest
     showScrollToBottom.value = false
     programmaticScrollUntil = 0
+    userScrollIntentUntil = 0
   }
 
   function cleanupMessageScroll() {
@@ -140,6 +203,32 @@ export function useChatWorkspaceScroll({ isHomeMode, hasMessages }: UseChatWorks
       window.clearTimeout(scrollStateTimer)
       scrollStateTimer = 0
     }
+  }
+
+  function attachUserScrollIntentListeners() {
+    const root = messageScrollRoot()
+    if (root === messagesScrollRootElement) return
+
+    detachUserScrollIntentListeners()
+    messagesScrollRootElement = root
+    if (!messagesScrollRootElement) return
+
+    messagesScrollRootElement.addEventListener('wheel', markUserScrollIntent, { passive: true })
+    messagesScrollRootElement.addEventListener('touchmove', markUserScrollIntent, {
+      passive: true,
+    })
+    messagesScrollRootElement.addEventListener('pointerdown', handlePointerScrollIntent, {
+      passive: true,
+    })
+    messagesScrollRootElement.addEventListener('keydown', handleScrollKeydown)
+  }
+
+  function detachUserScrollIntentListeners() {
+    messagesScrollRootElement?.removeEventListener('wheel', markUserScrollIntent)
+    messagesScrollRootElement?.removeEventListener('touchmove', markUserScrollIntent)
+    messagesScrollRootElement?.removeEventListener('pointerdown', handlePointerScrollIntent)
+    messagesScrollRootElement?.removeEventListener('keydown', handleScrollKeydown)
+    messagesScrollRootElement = null
   }
 
   function messageScrollRoot() {
@@ -158,6 +247,16 @@ export function useChatWorkspaceScroll({ isHomeMode, hasMessages }: UseChatWorks
     )
   }
 
+  function findMessageElement(root: HTMLElement, messageId: string) {
+    const targetId = `message-${messageId}`
+    if (root.id === targetId) return root
+    return (
+      Array.from(root.querySelectorAll<HTMLElement>('[id]')).find(
+        (element) => element.id === targetId
+      ) ?? null
+    )
+  }
+
   function isNearMessageBottom(viewport: HTMLElement) {
     return (
       viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight <= bottomFollowThreshold
@@ -168,25 +267,67 @@ export function useChatWorkspaceScroll({ isHomeMode, hasMessages }: UseChatWorks
     return behavior === 'smooth' ? 1200 : 120
   }
 
+  function scheduleScrollStateUpdate(behavior: ScrollBehavior) {
+    if (scrollStateTimer) window.clearTimeout(scrollStateTimer)
+    scrollStateTimer = window.setTimeout(
+      () => {
+        scrollStateTimer = 0
+        updateScrollFollowState()
+      },
+      behavior === 'smooth' ? 350 : 0
+    )
+  }
+
+  function handleViewportScroll() {
+    updateScrollFollowState()
+  }
+
+  function handleMessagesResize() {
+    if (followingLatestMessage.value && !isHomeMode.value) {
+      scheduleScrollToLatest('auto')
+      return
+    }
+
+    updateScrollFollowState()
+  }
+
+  function markUserScrollIntent() {
+    userScrollIntentUntil = performance.now() + 1000
+  }
+
+  function handlePointerScrollIntent(event: PointerEvent) {
+    const target = event.target
+    if (
+      target instanceof Element &&
+      target.closest('[data-slot="scroll-area-scrollbar"], [data-slot="scroll-area-thumb"]')
+    ) {
+      markUserScrollIntent()
+    }
+  }
+
+  function handleScrollKeydown(event: KeyboardEvent) {
+    if (
+      ['ArrowUp', 'ArrowDown', 'PageUp', 'PageDown', 'Home', 'End', ' ', 'Spacebar'].includes(
+        event.key
+      )
+    ) {
+      markUserScrollIntent()
+    }
+  }
+
   function updateScrollFollowState() {
     const viewport = messagesScrollViewport
     if (!viewport) {
       followingLatestMessage.value = true
       showScrollToBottom.value = false
-      lastKnownScrollHeight = 0
       return
     }
 
     const nearBottom = isNearMessageBottom(viewport)
-    const currentScrollHeight = viewport.scrollHeight
-    const contentGrew = currentScrollHeight > lastKnownScrollHeight
-    lastKnownScrollHeight = currentScrollHeight
+    const now = performance.now()
+    const userInterrupted = userScrollIntentUntil >= now
 
-    if (!nearBottom && performance.now() < programmaticScrollUntil) return
-
-    if (!nearBottom && contentGrew && followingLatestMessage.value) {
-      showScrollToBottom.value = false
-      scheduleScrollToLatest('auto', true)
+    if (!nearBottom && now < programmaticScrollUntil && !userInterrupted) {
       return
     }
 
@@ -200,7 +341,9 @@ export function useChatWorkspaceScroll({ isHomeMode, hasMessages }: UseChatWorks
     setMessagesScrollArea,
     attachMessageScrollViewport,
     scheduleScrollToLatest,
+    scheduleScrollToMessage,
     scrollToLatestMessage,
+    scrollToMessage,
     resetScrollFollowState,
     cleanupMessageScroll,
   }

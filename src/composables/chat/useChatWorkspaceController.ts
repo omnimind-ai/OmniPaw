@@ -385,6 +385,7 @@ export function useChatWorkspaceController() {
         await syncSessionKindFilterForSession(sessionId)
         chatStore.setContextUsageLoading(sessionId, true)
         await messages.loadSessionMessages(sessionId)
+        await positionSessionAtLatestUserMessage(sessionId)
         await consumePendingInitialMessage(sessionId)
       }
     },
@@ -397,12 +398,16 @@ export function useChatWorkspaceController() {
       if (routeSessionId()) return
       if (routeName === 'tavern') {
         sessionMode.value = 'tavern'
-        await setSessionKindFilter('tavern')
+        if (isSessionMode(sessionKindFilter.value)) {
+          await setSessionKindFilter('tavern')
+        }
         return
       }
       if (routeName === 'home') {
         sessionMode.value = 'chat'
-        await setSessionKindFilter('chat')
+        if (isSessionMode(sessionKindFilter.value)) {
+          await setSessionKindFilter('chat')
+        }
       }
     },
     { immediate: true }
@@ -417,7 +422,7 @@ export function useChatWorkspaceController() {
     (sessionId) => {
       chatStore.activeSessionId = sessionId || undefined
       chatStore.reconcileContextUsageFromSessions(sessions.value)
-      scroll.resetScrollFollowState()
+      scroll.resetScrollFollowState(false)
     },
     { immediate: true }
   )
@@ -464,7 +469,6 @@ export function useChatWorkspaceController() {
     async () => {
       await nextTick()
       scroll.attachMessageScrollViewport()
-      if (!isHomeMode.value) scroll.scheduleScrollToLatest('auto', true)
     },
     { flush: 'post' }
   )
@@ -478,7 +482,9 @@ export function useChatWorkspaceController() {
     async () => {
       await nextTick()
       scroll.attachMessageScrollViewport()
-      scroll.scheduleScrollToLatest()
+      if (currentSessionRunning.value) {
+        scroll.scheduleScrollToLatest()
+      }
     },
     { flush: 'post' }
   )
@@ -493,7 +499,6 @@ export function useChatWorkspaceController() {
     })
     await nextTick()
     scroll.attachMessageScrollViewport()
-    scroll.scheduleScrollToLatest('auto', true)
 
     const results = await Promise.allSettled([
       getFilteredSessions(),
@@ -522,6 +527,30 @@ export function useChatWorkspaceController() {
 
   function handleStreamUpdate(sessionId: string) {
     if (sessionId === currSessionId.value) scroll.scheduleScrollToLatest()
+  }
+
+  async function positionSessionAtLatestUserMessage(sessionId: string) {
+    if (isHomeMode.value || sessionId !== currSessionId.value) return
+
+    await nextTick()
+    scroll.attachMessageScrollViewport()
+
+    const latestUserMessage = [...messages.activeMessages.value]
+      .reverse()
+      .find((record) => messages.isUserMessage(record) && record.id != null)
+
+    if (latestUserMessage?.id != null) {
+      scroll.scheduleScrollToMessage(String(latestUserMessage.id), 'auto', 'start')
+      return
+    }
+
+    scroll.scheduleScrollToLatest('auto', true)
+  }
+
+  async function startBottomFollow(behavior: ScrollBehavior = 'auto') {
+    await nextTick()
+    scroll.attachMessageScrollViewport()
+    scroll.scheduleScrollToLatest(behavior, true)
   }
 
   async function getFilteredSessions() {
@@ -820,6 +849,7 @@ export function useChatWorkspaceController() {
         messageId,
         parts,
       })
+      await startBottomFollow('auto')
 
       draft.value = ''
       chatStore.draft = ''
@@ -912,6 +942,7 @@ export function useChatWorkspaceController() {
       messageId: pending.messageId,
       parts,
     })
+    await startBottomFollow('auto')
 
     await messages.sendMessageStream({
       sessionId,
@@ -1000,6 +1031,7 @@ export function useChatWorkspaceController() {
   async function handleContinueMessage(record: ChatRecord) {
     if (!currSessionId.value || !model.selectedModel.value) return
     try {
+      await startBottomFollow('auto')
       await messages.continueEditedMessage({
         sessionId: currSessionId.value,
         sourceRecord: record,
@@ -1016,6 +1048,7 @@ export function useChatWorkspaceController() {
   async function handleRegenerateMessage(record: ChatRecord) {
     if (!currSessionId.value || !model.selectedModel.value) return
     try {
+      await startBottomFollow('auto')
       await messages.regenerateMessage(
         currSessionId.value,
         record,
