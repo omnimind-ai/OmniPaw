@@ -1254,6 +1254,33 @@ export default {
       openFileFailed: 'Unable to reveal file in folder.',
     },
     toolCall: {
+      expandDetails: 'Expand tool call details',
+      status: {
+        complete: 'Done',
+        error: 'Error',
+        denied: 'Denied',
+        aborted: 'Aborted',
+        approvalPending: 'Needs approval',
+        pending: 'Waiting',
+        running: 'Running',
+      },
+      details: {
+        arguments: 'Arguments',
+        approval: 'Approval',
+        plan: 'Execution plan',
+        result: 'Result',
+        error: 'Error',
+      },
+      approval: {
+        approve: 'Approve and continue',
+        reject: 'Reject',
+        writeReason: 'This tool modifies local data. Approving it will continue this reply.',
+        networkReason: 'This tool needs network access. Approving it will continue this reply.',
+        execReason: 'This tool runs a local command. Approving it will continue this reply.',
+        unavailable: 'This run cannot handle tool approval.',
+        expired: 'The tool approval request is no longer valid.',
+        failed: 'Tool approval failed.',
+      },
       summary: {
         systemTime: 'Checked system time',
         calculator: 'Calculated',
@@ -1286,6 +1313,31 @@ export default {
         workspaceList: 'Viewed {count} file(s)',
         workspaceListPending: 'Viewing file list',
         terminalExec: 'Ran a command',
+      },
+    },
+    fileChanges: {
+      title: 'Edited {count} file(s)',
+      actions: {
+        reveal: 'Reveal in folder',
+        export: 'Save as',
+        preview: 'Preview',
+        collapse: 'Collapse',
+        expandRemaining: 'Show {count} more',
+      },
+      preview: {
+        title: 'File preview',
+        badge: 'Workspace file',
+        truncated: 'Content truncated',
+        binaryMeta: 'Binary file, metadata only',
+        binaryHint: 'Binary files cannot be previewed. Use "Save as" to view it locally.',
+      },
+      toasts: {
+        exported: 'File saved.',
+      },
+      errors: {
+        revealFailed: 'Unable to reveal file in folder.',
+        exportFailed: 'Failed to save file.',
+        previewFailed: 'Failed to preview file.',
       },
     },
     scrollToBottom: {

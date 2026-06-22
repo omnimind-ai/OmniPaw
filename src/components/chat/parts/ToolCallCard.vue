@@ -12,7 +12,6 @@ import {
   FilePenLineIcon,
   FileSearchIcon,
   FileTextIcon,
-  FolderOpenIcon,
   PaperclipIcon,
   PlayIcon,
   SearchIcon,
@@ -36,7 +35,7 @@ const props = defineProps<{
   toolCall: ToolCall
 }>()
 
-const emit = defineEmits<{
+defineEmits<{
   openWorkspaceFile: [payload: { path: string; lineStart?: number; lineEnd?: number }]
 }>()
 
@@ -50,31 +49,6 @@ const toolName = computed(() =>
   String(props.toolCall.name || props.toolCall.toolName || props.toolCall.tool_name || '')
 )
 
-const workspaceFilePath = computed(() => {
-  if (toolName.value !== 'workspace_file') return ''
-  if (status.value !== 'complete') return ''
-  const result = props.toolCall.result
-  if (!result || typeof result !== 'object') return ''
-  const payload = result as Record<string, unknown>
-  const action = payload.action
-  if (action !== 'write' && action !== 'patch') return ''
-  const entry = payload.entry
-  if (!entry || typeof entry !== 'object') return ''
-  const path = (entry as Record<string, unknown>).path
-  return typeof path === 'string' ? path : ''
-})
-
-function workspaceFileName(path: string) {
-  const cleaned = path.replace(/\\+/g, '/')
-  const slash = cleaned.lastIndexOf('/')
-  return slash >= 0 ? cleaned.slice(slash + 1) : cleaned
-}
-
-function openWorkspaceFile() {
-  const path = workspaceFilePath.value
-  if (!path) return
-  emit('openWorkspaceFile', { path })
-}
 const approval = computed(() =>
   props.toolCall.approval && typeof props.toolCall.approval === 'object'
     ? props.toolCall.approval
@@ -96,13 +70,13 @@ const approvalReason = computed(() => {
     return undefined
   }
   if (approval.value.risk === 'write') {
-    return '此工具会修改本地数据，授权后会继续执行当前回复。'
+    return t('chat.toolCall.approval.writeReason')
   }
   if (approval.value.risk === 'network') {
-    return '此工具需要访问网络，授权后会继续执行当前回复。'
+    return t('chat.toolCall.approval.networkReason')
   }
   if (approval.value.risk === 'exec') {
-    return '此工具需要执行本地命令，授权后会继续执行当前回复。'
+    return t('chat.toolCall.approval.execReason')
   }
   return approval.value.reason
 })
@@ -113,22 +87,22 @@ const approvalPlan = computed(() => {
 })
 const detailRows = computed(() =>
   [
-    ['参数', props.toolCall.args ?? props.toolCall.arguments],
-    ['授权', approvalReason.value],
-    ['执行计划', approvalPlan.value],
-    ['结果', props.toolCall.result],
-    ['错误', props.toolCall.error],
+    [t('chat.toolCall.details.arguments'), props.toolCall.args ?? props.toolCall.arguments],
+    [t('chat.toolCall.details.approval'), approvalReason.value],
+    [t('chat.toolCall.details.plan'), approvalPlan.value],
+    [t('chat.toolCall.details.result'), props.toolCall.result],
+    [t('chat.toolCall.details.error'), props.toolCall.error],
   ].filter(([, value]) => value !== undefined && value !== null && value !== '')
 )
 
 const statusLabel = computed(() => {
-  if (status.value === 'complete') return '完成'
-  if (status.value === 'error') return '错误'
-  if (status.value === 'denied') return '已拒绝'
-  if (status.value === 'aborted') return '已中止'
-  if (approvalPending.value) return '待授权'
-  if (status.value === 'pending') return '等待中'
-  return '运行中'
+  if (status.value === 'complete') return t('chat.toolCall.status.complete')
+  if (status.value === 'error') return t('chat.toolCall.status.error')
+  if (status.value === 'denied') return t('chat.toolCall.status.denied')
+  if (status.value === 'aborted') return t('chat.toolCall.status.aborted')
+  if (approvalPending.value) return t('chat.toolCall.status.approvalPending')
+  if (status.value === 'pending') return t('chat.toolCall.status.pending')
+  return t('chat.toolCall.status.running')
 })
 
 const statusIcon = computed(() => {
@@ -175,7 +149,7 @@ function workspaceAction(value: unknown): string {
 
 async function decideToolApproval(action: 'approve' | 'reject') {
   if (!appBridge.chat.approveToolCall || !runId.value || !toolCallId.value) {
-    toast.error('当前运行无法处理工具授权。')
+    toast.error(t('chat.toolCall.approval.unavailable'))
     return
   }
   deciding.value = true
@@ -186,10 +160,10 @@ async function decideToolApproval(action: 'approve' | 'reject') {
       action,
     })
     if (!response.accepted) {
-      toast.error(response.reason || '工具授权请求已失效。')
+      toast.error(response.reason || t('chat.toolCall.approval.expired'))
     }
   } catch (error) {
-    toast.error(errorToText(error, '工具授权失败。'))
+    toast.error(errorToText(error, t('chat.toolCall.approval.failed')))
   } finally {
     deciding.value = false
   }
@@ -209,7 +183,7 @@ async function decideToolApproval(action: 'approve' | 'reject') {
           size="xs"
           :disabled="!detailRows.length"
           class="h-6 w-full justify-between px-0 text-xs font-normal text-muted-foreground hover:bg-transparent hover:text-foreground disabled:opacity-100"
-          aria-label="展开工具调用详情"
+          :aria-label="t('chat.toolCall.expandDetails')"
         >
           <span class="flex min-w-0 items-center gap-2">
             <component
@@ -241,23 +215,6 @@ async function decideToolApproval(action: 'approve' | 'reject') {
         </Button>
       </CollapsibleTrigger>
 
-      <button
-        v-if="workspaceFilePath"
-        type="button"
-        class="group/file flex w-fit items-center gap-1.5 rounded-md border bg-background/80 px-2 py-0.5 text-[0.7rem] text-muted-foreground transition-colors hover:border-ring hover:bg-accent hover:text-foreground"
-        :aria-label="`在文件夹中显示 ${workspaceFilePath}`"
-        :title="workspaceFilePath"
-        @click="openWorkspaceFile"
-      >
-        <FolderOpenIcon
-          data-icon="inline-start"
-          aria-hidden="true"
-        />
-        <span class="truncate font-mono">
-          {{ workspaceFileName(workspaceFilePath) }}
-        </span>
-      </button>
-
       <div
         v-if="approvalPending"
         class="flex flex-wrap items-center gap-1.5"
@@ -269,7 +226,7 @@ async function decideToolApproval(action: 'approve' | 'reject') {
           @click="decideToolApproval('approve')"
         >
           <PlayIcon data-icon="inline-start" />
-          授权并继续
+          {{ t('chat.toolCall.approval.approve') }}
         </Button>
         <Button
           type="button"
@@ -278,7 +235,7 @@ async function decideToolApproval(action: 'approve' | 'reject') {
           :disabled="deciding"
           @click="decideToolApproval('reject')"
         >
-          拒绝
+          {{ t('chat.toolCall.approval.reject') }}
         </Button>
       </div>
 

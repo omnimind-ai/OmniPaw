@@ -8,6 +8,7 @@ import {
   PlusIcon,
 } from 'lucide-vue-next'
 import { computed, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { appBridge } from '@/bridge/app'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -32,6 +33,7 @@ const props = defineProps<{
 }>()
 
 const toast = useToast()
+const { t } = useI18n()
 const expanded = ref(false)
 const pendingPath = ref('')
 const previewOpen = ref(false)
@@ -70,7 +72,7 @@ async function reveal(change: WorkspaceFileChange) {
   try {
     await appBridge.workspace.revealFile({ sessionId: props.sessionId, path: change.path })
   } catch (err) {
-    toast.error(errorToText(err, '无法在文件夹中显示文件。'))
+    toast.error(errorToText(err, t('chat.fileChanges.errors.revealFailed')))
   } finally {
     pendingPath.value = ''
   }
@@ -84,9 +86,9 @@ async function exportTo(change: WorkspaceFileChange) {
       sessionId: props.sessionId,
       path: change.path,
     })
-    if (!response.canceled) toast.success('文件已另存为。')
+    if (!response.canceled) toast.success(t('chat.fileChanges.toasts.exported'))
   } catch (err) {
-    toast.error(errorToText(err, '文件另存失败。'))
+    toast.error(errorToText(err, t('chat.fileChanges.errors.exportFailed')))
   } finally {
     pendingPath.value = ''
   }
@@ -110,7 +112,7 @@ async function preview(change: WorkspaceFileChange) {
     previewTruncated.value = response.truncated
     previewContent.value = response.content
   } catch (err) {
-    previewError.value = errorToText(err, '文件预览失败。')
+    previewError.value = errorToText(err, t('chat.fileChanges.errors.previewFailed'))
   } finally {
     previewLoading.value = false
   }
@@ -126,7 +128,7 @@ const previewIsMarkdown = computed(() => /\.(md|markdown|mdx)$/i.test(previewPat
   >
     <div class="flex items-center gap-2 px-1 py-0.5 text-muted-foreground">
       <span class="font-medium text-foreground">
-        已修改 {{ changes.length }} 个文件
+        {{ t('chat.fileChanges.title', { count: changes.length }) }}
       </span>
     </div>
 
@@ -163,8 +165,8 @@ const previewIsMarkdown = computed(() => /\.(md|markdown|mdx)$/i.test(previewPat
             variant="ghost"
             size="icon-sm"
             :disabled="!workspaceAvailable || pendingPath === change.path"
-            aria-label="在文件夹中显示"
-            title="在文件夹中显示"
+            :aria-label="t('chat.fileChanges.actions.reveal')"
+            :title="t('chat.fileChanges.actions.reveal')"
             @click="reveal(change)"
           >
             <FolderOpenIcon data-icon="inline-start" />
@@ -174,8 +176,8 @@ const previewIsMarkdown = computed(() => /\.(md|markdown|mdx)$/i.test(previewPat
             variant="ghost"
             size="icon-sm"
             :disabled="!workspaceAvailable || pendingPath === change.path"
-            aria-label="另存为"
-            title="另存为"
+            :aria-label="t('chat.fileChanges.actions.export')"
+            :title="t('chat.fileChanges.actions.export')"
             @click="exportTo(change)"
           >
             <DownloadIcon data-icon="inline-start" />
@@ -185,8 +187,8 @@ const previewIsMarkdown = computed(() => /\.(md|markdown|mdx)$/i.test(previewPat
             variant="ghost"
             size="icon-sm"
             :disabled="!workspaceAvailable || pendingPath === change.path"
-            aria-label="预览"
-            title="预览"
+            :aria-label="t('chat.fileChanges.actions.preview')"
+            :title="t('chat.fileChanges.actions.preview')"
             @click="preview(change)"
           >
             <EyeIcon data-icon="inline-start" />
@@ -207,7 +209,11 @@ const previewIsMarkdown = computed(() => /\.(md|markdown|mdx)$/i.test(previewPat
         data-icon="inline-start"
         :class="cn('transition-transform', expanded && 'rotate-180')"
       />
-      {{ expanded ? '收起' : `展开剩余 ${hiddenCount} 个` }}
+      {{
+        expanded
+          ? t('chat.fileChanges.actions.collapse')
+          : t('chat.fileChanges.actions.expandRemaining', { count: hiddenCount })
+      }}
     </Button>
 
     <Sheet v-model:open="previewOpen">
@@ -217,19 +223,19 @@ const previewIsMarkdown = computed(() => /\.(md|markdown|mdx)$/i.test(previewPat
       >
         <SheetHeader class="border-b">
           <SheetTitle class="truncate pr-8">
-            {{ previewPath || '文件预览' }}
+            {{ previewPath || t('chat.fileChanges.preview.title') }}
           </SheetTitle>
           <SheetDescription>
             <span class="flex flex-wrap items-center gap-2 text-xs">
-              <Badge variant="outline">工作区文件</Badge>
+              <Badge variant="outline">{{ t('chat.fileChanges.preview.badge') }}</Badge>
               <span
                 v-if="previewTruncated"
                 class="text-muted-foreground"
-              >内容已截断</span>
+              >{{ t('chat.fileChanges.preview.truncated') }}</span>
               <span
                 v-if="previewBinary"
                 class="text-muted-foreground"
-              >二进制文件，仅显示元信息</span>
+              >{{ t('chat.fileChanges.preview.binaryMeta') }}</span>
             </span>
           </SheetDescription>
         </SheetHeader>
@@ -253,7 +259,7 @@ const previewIsMarkdown = computed(() => /\.(md|markdown|mdx)$/i.test(previewPat
             v-else-if="previewBinary"
             class="text-sm text-muted-foreground"
           >
-            无法预览二进制文件，请使用「另存为」下载到本地查看。
+            {{ t('chat.fileChanges.preview.binaryHint') }}
           </p>
           <MarkdownMessagePart
             v-else-if="previewIsMarkdown"

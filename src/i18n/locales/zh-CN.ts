@@ -1202,6 +1202,33 @@ export default {
       openFileFailed: '无法在文件夹中显示文件。',
     },
     toolCall: {
+      expandDetails: '展开工具调用详情',
+      status: {
+        complete: '完成',
+        error: '错误',
+        denied: '已拒绝',
+        aborted: '已中止',
+        approvalPending: '待授权',
+        pending: '等待中',
+        running: '运行中',
+      },
+      details: {
+        arguments: '参数',
+        approval: '授权',
+        plan: '执行计划',
+        result: '结果',
+        error: '错误',
+      },
+      approval: {
+        approve: '授权并继续',
+        reject: '拒绝',
+        writeReason: '此工具会修改本地数据，授权后会继续执行当前回复。',
+        networkReason: '此工具需要访问网络，授权后会继续执行当前回复。',
+        execReason: '此工具需要执行本地命令，授权后会继续执行当前回复。',
+        unavailable: '当前运行无法处理工具授权。',
+        expired: '工具授权请求已失效。',
+        failed: '工具授权失败。',
+      },
       summary: {
         systemTime: '查看了系统时间',
         calculator: '完成了计算',
@@ -1234,6 +1261,31 @@ export default {
         workspaceList: '查看了 {count} 个文件',
         workspaceListPending: '查看文件列表',
         terminalExec: '运行了命令',
+      },
+    },
+    fileChanges: {
+      title: '已修改 {count} 个文件',
+      actions: {
+        reveal: '在文件夹中显示',
+        export: '另存为',
+        preview: '预览',
+        collapse: '收起',
+        expandRemaining: '展开剩余 {count} 个',
+      },
+      preview: {
+        title: '文件预览',
+        badge: '工作区文件',
+        truncated: '内容已截断',
+        binaryMeta: '二进制文件，仅显示元信息',
+        binaryHint: '无法预览二进制文件，请使用「另存为」下载到本地查看。',
+      },
+      toasts: {
+        exported: '文件已另存为。',
+      },
+      errors: {
+        revealFailed: '无法在文件夹中显示文件。',
+        exportFailed: '文件另存失败。',
+        previewFailed: '文件预览失败。',
       },
     },
     scrollToBottom: {
