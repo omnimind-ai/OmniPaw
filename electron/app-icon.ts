@@ -20,3 +20,14 @@ export function resolveTrayIconPath(electronApp: typeof app): string {
 export function createTrayIconImage(electronApp: typeof app): NativeImage {
   return nativeImage.createFromPath(resolveTrayIconPath(electronApp))
 }
+
+export function applyMacDockIcon(electronApp: typeof app): void {
+  if (process.platform !== 'darwin') {
+    return
+  }
+  const icon = createAppIconImage(electronApp)
+  if (icon.isEmpty()) {
+    return
+  }
+  electronApp.dock?.setIcon(icon)
+}

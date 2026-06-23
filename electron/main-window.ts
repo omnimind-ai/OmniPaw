@@ -4,7 +4,7 @@ import type { Logger } from '@core/logging'
 import { IPC_CHANNELS } from '@shared/constants'
 import type { DesktopWindowState } from '@shared/types/window'
 import { type app, BrowserWindow, shell } from 'electron'
-import { createAppIconImage } from './app-icon'
+import { applyMacDockIcon, createAppIconImage } from './app-icon'
 
 interface MainWindowControllerOptions {
   app: typeof app
@@ -141,11 +141,15 @@ export function createMainWindowController(
       } catch (error) {
         options.logger.warn('Unable to restore macOS activation policy.', { error })
       }
+      applyMacDockIcon(options.app)
 
       try {
-        void options.app.dock?.show().catch((error) => {
-          options.logger.warn('Unable to show macOS Dock icon.', { error })
-        })
+        void options.app.dock
+          ?.show()
+          .then(() => applyMacDockIcon(options.app))
+          .catch((error) => {
+            options.logger.warn('Unable to show macOS Dock icon.', { error })
+          })
       } catch (error) {
         options.logger.warn('Unable to request macOS Dock visibility.', { error })
       }

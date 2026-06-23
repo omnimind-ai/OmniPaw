@@ -26,6 +26,7 @@ import type {
 } from '@shared/types/cat'
 import type { ObservationReactionEvent } from '@shared/types/observation'
 import { app, BrowserWindow, ipcMain, screen } from 'electron'
+import { applyMacDockIcon, createAppIconImage } from './app-icon'
 
 type CatSessionIdResolver = (
   preferredSessionId?: string | null
@@ -90,7 +91,7 @@ const catStageVisualBounds = {
   height: 76,
 }
 
-const shouldSkipFloatingWindowTaskbar = process.platform !== 'darwin'
+const shouldSkipFloatingWindowTaskbar = true
 
 let catWindow: BrowserWindow | null = null
 let catPanelWindow: BrowserWindow | null = null
@@ -622,6 +623,7 @@ function createCatWindow(): BrowserWindow {
   catWindow = new BrowserWindow({
     ...getInitialCatBounds(),
     title: 'OpenOmniClaw Cat',
+    icon: createAppIconImage(app),
     frame: false,
     transparent: true,
     resizable: false,
@@ -672,6 +674,7 @@ function createCatPanelWindow(placement: CatPanelPlacement): BrowserWindow {
   catPanelWindow = new BrowserWindow({
     ...placement.bounds,
     title: 'OpenOmniClaw Cat Panel',
+    icon: createAppIconImage(app),
     frame: false,
     transparent: true,
     resizable: false,
@@ -719,6 +722,7 @@ function createCatBubbleWindow(placement: CatPanelPlacement): BrowserWindow {
   catBubbleWindow = new BrowserWindow({
     ...placement.bounds,
     title: 'OpenOmniClaw Cat Bubble',
+    icon: createAppIconImage(app),
     frame: false,
     transparent: true,
     resizable: false,
@@ -1051,11 +1055,15 @@ function restoreMacApplicationVisibility(activate = false): void {
   } catch (error) {
     catLogger?.warn('Unable to restore macOS activation policy.', { error })
   }
+  applyMacDockIcon(app)
 
   try {
-    void app.dock?.show().catch((error) => {
-      catLogger?.warn('Unable to show macOS Dock icon.', { error })
-    })
+    void app.dock
+      ?.show()
+      .then(() => applyMacDockIcon(app))
+      .catch((error) => {
+        catLogger?.warn('Unable to show macOS Dock icon.', { error })
+      })
   } catch (error) {
     catLogger?.warn('Unable to request macOS Dock visibility.', { error })
   }
