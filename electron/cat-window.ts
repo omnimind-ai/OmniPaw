@@ -99,6 +99,7 @@ let catBubbleWindow: BrowserWindow | null = null
 let catSnapTimer: ReturnType<typeof setInterval> | null = null
 let catState: CatWindowState = 'hidden'
 let catVisible = false
+let lastKnownCatTaskState: CatTaskState | null = null
 let catPanelVisible = false
 let catPanelSide: CatPanelPlacement['side'] | null = null
 let catBubbleVisible = false
@@ -123,6 +124,10 @@ function clamp(value: number, min: number, max: number): number {
 
 function isFiniteNumber(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value)
+}
+
+function isCatTaskState(state: CatWindowState): state is CatTaskState {
+  return allowedTaskStates.has(state as CatTaskState)
 }
 
 function normalizeIdentifier(value: unknown, maxLength = 160): string | null {
@@ -603,6 +608,11 @@ function reportCatState(state: CatWindowState): void {
   }
 
   catState = state
+  if (isCatTaskState(state)) {
+    lastKnownCatTaskState = state
+  } else {
+    lastKnownCatTaskState = null
+  }
   catVisible =
     state !== 'hidden' && !!catWindow && !catWindow.isDestroyed() && catWindow.isVisible()
 
@@ -653,6 +663,7 @@ function createCatWindow(): BrowserWindow {
     catWindow = null
     catVisible = false
     catState = 'hidden'
+    lastKnownCatTaskState = null
     closeCatPanelWindow()
     closeCatBubbleWindow()
   })
@@ -661,6 +672,7 @@ function createCatWindow(): BrowserWindow {
   })
   catWindow.on('hide', () => {
     catVisible = false
+    lastKnownCatTaskState = null
   })
 
   return catWindow
@@ -827,6 +839,7 @@ function closeCatWindow(): void {
 
   catVisible = false
   catState = 'hidden'
+  lastKnownCatTaskState = null
 
   if (catWindow && !catWindow.isDestroyed()) {
     catWindow.close()
@@ -1045,33 +1058,43 @@ function showCatBubble(request: CatBubbleShowRequest | string): CatBubbleEvent |
   return event
 }
 
+let macActivationPolicyApplied = false
+let macDockIconApplied = false
+let macDockShowRequested = false
+
 function restoreMacApplicationVisibility(activate = false): void {
   if (process.platform !== 'darwin') {
     return
   }
 
-  try {
-    app.setActivationPolicy('regular')
-  } catch (error) {
-    catLogger?.warn('Unable to restore macOS activation policy.', { error })
-  }
-  applyMacDockIcon(app)
-
-  try {
-    void app.dock
-      ?.show()
-      .then(() => applyMacDockIcon(app))
-      .catch((error) => {
-        catLogger?.warn('Unable to show macOS Dock icon.', { error })
-      })
-  } catch (error) {
-    catLogger?.warn('Unable to request macOS Dock visibility.', { error })
+  if (!macActivationPolicyApplied) {
+    try {
+      app.setActivationPolicy('regular')
+      macActivationPolicyApplied = true
+    } catch (error) {
+      catLogger?.warn('Unable to restore macOS activation policy.', { error })
+    }
   }
 
-  try {
-    app.show()
-  } catch (error) {
-    catLogger?.warn('Unable to show macOS application windows.', { error })
+  if (!macDockIconApplied) {
+    applyMacDockIcon(app)
+    macDockIconApplied = true
+  }
+
+  if (!macDockShowRequested) {
+    macDockShowRequested = true
+    try {
+      void app.dock
+        ?.show()
+        .then(() => applyMacDockIcon(app))
+        .catch((error) => {
+          macDockShowRequested = false
+          catLogger?.warn('Unable to show macOS Dock icon.', { error })
+        })
+    } catch (error) {
+      macDockShowRequested = false
+      catLogger?.warn('Unable to request macOS Dock visibility.', { error })
+    }
   }
 
   if (activate) {
@@ -1120,6 +1143,7 @@ function hideCatWindow(): CatStatus {
 
   catVisible = false
   catState = 'hidden'
+  lastKnownCatTaskState = null
 
   return getCatStatus({ state: 'hidden', visible: false })
 }
@@ -1137,14 +1161,20 @@ function setCatState(state: CatTaskState): CatStatus {
     return getCatStatus()
   }
 
-  restoreMacApplicationVisibility()
   const window = ensureCatWindow()
-  catVisible = true
+  const alreadyVisible = window.isVisible()
 
-  if (!window.isVisible()) {
-    window.showInactive()
+  if (alreadyVisible && state === lastKnownCatTaskState) {
+    return getCatStatus({ state, visible: true })
   }
 
+  if (!alreadyVisible) {
+    restoreMacApplicationVisibility()
+    window.showInactive()
+  }
+  catVisible = true
+
+  lastKnownCatTaskState = state
   sendCatCommand(state, 'panel')
   return getCatStatus({ state, visible: true })
 }

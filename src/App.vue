@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { CatTaskState } from '@shared/types/cat'
 import { storeToRefs } from 'pinia'
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
@@ -22,6 +23,7 @@ const settingsStore = useSettingsStore()
 const { config: settingsConfig } = storeToRefs(settingsStore)
 const startupLoaded = ref(false)
 const activeCatRuns = new Set<string>()
+let lastCatTaskState: CatTaskState | null = null
 let stopCatSubscription: (() => void) | undefined
 let stopOpenChatSubscription: (() => void) | undefined
 
@@ -33,6 +35,17 @@ const showProviderGuide = computed(
 )
 const showStartupPlaceholder = computed(() => !startupLoaded.value && route.name !== 'settings')
 
+function setCatTaskState(state: CatTaskState) {
+  if (state === lastCatTaskState) {
+    return
+  }
+
+  lastCatTaskState = state
+  void appBridge.cat.setState(state).catch(() => {
+    lastCatTaskState = null
+  })
+}
+
 function syncCatWindow(event: BridgeStreamEvent) {
   if (!event.runId) {
     return
@@ -41,7 +54,7 @@ function syncCatWindow(event: BridgeStreamEvent) {
   if (event.type === 'final') {
     activeCatRuns.delete(event.runId)
     if (activeCatRuns.size === 0) {
-      void appBridge.cat.setState('completed').catch(() => {})
+      setCatTaskState('completed')
     }
     return
   }
@@ -49,13 +62,13 @@ function syncCatWindow(event: BridgeStreamEvent) {
   if (event.type === 'error' || event.type === 'aborted') {
     activeCatRuns.delete(event.runId)
     if (activeCatRuns.size === 0) {
-      void appBridge.cat.setState('idle').catch(() => {})
+      setCatTaskState('idle')
     }
     return
   }
 
   activeCatRuns.add(event.runId)
-  void appBridge.cat.setState('running').catch(() => {})
+  setCatTaskState('running')
 }
 
 async function initializeStartupState() {
