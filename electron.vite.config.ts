@@ -45,6 +45,7 @@ export default defineConfig({
         },
         input: {
           main: resolve(__dirname, 'electron/main.ts'),
+          'workers/image-encoder': resolve(__dirname, 'electron/workers/image-encoder.ts'),
         },
       },
     },

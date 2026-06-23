@@ -291,6 +291,7 @@ export class ObservationManager {
       this.stopRun(this.active.run.id, reason, false)
     }
     void this.capture.cleanupAll?.()
+    this.capture.dispose?.()
   }
 
   private async evaluateTick(state: ActiveRunState): Promise<void> {
@@ -714,6 +715,7 @@ export class ObservationManager {
         visionSessionId: state.run.visionSessionId,
         scope: state.run.scope,
         sourceId: state.sourceId,
+        retention: state.run.screenshotRetention,
       })
     } catch {
       throw this.observationError('capture_failed', '屏幕截图失败，请检查权限或截图源。', true)

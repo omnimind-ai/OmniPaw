@@ -31,6 +31,7 @@ export interface ObservationCaptureRequest {
   visionSessionId: ID
   scope: ObservationScope
   sourceId?: string
+  retention?: ObservationScreenshotRetention
 }
 
 export interface ObservationCaptureMetadata {

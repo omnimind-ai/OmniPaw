@@ -10,4 +10,5 @@ export interface DesktopCaptureAdapter {
   capture: (request: ObservationCaptureRequest) => Promise<ObservationCapturedFrame>
   cleanupCapture?: (captureId: string) => Promise<void> | void
   cleanupAll?: () => Promise<void> | void
+  dispose?: () => void
 }

@@ -7,8 +7,10 @@ import type {
   ObservationCaptureRequest,
   ObservationPermissionState,
   ObservationPermissionStatus,
+  ObservationScreenshotRetention,
 } from '@shared/types/observation'
-import { app, desktopCapturer, screen, shell, systemPreferences } from 'electron'
+import type { UtilityProcess } from 'electron'
+import { app, desktopCapturer, screen, shell, systemPreferences, utilityProcess } from 'electron'
 
 export interface ElectronDesktopCaptureAdapterOptions {
   tempDir: string
@@ -18,13 +20,30 @@ export interface ElectronDesktopCaptureAdapterOptions {
   }
 }
 
+interface EncodeResponse {
+  id: string
+  ok: boolean
+  png?: Buffer
+  dataUrl?: string
+  error?: string
+}
+
+interface PendingEncode {
+  resolve: (response: { png?: Buffer; dataUrl: string }) => void
+  reject: (error: Error) => void
+}
+
 export class ElectronDesktopCaptureAdapter implements DesktopCaptureAdapter {
   private readonly tempDir: string
   private readonly thumbnailSize: { width: number; height: number }
+  private encoderProcess: UtilityProcess | undefined
+  private encoderReady: Promise<UtilityProcess> | undefined
+  private readonly pendingEncodes = new Map<string, PendingEncode>()
+  private disposed = false
 
   constructor(options: ElectronDesktopCaptureAdapterOptions) {
     this.tempDir = options.tempDir
-    this.thumbnailSize = options.thumbnailSize ?? { width: 1440, height: 900 }
+    this.thumbnailSize = options.thumbnailSize ?? { width: 1024, height: 640 }
   }
 
   async permissionStatus(): Promise<ObservationPermissionStatus> {
@@ -82,38 +101,54 @@ export class ElectronDesktopCaptureAdapter implements DesktopCaptureAdapter {
       throw new Error('Desktop capture source returned an empty image.')
     }
 
-    const png = image.toPNG()
-    const dataUrl = image.toDataURL()
+    const size = image.getSize()
+    const bitmap = image.toBitmap()
+    const retention: ObservationScreenshotRetention = request.retention ?? 'ephemeral'
+    const persist = retention === 'persist'
+
+    const { png, dataUrl } = await this.encodeOffThread({
+      bitmap,
+      width: size.width,
+      height: size.height,
+      scaleFactor: 1,
+      encodePng: persist,
+    })
+
     const captureId = crypto.randomUUID()
-    await mkdir(this.tempDir, { recursive: true })
-    await writeFile(join(this.tempDir, `${captureId}.png`), png)
-    await writeFile(
-      join(this.tempDir, `${captureId}.json`),
-      JSON.stringify(
-        {
-          captureId,
-          scope: request.scope,
-          sourceId: source.id,
-          sourceType: source.id.startsWith('window:') ? 'window' : 'screen',
-          width: image.getSize().width,
-          height: image.getSize().height,
-          createdAt: Date.now(),
-        },
-        null,
-        2
+    const sourceType: 'screen' | 'window' = source.id.startsWith('window:') ? 'window' : 'screen'
+    const createdAt = Date.now()
+
+    if (persist && png) {
+      await mkdir(this.tempDir, { recursive: true })
+      await writeFile(join(this.tempDir, `${captureId}.png`), png)
+      await writeFile(
+        join(this.tempDir, `${captureId}.json`),
+        JSON.stringify(
+          {
+            captureId,
+            scope: request.scope,
+            sourceId: source.id,
+            sourceType,
+            width: size.width,
+            height: size.height,
+            createdAt,
+          },
+          null,
+          2
+        )
       )
-    )
+    }
 
     return {
       captureId,
       scope: request.scope,
       sourceId: source.id,
-      sourceType: source.id.startsWith('window:') ? 'window' : 'screen',
+      sourceType,
       mimeType: 'image/png',
-      width: image.getSize().width,
-      height: image.getSize().height,
-      createdAt: Date.now(),
-      retention: 'ephemeral',
+      width: size.width,
+      height: size.height,
+      createdAt,
+      retention,
       dataUrl,
     }
   }
@@ -133,6 +168,25 @@ export class ElectronDesktopCaptureAdapter implements DesktopCaptureAdapter {
         .filter((entry) => entry.endsWith('.png') || entry.endsWith('.json'))
         .map((entry) => rm(join(this.tempDir, entry), { force: true }))
     )
+  }
+
+  dispose(): void {
+    if (this.disposed) return
+    this.disposed = true
+    const disposeError = new Error('desktop capture adapter disposed')
+    for (const pending of this.pendingEncodes.values()) {
+      pending.reject(disposeError)
+    }
+    this.pendingEncodes.clear()
+    if (this.encoderProcess) {
+      try {
+        this.encoderProcess.kill()
+      } catch {
+        // Best effort cleanup; ignore.
+      }
+    }
+    this.encoderProcess = undefined
+    this.encoderReady = undefined
   }
 
   private async resolveSource(request: ObservationCaptureRequest) {
@@ -156,6 +210,95 @@ export class ElectronDesktopCaptureAdapter implements DesktopCaptureAdapter {
     }
 
     return sources[0] ?? null
+  }
+
+  private async ensureEncoder(): Promise<UtilityProcess> {
+    if (this.disposed) {
+      throw new Error('desktop capture adapter disposed')
+    }
+    if (this.encoderProcess) {
+      return this.encoderProcess
+    }
+    if (this.encoderReady) {
+      return this.encoderReady
+    }
+
+    const scriptPath = join(__dirname, 'workers/image-encoder.cjs')
+    this.encoderReady = new Promise<UtilityProcess>((resolve, reject) => {
+      let child: UtilityProcess
+      try {
+        child = utilityProcess.fork(scriptPath, [], {
+          serviceName: 'omniclaw-image-encoder',
+        })
+      } catch (error) {
+        this.encoderReady = undefined
+        reject(error instanceof Error ? error : new Error(String(error)))
+        return
+      }
+
+      let spawned = false
+      child.once('spawn', () => {
+        spawned = true
+        this.encoderProcess = child
+        resolve(child)
+      })
+      child.on('message', (message: EncodeResponse) => {
+        const handler = this.pendingEncodes.get(message.id)
+        if (!handler) return
+        this.pendingEncodes.delete(message.id)
+        if (message.ok && typeof message.dataUrl === 'string') {
+          handler.resolve({ png: message.png, dataUrl: message.dataUrl })
+        } else {
+          handler.reject(new Error(message.error ?? 'image-encoder failed'))
+        }
+      })
+      child.on('exit', (code) => {
+        this.encoderProcess = undefined
+        this.encoderReady = undefined
+        const exitError = new Error(`image-encoder utility process exited with code ${code}`)
+        for (const pending of this.pendingEncodes.values()) {
+          pending.reject(exitError)
+        }
+        this.pendingEncodes.clear()
+        if (!spawned) {
+          reject(exitError)
+        }
+      })
+    })
+
+    try {
+      return await this.encoderReady
+    } catch (error) {
+      this.encoderReady = undefined
+      throw error
+    }
+  }
+
+  private async encodeOffThread(input: {
+    bitmap: Buffer
+    width: number
+    height: number
+    scaleFactor: number
+    encodePng: boolean
+  }): Promise<{ png?: Buffer; dataUrl: string }> {
+    const child = await this.ensureEncoder()
+    const id = crypto.randomUUID()
+    return new Promise<{ png?: Buffer; dataUrl: string }>((resolve, reject) => {
+      this.pendingEncodes.set(id, { resolve, reject })
+      try {
+        child.postMessage({
+          id,
+          bitmap: input.bitmap,
+          width: input.width,
+          height: input.height,
+          scaleFactor: input.scaleFactor,
+          encodePng: input.encodePng,
+        })
+      } catch (error) {
+        this.pendingEncodes.delete(id)
+        reject(error instanceof Error ? error : new Error(String(error)))
+      }
+    })
   }
 }
 
