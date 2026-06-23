@@ -329,13 +329,6 @@ function syncCatBubbleWindowState(delayMs = 0): void {
   sync()
 }
 
-function scheduleCatBubbleWindowStateSync(): void {
-  syncCatBubbleWindowState(0)
-  syncCatBubbleWindowState(50)
-  syncCatBubbleWindowState(150)
-  syncCatBubbleWindowState(350)
-}
-
 function sendCatObservationReaction(event: ObservationReactionEvent): void {
   showCatWindow()
   const reaction = sanitizeObservationReactionEvent(event)
@@ -749,9 +742,6 @@ function createCatBubbleWindow(placement: CatPanelPlacement): BrowserWindow {
   catBubbleWindow.setAlwaysOnTop(true, 'floating')
   catBubbleWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
   loadRendererEntry(catBubbleWindow, 'cat-bubble.html')
-  catBubbleWindow.webContents.on('did-finish-load', () => {
-    scheduleCatBubbleWindowStateSync()
-  })
 
   catBubbleWindow.on('closed', () => {
     catBubbleWindow = null
@@ -1043,7 +1033,6 @@ function showCatBubble(request: CatBubbleShowRequest | string): CatBubbleEvent |
 
   sendCatBubblePlacement(placement)
   sendCatBubbleEvent(event)
-  scheduleCatBubbleWindowStateSync()
 
   if (!window.isVisible()) {
     window.showInactive()
@@ -1091,7 +1080,11 @@ function ensureCatWindow(): BrowserWindow {
 }
 
 function showCatWindow(): CatStatus {
-  restoreMacApplicationVisibility()
+  const existingWindow = catWindow
+  const wasHidden = !existingWindow || existingWindow.isDestroyed() || !existingWindow.isVisible()
+  if (wasHidden) {
+    restoreMacApplicationVisibility()
+  }
   const window = ensureCatWindow()
   catVisible = true
 
