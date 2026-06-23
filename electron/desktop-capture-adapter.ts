@@ -110,7 +110,6 @@ export class ElectronDesktopCaptureAdapter implements DesktopCaptureAdapter {
       bitmap,
       width: size.width,
       height: size.height,
-      scaleFactor: 1,
       encodePng: persist,
     })
 
@@ -278,7 +277,6 @@ export class ElectronDesktopCaptureAdapter implements DesktopCaptureAdapter {
     bitmap: Buffer
     width: number
     height: number
-    scaleFactor: number
     encodePng: boolean
   }): Promise<{ png?: Buffer; dataUrl: string }> {
     const child = await this.ensureEncoder()
@@ -291,7 +289,6 @@ export class ElectronDesktopCaptureAdapter implements DesktopCaptureAdapter {
           bitmap: input.bitmap,
           width: input.width,
           height: input.height,
-          scaleFactor: input.scaleFactor,
           encodePng: input.encodePng,
         })
       } catch (error) {

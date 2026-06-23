@@ -717,7 +717,14 @@ export class ObservationManager {
         sourceId: state.sourceId,
         retention: state.run.screenshotRetention,
       })
-    } catch {
+    } catch (error) {
+      this.logger?.error('Desktop capture failed.', {
+        runId: state.run.id,
+        visionSessionId: state.run.visionSessionId,
+        scope: state.run.scope,
+        retention: state.run.screenshotRetention,
+        error,
+      })
       throw this.observationError('capture_failed', '屏幕截图失败，请检查权限或截图源。', true)
     }
     frame.retention = state.run.screenshotRetention
