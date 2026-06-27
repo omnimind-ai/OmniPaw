@@ -1,8 +1,8 @@
 <div align="center">
 
-<img src="public/brand-logo.png" alt="OpenOmniClaw Logo" style="width:140px;" />
+<img src="public/brand-logo.png" alt="OmniPaw Logo" style="width:140px;" />
 
-# OpenOmniClaw
+# OmniPaw
 
 **A desktop AI assistant and Agent client for edge-side models**
 
@@ -16,7 +16,7 @@ English | [简体中文](README.zh-CN.md)
 
 </div>
 
-OpenOmniClaw is a desktop AI assistant client designed to make locally deployed or LAN-hosted OpenAI-compatible models easier to use in everyday workflows. It provides chat, tavern role-play, visual observation, Skills, MCP, Agent tools, scheduled tasks, and other local-first capabilities.
+OmniPaw is a desktop AI assistant client designed to make locally deployed or LAN-hosted OpenAI-compatible models easier to use in everyday workflows. It provides chat, tavern role-play, visual observation, Skills, MCP, Agent tools, scheduled tasks, and other local-first capabilities.
 
 ## Features
 
@@ -30,7 +30,7 @@ OpenOmniClaw is a desktop AI assistant client designed to make locally deployed 
 ## Screenshots
 
 <p align="center">
-  <img src="public/hello.png" alt="OpenOmniClaw main screen" width="100%" />
+  <img src="public/hello.png" alt="OmniPaw main screen" width="100%" />
 </p>
 
 <table>
@@ -117,12 +117,12 @@ pnpm dist
 
 ## Local Models (OmniInfer)
 
-OpenOmniClaw can run small GGUF models locally via the embedded OmniInfer runtime.
+OmniPaw can run small GGUF models locally via the embedded OmniInfer runtime.
 
 ### Distribution Variants
 
 - **Full build** (`pnpm build:full`): bundles the OmniInfer binary under `resources/omniinfer/` via electron-builder `extraResources`. Users get a turnkey experience — drop a `.gguf` into the models directory and chat.
-- **Slim build** (`pnpm build:slim`): omits the OmniInfer binary to reduce installer size by hundreds of MB. Users supply OmniInfer themselves by either placing it in the install directory under `resources/omniinfer/` or setting `OMNICLAW_OMNIINFER_PATH` to the binary path.
+- **Slim build** (`pnpm build:slim`): omits the OmniInfer binary to reduce installer size by hundreds of MB. Users supply OmniInfer themselves by either placing it in the install directory under `resources/omniinfer/` or setting `OMNIPAW_OMNIINFER_PATH` to the binary path.
 
 ### Bundling OmniInfer for the Full Build
 

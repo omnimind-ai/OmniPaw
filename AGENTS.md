@@ -1,4 +1,4 @@
-# OpenOmniClaw Electron Agent 地图
+# OmniPaw Electron Agent 地图
 
 > 这是一份定位地图，不是手册。先读这里，再按任务类型跳到专题文档。
 
@@ -13,7 +13,7 @@ Electron 桌面客户端。
 - 构建：electron-vite + Vue 3 + TypeScript + Pinia + shadcn-vue + Tailwind v4
 - 数据：better-sqlite3 + 本地 JSON 配置
 
-`AstrBot/`、`OpenOmniClaw/` 是参考资料或外部项目快照，不是当前项目的默认修改落点。
+`AstrBot/`、`OmniPaw/` 是参考资料或外部项目快照，不是当前项目的默认修改落点。
 
 ## 关键词优先级
 
@@ -30,7 +30,7 @@ Electron 桌面客户端。
 1. **先定位再改动**：新增路由、IPC、配置字段、DB 字段、工具或 Provider 前，先搜现有落点。
 2. **复用现有边界**：renderer 通过 `appBridge` 访问能力；main 通过 `core/` 服务和 manager 执行业务；跨层类型放 `shared/types/`。
 3. **同步跨文件契约**：IPC、配置、数据库 schema、聊天消息结构、Provider 能力变更都必须同步相关类型、实现和调用点。
-4. **不改参考项目**：除非用户点名，不能把变更写进 `AstrBot/`、`OpenOmniClaw/`、`example/`。
+4. **不改参考项目**：除非用户点名，不能把变更写进 `AstrBot/`、`OmniPaw/`、`example/`。
 5. **最小可行改动**：优先沿用当前目录的写法，不顺手重构、格式化或迁移无关代码。
 6. **保护安全边界**：renderer 不直接访问 Node、Electron 主进程对象、数据库或文件系统。
 

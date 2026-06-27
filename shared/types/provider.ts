@@ -72,7 +72,7 @@ export interface ProviderConfig {
 
   /**
    * OmniInfer-only: absolute path to a user-installed OmniInfer project/install directory.
-   * When set, OmniClaw can run the directory's `omniinfer` startup script and stop that
+   * When set, OmniPaw can run the directory's `omniinfer` startup script and stop that
    * local installation instead of only probing an already-running external gateway.
    */
   omniInferInstallDir?: string

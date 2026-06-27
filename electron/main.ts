@@ -2,7 +2,7 @@ import { join } from 'node:path'
 import type { ChatRunEventTarget } from '@core/chat/run-manager'
 import { createElectronLogSink, createProjectLogger } from '@core/logging'
 import { OmniInferRuntimeClient, resolveModelsDir } from '@core/omniinfer'
-import { resolveOpenOmniClawDataPaths } from '@core/utils/data-paths'
+import { resolveOmniPawDataPaths } from '@core/utils/data-paths'
 import { APP_ID, APP_NAME, IPC_CHANNELS } from '@shared/constants'
 import type { OpenChatSessionRequest } from '@shared/types/app'
 import type { ChatSessionChangedEvent } from '@shared/types/chat'
@@ -111,12 +111,12 @@ function applyApplicationIcon(): void {
 
 function resolveAppLogsPath(): string {
   try {
-    return resolveOpenOmniClawDataPaths({ appDataPath: app.getPath('appData') }).logs
+    return resolveOmniPawDataPaths({ appDataPath: app.getPath('appData') }).logs
   } catch {
     try {
-      return resolveOpenOmniClawDataPaths().logs
+      return resolveOmniPawDataPaths().logs
     } catch {
-      return join(process.cwd(), 'openomniclaw', 'logs')
+      return join(process.cwd(), 'omnipaw', 'logs')
     }
   }
 }

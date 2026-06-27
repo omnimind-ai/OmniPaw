@@ -84,7 +84,7 @@ function handle(message) {
             text: JSON.stringify({
               name: message.params?.name,
               args: message.params?.arguments,
-              inheritedSecret: process.env.OPENOMNICLAW_MCP_SECRET_TEST || '',
+              inheritedSecret: process.env.OMNIPAW_MCP_SECRET_TEST || '',
               explicitEnv: process.env.EXPLICIT_MCP_ENV || '',
             }),
           },
@@ -151,10 +151,10 @@ class FakeMcpClient implements McpClient {
   }
 }
 
-const tempDir = mkdtempSync(join(tmpdir(), 'openomniclaw-mcp-smoke-'))
+const tempDir = mkdtempSync(join(tmpdir(), 'omnipaw-mcp-smoke-'))
 
 try {
-  process.env.OPENOMNICLAW_MCP_SECRET_TEST = 'must-not-leak'
+  process.env.OMNIPAW_MCP_SECRET_TEST = 'must-not-leak'
   const store = new McpRegistryStore({ userDataPath: tempDir })
   const firstLoad = store.load()
   assert.equal(firstLoad.version, 1)
@@ -304,7 +304,7 @@ try {
 
   console.log('MCP management smoke check passed')
 } finally {
-  delete process.env.OPENOMNICLAW_MCP_SECRET_TEST
+  delete process.env.OMNIPAW_MCP_SECRET_TEST
   rmSync(tempDir, { recursive: true, force: true })
 }
 

@@ -165,7 +165,7 @@ async function initialize(
       protocolVersion: session.protocolVersion,
       capabilities: {},
       clientInfo: {
-        name: 'OpenOmniClaw',
+        name: 'OmniPaw',
         version: '1.0.0',
       },
     },

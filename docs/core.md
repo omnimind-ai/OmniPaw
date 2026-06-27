@@ -55,7 +55,7 @@
 
 ### 数据根
 
-- MUST：Electron 业务数据统一从 `<appData>/openomniclaw/` 派生，路径解析集中在 `core/utils/data-paths.ts`。
+- MUST：Electron 业务数据统一从 `<appData>/omnipaw/` 派生，路径解析集中在 `core/utils/data-paths.ts`。
 - MUST：配置、Provider registry、Persona registry 和 MCP registry 位于统一数据根的 `config/` 子目录；SQLite、skill state、skills、附件、agent workspace 和业务日志位于同一数据根下的各自子路径。
 - SHOULD：内部开发阶段以当前统一数据根为唯一真实来源，不做旧路径隐式迁移。
 
@@ -111,7 +111,7 @@
 
 - MUST：使用 `DatabaseClient` 统一连接数据库。
 - MUST：保持 `foreign_keys = ON`、`journal_mode = WAL`、`busy_timeout = 5000` 初始化行为。
-- MUST：Electron 环境数据库路径保持在统一数据根下的 `openomniclaw.sqlite3`。
+- MUST：Electron 环境数据库路径保持在统一数据根下的 `omnipaw.sqlite3`。
 
 ### Schema 与 Migration
 

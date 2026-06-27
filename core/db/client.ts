@@ -2,7 +2,7 @@ import { mkdirSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { dirname, join } from 'node:path'
 import type { Logger } from '@core/logging'
-import { resolveOpenOmniClawDataPaths } from '@core/utils/data-paths'
+import { resolveOmniPawDataPaths } from '@core/utils/data-paths'
 import Database from 'better-sqlite3'
 import { migrations } from './migrations'
 
@@ -80,26 +80,26 @@ export function resolveDatabasePath(
   const appName = typeof options === 'string' ? options : options.appName
   const dataRootPath = typeof options === 'string' ? undefined : options.dataRootPath
   if (dataRootPath) {
-    return resolveOpenOmniClawDataPaths({ dataRootPath }).database
+    return resolveOmniPawDataPaths({ dataRootPath }).database
   }
 
   const electronApp = getElectronApp()
   if (electronApp?.isReady?.()) {
-    return resolveOpenOmniClawDataPaths({ appDataPath: electronApp.getPath('appData') }).database
+    return resolveOmniPawDataPaths({ appDataPath: electronApp.getPath('appData') }).database
   }
 
-  if (process.env.OPENOMNICLAW_DB_DIR) {
-    return join(process.env.OPENOMNICLAW_DB_DIR, 'openomniclaw.sqlite3')
+  if (process.env.OMNIPAW_DB_DIR) {
+    return join(process.env.OMNIPAW_DB_DIR, 'omnipaw.sqlite3')
   }
 
   if (!appName) {
-    return resolveOpenOmniClawDataPaths().database
+    return resolveOmniPawDataPaths().database
   }
 
   const base =
     process.env.XDG_DATA_HOME ?? join(process.env.HOME ?? process.cwd(), '.local', 'share')
 
-  return join(base, appName, 'openomniclaw.sqlite3')
+  return join(base, appName, 'omnipaw.sqlite3')
 }
 
 function getElectronApp(): Electron.App | undefined {

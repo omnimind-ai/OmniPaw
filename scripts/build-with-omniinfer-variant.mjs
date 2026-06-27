@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Cross-platform wrapper that sets OMNICLAW_BUNDLE_OMNIINFER then runs the build pipeline:
+// Cross-platform wrapper that sets OMNIPAW_BUNDLE_OMNIINFER then runs the build pipeline:
 //   pnpm rebuild:electron && pnpm build && electron-builder --config electron-builder.config.cjs
 //
 // Usage:
@@ -17,7 +17,7 @@ if (variant !== 'full' && variant !== 'slim') {
 
 const env = {
   ...process.env,
-  OMNICLAW_BUNDLE_OMNIINFER: variant === 'full' ? '1' : '0',
+  OMNIPAW_BUNDLE_OMNIINFER: variant === 'full' ? '1' : '0',
 }
 
 const isWindows = process.platform === 'win32'

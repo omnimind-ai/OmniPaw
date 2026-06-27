@@ -1,17 +1,17 @@
 #!/usr/bin/env node
 // Pre-build guard: ensure resources/omniinfer/ contains a usable binary when bundling.
-// Skip silently when OMNICLAW_BUNDLE_OMNIINFER=0 (slim variant) or when called without it
+// Skip silently when OMNIPAW_BUNDLE_OMNIINFER=0 (slim variant) or when called without it
 // in dev (build:slim opt-out).
 
 import { existsSync, readdirSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import process from 'node:process'
 
-const flag = (process.env.OMNICLAW_BUNDLE_OMNIINFER ?? '1').trim()
+const flag = (process.env.OMNIPAW_BUNDLE_OMNIINFER ?? '1').trim()
 const bundleOmniInfer = flag !== '0' && flag.toLowerCase() !== 'false'
 
 if (!bundleOmniInfer) {
-  console.log('[omniinfer] OMNICLAW_BUNDLE_OMNIINFER=0; skipping resource check.')
+  console.log('[omniinfer] OMNIPAW_BUNDLE_OMNIINFER=0; skipping resource check.')
   process.exit(0)
 }
 
@@ -24,7 +24,7 @@ const expected = process.platform === 'win32' ? BINARY_NAMES_WINDOWS : BINARY_NA
 if (!existsSync(RESOURCE_DIR)) {
   console.error(
     `[omniinfer] resources/omniinfer/ does not exist.\n` +
-      `  Either set OMNICLAW_BUNDLE_OMNIINFER=0 to build a slim variant, or place an\n` +
+      `  Either set OMNIPAW_BUNDLE_OMNIINFER=0 to build a slim variant, or place an\n` +
       `  OmniInfer release into resources/omniinfer/ and retry.`
   )
   process.exit(2)

@@ -444,7 +444,7 @@ function writeCallbackHtml(response: ServerResponse, success: boolean): void {
   <body>
     <main>
       <h1>${success ? 'OpenAI 登录完成' : 'OpenAI 登录失败'}</h1>
-      <p>${success ? '可以关闭这个浏览器窗口，回到 OpenOmniClaw。' : '请回到 OpenOmniClaw 后重试登录。'}</p>
+      <p>${success ? '可以关闭这个浏览器窗口，回到 OmniPaw。' : '请回到 OmniPaw 后重试登录。'}</p>
     </main>
   </body>
 </html>`)

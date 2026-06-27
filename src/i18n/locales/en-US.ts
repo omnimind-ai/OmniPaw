@@ -807,7 +807,7 @@ export default {
       builtin: {
         title: 'Built-in tools',
         description:
-          'Adjust whether OpenOmniClaw built-in tools participate in the Agent tool inventory.',
+          'Adjust whether OmniPaw built-in tools participate in the Agent tool inventory.',
         noTools: 'No built-in tools',
         noToolsDesc: 'Built-in tools list has not loaded yet.',
         toolEnabledSwitch: 'Disable',
@@ -1425,7 +1425,7 @@ export default {
       },
     },
     welcome: {
-      title: '👋 Welcome to OmniClaw',
+      title: '👋 Welcome to OmniPaw',
     },
     noModel: {
       message: 'No models configured',

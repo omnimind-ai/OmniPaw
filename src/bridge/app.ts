@@ -904,7 +904,7 @@ export interface BridgeSkillChangedEvent {
   status: BridgeSkillStateStatus
 }
 
-export interface RendererOpenOmniClawBridge {
+export interface RendererOmniPawBridge {
   app: {
     getInfo: () => Promise<AppInfo>
     openSettingsDirectory: () => Promise<OpenDirectoryResponse>
@@ -1462,10 +1462,10 @@ function stripProviderRegistryFromSettingsRequest(
     : (rest as BridgeDesktopSettingsConfig)
 }
 
-const fallbackBridge: RendererOpenOmniClawBridge = {
+const fallbackBridge: RendererOmniPawBridge = {
   app: {
     getInfo: async () => ({
-      name: 'OpenOmniClaw',
+      name: 'OmniPaw',
       version: '0.1.1',
       buildTime: __BUILD_TIME__,
       commit: __GIT_COMMIT__,
@@ -2326,16 +2326,14 @@ function fallbackSettingsConfig(): BridgeDesktopSettingsConfig {
 }
 
 const exposedBridge =
-  typeof window === 'undefined'
-    ? undefined
-    : (window.openOmniClaw as RendererOpenOmniClawBridge | undefined)
+  typeof window === 'undefined' ? undefined : (window.omniPaw as RendererOmniPawBridge | undefined)
 
 export const bridgeRuntime: BridgeRuntime = exposedBridge ? 'electron' : 'fallback'
 export const isFallbackBridge = bridgeRuntime === 'fallback'
 
 function createAppBridge(
-  bridge: RendererOpenOmniClawBridge['app'] | undefined
-): RendererOpenOmniClawBridge['app'] {
+  bridge: RendererOmniPawBridge['app'] | undefined
+): RendererOmniPawBridge['app'] {
   if (!bridge) {
     return fallbackBridge.app
   }
@@ -2347,8 +2345,8 @@ function createAppBridge(
 }
 
 function createWindowBridge(
-  bridge: RendererOpenOmniClawBridge['window'] | undefined
-): RendererOpenOmniClawBridge['window'] {
+  bridge: RendererOmniPawBridge['window'] | undefined
+): RendererOmniPawBridge['window'] {
   if (!bridge) {
     return fallbackBridge.window
   }
@@ -2360,8 +2358,8 @@ function createWindowBridge(
 }
 
 function createCatBridge(
-  bridge: RendererOpenOmniClawBridge['cat'] | undefined
-): RendererOpenOmniClawBridge['cat'] {
+  bridge: RendererOmniPawBridge['cat'] | undefined
+): RendererOmniPawBridge['cat'] {
   if (!bridge) {
     return fallbackBridge.cat
   }
@@ -2373,8 +2371,8 @@ function createCatBridge(
 }
 
 function createSettingsBridge(
-  bridge: RendererOpenOmniClawBridge['settings'] | undefined
-): RendererOpenOmniClawBridge['settings'] {
+  bridge: RendererOmniPawBridge['settings'] | undefined
+): RendererOmniPawBridge['settings'] {
   if (!bridge) {
     return fallbackBridge.settings
   }
@@ -2387,8 +2385,8 @@ function createSettingsBridge(
 }
 
 function createShortcutsBridge(
-  bridge: RendererOpenOmniClawBridge['shortcuts'] | undefined
-): RendererOpenOmniClawBridge['shortcuts'] {
+  bridge: RendererOmniPawBridge['shortcuts'] | undefined
+): RendererOmniPawBridge['shortcuts'] {
   if (!bridge) {
     return fallbackBridge.shortcuts
   }
@@ -2400,8 +2398,8 @@ function createShortcutsBridge(
 }
 
 function createMemoryBridge(
-  bridge: RendererOpenOmniClawBridge['memory'] | undefined
-): RendererOpenOmniClawBridge['memory'] {
+  bridge: RendererOmniPawBridge['memory'] | undefined
+): RendererOmniPawBridge['memory'] {
   if (!bridge) {
     return fallbackBridge.memory
   }
@@ -2413,8 +2411,8 @@ function createMemoryBridge(
 }
 
 function createProviderBridge(
-  bridge: RendererOpenOmniClawBridge['provider'] | undefined
-): RendererOpenOmniClawBridge['provider'] {
+  bridge: RendererOmniPawBridge['provider'] | undefined
+): RendererOmniPawBridge['provider'] {
   if (!bridge) {
     return fallbackBridge.provider
   }
@@ -2429,8 +2427,8 @@ function createProviderBridge(
 }
 
 function createObservationBridge(
-  bridge: RendererOpenOmniClawBridge['observation'] | undefined
-): RendererOpenOmniClawBridge['observation'] {
+  bridge: RendererOmniPawBridge['observation'] | undefined
+): RendererOmniPawBridge['observation'] {
   if (!bridge) {
     return fallbackBridge.observation
   }
@@ -2442,8 +2440,8 @@ function createObservationBridge(
 }
 
 function createLoggingBridge(
-  bridge: RendererOpenOmniClawBridge['logging'] | undefined
-): RendererOpenOmniClawBridge['logging'] {
+  bridge: RendererOmniPawBridge['logging'] | undefined
+): RendererOmniPawBridge['logging'] {
   if (!bridge) {
     return fallbackBridge.logging
   }
@@ -2455,8 +2453,8 @@ function createLoggingBridge(
 }
 
 function createCronBridge(
-  bridge: RendererOpenOmniClawBridge['cron'] | undefined
-): RendererOpenOmniClawBridge['cron'] {
+  bridge: RendererOmniPawBridge['cron'] | undefined
+): RendererOmniPawBridge['cron'] {
   if (!bridge) {
     return fallbackBridge.cron
   }
@@ -2471,8 +2469,8 @@ function createCronBridge(
 }
 
 function createOmniInferBridge(
-  bridge: RendererOpenOmniClawBridge['omniinfer'] | undefined
-): RendererOpenOmniClawBridge['omniinfer'] {
+  bridge: RendererOmniPawBridge['omniinfer'] | undefined
+): RendererOmniPawBridge['omniinfer'] {
   if (!bridge) {
     return fallbackBridge.omniinfer
   }
@@ -2484,8 +2482,8 @@ function createOmniInferBridge(
 }
 
 function createPersonaBridge(
-  bridge: RendererOpenOmniClawBridge['persona'] | undefined
-): RendererOpenOmniClawBridge['persona'] {
+  bridge: RendererOmniPawBridge['persona'] | undefined
+): RendererOmniPawBridge['persona'] {
   if (!bridge) {
     return fallbackBridge.persona
   }
@@ -2497,8 +2495,8 @@ function createPersonaBridge(
 }
 
 function createTavernBridge(
-  bridge: RendererOpenOmniClawBridge['tavern'] | undefined
-): RendererOpenOmniClawBridge['tavern'] {
+  bridge: RendererOmniPawBridge['tavern'] | undefined
+): RendererOmniPawBridge['tavern'] {
   if (!bridge) {
     return fallbackBridge.tavern
   }
@@ -2509,7 +2507,7 @@ function createTavernBridge(
   }
 }
 
-export const appBridge: RendererOpenOmniClawBridge = exposedBridge
+export const appBridge: RendererOmniPawBridge = exposedBridge
   ? {
       ...fallbackBridge,
       ...exposedBridge,

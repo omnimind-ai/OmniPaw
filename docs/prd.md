@@ -1,6 +1,6 @@
-# OmniClaw electron重写
+# OmniPaw electron重写
 
-我们对于 OmniClaw 的产品期望是：
+我们对于 OmniPaw 的产品期望是：
 
 1. 桌面端助手
 2. 主要开源用于宣传 OmniInfer 这个项目（本地部署 7b - 20b 大小的模型，且对端侧模型运行进行优化）
@@ -8,14 +8,14 @@
 4. 对 7b - 20b 左右的小模型的小模型进行优化
 5. 足够日常使用即可，场景偏向办公/酒馆/玩具
 
-之前的 OmniClaw 使用的是 OpenClaw 二开 + tauri 套壳的方案，经过几次迭代出现以下问题：
+之前的 OmniPaw 使用的是 OpenClaw 二开 + tauri 套壳的方案，经过几次迭代出现以下问题：
 
 1. 代码仓库难以维护，openclaw的仓库大且耦合度高
 2. openclaw 依赖多，打包体积逼近500mb左右
 3. tauri 悬浮窗实现不成熟
 4. openclaw 的高级功能太复杂，配置太多，用户难上手，且因为1的原因难以进行优化
 
-现在希望通过 electron 重写，脱离之前 gateway 借助 tauri sidecar 模型部署的模式，让OmniClaw更加类似桌面应用
+现在希望通过 electron 重写，脱离之前 gateway 借助 tauri sidecar 模型部署的模式，让OmniPaw更加类似桌面应用
 
 打算基于 Astrbot 的逻辑进行重写，因为Astrbot 的基础更好，且代码更加可维护，可借鉴
 

@@ -1,7 +1,7 @@
 {
-  "name": "openomniclaw-electron",
+  "name": "omnipaw-electron",
   "version": "1.0.0",
-  "description": "OpenOmniClaw desktop client built with Electron.",
+  "description": "OmniPaw desktop client built with Electron.",
   "type": "module",
   "main": "out/main/main.cjs",
   "scripts": {
@@ -77,8 +77,8 @@
     "vue-tsc": "^3.1.8"
   },
   "build": {
-    "appId": "com.openomniclaw.desktop",
-    "productName": "OpenOmniClaw",
+    "appId": "com.omnipaw.desktop",
+    "productName": "OmniPaw",
     "directories": {
       "output": "release"
     },

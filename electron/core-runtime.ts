@@ -53,7 +53,7 @@ import {
   TavernRegistryStore,
   TavernRegistryValidationError,
 } from '@core/tavern'
-import { resolveOpenOmniClawDataPaths } from '@core/utils/data-paths'
+import { resolveOmniPawDataPaths } from '@core/utils/data-paths'
 import { SYSTEM_SESSION_IDS } from '@shared/constants'
 import type { ChatSession } from '@shared/types/chat'
 import type { CronTaskChangedEvent } from '@shared/types/cron'
@@ -119,7 +119,7 @@ export function createCoreRuntime(options: CoreRuntimeOptions): CoreRuntime {
   coreLogger.info('Core initialization started.')
 
   const appDataPath = options.app.getPath('appData')
-  const dataPaths = resolveOpenOmniClawDataPaths({ appDataPath })
+  const dataPaths = resolveOmniPawDataPaths({ appDataPath })
 
   const dbClient = new DatabaseClient({
     path: dataPaths.database,

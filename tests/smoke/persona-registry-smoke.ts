@@ -7,7 +7,7 @@ import { PersonaManager } from '../../core/persona/manager'
 import { PersonaRegistryValidationError } from '../../core/persona/registry-schema'
 import { PersonaRegistryStore } from '../../core/persona/registry-store'
 
-const tempDir = mkdtempSync(join(tmpdir(), 'openomniclaw-persona-registry-smoke-'))
+const tempDir = mkdtempSync(join(tmpdir(), 'omnipaw-persona-registry-smoke-'))
 
 try {
   // 1. First load creates an empty registry on disk.

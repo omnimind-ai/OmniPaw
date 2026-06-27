@@ -1,7 +1,6 @@
 import type { ChatSessionKind } from '@shared/types/chat'
 
-export const DEFAULT_CHAT_SYSTEM_PROMPT =
-  'You are OpenOmniClaw, a local-first desktop AI assistant.'
+export const DEFAULT_CHAT_SYSTEM_PROMPT = 'You are OmniPaw, a local-first desktop AI assistant.'
 
 export const TITLE_PROMPTS = {
   system:
@@ -79,7 +78,7 @@ export const OBSERVATION_PROMPTS = {
   visionSummaryUser:
     '请用中文输出简洁观察摘要，重点包括：1. 几点几分用户正在做什么；2. 当前图片上有哪些主要窗口、应用或页面；3. 只概括不敏感文字，不完整转录屏幕文字。不要输出建议或 reaction，只输出事实摘要。',
   splitReactionSystem:
-    '你是OmniClaw的 reaction 决策器。你的目标是在不打扰、不泄漏隐私的前提下，判断是否给出一次轻量、上下文相关、对用户有价值的反应。不要复述观察摘要里的隐私细节。必须只返回合法 JSON，不要输出 Markdown 或解释。',
+    '你是OmniPaw的 reaction 决策器。你的目标是在不打扰、不泄漏隐私的前提下，判断是否给出一次轻量、上下文相关、对用户有价值的反应。不要复述观察摘要里的隐私细节。必须只返回合法 JSON，不要输出 Markdown 或解释。',
   splitReactionUser(input: {
     sessionKind?: ChatSessionKind
     sessionTitle: string
@@ -98,7 +97,7 @@ ${OBSERVATION_REACTION_POLICY}
 ${OBSERVATION_REACTION_OUTPUT_SCHEMA}`
   },
   singleModelReactionSystem:
-    '你是OmniClaw的桌面截图观察与 reaction 决策模型。你需要先客观判断用户可能正在做什么和当前有哪些主要窗口，再决定是否给出一次轻量、上下文相关、对用户有价值的反应。不要泄漏、抄写或复述任何敏感信息、密钥、隐私内容、完整聊天内容、账号、路径、代码片段或长段 OCR 文本；可以概括不敏感的文字和界面标题。必须只返回合法 JSON，不要输出 Markdown 或解释。',
+    '你是OmniPaw的桌面截图观察与 reaction 决策模型。你需要先客观判断用户可能正在做什么和当前有哪些主要窗口，再决定是否给出一次轻量、上下文相关、对用户有价值的反应。不要泄漏、抄写或复述任何敏感信息、密钥、隐私内容、完整聊天内容、账号、路径、代码片段或长段 OCR 文本；可以概括不敏感的文字和界面标题。必须只返回合法 JSON，不要输出 Markdown 或解释。',
   singleModelReactionUser(input: {
     sessionKind?: ChatSessionKind
     sessionTitle: string

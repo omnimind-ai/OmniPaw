@@ -1,12 +1,12 @@
 /* eslint-disable @typescript-eslint/no-require-imports */
 // electron-builder config.
 //
-// Reads `OMNICLAW_BUNDLE_OMNIINFER` env (default = "1") to decide whether to bundle
+// Reads `OMNIPAW_BUNDLE_OMNIINFER` env (default = "1") to decide whether to bundle
 // the OmniInfer binary as an extra resource. Run via:
 //   pnpm build:full   # bundle OmniInfer (default; safe to omit env)
 //   pnpm build:slim   # exclude OmniInfer; user provides binary at runtime
 
-const bundleOmniInferRaw = (process.env.OMNICLAW_BUNDLE_OMNIINFER ?? '1').trim()
+const bundleOmniInferRaw = (process.env.OMNIPAW_BUNDLE_OMNIINFER ?? '1').trim()
 const bundleOmniInfer = bundleOmniInferRaw !== '0' && bundleOmniInferRaw.toLowerCase() !== 'false'
 
 const extraResources = []
@@ -19,8 +19,8 @@ if (bundleOmniInfer) {
 }
 
 module.exports = {
-  appId: 'com.openomniclaw.desktop',
-  productName: 'OpenOmniClaw',
+  appId: 'com.omnipaw.desktop',
+  productName: 'OmniPaw',
   directories: {
     output: 'release',
   },

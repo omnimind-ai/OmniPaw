@@ -8,7 +8,7 @@ import {
 import type {
   DeleteProviderModelRequest,
   DeleteProviderSourceRequest,
-  OpenOmniClawBridge,
+  OmniPawBridge,
   SetDefaultProviderModelRequest,
   SetEmbeddingProviderModelRequest,
   SetFallbackProviderModelsRequest,
@@ -281,7 +281,7 @@ async function getLoggingStatus(): Promise<LoggerHealthStatus> {
   }
 }
 
-const bridge: OpenOmniClawBridge = {
+const bridge: OmniPawBridge = {
   app: {
     getInfo: () => ipcRenderer.invoke(IPC_CHANNELS.app.getInfo),
     openSettingsDirectory: () => ipcRenderer.invoke(IPC_CHANNELS.app.openSettingsDirectory),
@@ -656,4 +656,4 @@ const bridge: OpenOmniClawBridge = {
   },
 }
 
-contextBridge.exposeInMainWorld('openOmniClaw', bridge)
+contextBridge.exposeInMainWorld('omniPaw', bridge)

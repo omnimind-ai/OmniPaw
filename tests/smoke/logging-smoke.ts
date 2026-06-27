@@ -5,12 +5,12 @@ import { join, relative } from 'node:path'
 
 import { createElectronLogSink, createProjectLogger } from '../../core/logging'
 
-const tempDir = mkdtempSync(join(tmpdir(), 'openomniclaw-logging-smoke-'))
+const tempDir = mkdtempSync(join(tmpdir(), 'omnipaw-logging-smoke-'))
 
 try {
   const sink = createElectronLogSink({
     logDir: tempDir,
-    appName: 'OpenOmniClawSmoke',
+    appName: 'OmniPawSmoke',
     fileName: 'smoke.log',
     runtime: 'test',
     maxFileBytes: 256 * 1024,
@@ -63,7 +63,7 @@ try {
   writeFileSync(invalidLogDir, 'not-a-directory')
   const failingSink = createElectronLogSink({
     logDir: invalidLogDir,
-    appName: 'OpenOmniClawSmoke',
+    appName: 'OmniPawSmoke',
     fileName: 'failure.log',
     runtime: 'test',
   })

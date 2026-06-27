@@ -26,7 +26,7 @@ import { IPC_CHANNELS } from '../../shared/constants'
 import type { ChatMessage, ChatSession } from '../../shared/types/chat'
 import type { ProviderConfig, ProviderModel } from '../../shared/types/provider'
 
-const tempDir = mkdtempSync(join(tmpdir(), 'openomniclaw-tavern-smoke-'))
+const tempDir = mkdtempSync(join(tmpdir(), 'omnipaw-tavern-smoke-'))
 const client = new DatabaseClient({ path: join(tempDir, 'smoke.sqlite3') })
 
 const characterJson = JSON.stringify({

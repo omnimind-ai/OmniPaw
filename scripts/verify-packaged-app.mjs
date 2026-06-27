@@ -3,7 +3,7 @@ import { builtinModules, createRequire } from 'node:module'
 import { join } from 'node:path'
 
 const require = createRequire(import.meta.url)
-const appRoot = join('release', 'mac-arm64', 'OpenOmniClaw.app', 'Contents', 'Resources')
+const appRoot = join('release', 'mac-arm64', 'OmniPaw.app', 'Contents', 'Resources')
 const asarPath = join(appRoot, 'app.asar')
 const unpackedRoot = join(appRoot, 'app.asar.unpacked')
 const bundleFiles = [join('out', 'main', 'main.cjs'), join('out', 'preload', 'preload.cjs')]

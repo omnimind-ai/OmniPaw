@@ -41,7 +41,7 @@ import { parseSseStream } from '../../core/provider/providers/openai'
 import type { ChatMessage } from '../../shared/types/chat'
 import type { ProviderConfig, ProviderModel } from '../../shared/types/provider'
 
-const tempDir = mkdtempSync(join(tmpdir(), 'openomniclaw-chat-core-smoke-'))
+const tempDir = mkdtempSync(join(tmpdir(), 'omnipaw-chat-core-smoke-'))
 const client = new DatabaseClient({ path: join(tempDir, 'smoke.sqlite3') })
 
 try {

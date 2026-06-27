@@ -23,7 +23,7 @@ const notificationSize = {
 
 const notificationMargin = 12
 const defaultAutoDismissMs = 8_000
-const notificationProtocol = 'openomniclaw-cat-notification:'
+const notificationProtocol = 'omnipaw-cat-notification:'
 
 class CatNotificationController {
   private window: BrowserWindow | null = null
@@ -145,7 +145,7 @@ class CatNotificationController {
 
     this.window = new BrowserWindow({
       ...this.resolveBounds(),
-      title: 'OpenOmniClaw Cat Notification',
+      title: 'OmniPaw Cat Notification',
       frame: false,
       transparent: true,
       resizable: false,

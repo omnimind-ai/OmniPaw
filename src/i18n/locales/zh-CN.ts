@@ -766,7 +766,7 @@ export default {
       serverLoadErrorToast: 'MCP 服务器加载失败。',
       builtin: {
         title: '内置工具',
-        description: '调整 OpenOmniClaw 内置工具是否参与 Agent 工具清单。',
+        description: '调整 OmniPaw 内置工具是否参与 Agent 工具清单。',
         noTools: '暂无内置工具',
         noToolsDesc: '内置工具清单尚未加载。',
         toolEnabledSwitch: '停用',
@@ -1371,7 +1371,7 @@ export default {
       },
     },
     welcome: {
-      title: '👋 欢迎使用 OmniClaw',
+      title: '👋 欢迎使用 OmniPaw',
     },
     noModel: {
       message: '未配置可用模型',

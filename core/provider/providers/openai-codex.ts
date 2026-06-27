@@ -342,7 +342,7 @@ export class OpenAICodexProvider implements BaseProvider {
     }
     headers.set('OpenAI-Beta', 'responses=experimental')
     headers.set('originator', 'pi')
-    headers.set('User-Agent', 'pi (openomniclaw-electron)')
+    headers.set('User-Agent', 'pi (omnipaw-electron)')
     headers.set('Accept', 'text/event-stream')
     headers.set('Content-Type', 'application/json')
     return headers

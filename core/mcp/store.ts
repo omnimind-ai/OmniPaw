@@ -11,7 +11,7 @@ import {
   writeFileSync,
 } from 'node:fs'
 import { dirname, join } from 'node:path'
-import { resolveOpenOmniClawDataRoot } from '@core/utils/data-paths'
+import { resolveOmniPawDataRoot } from '@core/utils/data-paths'
 
 import type {
   McpOperationError,
@@ -225,8 +225,8 @@ export function resolveMcpRegistryPath(
 
 function resolveMcpDataRoot(options: McpRegistryStoreOptions): string {
   return options.dataRootPath
-    ? resolveOpenOmniClawDataRoot({ dataRootPath: options.dataRootPath })
-    : (options.userDataPath ?? resolveOpenOmniClawDataRoot())
+    ? resolveOmniPawDataRoot({ dataRootPath: options.dataRootPath })
+    : (options.userDataPath ?? resolveOmniPawDataRoot())
 }
 
 function atomicWriteJson(path: string, content: string, backupPath?: string): void {

@@ -14,7 +14,7 @@
 ## 安全边界
 
 - MUST：保持 renderer 安全边界：`contextIsolation: true`、`nodeIntegration: false`。
-- MUST：通过 preload 的 `contextBridge.exposeInMainWorld('openOmniClaw', bridge)` 暴露能力。
+- MUST：通过 preload 的 `contextBridge.exposeInMainWorld('omniPaw', bridge)` 暴露能力。
 - MUST NOT：renderer 导入或使用 `electron`、`ipcRenderer`、`fs`、`path`、`better-sqlite3`、`@core/*`。
 - MUST：敏感字段不能通过 renderer 可见对象回传；Provider API key 等秘密只能在 main/core 边界处理。
 

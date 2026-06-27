@@ -25,7 +25,7 @@ import type {
 } from '../../core/db/types'
 import { SYSTEM_SESSION_IDS } from '../../shared/constants'
 
-const tempDir = mkdtempSync(join(tmpdir(), 'openomniclaw-db-smoke-'))
+const tempDir = mkdtempSync(join(tmpdir(), 'omnipaw-db-smoke-'))
 const client = new DatabaseClient({ path: join(tempDir, 'smoke.sqlite3') })
 
 try {

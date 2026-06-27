@@ -12,7 +12,7 @@ import { ConfigStore } from '../../core/config/store'
 import { ConfigToolSettingsStore } from '../../core/config/tool-settings-store'
 import { ProviderManager } from '../../core/provider/manager'
 
-const tempDir = mkdtempSync(join(tmpdir(), 'openomniclaw-settings-smoke-'))
+const tempDir = mkdtempSync(join(tmpdir(), 'omnipaw-settings-smoke-'))
 
 try {
   const normalized = normalizeConfig({

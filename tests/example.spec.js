@@ -4,8 +4,8 @@ import { expect, test } from '@playwright/test'
 test('renders the desktop app shell', async ({ page }) => {
   await page.goto('/')
 
-  await expect(page).toHaveTitle(/OpenOmniClaw/)
-  await expect(page.getByRole('heading', { name: 'OpenOmniClaw' })).toBeVisible()
+  await expect(page).toHaveTitle(/OmniPaw/)
+  await expect(page.getByRole('heading', { name: 'OmniPaw' })).toBeVisible()
   await expect(page.getByRole('link', { name: '对话' })).toBeVisible()
 })
 

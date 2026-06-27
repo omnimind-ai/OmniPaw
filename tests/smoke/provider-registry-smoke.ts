@@ -32,7 +32,7 @@ function requestUrl(input: Parameters<typeof fetch>[0]): string {
   return input.url
 }
 
-const tempDir = mkdtempSync(join(tmpdir(), 'openomniclaw-provider-registry-smoke-'))
+const tempDir = mkdtempSync(join(tmpdir(), 'omnipaw-provider-registry-smoke-'))
 
 try {
   const fakeOpenAiFetch: typeof fetch = async (input) => {

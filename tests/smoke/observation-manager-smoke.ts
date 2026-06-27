@@ -26,7 +26,7 @@ import type {
 import type { ProviderConfig, ProviderRegistry } from '../../shared/types/provider'
 import type { DesktopObservationSettings } from '../../shared/types/settings'
 
-const tempDir = mkdtempSync(join(tmpdir(), 'openomniclaw-observation-smoke-'))
+const tempDir = mkdtempSync(join(tmpdir(), 'omnipaw-observation-smoke-'))
 
 const providerRecords: ProviderConfig[] = [
   {
@@ -186,7 +186,7 @@ try {
     platform: 'darwin',
     screen: 'not-determined',
     canPrompt: false,
-    message: 'macOS 需要在系统设置中为 OpenOmniClaw 开启屏幕录制权限。',
+    message: 'macOS 需要在系统设置中为 OmniPaw 开启屏幕录制权限。',
   }
   capture.probeScreenPermission = () => {
     permissionProbeCount += 1

@@ -2,7 +2,7 @@ import { join } from 'node:path'
 
 import type { Logger } from '@core/logging'
 import { SKILL_PROMPTS } from '@core/prompts'
-import { resolveOpenOmniClawDataRoot } from '@core/utils/data-paths'
+import { resolveOmniPawDataRoot } from '@core/utils/data-paths'
 import type {
   ImportSkillRequest,
   ImportSkillResponse,
@@ -300,6 +300,6 @@ export class SkillManager {
 
 function resolveSkillManagerDataRoot(options: SkillManagerOptions): string {
   return options.dataRootPath
-    ? resolveOpenOmniClawDataRoot({ dataRootPath: options.dataRootPath })
-    : (options.userDataPath ?? resolveOpenOmniClawDataRoot())
+    ? resolveOmniPawDataRoot({ dataRootPath: options.dataRootPath })
+    : (options.userDataPath ?? resolveOmniPawDataRoot())
 }

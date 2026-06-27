@@ -13,7 +13,7 @@ import {
 } from 'node:fs/promises'
 import { basename, dirname, join, relative, resolve, sep } from 'node:path'
 import type { Logger } from '@core/logging'
-import { resolveOpenOmniClawDataRoot } from '@core/utils/data-paths'
+import { resolveOmniPawDataRoot } from '@core/utils/data-paths'
 import type {
   AgentWorkspaceFileEntry,
   AgentWorkspaceStatus,
@@ -655,8 +655,8 @@ function normalizeOutputPath(path: string): string {
 
 function resolveWorkspaceDataRoot(options: AgentWorkspaceServiceOptions): string {
   return options.dataRootPath
-    ? resolveOpenOmniClawDataRoot({ dataRootPath: options.dataRootPath })
-    : (options.userDataPath ?? resolveOpenOmniClawDataRoot())
+    ? resolveOmniPawDataRoot({ dataRootPath: options.dataRootPath })
+    : (options.userDataPath ?? resolveOmniPawDataRoot())
 }
 
 function safeWorkspaceId(sessionId: string): string {

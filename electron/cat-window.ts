@@ -632,7 +632,7 @@ function createCatWindow(): BrowserWindow {
 
   catWindow = new BrowserWindow({
     ...getInitialCatBounds(),
-    title: 'OpenOmniClaw Cat',
+    title: 'OmniPaw Cat',
     icon: createAppIconImage(app),
     frame: false,
     transparent: true,
@@ -685,7 +685,7 @@ function createCatPanelWindow(placement: CatPanelPlacement): BrowserWindow {
 
   catPanelWindow = new BrowserWindow({
     ...placement.bounds,
-    title: 'OpenOmniClaw Cat Panel',
+    title: 'OmniPaw Cat Panel',
     icon: createAppIconImage(app),
     frame: false,
     transparent: true,
@@ -733,7 +733,7 @@ function createCatBubbleWindow(placement: CatPanelPlacement): BrowserWindow {
 
   catBubbleWindow = new BrowserWindow({
     ...placement.bounds,
-    title: 'OpenOmniClaw Cat Bubble',
+    title: 'OmniPaw Cat Bubble',
     icon: createAppIconImage(app),
     frame: false,
     transparent: true,

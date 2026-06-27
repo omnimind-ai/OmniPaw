@@ -377,7 +377,7 @@ export interface TestProviderRegistryRequest extends Omit<TestProviderRequest, '
   model?: ProviderRegistryModel
 }
 
-export interface OpenOmniClawBridge {
+export interface OmniPawBridge {
   app: {
     getInfo: () => Promise<AppInfo>
     openSettingsDirectory: () => Promise<OpenDirectoryResponse>

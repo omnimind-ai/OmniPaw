@@ -374,8 +374,7 @@ function buildServeCommand(
   const extension = extname(cliPath).toLowerCase()
   if (extension === '.py') {
     const python =
-      process.env.OPENOMNICLAW_OMNIINFER_PYTHON ??
-      (process.platform === 'win32' ? 'python' : 'python3')
+      process.env.OMNIPAW_OMNIINFER_PYTHON ?? (process.platform === 'win32' ? 'python' : 'python3')
     return { command: python, args: [cliPath, ...serveArgs] }
   }
   if (extension === '.ps1') {

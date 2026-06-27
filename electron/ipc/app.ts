@@ -1,5 +1,5 @@
 import { mkdirSync } from 'node:fs'
-import { resolveOpenOmniClawDataPaths } from '@core/utils/data-paths'
+import { resolveOmniPawDataPaths } from '@core/utils/data-paths'
 import { IPC_CHANNELS } from '@shared/constants'
 import { shell } from 'electron'
 import { isRecord, registerLoggedIpcHandler } from './common'
@@ -16,7 +16,7 @@ export function registerAppIpcHandlers(options: IpcHandlerOptions): void {
     platform: options.platform,
   }))
   registerLoggedIpcHandler(options, IPC_CHANNELS.app.openSettingsDirectory, async () => {
-    const directory = resolveOpenOmniClawDataPaths({
+    const directory = resolveOmniPawDataPaths({
       appDataPath: options.appDataPath,
     }).configRoot
     mkdirSync(directory, { recursive: true })

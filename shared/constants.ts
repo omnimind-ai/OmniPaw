@@ -1,5 +1,5 @@
-export const APP_NAME = 'OpenOmniClaw'
-export const APP_ID = 'com.openomniclaw.desktop'
+export const APP_NAME = 'OmniPaw'
+export const APP_ID = 'com.omnipaw.desktop'
 
 export const SYSTEM_SESSION_IDS = {
   cron: 'cron-default',

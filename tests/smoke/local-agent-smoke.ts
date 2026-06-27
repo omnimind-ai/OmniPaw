@@ -11,7 +11,7 @@ import { AgentWorkspaceError, AgentWorkspaceService } from '../../core/agent/wor
 import { cloneDefaultConfig } from '../../core/config/schema'
 import type { ProviderToolCall } from '../../core/provider/base-provider'
 
-const tempDir = mkdtempSync(join(tmpdir(), 'openomniclaw-local-agent-smoke-'))
+const tempDir = mkdtempSync(join(tmpdir(), 'omnipaw-local-agent-smoke-'))
 
 try {
   const config = cloneDefaultConfig()
@@ -67,11 +67,11 @@ try {
   })
   assert.equal(await readFile(exportPath, 'utf8'), 'hello workspace')
 
-  process.env.OPENOMNICLAW_SECRET_TEST = 'must-not-leak'
+  process.env.OMNIPAW_SECRET_TEST = 'must-not-leak'
   const envResult = await terminal.execute({
     sessionId: 'session-1',
     profile: 'power',
-    command: `node -e "process.stdout.write(process.env.OPENOMNICLAW_SECRET_TEST || '')"`,
+    command: `node -e "process.stdout.write(process.env.OMNIPAW_SECRET_TEST || '')"`,
     timeoutMs: 5_000,
   })
   assert.equal(envResult.stdout, '')
@@ -214,6 +214,6 @@ try {
   await workspace.cleanupWorkspace('session-1')
   console.log('Local agent workspace and terminal smoke check passed')
 } finally {
-  delete process.env.OPENOMNICLAW_SECRET_TEST
+  delete process.env.OMNIPAW_SECRET_TEST
   rmSync(tempDir, { recursive: true, force: true })
 }

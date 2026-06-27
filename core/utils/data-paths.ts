@@ -2,15 +2,15 @@ import { createRequire } from 'node:module'
 import { homedir } from 'node:os'
 import { join, resolve } from 'node:path'
 
-export const OPENOMNICLAW_DATA_ROOT_DIR = 'openomniclaw'
-export const OPENOMNICLAW_DEFAULT_APP_NAME = 'OpenOmniClaw'
+export const OMNIPAW_DATA_ROOT_DIR = 'omnipaw'
+export const OMNIPAW_DEFAULT_APP_NAME = 'OmniPaw'
 
 export interface ResolveDataRootOptions {
   appDataPath?: string
   dataRootPath?: string
 }
 
-export interface OpenOmniClawDataPaths {
+export interface OmniPawDataPaths {
   root: string
   configRoot: string
   config: string
@@ -28,29 +28,27 @@ export interface OpenOmniClawDataPaths {
   observationTemp: string
 }
 
-export function resolveOpenOmniClawDataRoot(options: ResolveDataRootOptions = {}): string {
+export function resolveOmniPawDataRoot(options: ResolveDataRootOptions = {}): string {
   if (options.dataRootPath) {
     return resolve(options.dataRootPath)
   }
 
-  const overrideRoot = process.env.OPENOMNICLAW_DATA_DIR?.trim()
+  const overrideRoot = process.env.OMNIPAW_DATA_DIR?.trim()
   if (overrideRoot) {
     return resolve(overrideRoot)
   }
 
   const appDataPath = options.appDataPath ?? resolveElectronAppDataPath()
   if (appDataPath) {
-    return join(appDataPath, OPENOMNICLAW_DATA_ROOT_DIR)
+    return join(appDataPath, OMNIPAW_DATA_ROOT_DIR)
   }
 
   const fallbackBase = process.env.XDG_DATA_HOME ?? join(homedir(), '.local', 'share')
-  return join(fallbackBase, OPENOMNICLAW_DATA_ROOT_DIR)
+  return join(fallbackBase, OMNIPAW_DATA_ROOT_DIR)
 }
 
-export function resolveOpenOmniClawDataPaths(
-  options: ResolveDataRootOptions = {}
-): OpenOmniClawDataPaths {
-  const root = resolveOpenOmniClawDataRoot(options)
+export function resolveOmniPawDataPaths(options: ResolveDataRootOptions = {}): OmniPawDataPaths {
+  const root = resolveOmniPawDataRoot(options)
   const configRoot = join(root, 'config')
   return {
     root,
@@ -59,7 +57,7 @@ export function resolveOpenOmniClawDataPaths(
     providerRegistry: join(configRoot, 'providers.json'),
     personaRegistry: join(configRoot, 'personas.json'),
     tavernRegistry: join(configRoot, 'tavern.json'),
-    database: join(root, 'openomniclaw.sqlite3'),
+    database: join(root, 'omnipaw.sqlite3'),
     mcpRegistry: join(configRoot, 'mcp_server.json'),
     skillState: join(root, 'skill_state.json'),
     skills: join(root, 'skills'),
@@ -77,14 +75,14 @@ export function resolveStoreDataRoot(options: {
   dataRootPath?: string
 }): string {
   if (options.dataRootPath) {
-    return resolveOpenOmniClawDataRoot({ dataRootPath: options.dataRootPath })
+    return resolveOmniPawDataRoot({ dataRootPath: options.dataRootPath })
   }
 
-  if (options.appDataPath && options.appName && options.appName !== OPENOMNICLAW_DEFAULT_APP_NAME) {
+  if (options.appDataPath && options.appName && options.appName !== OMNIPAW_DEFAULT_APP_NAME) {
     return join(options.appDataPath, options.appName)
   }
 
-  return resolveOpenOmniClawDataRoot({ appDataPath: options.appDataPath })
+  return resolveOmniPawDataRoot({ appDataPath: options.appDataPath })
 }
 
 function resolveElectronAppDataPath(): string | undefined {

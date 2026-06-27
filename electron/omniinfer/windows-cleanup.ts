@@ -2,10 +2,10 @@ import { type SpawnOptions, spawn } from 'node:child_process'
 import type { Logger } from '@core/logging'
 
 const CLEANUP_SCRIPT = `
-$matchPaths = (($env:OMNICLAW_GATEWAY_MATCH_PATHS -as [string]) -split '\\|') |
+$matchPaths = (($env:OMNIPAW_GATEWAY_MATCH_PATHS -as [string]) -split '\\|') |
   Where-Object { -not [string]::IsNullOrWhiteSpace($_) } |
   ForEach-Object { ($_ -replace '^\\\\\\\\\\?\\\\', '') }
-$port = [regex]::Escape(($env:OMNICLAW_GATEWAY_PORT -as [string]))
+$port = [regex]::Escape(($env:OMNIPAW_GATEWAY_PORT -as [string]))
 if ($matchPaths.Count -eq 0 -or [string]::IsNullOrWhiteSpace($port)) {
   exit 0
 }
@@ -62,8 +62,8 @@ export async function cleanupStaleOmniInferProcesses(
   const spawnOptions: SpawnOptions & { creationFlags?: number } = {
     env: {
       ...process.env,
-      OMNICLAW_GATEWAY_MATCH_PATHS: matchPaths,
-      OMNICLAW_GATEWAY_PORT: String(options.port),
+      OMNIPAW_GATEWAY_MATCH_PATHS: matchPaths,
+      OMNIPAW_GATEWAY_PORT: String(options.port),
     },
     windowsHide: true,
     creationFlags: CREATE_NO_WINDOW,

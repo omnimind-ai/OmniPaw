@@ -36,15 +36,15 @@ export interface LocateInstallResult {
 
 /**
  * Locate the OmniInfer install directory. Precedence:
- *   1. `OMNICLAW_OMNIINFER_HOME` env var (project/install directory)
- *   2. legacy `OMNICLAW_OMNIINFER_PATH` env var (directory or startup script)
+ *   1. `OMNIPAW_OMNIINFER_HOME` env var (project/install directory)
+ *   2. legacy `OMNIPAW_OMNIINFER_PATH` env var (directory or startup script)
  *   3. `<repoRoot>/resources/omniinfer/<cliName>` (dev mode)
  *   4. `<process.resourcesPath>/omniinfer/<cliName>` (packaged)
  *   4. Common Tauri-style layouts as fallback
  */
 export function locateOmniInferInstall(ctx: LocateInstallContext): LocateInstallResult {
   const envOverride =
-    process.env.OMNICLAW_OMNIINFER_HOME?.trim() ?? process.env.OMNICLAW_OMNIINFER_PATH?.trim()
+    process.env.OMNIPAW_OMNIINFER_HOME?.trim() ?? process.env.OMNIPAW_OMNIINFER_PATH?.trim()
   const candidates: string[] = []
 
   if (envOverride) {

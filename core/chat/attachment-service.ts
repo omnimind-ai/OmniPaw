@@ -3,7 +3,7 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { basename, extname, join } from 'node:path'
 
 import type { AttachmentRepo } from '@core/db/repos'
-import { resolveOpenOmniClawDataPaths } from '@core/utils/data-paths'
+import { resolveOmniPawDataPaths } from '@core/utils/data-paths'
 import { inferComplexDocumentMimeType } from '@shared/attachment-documents'
 import type {
   Attachment,
@@ -32,7 +32,7 @@ export class AttachmentService {
 
   constructor(options: AttachmentServiceOptions) {
     this.repo = options.repo
-    this.rootDir = options.rootDir ?? resolveOpenOmniClawDataPaths().attachments
+    this.rootDir = options.rootDir ?? resolveOmniPawDataPaths().attachments
     this.maxAttachmentsPerMessage = options.maxAttachmentsPerMessage ?? 12
     this.maxFileBytes = options.maxFileBytes ?? 25 * 1024 * 1024
     this.maxExtractedChars = options.maxExtractedChars ?? 100_000

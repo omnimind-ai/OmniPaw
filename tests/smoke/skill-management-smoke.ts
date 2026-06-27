@@ -6,7 +6,7 @@ import { normalizeSkillState, SkillStateStore } from '../../core/skill'
 import { SkillLoader } from '../../core/skill/loader'
 import { SkillManager } from '../../core/skill/skill-manager'
 
-const tempDir = mkdtempSync(join(tmpdir(), 'openomniclaw-skill-smoke-'))
+const tempDir = mkdtempSync(join(tmpdir(), 'omnipaw-skill-smoke-'))
 
 try {
   const store = new SkillStateStore({ userDataPath: tempDir })

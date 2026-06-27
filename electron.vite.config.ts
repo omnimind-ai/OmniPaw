@@ -10,9 +10,9 @@ const packageJson = JSON.parse(readFileSync(resolve(__dirname, 'package.json'), 
   version?: string
 }
 const appVersion = packageJson.version || '0.1.1'
-const buildTime = process.env.OMNICLAW_BUILD_TIME || new Date().toISOString()
-const gitCommit = process.env.OMNICLAW_GIT_COMMIT || readGitCommit()
-const bundleOmniInferRaw = (process.env.OMNICLAW_BUNDLE_OMNIINFER ?? '1').trim()
+const buildTime = process.env.OMNIPAW_BUILD_TIME || new Date().toISOString()
+const gitCommit = process.env.OMNIPAW_GIT_COMMIT || readGitCommit()
+const bundleOmniInferRaw = (process.env.OMNIPAW_BUNDLE_OMNIINFER ?? '1').trim()
 const omniInferPackaged = bundleOmniInferRaw !== '0' && bundleOmniInferRaw.toLowerCase() !== 'false'
 const buildDefines = {
   __APP_VERSION__: JSON.stringify(appVersion),

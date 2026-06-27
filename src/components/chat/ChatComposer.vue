@@ -133,7 +133,7 @@ const textareaClass = computed(() => (props.compactAttachments ? 'min-h-16' : 'm
 const composerPlaceholder = computed(() => {
   if (dragging.value) return t('chat.composer.uploadDragPlaceholder')
   if (showAttachmentPresetPanel.value) return ''
-  return 'Ask OmniClaw...'
+  return 'Ask OmniPaw...'
 })
 const selectedToolProfile = computed(
   () =>

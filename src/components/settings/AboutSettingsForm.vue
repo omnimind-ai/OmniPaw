@@ -8,12 +8,12 @@ import { appBridge } from '@/bridge/app'
 import { Button } from '@/components/ui/button'
 import { errorToText, useToast } from '@/utils/toast'
 
-const GITHUB_URL = 'https://github.com/omnimind-ai/OpenOmniClaw-electron'
+const GITHUB_URL = 'https://github.com/omnimind-ai/OmniPaw-electron'
 
 const toast = useToast()
 const { t } = useI18n()
 const appInfo = ref({
-  name: 'OpenOmniClaw',
+  name: 'OmniPaw',
   version: '0.1.1',
   buildTime: '',
   commit: '',
@@ -111,7 +111,7 @@ function openGithub() {
 
       <div class="mt-5 flex flex-col items-center gap-2">
         <h1 class="text-4xl font-semibold tracking-normal text-foreground">
-          OmniClaw
+          OmniPaw
         </h1>
         <p class="text-sm font-medium text-muted-foreground">
           {{ versionLabel }}

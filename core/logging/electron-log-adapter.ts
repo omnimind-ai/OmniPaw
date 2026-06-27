@@ -51,13 +51,13 @@ class ElectronLogSink implements LogSink {
 
   constructor(options: ElectronLogSinkOptions) {
     this.logDir = options.logDir
-    this.fileName = options.fileName ?? 'openomniclaw.log'
+    this.fileName = options.fileName ?? 'omnipaw.log'
     this.maxFileBytes = options.maxFileBytes ?? defaultMaxFileBytes
     this.runtime = options.runtime ?? 'electron'
 
     try {
       mkdirSync(this.logDir, { recursive: true })
-      const native = electronLog.create({ logId: 'openomniclaw' }) as MutableElectronLogger
+      const native = electronLog.create({ logId: 'omnipaw' }) as MutableElectronLogger
       native.transports.console =
         createNoopTransport() as unknown as typeof native.transports.console
       native.transports.ipc = createNoopTransport() as unknown as typeof native.transports.ipc

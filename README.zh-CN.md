@@ -1,8 +1,8 @@
 <div align="center">
 
-<img src="assets/brand-logo.png" alt="OpenOmniClaw Logo" style="width:140px;" />
+<img src="assets/brand-logo.png" alt="OmniPaw Logo" style="width:140px;" />
 
-# OpenOmniClaw
+# OmniPaw
 
 **面向端侧模型的桌面 AI 助手与 Agent 客户端**
 
@@ -16,7 +16,7 @@
 
 </div>
 
-OpenOmniClaw 是一个面向桌面环境的 AI 助手客户端，目标是让本地部署或局域网内的 OpenAI 兼容模型更容易接入日常工作流。提供聊天、酒馆、视觉观察、技能/MCP/Agent 工具/计划任务等能力
+OmniPaw 是一个面向桌面环境的 AI 助手客户端，目标是让本地部署或局域网内的 OpenAI 兼容模型更容易接入日常工作流。提供聊天、酒馆、视觉观察、技能/MCP/Agent 工具/计划任务等能力
 
 ## 特性
 
@@ -30,7 +30,7 @@ OpenOmniClaw 是一个面向桌面环境的 AI 助手客户端，目标是让本
 ## 截图
 
 <p align="center">
-  <img src="assets/hello.png" alt="OpenOmniClaw 主界面" width="100%" />
+  <img src="assets/hello.png" alt="OmniPaw 主界面" width="100%" />
 </p>
 
 <table>

@@ -227,7 +227,7 @@ export class ElectronDesktopCaptureAdapter implements DesktopCaptureAdapter {
       let child: UtilityProcess
       try {
         child = utilityProcess.fork(scriptPath, [], {
-          serviceName: 'omniclaw-image-encoder',
+          serviceName: 'omnipaw-image-encoder',
         })
       } catch (error) {
         this.encoderReady = undefined
@@ -321,7 +321,7 @@ function macScreenPermissionMessage(): string {
   const appName = app.getName() || 'Electron'
   const bundlePath = currentMacBundlePath()
   const devHint = bundlePath
-    ? `开发模式下请授权 ${bundlePath}，而不是查找 OpenOmniClaw。`
+    ? `开发模式下请授权 ${bundlePath}，而不是查找 OmniPaw。`
     : '开发模式下可能需要授权 Electron、Terminal、iTerm 或 VS Code。'
   return `macOS 需要在系统设置 > 隐私与安全性 > 屏幕与系统音频录制中为 ${appName} 开启权限。${devHint}`
 }
