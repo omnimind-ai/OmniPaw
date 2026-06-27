@@ -1392,6 +1392,58 @@ export default {
       switchModel: '切换模型',
       agentPermissionAria: 'Agent 权限：{description}',
       agentPermission: 'Agent 权限',
+      attachmentPresets: {
+        image: {
+          describe: {
+            label: '描述图片',
+            prompt: '帮我描述这张图片，指出关键信息',
+          },
+          extractText: {
+            label: '提取文字',
+            prompt: '帮我提取这张图片里的文字',
+          },
+        },
+        code: {
+          explain: {
+            label: '解释代码',
+            prompt: '帮我解释这个代码文件的',
+          },
+          complete: {
+            label: '补全文件',
+            prompt: '帮我补全这个代码文件',
+          },
+        },
+        data: {
+          analyze: {
+            label: '分析数据',
+            prompt: '帮我分析这个数据文件，概括结构和关键字段。',
+          },
+          extract: {
+            label: '提取要点',
+            prompt: '帮我提取这个数据文件里的关键信息和异常点。',
+          },
+        },
+        document: {
+          summarize: {
+            label: '总结文件',
+            prompt: '帮我总结这个文件，列出核心内容。',
+          },
+          complete: {
+            label: '补全文件',
+            prompt: '帮我补全这个文件，保持原有语气和结构。',
+          },
+        },
+        default: {
+          summarize: {
+            label: '总结文件',
+            prompt: '帮我总结这个文件，列出核心内容。',
+          },
+          extract: {
+            label: '提取信息',
+            prompt: '帮我提取这个文件里的关键信息，并整理成清单。',
+          },
+        },
+      },
     },
     toolProfile: {
       minimal: {

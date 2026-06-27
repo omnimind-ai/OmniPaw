@@ -1446,6 +1446,59 @@ export default {
       switchModel: 'Switch model',
       agentPermissionAria: 'Agent permission: {description}',
       agentPermission: 'Agent permission',
+      attachmentPresets: {
+        image: {
+          describe: {
+            label: 'Describe image',
+            prompt: 'Describe this image for me and point out the key information.',
+          },
+          extractText: {
+            label: 'Extract text',
+            prompt: 'Extract the text from this image for me.',
+          },
+        },
+        code: {
+          explain: {
+            label: 'Explain code',
+            prompt: 'Explain this code file for me.',
+          },
+          complete: {
+            label: 'Complete file',
+            prompt: 'Help me complete this code file.',
+          },
+        },
+        data: {
+          analyze: {
+            label: 'Analyze data',
+            prompt: 'Analyze this data file for me and summarize its structure and key fields.',
+          },
+          extract: {
+            label: 'Extract highlights',
+            prompt: 'Extract the key information and anomalies from this data file for me.',
+          },
+        },
+        document: {
+          summarize: {
+            label: 'Summarize file',
+            prompt: 'Summarize this file for me and list the core content.',
+          },
+          complete: {
+            label: 'Complete file',
+            prompt: 'Help me complete this file while preserving its original tone and structure.',
+          },
+        },
+        default: {
+          summarize: {
+            label: 'Summarize file',
+            prompt: 'Summarize this file for me and list the core content.',
+          },
+          extract: {
+            label: 'Extract info',
+            prompt:
+              'Extract the key information from this file for me and organize it into a checklist.',
+          },
+        },
+      },
     },
     toolProfile: {
       minimal: {

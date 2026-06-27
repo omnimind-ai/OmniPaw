@@ -38,6 +38,7 @@ import {
 import { cn } from '@/lib/utils'
 import type { SessionContextUsage } from '@/stores/chat'
 import type { ProviderModelOption } from '@/stores/provider'
+import { presetsForAttachment } from './attachment-presets'
 import ComposerAttachmentPreviewList from './parts/ComposerAttachmentPreviewList.vue'
 
 const { t } = useI18n()
@@ -161,7 +162,9 @@ const firstAttachmentForPresets = computed(() => props.stagedFiles[0] ?? null)
 const attachmentPresets = computed(() => {
   const attachment = firstAttachmentForPresets.value
   if (!attachment) return []
-  return presetsForAttachment(attachment).slice(0, 2)
+  return presetsForAttachment(attachment)
+    .slice(0, 2)
+    .map((entry) => ({ label: t(entry.labelKey), prompt: t(entry.promptKey) }))
 })
 const showAttachmentPresetPanel = computed(
   () =>
@@ -312,103 +315,6 @@ function compactModelLabel(label: string, providerName?: string): string {
 
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
-}
-
-function presetsForAttachment(file: StagedFileInfo) {
-  const extension = fileExtension(file.filename || file.original_name)
-  const mimeType = file.mimeType || ''
-
-  if (file.type === 'image' || mimeType.startsWith('image/')) {
-    return [
-      { label: '描述图片', prompt: '帮我描述这张图片，指出关键信息' },
-      { label: '提取文字', prompt: '帮我提取这张图片里的文字' },
-    ]
-  }
-
-  if (isCodeExtension(extension)) {
-    return [
-      { label: '解释代码', prompt: '帮我解释这个代码文件的' },
-      { label: '补全文件', prompt: '帮我补全这个代码文件' },
-    ]
-  }
-
-  if (isDataExtension(extension) || isDataMimeType(mimeType)) {
-    return [
-      { label: '分析数据', prompt: '帮我分析这个数据文件，概括结构和关键字段。' },
-      { label: '提取要点', prompt: '帮我提取这个数据文件里的关键信息和异常点。' },
-    ]
-  }
-
-  if (isDocumentExtension(extension) || mimeType.startsWith('text/')) {
-    return [
-      { label: '总结文件', prompt: '帮我总结这个文件，列出核心内容。' },
-      { label: '补全文件', prompt: '帮我补全这个文件，保持原有语气和结构。' },
-    ]
-  }
-
-  return [
-    { label: '总结文件', prompt: '帮我总结这个文件，列出核心内容。' },
-    { label: '提取信息', prompt: '帮我提取这个文件里的关键信息，并整理成清单。' },
-  ]
-}
-
-function fileExtension(filename?: string) {
-  const name = filename?.trim() || ''
-  const lastDot = name.lastIndexOf('.')
-  if (lastDot <= 0 || lastDot === name.length - 1) return ''
-  return name.slice(lastDot + 1).toLowerCase()
-}
-
-function isCodeExtension(extension: string) {
-  return [
-    'c',
-    'cc',
-    'cpp',
-    'cs',
-    'css',
-    'go',
-    'h',
-    'hpp',
-    'html',
-    'java',
-    'js',
-    'jsx',
-    'kt',
-    'lua',
-    'mjs',
-    'php',
-    'py',
-    'rb',
-    'rs',
-    'scss',
-    'sh',
-    'svelte',
-    'swift',
-    'ts',
-    'tsx',
-    'vue',
-  ].includes(extension)
-}
-
-function isDataExtension(extension: string) {
-  return ['csv', 'json', 'jsonl', 'ndjson', 'toml', 'tsv', 'xml', 'yaml', 'yml'].includes(extension)
-}
-
-function isDataMimeType(mimeType: string) {
-  return [
-    'application/json',
-    'application/jsonl',
-    'application/x-ndjson',
-    'application/xml',
-    'text/csv',
-    'text/tab-separated-values',
-    'text/xml',
-    'text/yaml',
-  ].includes(mimeType)
-}
-
-function isDocumentExtension(extension: string) {
-  return ['conf', 'ini', 'log', 'md', 'mdx', 'rst', 'text', 'txt'].includes(extension)
 }
 
 function getPrimaryModifierLabel() {
