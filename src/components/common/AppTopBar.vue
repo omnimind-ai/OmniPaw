@@ -79,7 +79,7 @@ function handleWindowAction(action: WindowAction): void {
       <img
         :src="brandLogoUrl"
         alt="OpenOmniClaw"
-        class="h-4 w-auto max-w-[min(42vw,8rem)] object-contain"
+        class="h-5 w-auto max-w-[min(42vw,8rem)] object-contain"
         draggable="false"
       />
     </div>
