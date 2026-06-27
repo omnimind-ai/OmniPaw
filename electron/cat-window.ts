@@ -92,7 +92,7 @@ const catStageVisualBounds = {
 }
 
 const isDarwin = process.platform === 'darwin'
-const shouldSkipFloatingWindowTaskbar = !isDarwin
+const shouldSkipFloatingWindowTaskbar = true
 
 let catWindow: BrowserWindow | null = null
 let catPanelWindow: BrowserWindow | null = null
@@ -117,6 +117,21 @@ function setCatWindowLogger(logger: Logger): void {
 
 function setCatSessionIdResolver(resolver: CatSessionIdResolver | undefined): void {
   catSessionIdResolver = resolver
+}
+
+function getCatBaseFloatingExtras(): Partial<Electron.BrowserWindowConstructorOptions> {
+  return isDarwin ? { type: 'panel' } : {}
+}
+
+function getCatChildFloatingExtras(): Partial<Electron.BrowserWindowConstructorOptions> {
+  if (!isDarwin) {
+    return {}
+  }
+  const extras: Partial<Electron.BrowserWindowConstructorOptions> = { type: 'panel' }
+  if (catWindow && !catWindow.isDestroyed()) {
+    extras.parent = catWindow
+  }
+  return extras
 }
 
 function clamp(value: number, min: number, max: number): number {
@@ -635,6 +650,7 @@ function createCatWindow(): BrowserWindow {
     ...getInitialCatBounds(),
     title: 'OmniPaw Cat',
     icon: createAppIconImage(app),
+    ...getCatBaseFloatingExtras(),
     frame: false,
     transparent: true,
     resizable: false,
@@ -670,10 +686,18 @@ function createCatWindow(): BrowserWindow {
   })
   catWindow.on('show', () => {
     catVisible = true
+    if (isDarwin) {
+      applyMacDockIcon(app)
+    }
   })
   catWindow.on('hide', () => {
     catVisible = false
     lastKnownCatTaskState = null
+  })
+  catWindow.webContents.on('did-finish-load', () => {
+    if (isDarwin) {
+      applyMacDockIcon(app)
+    }
   })
 
   return catWindow
@@ -688,6 +712,7 @@ function createCatPanelWindow(placement: CatPanelPlacement): BrowserWindow {
     ...placement.bounds,
     title: 'OmniPaw Cat Panel',
     icon: createAppIconImage(app),
+    ...getCatChildFloatingExtras(),
     frame: false,
     transparent: true,
     resizable: false,
@@ -709,7 +734,9 @@ function createCatPanelWindow(placement: CatPanelPlacement): BrowserWindow {
 
   attachCatDiagnostics(catPanelWindow, 'panel')
   catPanelWindow.setAlwaysOnTop(true, 'floating')
-  catPanelWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
+  if (!isDarwin) {
+    catPanelWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
+  }
   loadRendererEntry(catPanelWindow, 'cat-panel.html')
 
   catPanelWindow.on('closed', () => {
@@ -719,9 +746,17 @@ function createCatPanelWindow(placement: CatPanelPlacement): BrowserWindow {
   })
   catPanelWindow.on('show', () => {
     catPanelVisible = true
+    if (isDarwin) {
+      applyMacDockIcon(app)
+    }
   })
   catPanelWindow.on('hide', () => {
     catPanelVisible = false
+  })
+  catPanelWindow.webContents.on('did-finish-load', () => {
+    if (isDarwin) {
+      applyMacDockIcon(app)
+    }
   })
 
   return catPanelWindow
@@ -736,6 +771,7 @@ function createCatBubbleWindow(placement: CatPanelPlacement): BrowserWindow {
     ...placement.bounds,
     title: 'OmniPaw Cat Bubble',
     icon: createAppIconImage(app),
+    ...getCatChildFloatingExtras(),
     frame: false,
     transparent: true,
     resizable: false,
@@ -757,13 +793,20 @@ function createCatBubbleWindow(placement: CatPanelPlacement): BrowserWindow {
 
   attachCatDiagnostics(catBubbleWindow, 'bubble')
   catBubbleWindow.setAlwaysOnTop(true, 'floating')
-  catBubbleWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
+  if (!isDarwin) {
+    catBubbleWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
+  }
   loadRendererEntry(catBubbleWindow, 'cat-bubble.html')
 
   catBubbleWindow.on('closed', () => {
     catBubbleWindow = null
     catBubbleVisible = false
     activeCatBubbleEvent = null
+  })
+  catBubbleWindow.webContents.on('did-finish-load', () => {
+    if (isDarwin) {
+      applyMacDockIcon(app)
+    }
   })
 
   return catBubbleWindow
@@ -1071,6 +1114,7 @@ function restoreMacApplicationVisibility(activate = false): void {
   }
 
   try {
+    applyMacDockIcon(app)
     if (app.dock && !app.dock.isVisible()) {
       void app.dock
         .show()
@@ -1078,8 +1122,6 @@ function restoreMacApplicationVisibility(activate = false): void {
         .catch((error) => {
           catLogger?.warn('Unable to show macOS Dock icon.', { error })
         })
-    } else {
-      applyMacDockIcon(app)
     }
   } catch (error) {
     catLogger?.warn('Unable to request macOS Dock visibility.', { error })
