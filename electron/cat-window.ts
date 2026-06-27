@@ -91,7 +91,8 @@ const catStageVisualBounds = {
   height: 76,
 }
 
-const shouldSkipFloatingWindowTaskbar = true
+const isDarwin = process.platform === 'darwin'
+const shouldSkipFloatingWindowTaskbar = !isDarwin
 
 let catWindow: BrowserWindow | null = null
 let catPanelWindow: BrowserWindow | null = null
@@ -1058,43 +1059,30 @@ function showCatBubble(request: CatBubbleShowRequest | string): CatBubbleEvent |
   return event
 }
 
-let macActivationPolicyApplied = false
-let macDockIconApplied = false
-let macDockShowRequested = false
-
 function restoreMacApplicationVisibility(activate = false): void {
   if (process.platform !== 'darwin') {
     return
   }
 
-  if (!macActivationPolicyApplied) {
-    try {
-      app.setActivationPolicy('regular')
-      macActivationPolicyApplied = true
-    } catch (error) {
-      catLogger?.warn('Unable to restore macOS activation policy.', { error })
-    }
+  try {
+    app.setActivationPolicy('regular')
+  } catch (error) {
+    catLogger?.warn('Unable to restore macOS activation policy.', { error })
   }
 
-  if (!macDockIconApplied) {
-    applyMacDockIcon(app)
-    macDockIconApplied = true
-  }
-
-  if (!macDockShowRequested) {
-    macDockShowRequested = true
-    try {
+  try {
+    if (app.dock && !app.dock.isVisible()) {
       void app.dock
-        ?.show()
+        .show()
         .then(() => applyMacDockIcon(app))
         .catch((error) => {
-          macDockShowRequested = false
           catLogger?.warn('Unable to show macOS Dock icon.', { error })
         })
-    } catch (error) {
-      macDockShowRequested = false
-      catLogger?.warn('Unable to request macOS Dock visibility.', { error })
+    } else {
+      applyMacDockIcon(app)
     }
+  } catch (error) {
+    catLogger?.warn('Unable to request macOS Dock visibility.', { error })
   }
 
   if (activate) {
@@ -1209,6 +1197,10 @@ function openCatPanelWindow(options: OpenCatPanelOptions = {}): CatPanelToggleRe
   catPanelVisible = true
   catPanelSide = placement.side
   hideCatBubbleWindow({ reason: 'replaced', source: 'panel' })
+
+  if (process.platform === 'darwin') {
+    setTimeout(() => restoreMacApplicationVisibility(false), 0)
+  }
 
   notifyActiveCatSessionChanged(options.source ?? 'panel')
   if (activeCatSessionId) {

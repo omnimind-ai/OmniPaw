@@ -99,6 +99,11 @@ export function createMainWindowController(
 
     window.on('closed', () => {
       mainWindow = null
+
+      if (process.platform === 'darwin' && !options.isQuitting()) {
+        return
+      }
+
       options.onClosed()
 
       if (!options.isQuitting()) {

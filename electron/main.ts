@@ -671,5 +671,8 @@ app.on('before-quit', (event) => {
 
 app.on('window-all-closed', () => {
   lifecycleLogger.info('All windows closed.')
+  if (process.platform === 'darwin' && !isQuitting) {
+    return
+  }
   app.quit()
 })
