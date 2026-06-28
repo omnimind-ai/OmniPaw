@@ -1145,6 +1145,8 @@ export default {
         credential: {
           title: 'Credentials',
           description: 'Leave empty to keep existing credentials.',
+          savedDescription:
+            'Credentials are saved. Secrets are not shown again; enter a new value to replace them.',
           type: 'Credential Type',
           placeholder: 'Select credential type',
           apiKey: 'API Key',

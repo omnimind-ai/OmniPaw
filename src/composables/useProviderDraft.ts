@@ -181,7 +181,12 @@ export function useProviderDraft(options: {
   }
 
   function resetCredentialDraft() {
-    credentialMode.value = 'api-key'
+    credentialMode.value = providerDraft.value.credentialRef ? 'none' : 'api-key'
+    credentialValue.value = ''
+  }
+
+  function clearSavedCredentialDraft() {
+    credentialMode.value = 'none'
     credentialValue.value = ''
   }
 
@@ -226,6 +231,7 @@ export function useProviderDraft(options: {
     loadingDraft,
     addModel,
     buildSaveRequest,
+    clearSavedCredentialDraft,
     loadProviderDraft,
     removeModel,
     replaceModels,

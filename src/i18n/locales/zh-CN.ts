@@ -1095,6 +1095,7 @@ export default {
         credential: {
           title: '凭证',
           description: '留空会保留已有凭证。',
+          savedDescription: '凭证已保存。出于安全考虑不会回显密钥；输入新值可覆盖。',
           type: '凭证类型',
           placeholder: '选择凭证类型',
           apiKey: 'API Key',

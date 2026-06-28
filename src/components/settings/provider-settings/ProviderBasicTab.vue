@@ -77,6 +77,9 @@ const oauthExpiresLabel = computed(() => {
     minute: '2-digit',
   }).format(new Date(expires))
 })
+const hasSavedCredential = computed(() =>
+  Boolean(props.isExistingProvider && props.draft.credentialRef)
+)
 </script>
 
 <template>
@@ -185,7 +188,13 @@ const oauthExpiresLabel = computed(() => {
 
     <FieldSet v-else>
       <FieldLegend>{{ t('settings.provider.basic.credential.title') }}</FieldLegend>
-      <FieldDescription>{{ t('settings.provider.basic.credential.description') }}</FieldDescription>
+      <FieldDescription>
+        {{
+          hasSavedCredential
+            ? t('settings.provider.basic.credential.savedDescription')
+            : t('settings.provider.basic.credential.description')
+        }}
+      </FieldDescription>
 
       <div class="grid grid-cols-1 gap-4 lg:grid-cols-[12rem_minmax(0,1fr)]">
         <Field>

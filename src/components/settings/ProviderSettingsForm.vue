@@ -50,6 +50,7 @@ const {
   loadingDraft,
   addModel,
   buildSaveRequest,
+  clearSavedCredentialDraft,
   loadProviderDraft: loadProviderDraftState,
   removeModel,
   replaceModels,
@@ -244,15 +245,19 @@ async function handleSaveProvider(options: { silent?: boolean } = {}): Promise<b
     if (!options.silent) toast.error(result.message)
     return false
   }
+  const savedCredential = Boolean(result.request.credential)
 
   try {
-    suppressDraftReload = Boolean(options.silent)
+    suppressDraftReload = true
     const saved = await providerStore.saveProvider(result.request)
     if (saved?.id) {
       activeProviderId.value = saved.id
       originalProviderId.value = saved.id
       if (!options.silent) {
         loadProviderDraft(saved.id)
+      }
+      if (savedCredential && !options.silent) {
+        clearSavedCredentialDraft()
       }
     }
     if (!options.silent) {
