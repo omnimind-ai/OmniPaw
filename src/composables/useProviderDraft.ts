@@ -125,6 +125,7 @@ export function useProviderDraft(options: {
   function addModel() {
     const id = uniqueId('model')
     providerDraft.value.models.push({
+      localKey: uniqueId('model-draft'),
       id,
       name: 'New Model',
       remoteId: id,
@@ -318,6 +319,7 @@ function draftFromPreset(preset: BridgeProviderPreset): ProviderDraft {
 function draftFromModel(model: BridgeProviderModel | ProviderModel): ProviderModelDraft {
   const capabilities = isRecord(model.capabilities) ? model.capabilities : {}
   return {
+    localKey: uniqueId('model-draft'),
     id: model.id,
     name: model.displayName || model.name || model.id,
     remoteId: model.remoteId || model.id,

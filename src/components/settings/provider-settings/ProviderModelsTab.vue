@@ -34,7 +34,7 @@ const emit = defineEmits<{
 }>()
 
 const searchQuery = ref('')
-const openModelIds = ref<string[]>([])
+const openModelKeys = ref<string[]>([])
 
 const filteredModels = computed(() => {
   const entries = props.draft.models.map((model, index) => ({ model, index }))
@@ -50,31 +50,31 @@ const filteredModels = computed(() => {
 })
 
 watch(
-  () => props.draft.models.map((model) => model.id),
-  (modelIds) => {
-    if (!modelIds.length) {
-      openModelIds.value = []
+  () => props.draft.models.map((model) => model.localKey),
+  (modelKeys) => {
+    if (!modelKeys.length) {
+      openModelKeys.value = []
       return
     }
 
-    const existingOpen = openModelIds.value.filter((modelId) => modelIds.includes(modelId))
-    openModelIds.value = existingOpen.length ? existingOpen : [modelIds[0]]
+    const existingOpen = openModelKeys.value.filter((modelKey) => modelKeys.includes(modelKey))
+    openModelKeys.value = existingOpen.length ? existingOpen : [modelKeys[0]]
   },
   { immediate: true }
 )
 
 function isModelOpen(model: ProviderModelDraft) {
-  return openModelIds.value.includes(model.id)
+  return openModelKeys.value.includes(model.localKey)
 }
 
 function setModelOpen(model: ProviderModelDraft, open: boolean) {
-  const next = new Set(openModelIds.value)
+  const next = new Set(openModelKeys.value)
   if (open) {
-    next.add(model.id)
+    next.add(model.localKey)
   } else {
-    next.delete(model.id)
+    next.delete(model.localKey)
   }
-  openModelIds.value = [...next]
+  openModelKeys.value = [...next]
 }
 </script>
 
@@ -133,7 +133,7 @@ function setModelOpen(model: ProviderModelDraft, open: boolean) {
 
     <ProviderModelItem
       v-for="{ model, index } in filteredModels"
-      :key="`${model.id}-${index}`"
+      :key="model.localKey"
       :model="model"
       :index="index"
       :open="isModelOpen(model)"

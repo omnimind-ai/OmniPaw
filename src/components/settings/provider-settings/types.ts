@@ -29,6 +29,7 @@ export interface ProviderDraft {
 }
 
 export interface ProviderModelDraft {
+  localKey: string
   id: string
   name: string
   remoteId: string
