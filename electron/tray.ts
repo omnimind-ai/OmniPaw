@@ -48,7 +48,7 @@ export function createTrayController(options: TrayControllerOptions): TrayContro
           click: () => options.showMainWindow(),
         },
         {
-          label: `关闭/最小化到托盘：${minimizeToTrayEnabled ? '开启' : '关闭'}`,
+          label: `关闭到托盘：${minimizeToTrayEnabled ? '开启' : '关闭'}`,
           enabled: false,
         },
         { type: 'separator' },

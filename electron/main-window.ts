@@ -84,12 +84,6 @@ export function createMainWindowController(
       return { action: 'deny' }
     })
 
-    window.on('minimize', () => {
-      if (!options.isQuitting() && options.shouldMinimizeToTray()) {
-        hideToTray()
-      }
-    })
-
     window.on('close', (event) => {
       if (!options.isQuitting() && options.shouldMinimizeToTray()) {
         event.preventDefault()
