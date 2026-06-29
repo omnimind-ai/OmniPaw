@@ -1,15 +1,19 @@
 import {
+  cpSync,
   existsSync,
   type FSWatcher,
+  lstatSync,
   mkdirSync,
+  mkdtempSync,
   readdirSync,
   readFileSync,
   renameSync,
+  rmSync,
   statSync,
   watch,
   writeFileSync,
 } from 'node:fs'
-import { dirname, extname, join, relative, resolve, sep } from 'node:path'
+import { basename, dirname, extname, isAbsolute, join, relative, resolve, sep } from 'node:path'
 
 import type { Logger } from '@core/logging'
 import { resolveOmniPawDataPaths, resolveOmniPawDataRoot } from '@core/utils/data-paths'
@@ -18,6 +22,7 @@ import type {
   CatAppearanceChangedEvent,
   CatAppearanceChangeReason,
   CatAppearanceDurations,
+  CatAppearanceImportResponse,
   CatAppearanceListResponse,
   CatAppearancePackSummary,
   CatAppearanceResolvedPack,
@@ -187,6 +192,97 @@ export class CatAppearanceManager {
     this.ensureLoaded()
     const requestedId = normalizePackId(typeof request === 'string' ? request : request.packId)
     const packId = requestedId || BUILTIN_PACK_ID
+    const current = this.activatePack(packId, 'select')
+    this.logger?.info('Cat appearance active pack changed.', { activePackId: current.id })
+    return current
+  }
+
+  importFromDirectory(sourcePath: string): CatAppearanceImportResponse {
+    this.ensureLoaded()
+    this.ensureDirectories()
+
+    const resolvedSourcePath = normalizeImportSourcePath(sourcePath)
+    const sourceStat = statSync(resolvedSourcePath)
+    if (!sourceStat.isDirectory()) {
+      throw new Error('Cat appearance import source must be a directory.')
+    }
+
+    const existingPack = this.packs.find((pack) => resolve(pack.path) === resolvedSourcePath)
+    if (existingPack) {
+      if (existingPack.status !== 'available') {
+        throw new Error(existingPack.error || 'Cat appearance pack is invalid.')
+      }
+      this.activatePack(existingPack.id, 'import')
+      return {
+        ...this.list(),
+        canceled: false,
+        importedPackId: existingPack.id,
+      }
+    }
+
+    const candidate = this.loadPack(resolvedSourcePath, basename(resolvedSourcePath))
+    if (candidate.status !== 'available') {
+      throw new Error(candidate.error || 'Cat appearance pack is invalid.')
+    }
+
+    const importPackId = this.nextAvailablePackId(candidate.id)
+    const rootName = this.nextAvailableRootName(importPackId)
+    const destinationPath = join(this.rootPath, rootName)
+    if (
+      !isInsidePath(this.rootPath, destinationPath) ||
+      isInsidePath(resolvedSourcePath, destinationPath)
+    ) {
+      throw new Error('Cat appearance import destination is invalid.')
+    }
+
+    const tempParentPath = mkdtempSync(join(dirname(this.rootPath), '.cat-appearance-import-'))
+    const tempPackPath = join(tempParentPath, rootName)
+    if (isInsidePath(resolvedSourcePath, tempPackPath)) {
+      rmSync(tempParentPath, { recursive: true, force: true })
+      throw new Error('Cat appearance import destination is invalid.')
+    }
+
+    try {
+      cpSync(resolvedSourcePath, tempPackPath, {
+        recursive: true,
+        force: false,
+        errorOnExist: true,
+        dereference: false,
+      })
+      if (importPackId !== candidate.id) {
+        rewriteManifestId(tempPackPath, importPackId)
+      }
+
+      const imported = this.loadPack(tempPackPath, rootName)
+      if (imported.status !== 'available') {
+        throw new Error(imported.error || 'Imported cat appearance pack is invalid.')
+      }
+
+      renameSync(tempPackPath, destinationPath)
+      rmSync(tempParentPath, { recursive: true, force: true })
+      this.packs = this.scanPacks()
+      this.loaded = true
+      this.lastUpdatedAt = Date.now()
+      this.activatePack(imported.id, 'import')
+      this.logger?.info('Cat appearance pack imported.', {
+        packId: imported.id,
+        rootName: imported.rootName,
+      })
+      return {
+        ...this.list(),
+        canceled: false,
+        importedPackId: imported.id,
+      }
+    } catch (error) {
+      rmSync(tempParentPath, { recursive: true, force: true })
+      throw error
+    }
+  }
+
+  private activatePack(
+    packId: string,
+    reason: Extract<CatAppearanceChangeReason, 'select' | 'import'>
+  ): CatAppearanceResolvedPack {
     if (
       packId !== BUILTIN_PACK_ID &&
       !this.packs.some((pack) => pack.id === packId && pack.status === 'available')
@@ -202,8 +298,7 @@ export class CatAppearanceManager {
     this.hasExplicitState = true
     this.lastUpdatedAt = Date.now()
     const current = this.current()
-    this.emitChanged('select')
-    this.logger?.info('Cat appearance active pack changed.', { activePackId: current.id })
+    this.emitChanged(reason)
     return current
   }
 
@@ -222,6 +317,11 @@ export class CatAppearanceManager {
     )
     const asset = pack?.assets[assetKey]
     if (!asset) {
+      return null
+    }
+
+    const lstat = lstatSync(asset.path)
+    if (lstat.isSymbolicLink()) {
       return null
     }
 
@@ -452,6 +552,37 @@ export class CatAppearanceManager {
     ]
   }
 
+  private nextAvailablePackId(packId: string): string {
+    const base = normalizePackId(packId) || `pack-${packsafeTimestamp()}`
+    const existingIds = new Set([BUILTIN_PACK_ID, ...this.packs.map((pack) => pack.id)])
+    if (!existingIds.has(base)) {
+      return base
+    }
+
+    let index = 2
+    let candidate = `${base}-${index}`
+    while (existingIds.has(candidate)) {
+      index += 1
+      candidate = `${base}-${index}`
+    }
+    return candidate
+  }
+
+  private nextAvailableRootName(packId: string): string {
+    const base = normalizePackId(packId) || `pack-${packsafeTimestamp()}`
+    if (!existsSync(join(this.rootPath, base))) {
+      return base
+    }
+
+    let index = 2
+    let candidate = `${base}-${index}`
+    while (existsSync(join(this.rootPath, candidate))) {
+      index += 1
+      candidate = `${base}-${index}`
+    }
+    return candidate
+  }
+
   private startWatching(): void {
     if (this.watchers.length) {
       return
@@ -567,6 +698,11 @@ function resolveManifestAssets(
       throw new Error(`Unsupported cat appearance asset type for ${key}: ${extension}`)
     }
 
+    const assetLstat = lstatSync(assetPath)
+    if (assetLstat.isSymbolicLink()) {
+      throw new Error(`Cat appearance asset cannot be a symbolic link: ${value}`)
+    }
+
     const assetStat = statSync(assetPath)
     if (!assetStat.isFile()) {
       throw new Error(`Cat appearance asset is not a file: ${value}`)
@@ -633,6 +769,29 @@ function normalizePackId(value: unknown): string {
     .replace(/[^a-z0-9_-]+/g, '-')
     .replace(/-+/g, '-')
     .replace(/^-+|-+$/g, '')
+}
+
+function normalizeImportSourcePath(sourcePath: string): string {
+  if (typeof sourcePath !== 'string' || !sourcePath.trim() || sourcePath.includes('\0')) {
+    throw new Error('Cat appearance import source path is invalid.')
+  }
+  return resolve(sourcePath)
+}
+
+function rewriteManifestId(packPath: string, packId: string): void {
+  const manifestPath = join(packPath, MANIFEST_FILE_NAME)
+  const manifest = JSON.parse(readFileSync(manifestPath, 'utf8')) as unknown
+  if (!isRecord(manifest)) {
+    throw new Error('Cat appearance manifest must be an object.')
+  }
+  writeFileSync(manifestPath, `${JSON.stringify({ ...manifest, id: packId }, null, 2)}\n`, 'utf8')
+}
+
+function isInsidePath(parentPath: string, childPath: string): boolean {
+  const relativeToParent = relative(resolve(parentPath), resolve(childPath))
+  return (
+    relativeToParent === '' || (!relativeToParent.startsWith('..') && !isAbsolute(relativeToParent))
+  )
 }
 
 function isAssetKey(value: string): value is CatAppearanceAssetKey {
