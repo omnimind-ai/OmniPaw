@@ -56,8 +56,9 @@ export default {
         description: 'Current range: {min} - {max}.',
       },
       minimizeToTray: {
-        title: 'Close/minimize to tray',
-        description: 'Keep the app available in the background after closing or minimizing.',
+        title: 'Close to tray',
+        description:
+          'Keep the app available in the background after closing; minimizing keeps it on the taskbar.',
       },
       showReasoning: {
         title: 'Show model reasoning',

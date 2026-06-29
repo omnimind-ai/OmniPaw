@@ -56,8 +56,8 @@ export default {
         description: '当前范围 {min} - {max}。',
       },
       minimizeToTray: {
-        title: '关闭/最小化到托盘',
-        description: '关闭或最小化主窗口后保持后台可用。',
+        title: '关闭到托盘',
+        description: '关闭主窗口后保持后台可用；最小化仍保留在任务栏。',
       },
       showReasoning: {
         title: '显示模型思考内容',

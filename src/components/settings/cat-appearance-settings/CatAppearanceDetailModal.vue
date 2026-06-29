@@ -23,7 +23,6 @@ import {
   Dialog,
   DialogContent,
   DialogDescription,
-  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
@@ -85,7 +84,7 @@ const assetItems = computed(() =>
 <template>
   <Dialog v-model:open="open">
     <DialogContent
-      class="grid h-[calc(100svh_-_var(--app-window-content-top)_-_2rem)] max-h-[860px] grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden p-0 sm:max-w-4xl"
+      class="grid h-[calc(100svh_-_var(--app-window-content-top)_-_2rem)] max-h-[860px] grid-rows-[auto_minmax(0,1fr)_auto] gap-0 overflow-hidden p-0 sm:max-w-4xl"
     >
       <DialogHeader class="border-b px-5 py-4 pr-12">
         <DialogTitle>
@@ -158,7 +157,7 @@ const assetItems = computed(() =>
         </div>
       </ScrollArea>
 
-      <DialogFooter class="border-t bg-background px-5 py-4">
+      <div class="flex shrink-0 justify-end border-t bg-background px-5 py-4">
         <Button
           type="button"
           variant="outline"
@@ -166,7 +165,7 @@ const assetItems = computed(() =>
         >
           {{ t('settings.catAppearance.detail.close') }}
         </Button>
-      </DialogFooter>
+      </div>
     </DialogContent>
   </Dialog>
 </template>
