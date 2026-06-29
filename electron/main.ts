@@ -1,10 +1,12 @@
+import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import type { ChatRunEventTarget } from '@core/chat/run-manager'
 import { createElectronLogSink, createProjectLogger } from '@core/logging'
 import { OmniInferRuntimeClient, resolveModelsDir } from '@core/omniinfer'
 import { resolveOmniPawDataPaths } from '@core/utils/data-paths'
-import { APP_ID, APP_NAME, IPC_CHANNELS } from '@shared/constants'
+import { APP_ID, APP_NAME, CAT_APPEARANCE_ASSET_PROTOCOL, IPC_CHANNELS } from '@shared/constants'
 import type { OpenChatSessionRequest } from '@shared/types/app'
+import type { CatAppearanceAssetKey, CatAppearanceChangedEvent } from '@shared/types/cat-appearance'
 import type { ChatSessionChangedEvent } from '@shared/types/chat'
 import type { CronTaskChangedEvent } from '@shared/types/cron'
 import type { ObservationChangedEvent, ObservationReactionEvent } from '@shared/types/observation'
@@ -14,7 +16,7 @@ import type {
   SettingsChangeReason,
 } from '@shared/types/settings'
 import type { ShortcutAction, ShortcutStatusChangedEvent } from '@shared/types/shortcuts'
-import { app, BrowserWindow, Menu, type MenuItemConstructorOptions } from 'electron'
+import { app, BrowserWindow, Menu, type MenuItemConstructorOptions, protocol } from 'electron'
 import { createAppIconImage, resolveAppIconPath } from './app-icon'
 import {
   type CatNotificationController,
@@ -78,7 +80,19 @@ let catNotificationController: CatNotificationController | undefined
 let shortcutController: ShortcutController | undefined
 let omniInferProcess: OmniInferProcess | undefined
 let isQuitting = false
+let catAppearanceAssetProtocolRegistered = false
 const ZOOM_STEP = 0.05
+
+protocol.registerSchemesAsPrivileged([
+  {
+    scheme: CAT_APPEARANCE_ASSET_PROTOCOL,
+    privileges: {
+      standard: true,
+      secure: true,
+      supportFetchAPI: true,
+    },
+  },
+])
 
 enablePlatformFeatures()
 registerProcessDiagnostics()
@@ -462,6 +476,12 @@ function broadcastSkillChanged(event: SkillChangedEvent): void {
   }
 }
 
+function broadcastCatAppearanceChanged(event: CatAppearanceChangedEvent): void {
+  for (const window of BrowserWindow.getAllWindows()) {
+    window.webContents.send(IPC_CHANNELS.catAppearance.changed, event)
+  }
+}
+
 function broadcastCronChanged(event: CronTaskChangedEvent): void {
   for (const window of BrowserWindow.getAllWindows()) {
     window.webContents.send(IPC_CHANNELS.cron.changed, event)
@@ -517,6 +537,74 @@ function createBroadcastChatEventTarget(): ChatRunEventTarget {
   }
 }
 
+function buildCatAppearanceAssetUrl(
+  packId: string,
+  assetKey: CatAppearanceAssetKey,
+  version: string
+): string {
+  const url = new URL(`${CAT_APPEARANCE_ASSET_PROTOCOL}://asset/`)
+  url.pathname = `/${encodeURIComponent(packId)}/${encodeURIComponent(assetKey)}`
+  url.searchParams.set('v', version)
+  return url.toString()
+}
+
+function registerCatAppearanceAssetProtocol(): void {
+  if (catAppearanceAssetProtocolRegistered) {
+    return
+  }
+  catAppearanceAssetProtocolRegistered = true
+
+  protocol.handle(CAT_APPEARANCE_ASSET_PROTOCOL, async (request) => {
+    const parsed = parseCatAppearanceAssetUrl(request.url)
+    if (!parsed || !runtime) {
+      return new Response('Not found', { status: 404 })
+    }
+
+    const asset = runtime.catAppearanceManager.resolveAsset(parsed.packId, parsed.assetKey)
+    if (!asset) {
+      return new Response('Not found', { status: 404 })
+    }
+
+    try {
+      const bytes = await readFile(asset.path)
+      return new Response(new Uint8Array(bytes), {
+        headers: {
+          'Content-Type': asset.mimeType,
+          'Cache-Control': 'no-store',
+        },
+      })
+    } catch (error) {
+      mainLogger.warn('Failed to read cat appearance asset.', {
+        packId: parsed.packId,
+        assetKey: parsed.assetKey,
+        error,
+      })
+      return new Response('Not found', { status: 404 })
+    }
+  })
+}
+
+function parseCatAppearanceAssetUrl(
+  urlText: string
+): { packId: string; assetKey: string } | undefined {
+  try {
+    const url = new URL(urlText)
+    if (url.hostname !== 'asset') {
+      return undefined
+    }
+    const [packId, assetKey] = url.pathname
+      .split('/')
+      .filter(Boolean)
+      .map((segment) => decodeURIComponent(segment))
+    if (!packId || !assetKey) {
+      return undefined
+    }
+    return { packId, assetKey }
+  } catch {
+    return undefined
+  }
+}
+
 app
   .whenReady()
   .then(() => {
@@ -525,6 +613,7 @@ app
       logDir: logSink.status().logDir,
     })
     applyApplicationIcon()
+    registerCatAppearanceAssetProtocol()
 
     const omniInferLocator = locateOmniInferInstall({ app })
     const omniInferLogsDir = defaultOmniInferLogsDir(
@@ -557,10 +646,12 @@ app
       onCronChanged: broadcastCronChanged,
       onMcpChanged: broadcastMcpChanged,
       onSkillChanged: broadcastSkillChanged,
+      onCatAppearanceChanged: broadcastCatAppearanceChanged,
       onObservationChanged: broadcastObservationChanged,
       onObservationReaction: broadcastObservationReaction,
       chatEventTarget: createBroadcastChatEventTarget,
       resolveCatSessionId: () => resolveRuntimeCatSessionId(getActiveCatSessionId()),
+      buildCatAppearanceAssetUrl,
       omniInferProcessController: omniInferProcess,
       omniInferLogsDir,
     })

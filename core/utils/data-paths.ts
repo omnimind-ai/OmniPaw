@@ -17,6 +17,8 @@ export interface OmniPawDataPaths {
   providerRegistry: string
   personaRegistry: string
   tavernRegistry: string
+  catAppearanceState: string
+  catAppearances: string
   database: string
   mcpRegistry: string
   skillState: string
@@ -57,6 +59,8 @@ export function resolveOmniPawDataPaths(options: ResolveDataRootOptions = {}): O
     providerRegistry: join(configRoot, 'providers.json'),
     personaRegistry: join(configRoot, 'personas.json'),
     tavernRegistry: join(configRoot, 'tavern.json'),
+    catAppearanceState: join(root, 'cat_appearance_state.json'),
+    catAppearances: join(root, 'cat-appearances'),
     database: join(root, 'omnipaw.sqlite3'),
     mcpRegistry: join(configRoot, 'mcp_server.json'),
     skillState: join(root, 'skill_state.json'),

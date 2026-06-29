@@ -4,6 +4,7 @@ import { listBuiltinToolDefinitions } from '@core/agent/tools/builtin-tools'
 import { ToolManagementService } from '@core/agent/tools/management-service'
 import { ToolRegistry } from '@core/agent/tools/registry'
 import { AgentWorkspaceService } from '@core/agent/workspace'
+import { CatAppearanceManager } from '@core/appearance'
 import { AttachmentService } from '@core/chat/attachment-service'
 import { ChatService } from '@core/chat/chat-service'
 import { ContextCompactionService } from '@core/chat/context-compaction'
@@ -55,6 +56,7 @@ import {
 } from '@core/tavern'
 import { resolveOmniPawDataPaths } from '@core/utils/data-paths'
 import { SYSTEM_SESSION_IDS } from '@shared/constants'
+import type { CatAppearanceAssetKey, CatAppearanceChangedEvent } from '@shared/types/cat-appearance'
 import type { ChatSession } from '@shared/types/chat'
 import type { CronTaskChangedEvent } from '@shared/types/cron'
 import type { ObservationChangedEvent, ObservationReactionEvent } from '@shared/types/observation'
@@ -70,6 +72,8 @@ export type SkillChangedEvent = Parameters<
   NonNullable<ConstructorParameters<typeof SkillManager>[0]['onChanged']>
 >[0]
 
+export type { CatAppearanceChangedEvent }
+
 interface CoreRuntimeOptions {
   app: typeof app
   appName: string
@@ -79,10 +83,16 @@ interface CoreRuntimeOptions {
   onCronChanged: (event: CronTaskChangedEvent) => void
   onMcpChanged: (event: McpChangedEvent) => void
   onSkillChanged: (event: SkillChangedEvent) => void
+  onCatAppearanceChanged: (event: CatAppearanceChangedEvent) => void
   onObservationChanged: (event: ObservationChangedEvent) => void
   onObservationReaction: (event: ObservationReactionEvent) => void
   chatEventTarget?: () => ChatRunEventTarget | undefined
   resolveCatSessionId?: () => Promise<string | null> | string | null
+  buildCatAppearanceAssetUrl: (
+    packId: string,
+    assetKey: CatAppearanceAssetKey,
+    version: string
+  ) => string
   /** Constructed in main.ts because it must touch resourcesPath / child_process. */
   omniInferProcessController?: OmniInferProcessController
   /** Optional override of OmniInfer logs directory (used for "View logs" UI). */
@@ -92,6 +102,7 @@ interface CoreRuntimeOptions {
 export interface CoreRuntime {
   attachmentService: AttachmentService
   agentWorkspaceService: AgentWorkspaceService
+  catAppearanceManager: CatAppearanceManager
   chatService: ChatService
   configStore: ConfigStore
   cronManager: CronManager
@@ -186,6 +197,14 @@ export function createCoreRuntime(options: CoreRuntimeOptions): CoreRuntime {
     logger: coreLogger.child({ scope: 'skill' }),
   })
   loadStartupSkills(skillManager, options.lifecycleLogger)
+
+  const catAppearanceManager = new CatAppearanceManager({
+    dataRootPath: dataPaths.root,
+    buildAssetUrl: options.buildCatAppearanceAssetUrl,
+    onChanged: options.onCatAppearanceChanged,
+    logger: coreLogger.child({ scope: 'cat.appearance' }),
+  })
+  loadStartupCatAppearances(catAppearanceManager, options.lifecycleLogger)
 
   const toolManagementService = new ToolManagementService(
     new ConfigToolSettingsStore(configStore, (saved) => {
@@ -443,6 +462,7 @@ export function createCoreRuntime(options: CoreRuntimeOptions): CoreRuntime {
   return {
     attachmentService,
     agentWorkspaceService,
+    catAppearanceManager,
     chatService,
     configStore,
     cronManager,
@@ -463,6 +483,7 @@ export function createCoreRuntime(options: CoreRuntimeOptions): CoreRuntime {
     omniInferLogsDir: options.omniInferLogsDir,
     dispose: () => {
       observationManager.dispose('app_exit')
+      catAppearanceManager.dispose()
       cronManager.stop()
       omniInferRuntimeService?.dispose()
       dbClient.close()
@@ -602,6 +623,23 @@ function loadStartupSkills(skillManager: SkillManager, lifecycleLogger: Logger):
     }
     lifecycleLogger.error('Startup skill load failed.', { error })
     throw error
+  }
+}
+
+function loadStartupCatAppearances(
+  catAppearanceManager: CatAppearanceManager,
+  lifecycleLogger: Logger
+): void {
+  try {
+    const response = catAppearanceManager.load()
+    lifecycleLogger.info('Startup cat appearance packs loaded.', {
+      packCount: response.packs.length,
+      activePackId: response.activePackId,
+    })
+  } catch (error) {
+    lifecycleLogger.warn('Startup cat appearance packs failed to load; using built-in pack.', {
+      error,
+    })
   }
 }
 

@@ -1,4 +1,8 @@
 import type { CatCommandEvent, CatDraftAttachment, CatWindowState } from '@shared/types/cat'
+import type {
+  CatAppearanceDurations,
+  CatAppearanceResolvedPack,
+} from '@shared/types/cat-appearance'
 import doTaskImage from '@/asserts/cat/anim_cat_doing_task.webp'
 import draggedImage from '@/asserts/cat/anim_cat_dragging.webp'
 import endTaskImage from '@/asserts/cat/anim_cat_end_doing.webp'
@@ -33,7 +37,7 @@ const stableStates = new Set<CatWindowState>([
   states.COMPLETED,
 ])
 
-const assets = Object.freeze({
+const defaultAssets = Object.freeze({
   show: firstShowImage,
   showFallback: firstShowFallbackImage,
   idle: idleImage,
@@ -46,12 +50,20 @@ const assets = Object.freeze({
   finish: finishImage,
 })
 
-const animationDurations = Object.freeze({
+const defaultAnimationDurations = Object.freeze({
   appearing: 1000,
   preparing: 1050,
   completedEnd: 980,
   completedFinish: 1500,
 })
+
+let assets = {
+  ...defaultAssets,
+}
+
+let animationDurations: CatAppearanceDurations = {
+  ...defaultAnimationDurations,
+}
 
 const dropAttachmentLimits = Object.freeze({
   maxFileBytes: 25 * 1024 * 1024,
@@ -162,6 +174,33 @@ function enterState(state: CatWindowState) {
         }, animationDurations.completedFinish)
       }, animationDurations.completedEnd)
       break
+  }
+}
+
+function applyCatAppearance(pack: CatAppearanceResolvedPack) {
+  assets = {
+    ...defaultAssets,
+    ...Object.fromEntries(
+      Object.entries(pack.assets || {}).filter(([, value]) => typeof value === 'string' && value)
+    ),
+  }
+  animationDurations = {
+    ...defaultAnimationDurations,
+    ...pack.durations,
+  }
+  enterState(currentState)
+}
+
+async function loadCatAppearance() {
+  try {
+    applyCatAppearance(await appBridge.catAppearance.current())
+  } catch {
+    assets = {
+      ...defaultAssets,
+    }
+    animationDurations = {
+      ...defaultAnimationDurations,
+    }
   }
 }
 
@@ -417,7 +456,12 @@ for (const target of [surface, stage]) {
 }
 
 appBridge.cat.onCommand(handleCommand)
+appBridge.catAppearance.onChanged((event) => {
+  applyCatAppearance(event.current)
+})
 
 if (image) {
   image.src = idleImage
 }
+
+void loadCatAppearance()

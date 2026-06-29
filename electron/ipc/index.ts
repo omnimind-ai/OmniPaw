@@ -1,4 +1,5 @@
 import { registerAppIpcHandlers } from './app'
+import { registerCatAppearanceIpcHandlers } from './cat-appearance'
 import { registerChatIpcHandlers } from './chat'
 import { registerCronIpcHandlers } from './cron'
 import { registerLoggingIpcHandlers } from './logging'
@@ -22,6 +23,7 @@ export function registerIpcHandlers(options: IpcHandlerOptions): void {
   registerLoggingIpcHandlers(options)
   registerAppIpcHandlers(options)
   registerWindowIpcHandlers(options)
+  registerCatAppearanceIpcHandlers(options)
   registerSettingsIpcHandlers(options)
   registerShortcutIpcHandlers(options)
   registerMemoryIpcHandlers(options)

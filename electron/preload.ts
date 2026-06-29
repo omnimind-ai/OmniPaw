@@ -333,6 +333,13 @@ const bridge: OmniPawBridge = {
     onBubbleEvent: (callback) => createUnsubscriber(IPC_CHANNELS.cat.bubbleEvent, callback),
     onBubblePlacement: (callback) => createUnsubscriber(IPC_CHANNELS.cat.bubblePlacement, callback),
   },
+  catAppearance: {
+    current: () => ipcRenderer.invoke(IPC_CHANNELS.catAppearance.current),
+    list: () => ipcRenderer.invoke(IPC_CHANNELS.catAppearance.list),
+    refresh: () => ipcRenderer.invoke(IPC_CHANNELS.catAppearance.refresh),
+    setActive: (request) => ipcRenderer.invoke(IPC_CHANNELS.catAppearance.setActive, request),
+    onChanged: (callback) => createUnsubscriber(IPC_CHANNELS.catAppearance.changed, callback),
+  },
   catPanel: {
     onPlacement: (callback) => createUnsubscriber(IPC_CHANNELS.catPanel.placement, callback),
     open: (request) => ipcRenderer.invoke(IPC_CHANNELS.catPanel.open, request),

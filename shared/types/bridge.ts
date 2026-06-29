@@ -23,6 +23,12 @@ import type {
   CatWindowState,
 } from './cat'
 import type {
+  CatAppearanceChangedEvent,
+  CatAppearanceListResponse,
+  CatAppearanceResolvedPack,
+  CatAppearanceSetActiveRequest,
+} from './cat-appearance'
+import type {
   AbortRunRequest,
   AbortRunResponse,
   AttachmentPreviewRequest,
@@ -415,6 +421,15 @@ export interface OmniPawBridge {
     reportBubbleReady: () => void
     onBubbleEvent: (callback: (event: CatBubbleEvent) => void) => Unsubscribe
     onBubblePlacement: (callback: (placement: CatPanelPlacement) => void) => Unsubscribe
+  }
+  catAppearance: {
+    current: () => Promise<CatAppearanceResolvedPack>
+    list: () => Promise<CatAppearanceListResponse>
+    refresh: () => Promise<CatAppearanceListResponse>
+    setActive: (
+      request: CatAppearanceSetActiveRequest | string
+    ) => Promise<CatAppearanceResolvedPack>
+    onChanged: (callback: (event: CatAppearanceChangedEvent) => void) => Unsubscribe
   }
   catPanel: {
     onPlacement: (callback: (placement: CatPanelPlacement) => void) => Unsubscribe

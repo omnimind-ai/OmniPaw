@@ -23,6 +23,12 @@ import type {
   CatWindowState,
 } from '@shared/types/cat'
 import type {
+  CatAppearanceChangedEvent,
+  CatAppearanceListResponse,
+  CatAppearanceResolvedPack,
+  CatAppearanceSetActiveRequest,
+} from '@shared/types/cat-appearance'
+import type {
   CreateCronTaskRequest,
   CreateCronTaskResponse,
   CronTaskChangedEvent,
@@ -947,6 +953,15 @@ export interface RendererOmniPawBridge {
     onBubbleEvent?: (callback: (event: CatBubbleEvent) => void) => BridgeUnsubscribe
     onBubblePlacement?: (callback: (event: CatPanelPlacement) => void) => BridgeUnsubscribe
   }
+  catAppearance: {
+    current: () => Promise<CatAppearanceResolvedPack>
+    list: () => Promise<CatAppearanceListResponse>
+    refresh: () => Promise<CatAppearanceListResponse>
+    setActive: (
+      request: CatAppearanceSetActiveRequest | string
+    ) => Promise<CatAppearanceResolvedPack>
+    onChanged: (callback: (event: CatAppearanceChangedEvent) => void) => BridgeUnsubscribe
+  }
   catPanel: {
     onPlacement: (callback: (event: CatPanelPlacement) => void) => BridgeUnsubscribe
     open?: (request?: CatPanelOpenRequest) => Promise<CatPanelToggleResult>
@@ -1366,6 +1381,37 @@ function fallbackCatStatus(extra: Partial<CatStatus> = {}): CatStatus {
   }
 }
 
+function fallbackCatAppearance(now = Date.now()): CatAppearanceResolvedPack {
+  return {
+    id: 'builtin',
+    name: 'OmniPaw Cat',
+    description: 'Built-in OmniPaw cat appearance.',
+    source: 'builtin',
+    status: 'available',
+    active: true,
+    assets: {},
+    durations: {
+      appearing: 1000,
+      preparing: 1050,
+      completedEnd: 980,
+      completedFinish: 1500,
+    },
+    version: 'builtin',
+    updatedAt: now,
+  }
+}
+
+function fallbackCatAppearanceList(): CatAppearanceListResponse {
+  const now = Date.now()
+  const current = fallbackCatAppearance(now)
+  return {
+    packs: [current],
+    current,
+    activePackId: current.id,
+    updatedAt: now,
+  }
+}
+
 function emptyProviderRegistryStatus(): BridgeProviderRegistryStatus {
   return {
     path: '',
@@ -1610,6 +1656,13 @@ const fallbackBridge: RendererOmniPawBridge = {
     reportBubbleReady: () => {},
     onBubbleEvent: () => () => {},
     onBubblePlacement: () => () => {},
+  },
+  catAppearance: {
+    current: async () => fallbackCatAppearance(),
+    list: async () => fallbackCatAppearanceList(),
+    refresh: async () => fallbackCatAppearanceList(),
+    setActive: async () => fallbackCatAppearance(),
+    onChanged: () => () => {},
   },
   catPanel: {
     onPlacement: () => () => {},
@@ -2370,6 +2423,19 @@ function createCatBridge(
   }
 }
 
+function createCatAppearanceBridge(
+  bridge: RendererOmniPawBridge['catAppearance'] | undefined
+): RendererOmniPawBridge['catAppearance'] {
+  if (!bridge) {
+    return fallbackBridge.catAppearance
+  }
+
+  return {
+    ...fallbackBridge.catAppearance,
+    ...bridge,
+  }
+}
+
 function createSettingsBridge(
   bridge: RendererOmniPawBridge['settings'] | undefined
 ): RendererOmniPawBridge['settings'] {
@@ -2514,6 +2580,7 @@ export const appBridge: RendererOmniPawBridge = exposedBridge
       app: createAppBridge(exposedBridge.app),
       window: createWindowBridge(exposedBridge.window),
       cat: createCatBridge(exposedBridge.cat),
+      catAppearance: createCatAppearanceBridge(exposedBridge.catAppearance),
       logging: createLoggingBridge(exposedBridge.logging),
       settings: createSettingsBridge(exposedBridge.settings),
       shortcuts: createShortcutsBridge(exposedBridge.shortcuts),

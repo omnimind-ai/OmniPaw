@@ -1,5 +1,6 @@
 export const APP_NAME = 'OmniPaw'
 export const APP_ID = 'com.omnipaw.desktop'
+export const CAT_APPEARANCE_ASSET_PROTOCOL = 'omnipaw-cat-asset'
 
 export const SYSTEM_SESSION_IDS = {
   cron: 'cron-default',
@@ -43,6 +44,13 @@ export const IPC_CHANNELS = {
     bubbleReady: 'cat:bubble-ready',
     bubbleEvent: 'cat:bubble-event',
     bubblePlacement: 'cat:bubble-placement',
+  },
+  catAppearance: {
+    current: 'cat-appearance:current',
+    list: 'cat-appearance:list',
+    refresh: 'cat-appearance:refresh',
+    setActive: 'cat-appearance:set-active',
+    changed: 'cat-appearance:changed',
   },
   catPanel: {
     placement: 'cat-panel:placement',
