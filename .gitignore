@@ -41,3 +41,5 @@ resources/omniinfer/*
 
 # 开发态本地 gguf 模型目录
 models/
+
+cat-appearances/
