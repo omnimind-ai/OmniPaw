@@ -58,6 +58,10 @@ export interface CatAppearanceSetActiveRequest {
   packId?: string
 }
 
+export interface CatAppearanceGetPackRequest {
+  packId?: string
+}
+
 export interface CatAppearanceImportResponse extends CatAppearanceListResponse {
   canceled: boolean
   importedPackId?: string

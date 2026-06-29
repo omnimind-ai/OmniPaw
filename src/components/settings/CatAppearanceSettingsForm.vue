@@ -3,12 +3,14 @@ import type {
   CatAppearanceListResponse,
   CatAppearancePackSource,
   CatAppearancePackSummary,
+  CatAppearanceResolvedPack,
 } from '@shared/types/cat-appearance'
 import {
   CatIcon,
   CheckIcon,
   CircleAlertIcon,
   ImageIcon,
+  InfoIcon,
   PackagePlusIcon,
   RefreshCwIcon,
   SearchIcon,
@@ -22,6 +24,7 @@ import {
   ensureElectronBridge,
   isFallbackBridge,
 } from '@/bridge/app'
+import CatAppearanceDetailModal from '@/components/settings/cat-appearance-settings/CatAppearanceDetailModal.vue'
 import SettingsPanelHeader from '@/components/settings/common/SettingsPanelHeader.vue'
 import SettingsPanelItem from '@/components/settings/common/SettingsPanelItem.vue'
 import SettingsSearchBar from '@/components/settings/common/SettingsSearchBar.vue'
@@ -43,29 +46,22 @@ const loading = ref(false)
 const refreshing = ref(false)
 const importing = ref(false)
 const selectingPackId = ref<string>()
+const detailOpen = ref(false)
+const detailLoading = ref(false)
+const detailError = ref<string>()
+const detailSummary = shallowRef<CatAppearancePackSummary>()
+const detailPack = shallowRef<CatAppearanceResolvedPack>()
 const showSkeleton = useDelayedFlag(() => loading.value)
 let unsubscribe: BridgeUnsubscribe | undefined
+let detailRequestId = 0
 
 const packs = computed(() => response.value?.packs ?? [])
-const availableCount = computed(
-  () => packs.value.filter((pack) => pack.status === 'available').length
-)
-const localCount = computed(() => packs.value.filter((pack) => pack.source === 'local').length)
 const filteredPacks = computed(() => {
   const query = normalizeSearchText(searchQuery.value)
   if (!query) return packs.value
   return packs.value.filter((pack) =>
     normalizeSearchText(
-      [
-        pack.id,
-        pack.name,
-        pack.description,
-        pack.rootName,
-        pack.relativePath,
-        pack.error,
-        sourceLabel(pack.source),
-        statusLabel(pack),
-      ]
+      [pack.name, pack.description, pack.error, sourceLabel(pack.source), statusLabel(pack)]
         .filter(Boolean)
         .join(' ')
     ).includes(query)
@@ -85,6 +81,9 @@ const importButtonLabel = computed(() =>
 onMounted(async () => {
   unsubscribe = appBridge.catAppearance.onChanged((event) => {
     response.value = event
+    if (!detailSummary.value) return
+    detailSummary.value =
+      event.packs.find((pack) => pack.id === detailSummary.value?.id) ?? detailSummary.value
   })
   await loadPacks()
 })
@@ -163,6 +162,35 @@ async function selectPack(pack: CatAppearancePackSummary): Promise<void> {
   }
 }
 
+async function openDetail(pack: CatAppearancePackSummary): Promise<void> {
+  const requestId = detailRequestId + 1
+  detailRequestId = requestId
+  detailSummary.value = pack
+  detailPack.value = undefined
+  detailError.value = undefined
+  detailLoading.value = false
+  detailOpen.value = true
+
+  if (pack.status !== 'available') {
+    detailError.value = pack.error || t('settings.catAppearance.detail.unavailable')
+    return
+  }
+
+  detailLoading.value = true
+  try {
+    const resolvedPack = await appBridge.catAppearance.getPack({ packId: pack.id })
+    if (detailRequestId !== requestId) return
+    detailPack.value = resolvedPack
+  } catch (error) {
+    if (detailRequestId !== requestId) return
+    detailError.value = errorToText(error, t('settings.catAppearance.detail.loadFailed'))
+  } finally {
+    if (detailRequestId === requestId) {
+      detailLoading.value = false
+    }
+  }
+}
+
 function normalizeSearchText(value: string): string {
   return value.trim().toLocaleLowerCase()
 }
@@ -196,12 +224,7 @@ function formatUpdatedAt(value?: number): string {
 }
 
 function packMeta(pack: CatAppearancePackSummary): string {
-  const parts = [
-    t('settings.catAppearance.meta.id', { id: pack.id }),
-    pack.rootName ? t('settings.catAppearance.meta.directory', { directory: pack.rootName }) : '',
-    t('settings.catAppearance.meta.updatedAt', { time: formatUpdatedAt(pack.updatedAt) }),
-  ].filter(Boolean)
-  return parts.join(' · ')
+  return t('settings.catAppearance.meta.updatedAt', { time: formatUpdatedAt(pack.updatedAt) })
 }
 
 function selectButtonLabel(pack: CatAppearancePackSummary): string {
@@ -341,6 +364,15 @@ function selectButtonLabel(pack: CatAppearancePackSummary): string {
 
               <template #actions>
                 <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  @click="openDetail(pack)"
+                >
+                  <InfoIcon data-icon="inline-start" />
+                  {{ t('settings.catAppearance.detailButton') }}
+                </Button>
+                <Button
                   v-if="pack.status !== 'available'"
                   type="button"
                   variant="outline"
@@ -377,5 +409,13 @@ function selectButtonLabel(pack: CatAppearancePackSummary): string {
         </div>
       </CardContent>
     </Card>
+
+    <CatAppearanceDetailModal
+      v-model:open="detailOpen"
+      :pack="detailSummary"
+      :detail="detailPack"
+      :loading="detailLoading"
+      :error="detailError"
+    />
   </div>
 </template>

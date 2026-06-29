@@ -22,6 +22,7 @@ import type {
   CatAppearanceChangedEvent,
   CatAppearanceChangeReason,
   CatAppearanceDurations,
+  CatAppearanceGetPackRequest,
   CatAppearanceImportResponse,
   CatAppearanceListResponse,
   CatAppearancePackSummary,
@@ -170,6 +171,14 @@ export class CatAppearanceManager {
 
   current(): CatAppearanceResolvedPack {
     return this.list().current
+  }
+
+  getPack(request: CatAppearanceGetPackRequest | string): CatAppearanceResolvedPack {
+    this.ensureLoaded()
+    const requestedId = normalizePackId(typeof request === 'string' ? request : request.packId)
+    const packId = requestedId || BUILTIN_PACK_ID
+    const current = this.resolveCurrentPack()
+    return this.resolvePackById(packId, packId === current.id)
   }
 
   refresh(reason: CatAppearanceChangeReason = 'refresh'): CatAppearanceListResponse {
@@ -480,28 +489,39 @@ export class CatAppearanceManager {
   }
 
   private resolveCurrentPack(): CatAppearanceResolvedPack {
+    const activePackId = this.resolveActivePackId()
+    try {
+      return this.resolvePackById(activePackId, true)
+    } catch {
+      return this.resolvePackById(BUILTIN_PACK_ID, true)
+    }
+  }
+
+  private resolveActivePackId(): string {
     const configuredPackId = normalizePackId(this.state.activePackId) || BUILTIN_PACK_ID
     const availableLocalPacks = this.packs.filter((pack) => pack.status === 'available')
-    const activePackId =
-      !this.hasExplicitState &&
+    return !this.hasExplicitState &&
       configuredPackId === BUILTIN_PACK_ID &&
       availableLocalPacks.length === 1
-        ? availableLocalPacks[0].id
-        : configuredPackId
-    const local =
-      activePackId === BUILTIN_PACK_ID
-        ? undefined
-        : this.packs.find((pack) => pack.id === activePackId && pack.status === 'available')
+      ? availableLocalPacks[0].id
+      : configuredPackId
+  }
 
-    if (!local) {
+  private resolvePackById(packId: string, active: boolean): CatAppearanceResolvedPack {
+    if (packId === BUILTIN_PACK_ID) {
       return {
         ...builtinPack,
-        active: true,
+        active,
         assets: {},
         durations: defaultCatAppearanceDurations,
         version: BUILTIN_PACK_ID,
         updatedAt: this.lastUpdatedAt,
       }
+    }
+
+    const local = this.packs.find((pack) => pack.id === packId && pack.status === 'available')
+    if (!local) {
+      throw new Error(`Cat appearance pack is not available: ${packId}`)
     }
 
     const assets: Partial<Record<CatAppearanceAssetKey, string>> = {}
@@ -520,7 +540,7 @@ export class CatAppearanceManager {
       description: local.description,
       source: 'local',
       status: local.status,
-      active: true,
+      active,
       rootName: local.rootName,
       relativePath: local.relativePath,
       assets,

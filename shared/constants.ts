@@ -47,6 +47,7 @@ export const IPC_CHANNELS = {
   },
   catAppearance: {
     current: 'cat-appearance:current',
+    getPack: 'cat-appearance:get-pack',
     list: 'cat-appearance:list',
     refresh: 'cat-appearance:refresh',
     importPack: 'cat-appearance:import-pack',

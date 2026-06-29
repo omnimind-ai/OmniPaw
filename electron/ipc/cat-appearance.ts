@@ -1,5 +1,6 @@
 import { IPC_CHANNELS } from '@shared/constants'
 import type {
+  CatAppearanceGetPackRequest,
   CatAppearanceImportResponse,
   CatAppearanceSetActiveRequest,
 } from '@shared/types/cat-appearance'
@@ -10,6 +11,12 @@ import type { IpcHandlerOptions } from './types'
 export function registerCatAppearanceIpcHandlers(options: IpcHandlerOptions): void {
   registerLoggedIpcHandler(options, IPC_CHANNELS.catAppearance.current, () =>
     options.runtime.catAppearanceManager.current()
+  )
+  registerLoggedIpcHandler(
+    options,
+    IPC_CHANNELS.catAppearance.getPack,
+    (_event, request: CatAppearanceGetPackRequest | string) =>
+      options.runtime.catAppearanceManager.getPack(request)
   )
   registerLoggedIpcHandler(options, IPC_CHANNELS.catAppearance.list, () =>
     options.runtime.catAppearanceManager.list()

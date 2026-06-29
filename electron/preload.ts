@@ -335,6 +335,7 @@ const bridge: OmniPawBridge = {
   },
   catAppearance: {
     current: () => ipcRenderer.invoke(IPC_CHANNELS.catAppearance.current),
+    getPack: (request) => ipcRenderer.invoke(IPC_CHANNELS.catAppearance.getPack, request),
     list: () => ipcRenderer.invoke(IPC_CHANNELS.catAppearance.list),
     refresh: () => ipcRenderer.invoke(IPC_CHANNELS.catAppearance.refresh),
     importPack: () => ipcRenderer.invoke(IPC_CHANNELS.catAppearance.importPack),
