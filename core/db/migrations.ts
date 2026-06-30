@@ -412,4 +412,35 @@ export const migrations: Migration[] = [
         ON companion_memory_proposals(memory_id, status, updated_at DESC);
     `,
   },
+  {
+    id: 11,
+    name: 'create_cat_pet_state_tables',
+    sql: `
+      CREATE TABLE IF NOT EXISTS cat_pet_state (
+        id INTEGER PRIMARY KEY CHECK (id = 1),
+        affection INTEGER NOT NULL DEFAULT 50,
+        created_at INTEGER NOT NULL,
+        updated_at INTEGER NOT NULL
+      );
+
+      INSERT OR IGNORE INTO cat_pet_state (id, affection, created_at, updated_at)
+      VALUES (1, 50, CAST(strftime('%s','now') AS INTEGER) * 1000, CAST(strftime('%s','now') AS INTEGER) * 1000);
+
+      CREATE TABLE IF NOT EXISTS cat_pet_interaction_log (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        action TEXT NOT NULL,
+        delta INTEGER NOT NULL,
+        outcome TEXT NOT NULL,
+        affection_before INTEGER NOT NULL,
+        affection_after INTEGER NOT NULL,
+        performed_at INTEGER NOT NULL,
+        performed_date TEXT NOT NULL
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_cat_pet_log_date_action
+        ON cat_pet_interaction_log(performed_date, action);
+      CREATE INDEX IF NOT EXISTS idx_cat_pet_log_performed_at
+        ON cat_pet_interaction_log(performed_at DESC);
+    `,
+  },
 ]

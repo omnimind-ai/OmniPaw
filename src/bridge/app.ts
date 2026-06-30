@@ -30,6 +30,17 @@ import type {
   CatAppearanceResolvedPack,
   CatAppearanceSetActiveRequest,
 } from '@shared/types/cat-appearance'
+import {
+  CAT_PET_AFFECTION_DEFAULT,
+  CAT_PET_AFFECTION_MAX,
+  CAT_PET_AFFECTION_MIN,
+  CAT_PET_DAILY_LIMITS,
+  type CatPetChangedEvent,
+  type CatPetPerformRequest,
+  type CatPetPerformResponse,
+  type CatPetState,
+  moodFromAffection,
+} from '@shared/types/cat-pet'
 import type {
   CreateCronTaskRequest,
   CreateCronTaskResponse,
@@ -986,6 +997,11 @@ export interface RendererOmniPawBridge {
     close?: (request?: CatNotificationActionRequest | string) => Promise<void>
     viewResult?: (request: CatNotificationActionRequest | string) => Promise<void>
   }
+  catPet?: {
+    getState: () => Promise<CatPetState>
+    perform: (request: CatPetPerformRequest) => Promise<CatPetPerformResponse>
+    onChanged: (callback: (event: CatPetChangedEvent) => void) => BridgeUnsubscribe
+  }
   settings?: {
     load: () => Promise<BridgeDesktopSettingsConfig>
     save: (
@@ -1406,6 +1422,20 @@ function fallbackCatAppearance(now = Date.now()): CatAppearanceResolvedPack {
   }
 }
 
+function fallbackCatPetState(): CatPetState {
+  return {
+    affection: CAT_PET_AFFECTION_DEFAULT,
+    affectionMax: CAT_PET_AFFECTION_MAX,
+    affectionMin: CAT_PET_AFFECTION_MIN,
+    mood: moodFromAffection(CAT_PET_AFFECTION_DEFAULT),
+    todayUsage: { pat: 0, tease: 0 },
+    limits: {
+      pat: CAT_PET_DAILY_LIMITS.pat,
+      tease: CAT_PET_DAILY_LIMITS.tease,
+    },
+  }
+}
+
 function fallbackCatAppearanceList(): CatAppearanceListResponse {
   const now = Date.now()
   const current = fallbackCatAppearance(now)
@@ -1741,6 +1771,11 @@ const fallbackBridge: RendererOmniPawBridge = {
         fallbackCatPanelSide = 'right'
       }
     },
+  },
+  catPet: {
+    getState: async () => fallbackCatPetState(),
+    perform: async () => ({ ok: false, reason: 'daily_limit', state: fallbackCatPetState() }),
+    onChanged: () => () => {},
   },
   settings: {
     load: async () => fallbackSettingsConfig(),
@@ -2444,6 +2479,19 @@ function createCatAppearanceBridge(
   }
 }
 
+function createCatPetBridge(
+  bridge: RendererOmniPawBridge['catPet'] | undefined
+): RendererOmniPawBridge['catPet'] {
+  if (!bridge) {
+    return fallbackBridge.catPet
+  }
+
+  return {
+    ...fallbackBridge.catPet!,
+    ...bridge,
+  }
+}
+
 function createSettingsBridge(
   bridge: RendererOmniPawBridge['settings'] | undefined
 ): RendererOmniPawBridge['settings'] {
@@ -2589,6 +2637,7 @@ export const appBridge: RendererOmniPawBridge = exposedBridge
       window: createWindowBridge(exposedBridge.window),
       cat: createCatBridge(exposedBridge.cat),
       catAppearance: createCatAppearanceBridge(exposedBridge.catAppearance),
+      catPet: createCatPetBridge(exposedBridge.catPet),
       logging: createLoggingBridge(exposedBridge.logging),
       settings: createSettingsBridge(exposedBridge.settings),
       shortcuts: createShortcutsBridge(exposedBridge.shortcuts),

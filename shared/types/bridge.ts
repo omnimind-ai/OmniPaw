@@ -31,6 +31,12 @@ import type {
   CatAppearanceSetActiveRequest,
 } from './cat-appearance'
 import type {
+  CatPetChangedEvent,
+  CatPetPerformRequest,
+  CatPetPerformResponse,
+  CatPetState,
+} from './cat-pet'
+import type {
   AbortRunRequest,
   AbortRunResponse,
   AttachmentPreviewRequest,
@@ -452,6 +458,11 @@ export interface OmniPawBridge {
     onEvent: (callback: (event: CatNotificationEvent) => void) => Unsubscribe
     close: (request?: CatNotificationActionRequest | string) => Promise<void>
     viewResult: (request: CatNotificationActionRequest | string) => Promise<void>
+  }
+  catPet: {
+    getState: () => Promise<CatPetState>
+    perform: (request: CatPetPerformRequest) => Promise<CatPetPerformResponse>
+    onChanged: (callback: (event: CatPetChangedEvent) => void) => Unsubscribe
   }
   settings: {
     load: () => Promise<DesktopSettingsConfig>

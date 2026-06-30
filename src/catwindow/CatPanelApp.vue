@@ -1,16 +1,20 @@
 <script setup lang="ts">
 import type { CatPanelPlacement } from '@shared/types/cat'
+import { MessageSquareIcon, PawPrintIcon } from 'lucide-vue-next'
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { appBridge } from '@/bridge/app'
 import { Toaster } from '@/components/ui/sonner'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useAppLanguage } from '@/composables/useAppLanguage'
 import { useAppTheme } from '@/composables/useAppTheme'
 import { cn } from '@/lib/utils'
 import { useSettingsStore } from '@/stores/settings'
 import CatPanelChatSurface from './CatPanelChatSurface.vue'
+import CatPanelStatusSurface from './CatPanelStatusSurface.vue'
 
 type PanelSide = NonNullable<CatPanelPlacement['side']>
+type PanelTab = 'chat' | 'status'
 
 const settingsStore = useSettingsStore()
 useAppLanguage()
@@ -22,6 +26,7 @@ onMounted(() => {
 })
 
 const side = ref<PanelSide>('right')
+const activeTab = ref<PanelTab>('chat')
 
 const sideLabels: Record<PanelSide, string> = {
   left: t('catWindow.panel.alignmentLeft'),
@@ -64,7 +69,35 @@ onBeforeUnmount(() => {
       aria-hidden="true"
     />
 
-    <CatPanelChatSurface :side-label="sideLabel" />
+    <Tabs
+      v-model="activeTab"
+      class="flex h-full min-h-0 w-full flex-col"
+    >
+      <TabsList class="mx-auto mb-2 w-fit shrink-0">
+        <TabsTrigger value="chat">
+          <MessageSquareIcon data-icon="inline-start" />
+          {{ t('catWindow.panel.tabs.chat') }}
+        </TabsTrigger>
+        <TabsTrigger value="status">
+          <PawPrintIcon data-icon="inline-start" />
+          {{ t('catWindow.panel.tabs.status') }}
+        </TabsTrigger>
+      </TabsList>
+
+      <TabsContent
+        value="chat"
+        class="flex min-h-0 flex-1 flex-col data-[state=inactive]:hidden"
+      >
+        <CatPanelChatSurface :side-label="sideLabel" />
+      </TabsContent>
+
+      <TabsContent
+        value="status"
+        class="flex min-h-0 flex-1 flex-col data-[state=inactive]:hidden"
+      >
+        <CatPanelStatusSurface :side-label="sideLabel" />
+      </TabsContent>
+    </Tabs>
 
     <Toaster
       close-button

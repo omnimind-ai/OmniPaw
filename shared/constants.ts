@@ -70,6 +70,11 @@ export const IPC_CHANNELS = {
     close: 'cat-notification:close',
     viewResult: 'cat-notification:view-result',
   },
+  catPet: {
+    getState: 'cat-pet:get-state',
+    performAction: 'cat-pet:perform-action',
+    changed: 'cat-pet:changed',
+  },
   settings: {
     load: 'settings:load',
     save: 'settings:save',

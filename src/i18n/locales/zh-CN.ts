@@ -1574,6 +1574,41 @@ export default {
       triggerFailed: '立即观察失败。',
     },
   },
+  catPet: {
+    title: '桌宠状态',
+    subtitle: '看看猫咪今天的状态',
+    surfaceLabel: '桌宠状态面板',
+    affection: '好感度',
+    mood: {
+      sad: '沮丧',
+      normal: '平静',
+      happy: '开心',
+      attached: '黏人',
+    },
+    todayInteractions: '今日互动',
+    recent: '最近一次',
+    empty: '今天还没有互动',
+    refresh: '刷新状态',
+    action: {
+      pat: '摸摸',
+      tease: '逗逗',
+      remaining: '剩余 {count} 次',
+      patHint: '轻轻摸摸猫咪',
+      teaseHint: '逗逗猫咪',
+      patLimitTip: '今天已经摸过两次啦',
+      teaseLimitTip: '今天已经逗过一次啦',
+    },
+    feedback: {
+      patPositive: '猫咪舒服地眯起了眼',
+      patNegative: '猫咪不太喜欢这样摸',
+      teasePositive: '猫咪玩得很开心',
+      teaseNegative: '猫咪生气了',
+    },
+    errors: {
+      loadFailed: '桌宠状态加载失败',
+      actionFailed: '互动失败',
+    },
+  },
   catWindow: {
     runtime: {
       panelError: '小猫面板运行出错。',
@@ -1587,6 +1622,10 @@ export default {
       alignmentLeft: '左侧',
       alignmentRight: '右侧',
       chatPanelLabel: '小猫聊天面板',
+      tabs: {
+        chat: '聊天',
+        status: '状态',
+      },
     },
     chat: {
       chatLabel: '小猫聊天',

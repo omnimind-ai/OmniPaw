@@ -19,6 +19,7 @@ import { ScheduledTaskAgentExecutor } from '@core/cron/scheduled-task-executor'
 import { DatabaseClient } from '@core/db/client'
 import {
   AttachmentRepo,
+  CatPetRepo,
   ChatContextSummaryRepo,
   ChatMessageRepo,
   ChatRunRepo,
@@ -43,6 +44,7 @@ import {
 import { PersonaManager } from '@core/persona/manager'
 import { PersonaRegistryValidationError } from '@core/persona/registry-schema'
 import { PersonaRegistryStore } from '@core/persona/registry-store'
+import { CatPetManager } from '@core/pet'
 import { ProviderManager } from '@core/provider/manager'
 import { OpenAICodexOAuthService } from '@core/provider/openai-codex-oauth'
 import { ProviderRegistryValidationError } from '@core/provider/registry-schema'
@@ -57,6 +59,7 @@ import {
 import { resolveOmniPawDataPaths } from '@core/utils/data-paths'
 import { SYSTEM_SESSION_IDS } from '@shared/constants'
 import type { CatAppearanceAssetKey, CatAppearanceChangedEvent } from '@shared/types/cat-appearance'
+import type { CatPetChangedEvent } from '@shared/types/cat-pet'
 import type { ChatSession } from '@shared/types/chat'
 import type { CronTaskChangedEvent } from '@shared/types/cron'
 import type { ObservationChangedEvent, ObservationReactionEvent } from '@shared/types/observation'
@@ -84,6 +87,7 @@ interface CoreRuntimeOptions {
   onMcpChanged: (event: McpChangedEvent) => void
   onSkillChanged: (event: SkillChangedEvent) => void
   onCatAppearanceChanged: (event: CatAppearanceChangedEvent) => void
+  onCatPetChanged: (event: CatPetChangedEvent) => void
   onObservationChanged: (event: ObservationChangedEvent) => void
   onObservationReaction: (event: ObservationReactionEvent) => void
   chatEventTarget?: () => ChatRunEventTarget | undefined
@@ -103,6 +107,7 @@ export interface CoreRuntime {
   attachmentService: AttachmentService
   agentWorkspaceService: AgentWorkspaceService
   catAppearanceManager: CatAppearanceManager
+  catPetManager: CatPetManager
   chatService: ChatService
   configStore: ConfigStore
   cronManager: CronManager
@@ -148,6 +153,7 @@ export function createCoreRuntime(options: CoreRuntimeOptions): CoreRuntime {
   const memoryRepo = new CompanionMemoryRepo(db)
   const cronTaskRepo = new CronTaskRepo(db)
   const cronRunRepo = new CronRunRepo(db)
+  const catPetRepo = new CatPetRepo(db)
   const configStore = new ConfigStore({
     dataRootPath: dataPaths.root,
     logger: coreLogger.child({ scope: 'config' }),
@@ -205,6 +211,13 @@ export function createCoreRuntime(options: CoreRuntimeOptions): CoreRuntime {
     logger: coreLogger.child({ scope: 'cat.appearance' }),
   })
   loadStartupCatAppearances(catAppearanceManager, options.lifecycleLogger)
+
+  const catPetManager = new CatPetManager({
+    repo: catPetRepo,
+    onChanged: options.onCatPetChanged,
+    logger: coreLogger.child({ scope: 'cat.pet' }),
+  })
+  catPetManager.emitInitial()
 
   const toolManagementService = new ToolManagementService(
     new ConfigToolSettingsStore(configStore, (saved) => {
@@ -463,6 +476,7 @@ export function createCoreRuntime(options: CoreRuntimeOptions): CoreRuntime {
     attachmentService,
     agentWorkspaceService,
     catAppearanceManager,
+    catPetManager,
     chatService,
     configStore,
     cronManager,

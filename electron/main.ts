@@ -7,6 +7,7 @@ import { resolveOmniPawDataPaths } from '@core/utils/data-paths'
 import { APP_ID, APP_NAME, CAT_APPEARANCE_ASSET_PROTOCOL, IPC_CHANNELS } from '@shared/constants'
 import type { OpenChatSessionRequest } from '@shared/types/app'
 import type { CatAppearanceAssetKey, CatAppearanceChangedEvent } from '@shared/types/cat-appearance'
+import type { CatPetChangedEvent } from '@shared/types/cat-pet'
 import type { ChatSessionChangedEvent } from '@shared/types/chat'
 import type { CronTaskChangedEvent } from '@shared/types/cron'
 import type { ObservationChangedEvent, ObservationReactionEvent } from '@shared/types/observation'
@@ -482,6 +483,12 @@ function broadcastCatAppearanceChanged(event: CatAppearanceChangedEvent): void {
   }
 }
 
+function broadcastCatPetChanged(event: CatPetChangedEvent): void {
+  for (const window of BrowserWindow.getAllWindows()) {
+    window.webContents.send(IPC_CHANNELS.catPet.changed, event)
+  }
+}
+
 function broadcastCronChanged(event: CronTaskChangedEvent): void {
   for (const window of BrowserWindow.getAllWindows()) {
     window.webContents.send(IPC_CHANNELS.cron.changed, event)
@@ -647,6 +654,7 @@ app
       onMcpChanged: broadcastMcpChanged,
       onSkillChanged: broadcastSkillChanged,
       onCatAppearanceChanged: broadcastCatAppearanceChanged,
+      onCatPetChanged: broadcastCatPetChanged,
       onObservationChanged: broadcastObservationChanged,
       onObservationReaction: broadcastObservationReaction,
       chatEventTarget: createBroadcastChatEventTarget,

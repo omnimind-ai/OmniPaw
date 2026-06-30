@@ -1633,6 +1633,41 @@ export default {
       triggerFailed: 'Failed to trigger observation.',
     },
   },
+  catPet: {
+    title: 'Pet status',
+    subtitle: "Check on your cat's mood",
+    surfaceLabel: 'Pet status panel',
+    affection: 'Affection',
+    mood: {
+      sad: 'Sad',
+      normal: 'Normal',
+      happy: 'Happy',
+      attached: 'Attached',
+    },
+    todayInteractions: "Today's interactions",
+    recent: 'Latest',
+    empty: 'No interactions today yet',
+    refresh: 'Refresh status',
+    action: {
+      pat: 'Pat',
+      tease: 'Tease',
+      remaining: '{count} left',
+      patHint: 'Give the cat a gentle pat',
+      teaseHint: 'Tease the cat',
+      patLimitTip: 'Already patted twice today',
+      teaseLimitTip: 'Already teased once today',
+    },
+    feedback: {
+      patPositive: 'The cat purrs contentedly',
+      patNegative: "The cat didn't enjoy that pat",
+      teasePositive: 'The cat had a great time',
+      teaseNegative: 'The cat got annoyed',
+    },
+    errors: {
+      loadFailed: 'Failed to load pet status',
+      actionFailed: 'Interaction failed',
+    },
+  },
   catWindow: {
     runtime: {
       panelError: 'Cat panel runtime error.',
@@ -1646,6 +1681,10 @@ export default {
       alignmentLeft: 'Left',
       alignmentRight: 'Right',
       chatPanelLabel: 'Cat chat panel',
+      tabs: {
+        chat: 'Chat',
+        status: 'Status',
+      },
     },
     chat: {
       chatLabel: 'Cat chat',

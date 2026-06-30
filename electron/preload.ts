@@ -18,6 +18,7 @@ import type {
   UpsertProviderModelRequest,
   UpsertProviderSourceRequest,
 } from '@shared/types/bridge'
+import type { CatPetPerformRequest } from '@shared/types/cat-pet'
 import type {
   AgentWorkspaceStatus,
   CleanupWorkspaceResponse,
@@ -360,6 +361,12 @@ const bridge: OmniPawBridge = {
     onEvent: (callback) => createUnsubscriber(IPC_CHANNELS.catNotification.event, callback),
     close: (request) => ipcRenderer.invoke(IPC_CHANNELS.catNotification.close, request),
     viewResult: (request) => ipcRenderer.invoke(IPC_CHANNELS.catNotification.viewResult, request),
+  },
+  catPet: {
+    getState: () => ipcRenderer.invoke(IPC_CHANNELS.catPet.getState),
+    perform: (request: CatPetPerformRequest) =>
+      ipcRenderer.invoke(IPC_CHANNELS.catPet.performAction, request),
+    onChanged: (callback) => createUnsubscriber(IPC_CHANNELS.catPet.changed, callback),
   },
   settings: {
     load: () => invokeSettings(IPC_CHANNELS.settings.load),
