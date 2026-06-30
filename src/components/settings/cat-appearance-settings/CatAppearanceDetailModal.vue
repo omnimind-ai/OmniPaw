@@ -29,7 +29,7 @@ import {
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Skeleton } from '@/components/ui/skeleton'
 
-const defaultAssetUrls: Record<CatAppearanceAssetKey, string> = {
+const defaultAssetUrls: Partial<Record<CatAppearanceAssetKey, string>> = {
   show: firstShowImage,
   showFallback: firstShowFallbackImage,
   idle: idleImage,
@@ -46,6 +46,7 @@ const assetKeys: CatAppearanceAssetKey[] = [
   'idle',
   'show',
   'showFallback',
+  'dragTransition',
   'drag',
   'dragFallback',
   'startDoing',
@@ -74,7 +75,7 @@ const assetItems = computed(() =>
     return {
       key,
       src,
-      configured: Boolean(customSrc) || props.detail?.source === 'builtin',
+      configured: Boolean(src),
       label: t(`settings.catAppearance.detail.assetActions.${key}`),
     }
   })

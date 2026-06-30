@@ -206,6 +206,7 @@ export default {
           idle: '空闲',
           show: '出现动画',
           showFallback: '出现兜底图',
+          dragTransition: '拖动过渡',
           drag: '拖动动画',
           dragFallback: '拖动兜底图',
           startDoing: '开始任务',

@@ -209,6 +209,7 @@ export default {
           idle: 'Idle',
           show: 'Show animation',
           showFallback: 'Show fallback',
+          dragTransition: 'Drag transition',
           drag: 'Drag animation',
           dragFallback: 'Drag fallback',
           startDoing: 'Start task',

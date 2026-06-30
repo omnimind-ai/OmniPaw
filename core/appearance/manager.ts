@@ -41,6 +41,7 @@ const assetKeys = new Set<CatAppearanceAssetKey>([
   'show',
   'showFallback',
   'idle',
+  'dragTransition',
   'drag',
   'dragFallback',
   'startDoing',
@@ -72,6 +73,7 @@ const builtinPack: CatAppearancePackSummary = {
 
 export const defaultCatAppearanceDurations: CatAppearanceDurations = {
   appearing: 1000,
+  dragTransition: 1100,
   preparing: 1050,
   completedEnd: 980,
   completedFinish: 1500,
@@ -763,6 +765,10 @@ function resolvePackAssetPath(packPath: string, relativePath: string): string {
 function normalizeDurations(raw: Record<string, unknown> | undefined): CatAppearanceDurations {
   return {
     appearing: normalizeDuration(raw?.appearing, defaultCatAppearanceDurations.appearing),
+    dragTransition: normalizeDuration(
+      raw?.dragTransition,
+      defaultCatAppearanceDurations.dragTransition
+    ),
     preparing: normalizeDuration(raw?.preparing, defaultCatAppearanceDurations.preparing),
     completedEnd: normalizeDuration(raw?.completedEnd, defaultCatAppearanceDurations.completedEnd),
     completedFinish: normalizeDuration(

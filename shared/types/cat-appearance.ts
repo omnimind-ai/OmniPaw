@@ -4,6 +4,7 @@ export type CatAppearanceAssetKey =
   | 'show'
   | 'showFallback'
   | 'idle'
+  | 'dragTransition'
   | 'drag'
   | 'dragFallback'
   | 'startDoing'
@@ -18,6 +19,7 @@ export type CatAppearanceChangeReason = 'load' | 'refresh' | 'select' | 'watch' 
 
 export interface CatAppearanceDurations {
   appearing: number
+  dragTransition: number
   preparing: number
   completedEnd: number
   completedFinish: number

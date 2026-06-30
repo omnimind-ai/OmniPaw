@@ -1396,6 +1396,7 @@ function fallbackCatAppearance(now = Date.now()): CatAppearanceResolvedPack {
     assets: {},
     durations: {
       appearing: 1000,
+      dragTransition: 1100,
       preparing: 1050,
       completedEnd: 980,
       completedFinish: 1500,

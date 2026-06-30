@@ -1,5 +1,6 @@
 import type { CatCommandEvent, CatDraftAttachment, CatWindowState } from '@shared/types/cat'
 import type {
+  CatAppearanceAssetKey,
   CatAppearanceDurations,
   CatAppearanceResolvedPack,
 } from '@shared/types/cat-appearance'
@@ -37,6 +38,10 @@ const stableStates = new Set<CatWindowState>([
   states.COMPLETED,
 ])
 
+type RequiredCatWindowAssetKey = Exclude<CatAppearanceAssetKey, 'dragTransition'>
+type CatWindowAssets = Record<RequiredCatWindowAssetKey, string> &
+  Partial<Record<'dragTransition', string>>
+
 const defaultAssets = Object.freeze({
   show: firstShowImage,
   showFallback: firstShowFallbackImage,
@@ -48,16 +53,17 @@ const defaultAssets = Object.freeze({
   doingFallback: doTaskFallbackImage,
   endDoing: endTaskImage,
   finish: finishImage,
-})
+} satisfies CatWindowAssets)
 
 const defaultAnimationDurations = Object.freeze({
   appearing: 1000,
+  dragTransition: 1100,
   preparing: 1050,
   completedEnd: 980,
   completedFinish: 1500,
 })
 
-let assets = {
+let assets: CatWindowAssets = {
   ...defaultAssets,
 }
 
@@ -146,6 +152,15 @@ function enterState(state: CatWindowState) {
       setImage(assets.idle)
       break
     case states.DRAGGING:
+      if (assets.dragTransition) {
+        setImage(assets.dragTransition, assets.dragFallback)
+        stateTimer = window.setTimeout(() => {
+          if (currentState === states.DRAGGING) {
+            setImage(assets.drag, assets.dragFallback)
+          }
+        }, animationDurations.dragTransition)
+        break
+      }
       setImage(assets.drag, assets.dragFallback)
       break
     case states.PREPARING:
@@ -178,11 +193,13 @@ function enterState(state: CatWindowState) {
 }
 
 function applyCatAppearance(pack: CatAppearanceResolvedPack) {
+  const customAssets = Object.fromEntries(
+    Object.entries(pack.assets || {}).filter(([, value]) => typeof value === 'string' && value)
+  ) as Partial<Record<CatAppearanceAssetKey, string>>
+
   assets = {
     ...defaultAssets,
-    ...Object.fromEntries(
-      Object.entries(pack.assets || {}).filter(([, value]) => typeof value === 'string' && value)
-    ),
+    ...customAssets,
   }
   animationDurations = {
     ...defaultAnimationDurations,
