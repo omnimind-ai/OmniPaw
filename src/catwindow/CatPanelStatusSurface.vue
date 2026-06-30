@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { CatPetAction } from '@shared/types/cat-pet'
-import { HandIcon, Loader2Icon, RefreshCwIcon, SparklesIcon } from 'lucide-vue-next'
+import { ArrowLeftIcon, HandIcon, Loader2Icon, RefreshCwIcon, SparklesIcon } from 'lucide-vue-next'
 import { storeToRefs } from 'pinia'
 import { computed, onBeforeUnmount, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
@@ -11,6 +11,10 @@ import { errorToText, useToast } from '@/utils/toast'
 
 defineProps<{
   sideLabel: string
+}>()
+
+const emit = defineEmits<{
+  showChat: []
 }>()
 
 const { t } = useI18n()
@@ -124,18 +128,21 @@ function dotClass(filled: boolean): string {
     :aria-label="t('catPet.surfaceLabel')"
   >
     <header class="flex shrink-0 items-center gap-2 border-b border-border/70 px-3 py-2">
-      <div class="min-w-0 flex-1">
-        <div class="flex min-w-0 items-center gap-2">
-          <p class="truncate text-sm font-semibold">{{ t('catPet.title') }}</p>
-          <Badge
-            :variant="moodBadgeVariant"
-            class="shrink-0"
-          >
-            {{ moodLabel }}
-          </Badge>
-        </div>
-        <p class="truncate text-xs text-muted-foreground">{{ t('catPet.subtitle') }}</p>
-      </div>
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        class="size-8 shrink-0"
+        :aria-label="t('catPet.back')"
+        @click="emit('showChat')"
+      >
+        <ArrowLeftIcon />
+      </Button>
+
+      <div
+        class="flex-1"
+        aria-hidden="true"
+      />
 
       <Badge
         variant="outline"
@@ -163,8 +170,16 @@ function dotClass(filled: boolean): string {
 
     <div class="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-4 py-4">
       <div class="space-y-2">
-        <div class="flex items-baseline justify-between gap-2">
-          <span class="text-xs font-medium text-muted-foreground">{{ t('catPet.affection') }}</span>
+        <div class="flex items-center justify-between gap-2">
+          <div class="flex min-w-0 items-center gap-2">
+            <span class="text-xs font-medium text-muted-foreground">{{ t('catPet.affection') }}</span>
+            <Badge
+              :variant="moodBadgeVariant"
+              class="shrink-0"
+            >
+              {{ moodLabel }}
+            </Badge>
+          </div>
           <span class="text-sm tabular-nums">
             <span class="font-semibold">{{ affection }}</span>
             <span class="text-muted-foreground"> / {{ affectionMax }}</span>

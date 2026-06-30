@@ -1634,9 +1634,9 @@ export default {
     },
   },
   catPet: {
-    title: 'Pet status',
-    subtitle: "Check on your cat's mood",
+    title: 'Status',
     surfaceLabel: 'Pet status panel',
+    back: 'Back to chat',
     affection: 'Affection',
     mood: {
       sad: 'Sad',
@@ -1681,10 +1681,6 @@ export default {
       alignmentLeft: 'Left',
       alignmentRight: 'Right',
       chatPanelLabel: 'Cat chat panel',
-      tabs: {
-        chat: 'Chat',
-        status: 'Status',
-      },
     },
     chat: {
       chatLabel: 'Cat chat',

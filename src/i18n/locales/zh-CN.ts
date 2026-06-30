@@ -1575,9 +1575,9 @@ export default {
     },
   },
   catPet: {
-    title: '桌宠状态',
-    subtitle: '看看猫咪今天的状态',
+    title: '状态',
     surfaceLabel: '桌宠状态面板',
+    back: '返回聊天',
     affection: '好感度',
     mood: {
       sad: '沮丧',
@@ -1622,10 +1622,6 @@ export default {
       alignmentLeft: '左侧',
       alignmentRight: '右侧',
       chatPanelLabel: '小猫聊天面板',
-      tabs: {
-        chat: '聊天',
-        status: '状态',
-      },
     },
     chat: {
       chatLabel: '小猫聊天',

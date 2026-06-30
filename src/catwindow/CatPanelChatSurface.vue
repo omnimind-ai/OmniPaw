@@ -5,6 +5,7 @@ import {
   ChevronDownIcon,
   Loader2Icon,
   MessageSquareIcon,
+  PawPrintIcon,
   PlusIcon,
   SettingsIcon,
 } from 'lucide-vue-next'
@@ -33,13 +34,16 @@ defineProps<{
   sideLabel: string
 }>()
 
+const emit = defineEmits<{
+  showStatus: []
+}>()
+
 const { t } = useI18n()
 
 const {
   sessions,
   currSessionId,
   currentSessionTitle,
-  currentSessionSubtitle,
   loadingSessions,
   initializing,
   creatingSession,
@@ -117,20 +121,21 @@ function sessionItemClass(sessionId: string) {
     :aria-label="t('catWindow.chat.chatLabel')"
   >
     <header class="flex shrink-0 items-center gap-2 border-b border-border/70 px-3 py-2">
-      <div class="min-w-0 flex-1">
-        <div class="flex min-w-0 items-center gap-2">
-          <p class="truncate text-sm font-semibold">{{ t('catWindow.chat.appName') }}</p>
-          <Badge
-            variant="secondary"
-            class="shrink-0"
-          >
-            {{ currentSessionSubtitle }}
-          </Badge>
-        </div>
-        <p class="truncate text-xs text-muted-foreground">
-          {{ currentSessionTitle }}
-        </p>
-      </div>
+      <Button
+        type="button"
+        variant="outline"
+        size="sm"
+        class="h-8 shrink-0 px-2"
+        @click="emit('showStatus')"
+      >
+        <PawPrintIcon data-icon="inline-start" />
+        {{ t('catPet.title') }}
+      </Button>
+
+      <div
+        class="flex-1"
+        aria-hidden="true"
+      />
 
       <Badge
         variant="outline"
