@@ -17,6 +17,13 @@ import { basename, dirname, extname, isAbsolute, join, relative, resolve, sep } 
 
 import type { Logger } from '@core/logging'
 import { resolveOmniPawDataPaths, resolveOmniPawDataRoot } from '@core/utils/data-paths'
+import {
+  isIgnoredZipEntry,
+  normalizeArchivePath,
+  readZipEntries,
+  validateArchivePaths,
+  type ZipArchiveEntry,
+} from '@core/utils/zip'
 import type {
   CatAppearanceAssetKey,
   CatAppearanceChangedEvent,
@@ -35,6 +42,9 @@ const MANIFEST_FILE_NAME = 'manifest.json'
 const CURRENT_STATE_VERSION = 1
 const MAX_MANIFEST_BYTES = 64 * 1024
 const MAX_ASSET_BYTES = 20 * 1024 * 1024
+const MAX_IMPORT_ARCHIVE_BYTES = 128 * 1024 * 1024
+const MAX_IMPORT_FILES = 256
+const MAX_IMPORT_TOTAL_BYTES = 256 * 1024 * 1024
 const WATCH_DEBOUNCE_MS = 180
 
 const assetKeys = new Set<CatAppearanceAssetKey>([
@@ -287,6 +297,39 @@ export class CatAppearanceManager {
     } catch (error) {
       rmSync(tempParentPath, { recursive: true, force: true })
       throw error
+    }
+  }
+
+  importFromArchive(sourcePath: string): CatAppearanceImportResponse {
+    this.ensureLoaded()
+    this.ensureDirectories()
+
+    const archivePath = normalizeImportSourcePath(sourcePath)
+    const archiveStat = statSync(archivePath)
+    if (!archiveStat.isFile()) {
+      throw new Error('Cat appearance import source must be a zip file.')
+    }
+    if (extname(archivePath).toLowerCase() !== '.zip') {
+      throw new Error('Cat appearance import supports .zip files.')
+    }
+    if (archiveStat.size > MAX_IMPORT_ARCHIVE_BYTES) {
+      throw new Error(`Cat appearance zip archive exceeds ${MAX_IMPORT_ARCHIVE_BYTES} bytes.`)
+    }
+
+    const tempParentPath = mkdtempSync(join(dirname(this.rootPath), '.cat-appearance-unpack-'))
+    const unpackRootPath = join(tempParentPath, 'archive')
+    mkdirSync(unpackRootPath, { recursive: true })
+
+    try {
+      const entries = readCatAppearanceZipEntries(readFileSync(archivePath))
+      writeArchiveEntries(unpackRootPath, entries)
+      const packPath = resolveArchivePackPath(
+        unpackRootPath,
+        entries.map((entry) => entry.name)
+      )
+      return this.importFromDirectory(packPath)
+    } finally {
+      rmSync(tempParentPath, { recursive: true, force: true })
     }
   }
 
@@ -802,6 +845,70 @@ function normalizeImportSourcePath(sourcePath: string): string {
     throw new Error('Cat appearance import source path is invalid.')
   }
   return resolve(sourcePath)
+}
+
+function readCatAppearanceZipEntries(bytes: Buffer): ZipArchiveEntry[] {
+  const entries = readZipEntries(bytes)
+    .filter((entry) => !isIgnoredCatAppearanceZipEntry(entry.name))
+    .map((entry) => ({ ...entry, name: normalizeArchivePath(entry.name) }))
+    .filter((entry) => entry.name && !entry.name.endsWith('/'))
+
+  if (!entries.length) {
+    throw new Error('Cat appearance zip archive is empty.')
+  }
+  if (entries.length > MAX_IMPORT_FILES) {
+    throw new Error(`Cat appearance zip archive contains more than ${MAX_IMPORT_FILES} files.`)
+  }
+  const totalBytes = entries.reduce((sum, entry) => sum + entry.data.byteLength, 0)
+  if (totalBytes > MAX_IMPORT_TOTAL_BYTES) {
+    throw new Error(`Cat appearance zip archive expands beyond ${MAX_IMPORT_TOTAL_BYTES} bytes.`)
+  }
+
+  validateArchivePaths(entries.map((entry) => entry.name))
+  return entries
+}
+
+function writeArchiveEntries(rootPath: string, entries: ZipArchiveEntry[]): void {
+  for (const entry of entries) {
+    const targetPath = resolve(rootPath, entry.name)
+    if (!isInsidePath(rootPath, targetPath)) {
+      throw new Error('Cat appearance zip archive contains invalid relative paths.')
+    }
+    mkdirSync(dirname(targetPath), { recursive: true })
+    writeFileSync(targetPath, entry.data)
+  }
+}
+
+function resolveArchivePackPath(rootPath: string, entryNames: string[]): string {
+  const rootManifestPath = join(rootPath, MANIFEST_FILE_NAME)
+  if (existsSync(rootManifestPath)) {
+    return rootPath
+  }
+
+  const topDirectories = new Set<string>()
+  for (const name of entryNames) {
+    const [topDirectory, ...rest] = name.split('/')
+    if (topDirectory && rest.length) {
+      topDirectories.add(topDirectory)
+    }
+  }
+
+  if (topDirectories.size === 1) {
+    const [topDirectory] = [...topDirectories]
+    const packPath = join(rootPath, topDirectory)
+    if (existsSync(join(packPath, MANIFEST_FILE_NAME))) {
+      return packPath
+    }
+  }
+
+  throw new Error(
+    'Cat appearance zip archive must contain manifest.json at the archive root or inside one top-level directory.'
+  )
+}
+
+function isIgnoredCatAppearanceZipEntry(name: string): boolean {
+  const normalized = normalizeArchivePath(name)
+  return isIgnoredZipEntry(normalized) || normalized.split('/').at(-1) === '.DS_Store'
 }
 
 function rewriteManifestId(packPath: string, packId: string): void {

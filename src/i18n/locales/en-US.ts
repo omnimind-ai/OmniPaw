@@ -162,7 +162,7 @@ export default {
     catAppearance: {
       title: 'Floating Appearance',
       description:
-        'Manage cat floating window appearance packs. Imported packs are copied locally and hot-reload when files change.',
+        'Manage cat floating window appearance packs. Imported zip packs are copied locally and hot-reload when files change.',
       searchLabel: 'Search appearance packs',
       searchPlaceholder: 'Search name, description, or status',
       clearSearchLabel: 'Clear appearance search',
@@ -172,7 +172,8 @@ export default {
       importButton: 'Import Pack',
       importing: 'Importing',
       emptyTitle: 'No appearance packs',
-      emptyHint: 'The built-in appearance is always available. Imported local packs appear here.',
+      emptyHint:
+        'The built-in appearance is always available. Imported local zip packs appear here.',
       noMatch: 'No matching appearance packs',
       noMatchHint: 'Try a different keyword, or clear search to view all packs.',
       clearSearch: 'Clear search',

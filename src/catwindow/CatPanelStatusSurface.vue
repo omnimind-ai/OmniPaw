@@ -279,9 +279,9 @@ function dotClass(filled: boolean): string {
             <HandIcon class="size-4" />
             {{ t('catPet.action.pat') }}
           </span>
-          <span class="text-xs text-muted-foreground">
+          <!-- <span class="text-xs text-muted-foreground">
             {{ t('catPet.action.remaining', { count: remainingPat }) }}
-          </span>
+          </span> -->
         </Button>
         <Button
           type="button"
@@ -295,9 +295,9 @@ function dotClass(filled: boolean): string {
             <SparklesIcon class="size-4" />
             {{ t('catPet.action.tease') }}
           </span>
-          <span class="text-xs text-muted-foreground">
+          <!-- <span class="text-xs text-muted-foreground">
             {{ t('catPet.action.remaining', { count: remainingTease }) }}
-          </span>
+          </span> -->
         </Button>
       </div>
 

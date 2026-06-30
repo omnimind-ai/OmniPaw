@@ -38,7 +38,7 @@ export function registerCatAppearanceIpcHandlers(options: IpcHandlerOptions): vo
           canceled: true,
         }
       }
-      return options.runtime.catAppearanceManager.importFromDirectory(result.filePaths[0])
+      return options.runtime.catAppearanceManager.importFromArchive(result.filePaths[0])
     }
   )
   registerLoggedIpcHandler(
@@ -51,8 +51,9 @@ export function registerCatAppearanceIpcHandlers(options: IpcHandlerOptions): vo
 
 function catAppearancePackDialogOptions(): Electron.OpenDialogOptions {
   return {
-    title: '选择小猫悬浮窗形象包目录',
+    title: '选择小猫悬浮窗形象包压缩包',
     buttonLabel: '导入',
-    properties: ['openDirectory'],
+    filters: [{ name: '小猫悬浮窗形象包', extensions: ['zip'] }],
+    properties: ['openFile'],
   }
 }

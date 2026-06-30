@@ -1,8 +1,14 @@
 import { createHash } from 'node:crypto'
 import { existsSync, mkdirSync, renameSync, rmSync, writeFileSync } from 'node:fs'
 import { basename, dirname, extname, join, resolve } from 'node:path'
-import { inflateRawSync } from 'node:zlib'
 
+import {
+  isIgnoredZipEntry,
+  normalizeArchivePath,
+  readZipEntries,
+  validateArchivePaths,
+  type ZipArchiveEntry,
+} from '@core/utils/zip'
 import type { ImportSkillRequest } from '@shared/types/skill'
 import { isPathInside } from './loader'
 import {
@@ -18,14 +24,9 @@ export interface SkillImportResult {
   installedIds: string[]
 }
 
-interface ArchiveEntry {
-  name: string
-  data: Buffer
-}
-
 interface SkillPackageCandidate {
   name: string
-  files: ArchiveEntry[]
+  files: ZipArchiveEntry[]
 }
 
 export function importSkillPackage(
@@ -98,7 +99,8 @@ function importZipSkill(input: {
     throwImportError(`Zip archive exceeds ${MAX_SKILL_IMPORT_ARCHIVE_BYTES} bytes.`)
   }
 
-  const entries = readZipEntries(input.bytes)
+  const zipErrorOptions = { throwError: throwImportError }
+  const entries = readZipEntries(input.bytes, zipErrorOptions)
     .filter((entry) => !isIgnoredZipEntry(entry.name))
     .map((entry) => ({ ...entry, name: normalizeArchivePath(entry.name) }))
     .filter((entry) => entry.name && !entry.name.endsWith('/'))
@@ -114,7 +116,10 @@ function importZipSkill(input: {
     throwImportError(`Zip archive expands beyond ${MAX_SKILL_IMPORT_TOTAL_BYTES} bytes.`)
   }
 
-  validateArchivePaths(entries.map((entry) => entry.name))
+  validateArchivePaths(
+    entries.map((entry) => entry.name),
+    zipErrorOptions
+  )
 
   const candidates = findSkillCandidates(entries, input.fileName, input.skillNameHint)
   if (!candidates.length) {
@@ -162,7 +167,7 @@ function importZipSkill(input: {
 }
 
 function findSkillCandidates(
-  entries: ArchiveEntry[],
+  entries: ZipArchiveEntry[],
   fileName: string,
   skillNameHint?: string
 ): SkillPackageCandidate[] {
@@ -181,7 +186,7 @@ function findSkillCandidates(
     ]
   }
 
-  const byTopDir = new Map<string, ArchiveEntry[]>()
+  const byTopDir = new Map<string, ZipArchiveEntry[]>()
   for (const entry of entries) {
     const [topDir, ...rest] = entry.name.split('/')
     if (!topDir || !rest.length) {
@@ -207,101 +212,6 @@ function findSkillCandidates(
     })
   }
   return candidates
-}
-
-function readZipEntries(bytes: Buffer): ArchiveEntry[] {
-  const eocdOffset = findEndOfCentralDirectory(bytes)
-  if (eocdOffset < 0) {
-    throwImportError('Uploaded file is not a valid zip archive.')
-  }
-
-  const entryCount = bytes.readUInt16LE(eocdOffset + 10)
-  const centralDirectorySize = bytes.readUInt32LE(eocdOffset + 12)
-  const centralDirectoryOffset = bytes.readUInt32LE(eocdOffset + 16)
-  if (centralDirectoryOffset + centralDirectorySize > bytes.byteLength) {
-    throwImportError('Zip archive central directory is invalid.')
-  }
-
-  const entries: ArchiveEntry[] = []
-  let offset = centralDirectoryOffset
-  for (let index = 0; index < entryCount; index += 1) {
-    if (bytes.readUInt32LE(offset) !== 0x02014b50) {
-      throwImportError('Zip archive central directory is invalid.')
-    }
-    const method = bytes.readUInt16LE(offset + 10)
-    const compressedSize = bytes.readUInt32LE(offset + 20)
-    const uncompressedSize = bytes.readUInt32LE(offset + 24)
-    const fileNameLength = bytes.readUInt16LE(offset + 28)
-    const extraLength = bytes.readUInt16LE(offset + 30)
-    const commentLength = bytes.readUInt16LE(offset + 32)
-    const localHeaderOffset = bytes.readUInt32LE(offset + 42)
-    const name = bytes.subarray(offset + 46, offset + 46 + fileNameLength).toString('utf8')
-    offset += 46 + fileNameLength + extraLength + commentLength
-
-    if (name.endsWith('/')) {
-      continue
-    }
-    const data = readLocalZipEntry(bytes, {
-      method,
-      compressedSize,
-      uncompressedSize,
-      localHeaderOffset,
-    })
-    entries.push({ name, data })
-  }
-  return entries
-}
-
-function readLocalZipEntry(
-  bytes: Buffer,
-  entry: {
-    method: number
-    compressedSize: number
-    uncompressedSize: number
-    localHeaderOffset: number
-  }
-): Buffer {
-  const offset = entry.localHeaderOffset
-  if (bytes.readUInt32LE(offset) !== 0x04034b50) {
-    throwImportError('Zip archive local header is invalid.')
-  }
-  const fileNameLength = bytes.readUInt16LE(offset + 26)
-  const extraLength = bytes.readUInt16LE(offset + 28)
-  const dataOffset = offset + 30 + fileNameLength + extraLength
-  const compressed = bytes.subarray(dataOffset, dataOffset + entry.compressedSize)
-  let data: Buffer
-  if (entry.method === 0) {
-    data = Buffer.from(compressed)
-  } else if (entry.method === 8) {
-    data = inflateRawSync(compressed)
-  } else {
-    throwImportError(`Zip compression method ${entry.method} is not supported.`)
-  }
-  if (data.byteLength !== entry.uncompressedSize) {
-    throwImportError('Zip archive entry size is invalid.')
-  }
-  return data
-}
-
-function findEndOfCentralDirectory(bytes: Buffer): number {
-  const minOffset = Math.max(0, bytes.byteLength - 65_557)
-  for (let offset = bytes.byteLength - 22; offset >= minOffset; offset -= 1) {
-    if (bytes.readUInt32LE(offset) === 0x06054b50) {
-      return offset
-    }
-  }
-  return -1
-}
-
-function validateArchivePaths(names: string[]): void {
-  for (const name of names) {
-    if (!name || name.startsWith('/') || /^[A-Za-z]:/.test(name)) {
-      throwImportError('Zip archive contains absolute paths.')
-    }
-    if (name.split('/').includes('..')) {
-      throwImportError('Zip archive contains invalid relative paths.')
-    }
-  }
 }
 
 function ensureDestination(skillsRoot: string, destDir: string, overwrite: boolean): void {
@@ -341,15 +251,6 @@ function resolveSkillId(value: string): string {
     throwImportError('Invalid skill name.')
   }
   return id
-}
-
-function normalizeArchivePath(name: string): string {
-  return name.replace(/\\/g, '/').replace(/^\.\/+/, '')
-}
-
-function isIgnoredZipEntry(name: string): boolean {
-  const normalized = normalizeArchivePath(name)
-  return normalized.split('/')[0] === '__MACOSX'
 }
 
 function isSkillMarkdownName(name: string): boolean {

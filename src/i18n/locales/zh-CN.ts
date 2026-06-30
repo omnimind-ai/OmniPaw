@@ -159,7 +159,7 @@ export default {
     },
     catAppearance: {
       title: '悬浮窗形象',
-      description: '管理小猫悬浮窗形象包。导入后会复制到本地资源目录，并支持文件改动热重载。',
+      description: '管理小猫悬浮窗形象包。导入 zip 后会复制到本地资源目录，并支持文件改动热重载。',
       searchLabel: '搜索形象包',
       searchPlaceholder: '搜索名称、描述或状态',
       clearSearchLabel: '清除形象包搜索',
@@ -169,7 +169,7 @@ export default {
       importButton: '导入形象包',
       importing: '导入中',
       emptyTitle: '暂无形象包',
-      emptyHint: '内置形象会始终可用；导入本地包后会显示在这里。',
+      emptyHint: '内置形象会始终可用；导入本地 zip 包后会显示在这里。',
       noMatch: '没有匹配的形象包',
       noMatchHint: '换一个关键词，或清空搜索后查看全部形象包。',
       clearSearch: '清空搜索',
