@@ -64,7 +64,7 @@ const allowedWindowStates = new Set<CatWindowState>([
 
 const catWindowSize = {
   width: 86,
-  height: 86,
+  height: 116,
 }
 
 const catEdgeOverflow = 16

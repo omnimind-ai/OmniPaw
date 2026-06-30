@@ -36,7 +36,7 @@ button {
   position: relative;
   display: grid;
   width: 86px;
-  height: 86px;
+  height: 116px;
   place-items: end center;
   padding: 0;
 }
@@ -45,9 +45,9 @@ button {
   position: relative;
   display: grid;
   width: 86px;
-  height: 86px;
+  height: 116px;
   padding: 0;
-  place-items: center;
+  place-items: end center;
   background: transparent;
   cursor: grab;
   -webkit-app-region: no-drag;
@@ -65,8 +65,9 @@ button {
 .cat-stage img {
   display: block;
   width: 76px;
-  height: 76px;
-  object-fit: contain;
+  height: auto;
+  max-width: none;
+  max-height: none;
   pointer-events: none;
   transform-origin: center;
 }
