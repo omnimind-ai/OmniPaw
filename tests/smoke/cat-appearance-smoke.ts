@@ -60,6 +60,12 @@ try {
   assert.equal(existsSync(join(tempDir, 'cat-appearances', 'zip-cat-2', 'manifest.json')), true)
   assert.equal(manager.resolveAsset('zip-cat-2', 'idle')?.mimeType, 'image/webp')
 
+  const deleteResult = manager.deletePack({ packId: 'zip-cat-2', rootName: 'zip-cat-2' })
+  assert.equal(deleteResult.deletedPackId, 'zip-cat-2')
+  assert.equal(deleteResult.activePackId, 'builtin')
+  assert.equal(existsSync(join(tempDir, 'cat-appearances', 'zip-cat-2')), false)
+  assert.throws(() => manager.deletePack('builtin'), /cannot be deleted/i)
+
   const escapeZipPath = join(tempDir, 'escape.zip')
   writeFileSync(
     escapeZipPath,

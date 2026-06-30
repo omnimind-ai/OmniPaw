@@ -24,6 +24,8 @@ import type {
 } from './cat'
 import type {
   CatAppearanceChangedEvent,
+  CatAppearanceDeletePackRequest,
+  CatAppearanceDeleteResponse,
   CatAppearanceGetPackRequest,
   CatAppearanceImportResponse,
   CatAppearanceListResponse,
@@ -436,6 +438,9 @@ export interface OmniPawBridge {
     list: () => Promise<CatAppearanceListResponse>
     refresh: () => Promise<CatAppearanceListResponse>
     importPack: () => Promise<CatAppearanceImportResponse>
+    deletePack: (
+      request: CatAppearanceDeletePackRequest | string
+    ) => Promise<CatAppearanceDeleteResponse>
     setActive: (
       request: CatAppearanceSetActiveRequest | string
     ) => Promise<CatAppearanceResolvedPack>

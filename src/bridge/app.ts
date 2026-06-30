@@ -24,6 +24,8 @@ import type {
 } from '@shared/types/cat'
 import type {
   CatAppearanceChangedEvent,
+  CatAppearanceDeletePackRequest,
+  CatAppearanceDeleteResponse,
   CatAppearanceGetPackRequest,
   CatAppearanceImportResponse,
   CatAppearanceListResponse,
@@ -972,6 +974,9 @@ export interface RendererOmniPawBridge {
     list: () => Promise<CatAppearanceListResponse>
     refresh: () => Promise<CatAppearanceListResponse>
     importPack: () => Promise<CatAppearanceImportResponse>
+    deletePack: (
+      request: CatAppearanceDeletePackRequest | string
+    ) => Promise<CatAppearanceDeleteResponse>
     setActive: (
       request: CatAppearanceSetActiveRequest | string
     ) => Promise<CatAppearanceResolvedPack>
@@ -1699,6 +1704,8 @@ const fallbackBridge: RendererOmniPawBridge = {
     refresh: async () => fallbackCatAppearanceList(),
     importPack: () =>
       rejectFallbackPersistence<CatAppearanceImportResponse>('catAppearance.importPack'),
+    deletePack: () =>
+      rejectFallbackPersistence<CatAppearanceDeleteResponse>('catAppearance.deletePack'),
     setActive: async () => fallbackCatAppearance(),
     onChanged: () => () => {},
   },

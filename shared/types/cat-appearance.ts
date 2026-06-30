@@ -15,7 +15,13 @@ export type CatAppearanceAssetKey =
 
 export type CatAppearancePackSource = 'builtin' | 'local'
 export type CatAppearancePackStatus = 'available' | 'invalid' | 'missing'
-export type CatAppearanceChangeReason = 'load' | 'refresh' | 'select' | 'watch' | 'import'
+export type CatAppearanceChangeReason =
+  | 'load'
+  | 'refresh'
+  | 'select'
+  | 'watch'
+  | 'import'
+  | 'delete'
 
 export interface CatAppearanceDurations {
   appearing: number
@@ -64,7 +70,16 @@ export interface CatAppearanceGetPackRequest {
   packId?: string
 }
 
+export interface CatAppearanceDeletePackRequest {
+  packId?: string
+  rootName?: string
+}
+
 export interface CatAppearanceImportResponse extends CatAppearanceListResponse {
   canceled: boolean
   importedPackId?: string
+}
+
+export interface CatAppearanceDeleteResponse extends CatAppearanceListResponse {
+  deletedPackId: string
 }

@@ -28,6 +28,8 @@ import type {
   CatAppearanceAssetKey,
   CatAppearanceChangedEvent,
   CatAppearanceChangeReason,
+  CatAppearanceDeletePackRequest,
+  CatAppearanceDeleteResponse,
   CatAppearanceDurations,
   CatAppearanceGetPackRequest,
   CatAppearanceImportResponse,
@@ -216,6 +218,67 @@ export class CatAppearanceManager {
     const current = this.activatePack(packId, 'select')
     this.logger?.info('Cat appearance active pack changed.', { activePackId: current.id })
     return current
+  }
+
+  deletePack(request: CatAppearanceDeletePackRequest | string): CatAppearanceDeleteResponse {
+    this.ensureLoaded()
+    this.ensureDirectories()
+
+    const requestedId = normalizePackId(typeof request === 'string' ? request : request.packId)
+    if (!requestedId || requestedId === BUILTIN_PACK_ID) {
+      throw new Error('Built-in cat appearance pack cannot be deleted.')
+    }
+
+    const requestedRootName =
+      typeof request === 'string' ? undefined : normalizeRootName(request.rootName)
+    const matches = this.packs.filter(
+      (pack) =>
+        pack.id === requestedId && (!requestedRootName || pack.rootName === requestedRootName)
+    )
+    if (!matches.length) {
+      throw new Error(`Cat appearance pack is not found: ${requestedId}`)
+    }
+    if (matches.length > 1 && !requestedRootName) {
+      throw new Error(`Cat appearance pack delete target is ambiguous: ${requestedId}`)
+    }
+
+    const pack = matches[0]
+    const targetPath = resolve(pack.path)
+    if (!isInsidePath(this.rootPath, targetPath) || targetPath === resolve(this.rootPath)) {
+      throw new Error('Cat appearance delete target is invalid.')
+    }
+
+    const targetStat = lstatSync(targetPath)
+    if (!targetStat.isDirectory()) {
+      throw new Error('Cat appearance delete target must be a directory.')
+    }
+
+    const wasActive = this.resolveActivePackId() === pack.id
+    rmSync(targetPath, { recursive: true })
+
+    if (wasActive) {
+      this.state = {
+        version: CURRENT_STATE_VERSION,
+        activePackId: BUILTIN_PACK_ID,
+      }
+      this.saveState(this.state)
+      this.hasExplicitState = true
+    }
+
+    this.packs = this.scanPacks()
+    this.loaded = true
+    this.lastUpdatedAt = Date.now()
+    const response = this.list()
+    this.emitChanged('delete')
+    this.logger?.info('Cat appearance pack deleted.', {
+      packId: pack.id,
+      rootName: pack.rootName,
+      activePackId: response.activePackId,
+    })
+    return {
+      ...response,
+      deletedPackId: pack.id,
+    }
   }
 
   importFromDirectory(sourcePath: string): CatAppearanceImportResponse {
@@ -845,6 +908,13 @@ function normalizeImportSourcePath(sourcePath: string): string {
     throw new Error('Cat appearance import source path is invalid.')
   }
   return resolve(sourcePath)
+}
+
+function normalizeRootName(value: unknown): string | undefined {
+  if (typeof value !== 'string' || !value.trim() || value.includes('\0')) {
+    return undefined
+  }
+  return value.trim()
 }
 
 function readCatAppearanceZipEntries(bytes: Buffer): ZipArchiveEntry[] {

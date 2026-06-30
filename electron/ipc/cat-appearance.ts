@@ -1,5 +1,6 @@
 import { IPC_CHANNELS } from '@shared/constants'
 import type {
+  CatAppearanceDeletePackRequest,
   CatAppearanceGetPackRequest,
   CatAppearanceImportResponse,
   CatAppearanceSetActiveRequest,
@@ -46,6 +47,12 @@ export function registerCatAppearanceIpcHandlers(options: IpcHandlerOptions): vo
     IPC_CHANNELS.catAppearance.setActive,
     (_event, request: CatAppearanceSetActiveRequest | string) =>
       options.runtime.catAppearanceManager.setActive(request)
+  )
+  registerLoggedIpcHandler(
+    options,
+    IPC_CHANNELS.catAppearance.deletePack,
+    (_event, request: CatAppearanceDeletePackRequest | string) =>
+      options.runtime.catAppearanceManager.deletePack(request)
   )
 }
 

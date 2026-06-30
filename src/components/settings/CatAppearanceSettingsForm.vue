@@ -14,6 +14,7 @@ import {
   PackagePlusIcon,
   RefreshCwIcon,
   SearchIcon,
+  Trash2Icon,
   XIcon,
 } from 'lucide-vue-next'
 import { computed, onBeforeUnmount, onMounted, ref, shallowRef } from 'vue'
@@ -24,6 +25,7 @@ import {
   ensureElectronBridge,
   isFallbackBridge,
 } from '@/bridge/app'
+import CatAppearanceDeleteModal from '@/components/settings/cat-appearance-settings/CatAppearanceDeleteModal.vue'
 import CatAppearanceDetailModal from '@/components/settings/cat-appearance-settings/CatAppearanceDetailModal.vue'
 import SettingsPanelHeader from '@/components/settings/common/SettingsPanelHeader.vue'
 import SettingsPanelItem from '@/components/settings/common/SettingsPanelItem.vue'
@@ -46,6 +48,9 @@ const loading = ref(false)
 const refreshing = ref(false)
 const importing = ref(false)
 const selectingPackId = ref<string>()
+const deletingPackId = ref<string>()
+const deleteOpen = ref(false)
+const deleteTarget = shallowRef<CatAppearancePackSummary>()
 const detailOpen = ref(false)
 const detailLoading = ref(false)
 const detailError = ref<string>()
@@ -232,6 +237,58 @@ function selectButtonLabel(pack: CatAppearancePackSummary): string {
     ? t('settings.catAppearance.selecting')
     : t('settings.catAppearance.selectButton')
 }
+
+function deleteButtonLabel(pack: CatAppearancePackSummary): string {
+  return deletingPackId.value === pack.id
+    ? t('settings.catAppearance.deleting')
+    : t('settings.catAppearance.deleteButton')
+}
+
+function openDeletePack(pack: CatAppearancePackSummary): void {
+  if (pack.source !== 'local') {
+    return
+  }
+  deleteTarget.value = pack
+  deleteOpen.value = true
+}
+
+async function confirmDeletePack(): Promise<void> {
+  const pack = deleteTarget.value
+  if (!pack || pack.source !== 'local') {
+    return
+  }
+
+  try {
+    ensureElectronBridge(t('settings.catAppearance.deleteButton'))
+  } catch (error) {
+    toast.error(errorToText(error, t('settings.catAppearance.bridgeNotReady')))
+    return
+  }
+
+  deletingPackId.value = pack.id
+  try {
+    const result = await appBridge.catAppearance.deletePack({
+      packId: pack.id,
+      rootName: pack.rootName,
+    })
+    response.value = result
+    deleteOpen.value = false
+    deleteTarget.value = undefined
+    if (detailSummary.value?.id === pack.id) {
+      detailOpen.value = false
+      detailSummary.value = undefined
+      detailPack.value = undefined
+      detailError.value = undefined
+    }
+    toast.success(t('settings.catAppearance.toasts.deleted'), {
+      description: pack.name,
+    })
+  } catch (error) {
+    toast.error(errorToText(error, t('settings.catAppearance.toasts.deleteFailed')))
+  } finally {
+    deletingPackId.value = undefined
+  }
+}
 </script>
 
 <template>
@@ -373,6 +430,17 @@ function selectButtonLabel(pack: CatAppearancePackSummary): string {
                   {{ t('settings.catAppearance.detailButton') }}
                 </Button>
                 <Button
+                  v-if="pack.source === 'local'"
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  :disabled="deletingPackId === pack.id"
+                  @click="openDeletePack(pack)"
+                >
+                  <Trash2Icon data-icon="inline-start" />
+                  {{ deleteButtonLabel(pack) }}
+                </Button>
+                <Button
                   v-if="pack.status !== 'available'"
                   type="button"
                   variant="outline"
@@ -416,6 +484,13 @@ function selectButtonLabel(pack: CatAppearancePackSummary): string {
       :detail="detailPack"
       :loading="detailLoading"
       :error="detailError"
+    />
+
+    <CatAppearanceDeleteModal
+      v-model:open="deleteOpen"
+      :pack="deleteTarget"
+      :pending="Boolean(deletingPackId)"
+      @delete="confirmDeletePack"
     />
   </div>
 </template>
