@@ -1637,6 +1637,7 @@ export default {
     title: 'Status',
     surfaceLabel: 'Pet status panel',
     back: 'Back to chat',
+    tagline: 'Your best desktop sidekick, nyaa',
     affection: 'Affection',
     mood: {
       sad: 'Sad',

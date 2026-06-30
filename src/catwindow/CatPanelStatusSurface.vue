@@ -2,8 +2,10 @@
 import type { CatPetAction } from '@shared/types/cat-pet'
 import { ArrowLeftIcon, HandIcon, Loader2Icon, RefreshCwIcon, SparklesIcon } from 'lucide-vue-next'
 import { storeToRefs } from 'pinia'
-import { computed, onBeforeUnmount, onMounted } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
+import fallbackIdleImage from '@/asserts/cat/ic_cat_normal.png'
+import { appBridge, type BridgeUnsubscribe } from '@/bridge/app'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { useCatPetStore } from '@/stores/cat-pet'
@@ -36,15 +38,32 @@ const {
   performing,
 } = storeToRefs(store)
 
+const idleImage = ref<string>(fallbackIdleImage)
+let appearanceUnsubscribe: BridgeUnsubscribe | undefined
+
+function applyIdleAsset(url: string | undefined): void {
+  idleImage.value = url && url.trim() ? url : fallbackIdleImage
+}
+
 onMounted(async () => {
   try {
     await store.load()
   } catch (err) {
     toast.error(errorToText(err, t('catPet.errors.loadFailed')))
   }
+  try {
+    const pack = await appBridge.catAppearance.current()
+    applyIdleAsset(pack.assets?.idle)
+  } catch {
+    applyIdleAsset(undefined)
+  }
+  appearanceUnsubscribe = appBridge.catAppearance.onChanged((event) => {
+    applyIdleAsset(event.current?.assets?.idle)
+  })
 })
 
 onBeforeUnmount(() => {
+  appearanceUnsubscribe?.()
   store.dispose()
 })
 
@@ -168,7 +187,17 @@ function dotClass(filled: boolean): string {
       </Button>
     </header>
 
-    <div class="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-4 py-4">
+    <div class="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-4 py-3">
+      <div class="flex flex-col items-center gap-1">
+        <img
+          :src="idleImage"
+          :alt="t('catPet.title')"
+          class="h-36 w-32 select-none object-contain drop-shadow-sm"
+          draggable="false"
+        />
+        <p class="text-center text-xs text-muted-foreground/80">{{ t('catPet.tagline') }}</p>
+      </div>
+
       <div class="space-y-2">
         <div class="flex items-center justify-between gap-2">
           <div class="flex min-w-0 items-center gap-2">

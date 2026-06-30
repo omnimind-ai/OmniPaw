@@ -1578,6 +1578,7 @@ export default {
     title: '状态',
     surfaceLabel: '桌宠状态面板',
     back: '返回聊天',
+    tagline: '你最好的桌面助手喵',
     affection: '好感度',
     mood: {
       sad: '沮丧',
