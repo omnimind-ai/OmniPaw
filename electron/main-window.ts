@@ -127,31 +127,14 @@ export function createMainWindowController(
     mainWindow.webContents.setZoomFactor(normalizeZoomFactor(factor))
   }
 
-  function applyBackgroundSettings(settings?: DesktopAppBackgroundSettings): void {
+  function applyBackgroundSettings(_settings?: DesktopAppBackgroundSettings): void {
     if (!mainWindow || mainWindow.isDestroyed()) {
       return
     }
 
-    const aspectRatio = normalizeAspectRatio(settings?.image?.aspectRatio)
-    if (!settings?.enabled || !aspectRatio) {
-      mainWindow.setAspectRatio(0)
-      mainWindow.setMaximizable(true)
-      mainWindow.setFullScreenable(true)
-      sendWindowState(mainWindow)
-      return
-    }
-
-    if (mainWindow.isMaximized()) {
-      mainWindow.unmaximize()
-    }
-    if (mainWindow.isFullScreen()) {
-      mainWindow.setFullScreen(false)
-    }
-
-    mainWindow.setMaximizable(false)
-    mainWindow.setFullScreenable(false)
-    mainWindow.setAspectRatio(aspectRatio)
-    fitWindowToAspectRatio(mainWindow, aspectRatio)
+    mainWindow.setAspectRatio(0)
+    mainWindow.setMaximizable(true)
+    mainWindow.setFullScreenable(true)
     sendWindowState(mainWindow)
   }
 
@@ -210,28 +193,6 @@ export function createMainWindowController(
 
 function normalizeZoomFactor(value: number): number {
   return Number.isFinite(value) && value > 0 ? value : 1
-}
-
-function normalizeAspectRatio(value: unknown): number | undefined {
-  return typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : undefined
-}
-
-function fitWindowToAspectRatio(window: BrowserWindow, aspectRatio: number): void {
-  const [minWidth, minHeight] = window.getMinimumSize()
-  const [currentWidth, currentHeight] = window.getSize()
-  const currentRatio = currentWidth / currentHeight
-  if (Math.abs(currentRatio - aspectRatio) < 0.01) {
-    return
-  }
-
-  let width = Math.max(currentWidth, minWidth)
-  let height = Math.round(width / aspectRatio)
-  if (height < minHeight) {
-    height = minHeight
-    width = Math.round(height * aspectRatio)
-  }
-
-  window.setSize(width, height, true)
 }
 
 function attachWindowDiagnostics(window: BrowserWindow, windowName: string, logger: Logger): void {

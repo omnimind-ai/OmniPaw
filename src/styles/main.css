@@ -192,8 +192,9 @@ p {
 
 [data-app-shell][data-custom-background="true"] [data-sidebar="sidebar"],
 [data-app-shell][data-custom-background="true"] [data-slot="sidebar"],
+[data-app-shell][data-custom-background="true"] [data-slot="sidebar-container"],
 [data-app-shell][data-custom-background="true"] [data-slot="sidebar-inner"] {
-  background-color: var(--app-glass-sidebar);
+  background-color: var(--app-glass-sidebar) !important;
   border-color: var(--app-glass-border);
   backdrop-filter: blur(18px) saturate(1.08);
   -webkit-backdrop-filter: blur(18px) saturate(1.08);
