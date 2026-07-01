@@ -204,7 +204,6 @@ export interface BridgeDesktopBackgroundImage {
 export interface BridgeDesktopBackgroundSettings {
   enabled: boolean
   opacity: number
-  surfaceOpacity: number
   image?: BridgeDesktopBackgroundImage
 }
 
@@ -243,7 +242,6 @@ export interface BridgeDesktopSettingsConfig {
     initialized: boolean
     minimizeToTrayOnStartup: boolean
     showReasoningContent: boolean
-    welcomeTitle: string
     zoom: {
       factor: number
       min: number
@@ -2315,7 +2313,6 @@ function fallbackSettingsConfig(): BridgeDesktopSettingsConfig {
       initialized: false,
       minimizeToTrayOnStartup: false,
       showReasoningContent: true,
-      welcomeTitle: '',
       zoom: {
         factor: 1,
         min: 0.75,
@@ -2340,7 +2337,6 @@ function fallbackSettingsConfig(): BridgeDesktopSettingsConfig {
       background: {
         enabled: false,
         opacity: 0.35,
-        surfaceOpacity: 0.68,
         image: undefined,
       },
       compactSkillDescriptions: true,

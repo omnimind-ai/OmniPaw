@@ -61,7 +61,6 @@ export const defaultConfig: DesktopSettingsConfig = {
     initialized: false,
     minimizeToTrayOnStartup: false,
     showReasoningContent: true,
-    welcomeTitle: '',
     zoom: {
       factor: 1,
       min: 0.75,
@@ -99,7 +98,6 @@ export const defaultConfig: DesktopSettingsConfig = {
     background: {
       enabled: false,
       opacity: 0.35,
-      surfaceOpacity: 0.68,
       image: undefined,
     },
     compactSkillDescriptions: true,
@@ -373,10 +371,6 @@ function normalizeObject(defaultValue: unknown, rawValue: unknown, path: string)
     return normalizeBackgroundSettings(rawValue)
   }
 
-  if (path === 'app.welcomeTitle') {
-    return normalizeWelcomeTitle(rawValue)
-  }
-
   if (path === 'app.shortcuts') {
     return normalizeShortcutSettings(rawValue)
   }
@@ -574,13 +568,6 @@ function validateApp(config: DesktopSettingsConfig, issues: SettingsValidationIs
       code: 'invalid_type',
     })
   }
-  if (typeof config.app.welcomeTitle !== 'string' || config.app.welcomeTitle.length > 120) {
-    issues.push({
-      path: 'app.welcomeTitle',
-      message: 'Welcome title must be a string up to 120 characters.',
-      code: 'invalid_type',
-    })
-  }
   if (
     !isFiniteNumber(config.app.zoom.factor) ||
     config.app.zoom.factor < config.app.zoom.min ||
@@ -630,17 +617,6 @@ function validateBackground(
     issues.push({
       path: 'app.background.opacity',
       message: 'Background opacity must be between 0 and 1.',
-      code: 'out_of_range',
-    })
-  }
-  if (
-    !isFiniteNumber(settings.surfaceOpacity) ||
-    settings.surfaceOpacity < 0 ||
-    settings.surfaceOpacity > 1
-  ) {
-    issues.push({
-      path: 'app.background.surfaceOpacity',
-      message: 'Background surface opacity must be between 0 and 1.',
       code: 'out_of_range',
     })
   }
@@ -1830,19 +1806,8 @@ function normalizeBackgroundSettings(
   return {
     enabled: rawValue.enabled === true && Boolean(image),
     opacity: normalizeOpacity(rawValue.opacity, defaults.opacity),
-    surfaceOpacity: normalizeOpacity(rawValue.surfaceOpacity, defaults.surfaceOpacity),
     image,
   }
-}
-
-function normalizeWelcomeTitle(value: unknown): string {
-  if (value === undefined || value === null) {
-    return defaultConfig.app.welcomeTitle
-  }
-  if (typeof value !== 'string') {
-    return defaultConfig.app.welcomeTitle
-  }
-  return value.replace(/\s+/g, ' ').trim().slice(0, 120)
 }
 
 function normalizeBackgroundImage(value: unknown): DesktopAppBackgroundImage | undefined {

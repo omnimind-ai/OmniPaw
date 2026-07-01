@@ -62,7 +62,6 @@ function handleWindowAction(action: WindowAction): void {
 
 <template>
   <header
-    data-app-glass-surface
     class="relative z-[60] flex h-(--app-topbar-height) shrink-0 items-center overflow-hidden border-b border-border bg-background/90 text-foreground backdrop-blur-xl"
     style="-webkit-app-region: drag"
   >

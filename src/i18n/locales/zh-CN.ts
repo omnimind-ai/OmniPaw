@@ -55,11 +55,6 @@ export default {
         title: '缩放比例',
         description: '当前范围 {min} - {max}。',
       },
-      welcomeTitle: {
-        title: '首页欢迎语',
-        description: '自定义空对话首页的大标题；留空时使用默认欢迎语。',
-        reset: '恢复默认欢迎语',
-      },
       minimizeToTray: {
         title: '关闭到托盘',
         description: '关闭主窗口后保持后台可用；最小化仍保留在任务栏。',
@@ -88,10 +83,6 @@ export default {
         opacity: {
           title: '背景透明度',
           description: '调节图片覆盖在界面底层的可见程度，避免内容被干扰。',
-        },
-        surfaceOpacity: {
-          title: '界面透明度',
-          description: '统一调节侧边栏、顶部栏和卡片底色强度；数值越低，背景越明显。',
         },
       },
       chat: {

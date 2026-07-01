@@ -1,11 +1,5 @@
 <script setup lang="ts">
-import {
-  ImageIcon,
-  MessagesSquareIcon,
-  RotateCcwIcon,
-  SlidersHorizontalIcon,
-  Trash2Icon,
-} from 'lucide-vue-next'
+import { ImageIcon, MessagesSquareIcon, SlidersHorizontalIcon, Trash2Icon } from 'lucide-vue-next'
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type {
@@ -70,13 +64,6 @@ const showReasoningContent = computed({
   get: () => props.draft.app.showReasoningContent,
   set: (value: boolean) => {
     props.draft.app.showReasoningContent = value
-  },
-})
-
-const welcomeTitle = computed({
-  get: () => props.draft.app.welcomeTitle,
-  set: (value: string | number) => {
-    props.draft.app.welcomeTitle = String(value).replace(/\s+/g, ' ').trimStart().slice(0, 120)
   },
 })
 
@@ -145,14 +132,6 @@ const backgroundOpacityPercent = computed({
     background.value.opacity = Math.min(1, Math.max(0, Math.round(next) / 100))
   },
 })
-const backgroundSurfaceOpacityPercent = computed({
-  get: () => Math.round(background.value.surfaceOpacity * 100),
-  set: (value: string | number) => {
-    const next = Number(value)
-    if (!Number.isFinite(next)) return
-    background.value.surfaceOpacity = Math.min(1, Math.max(0, Math.round(next) / 100))
-  },
-})
 const backgroundImageLabel = computed(() => {
   const imagePath = background.value.image?.path
   if (!imagePath) return t('settings.general.background.noImage')
@@ -182,10 +161,6 @@ async function pickBackgroundImage(): Promise<void> {
 function clearBackgroundImage(): void {
   props.draft.app.background.enabled = false
   props.draft.app.background.image = undefined
-}
-
-function resetWelcomeTitle(): void {
-  props.draft.app.welcomeTitle = ''
 }
 </script>
 
@@ -263,33 +238,6 @@ function resetWelcomeTitle(): void {
             :min="draft.app.zoom.min"
             :max="draft.app.zoom.max"
           />
-        </SettingEntry>
-
-        <SettingEntry
-          control-id="settings-welcome-title"
-          :title="t('settings.general.welcomeTitle.title')"
-          :description="t('settings.general.welcomeTitle.description')"
-        >
-          <div class="flex w-full items-center gap-2 md:w-80">
-            <Input
-              id="settings-welcome-title"
-              v-model="welcomeTitle"
-              class="min-w-0 flex-1"
-              type="text"
-              maxlength="120"
-              :placeholder="t('chat.welcome.title')"
-            />
-            <Button
-              type="button"
-              variant="ghost"
-              size="icon-sm"
-              :disabled="!draft.app.welcomeTitle"
-              :aria-label="t('settings.general.welcomeTitle.reset')"
-              @click="resetWelcomeTitle"
-            >
-              <RotateCcwIcon data-icon />
-            </Button>
-          </div>
         </SettingEntry>
 
         <SettingEntry
@@ -407,31 +355,6 @@ function resetWelcomeTitle(): void {
             />
             <span class="w-12 shrink-0 text-right text-sm text-muted-foreground">
               {{ backgroundOpacityPercent }}%
-            </span>
-          </div>
-        </SettingEntry>
-
-        <SettingEntry
-          control-id="settings-background-surface-opacity"
-          :title="t('settings.general.background.surfaceOpacity.title')"
-          :description="t('settings.general.background.surfaceOpacity.description')"
-          :disabled="!background.image"
-        >
-          <div class="flex w-full items-center gap-3 md:w-80">
-            <Input
-              id="settings-background-surface-opacity"
-              v-model="backgroundSurfaceOpacityPercent"
-              class="w-full"
-              type="range"
-              min="0"
-              max="100"
-              step="1"
-              :disabled="!background.image"
-              :aria-valuenow="backgroundSurfaceOpacityPercent"
-              :aria-valuetext="`${backgroundSurfaceOpacityPercent}%`"
-            />
-            <span class="w-12 shrink-0 text-right text-sm text-muted-foreground">
-              {{ backgroundSurfaceOpacityPercent }}%
             </span>
           </div>
         </SettingEntry>

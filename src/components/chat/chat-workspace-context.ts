@@ -17,7 +17,6 @@ import type { ProviderModelOption } from '@/stores/provider'
 export interface ChatWorkspaceContext {
   currSessionId: Ref<string>
   showWelcome: ComputedRef<boolean>
-  welcomeTitle: ComputedRef<string>
   activeMessages: ComputedRef<ChatRecord[]>
   showMessageList: ComputedRef<boolean>
   showMessageSkeleton: Ref<boolean>

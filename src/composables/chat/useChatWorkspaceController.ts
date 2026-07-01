@@ -88,12 +88,6 @@ export function useChatWorkspaceController() {
   const showWelcome = computed(
     () => isHomeMode.value && !hasMessages.value && !messages.loadingMessages.value
   )
-  const welcomeTitle = computed(() => {
-    const customTitle =
-      settingsStore.draft?.app.welcomeTitle?.trim() ||
-      settingsStore.config?.app.welcomeTitle?.trim()
-    return customTitle || t('chat.welcome.title')
-  })
   const showMessageList = computed(
     () => !isHomeMode.value && (hasMessages.value || messages.loadingMessages.value)
   )
@@ -283,7 +277,6 @@ export function useChatWorkspaceController() {
   const workspaceContext: ChatWorkspaceContext = {
     currSessionId,
     showWelcome,
-    welcomeTitle,
     activeMessages: messages.activeMessages,
     showMessageList,
     showMessageSkeleton,

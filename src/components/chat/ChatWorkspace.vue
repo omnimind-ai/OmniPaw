@@ -57,10 +57,7 @@ provide(chatWorkspaceContextKey, workspaceContext)
         <SidebarTrigger />
       </header>
 
-      <main
-        data-app-glass-surface
-        class="flex min-h-0 flex-1 flex-col bg-background/80 backdrop-blur-[1px]"
-      >
+      <main class="flex min-h-0 flex-1 flex-col bg-background/80 backdrop-blur-[1px]">
         <RouterView />
       </main>
     </SidebarInset>

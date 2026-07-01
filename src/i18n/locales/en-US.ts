@@ -55,11 +55,6 @@ export default {
         title: 'Zoom',
         description: 'Current range: {min} - {max}.',
       },
-      welcomeTitle: {
-        title: 'Home welcome title',
-        description: 'Customize the empty chat home title. Leave blank to use the default title.',
-        reset: 'Restore default welcome title',
-      },
       minimizeToTray: {
         title: 'Close to tray',
         description:
@@ -91,11 +86,6 @@ export default {
         opacity: {
           title: 'Background opacity',
           description: 'Adjust how strongly the image shows behind the interface.',
-        },
-        surfaceOpacity: {
-          title: 'Interface opacity',
-          description:
-            'Adjust the sidebar, top bar, and card surface strength together. Lower values reveal more of the background.',
         },
       },
       chat: {

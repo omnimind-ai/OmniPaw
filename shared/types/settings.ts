@@ -39,7 +39,6 @@ export interface DesktopAppBackgroundImage {
 export interface DesktopAppBackgroundSettings {
   enabled: boolean
   opacity: number
-  surfaceOpacity: number
   image?: DesktopAppBackgroundImage
 }
 
@@ -49,7 +48,6 @@ export interface DesktopBaseSettings {
   initialized: boolean
   minimizeToTrayOnStartup: boolean
   showReasoningContent: boolean
-  welcomeTitle: string
   zoom: {
     factor: number
     min: number
