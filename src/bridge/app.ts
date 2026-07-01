@@ -204,6 +204,7 @@ export interface BridgeDesktopBackgroundImage {
 export interface BridgeDesktopBackgroundSettings {
   enabled: boolean
   opacity: number
+  surfaceOpacity: number
   image?: BridgeDesktopBackgroundImage
 }
 
@@ -2337,6 +2338,7 @@ function fallbackSettingsConfig(): BridgeDesktopSettingsConfig {
       background: {
         enabled: false,
         opacity: 0.35,
+        surfaceOpacity: 0.68,
         image: undefined,
       },
       compactSkillDescriptions: true,

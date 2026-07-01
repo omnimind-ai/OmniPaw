@@ -167,11 +167,31 @@ p {
 }
 
 [data-app-shell][data-custom-background="true"] {
-  --app-glass-card: color-mix(in oklab, var(--card) 68%, transparent);
-  --app-glass-field-hover: color-mix(in oklab, var(--muted) 34%, transparent);
-  --app-glass-sidebar: color-mix(in oklab, var(--sidebar) 62%, transparent);
-  --app-glass-sidebar-accent: color-mix(in oklab, var(--sidebar-accent) 54%, transparent);
-  --app-glass-border: color-mix(in oklab, var(--border) 72%, transparent);
+  --app-glass-card: color-mix(
+    in oklab,
+    var(--card) var(--app-glass-card-strength, 68%),
+    transparent
+  );
+  --app-glass-field-hover: color-mix(
+    in oklab,
+    var(--muted) var(--app-glass-field-hover-strength, 34%),
+    transparent
+  );
+  --app-glass-sidebar: color-mix(
+    in oklab,
+    var(--sidebar) var(--app-glass-sidebar-strength, 62%),
+    transparent
+  );
+  --app-glass-sidebar-accent: color-mix(
+    in oklab,
+    var(--sidebar-accent) var(--app-glass-sidebar-accent-strength, 54%),
+    transparent
+  );
+  --app-glass-border: color-mix(
+    in oklab,
+    var(--border) var(--app-glass-border-strength, 72%),
+    transparent
+  );
 }
 
 [data-app-shell][data-custom-background="true"] [data-settings-surface],
@@ -184,6 +204,11 @@ p {
   border-color: var(--app-glass-border);
   backdrop-filter: blur(14px) saturate(1.08);
   -webkit-backdrop-filter: blur(14px) saturate(1.08);
+}
+
+[data-app-shell][data-custom-background="true"] [data-app-glass-surface] {
+  background-color: var(--app-glass-card);
+  border-color: var(--app-glass-border);
 }
 
 [data-app-shell][data-custom-background="true"] [data-slot="field"]:hover {

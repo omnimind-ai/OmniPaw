@@ -38,7 +38,21 @@ const appBackground = computed(() => settingsConfig.value?.app.background)
 const hasCustomBackground = computed(() =>
   Boolean(appBackground.value?.enabled && appBackground.value.image?.url)
 )
-const appBackgroundStyle = computed(() => {
+const appShellStyle = computed<Record<string, string>>(() => {
+  if (!hasCustomBackground.value) {
+    return {}
+  }
+
+  const surfaceOpacity = clampOpacity(appBackground.value?.surfaceOpacity ?? 0.68)
+  return {
+    '--app-glass-card-strength': toPercent(surfaceOpacity),
+    '--app-glass-field-hover-strength': toPercent(surfaceOpacity * 0.5),
+    '--app-glass-sidebar-strength': toPercent(surfaceOpacity * 0.91),
+    '--app-glass-sidebar-accent-strength': toPercent(surfaceOpacity * 0.79),
+    '--app-glass-border-strength': toPercent(surfaceOpacity * 1.06),
+  }
+})
+const appBackgroundImageStyle = computed(() => {
   const image = appBackground.value?.image
   if (!hasCustomBackground.value || !image) {
     return {}
@@ -49,6 +63,14 @@ const appBackgroundStyle = computed(() => {
     opacity: String(appBackground.value?.opacity ?? 0.35),
   }
 })
+
+function clampOpacity(value: number): number {
+  return Math.max(0, Math.min(1, value))
+}
+
+function toPercent(value: number): string {
+  return `${Math.round(clampOpacity(value) * 100)}%`
+}
 
 function setCatTaskState(state: CatTaskState) {
   if (state === lastCatTaskState) {
@@ -114,12 +136,13 @@ onBeforeUnmount(() => {
   <div
     data-app-shell
     :data-custom-background="hasCustomBackground ? 'true' : undefined"
+    :style="appShellStyle"
     class="relative isolate flex h-svh min-h-0 flex-col overflow-hidden bg-background text-foreground"
   >
     <div
       v-if="hasCustomBackground"
       class="pointer-events-none absolute inset-0 z-0 bg-cover bg-center bg-no-repeat"
-      :style="appBackgroundStyle"
+      :style="appBackgroundImageStyle"
       aria-hidden="true"
     />
     <AppTopBar />

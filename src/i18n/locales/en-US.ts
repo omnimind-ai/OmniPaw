@@ -87,6 +87,11 @@ export default {
           title: 'Background opacity',
           description: 'Adjust how strongly the image shows behind the interface.',
         },
+        surfaceOpacity: {
+          title: 'Interface opacity',
+          description:
+            'Adjust the sidebar, top bar, and card surface strength together. Lower values reveal more of the background.',
+        },
       },
       chat: {
         title: 'Chat',

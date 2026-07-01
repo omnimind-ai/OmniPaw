@@ -132,6 +132,14 @@ const backgroundOpacityPercent = computed({
     background.value.opacity = Math.min(1, Math.max(0, Math.round(next) / 100))
   },
 })
+const backgroundSurfaceOpacityPercent = computed({
+  get: () => Math.round(background.value.surfaceOpacity * 100),
+  set: (value: string | number) => {
+    const next = Number(value)
+    if (!Number.isFinite(next)) return
+    background.value.surfaceOpacity = Math.min(1, Math.max(0, Math.round(next) / 100))
+  },
+})
 const backgroundImageLabel = computed(() => {
   const imagePath = background.value.image?.path
   if (!imagePath) return t('settings.general.background.noImage')
@@ -355,6 +363,31 @@ function clearBackgroundImage(): void {
             />
             <span class="w-12 shrink-0 text-right text-sm text-muted-foreground">
               {{ backgroundOpacityPercent }}%
+            </span>
+          </div>
+        </SettingEntry>
+
+        <SettingEntry
+          control-id="settings-background-surface-opacity"
+          :title="t('settings.general.background.surfaceOpacity.title')"
+          :description="t('settings.general.background.surfaceOpacity.description')"
+          :disabled="!background.image"
+        >
+          <div class="flex w-full items-center gap-3 md:w-80">
+            <Input
+              id="settings-background-surface-opacity"
+              v-model="backgroundSurfaceOpacityPercent"
+              class="w-full"
+              type="range"
+              min="0"
+              max="100"
+              step="1"
+              :disabled="!background.image"
+              :aria-valuenow="backgroundSurfaceOpacityPercent"
+              :aria-valuetext="`${backgroundSurfaceOpacityPercent}%`"
+            />
+            <span class="w-12 shrink-0 text-right text-sm text-muted-foreground">
+              {{ backgroundSurfaceOpacityPercent }}%
             </span>
           </div>
         </SettingEntry>

@@ -84,6 +84,10 @@ export default {
           title: '背景透明度',
           description: '调节图片覆盖在界面底层的可见程度，避免内容被干扰。',
         },
+        surfaceOpacity: {
+          title: '界面透明度',
+          description: '统一调节侧边栏、顶部栏和卡片底色强度；数值越低，背景越明显。',
+        },
       },
       chat: {
         title: '对话设置',

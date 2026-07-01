@@ -98,6 +98,7 @@ export const defaultConfig: DesktopSettingsConfig = {
     background: {
       enabled: false,
       opacity: 0.35,
+      surfaceOpacity: 0.68,
       image: undefined,
     },
     compactSkillDescriptions: true,
@@ -617,6 +618,17 @@ function validateBackground(
     issues.push({
       path: 'app.background.opacity',
       message: 'Background opacity must be between 0 and 1.',
+      code: 'out_of_range',
+    })
+  }
+  if (
+    !isFiniteNumber(settings.surfaceOpacity) ||
+    settings.surfaceOpacity < 0 ||
+    settings.surfaceOpacity > 1
+  ) {
+    issues.push({
+      path: 'app.background.surfaceOpacity',
+      message: 'Background surface opacity must be between 0 and 1.',
       code: 'out_of_range',
     })
   }
@@ -1806,6 +1818,7 @@ function normalizeBackgroundSettings(
   return {
     enabled: rawValue.enabled === true && Boolean(image),
     opacity: normalizeOpacity(rawValue.opacity, defaults.opacity),
+    surfaceOpacity: normalizeOpacity(rawValue.surfaceOpacity, defaults.surfaceOpacity),
     image,
   }
 }
