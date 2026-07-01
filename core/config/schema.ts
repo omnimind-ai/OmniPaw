@@ -61,6 +61,7 @@ export const defaultConfig: DesktopSettingsConfig = {
     initialized: false,
     minimizeToTrayOnStartup: false,
     showReasoningContent: true,
+    welcomeTitle: '',
     zoom: {
       factor: 1,
       min: 0.75,
@@ -372,6 +373,10 @@ function normalizeObject(defaultValue: unknown, rawValue: unknown, path: string)
     return normalizeBackgroundSettings(rawValue)
   }
 
+  if (path === 'app.welcomeTitle') {
+    return normalizeWelcomeTitle(rawValue)
+  }
+
   if (path === 'app.shortcuts') {
     return normalizeShortcutSettings(rawValue)
   }
@@ -566,6 +571,13 @@ function validateApp(config: DesktopSettingsConfig, issues: SettingsValidationIs
     issues.push({
       path: 'app.showReasoningContent',
       message: 'Value must be boolean.',
+      code: 'invalid_type',
+    })
+  }
+  if (typeof config.app.welcomeTitle !== 'string' || config.app.welcomeTitle.length > 120) {
+    issues.push({
+      path: 'app.welcomeTitle',
+      message: 'Welcome title must be a string up to 120 characters.',
       code: 'invalid_type',
     })
   }
@@ -1821,6 +1833,16 @@ function normalizeBackgroundSettings(
     surfaceOpacity: normalizeOpacity(rawValue.surfaceOpacity, defaults.surfaceOpacity),
     image,
   }
+}
+
+function normalizeWelcomeTitle(value: unknown): string {
+  if (value === undefined || value === null) {
+    return defaultConfig.app.welcomeTitle
+  }
+  if (typeof value !== 'string') {
+    return defaultConfig.app.welcomeTitle
+  }
+  return value.replace(/\s+/g, ' ').trim().slice(0, 120)
 }
 
 function normalizeBackgroundImage(value: unknown): DesktopAppBackgroundImage | undefined {

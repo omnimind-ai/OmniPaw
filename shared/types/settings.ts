@@ -49,6 +49,7 @@ export interface DesktopBaseSettings {
   initialized: boolean
   minimizeToTrayOnStartup: boolean
   showReasoningContent: boolean
+  welcomeTitle: string
   zoom: {
     factor: number
     min: number

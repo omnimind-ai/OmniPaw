@@ -243,6 +243,7 @@ export interface BridgeDesktopSettingsConfig {
     initialized: boolean
     minimizeToTrayOnStartup: boolean
     showReasoningContent: boolean
+    welcomeTitle: string
     zoom: {
       factor: number
       min: number
@@ -2314,6 +2315,7 @@ function fallbackSettingsConfig(): BridgeDesktopSettingsConfig {
       initialized: false,
       minimizeToTrayOnStartup: false,
       showReasoningContent: true,
+      welcomeTitle: '',
       zoom: {
         factor: 1,
         min: 0.75,

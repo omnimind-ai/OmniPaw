@@ -20,6 +20,7 @@ const props = withDefaults(
 const {
   currSessionId,
   showWelcome,
+  welcomeTitle,
   selectedModel,
   providersLoading,
   openSettings,
@@ -67,7 +68,7 @@ const {
       v-if="props.welcome && showWelcome"
       class="text-center text-3xl font-semibold tracking-normal md:text-4xl"
     >
-      {{ t('chat.welcome.title') }}
+      {{ welcomeTitle }}
     </h1>
 
     <div class="w-full max-w-4xl">

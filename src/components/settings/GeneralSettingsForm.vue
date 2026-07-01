@@ -1,5 +1,11 @@
 <script setup lang="ts">
-import { ImageIcon, MessagesSquareIcon, SlidersHorizontalIcon, Trash2Icon } from 'lucide-vue-next'
+import {
+  ImageIcon,
+  MessagesSquareIcon,
+  RotateCcwIcon,
+  SlidersHorizontalIcon,
+  Trash2Icon,
+} from 'lucide-vue-next'
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type {
@@ -64,6 +70,13 @@ const showReasoningContent = computed({
   get: () => props.draft.app.showReasoningContent,
   set: (value: boolean) => {
     props.draft.app.showReasoningContent = value
+  },
+})
+
+const welcomeTitle = computed({
+  get: () => props.draft.app.welcomeTitle,
+  set: (value: string | number) => {
+    props.draft.app.welcomeTitle = String(value).replace(/\s+/g, ' ').trimStart().slice(0, 120)
   },
 })
 
@@ -170,6 +183,10 @@ function clearBackgroundImage(): void {
   props.draft.app.background.enabled = false
   props.draft.app.background.image = undefined
 }
+
+function resetWelcomeTitle(): void {
+  props.draft.app.welcomeTitle = ''
+}
 </script>
 
 <template>
@@ -246,6 +263,33 @@ function clearBackgroundImage(): void {
             :min="draft.app.zoom.min"
             :max="draft.app.zoom.max"
           />
+        </SettingEntry>
+
+        <SettingEntry
+          control-id="settings-welcome-title"
+          :title="t('settings.general.welcomeTitle.title')"
+          :description="t('settings.general.welcomeTitle.description')"
+        >
+          <div class="flex w-full items-center gap-2 md:w-80">
+            <Input
+              id="settings-welcome-title"
+              v-model="welcomeTitle"
+              class="min-w-0 flex-1"
+              type="text"
+              maxlength="120"
+              :placeholder="t('chat.welcome.title')"
+            />
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              :disabled="!draft.app.welcomeTitle"
+              :aria-label="t('settings.general.welcomeTitle.reset')"
+              @click="resetWelcomeTitle"
+            >
+              <RotateCcwIcon data-icon />
+            </Button>
+          </div>
         </SettingEntry>
 
         <SettingEntry

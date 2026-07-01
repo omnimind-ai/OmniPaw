@@ -55,6 +55,11 @@ export default {
         title: 'Zoom',
         description: 'Current range: {min} - {max}.',
       },
+      welcomeTitle: {
+        title: 'Home welcome title',
+        description: 'Customize the empty chat home title. Leave blank to use the default title.',
+        reset: 'Restore default welcome title',
+      },
       minimizeToTray: {
         title: 'Close to tray',
         description:
