@@ -1305,6 +1305,82 @@ export default {
       },
     },
   },
+  onboarding: {
+    badge: '首次启动',
+    title: '选择语言和模型服务',
+    description:
+      '先确认界面语言，再配置 Agent 使用的 Provider。稍后可以在设置中继续调整模型、密钥和高级兼容选项。',
+    language: {
+      title: '语言 / Language',
+      description: '默认会按系统自动判断；这里也可以手动选择，避免首次使用时语言不符合预期。',
+      placeholder: '选择语言 / Select language',
+      system: '系统默认 / System default',
+      zhCN: '中文 / Chinese',
+      enUS: 'English / 英文',
+      saveFailed: '语言设置保存失败。',
+    },
+    provider: {
+      omniInfer: {
+        title: 'OmniInfer',
+        status: {
+          notBundled: {
+            label: '未内置',
+            description: '当前安装包未内置 OmniInfer；可在"本地模型"设置中查看放置位置',
+          },
+          starting: {
+            label: '启动中',
+            description: 'OmniInfer 正在启动，请稍候',
+          },
+          running: {
+            label: '本地',
+            description: '使用本地 OmniInfer 服务运行小模型',
+          },
+          unhealthy: {
+            label: '不健康',
+            description: 'OmniInfer 已启动但未就绪，可在"本地模型"页查看日志',
+          },
+          crashed: {
+            label: '已崩溃',
+            description: 'OmniInfer 进程已退出，可尝试重启',
+          },
+          stopped: {
+            label: '已停止',
+            description: 'OmniInfer 服务尚未启动',
+          },
+        },
+      },
+      ollama: {
+        title: 'Ollama',
+        badge: '本地',
+        description: '使用这台 Mac 上的 Ollama 模型',
+      },
+      cloud: {
+        title: 'Cloud API',
+        badge: 'API Key',
+        description: '使用 OpenAI-compatible API keys',
+      },
+    },
+    cloud: {
+      baseUrl: 'Base URL',
+      modelId: 'Model ID',
+      apiKey: 'API Key',
+    },
+    actions: {
+      advancedSettings: '进入高级设置',
+      continue: '继续',
+    },
+    toasts: {
+      configured: '模型服务已配置。',
+    },
+    errors: {
+      providerPresetNotFound: '未找到 Provider preset：{id}',
+      configureFailed: '模型服务配置失败。',
+      initializationSaveFailed: '初始化状态保存失败。',
+      cloudBaseUrlRequired: 'Cloud API Base URL 不能为空。',
+      cloudApiKeyRequired: 'Cloud API Key 不能为空。',
+      cloudModelIdRequired: 'Cloud API Model ID 不能为空。',
+    },
+  },
   chat: {
     errors: {
       openFileFailed: '无法在文件夹中显示文件。',

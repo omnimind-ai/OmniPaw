@@ -1364,6 +1364,84 @@ export default {
       },
     },
   },
+  onboarding: {
+    badge: 'First launch',
+    title: 'Choose language and model service',
+    description:
+      'Confirm the interface language first, then configure the Provider used by the Agent. You can keep adjusting models, keys, and advanced compatibility options later in Settings.',
+    language: {
+      title: 'Language / 语言',
+      description:
+        'OmniPaw still detects the system language automatically; you can also choose manually here so the first run feels right.',
+      placeholder: 'Select language / 选择语言',
+      system: 'System default / 系统默认',
+      zhCN: 'Chinese / 中文',
+      enUS: 'English / 英文',
+      saveFailed: 'Failed to save language setting.',
+    },
+    provider: {
+      omniInfer: {
+        title: 'OmniInfer',
+        status: {
+          notBundled: {
+            label: 'Not bundled',
+            description:
+              'This package does not include OmniInfer; check Local Models settings for the placement path.',
+          },
+          starting: {
+            label: 'Starting',
+            description: 'OmniInfer is starting. Please wait.',
+          },
+          running: {
+            label: 'Local',
+            description: 'Run small models through the local OmniInfer service.',
+          },
+          unhealthy: {
+            label: 'Unhealthy',
+            description: 'OmniInfer is running but not ready. Check logs in the Local Models page.',
+          },
+          crashed: {
+            label: 'Crashed',
+            description: 'The OmniInfer process exited. You can try starting it again.',
+          },
+          stopped: {
+            label: 'Stopped',
+            description: 'The OmniInfer service has not started.',
+          },
+        },
+      },
+      ollama: {
+        title: 'Ollama',
+        badge: 'Local',
+        description: 'Use Ollama models on this Mac.',
+      },
+      cloud: {
+        title: 'Cloud API',
+        badge: 'API Key',
+        description: 'Use OpenAI-compatible API keys.',
+      },
+    },
+    cloud: {
+      baseUrl: 'Base URL',
+      modelId: 'Model ID',
+      apiKey: 'API Key',
+    },
+    actions: {
+      advancedSettings: 'Advanced settings',
+      continue: 'Continue',
+    },
+    toasts: {
+      configured: 'Model service configured.',
+    },
+    errors: {
+      providerPresetNotFound: 'Provider preset not found: {id}',
+      configureFailed: 'Failed to configure model service.',
+      initializationSaveFailed: 'Failed to save initialization state.',
+      cloudBaseUrlRequired: 'Cloud API Base URL is required.',
+      cloudApiKeyRequired: 'Cloud API Key is required.',
+      cloudModelIdRequired: 'Cloud API Model ID is required.',
+    },
+  },
   chat: {
     errors: {
       openFileFailed: 'Unable to reveal file in folder.',

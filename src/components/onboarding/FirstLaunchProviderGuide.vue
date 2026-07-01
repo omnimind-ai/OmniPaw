@@ -5,17 +5,33 @@ import type {
   ProviderModel,
   SaveProviderRequest,
 } from '@shared/types/provider'
-import { CloudIcon, KeyRoundIcon, LaptopIcon, Loader2Icon, SparklesIcon } from 'lucide-vue-next'
+import {
+  CloudIcon,
+  KeyRoundIcon,
+  LanguagesIcon,
+  LaptopIcon,
+  Loader2Icon,
+  SparklesIcon,
+} from 'lucide-vue-next'
 import { storeToRefs } from 'pinia'
 import { type Component, computed, onMounted, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 
-import type { BridgeProviderConfig, BridgeProviderPreset } from '@/bridge/app'
+import type { BridgeAppLanguage, BridgeProviderConfig, BridgeProviderPreset } from '@/bridge/app'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Field, FieldGroup, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 import { cn } from '@/lib/utils'
 import { useOmniInferStore } from '@/stores/omniinfer'
 import { useProviderStore } from '@/stores/provider'
@@ -34,49 +50,81 @@ interface ProviderChoice {
   disabled?: boolean
 }
 
+const emit = defineEmits<{
+  completed: []
+}>()
 const providerStore = useProviderStore()
 const settingsStore = useSettingsStore()
 const omniInferStore = useOmniInferStore()
 const router = useRouter()
+const { t } = useI18n()
 const toast = useToast()
 const { rawProviders, providerPresets, loading, presetsLoading } = storeToRefs(providerStore)
+const {
+  config: settingsConfig,
+  draft: settingsDraft,
+  saving: settingsSaving,
+} = storeToRefs(settingsStore)
 const { processState: omniInferProcessState } = storeToRefs(omniInferStore)
 
 const selectedChoiceId = ref<ProviderChoiceId>('ollama')
 const submitting = ref(false)
+const languageSaving = ref(false)
 const cloudBaseUrl = ref('https://api.openai.com/v1')
 const cloudApiKey = ref('')
 const cloudModelId = ref('gpt-4o-mini')
 
+const selectedLanguage = computed<BridgeAppLanguage>({
+  get: () => settingsDraft.value?.app.language ?? settingsConfig.value?.app.language ?? 'system',
+  set: (value) => {
+    void saveLanguage(value)
+  },
+})
 const omniInferBadge = computed((): { label: string; disabled: boolean; description: string } => {
   switch (omniInferProcessState.value) {
     case 'not_bundled':
       return {
-        label: '未内置',
+        label: t('onboarding.provider.omniInfer.status.notBundled.label'),
         disabled: true,
-        description: '当前安装包未内置 OmniInfer；可在"本地模型"设置中查看放置位置',
+        description: t('onboarding.provider.omniInfer.status.notBundled.description'),
       }
     case 'starting':
-      return { label: '启动中', disabled: true, description: 'OmniInfer 正在启动，请稍候' }
+      return {
+        label: t('onboarding.provider.omniInfer.status.starting.label'),
+        disabled: true,
+        description: t('onboarding.provider.omniInfer.status.starting.description'),
+      }
     case 'running':
-      return { label: '本地', disabled: false, description: '使用本地 OmniInfer 服务运行小模型' }
+      return {
+        label: t('onboarding.provider.omniInfer.status.running.label'),
+        disabled: false,
+        description: t('onboarding.provider.omniInfer.status.running.description'),
+      }
     case 'unhealthy':
       return {
-        label: '不健康',
+        label: t('onboarding.provider.omniInfer.status.unhealthy.label'),
         disabled: false,
-        description: 'OmniInfer 已启动但未就绪，可在"本地模型"页查看日志',
+        description: t('onboarding.provider.omniInfer.status.unhealthy.description'),
       }
     case 'crashed':
-      return { label: '已崩溃', disabled: false, description: 'OmniInfer 进程已退出，可尝试重启' }
+      return {
+        label: t('onboarding.provider.omniInfer.status.crashed.label'),
+        disabled: false,
+        description: t('onboarding.provider.omniInfer.status.crashed.description'),
+      }
     default:
-      return { label: '已停止', disabled: false, description: 'OmniInfer 服务尚未启动' }
+      return {
+        label: t('onboarding.provider.omniInfer.status.stopped.label'),
+        disabled: false,
+        description: t('onboarding.provider.omniInfer.status.stopped.description'),
+      }
   }
 })
 
 const choices = computed((): ProviderChoice[] => [
   {
     id: 'omniinfer-local',
-    title: 'OmniInfer',
+    title: t('onboarding.provider.omniInfer.title'),
     badge: omniInferBadge.value.label,
     badgeVariant: 'secondary',
     description: omniInferBadge.value.description,
@@ -85,18 +133,18 @@ const choices = computed((): ProviderChoice[] => [
   },
   {
     id: 'ollama',
-    title: 'Ollama',
-    badge: '本地',
+    title: t('onboarding.provider.ollama.title'),
+    badge: t('onboarding.provider.ollama.badge'),
     badgeVariant: 'secondary',
-    description: '使用这台 Mac 上的 Ollama 模型',
+    description: t('onboarding.provider.ollama.description'),
     icon: SparklesIcon,
   },
   {
     id: 'openai-compatible',
-    title: 'Cloud API',
-    badge: 'API Key',
+    title: t('onboarding.provider.cloud.title'),
+    badge: t('onboarding.provider.cloud.badge'),
     badgeVariant: 'outline',
-    description: '使用 OpenAI-compatible API keys',
+    description: t('onboarding.provider.cloud.description'),
     icon: KeyRoundIcon,
   },
 ])
@@ -104,15 +152,36 @@ const choices = computed((): ProviderChoice[] => [
 const selectedChoice = computed(
   () => choices.value.find((choice) => choice.id === selectedChoiceId.value) ?? choices.value[0]
 )
-const busy = computed(() => submitting.value || loading.value || presetsLoading.value)
+const languageBusy = computed(() => languageSaving.value || settingsSaving.value)
+const busy = computed(
+  () => submitting.value || loading.value || presetsLoading.value || languageBusy.value
+)
 
 onMounted(async () => {
   if (omniInferStore.available) {
     omniInferStore.subscribe()
     await omniInferStore.refreshStatus().catch(() => {})
   }
-  await Promise.allSettled([providerStore.loadProviders(), providerStore.loadProviderPresets()])
+  await Promise.allSettled([
+    settingsStore.load(),
+    providerStore.loadProviders(),
+    providerStore.loadProviderPresets(),
+  ])
 })
+
+async function saveLanguage(language: BridgeAppLanguage) {
+  if (languageBusy.value) return
+  languageSaving.value = true
+  try {
+    await settingsStore.load()
+    settingsStore.updateAppSetting('language', language)
+    await settingsStore.save()
+  } catch (error) {
+    toast.error(errorToText(error, t('onboarding.language.saveFailed')))
+  } finally {
+    languageSaving.value = false
+  }
+}
 
 async function continueSetup() {
   if (busy.value) return
@@ -125,7 +194,7 @@ async function continueSetup() {
 
     const preset = providerPresets.value.find((item) => item.id === choice.id)
     if (!preset) {
-      throw new Error(`Provider preset not found: ${choice.id}`)
+      throw new Error(t('onboarding.errors.providerPresetNotFound', { id: choice.id }))
     }
 
     if (choice.id === 'openai-compatible') {
@@ -141,9 +210,10 @@ async function continueSetup() {
     }
 
     await markInitializationCompleted()
-    toast.success('模型服务已配置。')
+    toast.success(t('onboarding.toasts.configured'))
+    emit('completed')
   } catch (error) {
-    toast.error(errorToText(error, '模型服务配置失败。'))
+    toast.error(errorToText(error, t('onboarding.errors.configureFailed')))
   } finally {
     submitting.value = false
   }
@@ -152,8 +222,9 @@ async function continueSetup() {
 async function openAdvancedSettings() {
   try {
     await markInitializationCompleted()
+    emit('completed')
   } catch (error) {
-    toast.error(errorToText(error, '初始化状态保存失败。'))
+    toast.error(errorToText(error, t('onboarding.errors.initializationSaveFailed')))
   }
   await router.push({ name: 'settings', query: { tab: 'providers' } })
 }
@@ -170,13 +241,13 @@ async function saveCloudProvider(preset: BridgeProviderPreset) {
   const modelId = cloudModelId.value.trim()
 
   if (!baseUrl) {
-    throw new Error('Cloud API Base URL 不能为空。')
+    throw new Error(t('onboarding.errors.cloudBaseUrlRequired'))
   }
   if (!apiKey) {
-    throw new Error('Cloud API Key 不能为空。')
+    throw new Error(t('onboarding.errors.cloudApiKeyRequired'))
   }
   if (!modelId) {
-    throw new Error('Cloud API Model ID 不能为空。')
+    throw new Error(t('onboarding.errors.cloudModelIdRequired'))
   }
 
   const existing = findExistingProvider(preset)
@@ -376,20 +447,54 @@ function toObjectRecord(value: unknown): Record<string, unknown> {
   >
     <Card class="w-full max-w-4xl rounded-md py-0">
       <CardHeader class="border-b px-5 py-4 md:px-6">
-        <div class="flex flex-col gap-2">
-          <Badge
-            variant="outline"
-            class="w-fit"
-          >
-            <CloudIcon data-icon="inline-start" />
-            首次启动
-          </Badge>
-          <div class="flex flex-col gap-1">
-            <h1 class="text-xl font-semibold tracking-normal md:text-2xl">
-              选择模型服务
-            </h1>
-            <p class="max-w-2xl text-sm leading-6 text-muted-foreground">
-              配置 Agent 使用的 Provider。稍后可以在设置中继续调整模型、密钥和高级兼容选项。
+        <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div class="flex min-w-0 flex-col gap-2">
+            <Badge
+              variant="outline"
+              class="w-fit"
+            >
+              <CloudIcon data-icon="inline-start" />
+              {{ t('onboarding.badge') }}
+            </Badge>
+            <div class="flex flex-col gap-1">
+              <h1 class="text-xl font-semibold tracking-normal md:text-2xl">
+                {{ t('onboarding.title') }}
+              </h1>
+              <p class="max-w-2xl text-sm leading-6 text-muted-foreground">
+                {{ t('onboarding.description') }}
+              </p>
+            </div>
+          </div>
+
+          <div class="flex w-full shrink-0 flex-col gap-2 rounded-md border bg-background/70 p-3 lg:w-72">
+            <FieldLabel
+              for="onboarding-language"
+              class="flex items-center gap-2 text-sm font-medium"
+            >
+              <LanguagesIcon class="size-4 text-muted-foreground" />
+              {{ t('onboarding.language.title') }}
+            </FieldLabel>
+            <Select
+              v-model="selectedLanguage"
+              :disabled="languageBusy"
+              class="w-full"
+            >
+              <SelectTrigger
+                id="onboarding-language"
+                class="w-full"
+              >
+                <SelectValue :placeholder="t('onboarding.language.placeholder')" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectGroup>
+                  <SelectItem value="system">{{ t('onboarding.language.system') }}</SelectItem>
+                  <SelectItem value="zh-CN">{{ t('onboarding.language.zhCN') }}</SelectItem>
+                  <SelectItem value="en-US">{{ t('onboarding.language.enUS') }}</SelectItem>
+                </SelectGroup>
+              </SelectContent>
+            </Select>
+            <p class="text-xs leading-5 text-muted-foreground">
+              {{ t('onboarding.language.description') }}
             </p>
           </div>
         </div>
@@ -441,7 +546,9 @@ function toObjectRecord(value: unknown): Record<string, unknown> {
           <FieldGroup class="gap-3">
             <div class="grid gap-3 md:grid-cols-[1.2fr_1fr]">
               <Field>
-                <FieldLabel for="onboarding-cloud-base-url">Base URL</FieldLabel>
+                <FieldLabel for="onboarding-cloud-base-url">
+                  {{ t('onboarding.cloud.baseUrl') }}
+                </FieldLabel>
                 <Input
                   id="onboarding-cloud-base-url"
                   v-model="cloudBaseUrl"
@@ -450,7 +557,9 @@ function toObjectRecord(value: unknown): Record<string, unknown> {
               </Field>
 
               <Field>
-                <FieldLabel for="onboarding-cloud-model-id">Model ID</FieldLabel>
+                <FieldLabel for="onboarding-cloud-model-id">
+                  {{ t('onboarding.cloud.modelId') }}
+                </FieldLabel>
                 <Input
                   id="onboarding-cloud-model-id"
                   v-model="cloudModelId"
@@ -460,7 +569,9 @@ function toObjectRecord(value: unknown): Record<string, unknown> {
             </div>
 
             <Field>
-              <FieldLabel for="onboarding-cloud-api-key">API Key</FieldLabel>
+              <FieldLabel for="onboarding-cloud-api-key">
+                {{ t('onboarding.cloud.apiKey') }}
+              </FieldLabel>
               <Input
                 id="onboarding-cloud-api-key"
                 v-model="cloudApiKey"
@@ -481,7 +592,7 @@ function toObjectRecord(value: unknown): Record<string, unknown> {
             class="min-w-0 flex-1 sm:min-w-32 sm:flex-none"
             @click="openAdvancedSettings"
           >
-            进入高级设置
+            {{ t('onboarding.actions.advancedSettings') }}
           </Button>
 
           <Button
@@ -496,7 +607,7 @@ function toObjectRecord(value: unknown): Record<string, unknown> {
               data-icon="inline-start"
               class="animate-spin"
             />
-            继续
+            {{ t('onboarding.actions.continue') }}
           </Button>
         </div>
       </CardContent>

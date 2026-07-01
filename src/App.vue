@@ -50,6 +50,7 @@ const {
 const isMobile = useMediaQuery('(max-width: 768px)')
 const settingsSidebarOpen = ref(true)
 const startupLoaded = ref(false)
+const forceShowProviderGuide = ref(false)
 const activeCatRuns = new Set<string>()
 let lastCatTaskState: CatTaskState | null = null
 let stopCatSubscription: (() => void) | undefined
@@ -60,10 +61,12 @@ provide(chatWorkspaceContextKey, chatWorkspaceContext)
 const showProviderGuide = computed(
   () =>
     startupLoaded.value &&
-    route.name !== 'settings' &&
-    settingsConfig.value?.app.initialized === false
+    (forceShowProviderGuide.value ||
+      (route.name !== 'settings' && settingsConfig.value?.app.initialized === false))
 )
-const showStartupPlaceholder = computed(() => !startupLoaded.value && route.name !== 'settings')
+const showStartupPlaceholder = computed(
+  () => !startupLoaded.value && (forceShowProviderGuide.value || route.name !== 'settings')
+)
 const isSettingsRoute = computed(() => route.name === 'settings')
 const isChatShellRoute = computed(
   () => route.name === 'home' || route.name === 'tavern' || route.name === 'chat'
@@ -184,10 +187,47 @@ function syncCatWindow(event: BridgeStreamEvent) {
   setCatTaskState('running')
 }
 
+const debugApi = {
+  showFirstLaunchGuide() {
+    forceShowProviderGuide.value = true
+  },
+  hideFirstLaunchGuide() {
+    forceShowProviderGuide.value = false
+  },
+  isFirstLaunchGuideForced() {
+    return forceShowProviderGuide.value
+  },
+}
+
+function installDebugApi(): (() => void) | undefined {
+  if (typeof window === 'undefined') {
+    return undefined
+  }
+
+  const previousDebugApi = window.omniPawDebug
+  window.omniPawDebug = {
+    ...previousDebugApi,
+    ...debugApi,
+  }
+
+  return () => {
+    if (window.omniPawDebug?.showFirstLaunchGuide !== debugApi.showFirstLaunchGuide) {
+      return
+    }
+    if (previousDebugApi) {
+      window.omniPawDebug = previousDebugApi
+    } else {
+      delete window.omniPawDebug
+    }
+  }
+}
+
 async function initializeStartupState() {
   await Promise.allSettled([settingsStore.load(), providerStore.loadProviders()])
   startupLoaded.value = true
 }
+
+const uninstallDebugApi = installDebugApi()
 
 onMounted(() => {
   void initializeStartupState()
@@ -213,6 +253,7 @@ watch(
 )
 
 onBeforeUnmount(() => {
+  uninstallDebugApi?.()
   stopCatSubscription?.()
   stopOpenChatSubscription?.()
 })
@@ -236,7 +277,10 @@ onBeforeUnmount(() => {
         v-if="showStartupPlaceholder"
         class="h-full bg-background"
       />
-      <FirstLaunchProviderGuide v-else-if="showProviderGuide" />
+      <FirstLaunchProviderGuide
+        v-else-if="showProviderGuide"
+        @completed="forceShowProviderGuide = false"
+      />
       <SidebarProvider
         v-else-if="usesAppSidebar"
         :open="activeSidebarOpen"
