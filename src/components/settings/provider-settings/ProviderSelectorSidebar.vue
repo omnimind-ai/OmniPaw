@@ -45,7 +45,10 @@ const hasSearchQuery = computed(() => Boolean(localSearchQuery.value.trim()))
 </script>
 
 <template>
-  <aside class="flex min-h-0 w-full shrink-0 flex-col rounded-md border bg-sidebar text-sidebar-foreground lg:sticky lg:top-6 lg:h-[calc(100svh-var(--app-topbar-height)-3rem)] lg:w-80">
+  <aside
+    data-app-glass-sidebar
+    class="flex min-h-0 w-full shrink-0 flex-col rounded-md border bg-sidebar text-sidebar-foreground lg:sticky lg:top-6 lg:h-[calc(100svh-var(--app-topbar-height)-3rem)] lg:w-80"
+  >
     <div class="flex items-center gap-2 border-b p-3">
       <InputGroup class="min-w-0 flex-1">
         <InputGroupAddon>
@@ -127,6 +130,8 @@ const hasSearchQuery = computed(() => Boolean(localSearchQuery.value.trim()))
         <div
           v-for="provider in providerSidebarList"
           :key="provider.unsaved ? `draft-${provider.id}` : provider.id"
+          data-app-glass-sidebar-item
+          :data-active="provider.id === activeProviderId ? 'true' : undefined"
           :class="cn(
             'group flex h-11 w-full items-center gap-1 rounded-lg text-sm transition-colors',
             provider.id === activeProviderId

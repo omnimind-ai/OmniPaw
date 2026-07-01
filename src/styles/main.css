@@ -221,6 +221,18 @@ p {
   border-color: var(--app-glass-border);
 }
 
+[data-app-shell][data-custom-background="true"] [data-app-glass-sidebar] {
+  background-color: var(--app-glass-sidebar) !important;
+  border-color: var(--app-glass-border) !important;
+  backdrop-filter: blur(18px) saturate(1.08);
+  -webkit-backdrop-filter: blur(18px) saturate(1.08);
+}
+
+[data-app-shell][data-custom-background="true"] [data-app-glass-sidebar-item][data-active="true"],
+[data-app-shell][data-custom-background="true"] [data-app-glass-sidebar-item]:hover {
+  background-color: var(--app-glass-sidebar-accent) !important;
+}
+
 [data-app-shell][data-custom-background="true"] [data-slot="tabs-list"],
 [data-app-shell][data-custom-background="true"] [data-slot="input-group"],
 [data-app-shell][data-custom-background="true"] [data-app-glass-control],
