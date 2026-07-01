@@ -38,17 +38,27 @@ const appBackground = computed(() => settingsConfig.value?.app.background)
 const hasCustomBackground = computed(() =>
   Boolean(appBackground.value?.enabled && appBackground.value.image?.url)
 )
-const appBackgroundStyle = computed(() => {
+const appBackgroundStyle = computed<Record<string, string>>(() => {
   const image = appBackground.value?.image
   if (!hasCustomBackground.value || !image) {
     return {}
   }
 
+  const blur = clampNumber(appBackground.value?.blur ?? 0, 0, 32)
   return {
     backgroundImage: `url("${image.url}")`,
     opacity: String(appBackground.value?.opacity ?? 0.35),
+    filter: blur > 0 ? `blur(${blur}px)` : 'none',
+    inset: blur > 0 ? `-${Math.ceil(blur * 2)}px` : '0',
   }
 })
+
+function clampNumber(value: number, min: number, max: number): number {
+  if (!Number.isFinite(value)) {
+    return min
+  }
+  return Math.min(max, Math.max(min, value))
+}
 
 function setCatTaskState(state: CatTaskState) {
   if (state === lastCatTaskState) {
@@ -118,7 +128,7 @@ onBeforeUnmount(() => {
   >
     <div
       v-if="hasCustomBackground"
-      class="pointer-events-none absolute inset-0 z-0 bg-cover bg-center bg-no-repeat"
+      class="pointer-events-none absolute z-0 bg-cover bg-center bg-no-repeat"
       :style="appBackgroundStyle"
       aria-hidden="true"
     />

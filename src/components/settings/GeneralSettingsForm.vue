@@ -132,6 +132,14 @@ const backgroundOpacityPercent = computed({
     background.value.opacity = Math.min(1, Math.max(0, Math.round(next) / 100))
   },
 })
+const backgroundBlur = computed({
+  get: () => Math.round(background.value.blur),
+  set: (value: string | number) => {
+    const next = Number(value)
+    if (!Number.isFinite(next)) return
+    background.value.blur = Math.min(32, Math.max(0, Math.round(next)))
+  },
+})
 const backgroundImageLabel = computed(() => {
   const imagePath = background.value.image?.path
   if (!imagePath) return t('settings.general.background.noImage')
@@ -355,6 +363,31 @@ function clearBackgroundImage(): void {
             />
             <span class="w-12 shrink-0 text-right text-sm text-muted-foreground">
               {{ backgroundOpacityPercent }}%
+            </span>
+          </div>
+        </SettingEntry>
+
+        <SettingEntry
+          control-id="settings-background-blur"
+          :title="t('settings.general.background.blur.title')"
+          :description="t('settings.general.background.blur.description')"
+          :disabled="!background.image"
+        >
+          <div class="flex w-full items-center gap-3 md:w-80">
+            <Input
+              id="settings-background-blur"
+              v-model="backgroundBlur"
+              class="w-full"
+              type="range"
+              min="0"
+              max="32"
+              step="1"
+              :disabled="!background.image"
+              :aria-valuenow="backgroundBlur"
+              :aria-valuetext="`${backgroundBlur}px`"
+            />
+            <span class="w-12 shrink-0 text-right text-sm text-muted-foreground">
+              {{ backgroundBlur }}px
             </span>
           </div>
         </SettingEntry>

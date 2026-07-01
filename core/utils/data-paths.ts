@@ -24,6 +24,7 @@ export interface OmniPawDataPaths {
   skillState: string
   skills: string
   attachments: string
+  backgroundImages: string
   agentWorkspaces: string
   agentWorkspaceSessions: string
   logs: string
@@ -66,6 +67,7 @@ export function resolveOmniPawDataPaths(options: ResolveDataRootOptions = {}): O
     skillState: join(root, 'skill_state.json'),
     skills: join(root, 'skills'),
     attachments: join(root, 'attachments'),
+    backgroundImages: join(root, 'background-images'),
     agentWorkspaces: join(root, 'agent-workspaces'),
     agentWorkspaceSessions: join(root, 'agent-workspaces', 'sessions'),
     logs: join(root, 'logs'),

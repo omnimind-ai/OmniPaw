@@ -1,7 +1,9 @@
-import { extname } from 'node:path'
-import { pathToFileURL } from 'node:url'
+import { randomUUID } from 'node:crypto'
+import { copyFile, mkdir } from 'node:fs/promises'
+import { extname, join } from 'node:path'
 import { ConfigValidationError, configError } from '@core/config/schema'
-import { IPC_CHANNELS } from '@shared/constants'
+import { resolveOmniPawDataPaths } from '@core/utils/data-paths'
+import { BACKGROUND_ASSET_PROTOCOL, IPC_CHANNELS } from '@shared/constants'
 import type {
   DesktopAppBackgroundImage,
   DesktopSettingsConfig,
@@ -45,7 +47,7 @@ export function registerSettingsIpcHandlers(options: IpcHandlerOptions): void {
     settingsResult(options, () => runtime.configStore.status())
   )
   registerLoggedIpcHandler(options, IPC_CHANNELS.settings.pickBackgroundImage, (event) =>
-    settingsAsyncResult(options, () => pickBackgroundImage(event))
+    settingsAsyncResult(options, () => pickBackgroundImage(event, options))
   )
 }
 
@@ -117,7 +119,8 @@ async function settingsAsyncResult<T>(
 }
 
 async function pickBackgroundImage(
-  event: Electron.IpcMainInvokeEvent
+  event: Electron.IpcMainInvokeEvent,
+  ipcOptions: IpcHandlerOptions
 ): Promise<PickDesktopBackgroundImageResponse> {
   const parent = BrowserWindow.fromWebContents(event.sender) ?? undefined
   const options: Electron.OpenDialogOptions = {
@@ -140,11 +143,14 @@ async function pickBackgroundImage(
 
   return {
     canceled: false,
-    image: resolveBackgroundImage(result.filePaths[0]),
+    image: await resolveBackgroundImage(result.filePaths[0], ipcOptions),
   }
 }
 
-function resolveBackgroundImage(filePath: string): DesktopAppBackgroundImage {
+async function resolveBackgroundImage(
+  filePath: string,
+  ipcOptions: IpcHandlerOptions
+): Promise<DesktopAppBackgroundImage> {
   const image = nativeImage.createFromPath(filePath)
   const size = image.getSize()
   if (image.isEmpty() || size.width < 1 || size.height < 1) {
@@ -162,14 +168,46 @@ function resolveBackgroundImage(filePath: string): DesktopAppBackgroundImage {
     )
   }
 
+  const mimeType = imageMimeType(filePath)
+  const storedPath = await copyBackgroundImage(filePath, ipcOptions)
+
   return {
-    path: filePath,
-    url: pathToFileURL(filePath).toString(),
+    path: storedPath,
+    url: buildBackgroundAssetUrl(storedPath),
     width: size.width,
     height: size.height,
     aspectRatio: Math.round((size.width / size.height) * 1_000_000) / 1_000_000,
-    mimeType: imageMimeType(filePath),
+    mimeType,
   }
+}
+
+async function copyBackgroundImage(
+  filePath: string,
+  ipcOptions: IpcHandlerOptions
+): Promise<string> {
+  const directory = resolveOmniPawDataPaths({
+    appDataPath: ipcOptions.appDataPath,
+  }).backgroundImages
+  await mkdir(directory, { recursive: true })
+
+  const ext = normalizedImageExtension(filePath)
+  const fileName = `${Date.now()}-${randomUUID()}${ext}`
+  const targetPath = join(directory, fileName)
+  await copyFile(filePath, targetPath)
+  return targetPath
+}
+
+function buildBackgroundAssetUrl(storedPath: string): string {
+  const url = new URL(`${BACKGROUND_ASSET_PROTOCOL}://asset/`)
+  url.pathname = `/${encodeURIComponent(storedPath.split(/[\\/]/).pop() ?? '')}`
+  return url.toString()
+}
+
+function normalizedImageExtension(filePath: string): string {
+  const ext = extname(filePath).toLowerCase()
+  return ext === '.jpg' || ext === '.jpeg' || ext === '.webp' || ext === '.gif' || ext === '.png'
+    ? ext
+    : '.png'
 }
 
 function imageMimeType(filePath: string): string {

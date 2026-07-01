@@ -98,6 +98,7 @@ export const defaultConfig: DesktopSettingsConfig = {
     background: {
       enabled: false,
       opacity: 0.35,
+      blur: 0,
       image: undefined,
     },
     compactSkillDescriptions: true,
@@ -620,6 +621,13 @@ function validateBackground(
       code: 'out_of_range',
     })
   }
+  if (!isFiniteNumber(settings.blur) || settings.blur < 0 || settings.blur > 32) {
+    issues.push({
+      path: 'app.background.blur',
+      message: 'Background blur must be between 0 and 32.',
+      code: 'out_of_range',
+    })
+  }
   if (settings.image === undefined) {
     if (settings.enabled) {
       issues.push({
@@ -649,10 +657,10 @@ function validateBackgroundImage(
       code: 'required',
     })
   }
-  if (!image.url || !image.url.startsWith('file://')) {
+  if (!image.url || !isBackgroundImageUrl(image.url)) {
     issues.push({
       path: `${path}.url`,
-      message: 'Background image URL must be a local file URL.',
+      message: 'Background image URL must use a supported local background protocol.',
       code: 'invalid_type',
     })
   }
@@ -1806,6 +1814,7 @@ function normalizeBackgroundSettings(
   return {
     enabled: rawValue.enabled === true && Boolean(image),
     opacity: normalizeOpacity(rawValue.opacity, defaults.opacity),
+    blur: normalizeInteger(rawValue.blur, defaults.blur, 0, 32),
     image,
   }
 }
@@ -1842,6 +1851,10 @@ function normalizeBackgroundImage(value: unknown): DesktopAppBackgroundImage | u
     aspectRatio,
     mimeType,
   }
+}
+
+function isBackgroundImageUrl(value: string): boolean {
+  return value.startsWith('omnipaw-background://') || value.startsWith('file://')
 }
 
 function normalizeObservationSettings(rawValue: unknown): DesktopObservationSettings {

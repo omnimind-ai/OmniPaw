@@ -67,12 +67,13 @@ export default {
       background: {
         title: 'Window background',
         description:
-          'Use a local image as the main window background and resize the window by the image ratio.',
+          'Copy a local image into the app-controlled directory as the main window background and resize the window by the image ratio.',
         noImage: 'No background image selected',
         pickFailed: 'Failed to choose background image.',
         image: {
           title: 'Background image',
-          description: 'Image dimensions are recorded to lock the window aspect ratio.',
+          description:
+            'The selected image is copied into a controlled local directory, and dimensions are recorded to lock the window aspect ratio.',
           choose: 'Choose image',
           clear: 'Clear background image',
           previewAlt: 'Background image preview',
@@ -86,6 +87,10 @@ export default {
         opacity: {
           title: 'Background opacity',
           description: 'Adjust how strongly the image shows behind the interface.',
+        },
+        blur: {
+          title: 'Background blur',
+          description: 'Blur the background image so foreground content stays readable.',
         },
       },
       chat: {

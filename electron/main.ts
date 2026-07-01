@@ -1,10 +1,16 @@
 import { readFile } from 'node:fs/promises'
-import { join } from 'node:path'
+import { basename, extname, isAbsolute, join, relative, resolve } from 'node:path'
 import type { ChatRunEventTarget } from '@core/chat/run-manager'
 import { createElectronLogSink, createProjectLogger } from '@core/logging'
 import { OmniInferRuntimeClient, resolveModelsDir } from '@core/omniinfer'
 import { resolveOmniPawDataPaths } from '@core/utils/data-paths'
-import { APP_ID, APP_NAME, CAT_APPEARANCE_ASSET_PROTOCOL, IPC_CHANNELS } from '@shared/constants'
+import {
+  APP_ID,
+  APP_NAME,
+  BACKGROUND_ASSET_PROTOCOL,
+  CAT_APPEARANCE_ASSET_PROTOCOL,
+  IPC_CHANNELS,
+} from '@shared/constants'
 import type { OpenChatSessionRequest } from '@shared/types/app'
 import type { CatAppearanceAssetKey, CatAppearanceChangedEvent } from '@shared/types/cat-appearance'
 import type { CatPetChangedEvent } from '@shared/types/cat-pet'
@@ -82,9 +88,18 @@ let shortcutController: ShortcutController | undefined
 let omniInferProcess: OmniInferProcess | undefined
 let isQuitting = false
 let catAppearanceAssetProtocolRegistered = false
+let backgroundAssetProtocolRegistered = false
 const ZOOM_STEP = 0.05
 
 protocol.registerSchemesAsPrivileged([
+  {
+    scheme: BACKGROUND_ASSET_PROTOCOL,
+    privileges: {
+      standard: true,
+      secure: true,
+      supportFetchAPI: true,
+    },
+  },
   {
     scheme: CAT_APPEARANCE_ASSET_PROTOCOL,
     privileges: {
@@ -596,6 +611,79 @@ function registerCatAppearanceAssetProtocol(): void {
   })
 }
 
+function registerBackgroundAssetProtocol(): void {
+  if (backgroundAssetProtocolRegistered) {
+    return
+  }
+  backgroundAssetProtocolRegistered = true
+
+  protocol.handle(BACKGROUND_ASSET_PROTOCOL, async (request) => {
+    const fileName = parseBackgroundAssetUrl(request.url)
+    if (!fileName) {
+      return new Response('Not found', { status: 404 })
+    }
+
+    const rootPath = resolveOmniPawDataPaths({
+      appDataPath: app.getPath('appData'),
+    }).backgroundImages
+    const assetPath = resolve(rootPath, fileName)
+    if (!isInsidePath(rootPath, assetPath)) {
+      return new Response('Not found', { status: 404 })
+    }
+
+    try {
+      const bytes = await readFile(assetPath)
+      return new Response(new Uint8Array(bytes), {
+        headers: {
+          'Content-Type': imageMimeType(assetPath),
+          'Cache-Control': 'no-store',
+        },
+      })
+    } catch (error) {
+      mainLogger.warn('Failed to read background asset.', { fileName, error })
+      return new Response('Not found', { status: 404 })
+    }
+  })
+}
+
+function parseBackgroundAssetUrl(urlText: string): string | undefined {
+  try {
+    const url = new URL(urlText)
+    if (url.hostname !== 'asset') {
+      return undefined
+    }
+    const [fileName] = url.pathname
+      .split('/')
+      .filter(Boolean)
+      .map((segment) => decodeURIComponent(segment))
+    if (!fileName || fileName !== basename(fileName)) {
+      return undefined
+    }
+    return fileName
+  } catch {
+    return undefined
+  }
+}
+
+function isInsidePath(parentPath: string, childPath: string): boolean {
+  const relativePath = relative(resolve(parentPath), resolve(childPath))
+  return Boolean(relativePath) && !relativePath.startsWith('..') && !isAbsolute(relativePath)
+}
+
+function imageMimeType(filePath: string): string {
+  switch (extname(filePath).toLowerCase()) {
+    case '.jpg':
+    case '.jpeg':
+      return 'image/jpeg'
+    case '.webp':
+      return 'image/webp'
+    case '.gif':
+      return 'image/gif'
+    default:
+      return 'image/png'
+  }
+}
+
 function parseCatAppearanceAssetUrl(
   urlText: string
 ): { packId: string; assetKey: string } | undefined {
@@ -625,6 +713,7 @@ app
       logDir: logSink.status().logDir,
     })
     applyApplicationIcon()
+    registerBackgroundAssetProtocol()
     registerCatAppearanceAssetProtocol()
 
     const omniInferLocator = locateOmniInferInstall({ app })

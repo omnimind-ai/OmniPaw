@@ -39,6 +39,7 @@ export interface DesktopAppBackgroundImage {
 export interface DesktopAppBackgroundSettings {
   enabled: boolean
   opacity: number
+  blur: number
   image?: DesktopAppBackgroundImage
 }
 

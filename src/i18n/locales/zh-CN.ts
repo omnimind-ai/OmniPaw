@@ -65,12 +65,12 @@ export default {
       },
       background: {
         title: '窗口背景',
-        description: '使用本地图片作为主窗口背景，并按图片比例限制窗口缩放。',
+        description: '将本地图片复制到应用受控目录作为主窗口背景，并按图片比例限制窗口缩放。',
         noImage: '未选择背景图片',
         pickFailed: '背景图片选择失败。',
         image: {
           title: '背景图片',
-          description: '选择后会记录图片尺寸，用于锁定窗口宽高比。',
+          description: '选择后会复制到本地受控目录，并记录图片尺寸用于锁定窗口宽高比。',
           choose: '选择图片',
           clear: '清除背景图片',
           previewAlt: '背景图片预览',
@@ -83,6 +83,10 @@ export default {
         opacity: {
           title: '背景透明度',
           description: '调节图片覆盖在界面底层的可见程度，避免内容被干扰。',
+        },
+        blur: {
+          title: '背景模糊',
+          description: '给背景图添加模糊效果，让前景内容更清晰。',
         },
       },
       chat: {
