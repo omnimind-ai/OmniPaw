@@ -192,6 +192,16 @@ p {
     var(--border) var(--app-glass-border-strength, 72%),
     transparent
   );
+  --app-glass-control: color-mix(
+    in oklab,
+    var(--background) var(--app-glass-card-strength, 68%),
+    transparent
+  );
+  --app-glass-control-hover: color-mix(
+    in oklab,
+    var(--muted) var(--app-glass-sidebar-accent-strength, 54%),
+    transparent
+  );
 }
 
 [data-app-shell][data-custom-background="true"] [data-settings-surface],
@@ -208,6 +218,33 @@ p {
 
 [data-app-shell][data-custom-background="true"] [data-app-glass-surface] {
   background-color: var(--app-glass-card);
+  border-color: var(--app-glass-border);
+}
+
+[data-app-shell][data-custom-background="true"] [data-slot="tabs-list"],
+[data-app-shell][data-custom-background="true"] [data-slot="input-group"],
+[data-app-shell][data-custom-background="true"] [data-app-glass-control],
+[data-app-shell][data-custom-background="true"] [data-slot="select-trigger"],
+[data-app-shell][data-custom-background="true"] [data-slot="button"][data-variant="outline"],
+[data-app-shell][data-custom-background="true"] [data-slot="button"][data-variant="secondary"] {
+  background-color: var(--app-glass-control) !important;
+  border-color: var(--app-glass-border) !important;
+  backdrop-filter: blur(10px) saturate(1.06);
+  -webkit-backdrop-filter: blur(10px) saturate(1.06);
+}
+
+[data-app-shell][data-custom-background="true"] [data-slot="button"][data-variant="ghost"]:hover,
+[data-app-shell][data-custom-background="true"] [data-slot="button"][aria-expanded="true"],
+[data-app-shell][data-custom-background="true"] [data-app-glass-control]:hover,
+[data-app-shell][data-custom-background="true"] [data-app-glass-control][aria-expanded="true"],
+[data-app-shell][data-custom-background="true"] [data-slot="select-trigger"]:hover {
+  background-color: var(--app-glass-control-hover) !important;
+}
+
+[data-app-shell][data-custom-background="true"] [data-slot="tabs-trigger"][data-active="true"],
+[data-app-shell][data-custom-background="true"] [data-slot="tabs-trigger"][data-state="active"],
+[data-app-shell][data-custom-background="true"] [data-slot="tabs-trigger"][aria-selected="true"] {
+  background-color: var(--app-glass-control);
   border-color: var(--app-glass-border);
 }
 

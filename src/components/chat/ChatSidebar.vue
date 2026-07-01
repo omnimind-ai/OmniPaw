@@ -409,6 +409,7 @@ function toggleCollapsedMode() {
             <DropdownMenu>
               <DropdownMenuTrigger as-child>
                 <Button
+                  data-app-glass-control
                   variant="outline"
                   size="icon-sm"
                   :aria-label="t('chat.sidebar.search.filterAriaLabel', { kind: activeSessionKindOption.title })"
