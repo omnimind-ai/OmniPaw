@@ -1,11 +1,10 @@
 <script setup lang="ts">
-import { useMediaQuery } from '@vueuse/core'
 import { storeToRefs } from 'pinia'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { useRoute } from 'vue-router'
 import AboutSettingsForm from '@/components/settings/AboutSettingsForm.vue'
 import CatAppearanceSettingsForm from '@/components/settings/CatAppearanceSettingsForm.vue'
-import SettingsSidebar, { type SettingsTab } from '@/components/settings/common/SettingsSidebar.vue'
+import type { SettingsTab } from '@/components/settings/common/SettingsSidebar.vue'
 import DefaultModelSettingsForm from '@/components/settings/DefaultModelSettingsForm.vue'
 import GeneralSettingsForm from '@/components/settings/GeneralSettingsForm.vue'
 import LocalAgentSettingsForm from '@/components/settings/LocalAgentSettingsForm.vue'
@@ -19,14 +18,13 @@ import ShortcutSettingsForm from '@/components/settings/ShortcutSettingsForm.vue
 import SkillSettingsForm from '@/components/settings/SkillSettingsForm.vue'
 import TavernSettingsForm from '@/components/settings/TavernSettingsForm.vue'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { SidebarInset, SidebarProvider, SidebarTrigger } from '@/components/ui/sidebar'
+import { SidebarTrigger } from '@/components/ui/sidebar'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useDelayedFlag } from '@/composables/useDelayedFlag'
 import { useProviderStore } from '@/stores/provider'
 import { useSettingsStore } from '@/stores/settings'
 import { errorToText, useToast } from '@/utils/toast'
 
-const router = useRouter()
 const route = useRoute()
 const settingsStore = useSettingsStore()
 const providerStore = useProviderStore()
@@ -36,8 +34,6 @@ const { draft, config, status, loading, saving, error, persistenceAvailable } =
   storeToRefs(settingsStore)
 
 const activeTab = ref<SettingsTab>(normalizeSettingsTab(route.query.tab) ?? 'general')
-const isMobile = useMediaQuery('(max-width: 768px)')
-const sidebarOpen = ref(true)
 let autosaveTimer: ReturnType<typeof window.setTimeout> | undefined
 let autosavePromise: Promise<void> | undefined
 let saveQueued = false
@@ -84,20 +80,6 @@ onBeforeUnmount(() => {
   settingsStore.stopSettingsSubscription()
 })
 
-function selectTab(tab: SettingsTab) {
-  activeTab.value = tab
-  void router.replace({ name: 'settings', query: { ...route.query, tab } })
-}
-
-function handleSidebarOpenUpdate(open: boolean) {
-  sidebarOpen.value = isMobile.value ? open : true
-}
-
-async function backToChat() {
-  await flushAutosave()
-  await router.push('/')
-}
-
 watch(
   () => route.query.tab,
   (tab) => {
@@ -124,16 +106,6 @@ watch(
     scheduleAutosave()
   },
   { deep: true }
-)
-
-watch(
-  isMobile,
-  (mobile) => {
-    if (!mobile) {
-      sidebarOpen.value = true
-    }
-  },
-  { immediate: true }
 )
 
 function scheduleAutosave() {
@@ -222,142 +194,127 @@ function normalizeSettingsTab(value: unknown): SettingsTab | undefined {
 </script>
 
 <template>
-  <SidebarProvider
-    :open="sidebarOpen"
-    class="h-full min-h-0"
-    @update:open="handleSidebarOpenUpdate"
+  <main
+    data-settings-surface
+    class="relative flex h-full min-h-0 flex-1 flex-col bg-muted/40"
   >
-    <SettingsSidebar
-      :active-tab="activeTab"
-      @select="selectTab"
-      @back="backToChat"
-    />
-
-    <SidebarInset class="h-full overflow-hidden">
-      <main
-        data-settings-surface
-        class="relative flex h-full min-h-0 flex-1 flex-col bg-muted/40"
+    <SidebarTrigger class="absolute left-3 top-3 md:hidden" />
+    <div
+      v-if="isFullHeightPanelTab"
+      :class="contentClass"
+    >
+      <div
+        v-if="loading && !draft"
+        class="flex flex-col gap-4"
       >
-        <SidebarTrigger class="absolute left-3 top-3 md:hidden" />
+        <template v-if="showInitialSkeleton">
+          <Skeleton class="h-32 w-full" />
+          <Skeleton class="h-48 w-full" />
+          <Skeleton class="h-24 w-full" />
+        </template>
+      </div>
+
+      <div
+        v-else-if="!draft"
+        class="rounded-lg border bg-card px-4 py-6 text-sm text-muted-foreground"
+      >
+        设置尚未加载。
+      </div>
+
+      <PersonaSettingsForm
+        v-else-if="activeTab === 'personas'"
+        class="h-full min-h-0 flex-1"
+      />
+
+      <SkillSettingsForm
+        v-else-if="activeTab === 'skills'"
+        class="h-full min-h-0 flex-1"
+      />
+
+      <CatAppearanceSettingsForm
+        v-else-if="activeTab === 'catAppearance'"
+        class="h-full min-h-0 flex-1"
+      />
+
+      <MemorySettingsForm
+        v-else-if="activeTab === 'memory'"
+        :draft="draft"
+        class="h-full min-h-0 flex-1"
+      />
+
+      <McpServerSettingsForm
+        v-else-if="activeTab === 'tools'"
+        class="h-full min-h-0 flex-1"
+      />
+
+      <ScheduledTaskSettingsForm
+        v-else-if="activeTab === 'schedule'"
+        :draft="draft"
+        class="h-full min-h-0 flex-1"
+      />
+
+      <TavernSettingsForm
+        v-else-if="activeTab === 'tavern'"
+        class="h-full min-h-0 flex-1"
+      />
+    </div>
+
+    <ScrollArea
+      v-else
+      class="min-h-0 flex-1"
+    >
+      <div :class="contentClass">
         <div
-          v-if="isFullHeightPanelTab"
-          :class="contentClass"
+          v-if="loading && !draft"
+          class="flex flex-col gap-4"
         >
-          <div
-            v-if="loading && !draft"
-            class="flex flex-col gap-4"
-          >
-            <template v-if="showInitialSkeleton">
-              <Skeleton class="h-32 w-full" />
-              <Skeleton class="h-48 w-full" />
-              <Skeleton class="h-24 w-full" />
-            </template>
-          </div>
-
-          <div
-            v-else-if="!draft"
-            class="rounded-lg border bg-card px-4 py-6 text-sm text-muted-foreground"
-          >
-            设置尚未加载。
-          </div>
-
-          <PersonaSettingsForm
-            v-else-if="activeTab === 'personas'"
-            class="h-full min-h-0 flex-1"
-          />
-
-          <SkillSettingsForm
-            v-else-if="activeTab === 'skills'"
-            class="h-full min-h-0 flex-1"
-          />
-
-          <CatAppearanceSettingsForm
-            v-else-if="activeTab === 'catAppearance'"
-            class="h-full min-h-0 flex-1"
-          />
-
-          <MemorySettingsForm
-            v-else-if="activeTab === 'memory'"
-            :draft="draft"
-            class="h-full min-h-0 flex-1"
-          />
-
-          <McpServerSettingsForm
-            v-else-if="activeTab === 'tools'"
-            class="h-full min-h-0 flex-1"
-          />
-
-          <ScheduledTaskSettingsForm
-            v-else-if="activeTab === 'schedule'"
-            :draft="draft"
-            class="h-full min-h-0 flex-1"
-          />
-
-          <TavernSettingsForm
-            v-else-if="activeTab === 'tavern'"
-            class="h-full min-h-0 flex-1"
-          />
+          <template v-if="showInitialSkeleton">
+            <Skeleton class="h-32 w-full" />
+            <Skeleton class="h-48 w-full" />
+            <Skeleton class="h-24 w-full" />
+          </template>
         </div>
 
-        <ScrollArea
-          v-else
-          class="min-h-0 flex-1"
+        <div
+          v-else-if="!draft"
+          class="rounded-lg border bg-card px-4 py-6 text-sm text-muted-foreground"
         >
-          <div :class="contentClass">
-            <div
-              v-if="loading && !draft"
-              class="flex flex-col gap-4"
-            >
-              <template v-if="showInitialSkeleton">
-                <Skeleton class="h-32 w-full" />
-                <Skeleton class="h-48 w-full" />
-                <Skeleton class="h-24 w-full" />
-              </template>
-            </div>
+          设置尚未加载。
+        </div>
 
-            <div
-              v-else-if="!draft"
-              class="rounded-lg border bg-card px-4 py-6 text-sm text-muted-foreground"
-            >
-              设置尚未加载。
-            </div>
+        <template v-else>
+          <ProviderSettingsForm v-if="activeTab === 'providers'" />
 
-            <template v-else>
-              <ProviderSettingsForm v-if="activeTab === 'providers'" />
+          <DefaultModelSettingsForm
+            v-else-if="activeTab === 'defaults'"
+            :draft="draft"
+          />
 
-              <DefaultModelSettingsForm
-                v-else-if="activeTab === 'defaults'"
-                :draft="draft"
-              />
+          <GeneralSettingsForm
+            v-else-if="activeTab === 'general'"
+            :draft="draft"
+          />
 
-              <GeneralSettingsForm
-                v-else-if="activeTab === 'general'"
-                :draft="draft"
-              />
+          <ShortcutSettingsForm
+            v-else-if="activeTab === 'shortcuts'"
+            :draft="draft"
+          />
 
-              <ShortcutSettingsForm
-                v-else-if="activeTab === 'shortcuts'"
-                :draft="draft"
-              />
-
-              <div
-                v-else-if="activeTab === 'agent'"
-                class="flex flex-col gap-4"
-              >
-                <LocalAgentSettingsForm :draft="draft" />
-              </div>
-
-              <ObservationSettingsForm
-                v-else-if="activeTab === 'observation'"
-                :draft="draft"
-              />
-
-              <AboutSettingsForm v-else-if="activeTab === 'about'" />
-
-            </template>
+          <div
+            v-else-if="activeTab === 'agent'"
+            class="flex flex-col gap-4"
+          >
+            <LocalAgentSettingsForm :draft="draft" />
           </div>
-        </ScrollArea>
-      </main>
-    </SidebarInset>
-  </SidebarProvider>
+
+          <ObservationSettingsForm
+            v-else-if="activeTab === 'observation'"
+            :draft="draft"
+          />
+
+          <AboutSettingsForm v-else-if="activeTab === 'about'" />
+        </template>
+      </div>
+    </ScrollArea>
+  </main>
 </template>
