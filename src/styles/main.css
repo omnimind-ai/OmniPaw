@@ -127,6 +127,30 @@
   box-sizing: border-box;
 }
 
+* {
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in oklab, var(--foreground) 22%, transparent) transparent;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track,
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: color-mix(in oklab, var(--foreground) 22%, transparent);
+  border-radius: 999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: color-mix(in oklab, var(--foreground) 40%, transparent);
+}
+
 body {
   margin: 0;
   min-width: 320px;
@@ -167,23 +191,27 @@ p {
 }
 
 [data-app-shell][data-custom-background="true"] {
-  --app-glass-card: color-mix(in oklab, var(--card) 68%, transparent);
+  --app-glass-card: color-mix(in oklab, var(--card) 55%, transparent);
   --app-glass-field-hover: color-mix(in oklab, var(--muted) 34%, transparent);
-  --app-glass-sidebar: color-mix(in oklab, var(--sidebar) 62%, transparent);
+  --app-glass-sidebar: color-mix(in oklab, var(--sidebar) 45%, transparent);
   --app-glass-sidebar-accent: color-mix(in oklab, var(--sidebar-accent) 54%, transparent);
   --app-glass-border: color-mix(in oklab, var(--border) 72%, transparent);
+  --app-glass-blur: 22px;
 }
 
 [data-app-shell][data-custom-background="true"] [data-settings-surface],
+[data-app-shell][data-custom-background="true"] [data-chat-surface],
 [data-app-shell][data-custom-background="true"] [data-slot="sidebar-wrapper"] {
-  background-color: transparent;
+  background-color: transparent !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
 }
 
 [data-app-shell][data-custom-background="true"] [data-slot="card"] {
   background-color: var(--app-glass-card);
   border-color: var(--app-glass-border);
-  backdrop-filter: blur(14px) saturate(1.08);
-  -webkit-backdrop-filter: blur(14px) saturate(1.08);
+  backdrop-filter: blur(var(--app-glass-blur)) saturate(1.08);
+  -webkit-backdrop-filter: blur(var(--app-glass-blur)) saturate(1.08);
 }
 
 [data-app-shell][data-custom-background="true"] [data-slot="field"]:hover {
@@ -191,13 +219,11 @@ p {
 }
 
 [data-app-shell][data-custom-background="true"] [data-sidebar="sidebar"],
-[data-app-shell][data-custom-background="true"] [data-slot="sidebar"],
-[data-app-shell][data-custom-background="true"] [data-slot="sidebar-container"],
 [data-app-shell][data-custom-background="true"] [data-slot="sidebar-inner"] {
   background-color: var(--app-glass-sidebar) !important;
   border-color: var(--app-glass-border);
-  backdrop-filter: blur(18px) saturate(1.08);
-  -webkit-backdrop-filter: blur(18px) saturate(1.08);
+  backdrop-filter: blur(var(--app-glass-blur)) saturate(1.08);
+  -webkit-backdrop-filter: blur(var(--app-glass-blur)) saturate(1.08);
 }
 
 [data-app-shell][data-custom-background="true"] [data-sidebar="separator"] {
