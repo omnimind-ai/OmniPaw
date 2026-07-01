@@ -34,6 +34,21 @@ const showProviderGuide = computed(
     settingsConfig.value?.app.initialized === false
 )
 const showStartupPlaceholder = computed(() => !startupLoaded.value && route.name !== 'settings')
+const appBackground = computed(() => settingsConfig.value?.app.background)
+const hasCustomBackground = computed(() =>
+  Boolean(appBackground.value?.enabled && appBackground.value.image?.url)
+)
+const appBackgroundStyle = computed(() => {
+  const image = appBackground.value?.image
+  if (!hasCustomBackground.value || !image) {
+    return {}
+  }
+
+  return {
+    backgroundImage: `url("${image.url}")`,
+    opacity: String(appBackground.value?.opacity ?? 0.35),
+  }
+})
 
 function setCatTaskState(state: CatTaskState) {
   if (state === lastCatTaskState) {
@@ -98,10 +113,17 @@ onBeforeUnmount(() => {
 <template>
   <div
     data-app-shell
-    class="flex h-svh min-h-0 flex-col overflow-hidden bg-background text-foreground"
+    :data-custom-background="hasCustomBackground ? 'true' : undefined"
+    class="relative isolate flex h-svh min-h-0 flex-col overflow-hidden bg-background text-foreground"
   >
+    <div
+      v-if="hasCustomBackground"
+      class="pointer-events-none absolute inset-0 z-0 bg-cover bg-center bg-no-repeat"
+      :style="appBackgroundStyle"
+      aria-hidden="true"
+    />
     <AppTopBar />
-    <div class="min-h-0 flex-1 overflow-hidden">
+    <div class="relative z-10 min-h-0 flex-1 overflow-hidden">
       <div
         v-if="showStartupPlaceholder"
         class="h-full bg-background"

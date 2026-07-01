@@ -174,7 +174,7 @@ function mapMessage(message: BridgeChatMessage): ChatRecord {
 </script>
 
 <template>
-  <main class="flex h-full min-h-0 flex-col bg-background text-foreground">
+  <main class="flex h-full min-h-0 flex-col bg-background/85 text-foreground backdrop-blur-[1px]">
     <header class="flex shrink-0 flex-wrap items-center gap-3 border-b px-4 py-3">
       <div class="min-w-0 flex-1">
         <h1 class="truncate text-base font-semibold">{{ t('vision.title') }}</h1>

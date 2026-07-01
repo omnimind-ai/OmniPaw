@@ -11,6 +11,7 @@ type WindowAction = 'close' | 'minimize' | 'toggleMaximize'
 const windowState = ref<BridgeDesktopWindowState>({
   platform: inferRendererPlatform(),
   isMaximized: false,
+  isMaximizable: true,
 })
 let unsubscribeWindowState: BridgeUnsubscribe | undefined
 
@@ -61,7 +62,7 @@ function handleWindowAction(action: WindowAction): void {
 
 <template>
   <header
-    class="relative z-[60] flex h-(--app-topbar-height) shrink-0 items-center overflow-hidden border-b border-border bg-background text-foreground"
+    class="relative z-[60] flex h-(--app-topbar-height) shrink-0 items-center overflow-hidden border-b border-border bg-background/90 text-foreground backdrop-blur-xl"
     style="-webkit-app-region: drag"
   >
     <div
@@ -104,6 +105,7 @@ function handleWindowAction(action: WindowAction): void {
         variant="ghost"
         class="h-full w-9 rounded-none text-muted-foreground hover:bg-muted hover:text-foreground"
         :aria-label="maximizeLabel"
+        :disabled="!windowState.isMaximizable"
         @click="handleWindowAction('toggleMaximize')"
       >
         <component

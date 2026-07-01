@@ -51,5 +51,6 @@ function getWindowState(window: BrowserWindow, platform: NodeJS.Platform): Deskt
   return {
     platform,
     isMaximized: window.isMaximized() || window.isFullScreen(),
+    isMaximizable: window.isMaximizable(),
   }
 }

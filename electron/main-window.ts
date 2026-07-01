@@ -2,6 +2,7 @@ import { join } from 'node:path'
 
 import type { Logger } from '@core/logging'
 import { IPC_CHANNELS } from '@shared/constants'
+import type { DesktopAppBackgroundSettings } from '@shared/types/settings'
 import type { DesktopWindowState } from '@shared/types/window'
 import { type app, BrowserWindow, shell } from 'electron'
 import { applyMacDockIcon, createAppIconImage } from './app-icon'
@@ -24,6 +25,7 @@ export interface MainWindowController {
   getWindow: () => BrowserWindow | null
   hideToTray: () => void
   applyZoomFactor: (factor?: number) => void
+  applyBackgroundSettings: (settings?: DesktopAppBackgroundSettings) => void
   show: () => void
 }
 
@@ -63,6 +65,7 @@ export function createMainWindowController(
     attachWindowDiagnostics(window, 'main', options.logger)
     attachWindowStateEvents(window)
     applyZoomFactor()
+    applyBackgroundSettings()
 
     if (process.env.ELECTRON_RENDERER_URL) {
       void window.loadURL(process.env.ELECTRON_RENDERER_URL)
@@ -124,6 +127,34 @@ export function createMainWindowController(
     mainWindow.webContents.setZoomFactor(normalizeZoomFactor(factor))
   }
 
+  function applyBackgroundSettings(settings?: DesktopAppBackgroundSettings): void {
+    if (!mainWindow || mainWindow.isDestroyed()) {
+      return
+    }
+
+    const aspectRatio = normalizeAspectRatio(settings?.image?.aspectRatio)
+    if (!settings?.enabled || !aspectRatio) {
+      mainWindow.setAspectRatio(0)
+      mainWindow.setMaximizable(true)
+      mainWindow.setFullScreenable(true)
+      sendWindowState(mainWindow)
+      return
+    }
+
+    if (mainWindow.isMaximized()) {
+      mainWindow.unmaximize()
+    }
+    if (mainWindow.isFullScreen()) {
+      mainWindow.setFullScreen(false)
+    }
+
+    mainWindow.setMaximizable(false)
+    mainWindow.setFullScreenable(false)
+    mainWindow.setAspectRatio(aspectRatio)
+    fitWindowToAspectRatio(mainWindow, aspectRatio)
+    sendWindowState(mainWindow)
+  }
+
   function show(): void {
     if (options.isQuitting()) {
       return
@@ -172,12 +203,35 @@ export function createMainWindowController(
     getWindow: () => mainWindow,
     hideToTray,
     applyZoomFactor,
+    applyBackgroundSettings,
     show,
   }
 }
 
 function normalizeZoomFactor(value: number): number {
   return Number.isFinite(value) && value > 0 ? value : 1
+}
+
+function normalizeAspectRatio(value: unknown): number | undefined {
+  return typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : undefined
+}
+
+function fitWindowToAspectRatio(window: BrowserWindow, aspectRatio: number): void {
+  const [minWidth, minHeight] = window.getMinimumSize()
+  const [currentWidth, currentHeight] = window.getSize()
+  const currentRatio = currentWidth / currentHeight
+  if (Math.abs(currentRatio - aspectRatio) < 0.01) {
+    return
+  }
+
+  let width = Math.max(currentWidth, minWidth)
+  let height = Math.round(width / aspectRatio)
+  if (height < minHeight) {
+    height = minHeight
+    width = Math.round(height * aspectRatio)
+  }
+
+  window.setSize(width, height, true)
 }
 
 function attachWindowDiagnostics(window: BrowserWindow, windowName: string, logger: Logger): void {
@@ -198,23 +252,24 @@ function attachWindowDiagnostics(window: BrowserWindow, windowName: string, logg
 }
 
 function attachWindowStateEvents(window: BrowserWindow): void {
-  const sendState = () => {
-    if (window.isDestroyed()) {
-      return
-    }
+  window.on('maximize', () => sendWindowState(window))
+  window.on('unmaximize', () => sendWindowState(window))
+  window.on('enter-full-screen', () => sendWindowState(window))
+  window.on('leave-full-screen', () => sendWindowState(window))
+}
 
-    window.webContents.send(IPC_CHANNELS.window.stateChanged, getWindowState(window))
+function sendWindowState(window: BrowserWindow): void {
+  if (window.isDestroyed()) {
+    return
   }
 
-  window.on('maximize', sendState)
-  window.on('unmaximize', sendState)
-  window.on('enter-full-screen', sendState)
-  window.on('leave-full-screen', sendState)
+  window.webContents.send(IPC_CHANNELS.window.stateChanged, getWindowState(window))
 }
 
 function getWindowState(window: BrowserWindow): DesktopWindowState {
   return {
     platform: process.platform,
     isMaximized: window.isMaximized() || window.isFullScreen(),
+    isMaximizable: window.isMaximizable(),
   }
 }

@@ -63,6 +63,28 @@ export default {
         title: '显示模型思考内容',
         description: '关闭后对话中隐藏模型推理和思考内容块。',
       },
+      background: {
+        title: '窗口背景',
+        description: '使用本地图片作为主窗口背景，并按图片比例限制窗口缩放。',
+        noImage: '未选择背景图片',
+        pickFailed: '背景图片选择失败。',
+        image: {
+          title: '背景图片',
+          description: '选择后会记录图片尺寸，用于锁定窗口宽高比。',
+          choose: '选择图片',
+          clear: '清除背景图片',
+          previewAlt: '背景图片预览',
+          size: '{width} x {height}',
+        },
+        enabled: {
+          title: '启用背景',
+          description: '启用后主窗口只能按图片比例调整大小，并禁用最大化。',
+        },
+        opacity: {
+          title: '背景透明度',
+          description: '调节图片覆盖在界面底层的可见程度，避免内容被干扰。',
+        },
+      },
       chat: {
         title: '对话设置',
         description: '控制上下文、附件和压缩策略。',

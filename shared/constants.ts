@@ -81,6 +81,7 @@ export const IPC_CHANNELS = {
     save: 'settings:save',
     reset: 'settings:reset',
     status: 'settings:status',
+    pickBackgroundImage: 'settings:pick-background-image',
     changed: 'settings:changed',
   },
   shortcuts: {

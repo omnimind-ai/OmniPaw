@@ -64,6 +64,30 @@ export default {
         title: 'Show model reasoning',
         description: 'Hide model reasoning and thinking blocks in conversations when disabled.',
       },
+      background: {
+        title: 'Window background',
+        description:
+          'Use a local image as the main window background and resize the window by the image ratio.',
+        noImage: 'No background image selected',
+        pickFailed: 'Failed to choose background image.',
+        image: {
+          title: 'Background image',
+          description: 'Image dimensions are recorded to lock the window aspect ratio.',
+          choose: 'Choose image',
+          clear: 'Clear background image',
+          previewAlt: 'Background image preview',
+          size: '{width} x {height}',
+        },
+        enabled: {
+          title: 'Enable background',
+          description:
+            'When enabled, the main window resizes only by the image ratio and maximize is disabled.',
+        },
+        opacity: {
+          title: 'Background opacity',
+          description: 'Adjust how strongly the image shows behind the interface.',
+        },
+      },
       chat: {
         title: 'Chat',
         description: 'Control context, attachments, and compaction behavior.',

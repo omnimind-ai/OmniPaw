@@ -192,6 +192,26 @@ export interface BridgeSystemContextSettings {
   mask?: BridgeSystemContextMaskSettings
 }
 
+export interface BridgeDesktopBackgroundImage {
+  path: string
+  url: string
+  width: number
+  height: number
+  aspectRatio: number
+  mimeType: string
+}
+
+export interface BridgeDesktopBackgroundSettings {
+  enabled: boolean
+  opacity: number
+  image?: BridgeDesktopBackgroundImage
+}
+
+export interface BridgePickDesktopBackgroundImageResponse {
+  canceled: boolean
+  image?: BridgeDesktopBackgroundImage
+}
+
 export interface BridgeContextUsageMetadata {
   inputTokens?: number
   estimatedInputTokens?: number
@@ -230,6 +250,7 @@ export interface BridgeDesktopSettingsConfig {
     maxRecentMessages: number
     chatContext: BridgeChatContextSettings
     systemContext: BridgeSystemContextSettings
+    background: BridgeDesktopBackgroundSettings
     compactSkillDescriptions: boolean
     shortcuts: DesktopShortcutSettings
     memory: DesktopMemorySettings
@@ -1014,6 +1035,7 @@ export interface RendererOmniPawBridge {
     ) => Promise<BridgeDesktopSettingsConfig>
     reset: () => Promise<BridgeDesktopSettingsConfig>
     status: () => Promise<BridgeDesktopSettingsStatus>
+    pickBackgroundImage: () => Promise<BridgePickDesktopBackgroundImageResponse>
     onChanged: (callback: (event: BridgeDesktopSettingsChangedEvent) => void) => BridgeUnsubscribe
   }
   shortcuts?: {
@@ -1569,14 +1591,17 @@ const fallbackBridge: RendererOmniPawBridge = {
     getState: async () => ({
       platform: 'win32',
       isMaximized: false,
+      isMaximizable: true,
     }),
     minimize: async () => ({
       platform: 'win32',
       isMaximized: false,
+      isMaximizable: true,
     }),
     toggleMaximize: async () => ({
       platform: 'win32',
       isMaximized: false,
+      isMaximizable: true,
     }),
     close: async () => {},
     onStateChanged: () => () => {},
@@ -1788,6 +1813,10 @@ const fallbackBridge: RendererOmniPawBridge = {
     load: async () => fallbackSettingsConfig(),
     save: () => rejectFallbackPersistence<BridgeDesktopSettingsConfig>('settings.save'),
     reset: () => rejectFallbackPersistence<BridgeDesktopSettingsConfig>('settings.reset'),
+    pickBackgroundImage: () =>
+      rejectFallbackPersistence<BridgePickDesktopBackgroundImageResponse>(
+        'settings.pickBackgroundImage'
+      ),
     status: async () => ({
       path: '',
       backupPath: '',
@@ -2304,6 +2333,11 @@ function fallbackSettingsConfig(): BridgeDesktopSettingsConfig {
           label: 'Mask',
           text: '',
         },
+      },
+      background: {
+        enabled: false,
+        opacity: 0.35,
+        image: undefined,
       },
       compactSkillDescriptions: true,
       shortcuts: {

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { MessagesSquareIcon, SlidersHorizontalIcon } from 'lucide-vue-next'
+import { ImageIcon, MessagesSquareIcon, SlidersHorizontalIcon, Trash2Icon } from 'lucide-vue-next'
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type {
@@ -8,8 +8,10 @@ import type {
   BridgeContextAttachmentPolicy,
   BridgeDesktopSettingsConfig,
 } from '@/bridge/app'
+import { appBridge } from '@/bridge/app'
 import SettingEntry from '@/components/settings/common/SettingEntry.vue'
 import SettingsSection from '@/components/settings/common/SettingsSection.vue'
+import { Button } from '@/components/ui/button'
 import { FieldGroup } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import {
@@ -21,12 +23,14 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
+import { errorToText, useToast } from '@/utils/toast'
 
 const props = defineProps<{
   draft: BridgeDesktopSettingsConfig
 }>()
 
 const { t } = useI18n()
+const toast = useToast()
 
 const language = computed({
   get: () => props.draft.app.language,
@@ -113,10 +117,50 @@ const zoomFactor = computed({
   },
 })
 
+const background = computed(() => props.draft.app.background)
+const backgroundEnabled = computed({
+  get: () => background.value.enabled,
+  set: (value: boolean) => {
+    background.value.enabled = value && Boolean(background.value.image)
+  },
+})
+const backgroundOpacityPercent = computed({
+  get: () => Math.round(background.value.opacity * 100),
+  set: (value: string | number) => {
+    const next = Number(value)
+    if (!Number.isFinite(next)) return
+    background.value.opacity = Math.min(1, Math.max(0, Math.round(next) / 100))
+  },
+})
+const backgroundImageLabel = computed(() => {
+  const imagePath = background.value.image?.path
+  if (!imagePath) return t('settings.general.background.noImage')
+  return imagePath.split(/[\\/]/).pop() || imagePath
+})
+
 function clampPercent(value: string | number): number {
   const next = Number(value)
   if (!Number.isFinite(next)) return 1
   return Math.min(100, Math.max(1, Math.round(next)))
+}
+
+async function pickBackgroundImage(): Promise<void> {
+  try {
+    const result = await appBridge.settings?.pickBackgroundImage()
+    if (!result || result.canceled || !result.image) {
+      return
+    }
+
+    props.draft.app.background.image = result.image
+    props.draft.app.background.enabled = true
+  } catch (error) {
+    toast.error(errorToText(error, t('settings.general.background.pickFailed')))
+  }
+}
+
+function clearBackgroundImage(): void {
+  props.draft.app.background.enabled = false
+  props.draft.app.background.image = undefined
 }
 </script>
 
@@ -218,6 +262,101 @@ function clampPercent(value: string | number): number {
             v-model="showReasoningContent"
             :aria-label="t('settings.general.showReasoning.title')"
           />
+        </SettingEntry>
+      </FieldGroup>
+    </SettingsSection>
+
+    <SettingsSection
+      :title="t('settings.general.background.title')"
+      :description="t('settings.general.background.description')"
+      :icon="ImageIcon"
+    >
+      <FieldGroup class="gap-0">
+        <SettingEntry
+          control-id="settings-background-image"
+          :title="t('settings.general.background.image.title')"
+          :description="t('settings.general.background.image.description')"
+        >
+          <div class="flex w-full flex-col gap-3 md:w-80">
+            <div class="flex items-center gap-2">
+              <Button
+                id="settings-background-image"
+                type="button"
+                variant="outline"
+                size="sm"
+                @click="pickBackgroundImage"
+              >
+                <ImageIcon data-icon="inline-start" />
+                {{ t('settings.general.background.image.choose') }}
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                :disabled="!background.image"
+                :aria-label="t('settings.general.background.image.clear')"
+                @click="clearBackgroundImage"
+              >
+                <Trash2Icon data-icon />
+              </Button>
+            </div>
+            <div class="truncate text-sm text-muted-foreground">
+              {{ backgroundImageLabel }}
+            </div>
+            <div
+              v-if="background.image"
+              class="flex items-center gap-3 rounded-md border bg-muted/30 p-2"
+            >
+              <img
+                :src="background.image.url"
+                :alt="t('settings.general.background.image.previewAlt')"
+                class="h-16 w-24 rounded object-cover"
+                draggable="false"
+              />
+              <div class="min-w-0 text-xs text-muted-foreground">
+                {{ t('settings.general.background.image.size', background.image) }}
+              </div>
+            </div>
+          </div>
+        </SettingEntry>
+
+        <SettingEntry
+          control-id="settings-background-enabled"
+          :title="t('settings.general.background.enabled.title')"
+          :description="t('settings.general.background.enabled.description')"
+          :disabled="!background.image"
+        >
+          <Switch
+            id="settings-background-enabled"
+            v-model="backgroundEnabled"
+            :disabled="!background.image"
+            :aria-label="t('settings.general.background.enabled.title')"
+          />
+        </SettingEntry>
+
+        <SettingEntry
+          control-id="settings-background-opacity"
+          :title="t('settings.general.background.opacity.title')"
+          :description="t('settings.general.background.opacity.description')"
+          :disabled="!background.image"
+        >
+          <div class="flex w-full items-center gap-3 md:w-80">
+            <Input
+              id="settings-background-opacity"
+              v-model="backgroundOpacityPercent"
+              class="w-full"
+              type="range"
+              min="0"
+              max="100"
+              step="1"
+              :disabled="!background.image"
+              :aria-valuenow="backgroundOpacityPercent"
+              :aria-valuetext="`${backgroundOpacityPercent}%`"
+            />
+            <span class="w-12 shrink-0 text-right text-sm text-muted-foreground">
+              {{ backgroundOpacityPercent }}%
+            </span>
+          </div>
         </SettingEntry>
       </FieldGroup>
     </SettingsSection>

@@ -165,3 +165,45 @@ p {
     @apply bg-background text-foreground font-sans;
   }
 }
+
+[data-app-shell][data-custom-background="true"] {
+  --app-glass-card: color-mix(in oklab, var(--card) 68%, transparent);
+  --app-glass-field-hover: color-mix(in oklab, var(--muted) 34%, transparent);
+  --app-glass-sidebar: color-mix(in oklab, var(--sidebar) 62%, transparent);
+  --app-glass-sidebar-accent: color-mix(in oklab, var(--sidebar-accent) 54%, transparent);
+  --app-glass-border: color-mix(in oklab, var(--border) 72%, transparent);
+}
+
+[data-app-shell][data-custom-background="true"] [data-settings-surface],
+[data-app-shell][data-custom-background="true"] [data-slot="sidebar-wrapper"] {
+  background-color: transparent;
+}
+
+[data-app-shell][data-custom-background="true"] [data-slot="card"] {
+  background-color: var(--app-glass-card);
+  border-color: var(--app-glass-border);
+  backdrop-filter: blur(14px) saturate(1.08);
+  -webkit-backdrop-filter: blur(14px) saturate(1.08);
+}
+
+[data-app-shell][data-custom-background="true"] [data-slot="field"]:hover {
+  background-color: var(--app-glass-field-hover);
+}
+
+[data-app-shell][data-custom-background="true"] [data-sidebar="sidebar"],
+[data-app-shell][data-custom-background="true"] [data-slot="sidebar"],
+[data-app-shell][data-custom-background="true"] [data-slot="sidebar-inner"] {
+  background-color: var(--app-glass-sidebar);
+  border-color: var(--app-glass-border);
+  backdrop-filter: blur(18px) saturate(1.08);
+  -webkit-backdrop-filter: blur(18px) saturate(1.08);
+}
+
+[data-app-shell][data-custom-background="true"] [data-sidebar="separator"] {
+  background-color: var(--app-glass-border);
+}
+
+[data-app-shell][data-custom-background="true"] [data-sidebar="menu-button"][data-active="true"],
+[data-app-shell][data-custom-background="true"] [data-sidebar="menu-button"]:hover {
+  background-color: var(--app-glass-sidebar-accent);
+}

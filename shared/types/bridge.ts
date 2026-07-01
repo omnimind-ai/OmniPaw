@@ -186,6 +186,7 @@ import type {
   DesktopSettingsChangedEvent,
   DesktopSettingsConfig,
   DesktopSettingsStatus,
+  PickDesktopBackgroundImageResponse,
   SaveDesktopSettingsRequest,
 } from './settings'
 import type { ShortcutStatusChangedEvent } from './shortcuts'
@@ -476,6 +477,7 @@ export interface OmniPawBridge {
     ) => Promise<DesktopSettingsConfig>
     reset: () => Promise<DesktopSettingsConfig>
     status: () => Promise<DesktopSettingsStatus>
+    pickBackgroundImage: () => Promise<PickDesktopBackgroundImageResponse>
     onChanged: (callback: (event: DesktopSettingsChangedEvent) => void) => Unsubscribe
   }
   shortcuts: {

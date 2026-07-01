@@ -8,6 +8,7 @@ import type {
   WorkspaceRootStrategy,
 } from '@shared/types/local-agent'
 import type {
+  DesktopAppBackgroundImage,
   DesktopObservationSettings,
   DesktopProviderModel,
   DesktopProviderSource,
@@ -93,6 +94,11 @@ export const defaultConfig: DesktopSettingsConfig = {
         label: 'Mask',
         text: '',
       },
+    },
+    background: {
+      enabled: false,
+      opacity: 0.35,
+      image: undefined,
     },
     compactSkillDescriptions: true,
     shortcuts: {
@@ -361,6 +367,10 @@ function normalizeObject(defaultValue: unknown, rawValue: unknown, path: string)
     return normalizeSystemContextSettings(rawValue)
   }
 
+  if (path === 'app.background') {
+    return normalizeBackgroundSettings(rawValue)
+  }
+
   if (path === 'app.shortcuts') {
     return normalizeShortcutSettings(rawValue)
   }
@@ -579,7 +589,101 @@ function validateApp(config: DesktopSettingsConfig, issues: SettingsValidationIs
   validateChatContext(config, issues)
   validateMemory(config, issues)
   validateSystemContext(config, issues)
+  validateBackground(config, issues)
   validateShortcuts(config, issues)
+}
+
+function validateBackground(
+  config: DesktopSettingsConfig,
+  issues: SettingsValidationIssue[]
+): void {
+  const settings = config.app.background
+  if (!isPlainObject(settings)) {
+    issues.push({
+      path: 'app.background',
+      message: 'Background settings must be an object.',
+      code: 'invalid_type',
+    })
+    return
+  }
+  if (typeof settings.enabled !== 'boolean') {
+    issues.push({
+      path: 'app.background.enabled',
+      message: 'Background enabled flag must be boolean.',
+      code: 'invalid_type',
+    })
+  }
+  if (!isFiniteNumber(settings.opacity) || settings.opacity < 0 || settings.opacity > 1) {
+    issues.push({
+      path: 'app.background.opacity',
+      message: 'Background opacity must be between 0 and 1.',
+      code: 'out_of_range',
+    })
+  }
+  if (settings.image === undefined) {
+    if (settings.enabled) {
+      issues.push({
+        path: 'app.background.image',
+        message: 'Enabled background must include an image.',
+        code: 'required',
+      })
+    }
+    return
+  }
+  validateBackgroundImage(settings.image, 'app.background.image', issues)
+}
+
+function validateBackgroundImage(
+  image: DesktopAppBackgroundImage,
+  path: string,
+  issues: SettingsValidationIssue[]
+): void {
+  if (!isPlainObject(image)) {
+    issues.push({ path, message: 'Background image must be an object.', code: 'invalid_type' })
+    return
+  }
+  if (!image.path) {
+    issues.push({
+      path: `${path}.path`,
+      message: 'Background image path is required.',
+      code: 'required',
+    })
+  }
+  if (!image.url || !image.url.startsWith('file://')) {
+    issues.push({
+      path: `${path}.url`,
+      message: 'Background image URL must be a local file URL.',
+      code: 'invalid_type',
+    })
+  }
+  if (!Number.isInteger(image.width) || image.width < 1) {
+    issues.push({
+      path: `${path}.width`,
+      message: 'Background image width must be a positive integer.',
+      code: 'invalid_number',
+    })
+  }
+  if (!Number.isInteger(image.height) || image.height < 1) {
+    issues.push({
+      path: `${path}.height`,
+      message: 'Background image height must be a positive integer.',
+      code: 'invalid_number',
+    })
+  }
+  if (!isFiniteNumber(image.aspectRatio) || image.aspectRatio <= 0) {
+    issues.push({
+      path: `${path}.aspectRatio`,
+      message: 'Background image aspect ratio must be positive.',
+      code: 'invalid_number',
+    })
+  }
+  if (typeof image.mimeType !== 'string' || !image.mimeType.startsWith('image/')) {
+    issues.push({
+      path: `${path}.mimeType`,
+      message: 'Background image MIME type must be an image type.',
+      code: 'invalid_type',
+    })
+  }
 }
 
 function validateShortcuts(config: DesktopSettingsConfig, issues: SettingsValidationIssue[]): void {
@@ -1690,6 +1794,56 @@ function normalizeSystemContextSettings(
   }
 }
 
+function normalizeBackgroundSettings(
+  rawValue: unknown
+): DesktopSettingsConfig['app']['background'] {
+  const defaults = defaultConfig.app.background
+  if (!isPlainObject(rawValue)) {
+    return cloneUnknown(defaults) as DesktopSettingsConfig['app']['background']
+  }
+
+  const image = normalizeBackgroundImage(rawValue.image)
+  return {
+    enabled: rawValue.enabled === true && Boolean(image),
+    opacity: normalizeOpacity(rawValue.opacity, defaults.opacity),
+    image,
+  }
+}
+
+function normalizeBackgroundImage(value: unknown): DesktopAppBackgroundImage | undefined {
+  if (!isPlainObject(value)) {
+    return undefined
+  }
+
+  const path = typeof value.path === 'string' ? value.path.trim() : ''
+  const url = typeof value.url === 'string' ? value.url.trim() : ''
+  const width = normalizeInteger(value.width, 0, 1, 100_000)
+  const height = normalizeInteger(value.height, 0, 1, 100_000)
+  const aspectRatio =
+    isFiniteNumber(value.aspectRatio) && value.aspectRatio > 0
+      ? Math.round(value.aspectRatio * 1_000_000) / 1_000_000
+      : width > 0 && height > 0
+        ? Math.round((width / height) * 1_000_000) / 1_000_000
+        : 0
+  const mimeType =
+    typeof value.mimeType === 'string' && value.mimeType.startsWith('image/')
+      ? value.mimeType
+      : 'image/png'
+
+  if (!path || !url || width < 1 || height < 1 || aspectRatio <= 0) {
+    return undefined
+  }
+
+  return {
+    path,
+    url,
+    width,
+    height,
+    aspectRatio,
+    mimeType,
+  }
+}
+
 function normalizeObservationSettings(rawValue: unknown): DesktopObservationSettings {
   const defaults = defaultConfig.observation
   if (rawValue === undefined || rawValue === null) {
@@ -1953,6 +2107,14 @@ function normalizeInteger(value: unknown, fallback: number, min: number, max: nu
     return fallback
   }
   return Math.max(min, Math.min(Math.round(numeric), max))
+}
+
+function normalizeOpacity(value: unknown, fallback: number): number {
+  const numeric = typeof value === 'number' ? value : Number(value)
+  if (!Number.isFinite(numeric)) {
+    return fallback
+  }
+  return Math.max(0, Math.min(Math.round(numeric * 100) / 100, 1))
 }
 
 function validateIntegerRange(

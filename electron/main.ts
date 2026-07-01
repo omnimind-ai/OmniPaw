@@ -347,6 +347,10 @@ function applyMainWindowZoom(config?: DesktopSettingsConfig): void {
   mainWindowController?.applyZoomFactor(getConfiguredZoomFactor(config))
 }
 
+function applyMainWindowBackground(config?: DesktopSettingsConfig): void {
+  mainWindowController?.applyBackgroundSettings(config?.app.background)
+}
+
 function stepConfiguredZoomFactor(direction: 1 | -1): void {
   updateConfiguredZoomFactor(getConfiguredZoomFactor() + direction * ZOOM_STEP)
 }
@@ -451,6 +455,7 @@ function broadcastSettingsChanged(
 
   updateTrayMenu()
   applyMainWindowZoom(config)
+  applyMainWindowBackground(config)
   updateApplicationMenu()
   shortcutController?.apply(config.app.shortcuts)
 
@@ -725,6 +730,7 @@ app
     updateApplicationMenu()
     trayController?.create()
     mainWindowController?.create()
+    applyMainWindowBackground(runtime.configStore.get())
 
     lifecycleLogger.info('Desktop startup complete.')
 

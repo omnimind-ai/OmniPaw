@@ -234,7 +234,10 @@ function normalizeSettingsTab(value: unknown): SettingsTab | undefined {
     />
 
     <SidebarInset class="h-full overflow-hidden">
-      <main class="relative flex h-full min-h-0 flex-1 flex-col bg-muted/40">
+      <main
+        data-settings-surface
+        class="relative flex h-full min-h-0 flex-1 flex-col bg-muted/40"
+      >
         <SidebarTrigger class="absolute left-3 top-3 md:hidden" />
         <div
           v-if="isFullHeightPanelTab"

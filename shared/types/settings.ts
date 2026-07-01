@@ -27,6 +27,21 @@ export interface DesktopSystemContextSettings {
   mask?: DesktopSystemContextMaskSettings
 }
 
+export interface DesktopAppBackgroundImage {
+  path: string
+  url: string
+  width: number
+  height: number
+  aspectRatio: number
+  mimeType: string
+}
+
+export interface DesktopAppBackgroundSettings {
+  enabled: boolean
+  opacity: number
+  image?: DesktopAppBackgroundImage
+}
+
 export interface DesktopBaseSettings {
   language: AppLanguage
   theme: AppTheme
@@ -42,6 +57,7 @@ export interface DesktopBaseSettings {
   chatContext: DesktopChatContextSettings
   memory: DesktopMemorySettings
   systemContext: DesktopSystemContextSettings
+  background: DesktopAppBackgroundSettings
   compactSkillDescriptions: boolean
   shortcuts: DesktopShortcutSettings
   dataDir?: string
@@ -174,6 +190,11 @@ export interface DesktopSettingsStatus {
 
 export interface SaveDesktopSettingsRequest {
   config: DesktopSettingsConfig
+}
+
+export interface PickDesktopBackgroundImageResponse {
+  canceled: boolean
+  image?: DesktopAppBackgroundImage
 }
 
 export interface DesktopSettingsChangedEvent {

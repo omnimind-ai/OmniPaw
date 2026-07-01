@@ -65,7 +65,11 @@ import type {
   SetSessionModelRequest,
   TestProviderRequest,
 } from '@shared/types/provider'
-import type { DesktopSettingsConfig, SaveDesktopSettingsRequest } from '@shared/types/settings'
+import type {
+  DesktopSettingsConfig,
+  PickDesktopBackgroundImageResponse,
+  SaveDesktopSettingsRequest,
+} from '@shared/types/settings'
 import type { ShortcutStatusChangedEvent } from '@shared/types/shortcuts'
 import type {
   CopyPersonaToTavernUserProfileRequest,
@@ -375,6 +379,8 @@ const bridge: OmniPawBridge = {
       invokeSettings(IPC_CHANNELS.settings.save, stripProviderRegistryFromSettingsRequest(request)),
     reset: () => invokeSettings(IPC_CHANNELS.settings.reset),
     status: () => invokeSettings(IPC_CHANNELS.settings.status),
+    pickBackgroundImage: () =>
+      invokeSettings<PickDesktopBackgroundImageResponse>(IPC_CHANNELS.settings.pickBackgroundImage),
     onChanged: (callback) => createUnsubscriber(IPC_CHANNELS.settings.changed, callback),
   },
   shortcuts: {

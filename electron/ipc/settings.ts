@@ -1,10 +1,15 @@
+import { extname } from 'node:path'
+import { pathToFileURL } from 'node:url'
 import { ConfigValidationError, configError } from '@core/config/schema'
 import { IPC_CHANNELS } from '@shared/constants'
 import type {
+  DesktopAppBackgroundImage,
   DesktopSettingsConfig,
+  PickDesktopBackgroundImageResponse,
   SaveDesktopSettingsRequest,
   SettingsOperationError,
 } from '@shared/types/settings'
+import { BrowserWindow, dialog, nativeImage } from 'electron'
 import { registerLoggedIpcHandler } from './common'
 import type { IpcHandlerOptions } from './types'
 
@@ -39,6 +44,9 @@ export function registerSettingsIpcHandlers(options: IpcHandlerOptions): void {
   registerLoggedIpcHandler(options, IPC_CHANNELS.settings.status, () =>
     settingsResult(options, () => runtime.configStore.status())
   )
+  registerLoggedIpcHandler(options, IPC_CHANNELS.settings.pickBackgroundImage, (event) =>
+    settingsAsyncResult(options, () => pickBackgroundImage(event))
+  )
 }
 
 function settingsResult<T>(options: IpcHandlerOptions, operation: () => T): SettingsIpcResult<T> {
@@ -70,6 +78,111 @@ function settingsResult<T>(options: IpcHandlerOptions, operation: () => T): Sett
         }
       ),
     }
+  }
+}
+
+async function settingsAsyncResult<T>(
+  options: IpcHandlerOptions,
+  operation: () => Promise<T>
+): Promise<SettingsIpcResult<T>> {
+  try {
+    return {
+      ok: true,
+      value: await operation(),
+    }
+  } catch (error) {
+    if (error instanceof ConfigValidationError) {
+      options.ipcLogger.warn('Settings operation failed.', {
+        errorCode: error.details.code,
+        recoverable: error.details.recoverable,
+      })
+      return {
+        ok: false,
+        error: error.details,
+      }
+    }
+    options.ipcLogger.error('Settings operation failed unexpectedly.', { error })
+    return {
+      ok: false,
+      error: configError(
+        'config_io_error',
+        error instanceof Error ? error.message : 'Settings operation failed.',
+        {
+          path: options.runtime.configStore.status().path,
+          recoverable: options.runtime.configStore.status().recoverable,
+        }
+      ),
+    }
+  }
+}
+
+async function pickBackgroundImage(
+  event: Electron.IpcMainInvokeEvent
+): Promise<PickDesktopBackgroundImageResponse> {
+  const parent = BrowserWindow.fromWebContents(event.sender) ?? undefined
+  const options: Electron.OpenDialogOptions = {
+    title: '选择背景图片',
+    properties: ['openFile'],
+    filters: [
+      {
+        name: 'Images',
+        extensions: ['png', 'jpg', 'jpeg', 'webp', 'gif'],
+      },
+    ],
+  }
+  const result = parent
+    ? await dialog.showOpenDialog(parent, options)
+    : await dialog.showOpenDialog(options)
+
+  if (result.canceled || !result.filePaths[0]) {
+    return { canceled: true }
+  }
+
+  return {
+    canceled: false,
+    image: resolveBackgroundImage(result.filePaths[0]),
+  }
+}
+
+function resolveBackgroundImage(filePath: string): DesktopAppBackgroundImage {
+  const image = nativeImage.createFromPath(filePath)
+  const size = image.getSize()
+  if (image.isEmpty() || size.width < 1 || size.height < 1) {
+    throw new ConfigValidationError(
+      configError('invalid_config', 'Selected background file is not a readable image.', {
+        recoverable: true,
+        issues: [
+          {
+            path: 'app.background.image',
+            message: 'Selected background file is not a readable image.',
+            code: 'invalid_image',
+          },
+        ],
+      })
+    )
+  }
+
+  return {
+    path: filePath,
+    url: pathToFileURL(filePath).toString(),
+    width: size.width,
+    height: size.height,
+    aspectRatio: Math.round((size.width / size.height) * 1_000_000) / 1_000_000,
+    mimeType: imageMimeType(filePath),
+  }
+}
+
+function imageMimeType(filePath: string): string {
+  switch (extname(filePath).toLowerCase()) {
+    case '.jpg':
+    case '.jpeg':
+      return 'image/jpeg'
+    case '.webp':
+      return 'image/webp'
+    case '.gif':
+      return 'image/gif'
+    default:
+      return 'image/png'
   }
 }
 
