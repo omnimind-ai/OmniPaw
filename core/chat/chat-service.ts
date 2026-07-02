@@ -9,7 +9,6 @@ import type { AttachmentRepo, ChatMessageRepo, ChatRunRepo, ChatSessionRepo } fr
 import type { Logger } from '@core/logging'
 import type { CompanionMemoryService } from '@core/memory/service'
 import type { ObservationManager } from '@core/observation'
-import type { PersonaManager } from '@core/persona/manager'
 import type { ProviderManager } from '@core/provider/manager'
 import type { SkillManager } from '@core/skill/skill-manager'
 import type { TavernContextService } from '@core/tavern/context-service'
@@ -90,7 +89,6 @@ export interface ChatServiceOptions {
   contextDefaults?: () => DesktopChatContextSettings
   systemContextDefaults?: () => DesktopSystemContextSettings | undefined
   companionRoleDefaults?: () => DesktopCompanionRoleSettings | undefined
-  personaManager?: PersonaManager
   tavernManager?: TavernManager
   tavernContextService?: TavernContextService
   memoryService?: CompanionMemoryService
@@ -225,7 +223,7 @@ export class ChatService {
       kind: session.kind,
       providerId: session.defaultProviderId,
       modelId: session.defaultModelId,
-      personaRefId: session.systemContext?.persona?.refId,
+      roleRefId: session.systemContext?.role?.refId,
     })
     return session
   }
@@ -283,10 +281,9 @@ export class ChatService {
     kind: Extract<ChatSessionKind, 'chat' | 'tavern' | 'cat' | 'vision'> = 'chat'
   ): ChatSystemContextConfig | undefined {
     const defaults = this.options.systemContextDefaults?.()
-    const personaProfile = this.options.personaManager?.getActiveProfile()
-    const companionRolePersona =
-      kind === 'cat'
-        ? compileCompanionRolePersona(this.options.companionRoleDefaults?.())
+    const roleInstruction =
+      kind === 'chat' || kind === 'cat'
+        ? compileCompanionRoleInstruction(this.options.companionRoleDefaults?.())
         : undefined
 
     const baseSystemPrompt = defaults?.baseSystemPrompt?.trim() || undefined
@@ -298,23 +295,13 @@ export class ChatService {
           enabled: maskInput.enabled !== false,
         }
       : undefined
-    const persona: SessionContextInstruction | undefined =
-      companionRolePersona ??
-      (personaProfile
-        ? {
-            refId: personaProfile.id,
-            label: personaProfile.name,
-            text: personaProfile.prompt,
-          }
-        : undefined)
-
-    if (!baseSystemPrompt && !mask && !persona) {
+    if (!baseSystemPrompt && !mask && !roleInstruction) {
       return undefined
     }
     const systemContext: ChatSystemContextConfig = {}
     if (baseSystemPrompt) systemContext.baseSystemPrompt = baseSystemPrompt
     if (mask) systemContext.mask = mask
-    if (persona) systemContext.persona = persona
+    if (roleInstruction) systemContext.role = roleInstruction
     return systemContext
   }
 
@@ -465,7 +452,7 @@ export class ChatService {
       createdAt: now,
       updatedAt: now,
     }
-    const session = withoutPersonaContext(
+    const session = withoutRoleContext(
       this.createSessionRecord({
         kind: 'tavern',
         title: request.title?.trim() || character.name,
@@ -904,7 +891,7 @@ export class TavernChatOperationError extends Error {
   }
 }
 
-function compileCompanionRolePersona(
+function compileCompanionRoleInstruction(
   role: DesktopCompanionRoleSettings | undefined
 ): SessionContextInstruction | undefined {
   if (!role?.enabled) {
@@ -927,7 +914,7 @@ function compileCompanionRolePersona(
   ].filter((section) => section.trim())
 
   return {
-    refId: 'companion-role',
+    refId: role.id,
     label: name,
     text: sections.join('\n'),
   }
@@ -1070,11 +1057,11 @@ function isTavernGreetingMessage(message: ChatMessage): boolean {
   )
 }
 
-function withoutPersonaContext(session: ChatSession): ChatSession {
-  if (!session.systemContext?.persona) {
+function withoutRoleContext(session: ChatSession): ChatSession {
+  if (!session.systemContext?.role) {
     return session
   }
-  const { persona: _persona, ...systemContext } = session.systemContext
+  const { role: _role, ...systemContext } = session.systemContext
   return {
     ...session,
     systemContext,

@@ -43,13 +43,11 @@ import type {
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { usePersonaStore } from '@/stores/persona'
 import { useTavernStore } from '@/stores/tavern'
 import { askForConfirmation, useConfirmDialog } from '@/utils/confirmDialog'
 import { useToast } from '@/utils/toast'
 
 const tavernStore = useTavernStore()
-const personaStore = usePersonaStore()
 const toast = useToast()
 const confirmDialog = useConfirmDialog()
 const { t } = useI18n()
@@ -102,7 +100,6 @@ const userProfileDraft = reactive<TavernUserProfileDraftState>({
   name: '',
   description: '',
   enabled: true,
-  copyPersonaId: '',
 })
 
 const selectedCharacter = computed(() =>
@@ -159,7 +156,7 @@ const userProfileEditorTitle = computed(() =>
 
 onMounted(async () => {
   try {
-    await Promise.all([tavernStore.load(), personaStore.load()])
+    await tavernStore.load()
     if (!selectedCharacterId.value && tavernStore.characters[0]) {
       selectCharacter(tavernStore.characters[0].id)
     }
@@ -179,7 +176,6 @@ onMounted(async () => {
 
 onBeforeUnmount(() => {
   tavernStore.stopSubscription()
-  personaStore.stopSubscription()
 })
 
 watch(selectedCharacter, (character) => {
@@ -359,7 +355,6 @@ function applyUserProfileDraft(profile: TavernUserProfile | undefined) {
   userProfileDraft.name = profile?.name ?? ''
   userProfileDraft.description = profile?.description ?? ''
   userProfileDraft.enabled = profile?.enabled ?? true
-  userProfileDraft.copyPersonaId = ''
 }
 
 async function importFromText() {
@@ -450,22 +445,6 @@ async function deleteSelectedCharacter() {
     toast.success(t('settings.tavern.character.deleteSuccess'))
   } catch (error) {
     toast.error(error, { description: t('settings.tavern.character.deleteFailed') })
-  }
-}
-
-async function exportPersona() {
-  const character = selectedCharacter.value
-  if (!character) return
-  try {
-    await tavernStore.exportCharacterAsPersona({
-      characterId: character.id,
-      includeExamples: false,
-    })
-    toast.success(t('settings.tavern.character.exportSuccess'), {
-      description: t('settings.tavern.character.exportDescription'),
-    })
-  } catch (error) {
-    toast.error(error, { description: t('settings.tavern.character.exportFailed') })
   }
 }
 
@@ -614,25 +593,6 @@ async function deleteSelectedUserProfile() {
     toast.success(t('settings.tavern.userProfile.deleteSuccess'))
   } catch (error) {
     toast.error(error, { description: t('settings.tavern.userProfile.deleteFailed') })
-  }
-}
-
-async function copyPersonaToUserProfile() {
-  if (!userProfileDraft.copyPersonaId) return
-  savingUserProfile.value = true
-  try {
-    const result = await tavernStore.copyPersonaToUserProfile({
-      personaId: userProfileDraft.copyPersonaId,
-      name: userProfileDraft.name || undefined,
-    })
-    if (result.userProfile) selectUserProfile(result.userProfile.id)
-    toast.success(t('settings.tavern.userProfile.copySuccess'), {
-      description: t('settings.tavern.userProfile.copyDescription'),
-    })
-  } catch (error) {
-    toast.error(error, { description: t('settings.tavern.userProfile.copyFailed') })
-  } finally {
-    savingUserProfile.value = false
   }
 }
 
@@ -868,14 +828,6 @@ function setEntrySecondaryKeys(entry: TavernLorebookEntryDraft, value: string | 
           <div class="flex flex-wrap gap-2">
             <Button
               type="button"
-              variant="outline"
-              :disabled="!selectedCharacter || savingCharacter"
-              @click="exportPersona"
-            >
-              {{ t('settings.tavern.character.exportButton') }}
-            </Button>
-            <Button
-              type="button"
               variant="destructive"
               :disabled="!selectedCharacter || savingCharacter"
               @click="deleteSelectedCharacter"
@@ -976,10 +928,7 @@ function setEntrySecondaryKeys(entry: TavernLorebookEntryDraft, value: string | 
     >
       <TavernUserProfileEditorForm
         :draft="userProfileDraft"
-        :persona-profiles="personaStore.profiles"
-        :saving-user-profile="savingUserProfile"
         :disabled="savingUserProfile"
-        :copy-persona-to-user-profile="copyPersonaToUserProfile"
       />
 
       <template #footer>

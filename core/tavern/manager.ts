@@ -1,7 +1,5 @@
 import type { Logger } from '@core/logging'
-import type { PersonaManager } from '@core/persona/manager'
 import type {
-  CopyPersonaToTavernUserProfileRequest,
   CreateTavernCharacterRequest,
   CreateTavernLorebookRequest,
   CreateTavernPromptPresetRequest,
@@ -10,7 +8,6 @@ import type {
   DeleteTavernLorebookRequest,
   DeleteTavernPromptPresetRequest,
   DeleteTavernUserProfileRequest,
-  ExportTavernCharacterPersonaRequest,
   ImportTavernCharacterRequest,
   ImportTavernCharacterResult,
   SetTavernCharacterEnabledRequest,
@@ -50,18 +47,15 @@ import { hashSensitiveText } from './template'
 
 export interface TavernManagerOptions {
   registryStore: TavernRegistryStore
-  personaManager: PersonaManager
   logger?: Logger
 }
 
 export class TavernManager {
   private readonly registryStore: TavernRegistryStore
-  private readonly personaManager: PersonaManager
   private readonly logger?: Logger
 
   constructor(options: TavernManagerOptions) {
     this.registryStore = options.registryStore
-    this.personaManager = options.personaManager
     this.logger = options.logger
   }
 
@@ -442,70 +436,6 @@ export class TavernManager {
     })
   }
 
-  copyPersonaToUserProfile(
-    request: CopyPersonaToTavernUserProfileRequest
-  ): TavernRegistryMutationResult {
-    const persona = this.personaManager.getProfile(request.personaId)
-    if (!persona) {
-      throwNotFound('Persona', request.personaId)
-    }
-    const registry = this.registryStore.get()
-    const now = Date.now()
-    const userProfile = createUserProfileRecord(
-      {
-        name: request.name?.trim() || persona.name,
-        description: persona.prompt,
-        enabled: true,
-      },
-      registry,
-      now,
-      {
-        kind: 'persona-copy',
-        personaId: persona.id,
-        copiedAt: now,
-      }
-    )
-    const saved = this.registryStore.save({
-      ...registry,
-      userProfiles: [...registry.userProfiles, userProfile],
-      updatedAt: now,
-    })
-    this.logger?.info('Persona copied to tavern user profile.', {
-      personaId: persona.id,
-      userProfileId: userProfile.id,
-    })
-    return this.mutationResult(saved, 'user-profile', { userProfile })
-  }
-
-  exportCharacterAsPersona(
-    request: ExportTavernCharacterPersonaRequest
-  ): TavernRegistryMutationResult {
-    const registry = this.registryStore.get()
-    const character = registry.characters.find((item) => item.id === request.characterId)
-    if (!character) {
-      throwNotFound('Character', request.characterId)
-    }
-    const prompt = compileCharacterPersonaPrompt(character, request.includeExamples === true)
-    const result = this.personaManager.create({
-      profile: {
-        name: character.name,
-        description: character.description,
-        prompt,
-      },
-    })
-    this.logger?.info('Tavern character exported as persona.', {
-      characterId: character.id,
-      personaId: result.profile?.id,
-    })
-    return {
-      ok: true,
-      registry: sanitizeTavernRegistry(registry),
-      status: this.registryStore.status(),
-      character: { ...character },
-      persona: result.profile,
-    }
-  }
-
   private loadResult(registry: TavernRegistry): TavernRegistryLoadResponse {
     return {
       registry: sanitizeTavernRegistry(registry),
@@ -630,8 +560,7 @@ function createPromptPresetRecord(
 function createUserProfileRecord(
   draft: TavernUserProfileDraft,
   registry: TavernRegistry,
-  now: number,
-  source?: TavernUserProfile['source']
+  now: number
 ): TavernUserProfile {
   validateUserProfileDraft(draft, registry)
   const id =
@@ -650,7 +579,6 @@ function createUserProfileRecord(
     enabled: draft.enabled ?? true,
     version: 1,
     contentHash: hashSensitiveText(draft.description),
-    source,
     createdAt: now,
     updatedAt: now,
   }
@@ -950,30 +878,6 @@ function normalizeReferencedLorebookIds(
     result.push(id)
   }
   return result
-}
-
-function compileCharacterPersonaPrompt(
-  character: TavernCharacter,
-  includeExamples: boolean
-): string {
-  const sections: string[] = []
-  pushSection(sections, 'Character', character.name)
-  pushSection(sections, 'Description', character.description)
-  pushSection(sections, 'Personality', character.personality)
-  pushSection(sections, 'Scenario', character.scenario)
-  pushSection(sections, 'System prompt', character.systemPrompt)
-  pushSection(sections, 'Post-history instructions', character.postHistoryInstructions)
-  if (includeExamples && character.messageExamples.length) {
-    pushSection(sections, 'Example dialogue', character.messageExamples.join('\n\n'))
-  }
-  return sections.join('\n\n')
-}
-
-function pushSection(sections: string[], label: string, value: string | undefined): void {
-  const text = value?.trim()
-  if (text) {
-    sections.push(`${label}:\n${text}`)
-  }
 }
 
 function cleanStringArray(values: readonly string[] | undefined): string[] {

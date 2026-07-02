@@ -144,7 +144,6 @@ function normalizeSettingsTab(value: unknown): SettingsTab | undefined {
     tab === 'memory' ||
     tab === 'tavern' ||
     tab === 'skills' ||
-    tab === 'personas' ||
     tab === 'schedule' ||
     tab === 'observation' ||
     tab === 'about'

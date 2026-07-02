@@ -33,5 +33,4 @@ export interface TavernUserProfileDraftState {
   name: string
   description: string
   enabled: boolean
-  copyPersonaId: string
 }

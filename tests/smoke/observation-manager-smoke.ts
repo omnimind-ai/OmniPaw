@@ -264,7 +264,7 @@ try {
   assert.equal(
     (chatService.calls[0]?.transientSystemInstructions?.[0] as { refId?: string } | undefined)
       ?.refId,
-    'persona-active'
+    'role-active'
   )
   assert.equal(
     (chatService.calls[0]?.transientSystemInstructions?.[1] as { text?: string } | undefined)?.text,
@@ -284,9 +284,7 @@ try {
     false
   )
   assert.equal(
-    JSON.stringify(messages.listBySession(visionSessionId)).includes(
-      'Use the active persona voice.'
-    ),
+    JSON.stringify(messages.listBySession(visionSessionId)).includes('Use the active role voice.'),
     false
   )
   assert.equal(reactions.length, 1)
@@ -521,10 +519,10 @@ function createFakeChatService(
   return {
     calls,
     buildDefaultSystemContext: () => ({
-      persona: {
-        refId: 'persona-active',
-        label: 'Active Persona',
-        text: 'Use the active persona voice.',
+      role: {
+        refId: 'role-active',
+        label: 'Active Role',
+        text: 'Use the active role voice.',
       },
     }),
     reset(nextResponseText: string): void {

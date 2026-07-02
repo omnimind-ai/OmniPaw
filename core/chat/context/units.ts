@@ -42,13 +42,13 @@ export function buildSystemUnits(
     refId: systemContext?.mask?.refId,
   })
   pushTextUnit(units, {
-    id: 'system:persona',
-    kind: 'persona',
-    source: systemContext?.persona?.refId ?? 'session.persona',
-    text: systemContext?.persona?.text,
+    id: 'system:role',
+    kind: 'role',
+    source: systemContext?.role?.refId ?? 'session.role',
+    text: systemContext?.role?.text,
     priority: 970,
     required: true,
-    refId: systemContext?.persona?.refId,
+    refId: systemContext?.role?.refId,
   })
   if (skillPrompt?.injected) {
     pushTextUnit(units, {
@@ -380,7 +380,7 @@ function kindOrder(kind: ContextUnitKind): number {
       return 0
     case 'mask':
       return 1
-    case 'persona':
+    case 'role':
       return 2
     case 'tavern-prompt-preset':
       return 3
@@ -425,7 +425,7 @@ function transientInstructionPriority(kind: TransientChatInstruction['kind']): n
       return 1000
     case 'mask':
       return 980
-    case 'persona':
+    case 'role':
       return 970
     default:
       return 960

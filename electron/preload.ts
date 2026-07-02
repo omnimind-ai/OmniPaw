@@ -51,12 +51,6 @@ import type {
 } from '@shared/types/memory'
 import type { SelectModelRequest, SetThinkingRequest } from '@shared/types/omniinfer'
 import type {
-  CreatePersonaRequest,
-  DeletePersonaRequest,
-  SetDefaultPersonaRequest,
-  UpdatePersonaRequest,
-} from '@shared/types/persona'
-import type {
   CreateProviderFromPresetRequest,
   DeleteProviderRequest,
   OpenAICodexOAuthProviderRequest,
@@ -72,7 +66,6 @@ import type {
 } from '@shared/types/settings'
 import type { ShortcutStatusChangedEvent } from '@shared/types/shortcuts'
 import type {
-  CopyPersonaToTavernUserProfileRequest,
   CreateTavernCharacterRequest,
   CreateTavernLorebookRequest,
   CreateTavernPromptPresetRequest,
@@ -82,7 +75,6 @@ import type {
   DeleteTavernLorebookRequest,
   DeleteTavernPromptPresetRequest,
   DeleteTavernUserProfileRequest,
-  ExportTavernCharacterPersonaRequest,
   ImportTavernCharacterRequest,
   SetTavernCharacterEnabledRequest,
   SetTavernLorebookEnabledRequest,
@@ -204,24 +196,6 @@ async function invokeSkill<T>(channel: string, payload?: unknown): Promise<T> {
       details?: unknown
     }
     error.name = 'SkillOperationError'
-    error.details = response.error
-    throw error
-  }
-
-  return response?.ok === true ? (response.value as T) : (response as T)
-}
-
-async function invokePersona<T>(channel: string, payload?: unknown): Promise<T> {
-  const response =
-    payload === undefined
-      ? await ipcRenderer.invoke(channel)
-      : await ipcRenderer.invoke(channel, payload)
-
-  if (response?.ok === false) {
-    const error = new Error(response.error?.message || 'Persona operation failed.') as Error & {
-      details?: unknown
-    }
-    error.name = 'PersonaOperationError'
     error.details = response.error
     throw error
   }
@@ -594,18 +568,6 @@ const bridge: OmniPawBridge = {
     listTools: () => invokeMcp(IPC_CHANNELS.mcp.listTools),
     onChanged: (callback) => createUnsubscriber(IPC_CHANNELS.mcp.changed, callback),
   },
-  persona: {
-    load: () => invokePersona(IPC_CHANNELS.persona.load),
-    list: () => invokePersona(IPC_CHANNELS.persona.list),
-    status: () => invokePersona(IPC_CHANNELS.persona.status),
-    create: (request: CreatePersonaRequest) => invokePersona(IPC_CHANNELS.persona.create, request),
-    update: (request: UpdatePersonaRequest) => invokePersona(IPC_CHANNELS.persona.update, request),
-    delete: (request: DeletePersonaRequest | string) =>
-      invokePersona(IPC_CHANNELS.persona.delete, request),
-    setDefault: (request: SetDefaultPersonaRequest) =>
-      invokePersona(IPC_CHANNELS.persona.setDefault, request),
-    onChanged: (callback) => createUnsubscriber(IPC_CHANNELS.persona.changed, callback),
-  },
   omniinfer: {
     getStatus: () => ipcRenderer.invoke(IPC_CHANNELS.omniinfer.getStatus),
     start: () => ipcRenderer.invoke(IPC_CHANNELS.omniinfer.start),
@@ -665,10 +627,6 @@ const bridge: OmniPawBridge = {
       invokeTavern(IPC_CHANNELS.tavern.deleteUserProfile, request),
     setUserProfileEnabled: (request: SetTavernUserProfileEnabledRequest) =>
       invokeTavern(IPC_CHANNELS.tavern.setUserProfileEnabled, request),
-    copyPersonaToUserProfile: (request: CopyPersonaToTavernUserProfileRequest) =>
-      invokeTavern(IPC_CHANNELS.tavern.copyPersonaToUserProfile, request),
-    exportCharacterAsPersona: (request: ExportTavernCharacterPersonaRequest) =>
-      invokeTavern(IPC_CHANNELS.tavern.exportCharacterAsPersona, request),
     createSession: (request: CreateTavernSessionRequest) =>
       invokeTavern(IPC_CHANNELS.tavern.createSession, request),
     updateSessionBinding: (request: UpdateTavernSessionBindingRequest) =>

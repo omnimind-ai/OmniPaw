@@ -23,7 +23,6 @@
 - SHOULD main/preload/build 配置改动运行 `pnpm build`。
 - SHOULD 配置改动运行 `node scripts/run-electron-node.mjs tests/smoke/settings-config-smoke.ts`。
 - SHOULD Provider registry 改动运行 `node scripts/run-electron-node.mjs tests/smoke/provider-registry-smoke.ts`。
-- SHOULD Persona registry 改动运行 `node scripts/run-electron-node.mjs tests/smoke/persona-registry-smoke.ts`。
 - SHOULD 数据库改动运行 `node scripts/run-electron-node.mjs tests/smoke/db-smoke.ts`。
 - SHOULD 聊天 core 改动运行 `node scripts/run-electron-node.mjs tests/smoke/chat-core-smoke.ts`。
 - SHOULD Agent/tool 改动运行 `node scripts/run-electron-node.mjs tests/smoke/chat-core-smoke.ts`、`node scripts/run-electron-node.mjs tests/smoke/tool-management-smoke.ts` 或相关 agent smoke。
@@ -45,7 +44,6 @@
 | 完整构建 | `pnpm build` |
 | 配置 | `node scripts/run-electron-node.mjs tests/smoke/settings-config-smoke.ts` |
 | Provider registry | `node scripts/run-electron-node.mjs tests/smoke/provider-registry-smoke.ts` |
-| Persona registry | `node scripts/run-electron-node.mjs tests/smoke/persona-registry-smoke.ts` |
 | 数据库 | `node scripts/run-electron-node.mjs tests/smoke/db-smoke.ts` |
 | 聊天 core | `node scripts/run-electron-node.mjs tests/smoke/chat-core-smoke.ts` |
 | Agent runtime | `node scripts/run-electron-node.mjs tests/smoke/agent-runtime-smoke.ts` |
@@ -75,7 +73,7 @@
 ### 配置
 
 - [ ] shared type、默认值、normalize、validate、UI/store 已同步。
-- [ ] Provider/Persona registry 没有混入桌面配置或数据库表。
+- [ ] Provider registry 没有混入桌面配置或数据库表。
 - [ ] autosave 和 fallback bridge 行为已核对。
 - [ ] 秘密信息没有回显。
 

@@ -59,7 +59,7 @@ defineProps<{
         id="tavern-preset-main"
         v-model="draft.mainPrompt"
         class="min-h-40"
-        placeholder="{{char}}、{{user}}、{{persona}}"
+        placeholder="{{char}}、{{user}}、{{profile}}"
         :disabled="disabled"
       />
     </Field>

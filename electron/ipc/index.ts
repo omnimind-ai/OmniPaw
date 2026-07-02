@@ -8,7 +8,6 @@ import { registerMcpIpcHandlers } from './mcp'
 import { registerMemoryIpcHandlers } from './memory'
 import { registerObservationIpcHandlers } from './observation'
 import { registerOmniInferIpcHandlers } from './omniinfer'
-import { registerPersonaIpcHandlers } from './persona'
 import { registerProviderIpcHandlers } from './provider'
 import { registerSettingsIpcHandlers } from './settings'
 import { registerShortcutIpcHandlers } from './shortcuts'
@@ -32,7 +31,6 @@ export function registerIpcHandlers(options: IpcHandlerOptions): void {
   registerChatIpcHandlers(options)
   registerProviderIpcHandlers(options)
   registerObservationIpcHandlers(options)
-  registerPersonaIpcHandlers(options)
   registerTavernIpcHandlers(options)
   registerSkillIpcHandlers(options)
   registerCronIpcHandlers(options)

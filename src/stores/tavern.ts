@@ -1,5 +1,4 @@
 import type {
-  CopyPersonaToTavernUserProfileRequest,
   CreateTavernCharacterRequest,
   CreateTavernLorebookRequest,
   CreateTavernPromptPresetRequest,
@@ -9,7 +8,6 @@ import type {
   DeleteTavernLorebookRequest,
   DeleteTavernPromptPresetRequest,
   DeleteTavernUserProfileRequest,
-  ExportTavernCharacterPersonaRequest,
   ImportTavernCharacterRequest,
   ImportTavernCharacterResult,
   SetTavernCharacterEnabledRequest,
@@ -202,18 +200,6 @@ export const useTavernStore = defineStore('tavern', () => {
     return runMutation((bridge) => bridge.setUserProfileEnabled(request))
   }
 
-  async function copyPersonaToUserProfile(
-    request: CopyPersonaToTavernUserProfileRequest
-  ): Promise<TavernRegistryMutationResult> {
-    return runMutation((bridge) => bridge.copyPersonaToUserProfile(request))
-  }
-
-  async function exportCharacterAsPersona(
-    request: ExportTavernCharacterPersonaRequest
-  ): Promise<TavernRegistryMutationResult> {
-    return runMutation((bridge) => bridge.exportCharacterAsPersona(request))
-  }
-
   async function createSession(
     request: CreateTavernSessionRequest
   ): Promise<TavernSessionOperationResult> {
@@ -332,8 +318,6 @@ export const useTavernStore = defineStore('tavern', () => {
     updateUserProfile,
     deleteUserProfile,
     setUserProfileEnabled,
-    copyPersonaToUserProfile,
-    exportCharacterAsPersona,
     createSession,
     updateSessionBinding,
     previewPrompt,

@@ -210,7 +210,7 @@ export type ContextUsageSource = 'estimated' | 'actual' | 'mixed'
 export type ContextUnitKind =
   | 'base-system'
   | 'mask'
-  | 'persona'
+  | 'role'
   | 'tavern-prompt-preset'
   | 'tavern-character'
   | 'tavern-lore'
@@ -268,7 +268,7 @@ export interface SessionContextInstruction {
 export interface ChatSystemContextConfig {
   baseSystemPrompt?: string
   mask?: SessionContextInstruction
-  persona?: SessionContextInstruction
+  role?: SessionContextInstruction
   runtimeInstructions?: SessionContextInstruction[]
 }
 
@@ -558,7 +558,7 @@ export interface TransientChatImageInput {
 
 export type TransientChatInstructionKind = Extract<
   ContextUnitKind,
-  'base-system' | 'mask' | 'persona' | 'runtime'
+  'base-system' | 'mask' | 'role' | 'runtime'
 >
 
 export interface TransientChatInstruction {

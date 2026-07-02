@@ -157,12 +157,12 @@ export class TavernContextService {
       }
     }
 
-    const persona = userProfile?.enabled === false ? undefined : userProfile?.description
-    const personaDescription = persona ?? metadata.userDescriptionSnapshot ?? ''
+    const profile = userProfile?.enabled === false ? undefined : userProfile?.description
+    const profileDescription = profile ?? metadata.userDescriptionSnapshot ?? ''
     const variables = {
       char: character.name,
       user: metadata.userName || 'User',
-      persona: personaDescription,
+      profile: profileDescription,
     }
     const selectedUnits: TavernContextUnitPlan[] = []
     const droppedUnits: TavernContextUnitPlan[] = []
@@ -281,7 +281,7 @@ export class TavernContextService {
 function selectLoreUnits(input: {
   lorebooks: TavernLorebook[]
   candidateText: string
-  variables: { char: string; user: string; persona?: string }
+  variables: { char: string; user: string; profile?: string }
   budget: number
 }): { selected: TavernContextUnitPlan[]; dropped: TavernContextUnitPlan[] } {
   const candidates: Array<{
@@ -394,7 +394,7 @@ function clampTextToBudget(text: string, budget: number | undefined): string {
 
 function compileCharacterText(
   character: TavernCharacter,
-  variables: { char: string; user: string; persona?: string }
+  variables: { char: string; user: string; profile?: string }
 ): string {
   const sections: string[] = []
   pushRenderedSection(sections, 'Character', character.name, variables)
@@ -409,7 +409,7 @@ function pushRenderedSection(
   sections: string[],
   label: string,
   value: string | undefined,
-  variables: { char: string; user: string; persona?: string }
+  variables: { char: string; user: string; profile?: string }
 ): void {
   const text = renderTavernTemplate(value, variables).trim()
   if (text) {

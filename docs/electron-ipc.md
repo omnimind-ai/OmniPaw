@@ -30,7 +30,6 @@
 - MUST：通用 IPC handler 的完成 / 失败日志只记录 channel、duration、错误 code、recoverable 等结构化信息，不记录入参与返回值正文。
 - MUST：`electron/ipc/types.ts` 只放 IPC 注册依赖类型，不放业务类型、channel 常量或 handler 实现。
 - MUST：与窗口状态强耦合的窗口专属 IPC 可以留在对应窗口模块，例如猫窗口 IPC 留在 `electron/cat-window.ts`。
-- MUST：Persona IPC 返回结构化 ok/value/error，mutation 成功后发送 `persona.changed`；prompt 内容不得进入 IPC 日志。
 - MUST：Workspace IPC 只暴露当前 session 的 managed workspace 操作，路径和敏感规则由 core 校验，不在 preload/renderer 自行拼路径。
 - MUST：Terminal process IPC 只暴露已登记进程的 list/get/kill，不新增 renderer 可传任意 command 的 invoke；命令执行必须走 Agent tool + policy/approval。
 - MUST：terminal/process IPC payload 不包含 env 和凭据；进程输出只返回受配置截断的结果或 tail，不进入 IPC 日志。
@@ -90,7 +89,6 @@
 | IPC 共享注册工具 | `electron/ipc/common.ts` |
 | IPC 注册依赖类型 | `electron/ipc/types.ts` |
 | IPC domain handler | `electron/ipc/<domain>.ts` |
-| Persona IPC | `electron/ipc/persona.ts` |
 | Workspace IPC | `electron/ipc/workspace.ts` |
 | Terminal process IPC | `electron/ipc/terminal-process.ts` |
 | 窗口专属 IPC | 对应窗口模块，例如 `electron/cat-window.ts` |
@@ -106,5 +104,5 @@
 - [ ] 事件订阅有 unsubscribe。
 - [ ] 敏感字段没有暴露给 renderer。
 - [ ] terminal 没有新增可直接执行任意命令的 renderer IPC。
-- [ ] persona prompt、terminal env、Provider key 没有进入 IPC 日志。
+- [ ] role prompt、terminal env、Provider key 没有进入 IPC 日志。
 - [ ] main/preload 构建 alias 和输出格式未被无关修改。

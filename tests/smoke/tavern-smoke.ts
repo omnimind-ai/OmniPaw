@@ -16,8 +16,6 @@ import {
   ChatSessionRepo,
 } from '../../core/db/repos'
 import { seedDefaultChatData } from '../../core/db/seed'
-import { PersonaManager } from '../../core/persona/manager'
-import { PersonaRegistryStore } from '../../core/persona/registry-store'
 import { TavernContextService } from '../../core/tavern/context-service'
 import { TavernManager } from '../../core/tavern/manager'
 import { TavernRegistryValidationError } from '../../core/tavern/registry-schema'
@@ -82,13 +80,9 @@ try {
   const contextSummaryRepo = new ChatContextSummaryRepo(db)
   const runManager = new RunManager(runRepo)
 
-  const personaManager = new PersonaManager({
-    registryStore: new PersonaRegistryStore({ dataRootPath: tempDir }),
-  })
   const tavernStore = new TavernRegistryStore({ dataRootPath: tempDir })
   const tavernManager = new TavernManager({
     registryStore: tavernStore,
-    personaManager,
   })
 
   const initial = tavernStore.load()
@@ -167,7 +161,7 @@ try {
       slots: [
         {
           placement: 'main',
-          text: 'Main prompt for {{char}} and {{user}}. Persona: {{persona}}.',
+          text: 'Main prompt for {{char}} and {{user}}. Profile: {{profile}}.',
           order: 0,
         },
         {
@@ -201,27 +195,14 @@ try {
   tavernManager.deletePromptPreset(temporaryPreset.id)
   assert.equal(tavernManager.getPromptPreset(temporaryPreset.id), undefined)
 
-  const persona = personaManager.create({
+  const userProfile = tavernManager.createUserProfile({
     profile: {
-      name: 'Luna persona',
-      prompt: 'Luna is a cartographer.',
+      name: 'Luna profile',
+      description: 'Luna is a cartographer.',
     },
-  }).profile
-  assert.ok(persona)
-  const userProfile = tavernManager.copyPersonaToUserProfile({
-    personaId: persona.id,
-    name: 'Luna profile',
   }).userProfile
   assert.ok(userProfile)
   assert.equal(userProfile.description, 'Luna is a cartographer.')
-  personaManager.update({
-    id: persona.id,
-    profile: {
-      name: 'Luna persona changed',
-      prompt: 'Changed ordinary persona prompt.',
-    },
-  })
-  assert.equal(tavernManager.getUserProfile(userProfile.id)?.description, 'Luna is a cartographer.')
 
   const temporaryProfile = tavernManager.createUserProfile({
     profile: {
@@ -234,14 +215,6 @@ try {
   assert.equal(tavernManager.getUserProfile(temporaryProfile.id)?.enabled, false)
   tavernManager.deleteUserProfile(temporaryProfile.id)
   assert.equal(tavernManager.getUserProfile(temporaryProfile.id), undefined)
-
-  const exported = tavernManager.exportCharacterAsPersona({
-    characterId: imported.character.id,
-  })
-  assert.ok(exported.persona)
-  assert.equal(exported.persona?.prompt.includes('Stay in character.'), true)
-  assert.equal(exported.persona?.prompt.includes('Welcome,'), false)
-  assert.equal(exported.persona?.prompt.includes('Moon Gate opens'), false)
 
   const lorebook = imported.lorebooks[0]
   assert.ok(lorebook)
@@ -486,7 +459,7 @@ try {
     scanDepth: 2,
     loreBudget: 24,
   })
-  assert.equal(createdSession.session.systemContext?.persona, undefined)
+  assert.equal(createdSession.session.systemContext?.role, undefined)
   assert.equal(
     sessionRepo.list({ kind: 'tavern' }).some((item) => item.id === createdSession.session.id),
     true
@@ -599,7 +572,6 @@ try {
   assert.equal(IPC_CHANNELS.tavern.createSession, 'tavern:create-session')
   assert.equal(IPC_CHANNELS.tavern.previewPrompt, 'tavern:preview-prompt')
   assert.equal(IPC_CHANNELS.tavern.createPromptPreset, 'tavern:create-prompt-preset')
-  assert.equal(IPC_CHANNELS.tavern.copyPersonaToUserProfile, 'tavern:copy-persona-user-profile')
 
   console.log('tavern smoke ok')
 } finally {

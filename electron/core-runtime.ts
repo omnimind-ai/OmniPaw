@@ -41,9 +41,6 @@ import {
   resolveModelsDir,
   syncOmniInferProviderModels,
 } from '@core/omniinfer'
-import { PersonaManager } from '@core/persona/manager'
-import { PersonaRegistryValidationError } from '@core/persona/registry-schema'
-import { PersonaRegistryStore } from '@core/persona/registry-store'
 import { CatPetManager } from '@core/pet'
 import { ProviderManager } from '@core/provider/manager'
 import { OpenAICodexOAuthService } from '@core/provider/openai-codex-oauth'
@@ -114,7 +111,6 @@ export interface CoreRuntime {
   mcpServerManager: McpServerManager
   memoryService: CompanionMemoryService
   observationManager: ObservationManager
-  personaManager: PersonaManager
   openAICodexOAuthService: OpenAICodexOAuthService
   providerManager: ProviderManager
   sessionRepo: ChatSessionRepo
@@ -246,19 +242,10 @@ export function createCoreRuntime(options: CoreRuntimeOptions): CoreRuntime {
       }))
   )
 
-  const personaManager = new PersonaManager({
-    registryStore: new PersonaRegistryStore({
-      dataRootPath: dataPaths.root,
-    }),
-    logger: coreLogger.child({ scope: 'persona' }),
-  })
-  loadStartupPersonaRegistry(personaManager, options.lifecycleLogger)
-
   const tavernManager = new TavernManager({
     registryStore: new TavernRegistryStore({
       dataRootPath: dataPaths.root,
     }),
-    personaManager,
     logger: coreLogger.child({ scope: 'tavern' }),
   })
   loadStartupTavernRegistry(tavernManager, options.lifecycleLogger)
@@ -441,7 +428,6 @@ export function createCoreRuntime(options: CoreRuntimeOptions): CoreRuntime {
         appSettings.companionRoles[0]
       )
     },
-    personaManager,
     tavernManager,
     tavernContextService,
     memoryService,
@@ -495,7 +481,6 @@ export function createCoreRuntime(options: CoreRuntimeOptions): CoreRuntime {
     mcpServerManager,
     memoryService,
     observationManager,
-    personaManager,
     openAICodexOAuthService,
     providerManager,
     sessionRepo,
@@ -713,26 +698,6 @@ function loadStartupProviderRegistry(
       return
     }
     lifecycleLogger.error('Startup Provider registry load failed.', { error })
-    throw error
-  }
-}
-
-function loadStartupPersonaRegistry(personaManager: PersonaManager, lifecycleLogger: Logger): void {
-  try {
-    const { registry } = personaManager.load()
-    lifecycleLogger.info('Startup persona registry loaded.', {
-      version: registry.version,
-      profileCount: registry.profiles.length,
-    })
-  } catch (error) {
-    if (error instanceof PersonaRegistryValidationError) {
-      lifecycleLogger.warn('Startup persona registry validation failed.', {
-        errorCode: error.details.code,
-        recoverable: error.details.recoverable,
-      })
-      return
-    }
-    lifecycleLogger.error('Startup persona registry load failed.', { error })
     throw error
   }
 }

@@ -10,7 +10,6 @@ import LocalAgentSettingsForm from '@/components/settings/LocalAgentSettingsForm
 import McpServerSettingsForm from '@/components/settings/McpServerSettingsForm.vue'
 import MemorySettingsForm from '@/components/settings/MemorySettingsForm.vue'
 import ObservationSettingsForm from '@/components/settings/ObservationSettingsForm.vue'
-import PersonaSettingsForm from '@/components/settings/PersonaSettingsForm.vue'
 import ProviderSettingsForm from '@/components/settings/ProviderSettingsForm.vue'
 import ScheduledTaskSettingsForm from '@/components/settings/ScheduledTaskSettingsForm.vue'
 import ShortcutSettingsForm from '@/components/settings/ShortcutSettingsForm.vue'
@@ -40,7 +39,6 @@ let saveQueued = false
 const hasChanges = computed(() => JSON.stringify(draft.value) !== JSON.stringify(config.value))
 const showInitialSkeleton = useDelayedFlag(() => loading.value && !draft.value)
 const fullHeightPanelTabs = new Set<SettingsTab>([
-  'personas',
   'memory',
   'skills',
   'tools',
@@ -179,7 +177,6 @@ function normalizeSettingsTab(value: unknown): SettingsTab | undefined {
     tab === 'memory' ||
     tab === 'tavern' ||
     tab === 'skills' ||
-    tab === 'personas' ||
     tab === 'schedule' ||
     tab === 'observation' ||
     tab === 'about'
@@ -217,11 +214,6 @@ function normalizeSettingsTab(value: unknown): SettingsTab | undefined {
       >
         设置尚未加载。
       </div>
-
-      <PersonaSettingsForm
-        v-else-if="activeTab === 'personas'"
-        class="h-full min-h-0 flex-1"
-      />
 
       <SkillSettingsForm
         v-else-if="activeTab === 'skills'"

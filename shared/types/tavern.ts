@@ -1,5 +1,4 @@
 import type { ChatSession, ID, UnixMs } from './chat'
-import type { PersonaProfile } from './persona'
 
 export type TavernRegistryVersion = 2
 export type TavernPromptRecordVersion = 1
@@ -40,12 +39,6 @@ export interface TavernPromptPreset {
   updatedAt: UnixMs
 }
 
-export interface TavernUserProfileSource {
-  kind: 'manual' | 'persona-copy'
-  personaId?: ID
-  copiedAt?: UnixMs
-}
-
 export interface TavernUserProfile {
   id: ID
   name: string
@@ -53,7 +46,6 @@ export interface TavernUserProfile {
   enabled: boolean
   version: TavernUserProfileVersion
   contentHash: string
-  source?: TavernUserProfileSource
   createdAt: UnixMs
   updatedAt: UnixMs
 }
@@ -165,7 +157,6 @@ export type TavernRegistryChangeReason =
   | 'user-profile'
   | 'preview'
   | 'session'
-  | 'persona'
 
 export interface TavernRegistryChangedEvent extends TavernRegistryLoadResponse {
   reason: TavernRegistryChangeReason
@@ -181,7 +172,6 @@ export interface TavernRegistryMutationResult extends TavernRegistryLoadResponse
   lorebook?: TavernLorebook
   promptPreset?: TavernPromptPreset
   userProfile?: TavernUserProfile
-  persona?: PersonaProfile
   session?: ChatSession
 }
 
@@ -296,11 +286,6 @@ export interface SetTavernLorebookEnabledRequest {
   enabled: boolean
 }
 
-export interface ExportTavernCharacterPersonaRequest {
-  characterId: ID
-  includeExamples?: boolean
-}
-
 export interface CreateTavernPromptPresetRequest {
   preset: TavernPromptPresetDraft
 }
@@ -335,11 +320,6 @@ export interface DeleteTavernUserProfileRequest {
 export interface SetTavernUserProfileEnabledRequest {
   id: ID
   enabled: boolean
-}
-
-export interface CopyPersonaToTavernUserProfileRequest {
-  personaId: ID
-  name?: string
 }
 
 export interface TavernLoreSettings {

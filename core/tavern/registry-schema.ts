@@ -331,7 +331,6 @@ function normalizeUserProfileRecord(
         ? CURRENT_TAVERN_USER_PROFILE_VERSION
         : CURRENT_TAVERN_USER_PROFILE_VERSION,
     contentHash: optionalString(raw.contentHash) ?? hashSensitiveText(description),
-    source: normalizeUserProfileSource(raw.source),
     createdAt: typeof raw.createdAt === 'number' ? raw.createdAt : now,
     updatedAt: typeof raw.updatedAt === 'number' ? raw.updatedAt : now,
   }
@@ -674,18 +673,6 @@ function normalizeSource(raw: unknown): TavernCharacter['source'] {
     sourceName: optionalString(raw.sourceName),
     mimeType: optionalString(raw.mimeType),
     contentHash: optionalString(raw.contentHash),
-  }
-}
-
-function normalizeUserProfileSource(raw: unknown): TavernUserProfile['source'] {
-  if (!isPlainObject(raw)) {
-    return undefined
-  }
-  const kind = raw.kind === 'persona-copy' ? 'persona-copy' : 'manual'
-  return {
-    kind,
-    personaId: optionalString(raw.personaId),
-    copiedAt: typeof raw.copiedAt === 'number' ? raw.copiedAt : undefined,
   }
 }
 

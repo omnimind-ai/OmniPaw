@@ -3,7 +3,7 @@ import { createHash } from 'node:crypto'
 export interface TavernTemplateVariables {
   char: string
   user: string
-  persona?: string
+  profile?: string
 }
 
 export function renderTavernTemplate(
@@ -16,7 +16,7 @@ export function renderTavernTemplate(
   return text
     .replace(/\{\{\s*char\s*\}\}/gi, variables.char)
     .replace(/\{\{\s*user\s*\}\}/gi, variables.user)
-    .replace(/\{\{\s*persona\s*\}\}/gi, variables.persona ?? '')
+    .replace(/\{\{\s*profile\s*\}\}/gi, variables.profile ?? '')
 }
 
 export function hashSensitiveText(text: string): string {

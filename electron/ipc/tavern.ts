@@ -2,7 +2,6 @@ import { TavernRegistryValidationError } from '@core/tavern'
 import { IPC_CHANNELS } from '@shared/constants'
 import type { ChatSessionChangedEvent } from '@shared/types/chat'
 import type {
-  CopyPersonaToTavernUserProfileRequest,
   CreateTavernCharacterRequest,
   CreateTavernLorebookRequest,
   CreateTavernPromptPresetRequest,
@@ -12,7 +11,6 @@ import type {
   DeleteTavernLorebookRequest,
   DeleteTavernPromptPresetRequest,
   DeleteTavernUserProfileRequest,
-  ExportTavernCharacterPersonaRequest,
   ImportTavernCharacterRequest,
   SetTavernCharacterEnabledRequest,
   SetTavernLorebookEnabledRequest,
@@ -229,26 +227,6 @@ export function registerTavernIpcHandlers(options: IpcHandlerOptions): void {
     (event, request: SetTavernUserProfileEnabledRequest) => {
       const result = safe(() => runtime.tavernManager.setUserProfileEnabled(request))
       if (result.ok && result.value) emitTavernChanged(event, 'user-profile', result.value)
-      return result
-    }
-  )
-
-  registerLoggedIpcHandler(
-    options,
-    IPC_CHANNELS.tavern.copyPersonaToUserProfile,
-    (event, request: CopyPersonaToTavernUserProfileRequest) => {
-      const result = safe(() => runtime.tavernManager.copyPersonaToUserProfile(request))
-      if (result.ok && result.value) emitTavernChanged(event, 'user-profile', result.value)
-      return result
-    }
-  )
-
-  registerLoggedIpcHandler(
-    options,
-    IPC_CHANNELS.tavern.exportCharacterAsPersona,
-    (event, request: ExportTavernCharacterPersonaRequest) => {
-      const result = safe(() => runtime.tavernManager.exportCharacterAsPersona(request))
-      if (result.ok && result.value) emitTavernChanged(event, 'persona', result.value)
       return result
     }
   )

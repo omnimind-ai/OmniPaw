@@ -6,7 +6,7 @@
 
 1. 页面/路由：读 `Renderer 边界`、`路由`
 2. 设置页/Provider 设置：读 `状态管理`、`设置页面`
-3. Persona 或本地 Agent 设置：读 `Persona 设置页面`、`本地 Agent 设置`
+3. 本地 Agent 设置：读 `本地 Agent 设置`
 4. 组件/样式：读 `shadcn-vue 与样式`
 5. 用户可见文案/语言切换：读 `国际化`
 6. 错误提示/操作反馈：读 `错误与反馈`
@@ -98,7 +98,7 @@
 
 ### 条目列表类设置
 
-当某个设置 tab 需要展示一组可创建、搜索、编辑、删除、启用/停用的条目时，使用统一的 panel/list 结构。典型场景包括 Persona、Provider、工具配置、计划任务、MCP server、可复用 preset 或 registry 类设置。
+当某个设置 tab 需要展示一组可创建、搜索、编辑、删除、启用/停用的条目时，使用统一的 panel/list 结构。典型场景包括 Provider、工具配置、计划任务、MCP server、可复用 preset 或 registry 类设置。
 
 组件约定：
 
@@ -145,14 +145,6 @@
 - SHOULD：默认模型、备用模型、流式开关走 Provider store 的显式更新方法，不再通过 settings draft 间接保存。
 - SHOULD：Provider 模型、能力、compat 字段保持 config、shared type、UI 三侧命名一致。
 - SHOULD：测试 Provider、刷新模型、保存、删除路径提供 loading/disabled/error 状态。
-
-## Persona 设置页面
-
-- MUST：Persona 列表、创建、编辑、删除和默认选择通过 `usePersonaStore` 和 bridge，不混入 settings draft。
-- MUST：Persona prompt 视为系统上下文敏感内容，不进入 renderer 日志、toast 详情、调试上下文或聊天消息正文。
-- MUST：默认 Persona 只影响新建会话；已创建会话的 `systemContext` 不随设置页修改隐式变化。
-- MUST：fallback bridge 下禁用 Persona 保存类操作，不假成功。
-- SHOULD：加载、保存、删除、启用和停用路径提供 loading/disabled/error 状态。
 
 ## 本地 Agent 设置
 
@@ -201,7 +193,6 @@
 | 设置通用组件 | `src/components/settings/common/` |
 | Provider 设置子组件 | `src/components/settings/provider-settings/` |
 | Provider 设置弹窗 | `src/components/settings/provider-settings/ProviderDeleteModal.vue` |
-| Persona 设置 | `src/components/settings/PersonaSettingsForm.vue` |
 | 本地 Agent 设置 | `src/components/settings/LocalAgentSettingsForm.vue` |
 | 基础 UI | `src/components/ui/` |
 | 国际化入口 | `src/i18n/index.ts` |
@@ -209,7 +200,6 @@
 | 聊天状态 | `src/stores/chat.ts` |
 | 设置状态 | `src/stores/settings.ts` |
 | Provider 状态 | `src/stores/provider.ts` |
-| Persona 状态 | `src/stores/persona.ts` |
 | bridge | `src/bridge/app.ts` |
 
 ## 自检清单
@@ -218,7 +208,7 @@
 - [ ] 新增 UI 复用了现有 shadcn-vue 组件和语义 token。
 - [ ] 列表型设置页复用了 `SettingsPanelHeader`、`SettingsSearchBar`、`SettingsPanelItem`，满高 panel 的滚动边界正确。
 - [ ] 设置和 Provider 表单没有破坏 draft/autosave。
-- [ ] Persona 与本地 Agent 设置没有绕过对应 store/bridge 边界。
+- [ ] 本地 Agent 设置没有绕过对应 store/bridge 边界。
 - [ ] 用户可见错误和操作反馈使用现有 toast 封装。
 - [ ] 所有 bridge payload 使用 shared 类型。
 - [ ] 事件订阅、计时器、媒体 URL 已清理。
