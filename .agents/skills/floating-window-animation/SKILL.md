@@ -26,6 +26,7 @@ Use this skill for OmniPaw cat appearance packs and similar desktop floating mas
 4. Use a flat chroma-key background such as `#00ff00` when the generator cannot output true transparency. Remove the chroma key before assembly so the alignment script can use alpha boundaries.
 5. Assemble the animation from the transparent sheet with `scripts/assemble_sprite_animation.py`.
 6. Validate frame durations, alpha bounding boxes, transparent corners, file size, and a side-by-side preview before reporting completion.
+7. Validate the WebP loop count. Idle, drag, and doing loops may use `loop=0` forever; one-shot transition animations must use `loop=1`.
 
 ## Sprite Sheet Prompt Pattern
 
@@ -72,6 +73,14 @@ Never crop a sprite sheet with one shared union box unless each source frame is 
 
 Use a larger working canvas than the final rendered window. `256x256` is a good default for a floating window that displays inside a `116x116` window; keep a `120x120` fallback only when needed by existing docs or previews. For consistent pack-wide size, use the same `--canvas`, `--target-max`, and `--anchor` across idle, drag, and task-state animations.
 
+## Loop Counts
+
+Use the loop count deliberately:
+
+- Use `--loop 0` only for animations that should keep looping while the state is active, such as `idle`, `drag`, and `doing`.
+- Use `--loop 1` for one-shot transition animations controlled by manifest durations, such as `show`, `dragTransition`, `startDoing`, `endDoing`, and `finish`.
+- Make the sum of frame durations match the related manifest duration, but do not rely on an infinite-loop WebP ending exactly when the JavaScript timer fires. If a transition WebP has `loop=0` and its frame duration total equals `durations.completedFinish` or another state timer, Chromium can visibly start the next loop before the state changes.
+
 ## Examples
 
 ### Blink Idle
@@ -95,6 +104,7 @@ python .agents/skills/floating-window-animation/scripts/assemble_sprite_animatio
   --canvas 256x256 \
   --target-max 210x232 \
   --anchor 128,244 \
+  --loop 0 \
   --static-output cat-appearances/my-pack/assets/idle-static-256.png \
   --fallback-output cat-appearances/my-pack/assets/idle.png \
   --preview-output tmp/imagegen/my-pack-idle-preview.png
@@ -113,6 +123,7 @@ python -c "from PIL import Image, ImageSequence; im=Image.open('cat-appearances/
 Require:
 
 - Expected frame count. Confirm requested durations from the script output, for example `Durations: [2000, 120, 3000]`. Some Pillow/WebP builds do not expose frame durations when reading the saved file.
+- Expected loop count. Inspect the WebP `ANIM` chunk or use a tool that reports loop count; transition animations should be `1`, while intended loops can be `0`.
 - Identical or intentionally compatible alpha bounding boxes across frames.
 - Transparent corners in every frame.
 - No visible background fringe after chroma-key removal.
