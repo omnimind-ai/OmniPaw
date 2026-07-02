@@ -140,11 +140,6 @@ const backgroundBlur = computed({
     background.value.blur = Math.min(32, Math.max(0, Math.round(next)))
   },
 })
-const backgroundImageLabel = computed(() => {
-  const imagePath = background.value.image?.path
-  if (!imagePath) return t('settings.general.background.noImage')
-  return imagePath.split(/[\\/]/).pop() || imagePath
-})
 
 function clampPercent(value: string | number): number {
   const next = Number(value)
@@ -285,46 +280,27 @@ function clearBackgroundImage(): void {
           :title="t('settings.general.background.image.title')"
           :description="t('settings.general.background.image.description')"
         >
-          <div class="flex w-full flex-col gap-3 md:w-80">
-            <div class="flex items-center gap-2">
-              <Button
-                id="settings-background-image"
-                type="button"
-                variant="outline"
-                size="sm"
-                @click="pickBackgroundImage"
-              >
-                <ImageIcon data-icon="inline-start" />
-                {{ t('settings.general.background.image.choose') }}
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-sm"
-                :disabled="!background.image"
-                :aria-label="t('settings.general.background.image.clear')"
-                @click="clearBackgroundImage"
-              >
-                <Trash2Icon data-icon />
-              </Button>
-            </div>
-            <div class="truncate text-sm text-muted-foreground">
-              {{ backgroundImageLabel }}
-            </div>
-            <div
-              v-if="background.image"
-              class="flex items-center gap-3 rounded-md border bg-muted/30 p-2"
+          <div class="flex w-full items-center justify-end gap-2 md:w-80">
+            <Button
+              id="settings-background-image"
+              type="button"
+              variant="outline"
+              size="sm"
+              @click="pickBackgroundImage"
             >
-              <img
-                :src="background.image.url"
-                :alt="t('settings.general.background.image.previewAlt')"
-                class="h-16 w-24 rounded object-cover"
-                draggable="false"
-              />
-              <div class="min-w-0 text-xs text-muted-foreground">
-                {{ t('settings.general.background.image.size', background.image) }}
-              </div>
-            </div>
+              <ImageIcon data-icon="inline-start" />
+              {{ t('settings.general.background.image.choose') }}
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon-sm"
+              :disabled="!background.image"
+              :aria-label="t('settings.general.background.image.clear')"
+              @click="clearBackgroundImage"
+            >
+              <Trash2Icon data-icon />
+            </Button>
           </div>
         </SettingEntry>
 
