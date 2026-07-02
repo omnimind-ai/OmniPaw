@@ -33,6 +33,7 @@ import type {
   CatAppearanceDurations,
   CatAppearanceGetPackRequest,
   CatAppearanceImportResponse,
+  CatAppearanceLayout,
   CatAppearanceListResponse,
   CatAppearancePackSummary,
   CatAppearanceResolvedPack,
@@ -48,6 +49,7 @@ const MAX_IMPORT_ARCHIVE_BYTES = 128 * 1024 * 1024
 const MAX_IMPORT_FILES = 256
 const MAX_IMPORT_TOTAL_BYTES = 256 * 1024 * 1024
 const WATCH_DEBOUNCE_MS = 180
+const BUILTIN_LAYOUT_SCALE = 86 / 116
 
 const assetKeys = new Set<CatAppearanceAssetKey>([
   'show',
@@ -91,6 +93,18 @@ export const defaultCatAppearanceDurations: CatAppearanceDurations = {
   completedFinish: 1500,
 }
 
+export const defaultCatAppearanceLayout: CatAppearanceLayout = {
+  scale: 1,
+  offsetX: 0,
+  offsetY: 0,
+}
+
+export const builtinCatAppearanceLayout: CatAppearanceLayout = {
+  scale: BUILTIN_LAYOUT_SCALE,
+  offsetX: 0,
+  offsetY: 0,
+}
+
 export interface CatAppearanceAssetFile {
   path: string
   mimeType: string
@@ -130,6 +144,7 @@ interface LoadedCatAppearancePack {
   relativePath: string
   assets: Partial<Record<CatAppearanceAssetKey, LoadedCatAppearanceAsset>>
   durations: CatAppearanceDurations
+  layout: CatAppearanceLayout
   error?: string
   updatedAt: number
 }
@@ -546,6 +561,7 @@ export class CatAppearanceManager {
       rootName,
       relativePath: rootName,
       durations: defaultCatAppearanceDurations,
+      layout: defaultCatAppearanceLayout,
       updatedAt: safeMtimeMs(packPath),
     }
 
@@ -584,6 +600,7 @@ export class CatAppearanceManager {
         status: 'available',
         assets,
         durations: normalized.durations,
+        layout: normalized.layout,
         updatedAt,
       }
     } catch (error) {
@@ -622,6 +639,7 @@ export class CatAppearanceManager {
         active,
         assets: {},
         durations: defaultCatAppearanceDurations,
+        layout: builtinCatAppearanceLayout,
         version: BUILTIN_PACK_ID,
         updatedAt: this.lastUpdatedAt,
       }
@@ -653,6 +671,7 @@ export class CatAppearanceManager {
       relativePath: local.relativePath,
       assets,
       durations: local.durations,
+      layout: local.layout,
       version: `${local.id}-${Math.round(local.updatedAt)}`,
       updatedAt: Math.round(local.updatedAt),
     }
@@ -764,6 +783,7 @@ interface NormalizedManifest {
   description?: string
   assets: Partial<Record<CatAppearanceAssetKey, string>>
   durations: CatAppearanceDurations
+  layout: CatAppearanceLayout
 }
 
 function normalizeManifest(manifest: unknown, rootName: string): NormalizedManifest {
@@ -807,6 +827,7 @@ function normalizeManifest(manifest: unknown, rootName: string): NormalizedManif
     description,
     assets,
     durations: normalizeDurations(isRecord(manifest.durations) ? manifest.durations : undefined),
+    layout: normalizeLayout(isRecord(manifest.layout) ? manifest.layout : undefined),
   }
 }
 
@@ -889,6 +910,21 @@ function normalizeDuration(value: unknown, fallback: number): number {
     return fallback
   }
   return Math.round(Math.min(Math.max(value, 0), 30_000))
+}
+
+function normalizeLayout(raw: Record<string, unknown> | undefined): CatAppearanceLayout {
+  return {
+    scale: normalizeLayoutNumber(raw?.scale, defaultCatAppearanceLayout.scale, 0.25, 2),
+    offsetX: normalizeLayoutNumber(raw?.offsetX, defaultCatAppearanceLayout.offsetX, -116, 116),
+    offsetY: normalizeLayoutNumber(raw?.offsetY, defaultCatAppearanceLayout.offsetY, -116, 116),
+  }
+}
+
+function normalizeLayoutNumber(value: unknown, fallback: number, min: number, max: number): number {
+  if (typeof value !== 'number' || !Number.isFinite(value)) {
+    return fallback
+  }
+  return Math.round(Math.min(Math.max(value, min), max) * 1000) / 1000
 }
 
 function normalizePackId(value: unknown): string {

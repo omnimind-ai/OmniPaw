@@ -81,6 +81,18 @@ export interface CatDragPayload {
   deltaY: number
 }
 
+export interface CatHitRegionRect {
+  x: number
+  y: number
+  width: number
+  height: number
+}
+
+export interface CatHitRegionRequest {
+  rects: CatHitRegionRect[]
+  source?: string
+}
+
 export interface CatPanelActiveSessionState {
   sessionId?: ID
   updatedAt: UnixMs

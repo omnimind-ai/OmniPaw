@@ -31,6 +31,12 @@ export interface CatAppearanceDurations {
   completedFinish: number
 }
 
+export interface CatAppearanceLayout {
+  scale: number
+  offsetX: number
+  offsetY: number
+}
+
 export interface CatAppearancePackSummary {
   id: string
   name: string
@@ -47,6 +53,7 @@ export interface CatAppearancePackSummary {
 export interface CatAppearanceResolvedPack extends CatAppearancePackSummary {
   assets: Partial<Record<CatAppearanceAssetKey, string>>
   durations: CatAppearanceDurations
+  layout: CatAppearanceLayout
   version: string
 }
 

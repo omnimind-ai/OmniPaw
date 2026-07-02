@@ -15,6 +15,8 @@ import type {
   CatDraftStageRequest,
   CatDraftState,
   CatDragPayload,
+  CatHitRegionRect,
+  CatHitRegionRequest,
   CatPanelActiveSessionState,
   CatPanelOpenRequest,
   CatPanelPlacement,
@@ -25,7 +27,7 @@ import type {
   CatWindowState,
 } from '@shared/types/cat'
 import type { ObservationReactionEvent } from '@shared/types/observation'
-import { app, BrowserWindow, ipcMain, screen } from 'electron'
+import { app, BrowserWindow, ipcMain, type Rectangle, screen } from 'electron'
 import { applyMacDockIcon, createAppIconImage } from './app-icon'
 
 type CatSessionIdResolver = (
@@ -90,6 +92,8 @@ const catStageVisualBounds = {
   width: 116,
   height: 116,
 }
+
+const maxCatHitRegionRects = 240
 
 const isDarwin = process.platform === 'darwin'
 const shouldSkipFloatingWindowTaskbar = true
@@ -1275,6 +1279,70 @@ function toggleCatPanelWindow(options: OpenCatPanelOptions = {}): CatPanelToggle
   })
 }
 
+function setCatHitRegion(request: CatHitRegionRequest | undefined): void {
+  if (!catWindow || catWindow.isDestroyed() || isDarwin) {
+    return
+  }
+
+  const bounds = catWindow.getBounds()
+  const rects = normalizeCatHitRegionRects(request?.rects, bounds)
+
+  try {
+    catWindow.setShape(rects)
+  } catch (error) {
+    catLogger?.warn('Failed to apply cat hit region.', {
+      source: request?.source,
+      rectCount: rects.length,
+      error,
+    })
+  }
+}
+
+function normalizeCatHitRegionRects(
+  rects: CatHitRegionRect[] | undefined,
+  windowBounds: Pick<CatBounds, 'width' | 'height'>
+): Rectangle[] {
+  if (!Array.isArray(rects) || !rects.length) {
+    return []
+  }
+
+  const normalized: Rectangle[] = []
+  for (const rect of rects) {
+    if (
+      !rect ||
+      !isFiniteNumber(rect.x) ||
+      !isFiniteNumber(rect.y) ||
+      !isFiniteNumber(rect.width) ||
+      !isFiniteNumber(rect.height)
+    ) {
+      continue
+    }
+
+    const left = clamp(Math.floor(rect.x), 0, windowBounds.width)
+    const top = clamp(Math.floor(rect.y), 0, windowBounds.height)
+    const right = clamp(Math.ceil(rect.x + rect.width), 0, windowBounds.width)
+    const bottom = clamp(Math.ceil(rect.y + rect.height), 0, windowBounds.height)
+    const width = right - left
+    const height = bottom - top
+    if (width <= 0 || height <= 0) {
+      continue
+    }
+
+    normalized.push({
+      x: left,
+      y: top,
+      width,
+      height,
+    })
+
+    if (normalized.length >= maxCatHitRegionRects) {
+      break
+    }
+  }
+
+  return normalized
+}
+
 function dragStart(): CatBounds | null {
   cancelCatSnapAnimation()
   closeCatPanelWindow()
@@ -1331,6 +1399,12 @@ function registerCatWindowIpcHandlers(): void {
   ipcMain.handle(IPC_CHANNELS.cat.dragStart, () => dragStart())
   ipcMain.handle(IPC_CHANNELS.cat.dragMove, (_event, payload: CatDragPayload) => dragMove(payload))
   ipcMain.handle(IPC_CHANNELS.cat.dragEnd, () => dragEnd())
+  ipcMain.on(IPC_CHANNELS.cat.setHitRegion, (event, request?: CatHitRegionRequest) => {
+    if (!catWindow || catWindow.isDestroyed() || event.sender.id !== catWindow.webContents.id) {
+      return
+    }
+    setCatHitRegion(request)
+  })
   ipcMain.handle(
     IPC_CHANNELS.cat.openObservationSource,
     (_event, event: ObservationReactionEvent) => openObservationSource(event)

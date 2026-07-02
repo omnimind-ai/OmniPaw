@@ -11,6 +11,7 @@ import type {
   CatDraftStageRequest,
   CatDraftState,
   CatDragPayload,
+  CatHitRegionRequest,
   CatNotificationActionRequest,
   CatNotificationEvent,
   CatPanelActiveSessionState,
@@ -1004,6 +1005,7 @@ export interface RendererOmniPawBridge {
     dragStart: () => Promise<CatBounds | null>
     dragMove: (payload: CatDragPayload) => Promise<CatBounds | null>
     dragEnd: () => Promise<CatBounds | null>
+    setHitRegion?: (request: CatHitRegionRequest) => void
     onObservationReaction?: (
       callback: (event: ObservationReactionEvent) => void
     ) => BridgeUnsubscribe
@@ -1469,6 +1471,11 @@ function fallbackCatAppearance(now = Date.now()): CatAppearanceResolvedPack {
       completedEnd: 980,
       completedFinish: 1500,
     },
+    layout: {
+      scale: 86 / 116,
+      offsetX: 0,
+      offsetY: 0,
+    },
     version: 'builtin',
     updatedAt: now,
   }
@@ -1711,6 +1718,7 @@ const fallbackBridge: RendererOmniPawBridge = {
     dragStart: async () => null,
     dragMove: async () => null,
     dragEnd: async () => null,
+    setHitRegion: () => {},
     onObservationReaction: () => () => {},
     openObservationSource: async (event) => {
       fallbackActiveCatSessionId = event.catSessionId

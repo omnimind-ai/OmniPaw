@@ -11,6 +11,7 @@ import type {
   CatDraftStageRequest,
   CatDraftState,
   CatDragPayload,
+  CatHitRegionRequest,
   CatNotificationActionRequest,
   CatNotificationEvent,
   CatPanelActiveSessionState,
@@ -425,6 +426,7 @@ export interface OmniPawBridge {
     dragStart: () => Promise<CatBounds | null>
     dragMove: (payload: CatDragPayload) => Promise<CatBounds | null>
     dragEnd: () => Promise<CatBounds | null>
+    setHitRegion: (request: CatHitRegionRequest) => void
     onObservationReaction: (callback: (event: ObservationReactionEvent) => void) => Unsubscribe
     openObservationSource: (event: ObservationReactionEvent) => Promise<void>
     showBubble: (request: CatBubbleShowRequest | string) => Promise<CatBubbleEvent | null>

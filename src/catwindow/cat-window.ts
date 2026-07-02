@@ -1,7 +1,13 @@
-import type { CatCommandEvent, CatDraftAttachment, CatWindowState } from '@shared/types/cat'
+import type {
+  CatCommandEvent,
+  CatDraftAttachment,
+  CatHitRegionRect,
+  CatWindowState,
+} from '@shared/types/cat'
 import type {
   CatAppearanceAssetKey,
   CatAppearanceDurations,
+  CatAppearanceLayout,
   CatAppearanceResolvedPack,
 } from '@shared/types/cat-appearance'
 import doTaskImage from '@/asserts/cat/anim_cat_doing_task.webp'
@@ -19,6 +25,7 @@ import { i18n } from '@/i18n'
 
 const surface = document.querySelector<HTMLElement>('.cat-surface')
 const stage = document.querySelector<HTMLButtonElement>('#cat-stage')
+const imageFrame = document.querySelector<HTMLElement>('#cat-image-frame')
 const image = document.querySelector<HTMLImageElement>('#cat-image')
 
 const states = Object.freeze({
@@ -63,12 +70,30 @@ const defaultAnimationDurations = Object.freeze({
   completedFinish: 1500,
 })
 
+const catWindowRenderSize = 116
+const defaultBuiltinLayout = Object.freeze({
+  scale: 86 / catWindowRenderSize,
+  offsetX: 0,
+  offsetY: 0,
+} satisfies CatAppearanceLayout)
+const defaultLocalLayout = Object.freeze({
+  scale: 1,
+  offsetX: 0,
+  offsetY: 0,
+} satisfies CatAppearanceLayout)
+const hitRegionAlphaThreshold = 8
+const maxHitRegionRects = 220
+
 let assets: CatWindowAssets = {
   ...defaultAssets,
 }
 
 let animationDurations: CatAppearanceDurations = {
   ...defaultAnimationDurations,
+}
+
+let appearanceLayout: CatAppearanceLayout = {
+  ...defaultBuiltinLayout,
 }
 
 const dropAttachmentLimits = Object.freeze({
@@ -82,6 +107,7 @@ let previousStableState: CatWindowState = states.IDLE
 let firstShow = true
 let fileDragDepth = 0
 let stateTimer: ReturnType<typeof window.setTimeout> | null = null
+let hitRegionTimer: number | null = null
 let suppressNextImageError = false
 let dragSession:
   | {
@@ -100,6 +126,46 @@ function clearStateTimer() {
   }
 }
 
+function clampNumber(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value))
+}
+
+function normalizeLayout(
+  layout: Partial<CatAppearanceLayout> | undefined,
+  fallback: CatAppearanceLayout
+): CatAppearanceLayout {
+  return {
+    scale:
+      typeof layout?.scale === 'number' && Number.isFinite(layout.scale)
+        ? clampNumber(layout.scale, 0.25, 2)
+        : fallback.scale,
+    offsetX:
+      typeof layout?.offsetX === 'number' && Number.isFinite(layout.offsetX)
+        ? clampNumber(layout.offsetX, -catWindowRenderSize, catWindowRenderSize)
+        : fallback.offsetX,
+    offsetY:
+      typeof layout?.offsetY === 'number' && Number.isFinite(layout.offsetY)
+        ? clampNumber(layout.offsetY, -catWindowRenderSize, catWindowRenderSize)
+        : fallback.offsetY,
+  }
+}
+
+function applyCatLayout(layout: CatAppearanceLayout) {
+  if (!imageFrame) return
+  imageFrame.style.setProperty('--cat-image-scale', String(layout.scale))
+  imageFrame.style.setProperty('--cat-image-offset-x', `${layout.offsetX}px`)
+  imageFrame.style.setProperty('--cat-image-offset-y', `${layout.offsetY}px`)
+}
+
+function applyImageCorsMode(src: string) {
+  if (!image) return
+  if (src.startsWith('omnipaw-cat-asset:')) {
+    image.crossOrigin = 'anonymous'
+    return
+  }
+  image.removeAttribute('crossorigin')
+}
+
 function reportState(state: CatWindowState) {
   appBridge.cat.reportState(state)
 }
@@ -116,10 +182,196 @@ function setImage(src: string, fallback = assets.idle) {
   suppressNextImageError = false
   image.dataset.fallback = fallback
   image.removeAttribute('src')
+  applyImageCorsMode(src)
 
   window.requestAnimationFrame(() => {
     image.src = src
   })
+}
+
+function scheduleHitRegionSync() {
+  if (hitRegionTimer !== null) {
+    window.cancelAnimationFrame(hitRegionTimer)
+  }
+  hitRegionTimer = window.requestAnimationFrame(() => {
+    hitRegionTimer = null
+    syncHitRegion()
+  })
+}
+
+function syncHitRegion() {
+  const setHitRegion = appBridge.cat.setHitRegion
+  if (!setHitRegion) {
+    return
+  }
+
+  try {
+    const rects = image?.complete && image.naturalWidth > 0 ? buildImageHitRegion(image) : []
+    setHitRegion({
+      rects: rects.length ? rects : [buildLayoutHitRect()],
+      source: 'cat-window',
+    })
+  } catch {
+    setHitRegion({
+      rects: [buildLayoutHitRect()],
+      source: 'cat-window-fallback',
+    })
+  }
+}
+
+function buildImageHitRegion(target: HTMLImageElement): CatHitRegionRect[] {
+  const canvas = document.createElement('canvas')
+  canvas.width = catWindowRenderSize
+  canvas.height = catWindowRenderSize
+  const context = canvas.getContext('2d', { willReadFrequently: true })
+  if (!context) {
+    return []
+  }
+
+  context.clearRect(0, 0, catWindowRenderSize, catWindowRenderSize)
+  context.save()
+  context.translate(appearanceLayout.offsetX, appearanceLayout.offsetY)
+  context.translate(catWindowRenderSize / 2, catWindowRenderSize)
+  context.scale(appearanceLayout.scale, appearanceLayout.scale)
+  context.translate(-catWindowRenderSize / 2, -catWindowRenderSize)
+  drawContainedImage(context, target)
+  context.restore()
+
+  const pixels = context.getImageData(0, 0, catWindowRenderSize, catWindowRenderSize).data
+  const rects = buildAlphaRects(pixels, catWindowRenderSize, catWindowRenderSize)
+  return rects.length <= maxHitRegionRects ? rects : [buildAlphaBounds(pixels)]
+}
+
+function drawContainedImage(context: CanvasRenderingContext2D, target: HTMLImageElement) {
+  const naturalWidth = target.naturalWidth || catWindowRenderSize
+  const naturalHeight = target.naturalHeight || catWindowRenderSize
+  const scale = Math.min(catWindowRenderSize / naturalWidth, catWindowRenderSize / naturalHeight)
+  const width = naturalWidth * scale
+  const height = naturalHeight * scale
+  const x = (catWindowRenderSize - width) / 2
+  const y = (catWindowRenderSize - height) / 2
+  context.drawImage(target, x, y, width, height)
+}
+
+function buildAlphaRects(
+  pixels: Uint8ClampedArray,
+  width: number,
+  height: number
+): CatHitRegionRect[] {
+  const rects: CatHitRegionRect[] = []
+  let activeRects = new Map<string, CatHitRegionRect>()
+
+  for (let y = 0; y < height; y += 1) {
+    const runs = alphaRunsForRow(pixels, width, y)
+    const nextActiveRects = new Map<string, CatHitRegionRect>()
+
+    for (const run of runs) {
+      const key = `${run.x}:${run.width}`
+      const previous = activeRects.get(key)
+
+      if (previous && previous.y + previous.height === y) {
+        previous.height += 1
+        nextActiveRects.set(key, previous)
+      } else {
+        const rect = {
+          x: run.x,
+          y,
+          width: run.width,
+          height: 1,
+        }
+        rects.push(rect)
+        nextActiveRects.set(key, rect)
+      }
+    }
+
+    activeRects = nextActiveRects
+  }
+
+  return rects
+}
+
+function alphaRunsForRow(
+  pixels: Uint8ClampedArray,
+  width: number,
+  y: number
+): Array<{ x: number; width: number }> {
+  const runs: Array<{ x: number; width: number }> = []
+  let x = 0
+
+  while (x < width) {
+    while (x < width && alphaAt(pixels, width, x, y) <= hitRegionAlphaThreshold) {
+      x += 1
+    }
+    if (x >= width) {
+      break
+    }
+
+    const start = x
+    while (x < width && alphaAt(pixels, width, x, y) > hitRegionAlphaThreshold) {
+      x += 1
+    }
+    const end = x
+    const paddedStart = Math.max(0, start - 1)
+    const paddedEnd = Math.min(width, end + 1)
+    runs.push({
+      x: paddedStart,
+      width: paddedEnd - paddedStart,
+    })
+  }
+
+  return runs
+}
+
+function alphaAt(pixels: Uint8ClampedArray, width: number, x: number, y: number): number {
+  return pixels[(y * width + x) * 4 + 3] ?? 0
+}
+
+function buildAlphaBounds(pixels: Uint8ClampedArray): CatHitRegionRect {
+  let minX = catWindowRenderSize
+  let minY = catWindowRenderSize
+  let maxX = -1
+  let maxY = -1
+
+  for (let y = 0; y < catWindowRenderSize; y += 1) {
+    for (let x = 0; x < catWindowRenderSize; x += 1) {
+      if (alphaAt(pixels, catWindowRenderSize, x, y) <= hitRegionAlphaThreshold) {
+        continue
+      }
+      minX = Math.min(minX, x)
+      minY = Math.min(minY, y)
+      maxX = Math.max(maxX, x)
+      maxY = Math.max(maxY, y)
+    }
+  }
+
+  if (maxX < minX || maxY < minY) {
+    return buildLayoutHitRect()
+  }
+
+  return {
+    x: Math.max(0, minX - 1),
+    y: Math.max(0, minY - 1),
+    width: Math.min(catWindowRenderSize, maxX + 2) - Math.max(0, minX - 1),
+    height: Math.min(catWindowRenderSize, maxY + 2) - Math.max(0, minY - 1),
+  }
+}
+
+function buildLayoutHitRect(): CatHitRegionRect {
+  const width = catWindowRenderSize * appearanceLayout.scale
+  const height = catWindowRenderSize * appearanceLayout.scale
+  const x = catWindowRenderSize / 2 - width / 2 + appearanceLayout.offsetX
+  const y = catWindowRenderSize - height + appearanceLayout.offsetY
+  const left = clampNumber(Math.floor(x), 0, catWindowRenderSize)
+  const top = clampNumber(Math.floor(y), 0, catWindowRenderSize)
+  const right = clampNumber(Math.ceil(x + width), 0, catWindowRenderSize)
+  const bottom = clampNumber(Math.ceil(y + height), 0, catWindowRenderSize)
+
+  return {
+    x: left,
+    y: top,
+    width: Math.max(1, right - left),
+    height: Math.max(1, bottom - top),
+  }
 }
 
 function enterState(state: CatWindowState) {
@@ -196,6 +448,7 @@ function applyCatAppearance(pack: CatAppearanceResolvedPack) {
   const customAssets = Object.fromEntries(
     Object.entries(pack.assets || {}).filter(([, value]) => typeof value === 'string' && value)
   ) as Partial<Record<CatAppearanceAssetKey, string>>
+  const fallbackLayout = pack.source === 'builtin' ? defaultBuiltinLayout : defaultLocalLayout
 
   assets = {
     ...defaultAssets,
@@ -205,7 +458,10 @@ function applyCatAppearance(pack: CatAppearanceResolvedPack) {
     ...defaultAnimationDurations,
     ...pack.durations,
   }
+  appearanceLayout = normalizeLayout(pack.layout, fallbackLayout)
+  applyCatLayout(appearanceLayout)
   enterState(currentState)
+  scheduleHitRegionSync()
 }
 
 async function loadCatAppearance() {
@@ -218,6 +474,11 @@ async function loadCatAppearance() {
     animationDurations = {
       ...defaultAnimationDurations,
     }
+    appearanceLayout = {
+      ...defaultBuiltinLayout,
+    }
+    applyCatLayout(appearanceLayout)
+    scheduleHitRegionSync()
   }
 }
 
@@ -379,7 +640,12 @@ image?.addEventListener('error', () => {
 
   const fallback = image.dataset.fallback || assets.idle
   suppressNextImageError = true
+  applyImageCorsMode(fallback)
   image.src = fallback
+})
+
+image?.addEventListener('load', () => {
+  scheduleHitRegionSync()
 })
 
 stage?.addEventListener('pointerdown', async (event) => {
@@ -478,7 +744,8 @@ appBridge.catAppearance.onChanged((event) => {
 })
 
 if (image) {
-  image.src = idleImage
+  applyCatLayout(appearanceLayout)
+  setImage(idleImage)
 }
 
 void loadCatAppearance()

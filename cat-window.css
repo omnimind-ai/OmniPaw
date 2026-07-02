@@ -62,6 +62,17 @@ button {
   outline-offset: 3px;
 }
 
+.cat-image-frame {
+  display: grid;
+  width: 116px;
+  height: 116px;
+  place-items: center;
+  pointer-events: none;
+  transform: translate3d(var(--cat-image-offset-x, 0px), var(--cat-image-offset-y, 0px), 0)
+    scale(var(--cat-image-scale, 1));
+  transform-origin: center bottom;
+}
+
 .cat-stage img {
   display: block;
   width: 116px;
