@@ -35,7 +35,7 @@ button {
 .cat-surface {
   position: relative;
   display: grid;
-  width: 86px;
+  width: 116px;
   height: 116px;
   place-items: end center;
   padding: 0;
@@ -44,7 +44,7 @@ button {
 .cat-stage {
   position: relative;
   display: grid;
-  width: 86px;
+  width: 116px;
   height: 116px;
   padding: 0;
   place-items: end center;
@@ -64,10 +64,9 @@ button {
 
 .cat-stage img {
   display: block;
-  width: 76px;
-  height: auto;
-  max-width: none;
-  max-height: none;
+  width: 116px;
+  height: 116px;
+  object-fit: contain;
   pointer-events: none;
   transform-origin: center;
 }

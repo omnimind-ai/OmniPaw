@@ -63,7 +63,7 @@ const allowedWindowStates = new Set<CatWindowState>([
 ])
 
 const catWindowSize = {
-  width: 86,
+  width: 116,
   height: 116,
 }
 
@@ -85,10 +85,10 @@ const catBubbleCardInset = 14
 const catBubbleAutoDismissMs = 7_000
 
 const catStageVisualBounds = {
-  x: 5,
-  y: 5,
-  width: 76,
-  height: 76,
+  x: 0,
+  y: 0,
+  width: 116,
+  height: 116,
 }
 
 const isDarwin = process.platform === 'darwin'
