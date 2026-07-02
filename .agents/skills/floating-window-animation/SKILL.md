@@ -7,7 +7,7 @@ description: This skill should be used when creating or refining transparent ani
 
 ## Overview
 
-Create small, transparent floating-window animations from a generated multi-frame sheet while preventing frame-to-frame position jitter. Use one generation pass to produce all expression or motion frames, then crop and recompose every frame onto a shared canvas with the same bottom-center anchor.
+Create small, transparent floating-window animations from a generated multi-frame sheet while preventing frame-to-frame position jitter. Use one generation pass to produce all expression or motion frames, then crop and recompose every frame onto a shared canvas with the same bottom-center anchor. Keep source cells visually full so different animation states share the same apparent character size.
 
 ## When To Use
 
@@ -22,9 +22,10 @@ Use this skill for OmniPaw cat appearance packs and similar desktop floating mas
 
 1. Read `docs/cat-appearance-packs.md` when working inside the OmniPaw Electron repo. Preserve the manifest contract and resource limits from that document.
 2. Generate one multi-frame sprite sheet rather than separate images. Ask the image generator for equal-sized cells, identical pose, identical scale, identical silhouette, and only the intended moving detail changed.
-3. Use a flat chroma-key background such as `#00ff00` when the generator cannot output true transparency. Remove the chroma key before assembly so the script can use alpha boundaries.
-4. Assemble the animation from the transparent sheet with `scripts/assemble_sprite_animation.py`.
-5. Validate frame durations, alpha bounding boxes, transparent corners, file size, and a side-by-side preview before reporting completion.
+3. Prefer `256x256` source cells. Ask for the character to nearly fill each cell while leaving transparent/chroma-key safety padding, so separate animations keep a consistent visual size before final assembly.
+4. Use a flat chroma-key background such as `#00ff00` when the generator cannot output true transparency. Remove the chroma key before assembly so the alignment script can use alpha boundaries.
+5. Assemble the animation from the transparent sheet with `scripts/assemble_sprite_animation.py`.
+6. Validate frame durations, alpha bounding boxes, transparent corners, file size, and a side-by-side preview before reporting completion.
 
 ## Sprite Sheet Prompt Pattern
 
@@ -34,18 +35,29 @@ Use a prompt shaped like:
 Create a clean multi-frame sprite sheet for a desktop floating-window mascot animation.
 All cells must show the same full-body chibi character, same pose, same scale, same visual anchor point, same clothing, same hair, and same silhouette.
 Only change: <eyes closed for blink / hair lifted / arm pose / task expression>.
-Composition: <N> equal-sized cells in one row, full body centered in each cell, generous padding, no cropping.
+Composition: <N> equal-sized 256x256 cells in one row, full body centered in each cell, character fills roughly 85-92% of cell height, consistent foot/bottom anchor, small safe padding, no cropping.
 Background: perfectly flat solid #00ff00 chroma-key background.
 Constraints: no shadows, gradients, separator lines, labels, text, props, watermark, border, extra characters, or #00ff00 in the subject.
 ```
 
-For blink idle, prefer three logical animation frames even when there are only two unique drawings:
+If a 256px source cell is impractical, still keep every cell the same size and ask the subject to occupy the same percentage of each cell. Avoid tiny subjects floating in a large cell, because later upscaling makes separate animations disagree in apparent size.
 
-1. Open eyes, still interval.
-2. Closed eyes, short blink.
-3. Open eyes, longer still interval.
+## Chroma-Key Removal
 
-Example timing: `2000,120,3000`.
+Image generation is not a reliable matting step. Prefer true transparent output when available; otherwise ask for a perfectly flat `#00ff00` background and remove it locally before animation assembly.
+
+Use the bundled chroma-key helper:
+
+```bash
+python .agents/skills/floating-window-animation/scripts/chroma_key_alpha.py \
+  --input tmp/imagegen/mascot-sheet-green.png \
+  --output tmp/imagegen/mascot-sheet-alpha.png \
+  --key "#00ff00" \
+  --tolerance 28 \
+  --feather 16
+```
+
+Use lower tolerance if green is being removed from the subject. Use higher tolerance only when a flat green fringe remains around the character. Do not pass a green-background sheet directly into the assembly script, because the green background will be treated as opaque content and alignment will fail.
 
 ## Assembly Rule
 
@@ -58,11 +70,19 @@ Never crop a sprite sheet with one shared union box unless each source frame is 
 5. Paste every resized frame onto the same transparent canvas using the same bottom-center anchor point.
 6. Save the animation with explicit frame durations and no visual separator frames.
 
-Use a larger working canvas than the final rendered window. `256x256` is a good default for a floating window that displays around `76x76`; keep a `120x120` fallback only when needed by existing docs or previews.
+Use a larger working canvas than the final rendered window. `256x256` is a good default for a floating window that displays inside a `116x116` window; keep a `120x120` fallback only when needed by existing docs or previews. For consistent pack-wide size, use the same `--canvas`, `--target-max`, and `--anchor` across idle, drag, and task-state animations.
 
-## Script Usage
+## Examples
 
-Run the bundled script after chroma-key removal:
+### Blink Idle
+
+For blink idle, prefer three logical animation frames even when there are only two unique drawings:
+
+1. Open eyes, still interval.
+2. Closed eyes, short blink.
+3. Open eyes, longer still interval.
+
+Run chroma-key removal first if the sheet is green-screened, then assemble:
 
 ```bash
 python .agents/skills/floating-window-animation/scripts/assemble_sprite_animation.py \
