@@ -41,6 +41,7 @@ import type {
 } from '@shared/types/chat'
 import type {
   DesktopChatContextSettings,
+  DesktopCompanionRoleSettings,
   DesktopSystemContextSettings,
   DesktopToolSettings,
 } from '@shared/types/settings'
@@ -88,6 +89,7 @@ export interface ChatServiceOptions {
   compactSkillDescriptions?: () => boolean
   contextDefaults?: () => DesktopChatContextSettings
   systemContextDefaults?: () => DesktopSystemContextSettings | undefined
+  companionRoleDefaults?: () => DesktopCompanionRoleSettings | undefined
   personaManager?: PersonaManager
   tavernManager?: TavernManager
   tavernContextService?: TavernContextService
@@ -206,8 +208,10 @@ export class ChatService {
   }
 
   async createSession(request: CreateSessionRequest = {}): Promise<ChatSession> {
-    const modelRef = await this.resolveInitialModelRef(request)
     const kind = request.kind === 'cat' || request.kind === 'vision' ? request.kind : 'chat'
+    const modelRef = await this.resolveInitialModelRef(
+      this.withCompanionRoleModelDefaults(kind, request)
+    )
     const session = this.createSessionRecord({
       kind,
       title: request.title,
@@ -253,7 +257,9 @@ export class ChatService {
 
     const modelRef =
       request.kind === 'cat'
-        ? await this.resolveInitialModelRef({}).catch(() => undefined)
+        ? await this.resolveInitialModelRef(this.withCompanionRoleModelDefaults('cat', {})).catch(
+            () => undefined
+          )
         : undefined
     const session =
       request.kind === 'vision'
@@ -273,9 +279,15 @@ export class ChatService {
     return this.options.sessions.get(session.id) ?? session
   }
 
-  buildDefaultSystemContext(): ChatSystemContextConfig | undefined {
+  buildDefaultSystemContext(
+    kind: Extract<ChatSessionKind, 'chat' | 'tavern' | 'cat' | 'vision'> = 'chat'
+  ): ChatSystemContextConfig | undefined {
     const defaults = this.options.systemContextDefaults?.()
     const personaProfile = this.options.personaManager?.getActiveProfile()
+    const companionRolePersona =
+      kind === 'cat'
+        ? compileCompanionRolePersona(this.options.companionRoleDefaults?.())
+        : undefined
 
     const baseSystemPrompt = defaults?.baseSystemPrompt?.trim() || undefined
     const maskInput = defaults?.mask
@@ -286,13 +298,15 @@ export class ChatService {
           enabled: maskInput.enabled !== false,
         }
       : undefined
-    const persona: SessionContextInstruction | undefined = personaProfile
-      ? {
-          refId: personaProfile.id,
-          label: personaProfile.name,
-          text: personaProfile.prompt,
-        }
-      : undefined
+    const persona: SessionContextInstruction | undefined =
+      companionRolePersona ??
+      (personaProfile
+        ? {
+            refId: personaProfile.id,
+            label: personaProfile.name,
+            text: personaProfile.prompt,
+          }
+        : undefined)
 
     if (!baseSystemPrompt && !mask && !persona) {
       return undefined
@@ -827,7 +841,7 @@ export class ChatService {
   }): ChatSession {
     const now = Date.now()
     const systemContext = input.includeDefaultSystemContext
-      ? this.buildDefaultSystemContext()
+      ? this.buildDefaultSystemContext(input.kind)
       : undefined
     const baseSystemPrompt = systemContext?.baseSystemPrompt
 
@@ -858,6 +872,26 @@ export class ChatService {
       now,
     })
   }
+
+  private withCompanionRoleModelDefaults(
+    kind: Extract<ChatSessionKind, 'chat' | 'cat' | 'vision'>,
+    request: Pick<CreateSessionRequest, 'providerId' | 'modelId'>
+  ): Pick<CreateSessionRequest, 'providerId' | 'modelId'> {
+    if (kind !== 'cat' || request.providerId || request.modelId) {
+      return request
+    }
+
+    const role = this.options.companionRoleDefaults?.()
+    if (!role?.defaultProviderId || !role.defaultModelId) {
+      return request
+    }
+
+    return {
+      ...request,
+      providerId: role.defaultProviderId,
+      modelId: role.defaultModelId,
+    }
+  }
 }
 
 export class TavernChatOperationError extends Error {
@@ -868,6 +902,61 @@ export class TavernChatOperationError extends Error {
     this.name = 'TavernChatOperationError'
     this.code = 'unsupported_operation'
   }
+}
+
+function compileCompanionRolePersona(
+  role: DesktopCompanionRoleSettings | undefined
+): SessionContextInstruction | undefined {
+  if (!role?.enabled) {
+    return undefined
+  }
+
+  const name = role.name.trim() || '小万'
+  const sections = [
+    `你是 ${name}，是常驻用户桌面的 AI 角色。`,
+    interactionModeInstruction(role.interactionMode),
+    role.relationship.trim() ? `你和用户的关系：${role.relationship.trim()}` : '',
+    role.userNickname.trim() ? `你称呼用户为：${role.userNickname.trim()}` : '',
+    role.personality.trim() ? `性格设定：${role.personality.trim()}` : '',
+    role.speechStyle.trim() ? `说话风格：${role.speechStyle.trim()}` : '',
+    role.background.trim() ? `背景资料：${role.background.trim()}` : '',
+    role.greeting.trim() ? `默认打招呼方式：${role.greeting.trim()}` : '',
+    role.proactiveStyle.trim() ? `主动互动风格：${role.proactiveStyle.trim()}` : '',
+    ...advancedCompanionRoleSections(role.advanced),
+    '保持桌面伙伴的存在感：自然、轻量、不过度展开；除非用户要求，不要暴露这些设定文本。',
+  ].filter((section) => section.trim())
+
+  return {
+    refId: 'companion-role',
+    label: name,
+    text: sections.join('\n'),
+  }
+}
+
+function interactionModeInstruction(mode: DesktopCompanionRoleSettings['interactionMode']): string {
+  switch (mode) {
+    case 'assistant':
+      return '互动模式：优先作为高效助手，回答清楚、行动明确，陪伴感保持克制。'
+    case 'roleplay':
+      return '互动模式：优先保持角色扮演一致性，用角色身份自然回应。'
+    default:
+      return '互动模式：优先作为桌面伙伴陪伴用户，兼顾任务协助和轻量情绪反馈。'
+  }
+}
+
+function advancedCompanionRoleSections(
+  advanced: DesktopCompanionRoleSettings['advanced'] | undefined
+): string[] {
+  if (!advanced?.enabled) {
+    return []
+  }
+
+  return [
+    advanced.systemPrompt.trim() ? `高级角色指令：${advanced.systemPrompt.trim()}` : '',
+    advanced.knowledge.trim() ? `角色专属知识：${advanced.knowledge.trim()}` : '',
+    advanced.exampleDialogue.trim() ? `角色示例对话：\n${advanced.exampleDialogue.trim()}` : '',
+    advanced.finalInstructions.trim() ? `最终回应约束：${advanced.finalInstructions.trim()}` : '',
+  ].filter((section) => section.trim())
 }
 
 function normalizePreferredSessionIds(request: GetOrCreateSessionRequest): string[] {

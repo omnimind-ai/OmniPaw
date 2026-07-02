@@ -43,6 +43,34 @@ export interface DesktopAppBackgroundSettings {
   image?: DesktopAppBackgroundImage
 }
 
+export type CompanionRoleInteractionMode = 'companion' | 'assistant' | 'roleplay'
+
+export interface DesktopCompanionRoleAdvancedSettings {
+  enabled: boolean
+  systemPrompt: string
+  knowledge: string
+  exampleDialogue: string
+  finalInstructions: string
+}
+
+export interface DesktopCompanionRoleSettings {
+  id: string
+  enabled: boolean
+  name: string
+  appearancePackId?: string
+  userNickname: string
+  personality: string
+  speechStyle: string
+  relationship: string
+  background: string
+  greeting: string
+  proactiveStyle: string
+  interactionMode: CompanionRoleInteractionMode
+  advanced: DesktopCompanionRoleAdvancedSettings
+  defaultProviderId?: string
+  defaultModelId?: string
+}
+
 export interface DesktopBaseSettings {
   language: AppLanguage
   theme: AppTheme
@@ -58,6 +86,8 @@ export interface DesktopBaseSettings {
   chatContext: DesktopChatContextSettings
   memory: DesktopMemorySettings
   systemContext: DesktopSystemContextSettings
+  companionRoles: DesktopCompanionRoleSettings[]
+  activeCompanionRoleId: string
   background: DesktopAppBackgroundSettings
   compactSkillDescriptions: boolean
   shortcuts: DesktopShortcutSettings

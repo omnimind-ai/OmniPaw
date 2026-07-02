@@ -251,6 +251,30 @@ export interface BridgeDesktopSettingsConfig {
     maxRecentMessages: number
     chatContext: BridgeChatContextSettings
     systemContext: BridgeSystemContextSettings
+    companionRoles: Array<{
+      id: string
+      enabled: boolean
+      name: string
+      appearancePackId?: string
+      userNickname: string
+      personality: string
+      speechStyle: string
+      relationship: string
+      background: string
+      greeting: string
+      proactiveStyle: string
+      interactionMode: 'companion' | 'assistant' | 'roleplay'
+      advanced: {
+        enabled: boolean
+        systemPrompt: string
+        knowledge: string
+        exampleDialogue: string
+        finalInstructions: string
+      }
+      defaultProviderId?: string
+      defaultModelId?: string
+    }>
+    activeCompanionRoleId: string
     background: BridgeDesktopBackgroundSettings
     compactSkillDescriptions: boolean
     shortcuts: DesktopShortcutSettings
@@ -2335,6 +2359,32 @@ function fallbackSettingsConfig(): BridgeDesktopSettingsConfig {
           text: '',
         },
       },
+      companionRoles: [
+        {
+          id: 'default',
+          enabled: true,
+          name: '小万',
+          appearancePackId: 'builtin',
+          userNickname: '',
+          personality: '温柔、可靠、带一点轻松感',
+          speechStyle: '简短、自然、日常感',
+          relationship: '桌面伙伴',
+          background: '',
+          greeting: '我在这里，有什么想让我陪你一起处理的吗？',
+          proactiveStyle: '适度主动提醒，但不打扰用户专注。',
+          interactionMode: 'companion',
+          advanced: {
+            enabled: false,
+            systemPrompt: '',
+            knowledge: '',
+            exampleDialogue: '',
+            finalInstructions: '',
+          },
+          defaultProviderId: undefined,
+          defaultModelId: undefined,
+        },
+      ],
+      activeCompanionRoleId: 'default',
       background: {
         enabled: false,
         opacity: 0.35,

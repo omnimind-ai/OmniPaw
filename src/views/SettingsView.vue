@@ -233,6 +233,7 @@ function normalizeSettingsTab(value: unknown): SettingsTab | undefined {
 
       <CatAppearanceSettingsForm
         v-else-if="activeTab === 'catAppearance'"
+        :draft="draft"
         class="h-full min-h-0 flex-1"
       />
 

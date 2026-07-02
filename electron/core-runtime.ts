@@ -211,6 +211,11 @@ export function createCoreRuntime(options: CoreRuntimeOptions): CoreRuntime {
     logger: coreLogger.child({ scope: 'cat.appearance' }),
   })
   loadStartupCatAppearances(catAppearanceManager, options.lifecycleLogger)
+  syncStartupCompanionRoleAppearance(
+    catAppearanceManager,
+    configStore.get(),
+    options.lifecycleLogger
+  )
 
   const catPetManager = new CatPetManager({
     repo: catPetRepo,
@@ -429,6 +434,13 @@ export function createCoreRuntime(options: CoreRuntimeOptions): CoreRuntime {
     compactSkillDescriptions: () => configStore.get().app.compactSkillDescriptions,
     contextDefaults: () => configStore.get().app.chatContext,
     systemContextDefaults: () => configStore.get().app.systemContext,
+    companionRoleDefaults: () => {
+      const appSettings = configStore.get().app
+      return (
+        appSettings.companionRoles.find((role) => role.id === appSettings.activeCompanionRoleId) ??
+        appSettings.companionRoles[0]
+      )
+    },
     personaManager,
     tavernManager,
     tavernContextService,
@@ -653,6 +665,30 @@ function loadStartupCatAppearances(
   } catch (error) {
     lifecycleLogger.warn('Startup cat appearance packs failed to load; using built-in pack.', {
       error,
+    })
+  }
+}
+
+function syncStartupCompanionRoleAppearance(
+  catAppearanceManager: CatAppearanceManager,
+  config: DesktopSettingsConfig,
+  lifecycleLogger: Logger
+): void {
+  const activeRole =
+    config.app.companionRoles.find((role) => role.id === config.app.activeCompanionRoleId) ??
+    config.app.companionRoles[0]
+  const packId = activeRole?.appearancePackId?.trim()
+  if (!packId) {
+    return
+  }
+
+  try {
+    catAppearanceManager.setActive({ packId })
+    lifecycleLogger.info('Companion role appearance synced.', { packId })
+  } catch (error) {
+    lifecycleLogger.warn('Failed to sync companion role appearance.', {
+      packId,
+      error: error instanceof Error ? error.message : String(error),
     })
   }
 }

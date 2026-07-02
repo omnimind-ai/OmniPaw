@@ -9,6 +9,7 @@ import type {
 } from '@shared/types/local-agent'
 import type {
   DesktopAppBackgroundImage,
+  DesktopCompanionRoleSettings,
   DesktopObservationSettings,
   DesktopProviderModel,
   DesktopProviderSource,
@@ -53,6 +54,30 @@ const defaultProviderModel: DesktopProviderModel = {
   updatedAt: now,
 }
 
+const defaultCompanionRole: DesktopCompanionRoleSettings = {
+  id: 'default',
+  enabled: true,
+  name: '小万',
+  appearancePackId: 'builtin',
+  userNickname: '',
+  personality: '温柔、可靠、带一点轻松感',
+  speechStyle: '简短、自然、日常感',
+  relationship: '桌面伙伴',
+  background: '',
+  greeting: '我在这里，有什么想让我陪你一起处理的吗？',
+  proactiveStyle: '适度主动提醒，但不打扰用户专注。',
+  interactionMode: 'companion',
+  advanced: {
+    enabled: false,
+    systemPrompt: '',
+    knowledge: '',
+    exampleDialogue: '',
+    finalInstructions: '',
+  },
+  defaultProviderId: undefined,
+  defaultModelId: undefined,
+}
+
 export const defaultConfig: DesktopSettingsConfig = {
   version: CURRENT_SETTINGS_VERSION,
   app: {
@@ -95,6 +120,8 @@ export const defaultConfig: DesktopSettingsConfig = {
         text: '',
       },
     },
+    companionRoles: [defaultCompanionRole],
+    activeCompanionRoleId: defaultCompanionRole.id,
     background: {
       enabled: false,
       opacity: 0.35,
@@ -235,15 +262,35 @@ export function cloneConfig(config: DesktopSettingsConfig): DesktopSettingsConfi
 
 export function normalizeConfig(raw: unknown): NormalizeConfigResult {
   const migrated = migrateConfig(raw)
-  const normalized = normalizeChatContextCompatibility(
-    normalizeObject(cloneDefaultConfig(), migrated, '') as DesktopSettingsConfig,
-    migrated
+  const normalized = normalizeCompanionRoleCompatibility(
+    normalizeChatContextCompatibility(
+      normalizeObject(cloneDefaultConfig(), migrated, '') as DesktopSettingsConfig,
+      migrated
+    )
   )
   const config = validateConfig(normalized)
 
   return {
     config,
     changed: stableStringify(config) !== stableStringify(raw),
+  }
+}
+
+function normalizeCompanionRoleCompatibility(config: DesktopSettingsConfig): DesktopSettingsConfig {
+  const activeExists = config.app.companionRoles.some(
+    (role) => role.id === config.app.activeCompanionRoleId
+  )
+  if (activeExists) {
+    return config
+  }
+
+  return {
+    ...config,
+    app: {
+      ...config.app,
+      activeCompanionRoleId:
+        config.app.companionRoles[0]?.id ?? defaultConfig.app.activeCompanionRoleId,
+    },
   }
 }
 
@@ -309,7 +356,7 @@ function migrateConfig(raw: unknown): unknown {
     throwValidationError([{ path: '', message: 'Config must be an object.', code: 'invalid_type' }])
   }
 
-  const migrated = migrateInitializedFlag(raw)
+  const migrated = migrateCompanionRoleCollection(migrateInitializedFlag(raw))
   const version = typeof migrated.version === 'number' ? migrated.version : CURRENT_SETTINGS_VERSION
   if (version > CURRENT_SETTINGS_VERSION) {
     throw new ConfigValidationError(
@@ -355,6 +402,35 @@ function migrateInitializedFlag(raw: Record<string, unknown>): Record<string, un
   }
 }
 
+function migrateCompanionRoleCollection(raw: Record<string, unknown>): Record<string, unknown> {
+  const app = raw.app
+  if (!isPlainObject(app) || Array.isArray(app.companionRoles)) {
+    return raw
+  }
+
+  const legacyRole = app.companionRole
+  if (!isPlainObject(legacyRole)) {
+    return raw
+  }
+
+  const migratedRole = {
+    id: 'default',
+    ...legacyRole,
+  }
+
+  return {
+    ...raw,
+    app: {
+      ...app,
+      companionRoles: [migratedRole],
+      activeCompanionRoleId:
+        typeof app.activeCompanionRoleId === 'string' && app.activeCompanionRoleId.trim()
+          ? app.activeCompanionRoleId
+          : migratedRole.id,
+    },
+  }
+}
+
 function normalizeObject(defaultValue: unknown, rawValue: unknown, path: string): unknown {
   if (path === 'app.chatContext') {
     return normalizeChatContextSettings(rawValue)
@@ -366,6 +442,20 @@ function normalizeObject(defaultValue: unknown, rawValue: unknown, path: string)
 
   if (path === 'app.systemContext') {
     return normalizeSystemContextSettings(rawValue)
+  }
+
+  if (path === 'app.companionRoles') {
+    return normalizeCompanionRolesSettings(rawValue)
+  }
+
+  if (path === 'app.activeCompanionRoleId') {
+    return typeof rawValue === 'string' && rawValue.trim()
+      ? rawValue
+      : defaultConfig.app.activeCompanionRoleId
+  }
+
+  if (path === 'app.companionRole') {
+    return normalizeCompanionRoleSettings(rawValue)
   }
 
   if (path === 'app.background') {
@@ -590,8 +680,174 @@ function validateApp(config: DesktopSettingsConfig, issues: SettingsValidationIs
   validateChatContext(config, issues)
   validateMemory(config, issues)
   validateSystemContext(config, issues)
+  validateCompanionRole(config, issues)
   validateBackground(config, issues)
   validateShortcuts(config, issues)
+}
+
+function validateCompanionRole(
+  config: DesktopSettingsConfig,
+  issues: SettingsValidationIssue[]
+): void {
+  const roles = config.app.companionRoles
+  if (!Array.isArray(roles)) {
+    issues.push({
+      path: 'app.companionRoles',
+      message: 'Companion role settings must be an array.',
+      code: 'invalid_type',
+    })
+    return
+  }
+
+  if (!roles.length) {
+    issues.push({
+      path: 'app.companionRoles',
+      message: 'At least one companion role is required.',
+      code: 'required',
+    })
+  }
+
+  const ids = new Set<string>()
+  for (const [index, settings] of roles.entries()) {
+    const basePath = `app.companionRoles[${index}]`
+    if (!isPlainObject(settings)) {
+      issues.push({
+        path: basePath,
+        message: 'Companion role settings must be an object.',
+        code: 'invalid_type',
+      })
+      continue
+    }
+
+    if (typeof settings.id !== 'string' || !settings.id.trim()) {
+      issues.push({
+        path: `${basePath}.id`,
+        message: 'Companion role ID must be a non-empty string.',
+        code: 'invalid_type',
+      })
+    } else if (ids.has(settings.id)) {
+      issues.push({
+        path: `${basePath}.id`,
+        message: 'Companion role IDs must be unique.',
+        code: 'duplicate_id',
+      })
+    } else {
+      ids.add(settings.id)
+    }
+
+    if (typeof settings.enabled !== 'boolean') {
+      issues.push({
+        path: `${basePath}.enabled`,
+        message: 'Companion role enabled flag must be boolean.',
+        code: 'invalid_type',
+      })
+    }
+    if (settings.appearancePackId !== undefined && typeof settings.appearancePackId !== 'string') {
+      issues.push({
+        path: `${basePath}.appearancePackId`,
+        message: 'Companion role appearance pack ID must be a string.',
+        code: 'invalid_type',
+      })
+    }
+    if (!['companion', 'assistant', 'roleplay'].includes(settings.interactionMode)) {
+      issues.push({
+        path: `${basePath}.interactionMode`,
+        message: 'Companion role interaction mode must be companion, assistant, or roleplay.',
+        code: 'invalid_enum',
+      })
+    }
+
+    const textFields: Array<keyof DesktopCompanionRoleSettings> = [
+      'name',
+      'userNickname',
+      'personality',
+      'speechStyle',
+      'relationship',
+      'background',
+      'greeting',
+      'proactiveStyle',
+    ]
+    for (const field of textFields) {
+      if (typeof settings[field] !== 'string') {
+        issues.push({
+          path: `${basePath}.${field}`,
+          message: 'Companion role text fields must be strings.',
+          code: 'invalid_type',
+        })
+      }
+    }
+    validateCompanionRoleAdvancedSettings(settings.advanced, `${basePath}.advanced`, issues)
+    if (
+      settings.defaultProviderId !== undefined &&
+      typeof settings.defaultProviderId !== 'string'
+    ) {
+      issues.push({
+        path: `${basePath}.defaultProviderId`,
+        message: 'Companion role default provider ID must be a string.',
+        code: 'invalid_type',
+      })
+    }
+    if (settings.defaultModelId !== undefined && typeof settings.defaultModelId !== 'string') {
+      issues.push({
+        path: `${basePath}.defaultModelId`,
+        message: 'Companion role default model ID must be a string.',
+        code: 'invalid_type',
+      })
+    }
+  }
+
+  if (typeof config.app.activeCompanionRoleId !== 'string' || !config.app.activeCompanionRoleId) {
+    issues.push({
+      path: 'app.activeCompanionRoleId',
+      message: 'Active companion role ID must be a non-empty string.',
+      code: 'invalid_type',
+    })
+  } else if (!ids.has(config.app.activeCompanionRoleId)) {
+    issues.push({
+      path: 'app.activeCompanionRoleId',
+      message: 'Active companion role ID must reference an existing role.',
+      code: 'invalid_reference',
+    })
+  }
+}
+
+function validateCompanionRoleAdvancedSettings(
+  settings: DesktopCompanionRoleSettings['advanced'],
+  basePath: string,
+  issues: SettingsValidationIssue[]
+): void {
+  if (!isPlainObject(settings)) {
+    issues.push({
+      path: basePath,
+      message: 'Companion role advanced settings must be an object.',
+      code: 'invalid_type',
+    })
+    return
+  }
+
+  if (typeof settings.enabled !== 'boolean') {
+    issues.push({
+      path: `${basePath}.enabled`,
+      message: 'Companion role advanced enabled flag must be boolean.',
+      code: 'invalid_type',
+    })
+  }
+
+  const textFields: Array<keyof DesktopCompanionRoleSettings['advanced']> = [
+    'systemPrompt',
+    'knowledge',
+    'exampleDialogue',
+    'finalInstructions',
+  ]
+  for (const field of textFields) {
+    if (typeof settings[field] !== 'string') {
+      issues.push({
+        path: `${basePath}.${field}`,
+        message: 'Companion role advanced text fields must be strings.',
+        code: 'invalid_type',
+      })
+    }
+  }
 }
 
 function validateBackground(
@@ -1799,6 +2055,120 @@ function normalizeSystemContextSettings(
   return {
     baseSystemPrompt,
     mask,
+  }
+}
+
+function normalizeCompanionRolesSettings(
+  rawValue: unknown
+): DesktopSettingsConfig['app']['companionRoles'] {
+  if (!Array.isArray(rawValue)) {
+    return cloneUnknown(
+      defaultConfig.app.companionRoles
+    ) as DesktopSettingsConfig['app']['companionRoles']
+  }
+
+  const seen = new Set<string>()
+  const roles = rawValue
+    .filter(isPlainObject)
+    .map((item, index) => normalizeCompanionRoleSettings(item, index))
+    .map((role, index) => {
+      let id = role.id.trim() || `role-${index + 1}`
+      if (seen.has(id)) {
+        id = `${id}-${index + 1}`
+      }
+      seen.add(id)
+      return {
+        ...role,
+        id,
+      }
+    })
+
+  return roles.length
+    ? roles
+    : (cloneUnknown(
+        defaultConfig.app.companionRoles
+      ) as DesktopSettingsConfig['app']['companionRoles'])
+}
+
+function normalizeCompanionRoleSettings(
+  rawValue: unknown,
+  index = 0
+): DesktopCompanionRoleSettings {
+  const defaults = defaultCompanionRole
+  if (!isPlainObject(rawValue)) {
+    return {
+      ...(cloneUnknown(defaults) as DesktopCompanionRoleSettings),
+      id: index === 0 ? defaults.id : `role-${index + 1}`,
+    }
+  }
+
+  const interactionMode = ['companion', 'assistant', 'roleplay'].includes(
+    String(rawValue.interactionMode)
+  )
+    ? (rawValue.interactionMode as DesktopCompanionRoleSettings['interactionMode'])
+    : defaults.interactionMode
+
+  return {
+    id:
+      typeof rawValue.id === 'string' && rawValue.id.trim()
+        ? rawValue.id
+        : index === 0
+          ? defaults.id
+          : `role-${index + 1}`,
+    enabled: typeof rawValue.enabled === 'boolean' ? rawValue.enabled : defaults.enabled,
+    name: typeof rawValue.name === 'string' ? rawValue.name : defaults.name,
+    appearancePackId:
+      typeof rawValue.appearancePackId === 'string' && rawValue.appearancePackId.trim()
+        ? rawValue.appearancePackId
+        : defaults.appearancePackId,
+    userNickname:
+      typeof rawValue.userNickname === 'string' ? rawValue.userNickname : defaults.userNickname,
+    personality:
+      typeof rawValue.personality === 'string' ? rawValue.personality : defaults.personality,
+    speechStyle:
+      typeof rawValue.speechStyle === 'string' ? rawValue.speechStyle : defaults.speechStyle,
+    relationship:
+      typeof rawValue.relationship === 'string' ? rawValue.relationship : defaults.relationship,
+    background: typeof rawValue.background === 'string' ? rawValue.background : defaults.background,
+    greeting: typeof rawValue.greeting === 'string' ? rawValue.greeting : defaults.greeting,
+    proactiveStyle:
+      typeof rawValue.proactiveStyle === 'string'
+        ? rawValue.proactiveStyle
+        : defaults.proactiveStyle,
+    interactionMode,
+    advanced: normalizeCompanionRoleAdvancedSettings(rawValue.advanced),
+    defaultProviderId:
+      typeof rawValue.defaultProviderId === 'string' && rawValue.defaultProviderId.trim()
+        ? rawValue.defaultProviderId
+        : undefined,
+    defaultModelId:
+      typeof rawValue.defaultModelId === 'string' && rawValue.defaultModelId.trim()
+        ? rawValue.defaultModelId
+        : undefined,
+  }
+}
+
+function normalizeCompanionRoleAdvancedSettings(
+  rawValue: unknown
+): DesktopCompanionRoleSettings['advanced'] {
+  const defaults = defaultCompanionRole.advanced
+  if (!isPlainObject(rawValue)) {
+    return cloneUnknown(defaults) as DesktopCompanionRoleSettings['advanced']
+  }
+
+  return {
+    enabled: typeof rawValue.enabled === 'boolean' ? rawValue.enabled : defaults.enabled,
+    systemPrompt:
+      typeof rawValue.systemPrompt === 'string' ? rawValue.systemPrompt : defaults.systemPrompt,
+    knowledge: typeof rawValue.knowledge === 'string' ? rawValue.knowledge : defaults.knowledge,
+    exampleDialogue:
+      typeof rawValue.exampleDialogue === 'string'
+        ? rawValue.exampleDialogue
+        : defaults.exampleDialogue,
+    finalInstructions:
+      typeof rawValue.finalInstructions === 'string'
+        ? rawValue.finalInstructions
+        : defaults.finalInstructions,
   }
 }
 

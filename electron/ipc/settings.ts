@@ -30,6 +30,7 @@ export function registerSettingsIpcHandlers(options: IpcHandlerOptions): void {
       settingsResult(options, () => {
         const config = isSaveSettingsRequest(request) ? request.config : request
         const saved = runtime.configStore.save(config)
+        syncActiveCompanionRoleAppearance(options, saved)
         runtime.cronManager.reloadSettings()
         options.onSettingsChanged('save', saved)
         return saved
@@ -38,6 +39,7 @@ export function registerSettingsIpcHandlers(options: IpcHandlerOptions): void {
   registerLoggedIpcHandler(options, IPC_CHANNELS.settings.reset, () =>
     settingsResult(options, () => {
       const saved = runtime.configStore.reset()
+      syncActiveCompanionRoleAppearance(options, saved)
       runtime.cronManager.reloadSettings()
       options.onSettingsChanged('reset', saved)
       return saved
@@ -49,6 +51,28 @@ export function registerSettingsIpcHandlers(options: IpcHandlerOptions): void {
   registerLoggedIpcHandler(options, IPC_CHANNELS.settings.pickBackgroundImage, (event) =>
     settingsAsyncResult(options, () => pickBackgroundImage(event, options))
   )
+}
+
+function syncActiveCompanionRoleAppearance(
+  options: IpcHandlerOptions,
+  config: DesktopSettingsConfig
+): void {
+  const activeRole =
+    config.app.companionRoles.find((role) => role.id === config.app.activeCompanionRoleId) ??
+    config.app.companionRoles[0]
+  const packId = activeRole?.appearancePackId?.trim()
+  if (!packId) {
+    return
+  }
+
+  try {
+    options.runtime.catAppearanceManager.setActive({ packId })
+  } catch (error) {
+    options.ipcLogger.warn('Failed to sync active companion role appearance.', {
+      packId,
+      error: error instanceof Error ? error.message : String(error),
+    })
+  }
 }
 
 function settingsResult<T>(options: IpcHandlerOptions, operation: () => T): SettingsIpcResult<T> {

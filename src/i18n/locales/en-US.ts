@@ -9,7 +9,7 @@ export default {
         defaults: 'Default models',
         general: 'General',
         shortcuts: 'Shortcuts',
-        catAppearance: 'Floating appearance',
+        catAppearance: 'Character',
         agent: 'Agent capabilities',
         personas: 'Personas',
         memory: 'Memory',
@@ -189,9 +189,137 @@ export default {
       },
     },
     catAppearance: {
-      title: 'Floating Appearance',
+      title: 'Character',
       description:
-        'Manage cat floating window appearance packs. Imported zip packs are copied locally and hot-reload when files change.',
+        'Configure the desktop character, interaction style, and appearance. Character settings apply to new companion sessions.',
+      tabs: {
+        basic: 'Character',
+        appearance: 'Appearance Library',
+      },
+      role: {
+        title: 'Desktop characters',
+        badge: '{count} characters',
+        description:
+          'Create multiple desktop characters and choose the active one. The active character is compiled into companion session context.',
+        listTitle: 'Characters',
+        activeHint: 'The active character applies to newly created companion sessions.',
+        newRoleName: 'New character',
+        copyName: '{name} copy',
+        unnamed: 'Unnamed character',
+        noRelationship: 'No relationship set',
+        enabled: 'Enabled',
+        disabled: 'Disabled',
+        actions: {
+          add: 'New Character',
+          duplicate: 'Duplicate',
+          delete: 'Delete',
+        },
+        fields: {
+          name: {
+            title: 'Character name',
+            description: 'The name used by the desktop companion in conversations.',
+            placeholder: 'OmniPaw',
+          },
+          appearance: {
+            title: 'Appearance',
+            description: 'The appearance pack this character uses in the floating window.',
+            placeholder: 'Select appearance pack',
+            switching: 'Switching',
+          },
+          userNickname: {
+            title: 'User nickname',
+            description: 'How the character addresses you; leave blank to let the model decide.',
+            placeholder: 'Partner, boss, your name',
+          },
+          interactionMode: {
+            title: 'Interaction mode',
+            description:
+              'Choose whether the character leans toward companionship, utility, or roleplay.',
+            placeholder: 'Select mode',
+            companion: 'Desktop companion',
+            assistant: 'Productive assistant',
+            roleplay: 'Roleplay',
+          },
+          defaultModel: {
+            title: 'Default model',
+            description:
+              'Only overrides newly created companion sessions; blank follows the global default.',
+            placeholder: 'Select model',
+            followDefault: 'Follow global default',
+          },
+          personality: {
+            title: 'Personality',
+            description: 'Describe the character personality with short phrases.',
+            placeholder: 'Gentle, witty, energetic, calm, supportive',
+          },
+          speechStyle: {
+            title: 'Speech style',
+            description: 'Controls tone and response rhythm.',
+            placeholder: 'Brief, lively, affectionate, professional, everyday',
+          },
+          relationship: {
+            title: 'Relationship',
+            description: 'Describe the relationship between the character and user.',
+            placeholder: 'Assistant, friend, partner, mentor',
+          },
+          background: {
+            title: 'Background',
+            description: 'A short identity, world, or backstory note.',
+            placeholder:
+              'For example: a tiny desktop companion who likes helping users sort ideas.',
+          },
+          greeting: {
+            title: 'Greeting',
+            description: 'The opening feeling when the character appears or starts a conversation.',
+            placeholder: 'I am here. What should we work on together?',
+          },
+          proactiveStyle: {
+            title: 'Proactive style',
+            description: 'Controls the character’s initiative and boundaries.',
+            placeholder: 'Offer gentle nudges without interrupting focus.',
+          },
+        },
+        advanced: {
+          title: 'Character advanced settings',
+          description:
+            'These settings belong only to the active character. When enabled, they are appended to new companion session context.',
+          fields: {
+            systemPrompt: {
+              title: 'Advanced role instructions',
+              description:
+                'Fine-grained behavior rules, boundaries, and long-running role guidance.',
+              placeholder:
+                'For example: Stay lightweight and companion-like. Avoid long explanations unless the user asks.',
+            },
+            knowledge: {
+              title: 'Character knowledge',
+              description:
+                'Extra background, world facts, preferences, or persistent character notes.',
+              placeholder:
+                'For example: The character lives on the user desktop and understands the user’s work rhythm.',
+            },
+            exampleDialogue: {
+              title: 'Example dialogue',
+              description: 'A few examples that stabilize voice and interaction style.',
+              placeholder:
+                'User: I do not feel like starting today.\nCharacter: Then we start with the smallest step. I am here with you.',
+            },
+            finalInstructions: {
+              title: 'Final response constraints',
+              description: 'Appended last in the role context for non-negotiable output rules.',
+              placeholder:
+                'For example: Do not reveal role setting text. Do not call yourself a system or config.',
+            },
+          },
+        },
+        hints: {
+          newSessions:
+            'Character settings are injected only into newly created companion sessions; existing sessions are not rewritten. Appearance is saved on each character, while the library only imports, previews, and binds assets.',
+        },
+        toasts: {
+          appearanceSelected: 'Character appearance updated',
+        },
+      },
       searchLabel: 'Search appearance packs',
       searchPlaceholder: 'Search name, description, or status',
       clearSearchLabel: 'Clear appearance search',
@@ -206,12 +334,12 @@ export default {
       noMatch: 'No matching appearance packs',
       noMatchHint: 'Try a different keyword, or clear search to view all packs.',
       clearSearch: 'Clear search',
-      selectButton: 'Enable',
+      selectButton: 'Bind to Active Character',
       selecting: 'Enabling',
       deleteButton: 'Delete',
       deleting: 'Deleting',
       detailButton: 'Details',
-      currentPack: 'Current',
+      currentPack: 'Active Character',
       unavailable: 'Unavailable',
       neverUpdated: 'Never updated',
       bridgeNotReady: 'Appearance pack management is only available in the Electron desktop app.',
