@@ -1,9 +1,9 @@
-import { existsSync, readdirSync, readFileSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { builtinModules, createRequire } from 'node:module'
 import { join } from 'node:path'
 
 const require = createRequire(import.meta.url)
-const appRoot = join('release', 'mac-arm64', 'OmniPaw.app', 'Contents', 'Resources')
+const appRoot = join(findPackagedApp(), 'Contents', 'Resources')
 const asarPath = join(appRoot, 'app.asar')
 const unpackedRoot = join(appRoot, 'app.asar.unpacked')
 const bundleFiles = [join('out', 'main', 'main.cjs'), join('out', 'preload', 'preload.cjs')]
@@ -55,6 +55,25 @@ console.log(
     [...externalRequires].join(', ') || 'none'
   }`
 )
+
+function findPackagedApp() {
+  const releaseRoot = 'release'
+  if (!existsSync(releaseRoot)) {
+    fail(`Release directory not found: ${releaseRoot}`)
+  }
+
+  const candidates = readdirSync(releaseRoot, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory())
+    .map((entry) => join(releaseRoot, entry.name, 'OmniPaw.app'))
+    .filter((candidate) => existsSync(candidate))
+    .sort((left, right) => statSync(right).mtimeMs - statSync(left).mtimeMs)
+
+  const packagedApp = candidates[0]
+  if (!packagedApp) {
+    fail('Packaged app not found under release/*/OmniPaw.app')
+  }
+  return packagedApp
+}
 
 function findExternalRequires() {
   const requires = new Set()
