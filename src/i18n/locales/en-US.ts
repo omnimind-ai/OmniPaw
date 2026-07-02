@@ -196,11 +196,22 @@ export default {
         basic: 'Character',
         appearance: 'Appearance Library',
       },
+      library: {
+        title: 'Appearance Library',
+        description:
+          'Import, inspect, and manage appearance packs, then bind available appearances to the active character.',
+      },
       role: {
         title: 'Desktop characters',
         badge: '{count} characters',
         description:
           'Create multiple desktop characters and choose the active one. The active character is compiled into companion session context.',
+        tabs: {
+          basic: 'Basics',
+          appearance: 'Appearance',
+          behavior: 'Behavior',
+          advanced: 'Advanced',
+        },
         listTitle: 'Characters',
         activeHint: 'The active character applies to newly created companion sessions.',
         newRoleName: 'New character',
@@ -1570,6 +1581,13 @@ export default {
       cloudModelIdRequired: 'Cloud API Model ID is required.',
     },
   },
+  roles: {
+    notLoaded: 'Characters have not loaded yet.',
+    errors: {
+      loadFailed: 'Failed to load characters.',
+      saveFailed: 'Failed to save characters.',
+    },
+  },
   chat: {
     errors: {
       openFileFailed: 'Unable to reveal file in folder.',
@@ -1723,6 +1741,7 @@ export default {
       },
       footer: {
         cat: 'Cat floating bubble',
+        roles: 'Characters',
         settings: 'Settings',
       },
       renameDialog: {

@@ -190,11 +190,21 @@ export default {
         basic: '角色设定',
         appearance: '外观资源库',
       },
+      library: {
+        title: '外观资源库',
+        description: '导入、查看和管理外观包，并将可用外观绑定到当前角色。',
+      },
       role: {
         title: '桌面角色',
         badge: '{count} 个角色',
         description:
           '可以创建多个桌面角色，并选择当前启用的角色。当前角色会被整理为桌宠会话的角色上下文。',
+        tabs: {
+          basic: '基本设定',
+          appearance: '外观形象',
+          behavior: '互动行为',
+          advanced: '高级设置',
+        },
         listTitle: '角色列表',
         activeHint: '当前角色会应用到新建桌宠会话。',
         newRoleName: '新角色',
@@ -1499,6 +1509,13 @@ export default {
       cloudModelIdRequired: 'Cloud API Model ID 不能为空。',
     },
   },
+  roles: {
+    notLoaded: '角色尚未加载。',
+    errors: {
+      loadFailed: '角色加载失败。',
+      saveFailed: '角色保存失败。',
+    },
+  },
   chat: {
     errors: {
       openFileFailed: '无法在文件夹中显示文件。',
@@ -1652,6 +1669,7 @@ export default {
       },
       footer: {
         cat: '小猫悬浮球',
+        roles: '角色',
         settings: '设置',
       },
       renameDialog: {

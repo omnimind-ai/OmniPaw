@@ -5,7 +5,6 @@ import {
   BotIcon,
   BrainIcon,
   CalendarClockIcon,
-  CatIcon,
   DramaIcon,
   EyeIcon,
   InfoIcon,
@@ -42,7 +41,6 @@ export type SettingsTab =
   | 'general'
   | 'shortcuts'
   | 'agent'
-  | 'catAppearance'
   | 'display'
   | 'data'
   | 'tools'
@@ -79,7 +77,6 @@ const primaryItems: SettingsNavItem[] = [
 const settingsItems: SettingsNavItem[] = [
   { value: 'general', labelKey: 'settings.sidebar.nav.general', icon: SlidersHorizontalIcon },
   { value: 'shortcuts', labelKey: 'settings.sidebar.nav.shortcuts', icon: KeyboardIcon },
-  { value: 'catAppearance', labelKey: 'settings.sidebar.nav.catAppearance', icon: CatIcon },
   { value: 'agent', labelKey: 'settings.sidebar.nav.agent', icon: TerminalIcon },
 ]
 

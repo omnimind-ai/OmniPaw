@@ -11,6 +11,7 @@ import {
   SearchIcon,
   SettingsIcon,
   Trash2Icon,
+  UserRoundIcon,
   XIcon,
 } from 'lucide-vue-next'
 import { computed, ref, watch } from 'vue'
@@ -86,6 +87,7 @@ const emit = defineEmits<{
   updateSessionMode: [mode: SessionMode]
   updateSessionKindFilter: [kind: SessionKindFilter]
   openSettings: []
+  openRoles: []
   toggleCat: []
   renameSession: [sessionId: string, title: string]
   deleteSession: [sessionId: string]
@@ -520,6 +522,16 @@ function toggleCollapsedMode() {
             @click="emit('toggleCat')"
           >
             <CatIcon />
+          </SidebarMenuButton>
+
+          <SidebarMenuButton
+            class="w-auto"
+            size="default"
+            :tooltip="t('chat.sidebar.footer.roles')"
+            :aria-label="t('chat.sidebar.footer.roles')"
+            @click="emit('openRoles')"
+          >
+            <UserRoundIcon />
           </SidebarMenuButton>
 
           <SidebarMenuButton

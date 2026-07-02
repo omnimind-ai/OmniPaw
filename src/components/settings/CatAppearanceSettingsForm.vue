@@ -6,11 +6,14 @@ import type {
   CatAppearanceResolvedPack,
 } from '@shared/types/cat-appearance'
 import {
+  ArrowLeftIcon,
   CheckIcon,
+  ChevronDownIcon,
   CircleAlertIcon,
   ImageIcon,
   InfoIcon,
   PackagePlusIcon,
+  PlusIcon,
   RefreshCwIcon,
   SearchIcon,
   Trash2Icon,
@@ -19,6 +22,7 @@ import {
 } from 'lucide-vue-next'
 import { computed, onBeforeUnmount, onMounted, ref, shallowRef } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useRouter } from 'vue-router'
 import type { BridgeDesktopSettingsConfig } from '@/bridge/app'
 import {
   appBridge,
@@ -31,26 +35,44 @@ import CatAppearanceDetailModal from '@/components/settings/cat-appearance-setti
 import SettingsPanelHeader from '@/components/settings/common/SettingsPanelHeader.vue'
 import SettingsPanelItem from '@/components/settings/common/SettingsPanelItem.vue'
 import SettingsSearchBar from '@/components/settings/common/SettingsSearchBar.vue'
-import CompanionRoleBasicTab from '@/components/settings/companion-role-settings/CompanionRoleBasicTab.vue'
+import CompanionRoleEditor from '@/components/settings/companion-role-settings/CompanionRoleEditor.vue'
 import { Badge, type BadgeVariants } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
+import { Collapsible, CollapsibleContent } from '@/components/ui/collapsible'
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarHeader,
+  SidebarInset,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarProvider,
+  SidebarSeparator,
+  SidebarTrigger,
+} from '@/components/ui/sidebar'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useDelayedFlag } from '@/composables/useDelayedFlag'
 import { errorToText, useToast } from '@/utils/toast'
 
 type BadgeVariant = NonNullable<BadgeVariants['variant']>
+type CompanionRole = BridgeDesktopSettingsConfig['app']['companionRoles'][number]
+type RoleWorkspacePane = 'appearance' | 'role'
 
 const props = defineProps<{
   draft: BridgeDesktopSettingsConfig
 }>()
 
 const { t } = useI18n()
+const router = useRouter()
 const toast = useToast()
 
 const response = shallowRef<CatAppearanceListResponse>()
-const activeRoleTab = ref('basic')
+const activePane = ref<RoleWorkspacePane>('role')
+const rolesOpen = ref(true)
 const searchQuery = ref('')
 const loading = ref(false)
 const refreshing = ref(false)
@@ -68,6 +90,12 @@ const showSkeleton = useDelayedFlag(() => loading.value)
 let unsubscribe: BridgeUnsubscribe | undefined
 let detailRequestId = 0
 
+const roles = computed(() => props.draft.app.companionRoles)
+const activeRoleId = computed(() => props.draft.app.activeCompanionRoleId)
+const activeRole = computed(
+  () => roles.value.find((role) => role.id === activeRoleId.value) ?? roles.value[0]
+)
+const canDeleteRole = computed(() => roles.value.length > 1)
 const packs = computed(() => response.value?.packs ?? [])
 const filteredPacks = computed(() => {
   const query = normalizeSearchText(searchQuery.value)
@@ -90,10 +118,6 @@ const refreshButtonLabel = computed(() =>
 const importButtonLabel = computed(() =>
   importing.value ? t('settings.catAppearance.importing') : t('settings.catAppearance.importButton')
 )
-const activeRole = computed(() => {
-  const roles = props.draft.app.companionRoles
-  return roles.find((role) => role.id === props.draft.app.activeCompanionRoleId) ?? roles[0]
-})
 const activeRoleAppearancePackId = computed(() => activeRole.value?.appearancePackId || 'builtin')
 
 onMounted(async () => {
@@ -212,6 +236,84 @@ async function openDetail(pack: CatAppearancePackSummary): Promise<void> {
   }
 }
 
+function selectAppearanceLibrary(): void {
+  activePane.value = 'appearance'
+}
+
+function selectRole(target: CompanionRole): void {
+  props.draft.app.activeCompanionRoleId = target.id
+  activePane.value = 'role'
+  rolesOpen.value = true
+}
+
+function createRole(): void {
+  const nextRole = createCompanionRole()
+  roles.value.push(nextRole)
+  props.draft.app.activeCompanionRoleId = nextRole.id
+  activePane.value = 'role'
+  rolesOpen.value = true
+}
+
+function duplicateActiveRole(): void {
+  if (!activeRole.value) return
+  const nextRole: CompanionRole = {
+    ...activeRole.value,
+    id: createRoleId(),
+    name: t('settings.catAppearance.role.copyName', {
+      name: activeRole.value.name || defaultRoleName(),
+    }),
+    advanced: { ...activeRole.value.advanced },
+  }
+  roles.value.push(nextRole)
+  props.draft.app.activeCompanionRoleId = nextRole.id
+  activePane.value = 'role'
+}
+
+function deleteRole(target: CompanionRole): void {
+  if (!canDeleteRole.value) return
+  const index = roles.value.findIndex((item) => item.id === target.id)
+  if (index < 0) return
+  roles.value.splice(index, 1)
+  if (props.draft.app.activeCompanionRoleId === target.id) {
+    props.draft.app.activeCompanionRoleId =
+      roles.value[Math.max(0, index - 1)]?.id ?? roles.value[0]?.id ?? ''
+  }
+}
+
+function createCompanionRole(): CompanionRole {
+  return {
+    id: createRoleId(),
+    enabled: true,
+    name: defaultRoleName(),
+    appearancePackId: 'builtin',
+    userNickname: '',
+    personality: '',
+    speechStyle: '',
+    relationship: '',
+    background: '',
+    greeting: '',
+    proactiveStyle: '',
+    interactionMode: 'companion',
+    advanced: {
+      enabled: false,
+      systemPrompt: '',
+      knowledge: '',
+      exampleDialogue: '',
+      finalInstructions: '',
+    },
+    defaultProviderId: undefined,
+    defaultModelId: undefined,
+  }
+}
+
+function createRoleId(): string {
+  return `role-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
+}
+
+function defaultRoleName(): string {
+  return t('settings.catAppearance.role.newRoleName')
+}
+
 function normalizeSearchText(value: string): string {
   return value.trim().toLocaleLowerCase()
 }
@@ -308,224 +410,312 @@ async function confirmDeletePack(): Promise<void> {
 </script>
 
 <template>
-  <div class="flex h-full min-h-0 flex-1 flex-col overflow-hidden">
-    <Card class="grid h-full min-h-0 flex-1 grid-rows-[auto_minmax(0,1fr)] gap-0 rounded-md border border-border py-0 ring-0">
-      <SettingsPanelHeader
-        :title="t('settings.catAppearance.title')"
-        :description="t('settings.catAppearance.description')"
-        :icon="UserRoundIcon"
-      />
-
-      <Tabs
-        v-model="activeRoleTab"
-        class="min-h-0 flex-1 gap-0"
-      >
-        <div class="border-b px-4 py-3 sm:px-5">
-          <TabsList class="w-full max-w-md">
-            <TabsTrigger value="basic">
-              {{ t('settings.catAppearance.tabs.basic') }}
-            </TabsTrigger>
-            <TabsTrigger value="appearance">
-              {{ t('settings.catAppearance.tabs.appearance') }}
-            </TabsTrigger>
-          </TabsList>
-        </div>
-
-        <TabsContent
-          value="basic"
-          class="min-h-0 overflow-y-auto"
-        >
-          <CompanionRoleBasicTab
-            :draft="draft"
-            :appearance-packs="packs"
-            :appearance-loading="loading"
-            @import-appearance="importPack"
-          />
-        </TabsContent>
-
-        <TabsContent
-          value="appearance"
-          class="grid min-h-0 grid-rows-[auto_minmax(0,1fr)]"
-        >
-          <SettingsSearchBar
-            v-model="searchQuery"
-            class="border-b-0"
-            :label="t('settings.catAppearance.searchLabel')"
-            :placeholder="t('settings.catAppearance.searchPlaceholder')"
-            :clear-label="t('settings.catAppearance.clearSearchLabel')"
-            :disabled="loading"
-            @clear="clearSearch"
+  <SidebarProvider class="h-full min-h-0 w-full">
+    <Sidebar
+      collapsible="offcanvas"
+      class="border-r"
+    >
+      <SidebarHeader>
+        <div class="flex items-center gap-2">
+          <SidebarTrigger class="md:hidden" />
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            :aria-label="t('settings.sidebar.backToChat')"
+            @click="router.push('/')"
           >
-            <template #summary>
-              <Badge variant="secondary">
-                {{ t('settings.catAppearance.packCount', { count: packs.length }) }}
-              </Badge>
-            </template>
+            <ArrowLeftIcon />
+          </Button>
+          <span class="truncate text-sm font-medium">{{ t('settings.catAppearance.title') }}</span>
+        </div>
+      </SidebarHeader>
 
-            <template #actions>
+      <SidebarSeparator />
+
+      <SidebarContent>
+        <SidebarGroup>
+          <SidebarGroupContent>
+            <SidebarMenu>
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  :is-active="activePane === 'appearance'"
+                  :tooltip="t('settings.catAppearance.library.title')"
+                  @click="selectAppearanceLibrary"
+                >
+                  <ImageIcon />
+                  <span>{{ t('settings.catAppearance.library.title') }}</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
+
+        <SidebarSeparator />
+
+        <Collapsible v-model:open="rolesOpen">
+          <SidebarGroup>
+            <div class="flex items-center justify-between gap-2 px-2">
+              <button
+                type="button"
+                class="flex min-w-0 flex-1 items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm font-medium text-sidebar-foreground outline-none hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2"
+                @click="rolesOpen = !rolesOpen"
+              >
+                <ChevronDownIcon
+                  class="transition-transform"
+                  :class="rolesOpen ? '' : '-rotate-90'"
+                />
+                <span class="truncate">{{ t('settings.catAppearance.role.listTitle') }}</span>
+                <Badge
+                  variant="outline"
+                  class="ml-auto"
+                >
+                  {{ roles.length }}
+                </Badge>
+              </button>
               <Button
                 type="button"
-                variant="outline"
-                :disabled="refreshing || loading"
-                @click="refreshPacks"
+                variant="ghost"
+                size="icon-sm"
+                :aria-label="t('settings.catAppearance.role.actions.add')"
+                @click="createRole"
               >
-                <RefreshCwIcon data-icon="inline-start" />
-                {{ refreshButtonLabel }}
+                <PlusIcon />
               </Button>
-              <Button
-                type="button"
-                :disabled="importDisabled"
-                @click="importPack"
-              >
-                <PackagePlusIcon data-icon="inline-start" />
-                {{ importButtonLabel }}
-              </Button>
-            </template>
-          </SettingsSearchBar>
+            </div>
 
-          <CardContent class="flex min-h-0 flex-1 flex-col overflow-y-auto p-0">
-            <div class="flex min-h-full flex-1 flex-col">
-              <div
-                v-if="loading"
-                class="flex shrink-0 flex-col gap-3 px-4 py-4 sm:px-5"
-              >
-                <template v-if="showSkeleton">
-                  <Skeleton class="h-24 w-full" />
-                  <Skeleton class="h-24 w-full" />
-                </template>
-              </div>
+            <CollapsibleContent>
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  <SidebarMenuItem
+                    v-for="item in roles"
+                    :key="item.id"
+                  >
+                    <SidebarMenuButton
+                      size="lg"
+                      :is-active="activePane === 'role' && item.id === activeRoleId"
+                      :tooltip="item.name || t('settings.catAppearance.role.unnamed')"
+                      @click="selectRole(item)"
+                    >
+                      <UserRoundIcon />
+                      <span>
+                        {{ item.name || t('settings.catAppearance.role.unnamed') }}
+                      </span>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </CollapsibleContent>
+          </SidebarGroup>
+        </Collapsible>
+      </SidebarContent>
+    </Sidebar>
 
-              <div
-                v-else-if="!packs.length"
-                class="flex flex-1 flex-col items-center justify-center gap-3 px-4 py-10 text-center text-sm text-muted-foreground sm:px-5"
-              >
-                <ImageIcon class="size-8 opacity-50" />
-                <div class="flex flex-col gap-1">
-                  <p class="font-medium text-foreground">{{ t('settings.catAppearance.emptyTitle') }}</p>
-                  <p>{{ t('settings.catAppearance.emptyHint') }}</p>
-                </div>
+    <SidebarInset class="h-full overflow-hidden">
+      <main class="relative flex h-full min-h-0 flex-1 flex-col bg-muted/40">
+        <SidebarTrigger class="absolute left-3 top-3 md:hidden" />
+
+        <div class="mx-auto flex h-full min-h-0 w-full max-w-6xl flex-1 flex-col overflow-hidden px-4 py-4 md:px-6 md:py-6">
+          <Card
+            v-if="activePane === 'appearance'"
+            class="grid h-full min-h-0 flex-1 grid-rows-[auto_auto_minmax(0,1fr)] gap-0 rounded-md border border-border py-0 ring-0"
+          >
+            <SettingsPanelHeader
+              :title="t('settings.catAppearance.library.title')"
+              :description="t('settings.catAppearance.library.description')"
+              :icon="ImageIcon"
+            />
+
+            <SettingsSearchBar
+              v-model="searchQuery"
+              class="border-b-0"
+              :label="t('settings.catAppearance.searchLabel')"
+              :placeholder="t('settings.catAppearance.searchPlaceholder')"
+              :clear-label="t('settings.catAppearance.clearSearchLabel')"
+              :disabled="loading"
+              @clear="clearSearch"
+            >
+              <template #summary>
+                <Badge variant="secondary">
+                  {{ t('settings.catAppearance.packCount', { count: packs.length }) }}
+                </Badge>
+              </template>
+
+              <template #actions>
+                <Button
+                  type="button"
+                  variant="outline"
+                  :disabled="refreshing || loading"
+                  @click="refreshPacks"
+                >
+                  <RefreshCwIcon data-icon="inline-start" />
+                  {{ refreshButtonLabel }}
+                </Button>
                 <Button
                   type="button"
                   :disabled="importDisabled"
                   @click="importPack"
                 >
                   <PackagePlusIcon data-icon="inline-start" />
-                  {{ t('settings.catAppearance.importButton') }}
+                  {{ importButtonLabel }}
                 </Button>
-              </div>
+              </template>
+            </SettingsSearchBar>
 
-              <div
-                v-else-if="searchEmpty"
-                class="flex flex-1 flex-col items-center justify-center gap-3 px-4 py-10 text-center text-sm text-muted-foreground sm:px-5"
-              >
-                <SearchIcon class="size-8 opacity-50" />
-                <div class="flex flex-col gap-1">
-                  <p class="font-medium text-foreground">{{ t('settings.catAppearance.noMatch') }}</p>
-                  <p>{{ t('settings.catAppearance.noMatchHint') }}</p>
+            <CardContent class="flex min-h-0 flex-1 flex-col overflow-y-auto p-0">
+              <div class="flex min-h-full flex-1 flex-col">
+                <div
+                  v-if="loading"
+                  class="flex shrink-0 flex-col gap-3 px-4 py-4 sm:px-5"
+                >
+                  <template v-if="showSkeleton">
+                    <Skeleton class="h-24 w-full" />
+                    <Skeleton class="h-24 w-full" />
+                  </template>
                 </div>
-                <Button
-                  type="button"
-                  variant="outline"
-                  @click="clearSearch"
+
+                <div
+                  v-else-if="!packs.length"
+                  class="flex flex-1 flex-col items-center justify-center gap-3 px-4 py-10 text-center text-sm text-muted-foreground sm:px-5"
                 >
-                  <XIcon data-icon="inline-start" />
-                  {{ t('settings.catAppearance.clearSearch') }}
-                </Button>
-              </div>
+                  <ImageIcon class="size-8 opacity-50" />
+                  <div class="flex flex-col gap-1">
+                    <p class="font-medium text-foreground">{{ t('settings.catAppearance.emptyTitle') }}</p>
+                    <p>{{ t('settings.catAppearance.emptyHint') }}</p>
+                  </div>
+                  <Button
+                    type="button"
+                    :disabled="importDisabled"
+                    @click="importPack"
+                  >
+                    <PackagePlusIcon data-icon="inline-start" />
+                    {{ t('settings.catAppearance.importButton') }}
+                  </Button>
+                </div>
 
-              <div
-                v-else
-                class="flex flex-col gap-3 px-4 py-4 sm:px-5"
-              >
-                <SettingsPanelItem
-                  v-for="pack in filteredPacks"
-                  :key="pack.id"
-                  :title="pack.name"
-                  :description="pack.description"
-                  :icon="ImageIcon"
-                  :pending="selectingPackId === pack.id"
+                <div
+                  v-else-if="searchEmpty"
+                  class="flex flex-1 flex-col items-center justify-center gap-3 px-4 py-10 text-center text-sm text-muted-foreground sm:px-5"
                 >
-                  <template #badges>
-                    <Badge :variant="statusVariant(pack)">
-                      {{ statusLabel(pack) }}
-                    </Badge>
-                    <Badge :variant="sourceVariant(pack.source)">
-                      {{ sourceLabel(pack.source) }}
-                    </Badge>
-                  </template>
+                  <SearchIcon class="size-8 opacity-50" />
+                  <div class="flex flex-col gap-1">
+                    <p class="font-medium text-foreground">{{ t('settings.catAppearance.noMatch') }}</p>
+                    <p>{{ t('settings.catAppearance.noMatchHint') }}</p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    @click="clearSearch"
+                  >
+                    <XIcon data-icon="inline-start" />
+                    {{ t('settings.catAppearance.clearSearch') }}
+                  </Button>
+                </div>
 
-                  <template #meta>
-                    <p class="text-sm text-muted-foreground">
-                      {{ packMeta(pack) }}
-                    </p>
-                    <p
-                      v-if="pack.error"
-                      class="line-clamp-2 text-sm text-destructive"
-                    >
-                      {{ pack.error }}
-                    </p>
-                  </template>
+                <div
+                  v-else
+                  class="flex flex-col gap-3 px-4 py-4 sm:px-5"
+                >
+                  <SettingsPanelItem
+                    v-for="pack in filteredPacks"
+                    :key="pack.id"
+                    :title="pack.name"
+                    :description="pack.description"
+                    :icon="ImageIcon"
+                    :pending="selectingPackId === pack.id"
+                  >
+                    <template #badges>
+                      <Badge :variant="statusVariant(pack)">
+                        {{ statusLabel(pack) }}
+                      </Badge>
+                      <Badge :variant="sourceVariant(pack.source)">
+                        {{ sourceLabel(pack.source) }}
+                      </Badge>
+                    </template>
 
-                  <template #actions>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      @click="openDetail(pack)"
-                    >
-                      <InfoIcon data-icon="inline-start" />
-                      {{ t('settings.catAppearance.detailButton') }}
-                    </Button>
-                    <Button
-                      v-if="pack.source === 'local'"
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      :disabled="deletingPackId === pack.id"
-                      @click="openDeletePack(pack)"
-                    >
-                      <Trash2Icon data-icon="inline-start" />
-                      {{ deleteButtonLabel(pack) }}
-                    </Button>
-                    <Button
-                      v-if="pack.status !== 'available'"
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      disabled
-                    >
-                      <CircleAlertIcon data-icon="inline-start" />
-                      {{ t('settings.catAppearance.unavailable') }}
-                    </Button>
-                    <Button
-                      v-else-if="pack.id === activeRoleAppearancePackId"
-                      type="button"
-                      variant="secondary"
-                      size="sm"
-                      disabled
-                    >
-                      <CheckIcon data-icon="inline-start" />
-                      {{ t('settings.catAppearance.currentPack') }}
-                    </Button>
-                    <Button
-                      v-else
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      :disabled="selectingPackId === pack.id"
-                      @click="selectPack(pack)"
-                    >
-                      <CheckIcon data-icon="inline-start" />
-                      {{ selectButtonLabel(pack) }}
-                    </Button>
-                  </template>
-                </SettingsPanelItem>
+                    <template #meta>
+                      <p class="text-sm text-muted-foreground">
+                        {{ packMeta(pack) }}
+                      </p>
+                      <p
+                        v-if="pack.error"
+                        class="line-clamp-2 text-sm text-destructive"
+                      >
+                        {{ pack.error }}
+                      </p>
+                    </template>
+
+                    <template #actions>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        @click="openDetail(pack)"
+                      >
+                        <InfoIcon data-icon="inline-start" />
+                        {{ t('settings.catAppearance.detailButton') }}
+                      </Button>
+                      <Button
+                        v-if="pack.source === 'local'"
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        :disabled="deletingPackId === pack.id"
+                        @click="openDeletePack(pack)"
+                      >
+                        <Trash2Icon data-icon="inline-start" />
+                        {{ deleteButtonLabel(pack) }}
+                      </Button>
+                      <Button
+                        v-if="pack.status !== 'available'"
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled
+                      >
+                        <CircleAlertIcon data-icon="inline-start" />
+                        {{ t('settings.catAppearance.unavailable') }}
+                      </Button>
+                      <Button
+                        v-else-if="pack.id === activeRoleAppearancePackId"
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        disabled
+                      >
+                        <CheckIcon data-icon="inline-start" />
+                        {{ t('settings.catAppearance.currentPack') }}
+                      </Button>
+                      <Button
+                        v-else
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        :disabled="selectingPackId === pack.id"
+                        @click="selectPack(pack)"
+                      >
+                        <CheckIcon data-icon="inline-start" />
+                        {{ selectButtonLabel(pack) }}
+                      </Button>
+                    </template>
+                  </SettingsPanelItem>
+                </div>
               </div>
-            </div>
-          </CardContent>
-        </TabsContent>
-      </Tabs>
-    </Card>
+            </CardContent>
+          </Card>
+
+          <CompanionRoleEditor
+            v-else-if="activeRole"
+            :role="activeRole"
+            :can-delete-role="canDeleteRole"
+            :appearance-packs="packs"
+            :appearance-loading="loading"
+            @duplicate-role="duplicateActiveRole"
+            @delete-role="deleteRole"
+            @import-appearance="importPack"
+          />
+        </div>
+      </main>
+    </SidebarInset>
 
     <CatAppearanceDetailModal
       v-model:open="detailOpen"
@@ -541,5 +731,5 @@ async function confirmDeletePack(): Promise<void> {
       :pending="Boolean(deletingPackId)"
       @delete="confirmDeletePack"
     />
-  </div>
+  </SidebarProvider>
 </template>

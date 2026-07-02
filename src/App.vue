@@ -121,6 +121,10 @@ function selectSettingsTab(tab: SettingsTab) {
   void router.replace({ name: 'settings', query: { ...route.query, tab } })
 }
 
+function openRoles() {
+  void router.push({ name: 'roles' })
+}
+
 function backToChat() {
   void router.push('/')
 }
@@ -134,7 +138,6 @@ function normalizeSettingsTab(value: unknown): SettingsTab | undefined {
     tab === 'general' ||
     tab === 'shortcuts' ||
     tab === 'agent' ||
-    tab === 'catAppearance' ||
     tab === 'display' ||
     tab === 'data' ||
     tab === 'tools' ||
@@ -299,6 +302,7 @@ onBeforeUnmount(() => {
           @select-session="handleSelectSession"
           @update-session-mode="handleSessionModeChange"
           @update-session-kind-filter="handleSessionKindFilterChange"
+          @open-roles="openRoles"
           @open-settings="openSettings"
           @toggle-cat="toggleCatVisibility"
           @rename-session="handleRenameSession"

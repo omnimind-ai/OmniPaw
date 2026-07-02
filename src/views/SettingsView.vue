@@ -3,7 +3,6 @@ import { storeToRefs } from 'pinia'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import AboutSettingsForm from '@/components/settings/AboutSettingsForm.vue'
-import CatAppearanceSettingsForm from '@/components/settings/CatAppearanceSettingsForm.vue'
 import type { SettingsTab } from '@/components/settings/common/SettingsSidebar.vue'
 import DefaultModelSettingsForm from '@/components/settings/DefaultModelSettingsForm.vue'
 import GeneralSettingsForm from '@/components/settings/GeneralSettingsForm.vue'
@@ -42,7 +41,6 @@ const hasChanges = computed(() => JSON.stringify(draft.value) !== JSON.stringify
 const showInitialSkeleton = useDelayedFlag(() => loading.value && !draft.value)
 const fullHeightPanelTabs = new Set<SettingsTab>([
   'personas',
-  'catAppearance',
   'memory',
   'skills',
   'tools',
@@ -175,7 +173,6 @@ function normalizeSettingsTab(value: unknown): SettingsTab | undefined {
     tab === 'general' ||
     tab === 'shortcuts' ||
     tab === 'agent' ||
-    tab === 'catAppearance' ||
     tab === 'display' ||
     tab === 'data' ||
     tab === 'tools' ||
@@ -228,12 +225,6 @@ function normalizeSettingsTab(value: unknown): SettingsTab | undefined {
 
       <SkillSettingsForm
         v-else-if="activeTab === 'skills'"
-        class="h-full min-h-0 flex-1"
-      />
-
-      <CatAppearanceSettingsForm
-        v-else-if="activeTab === 'catAppearance'"
-        :draft="draft"
         class="h-full min-h-0 flex-1"
       />
 
