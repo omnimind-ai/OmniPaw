@@ -436,8 +436,10 @@ function apiFromType(type: ProviderType): ProviderApi {
   return 'openai-chat-completions'
 }
 
+let uniqueIdCounter = 0
 function uniqueId(prefix: string) {
-  return `${prefix}-${Date.now().toString(36)}`
+  uniqueIdCounter = (uniqueIdCounter + 1) % Number.MAX_SAFE_INTEGER
+  return `${prefix}-${Date.now().toString(36)}-${uniqueIdCounter.toString(36)}`
 }
 
 function formatJson(value: unknown) {
