@@ -1,11 +1,9 @@
 <script setup lang="ts">
-import type { CatAppearanceListResponse } from '@shared/types/cat-appearance'
 import { ArrowLeftIcon, ChevronDownIcon, PlusIcon, UserRoundIcon } from 'lucide-vue-next'
-import { computed, onBeforeUnmount, onMounted, ref, shallowRef } from 'vue'
+import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import type { BridgeDesktopSettingsConfig } from '@/bridge/app'
-import { appBridge, type BridgeUnsubscribe, ensureElectronBridge } from '@/bridge/app'
 import CompanionRoleEditor from '@/components/settings/companion-role-settings/CompanionRoleEditor.vue'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -24,7 +22,6 @@ import {
   SidebarSeparator,
   SidebarTrigger,
 } from '@/components/ui/sidebar'
-import { errorToText, useToast } from '@/utils/toast'
 
 type CompanionRole = BridgeDesktopSettingsConfig['app']['companionRoles'][number]
 
@@ -34,13 +31,8 @@ const props = defineProps<{
 
 const { t } = useI18n()
 const router = useRouter()
-const toast = useToast()
 
-const response = shallowRef<CatAppearanceListResponse>()
 const rolesOpen = ref(true)
-const loading = ref(false)
-const importing = ref(false)
-let unsubscribe: BridgeUnsubscribe | undefined
 
 const roles = computed(() => props.draft.app.companionRoles)
 const activeRoleId = computed(() => props.draft.app.activeCompanionRoleId)
@@ -48,59 +40,6 @@ const activeRole = computed(
   () => roles.value.find((role) => role.id === activeRoleId.value) ?? roles.value[0]
 )
 const canDeleteRole = computed(() => roles.value.length > 1)
-const packs = computed(() => response.value?.packs ?? [])
-
-onMounted(async () => {
-  unsubscribe = appBridge.catAppearance.onChanged((event) => {
-    response.value = event
-  })
-  await loadPacks()
-})
-
-onBeforeUnmount(() => {
-  unsubscribe?.()
-  unsubscribe = undefined
-})
-
-async function loadPacks(): Promise<void> {
-  loading.value = true
-  try {
-    response.value = await appBridge.catAppearance.list()
-  } catch (error) {
-    toast.error(errorToText(error, t('settings.catAppearance.toasts.loadFailed')))
-  } finally {
-    loading.value = false
-  }
-}
-
-async function importPack(): Promise<void> {
-  if (importing.value) return
-
-  try {
-    ensureElectronBridge(t('settings.catAppearance.importButton'))
-  } catch (error) {
-    toast.error(errorToText(error, t('settings.catAppearance.bridgeNotReady')))
-    return
-  }
-
-  importing.value = true
-  try {
-    const result = await appBridge.catAppearance.importPack()
-    response.value = result
-    if (result.canceled) {
-      return
-    }
-
-    const importedPack = result.packs.find((pack) => pack.id === result.importedPackId)
-    toast.success(t('settings.catAppearance.toasts.imported'), {
-      description: importedPack?.name,
-    })
-  } catch (error) {
-    toast.error(errorToText(error, t('settings.catAppearance.toasts.importFailed')))
-  } finally {
-    importing.value = false
-  }
-}
 
 function selectRole(target: CompanionRole): void {
   props.draft.app.activeCompanionRoleId = target.id
@@ -265,11 +204,8 @@ function defaultRoleName(): string {
             v-if="activeRole"
             :role="activeRole"
             :can-delete-role="canDeleteRole"
-            :appearance-packs="packs"
-            :appearance-loading="loading || importing"
             @duplicate-role="duplicateActiveRole"
             @delete-role="deleteRole"
-            @import-appearance="importPack"
           />
         </div>
       </main>

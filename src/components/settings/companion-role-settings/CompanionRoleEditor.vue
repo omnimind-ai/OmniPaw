@@ -1,13 +1,25 @@
 <script setup lang="ts">
-import type { CatAppearancePackSummary } from '@shared/types/cat-appearance'
-import { CopyIcon, PackagePlusIcon, Trash2Icon } from 'lucide-vue-next'
+import type {
+  CatAppearanceListResponse,
+  CatAppearancePackSource,
+  CatAppearancePackSummary,
+  CatAppearanceResolvedPack,
+} from '@shared/types/cat-appearance'
+import { CopyIcon, ImageIcon, PackagePlusIcon, Trash2Icon } from 'lucide-vue-next'
 import { storeToRefs } from 'pinia'
 import type { AcceptableValue } from 'reka-ui'
-import { computed, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { appBridge, type BridgeDesktopSettingsConfig, isFallbackBridge } from '@/bridge/app'
+import {
+  appBridge,
+  type BridgeDesktopSettingsConfig,
+  type BridgeUnsubscribe,
+  ensureElectronBridge,
+  isFallbackBridge,
+} from '@/bridge/app'
 import SettingEntry from '@/components/settings/common/SettingEntry.vue'
-import { Badge } from '@/components/ui/badge'
+import CompanionRoleAppearanceDetailPreview from '@/components/settings/companion-role-settings/CompanionRoleAppearanceDetailPreview.vue'
+import { Badge, type BadgeVariants } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { FieldGroup } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
@@ -27,19 +39,17 @@ import { errorToText, useToast } from '@/utils/toast'
 
 const NONE_VALUE = '__none__'
 
+type BadgeVariant = NonNullable<BadgeVariants['variant']>
 type CompanionRole = BridgeDesktopSettingsConfig['app']['companionRoles'][number]
 
 const props = defineProps<{
   role: CompanionRole
   canDeleteRole: boolean
-  appearancePacks: CatAppearancePackSummary[]
-  appearanceLoading?: boolean
 }>()
 
 const emit = defineEmits<{
   duplicateRole: []
   deleteRole: [role: CompanionRole]
-  importAppearance: []
 }>()
 
 const { t } = useI18n()
@@ -47,7 +57,14 @@ const toast = useToast()
 const providerStore = useProviderStore()
 const { modelOptions, saving, persistenceAvailable } = storeToRefs(providerStore)
 const activeTab = ref('basic')
-const selectingAppearancePackId = ref<string>()
+const response = shallowRef<CatAppearanceListResponse>()
+const loading = ref(false)
+const importing = ref(false)
+const currentDetailLoading = ref(false)
+const currentDetailError = ref<string>()
+const currentDetail = shallowRef<CatAppearanceResolvedPack>()
+let unsubscribe: BridgeUnsubscribe | undefined
+let detailRequestId = 0
 
 const editableRole = computed(() => props.role)
 const enabledModelOptions = computed(() => modelOptions.value.filter((option) => option.enabled))
@@ -64,12 +81,62 @@ const selectedModelKey = computed(() => {
 const modelSelectDisabled = computed(
   () => saving.value || !persistenceAvailable.value || !enabledModelOptions.value.length
 )
-const availableAppearancePacks = computed(() =>
-  props.appearancePacks.filter((pack) => pack.status === 'available')
+const packs = computed(() => response.value?.packs ?? [])
+const importDisabled = computed(() => importing.value || loading.value || isFallbackBridge)
+const importButtonLabel = computed(() =>
+  importing.value ? t('settings.catAppearance.importing') : t('settings.catAppearance.importButton')
 )
-const appearanceSelectDisabled = computed(
-  () => Boolean(props.appearanceLoading) || !availableAppearancePacks.value.length
+const activeRoleAppearancePackId = computed(() => editableRole.value.appearancePackId || 'builtin')
+const currentPack = computed<CatAppearancePackSummary | undefined>(() => {
+  const packId = activeRoleAppearancePackId.value
+  const summary = packs.value.find((pack) => pack.id === packId)
+  if (summary) return summary
+  if (currentDetail.value?.id === packId) return currentDetail.value
+  if (packId === 'builtin') {
+    return {
+      id: 'builtin',
+      name: 'OmniPaw Cat',
+      source: 'builtin',
+      status: 'available',
+      active: true,
+      updatedAt: response.value?.updatedAt,
+    }
+  }
+  return {
+    id: packId,
+    name: packId,
+    source: 'local',
+    status: 'missing',
+    active: false,
+    error: t('settings.catAppearance.detail.unavailable'),
+  }
+})
+const currentSourceLabel = computed(() => sourceLabel(currentPack.value?.source ?? 'builtin'))
+const currentStatusLabel = computed(() =>
+  t(`settings.catAppearance.status.${currentPack.value?.status ?? 'available'}`)
 )
+const currentUpdatedLabel = computed(() =>
+  t('settings.catAppearance.meta.updatedAt', {
+    time: formatUpdatedAt(currentPack.value?.updatedAt ?? currentDetail.value?.updatedAt),
+  })
+)
+
+onMounted(async () => {
+  unsubscribe = appBridge.catAppearance.onChanged((event) => {
+    response.value = event
+    void loadCurrentDetail()
+  })
+  await loadPacks()
+})
+
+onBeforeUnmount(() => {
+  unsubscribe?.()
+  unsubscribe = undefined
+})
+
+watch(activeRoleAppearancePackId, () => {
+  void loadCurrentDetail()
+})
 
 function modelLabel(option: ProviderModelOption): string {
   return `${option.providerName} / ${option.modelName}`
@@ -95,23 +162,89 @@ function updateDefaultModel(value: AcceptableValue): void {
   editableRole.value.defaultModelId = selected?.modelId
 }
 
-async function updateAppearancePack(value: AcceptableValue): Promise<void> {
-  const next = typeof value === 'string' ? value : ''
-  const selected = availableAppearancePacks.value.find((pack) => pack.id === next)
-  if (!selected) return
-
-  editableRole.value.appearancePackId = selected.id
-  selectingAppearancePackId.value = selected.id
+async function loadPacks(): Promise<void> {
+  loading.value = true
   try {
-    await appBridge.catAppearance.setActive({ packId: selected.id })
-    toast.success(t('settings.catAppearance.role.toasts.appearanceSelected'), {
-      description: selected.name,
+    response.value = await appBridge.catAppearance.list()
+    await loadCurrentDetail()
+  } catch (error) {
+    toast.error(errorToText(error, t('settings.catAppearance.toasts.loadFailed')))
+  } finally {
+    loading.value = false
+  }
+}
+
+async function importPack(): Promise<void> {
+  if (importing.value) return
+
+  try {
+    ensureElectronBridge(t('settings.catAppearance.importButton'))
+  } catch (error) {
+    toast.error(errorToText(error, t('settings.catAppearance.bridgeNotReady')))
+    return
+  }
+
+  importing.value = true
+  try {
+    const result = await appBridge.catAppearance.importPack()
+    response.value = result
+    if (result.canceled) {
+      return
+    }
+
+    if (result.importedPackId) {
+      editableRole.value.appearancePackId = result.importedPackId
+    }
+    await loadCurrentDetail()
+    const importedPack = result.packs.find((pack) => pack.id === result.importedPackId)
+    toast.success(t('settings.catAppearance.toasts.imported'), {
+      description: importedPack?.name,
     })
   } catch (error) {
-    toast.error(errorToText(error, t('settings.catAppearance.toasts.selectFailed')))
+    toast.error(errorToText(error, t('settings.catAppearance.toasts.importFailed')))
   } finally {
-    selectingAppearancePackId.value = undefined
+    importing.value = false
   }
+}
+
+async function loadCurrentDetail(): Promise<void> {
+  const requestId = detailRequestId + 1
+  detailRequestId = requestId
+  currentDetailLoading.value = true
+  currentDetailError.value = undefined
+  try {
+    const resolvedPack = await appBridge.catAppearance.getPack({
+      packId: activeRoleAppearancePackId.value,
+    })
+    if (detailRequestId !== requestId) return
+    currentDetail.value = resolvedPack
+  } catch (error) {
+    if (detailRequestId !== requestId) return
+    currentDetail.value = undefined
+    currentDetailError.value = errorToText(error, t('settings.catAppearance.detail.loadFailed'))
+  } finally {
+    if (detailRequestId === requestId) {
+      currentDetailLoading.value = false
+    }
+  }
+}
+
+function statusVariant(pack: CatAppearancePackSummary): BadgeVariant {
+  if (pack.status === 'invalid' || pack.status === 'missing') return 'destructive'
+  return 'secondary'
+}
+
+function sourceLabel(source: CatAppearancePackSource): string {
+  return t(`settings.catAppearance.source.${source}`)
+}
+
+function sourceVariant(source: CatAppearancePackSource): BadgeVariant {
+  return source === 'builtin' ? 'secondary' : 'outline'
+}
+
+function formatUpdatedAt(value?: number): string {
+  if (!value) return t('settings.catAppearance.neverUpdated')
+  return new Date(value).toLocaleString()
 }
 </script>
 
@@ -148,7 +281,7 @@ async function updateAppearancePack(value: AcceptableValue): Promise<void> {
 
     <Tabs
       v-model="activeTab"
-      class="grid min-h-0 grid-rows-[auto_minmax(0,1fr)] gap-0"
+      class="grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)] gap-0"
     >
       <div class="border-b px-4 py-3 sm:px-5">
         <TabsList class="w-full max-w-2xl">
@@ -280,56 +413,64 @@ async function updateAppearancePack(value: AcceptableValue): Promise<void> {
         <div class="flex flex-col gap-4 p-4 sm:p-5">
           <FieldGroup class="gap-0 rounded-md border bg-card">
             <SettingEntry
-              control-id="settings-companion-role-appearance"
+              control-id="settings-companion-role-appearance-current"
               :title="t('settings.catAppearance.role.fields.appearance.title')"
               :description="t('settings.catAppearance.role.fields.appearance.description')"
             >
-              <div class="flex w-full flex-col gap-2 md:w-[28rem]">
-                <div class="flex flex-wrap items-center gap-2">
-                  <Select
-                    :model-value="editableRole.appearancePackId || 'builtin'"
-                    :disabled="appearanceSelectDisabled"
-                    @update:model-value="updateAppearancePack"
-                  >
-                    <SelectTrigger
-                      id="settings-companion-role-appearance"
-                      class="min-w-0 flex-1"
+              <div class="flex w-full min-w-0 flex-col gap-3 md:w-[32rem]">
+                <div class="flex min-w-0 items-start gap-3 rounded-md border bg-background/60 p-3">
+                  <div class="flex size-10 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
+                    <ImageIcon />
+                  </div>
+                  <div class="flex min-w-0 flex-1 flex-col gap-1">
+                    <div class="flex min-w-0 flex-wrap items-center gap-2">
+                      <p class="truncate text-sm font-medium">
+                        {{ currentPack?.name || activeRoleAppearancePackId }}
+                      </p>
+                      <Badge
+                        v-if="currentPack"
+                        :variant="statusVariant(currentPack)"
+                      >
+                        {{ currentStatusLabel }}
+                      </Badge>
+                      <Badge
+                        v-if="currentPack"
+                        :variant="sourceVariant(currentPack.source)"
+                      >
+                        {{ currentSourceLabel }}
+                      </Badge>
+                    </div>
+                    <p class="text-sm text-muted-foreground">
+                      {{ currentUpdatedLabel }}
+                    </p>
+                    <p
+                      v-if="currentPack?.error || currentDetailError"
+                      class="line-clamp-2 text-sm text-destructive"
                     >
-                      <SelectValue :placeholder="t('settings.catAppearance.role.fields.appearance.placeholder')" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectGroup>
-                        <SelectItem
-                          v-for="pack in availableAppearancePacks"
-                          :key="pack.id"
-                          :value="pack.id"
-                        >
-                          {{ pack.name }}
-                        </SelectItem>
-                      </SelectGroup>
-                    </SelectContent>
-                  </Select>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    class="shrink-0"
-                    :disabled="isFallbackBridge"
-                    @click="emit('importAppearance')"
-                  >
-                    <PackagePlusIcon data-icon="inline-start" />
-                    {{ t('settings.catAppearance.importButton') }}
-                  </Button>
+                      {{ currentPack?.error || currentDetailError }}
+                    </p>
+                  </div>
                 </div>
-                <Badge
-                  v-if="selectingAppearancePackId"
-                  variant="outline"
+
+                <Button
+                  type="button"
+                  class="w-fit"
+                  :disabled="importDisabled"
+                  @click="importPack"
                 >
-                  {{ t('settings.catAppearance.role.fields.appearance.switching') }}
-                </Badge>
+                  <PackagePlusIcon data-icon="inline-start" />
+                  {{ importButtonLabel }}
+                </Button>
               </div>
             </SettingEntry>
           </FieldGroup>
+
+          <CompanionRoleAppearanceDetailPreview
+            :pack="currentPack"
+            :detail="currentDetail"
+            :loading="loading || currentDetailLoading"
+            :error="currentDetailError"
+          />
         </div>
       </TabsContent>
 
@@ -497,4 +638,5 @@ async function updateAppearancePack(value: AcceptableValue): Promise<void> {
       </TabsContent>
     </Tabs>
   </div>
+
 </template>
