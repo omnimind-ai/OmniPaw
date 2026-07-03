@@ -29,6 +29,9 @@ const {
   selectedModelKey,
   selectedModelLabel,
   selectedModelMeta,
+  companionRoleOptions,
+  activeCompanionRoleId,
+  companionRoleSaving,
   agentToolProfile,
   toolProfileOptions,
   toolProfileSaving,
@@ -46,6 +49,7 @@ const {
   handleFilesDropped,
   clearReply,
   handleModelChange,
+  handleCompanionRoleChange,
   handleToolProfileChange,
   handlePaste,
   handleSubmit,
@@ -93,6 +97,9 @@ const {
         :selected-model-key="selectedModelKey"
         :selected-model-label="selectedModelLabel"
         :selected-model-meta="selectedModelMeta"
+        :companion-role-options="companionRoleOptions"
+        :active-companion-role-id="activeCompanionRoleId"
+        :companion-role-saving="companionRoleSaving"
         :tool-profile="agentToolProfile"
         :tool-profile-options="toolProfileOptions"
         :show-tool-profile="true"
@@ -112,6 +119,7 @@ const {
         @files-dropped="handleFilesDropped"
         @clear-reply="clearReply"
         @select-model="handleModelChange"
+        @select-companion-role="handleCompanionRoleChange"
         @select-tool-profile="handleToolProfileChange"
         @paste="handlePaste"
         @submit="handleSubmit"

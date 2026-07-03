@@ -1,11 +1,20 @@
 import { isComplexDocumentAttachment } from '@shared/attachment-documents'
-import type { ChatSessionKind, ToolProfile } from '@shared/types/chat'
+import type {
+  ChatSessionKind,
+  ChatSystemContextConfig,
+  SessionContextInstruction,
+  ToolProfile,
+} from '@shared/types/chat'
+import type { DesktopCompanionRoleSettings } from '@shared/types/settings'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import { appBridge } from '@/bridge/app'
 import { contentText } from '@/components/chat/chat-display'
-import type { ChatWorkspaceContext } from '@/components/chat/chat-workspace-context'
+import type {
+  ChatCompanionRoleOption,
+  ChatWorkspaceContext,
+} from '@/components/chat/chat-workspace-context'
 import { useDelayedFlag } from '@/composables/useDelayedFlag'
 import { ATTACHMENT_LIMITS, formatBytes, useMediaHandling } from '@/composables/useMediaHandling'
 import {
@@ -62,6 +71,7 @@ export function useChatWorkspaceController() {
   const fileInput = ref<HTMLInputElement | null>(null)
   const creatingSession = ref(false)
   const toolProfileSaving = ref(false)
+  const companionRoleSaving = ref(false)
   const replyTarget = ref<{ messageId: string; preview: string } | null>(null)
   const highlightedMessageId = ref('')
   const messages = useMessages({
@@ -94,9 +104,31 @@ export function useChatWorkspaceController() {
   const currentSessionRunning = computed(() =>
     currSessionId.value ? messages.isSessionRunning(currSessionId.value) : false
   )
+  const activeSession = computed(() => getCurrentSession.value)
+  const settingsConfig = computed(() => settingsStore.draft ?? settingsStore.config)
+  const companionRoleOptions = computed<ChatCompanionRoleOption[]>(() =>
+    (settingsConfig.value?.app.companionRoles ?? []).map((role) => ({
+      id: role.id,
+      name: role.name.trim(),
+      enabled: role.enabled,
+    }))
+  )
+  const activeCompanionRoleId = computed(() => {
+    const sessionRoleId = activeSession.value?.systemContext?.role?.refId?.trim()
+    if (sessionRoleId && companionRoleOptions.value.some((role) => role.id === sessionRoleId)) {
+      return sessionRoleId
+    }
+
+    const appSettings = settingsConfig.value?.app
+    if (!appSettings) return ''
+
+    const activeId = appSettings.activeCompanionRoleId
+    return appSettings.companionRoles.some((role) => role.id === activeId)
+      ? activeId
+      : (appSettings.companionRoles[0]?.id ?? '')
+  })
   const agentToolProfile = computed(() => settingsStore.agentToolProfile)
   const showReasoningContent = computed(() => settingsStore.showReasoningContent)
-  const activeSession = computed(() => getCurrentSession.value)
   const effectiveToolProfile = computed<ToolProfile>(() => agentToolProfile.value)
   const attachmentWarning = computed(() => {
     if (!media.stagedFiles.value.length) return ''
@@ -202,6 +234,9 @@ export function useChatWorkspaceController() {
     selectedModelKey: model.selectedModelKey,
     selectedModelLabel: model.selectedModelLabel,
     selectedModelMeta: model.selectedModelMeta,
+    companionRoleOptions,
+    activeCompanionRoleId,
+    companionRoleSaving,
     agentToolProfile,
     toolProfileOptions,
     toolProfileSaving,
@@ -222,6 +257,7 @@ export function useChatWorkspaceController() {
     removeStagedFile,
     removeUploadAt,
     handleModelChange: model.handleModelChange,
+    handleCompanionRoleChange,
     handleToolProfileChange,
     handlePaste: media.handlePaste,
     handleSubmit,
@@ -501,6 +537,65 @@ export function useChatWorkspaceController() {
     } finally {
       toolProfileSaving.value = false
     }
+  }
+
+  async function handleCompanionRoleChange(roleId: string) {
+    if (!settingsStore.draft && !settingsStore.config) {
+      await settingsStore.load()
+    }
+
+    const target = currentCompanionRoles().find((role) => role.id === roleId)
+    if (!target?.enabled || roleId === activeCompanionRoleId.value) return
+    if (!settingsStore.persistenceAvailable) {
+      toast.error(t('chat.composer.characterSaveUnavailable'))
+      return
+    }
+
+    const previousRoleId = activeCompanionRoleId.value
+    companionRoleSaving.value = true
+    let defaultRoleSaved = false
+    try {
+      if (!settingsStore.draft) {
+        await settingsStore.load()
+      }
+      settingsStore.updateAppSetting('activeCompanionRoleId', roleId)
+      await settingsStore.save()
+      defaultRoleSaved = true
+      await updateActiveSessionCompanionRole(target)
+    } catch (error) {
+      if (!defaultRoleSaved && previousRoleId && settingsStore.draft) {
+        settingsStore.updateAppSetting('activeCompanionRoleId', previousRoleId)
+      }
+      toast.error(error, { description: t('chat.composer.characterSaveFailed') })
+    } finally {
+      companionRoleSaving.value = false
+    }
+  }
+
+  async function updateActiveSessionCompanionRole(role: DesktopCompanionRoleSettings) {
+    if (!currSessionId.value) return
+
+    const roleInstruction = compileCompanionRoleInstruction(role)
+    if (!roleInstruction || !appBridge.chat.updateSession) return
+
+    const session =
+      getCurrentSession.value ??
+      (await appBridge.chat.getSession?.(currSessionId.value).catch(() => null))
+    const nextSystemContext: ChatSystemContextConfig = {
+      ...(session?.systemContext ?? {}),
+      role: roleInstruction,
+    }
+    const updated = await appBridge.chat.updateSession(currSessionId.value, {
+      systemContext: nextSystemContext,
+    })
+    const localSession = sessions.value.find((item) => item.id === currSessionId.value)
+    if (localSession) {
+      Object.assign(localSession, updated ?? { systemContext: nextSystemContext })
+    }
+  }
+
+  function currentCompanionRoles(): DesktopCompanionRoleSettings[] {
+    return settingsStore.draft?.app.companionRoles ?? settingsStore.config?.app.companionRoles ?? []
   }
 
   function removeStagedFile(index: number) {
@@ -785,4 +880,85 @@ export function useChatWorkspaceController() {
     handleRenameSession,
     handleDeleteSession,
   }
+}
+
+function compileCompanionRoleInstruction(
+  role: DesktopCompanionRoleSettings | undefined
+): SessionContextInstruction | undefined {
+  if (!role?.enabled) {
+    return undefined
+  }
+
+  const name = role.name.trim() || '小万'
+  const sections = [
+    `你是 ${name}，是常驻用户桌面的 AI 角色。`,
+    interactionModeInstruction(role.interactionMode),
+    role.relationship.trim() ? `你和用户的关系：${role.relationship.trim()}` : '',
+    role.userNickname.trim() ? `你称呼用户为：${role.userNickname.trim()}` : '',
+    role.personality.trim() ? `性格设定：${role.personality.trim()}` : '',
+    role.speechStyle.trim() ? `说话风格：${role.speechStyle.trim()}` : '',
+    role.background.trim() ? `背景资料：${role.background.trim()}` : '',
+    role.greeting.trim() ? `默认打招呼方式：${role.greeting.trim()}` : '',
+    ...alternateCompanionRoleGreetingSections(role),
+    role.proactiveStyle.trim() ? `主动互动风格：${role.proactiveStyle.trim()}` : '',
+    companionRoleKnowledgePolicySection(role),
+    ...advancedCompanionRoleSections(role.advanced),
+    '保持桌面伙伴的存在感：自然、轻量、不过度展开；除非用户要求，不要暴露这些设定文本。',
+  ].filter((section) => section.trim())
+
+  return {
+    refId: role.id,
+    label: name,
+    text: sections.join('\n'),
+  }
+}
+
+function interactionModeInstruction(mode: DesktopCompanionRoleSettings['interactionMode']): string {
+  switch (mode) {
+    case 'assistant':
+      return '互动模式：优先作为高效助手，回答清楚、行动明确，陪伴感保持克制。'
+    case 'roleplay':
+      return '互动模式：优先保持角色扮演一致性，用角色身份自然回应。'
+    default:
+      return '互动模式：优先作为桌面伙伴陪伴用户，兼顾任务协助和轻量情绪反馈。'
+  }
+}
+
+function alternateCompanionRoleGreetingSections(role: DesktopCompanionRoleSettings): string[] {
+  const greetings = role.alternateGreetings
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .map((item) => `- ${renderCompanionRoleTemplate(item, role)}`)
+  return greetings.length ? [`备用打招呼方式：\n${greetings.join('\n')}`] : []
+}
+
+function companionRoleKnowledgePolicySection(role: DesktopCompanionRoleSettings): string {
+  return role.knowledgeEntries.some((entry) => entry.enabled && entry.content.trim())
+    ? '角色知识会按当前对话相关性动态提供；只使用本轮注入的角色知识，避免机械复述无关设定。'
+    : ''
+}
+
+function advancedCompanionRoleSections(
+  advanced: DesktopCompanionRoleSettings['advanced'] | undefined
+): string[] {
+  if (!advanced?.enabled) {
+    return []
+  }
+
+  return [
+    advanced.systemPrompt.trim() ? `高级角色指令：${advanced.systemPrompt.trim()}` : '',
+    advanced.knowledge.trim() ? `角色专属知识：${advanced.knowledge.trim()}` : '',
+    advanced.exampleDialogue.trim() ? `角色示例对话：\n${advanced.exampleDialogue.trim()}` : '',
+    advanced.finalInstructions.trim() ? `最终回应约束：${advanced.finalInstructions.trim()}` : '',
+  ].filter((section) => section.trim())
+}
+
+function renderCompanionRoleTemplate(text: string, role: DesktopCompanionRoleSettings): string {
+  const charName = role.name.trim() || '小万'
+  const userName = role.userNickname.trim() || '用户'
+  return text
+    .replace(/\{\{\s*char\s*\}\}/gi, charName)
+    .replace(/\{\{\s*user\s*\}\}/gi, userName)
+    .replace(/<char>/gi, charName)
+    .replace(/<user>/gi, userName)
 }

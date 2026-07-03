@@ -2,6 +2,7 @@
 import type { ToolProfile } from '@shared/types/chat'
 import {
   ArrowUpIcon,
+  DramaIcon,
   PlusIcon,
   ReplyIcon,
   ShieldCheckIcon,
@@ -12,6 +13,7 @@ import {
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import ChatContextUsageIndicator from '@/components/chat/ChatContextUsageIndicator.vue'
+import type { ChatCompanionRoleOption } from '@/components/chat/chat-workspace-context'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -51,6 +53,9 @@ const props = defineProps<{
   selectedModelKey: string
   selectedModelLabel: string
   selectedModelMeta?: string
+  companionRoleOptions?: ChatCompanionRoleOption[]
+  activeCompanionRoleId?: string
+  companionRoleSaving?: boolean
   toolProfile: ToolProfile
   toolProfileOptions: Array<{
     value: ToolProfile
@@ -76,6 +81,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   'update:modelValue': [value: string]
   selectModel: [key: string]
+  selectCompanionRole: [roleId: string]
   selectToolProfile: [profile: ToolProfile]
   addAttachment: []
   removeAttachment: [index: number]
@@ -144,6 +150,16 @@ const selectedToolProfile = computed(
 )
 const selectedModelOption = computed(
   () => props.modelOptions.find((option) => option.key === props.selectedModelKey) ?? null
+)
+const availableCompanionRoleOptions = computed(() => props.companionRoleOptions ?? [])
+const selectedCompanionRole = computed(
+  () =>
+    availableCompanionRoleOptions.value.find((role) => role.id === props.activeCompanionRoleId) ??
+    availableCompanionRoleOptions.value[0] ??
+    null
+)
+const selectedCompanionRoleLabel = computed(
+  () => selectedCompanionRole.value?.name || t('chat.composer.characterFallbackLabel')
 )
 const selectedModelCompactLabel = computed(() =>
   compactModelLabel(
@@ -335,6 +351,11 @@ function handleToolProfileSelect(value: unknown) {
   emit('selectToolProfile', value as ToolProfile)
 }
 
+function handleCompanionRoleSelect(value: unknown) {
+  if (typeof value !== 'string') return
+  emit('selectCompanionRole', value)
+}
+
 function handlePrimaryAction() {
   if (props.running) {
     emit('stop')
@@ -476,6 +497,44 @@ function handleDrop(event: DragEvent) {
                 </InputGroupButton>
 
                 <slot name="controls" />
+
+                <DropdownMenu v-if="availableCompanionRoleOptions.length">
+                  <DropdownMenuTrigger as-child>
+                    <InputGroupButton
+                      class="max-w-9 justify-start px-1.5 @min-[30rem]/chat-composer:max-w-36 @min-[44rem]/chat-composer:max-w-52"
+                      :disabled="companionRoleSaving"
+                      :aria-label="t('chat.composer.switchCharacterAria', { character: selectedCompanionRoleLabel })"
+                    >
+                      <DramaIcon data-icon="inline-start" />
+                      <span class="hidden truncate @min-[30rem]/chat-composer:inline">
+                        {{ selectedCompanionRoleLabel }}
+                      </span>
+                    </InputGroupButton>
+                  </DropdownMenuTrigger>
+
+                  <DropdownMenuContent
+                    align="start"
+                    class="w-72"
+                  >
+                    <DropdownMenuLabel>{{ t('chat.composer.switchCharacter') }}</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuRadioGroup
+                      :model-value="activeCompanionRoleId"
+                      @update:model-value="handleCompanionRoleSelect"
+                    >
+                      <DropdownMenuRadioItem
+                        v-for="role in availableCompanionRoleOptions"
+                        :key="role.id"
+                        :value="role.id"
+                        :disabled="companionRoleSaving || !role.enabled"
+                      >
+                        <span class="truncate">
+                          {{ role.name || t('chat.composer.characterFallbackLabel') }}
+                        </span>
+                      </DropdownMenuRadioItem>
+                    </DropdownMenuRadioGroup>
+                  </DropdownMenuContent>
+                </DropdownMenu>
 
                 <DropdownMenu>
                   <DropdownMenuTrigger as-child>

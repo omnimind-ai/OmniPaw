@@ -6,6 +6,12 @@ import type { ChatContent, ChatRecord, MessageDisplayBlock } from '@/composables
 import type { SessionContextUsage } from '@/stores/chat'
 import type { ProviderModelOption } from '@/stores/provider'
 
+export interface ChatCompanionRoleOption {
+  id: string
+  name: string
+  enabled: boolean
+}
+
 export interface ChatWorkspaceContext {
   currSessionId: Ref<string>
   showWelcome: ComputedRef<boolean>
@@ -26,6 +32,9 @@ export interface ChatWorkspaceContext {
   selectedModelKey: Ref<string>
   selectedModelLabel: ComputedRef<string>
   selectedModelMeta: ComputedRef<string>
+  companionRoleOptions: ComputedRef<ChatCompanionRoleOption[]>
+  activeCompanionRoleId: ComputedRef<string>
+  companionRoleSaving: Ref<boolean>
   agentToolProfile: ComputedRef<ToolProfile>
   toolProfileOptions: ComputedRef<
     Array<{
@@ -52,6 +61,7 @@ export interface ChatWorkspaceContext {
   removeStagedFile: (index: number) => void
   removeUploadAt: (index: number) => void
   handleModelChange: (value: unknown) => Promise<void>
+  handleCompanionRoleChange: (roleId: string) => Promise<void>
   handleToolProfileChange: (value: ToolProfile) => Promise<void>
   handlePaste: (event: ClipboardEvent) => Promise<void>
   handleSubmit: () => Promise<void>
