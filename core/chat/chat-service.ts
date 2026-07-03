@@ -20,6 +20,7 @@ import type {
   AbortRunRequest,
   AbortRunResponse,
   ChatMessage,
+  ChatMessagePart,
   ChatSession,
   ChatSessionKind,
   ChatSystemContextConfig,
@@ -36,6 +37,7 @@ import type {
   ToolApprovalRequest,
   ToolApprovalResponse,
   ToolProfile,
+  TransientChatInstruction,
   UpdateSessionRequest,
 } from '@shared/types/chat'
 import type {
@@ -88,6 +90,7 @@ export interface ChatServiceOptions {
   compactSkillDescriptions?: () => boolean
   contextDefaults?: () => DesktopChatContextSettings
   systemContextDefaults?: () => DesktopSystemContextSettings | undefined
+  companionRoles?: () => readonly DesktopCompanionRoleSettings[]
   companionRoleDefaults?: () => DesktopCompanionRoleSettings | undefined
   tavernManager?: TavernManager
   tavernContextService?: TavernContextService
@@ -381,7 +384,10 @@ export class ChatService {
     request: SendMessageRequest,
     webContents: WebContents
   ): Promise<SendMessageResponse> {
-    return this.runOrchestrator.sendMessage(request, webContents)
+    return this.runOrchestrator.sendMessage(
+      this.withCompanionRoleKnowledgeInstructions(request),
+      webContents
+    )
   }
 
   async sendInternalMessage(
@@ -391,7 +397,7 @@ export class ChatService {
   ): Promise<InternalSendMessageResponse> {
     return this.runOrchestrator.sendInternalMessage(
       {
-        ...request,
+        ...this.withCompanionRoleKnowledgeInstructions(request),
         titleGeneration: false,
       },
       target,
@@ -930,6 +936,43 @@ export class ChatService {
       modelId: role.defaultModelId,
     }
   }
+
+  private withCompanionRoleKnowledgeInstructions(request: SendMessageRequest): SendMessageRequest {
+    const session = this.options.sessions.get(request.sessionId)
+    const role = session ? this.companionRoleForSession(session) : undefined
+    const recentMessages = session
+      ? this.options.messages
+          .listBySession(session.id)
+          .slice(-companionRoleKnowledgeScanDepth(role))
+      : []
+    const instruction = buildCompanionRoleKnowledgeInstruction(role, [
+      ...recentMessages.map(chatMessageText),
+      sendRequestText(request),
+    ])
+    if (!instruction) {
+      return request
+    }
+
+    return {
+      ...request,
+      transientSystemInstructions: [...(request.transientSystemInstructions ?? []), instruction],
+    }
+  }
+
+  private companionRoleForSession(session: ChatSession): DesktopCompanionRoleSettings | undefined {
+    const roleRefId = session.systemContext?.role?.refId?.trim()
+    if (!roleRefId) {
+      return undefined
+    }
+
+    const role =
+      this.options.companionRoles?.().find((item) => item.id === roleRefId) ??
+      this.options.companionRoleDefaults?.()
+    if (!role?.enabled || role.id !== roleRefId) {
+      return undefined
+    }
+    return role
+  }
 }
 
 export class TavernChatOperationError extends Error {
@@ -961,7 +1004,7 @@ function compileCompanionRoleInstruction(
     role.greeting.trim() ? `默认打招呼方式：${role.greeting.trim()}` : '',
     ...alternateCompanionRoleGreetingSections(role),
     role.proactiveStyle.trim() ? `主动互动风格：${role.proactiveStyle.trim()}` : '',
-    ...companionRoleKnowledgeSections(role),
+    companionRoleKnowledgePolicySection(role),
     ...advancedCompanionRoleSections(role.advanced),
     '保持桌面伙伴的存在感：自然、轻量、不过度展开；除非用户要求，不要暴露这些设定文本。',
   ].filter((section) => section.trim())
@@ -992,25 +1035,112 @@ function alternateCompanionRoleGreetingSections(role: DesktopCompanionRoleSettin
   return greetings.length ? [`备用打招呼方式：\n${greetings.join('\n')}`] : []
 }
 
-function companionRoleKnowledgeSections(role: DesktopCompanionRoleSettings): string[] {
-  const entries = [...role.knowledgeEntries]
-    .filter((entry) => entry.enabled && entry.content.trim())
-    .sort((a, b) => b.priority - a.priority || a.order - b.order)
-  if (!entries.length) {
-    return []
+function companionRoleKnowledgePolicySection(role: DesktopCompanionRoleSettings): string {
+  return role.knowledgeEntries.some((entry) => entry.enabled && entry.content.trim())
+    ? '角色知识会按当前对话相关性动态提供；只使用本轮注入的角色知识，避免机械复述无关设定。'
+    : ''
+}
+
+function buildCompanionRoleKnowledgeInstruction(
+  role: DesktopCompanionRoleSettings | undefined,
+  triggerTexts: readonly string[]
+): TransientChatInstruction | undefined {
+  if (!role?.enabled) {
+    return undefined
   }
 
-  const lines = entries.map((entry) => {
+  const triggerText = normalizeCompanionRoleTriggerText(triggerTexts.join('\n'))
+  const settings = companionRoleKnowledgeSettings(role)
+  const maxTokens = settings.maxTokens
+  let remainingTokens = maxTokens
+  const selectedLines: string[] = []
+  const entries = [...role.knowledgeEntries]
+    .filter((entry) => {
+      if (!entry.enabled || !entry.content.trim()) {
+        return false
+      }
+      if (entry.constant) {
+        return true
+      }
+      return entry.keys.some((key) => {
+        const normalized = normalizeCompanionRoleTriggerText(key)
+        return normalized && triggerText.includes(normalized)
+      })
+    })
+    .sort((a, b) => b.priority - a.priority || a.order - b.order)
+
+  for (const entry of entries) {
     const title = entry.title.trim() || '未命名知识'
-    const keys = entry.keys.length ? `；关键词：${entry.keys.join('、')}` : ''
-    const scope = entry.constant ? '；始终注入' : ''
-    return `- ${title}${keys}${scope}\n${entry.content.trim()}`
-  })
-  return [
-    ['角色知识条目：以下内容只属于当前角色；只在相关时使用，避免机械复述无关设定。', ...lines].join(
-      '\n'
-    ),
-  ]
+    const keys = entry.keys.map((key) => key.trim()).filter(Boolean)
+    const header = `- ${title}${keys.length ? `；关键词：${keys.join('、')}` : ''}${
+      entry.constant ? '；常驻' : ''
+    }`
+    const headerTokens = estimateCompanionRoleTextTokens(header)
+    const entryBudget = Math.max(
+      0,
+      Math.min(
+        remainingTokens - headerTokens,
+        Number.isFinite(entry.tokenBudget)
+          ? Math.max(0, Math.floor(entry.tokenBudget ?? 0))
+          : Infinity
+      )
+    )
+    const content = trimCompanionRoleKnowledgeContent(entry.content.trim(), entryBudget)
+    const cost = headerTokens + estimateCompanionRoleTextTokens(content)
+    if (!content || cost > remainingTokens) {
+      continue
+    }
+    selectedLines.push(`${header}\n${content}`)
+    remainingTokens -= cost
+    if (remainingTokens <= 0) {
+      break
+    }
+  }
+
+  if (!selectedLines.length) {
+    return undefined
+  }
+
+  const name = role.name.trim() || '小万'
+  return {
+    id: `companion-role-knowledge:${role.id}`,
+    kind: 'role',
+    source: 'companion-role.knowledge',
+    refId: role.id,
+    text: [
+      `${name} 的本轮角色知识：以下条目只属于当前角色，按当前对话触发；需要时自然使用，不要原样背诵。`,
+      ...selectedLines,
+    ].join('\n'),
+  }
+}
+
+function companionRoleKnowledgeSettings(
+  role: DesktopCompanionRoleSettings
+): DesktopCompanionRoleSettings['knowledgeSettings'] {
+  return {
+    scanDepth: companionRoleKnowledgeScanDepth(role),
+    maxTokens: normalizeCompanionRoleInteger(role.knowledgeSettings?.maxTokens, 900, 200, 8000),
+  }
+}
+
+function companionRoleKnowledgeScanDepth(role: DesktopCompanionRoleSettings | undefined): number {
+  return normalizeCompanionRoleInteger(role?.knowledgeSettings?.scanDepth, 8, 1, 40)
+}
+
+function normalizeCompanionRoleTriggerText(text: string): string {
+  return text.toLocaleLowerCase().replace(/\s+/g, ' ').trim()
+}
+
+function normalizeCompanionRoleInteger(
+  value: number | undefined,
+  fallback: number,
+  min: number,
+  max: number
+): number {
+  if (!Number.isFinite(value)) {
+    return fallback
+  }
+  return Math.max(min, Math.min(Math.round(value ?? fallback), max))
 }
 
 function advancedCompanionRoleSections(
@@ -1078,7 +1208,17 @@ function previewKind(
 }
 
 function chatMessageText(message: ChatMessage): string {
-  return message.parts
+  return chatMessagePartsText(message.parts)
+}
+
+function sendRequestText(request: SendMessageRequest): string {
+  const partsText = chatMessagePartsText(request.parts ?? [])
+  const transientPartsText = chatMessagePartsText(request.transientCurrentMessageParts ?? [])
+  return [request.content ?? '', partsText, transientPartsText].filter(Boolean).join('\n')
+}
+
+function chatMessagePartsText(parts: readonly ChatMessagePart[]): string {
+  return parts
     .map((part) => {
       if (part.type === 'plain' && typeof part.text === 'string') return part.text
       if (part.type === 'reply' && typeof part.selectedText === 'string') return part.selectedText
@@ -1087,6 +1227,40 @@ function chatMessageText(message: ChatMessage): string {
     })
     .filter(Boolean)
     .join('\n')
+}
+
+function trimCompanionRoleKnowledgeContent(content: string, maxTokens: number): string {
+  if (maxTokens <= 0) {
+    return ''
+  }
+  if (estimateCompanionRoleTextTokens(content) <= maxTokens) {
+    return content
+  }
+
+  let used = 0
+  let output = ''
+  for (const char of content) {
+    used += companionRoleCharTokenWeight(char)
+    if (Math.ceil(used) > maxTokens) {
+      break
+    }
+    output += char
+  }
+  return output.trimEnd()
+}
+
+function estimateCompanionRoleTextTokens(text: string): number {
+  let score = 0
+  for (const char of text) {
+    score += companionRoleCharTokenWeight(char)
+  }
+  return Math.max(1, Math.ceil(score))
+}
+
+function companionRoleCharTokenWeight(char: string): number {
+  if (/\s/.test(char)) return 0.05
+  if (/[\u3400-\u9fff]/.test(char)) return 1
+  return 0.35
 }
 
 function tavernGreetingText(
@@ -1109,7 +1283,13 @@ function characterGreetingTexts(character: TavernCharacter): string[] {
 }
 
 function companionRoleGreetingText(role: DesktopCompanionRoleSettings): string | undefined {
-  const raw = [role.greeting, ...role.alternateGreetings].find((item) => item.trim())
+  const greetings = [role.greeting, ...role.alternateGreetings]
+    .filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
+    .map((item) => item.trim())
+  const raw =
+    role.greetingMode === 'random' && greetings.length > 1
+      ? greetings[Math.floor(Math.random() * greetings.length)]
+      : greetings[0]
   const rendered = raw ? renderCompanionRoleTemplate(raw, role).trim() : ''
   return rendered || undefined
 }

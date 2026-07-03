@@ -118,7 +118,12 @@ try {
       companionRoles: [
         {
           ...cloneDefaultConfig().app.companionRoles[0],
+          greetingMode: 'random',
           alternateGreetings: ['早呀'],
+          knowledgeSettings: {
+            scanDepth: 5,
+            maxTokens: 1200,
+          },
           knowledgeEntries: [
             {
               id: 'role-knowledge-smoke',
@@ -139,7 +144,10 @@ try {
       ],
     },
   }).config
+  assert.equal(roleConfig.app.companionRoles[0]?.greetingMode, 'random')
   assert.equal(roleConfig.app.companionRoles[0]?.alternateGreetings[0], '早呀')
+  assert.equal(roleConfig.app.companionRoles[0]?.knowledgeSettings.scanDepth, 5)
+  assert.equal(roleConfig.app.companionRoles[0]?.knowledgeSettings.maxTokens, 1200)
   assert.equal(roleConfig.app.companionRoles[0]?.knowledgeEntries[0]?.title, '桌面设定')
   assert.equal(roleConfig.app.companionRoles[0]?.source?.kind, 'sillytavern-json')
 

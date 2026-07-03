@@ -424,6 +424,7 @@ export function createCoreRuntime(options: CoreRuntimeOptions): CoreRuntime {
     compactSkillDescriptions: () => configStore.get().app.compactSkillDescriptions,
     contextDefaults: () => configStore.get().app.chatContext,
     systemContextDefaults: () => configStore.get().app.systemContext,
+    companionRoles: () => configStore.get().app.companionRoles,
     companionRoleDefaults: () => {
       const appSettings = configStore.get().app
       return (

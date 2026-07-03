@@ -277,10 +277,17 @@ export default {
             description: 'The opening feeling when the character appears or starts a conversation.',
             placeholder: 'I am here. What should we work on together?',
           },
+          greetingMode: {
+            title: 'Opening strategy',
+            description:
+              'Choose how new companion sessions pick from the main and alternate greetings.',
+            placeholder: 'Select opening strategy',
+            default: 'Use default greeting',
+            random: 'Random greeting',
+          },
           alternateGreetings: {
             title: 'Alternate greetings',
-            description:
-              'One optional greeting per line, used by imported character cards and future randomized openings.',
+            description: 'One optional greeting per line, available for randomized openings.',
             placeholder: 'Morning, I am ready.\nWhat should we handle first today?',
           },
           proactiveStyle: {
@@ -300,11 +307,16 @@ export default {
           newTitle: 'New knowledge',
           untitled: 'Untitled knowledge',
           order: 'Order {index}',
+          settings: {
+            scanDepth: 'Recent messages scanned',
+            maxTokens: 'Per-turn knowledge limit',
+          },
           fields: {
             title: 'Knowledge title',
             content: 'Knowledge content injected into character session context',
             keys: 'Trigger keywords, separated by commas',
             priority: 'Priority',
+            tokenBudget: 'Entry limit',
             constant: 'Always inject',
           },
         },
@@ -349,6 +361,15 @@ export default {
           importCardSuccess: 'Character card imported.',
           importCardSummary: '{name}, {count} knowledge entries',
           importCardFailed: 'Failed to import character card.',
+        },
+        importDialog: {
+          title: 'Import Character Card',
+          description:
+            'Choose a SillyTavern JSON/PNG/WebP character card, or paste JSON content directly.',
+          jsonPlaceholder: 'Paste character card JSON...',
+          chooseFile: 'Choose File',
+          importJson: 'Import JSON',
+          pastedSourceName: 'pasted-character-card.json',
         },
       },
       importButton: 'Import Pack',

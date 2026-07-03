@@ -69,6 +69,7 @@ const defaultCompanionRole: DesktopCompanionRoleSettings = {
   relationship: '桌面伙伴',
   background: '',
   greeting: '我在这里，有什么想让我陪你一起处理的吗？',
+  greetingMode: 'default',
   alternateGreetings: [],
   proactiveStyle: '适度主动提醒，但不打扰用户专注。',
   interactionMode: 'companion',
@@ -78,6 +79,10 @@ const defaultCompanionRole: DesktopCompanionRoleSettings = {
     knowledge: '',
     exampleDialogue: '',
     finalInstructions: '',
+  },
+  knowledgeSettings: {
+    scanDepth: 8,
+    maxTokens: 900,
   },
   knowledgeEntries: [],
   source: undefined,
@@ -762,6 +767,35 @@ function validateCompanionRole(
         message: 'Companion role interaction mode must be companion, assistant, or roleplay.',
         code: 'invalid_enum',
       })
+    }
+    if (!['default', 'random'].includes(settings.greetingMode)) {
+      issues.push({
+        path: `${basePath}.greetingMode`,
+        message: 'Companion role greeting mode must be default or random.',
+        code: 'invalid_enum',
+      })
+    }
+    if (!isPlainObject(settings.knowledgeSettings)) {
+      issues.push({
+        path: `${basePath}.knowledgeSettings`,
+        message: 'Companion role knowledge settings must be an object.',
+        code: 'invalid_type',
+      })
+    } else {
+      validateIntegerRange(
+        settings.knowledgeSettings.scanDepth,
+        `${basePath}.knowledgeSettings.scanDepth`,
+        1,
+        40,
+        issues
+      )
+      validateIntegerRange(
+        settings.knowledgeSettings.maxTokens,
+        `${basePath}.knowledgeSettings.maxTokens`,
+        200,
+        8000,
+        issues
+      )
     }
 
     const textFields: Array<keyof DesktopCompanionRoleSettings> = [
@@ -2277,6 +2311,7 @@ function normalizeCompanionRoleSettings(
       typeof rawValue.relationship === 'string' ? rawValue.relationship : defaults.relationship,
     background: typeof rawValue.background === 'string' ? rawValue.background : defaults.background,
     greeting: typeof rawValue.greeting === 'string' ? rawValue.greeting : defaults.greeting,
+    greetingMode: rawValue.greetingMode === 'random' ? 'random' : defaults.greetingMode,
     alternateGreetings: normalizeStringArray(
       rawValue.alternateGreetings,
       defaults.alternateGreetings
@@ -2287,6 +2322,7 @@ function normalizeCompanionRoleSettings(
         : defaults.proactiveStyle,
     interactionMode,
     advanced: normalizeCompanionRoleAdvancedSettings(rawValue.advanced),
+    knowledgeSettings: normalizeCompanionRoleKnowledgeSettings(rawValue.knowledgeSettings),
     knowledgeEntries: normalizeCompanionRoleKnowledgeEntries(rawValue.knowledgeEntries),
     source: normalizeCompanionRoleSource(rawValue.source),
     defaultProviderId:
@@ -2297,6 +2333,20 @@ function normalizeCompanionRoleSettings(
       typeof rawValue.defaultModelId === 'string' && rawValue.defaultModelId.trim()
         ? rawValue.defaultModelId
         : undefined,
+  }
+}
+
+function normalizeCompanionRoleKnowledgeSettings(
+  rawValue: unknown
+): DesktopCompanionRoleSettings['knowledgeSettings'] {
+  const defaults = defaultCompanionRole.knowledgeSettings
+  if (!isPlainObject(rawValue)) {
+    return { ...defaults }
+  }
+
+  return {
+    scanDepth: normalizeInteger(rawValue.scanDepth, defaults.scanDepth, 1, 40),
+    maxTokens: normalizeInteger(rawValue.maxTokens, defaults.maxTokens, 200, 8000),
   }
 }
 

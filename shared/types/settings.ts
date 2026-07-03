@@ -45,6 +45,12 @@ export interface DesktopAppBackgroundSettings {
 }
 
 export type CompanionRoleInteractionMode = 'companion' | 'assistant' | 'roleplay'
+export type CompanionRoleGreetingMode = 'default' | 'random'
+
+export interface DesktopCompanionRoleKnowledgeSettings {
+  scanDepth: number
+  maxTokens: number
+}
 
 export interface DesktopCompanionRoleAdvancedSettings {
   enabled: boolean
@@ -65,10 +71,12 @@ export interface DesktopCompanionRoleSettings {
   relationship: string
   background: string
   greeting: string
+  greetingMode: CompanionRoleGreetingMode
   alternateGreetings: string[]
   proactiveStyle: string
   interactionMode: CompanionRoleInteractionMode
   advanced: DesktopCompanionRoleAdvancedSettings
+  knowledgeSettings: DesktopCompanionRoleKnowledgeSettings
   knowledgeEntries: CompanionRoleKnowledgeEntry[]
   source?: CompanionRoleSourceMetadata
   defaultProviderId?: string

@@ -74,6 +74,15 @@ const alternateGreetingsText = computed({
     editableRole.value.alternateGreetings = splitMultiline(value)
   },
 })
+const knowledgeSettings = computed(() => {
+  if (!editableRole.value.knowledgeSettings) {
+    editableRole.value.knowledgeSettings = {
+      scanDepth: 8,
+      maxTokens: 900,
+    }
+  }
+  return editableRole.value.knowledgeSettings
+})
 const enabledModelOptions = computed(() => modelOptions.value.filter((option) => option.enabled))
 const selectedModelKey = computed(() => {
   const providerId = editableRole.value.defaultProviderId
@@ -156,6 +165,13 @@ function updateInteractionMode(value: AcceptableValue): void {
   }
 }
 
+function updateGreetingMode(value: AcceptableValue): void {
+  const next = typeof value === 'string' ? value : ''
+  if (next === 'default' || next === 'random') {
+    editableRole.value.greetingMode = next
+  }
+}
+
 function updateDefaultModel(value: AcceptableValue): void {
   const next = typeof value === 'string' ? value : ''
   if (!next || next === NONE_VALUE) {
@@ -200,6 +216,30 @@ function updateKnowledgeKeys(targetId: string, value: string): void {
   if (!entry) return
   entry.keys = splitInlineList(value)
   entry.updatedAt = Date.now()
+}
+
+function updateKnowledgeTokenBudget(targetId: string, value: string): void {
+  const entry = ensureKnowledgeEntries().find((item) => item.id === targetId)
+  if (!entry) return
+  const trimmed = value.trim()
+  if (!trimmed) {
+    entry.tokenBudget = undefined
+    entry.updatedAt = Date.now()
+    return
+  }
+  const numeric = Number(trimmed)
+  if (Number.isFinite(numeric)) {
+    entry.tokenBudget = Math.max(50, Math.round(numeric))
+    entry.updatedAt = Date.now()
+  }
+}
+
+function updateKnowledgeScanDepth(value: string): void {
+  knowledgeSettings.value.scanDepth = normalizeIntegerInput(value, 8, 1, 40)
+}
+
+function updateKnowledgeMaxTokens(value: string): void {
+  knowledgeSettings.value.maxTokens = normalizeIntegerInput(value, 900, 200, 8000)
 }
 
 function eventInputValue(event: Event): string {
@@ -310,6 +350,12 @@ function splitInlineList(value: string): string[] {
     .split(/[,，\n]/)
     .map((item) => item.trim())
     .filter(Boolean)
+}
+
+function normalizeIntegerInput(value: string, fallback: number, min: number, max: number): number {
+  const numeric = Number(value)
+  if (!Number.isFinite(numeric)) return fallback
+  return Math.max(min, Math.min(Math.round(numeric), max))
 }
 
 function createRoleKnowledgeId(index: number): string {
@@ -479,6 +525,34 @@ function createRoleKnowledgeId(index: number): string {
             </SettingEntry>
 
             <SettingEntry
+              control-id="settings-companion-role-greeting-mode"
+              :title="t('settings.catAppearance.role.fields.greetingMode.title')"
+              :description="t('settings.catAppearance.role.fields.greetingMode.description')"
+            >
+              <Select
+                :model-value="editableRole.greetingMode"
+                @update:model-value="updateGreetingMode"
+              >
+                <SelectTrigger
+                  id="settings-companion-role-greeting-mode"
+                  class="w-full md:w-56"
+                >
+                  <SelectValue :placeholder="t('settings.catAppearance.role.fields.greetingMode.placeholder')" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectGroup>
+                    <SelectItem value="default">
+                      {{ t('settings.catAppearance.role.fields.greetingMode.default') }}
+                    </SelectItem>
+                    <SelectItem value="random">
+                      {{ t('settings.catAppearance.role.fields.greetingMode.random') }}
+                    </SelectItem>
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+            </SettingEntry>
+
+            <SettingEntry
               control-id="settings-companion-role-alternate-greetings"
               :title="t('settings.catAppearance.role.fields.alternateGreetings.title')"
               :description="t('settings.catAppearance.role.fields.alternateGreetings.description')"
@@ -518,6 +592,33 @@ function createRoleKnowledgeId(index: number): string {
               control-class="@md/field-group:w-[min(40rem,58vw)]"
             >
               <div class="flex w-full flex-col gap-3">
+                <div class="grid gap-3 md:grid-cols-2">
+                  <label class="flex flex-col gap-1 text-sm">
+                    <span class="font-medium">
+                      {{ t('settings.catAppearance.role.knowledge.settings.scanDepth') }}
+                    </span>
+                    <Input
+                      :model-value="knowledgeSettings.scanDepth"
+                      type="number"
+                      min="1"
+                      max="40"
+                      @input="updateKnowledgeScanDepth(eventInputValue($event))"
+                    />
+                  </label>
+                  <label class="flex flex-col gap-1 text-sm">
+                    <span class="font-medium">
+                      {{ t('settings.catAppearance.role.knowledge.settings.maxTokens') }}
+                    </span>
+                    <Input
+                      :model-value="knowledgeSettings.maxTokens"
+                      type="number"
+                      min="200"
+                      max="8000"
+                      @input="updateKnowledgeMaxTokens(eventInputValue($event))"
+                    />
+                  </label>
+                </div>
+
                 <div class="flex items-center justify-between gap-3">
                   <p class="text-sm text-muted-foreground">
                     {{ t('settings.catAppearance.role.knowledge.count', { count: editableRole.knowledgeEntries.length }) }}
@@ -569,7 +670,7 @@ function createRoleKnowledgeId(index: number): string {
                     :placeholder="t('settings.catAppearance.role.knowledge.fields.content')"
                   />
 
-                  <div class="grid gap-3 md:grid-cols-[minmax(0,1fr)_9rem]">
+                  <div class="grid gap-3 md:grid-cols-[minmax(0,1fr)_8rem_9rem]">
                     <Input
                       :model-value="entry.keys.join(', ')"
                       :placeholder="t('settings.catAppearance.role.knowledge.fields.keys')"
@@ -579,6 +680,13 @@ function createRoleKnowledgeId(index: number): string {
                       v-model.number="entry.priority"
                       type="number"
                       :placeholder="t('settings.catAppearance.role.knowledge.fields.priority')"
+                    />
+                    <Input
+                      :model-value="entry.tokenBudget ?? ''"
+                      type="number"
+                      min="50"
+                      :placeholder="t('settings.catAppearance.role.knowledge.fields.tokenBudget')"
+                      @input="updateKnowledgeTokenBudget(entry.id, eventInputValue($event))"
                     />
                   </div>
 

@@ -27,6 +27,14 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Collapsible, CollapsibleContent } from '@/components/ui/collapsible'
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import {
   Sidebar,
   SidebarContent,
   SidebarGroup,
@@ -40,6 +48,7 @@ import {
   SidebarSeparator,
   SidebarTrigger,
 } from '@/components/ui/sidebar'
+import { Textarea } from '@/components/ui/textarea'
 import { errorToText, useToast } from '@/utils/toast'
 
 type CompanionRole = BridgeDesktopSettingsConfig['app']['companionRoles'][number]
@@ -54,6 +63,8 @@ const toast = useToast()
 
 const rolesOpen = ref(true)
 const roleCardInput = ref<HTMLInputElement>()
+const roleCardImportDialogOpen = ref(false)
+const roleCardJsonContent = ref('')
 const importingRoleCard = ref(false)
 
 const roles = computed(() => props.draft.app.companionRoles)
@@ -63,6 +74,9 @@ const activeRole = computed(
 )
 const canDeleteRole = computed(() => roles.value.length > 1)
 const importRoleCardDisabled = computed(() => importingRoleCard.value || isFallbackBridge)
+const canImportRoleCardJson = computed(
+  () => !importRoleCardDisabled.value && roleCardJsonContent.value.trim().length > 0
+)
 
 function selectRole(target: CompanionRole): void {
   props.draft.app.activeCompanionRoleId = target.id
@@ -93,6 +107,7 @@ function duplicateActiveRole(): void {
       createdAt: Date.now(),
       updatedAt: Date.now(),
     })),
+    knowledgeSettings: { ...activeRole.value.knowledgeSettings },
     source: activeRole.value.source ? { ...activeRole.value.source } : undefined,
   }
   roles.value.push(nextRole)
@@ -122,6 +137,7 @@ function createCompanionRole(): CompanionRole {
     relationship: '',
     background: '',
     greeting: '',
+    greetingMode: 'default',
     alternateGreetings: [],
     proactiveStyle: '',
     interactionMode: 'companion',
@@ -131,6 +147,10 @@ function createCompanionRole(): CompanionRole {
       knowledge: '',
       exampleDialogue: '',
       finalInstructions: '',
+    },
+    knowledgeSettings: {
+      scanDepth: 8,
+      maxTokens: 900,
     },
     knowledgeEntries: [],
     source: undefined,
@@ -146,6 +166,10 @@ function openRoleCardImport(): void {
     toast.error(errorToText(error, t('settings.catAppearance.role.toasts.importCardFailed')))
     return
   }
+  roleCardImportDialogOpen.value = true
+}
+
+function chooseRoleCardFile(): void {
   roleCardInput.value?.click()
 }
 
@@ -159,16 +183,28 @@ async function importRoleCard(event: Event): Promise<void> {
   try {
     const request = await createRoleCardImportRequest(file)
     const result = await appBridge.companionRole.importCard(request)
-    const nextRole = createRoleFromImportedDraft(result.role, result.source)
-    roles.value.push(nextRole)
-    props.draft.app.activeCompanionRoleId = nextRole.id
-    rolesOpen.value = true
-    toast.success(t('settings.catAppearance.role.toasts.importCardSuccess'), {
-      description: t('settings.catAppearance.role.toasts.importCardSummary', {
-        name: nextRole.name,
-        count: result.knowledgeEntryCount,
-      }),
+    applyImportedRoleCard(result)
+  } catch (error) {
+    toast.error(errorToText(error, t('settings.catAppearance.role.toasts.importCardFailed')))
+  } finally {
+    importingRoleCard.value = false
+  }
+}
+
+async function importPastedRoleCard(): Promise<void> {
+  const content = roleCardJsonContent.value.trim()
+  if (!content || importingRoleCard.value) return
+
+  importingRoleCard.value = true
+  try {
+    const result = await appBridge.companionRole.importCard({
+      content,
+      sourceKind: 'json',
+      mimeType: 'application/json',
+      sourceName: t('settings.catAppearance.role.importDialog.pastedSourceName'),
     })
+    applyImportedRoleCard(result)
+    roleCardJsonContent.value = ''
   } catch (error) {
     toast.error(errorToText(error, t('settings.catAppearance.role.toasts.importCardFailed')))
   } finally {
@@ -222,6 +258,22 @@ function fileToBase64(file: File): Promise<string> {
   })
 }
 
+function applyImportedRoleCard(
+  result: Awaited<ReturnType<typeof appBridge.companionRole.importCard>>
+): void {
+  const nextRole = createRoleFromImportedDraft(result.role, result.source)
+  roles.value.push(nextRole)
+  props.draft.app.activeCompanionRoleId = nextRole.id
+  rolesOpen.value = true
+  roleCardImportDialogOpen.value = false
+  toast.success(t('settings.catAppearance.role.toasts.importCardSuccess'), {
+    description: t('settings.catAppearance.role.toasts.importCardSummary', {
+      name: nextRole.name,
+      count: result.knowledgeEntryCount,
+    }),
+  })
+}
+
 function createRoleFromImportedDraft(
   draft: ImportedCompanionRoleDraft,
   source: CompanionRoleSourceMetadata
@@ -237,6 +289,7 @@ function createRoleFromImportedDraft(
     relationship: draft.relationship ?? '',
     background: draft.background ?? '',
     greeting: draft.greeting ?? '',
+    greetingMode: 'default',
     alternateGreetings: normalizeStringList(draft.alternateGreetings),
     proactiveStyle: draft.proactiveStyle ?? '',
     interactionMode: source.kind === 'manual' ? 'companion' : 'roleplay',
@@ -246,6 +299,10 @@ function createRoleFromImportedDraft(
       knowledge: draft.advanced?.knowledge ?? '',
       exampleDialogue: draft.advanced?.exampleDialogue ?? '',
       finalInstructions: draft.advanced?.finalInstructions ?? '',
+    },
+    knowledgeSettings: {
+      scanDepth: 8,
+      maxTokens: 900,
     },
     knowledgeEntries: normalizeImportedKnowledgeEntries(draft.knowledgeEntries),
     source: draft.source ?? source,
@@ -410,5 +467,43 @@ function defaultRoleName(): string {
         </div>
       </main>
     </SidebarInset>
+
+    <Dialog v-model:open="roleCardImportDialogOpen">
+      <DialogContent class="sm:max-w-xl">
+        <DialogHeader>
+          <DialogTitle>{{ t('settings.catAppearance.role.importDialog.title') }}</DialogTitle>
+          <DialogDescription>
+            {{ t('settings.catAppearance.role.importDialog.description') }}
+          </DialogDescription>
+        </DialogHeader>
+
+        <div class="flex flex-col gap-3">
+          <Textarea
+            v-model="roleCardJsonContent"
+            class="min-h-52 font-mono text-xs"
+            :placeholder="t('settings.catAppearance.role.importDialog.jsonPlaceholder')"
+          />
+        </div>
+
+        <DialogFooter class="gap-2 sm:justify-between">
+          <Button
+            type="button"
+            variant="outline"
+            :disabled="importRoleCardDisabled"
+            @click="chooseRoleCardFile"
+          >
+            <FileJsonIcon data-icon="inline-start" />
+            {{ t('settings.catAppearance.role.importDialog.chooseFile') }}
+          </Button>
+          <Button
+            type="button"
+            :disabled="!canImportRoleCardJson"
+            @click="importPastedRoleCard"
+          >
+            {{ t('settings.catAppearance.role.importDialog.importJson') }}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   </SidebarProvider>
 </template>
