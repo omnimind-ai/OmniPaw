@@ -206,21 +206,13 @@ function messageThinkingStatusClass(record: ChatRecord) {
 }
 
 function isLocalGreeting(record: ChatRecord) {
-  const tavern = record.metadata?.tavern
   const companionRole = record.metadata?.companionRole
-  const isTavernGreeting = Boolean(
-    tavern &&
-      typeof tavern === 'object' &&
-      'greeting' in tavern &&
-      (tavern as { greeting?: unknown }).greeting === true
-  )
-  const isCompanionRoleGreeting = Boolean(
+  return Boolean(
     companionRole &&
       typeof companionRole === 'object' &&
       'greeting' in companionRole &&
       (companionRole as { greeting?: unknown }).greeting === true
   )
-  return isTavernGreeting || isCompanionRoleGreeting
 }
 
 function fileChangesFor(record: ChatRecord) {

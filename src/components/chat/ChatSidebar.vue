@@ -60,8 +60,8 @@ import {
 import type { Session } from '@/composables/useSessions'
 import { cn } from '@/lib/utils'
 
-type SessionKindFilter = 'chat' | 'tavern' | 'cat' | 'cron' | 'vision'
-type SessionMode = Extract<SessionKindFilter, 'chat' | 'tavern'>
+type SessionKindFilter = 'chat' | 'cat' | 'cron' | 'vision'
+type SessionMode = Extract<SessionKindFilter, 'chat'>
 
 const props = withDefaults(
   defineProps<{

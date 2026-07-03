@@ -48,12 +48,6 @@ import { OpenAICodexOAuthService } from '@core/provider/openai-codex-oauth'
 import { ProviderRegistryValidationError } from '@core/provider/registry-schema'
 import { ProviderRegistryStore } from '@core/provider/registry-store'
 import { SkillManager, SkillValidationError } from '@core/skill'
-import {
-  TavernContextService,
-  TavernManager,
-  TavernRegistryStore,
-  TavernRegistryValidationError,
-} from '@core/tavern'
 import { resolveOmniPawDataPaths } from '@core/utils/data-paths'
 import { SYSTEM_SESSION_IDS } from '@shared/constants'
 import type { CatAppearanceAssetKey, CatAppearanceChangedEvent } from '@shared/types/cat-appearance'
@@ -117,7 +111,6 @@ export interface CoreRuntime {
   providerManager: ProviderManager
   sessionRepo: ChatSessionRepo
   skillManager: SkillManager
-  tavernManager: TavernManager
   terminalService: TerminalService
   toolManagementService: ToolManagementService
   omniInferRuntimeService?: OmniInferRuntimeService
@@ -244,14 +237,6 @@ export function createCoreRuntime(options: CoreRuntimeOptions): CoreRuntime {
       }))
   )
 
-  const tavernManager = new TavernManager({
-    registryStore: new TavernRegistryStore({
-      dataRootPath: dataPaths.root,
-    }),
-    logger: coreLogger.child({ scope: 'tavern' }),
-  })
-  loadStartupTavernRegistry(tavernManager, options.lifecycleLogger)
-
   const omniInferLogger = coreLogger.child({ scope: 'omniinfer' })
   const modelsDir = resolveModelsDir({
     userDataPath: appDataPath,
@@ -367,9 +352,6 @@ export function createCoreRuntime(options: CoreRuntimeOptions): CoreRuntime {
     summaries: contextSummaryRepo,
     contextDefaults: () => configStore.get().app.chatContext,
   })
-  const tavernContextService = new TavernContextService({
-    tavernManager,
-  })
   const contextCompaction = new ContextCompactionService(contextSummaryRepo)
   const runManager = new RunManager(runRepo)
   const memoryPolicy = new CompanionMemoryPolicyService(() => configStore.get().app.memory)
@@ -432,8 +414,6 @@ export function createCoreRuntime(options: CoreRuntimeOptions): CoreRuntime {
         appSettings.companionRoles[0]
       )
     },
-    tavernManager,
-    tavernContextService,
     memoryService,
     agentToolProfile: () => configStore.get().tools.agentToolProfile,
     maxAgentSteps: () => configStore.get().tools.maxAgentSteps,
@@ -490,7 +470,6 @@ export function createCoreRuntime(options: CoreRuntimeOptions): CoreRuntime {
     providerManager,
     sessionRepo,
     skillManager,
-    tavernManager,
     terminalService,
     toolManagementService,
     omniInferRuntimeService,
@@ -703,27 +682,6 @@ function loadStartupProviderRegistry(
       return
     }
     lifecycleLogger.error('Startup Provider registry load failed.', { error })
-    throw error
-  }
-}
-
-function loadStartupTavernRegistry(tavernManager: TavernManager, lifecycleLogger: Logger): void {
-  try {
-    const { registry } = tavernManager.load()
-    lifecycleLogger.info('Startup tavern registry loaded.', {
-      version: registry.version,
-      characterCount: registry.characters.length,
-      lorebookCount: registry.lorebooks.length,
-    })
-  } catch (error) {
-    if (error instanceof TavernRegistryValidationError) {
-      lifecycleLogger.warn('Startup tavern registry validation failed.', {
-        errorCode: error.details.code,
-        recoverable: error.details.recoverable,
-      })
-      return
-    }
-    lifecycleLogger.error('Startup tavern registry load failed.', { error })
     throw error
   }
 }

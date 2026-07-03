@@ -66,28 +66,6 @@ import type {
   SaveDesktopSettingsRequest,
 } from '@shared/types/settings'
 import type { ShortcutStatusChangedEvent } from '@shared/types/shortcuts'
-import type {
-  CreateTavernCharacterRequest,
-  CreateTavernLorebookRequest,
-  CreateTavernPromptPresetRequest,
-  CreateTavernSessionRequest,
-  CreateTavernUserProfileRequest,
-  DeleteTavernCharacterRequest,
-  DeleteTavernLorebookRequest,
-  DeleteTavernPromptPresetRequest,
-  DeleteTavernUserProfileRequest,
-  ImportTavernCharacterRequest,
-  SetTavernCharacterEnabledRequest,
-  SetTavernLorebookEnabledRequest,
-  SetTavernPromptPresetEnabledRequest,
-  SetTavernUserProfileEnabledRequest,
-  TavernPromptPreviewRequest,
-  UpdateTavernCharacterRequest,
-  UpdateTavernLorebookRequest,
-  UpdateTavernPromptPresetRequest,
-  UpdateTavernSessionBindingRequest,
-  UpdateTavernUserProfileRequest,
-} from '@shared/types/tavern'
 import { contextBridge, ipcRenderer } from 'electron'
 
 const allowedTaskStates = new Set(['idle', 'preparing', 'running', 'completed'])
@@ -197,24 +175,6 @@ async function invokeSkill<T>(channel: string, payload?: unknown): Promise<T> {
       details?: unknown
     }
     error.name = 'SkillOperationError'
-    error.details = response.error
-    throw error
-  }
-
-  return response?.ok === true ? (response.value as T) : (response as T)
-}
-
-async function invokeTavern<T>(channel: string, payload?: unknown): Promise<T> {
-  const response =
-    payload === undefined
-      ? await ipcRenderer.invoke(channel)
-      : await ipcRenderer.invoke(channel, payload)
-
-  if (response?.ok === false) {
-    const error = new Error(response.error?.message || 'Tavern operation failed.') as Error & {
-      details?: unknown
-    }
-    error.name = 'TavernOperationError'
     error.details = response.error
     throw error
   }
@@ -593,52 +553,6 @@ const bridge: OmniPawBridge = {
     onStatusChanged: (callback) =>
       createUnsubscriber(IPC_CHANNELS.omniinfer.statusChanged, callback),
     onLog: (callback) => createUnsubscriber(IPC_CHANNELS.omniinfer.log, callback),
-  },
-  tavern: {
-    load: () => invokeTavern(IPC_CHANNELS.tavern.load),
-    list: () => invokeTavern(IPC_CHANNELS.tavern.list),
-    status: () => invokeTavern(IPC_CHANNELS.tavern.status),
-    importCharacter: (request: ImportTavernCharacterRequest) =>
-      invokeTavern(IPC_CHANNELS.tavern.importCharacter, request),
-    createCharacter: (request: CreateTavernCharacterRequest) =>
-      invokeTavern(IPC_CHANNELS.tavern.createCharacter, request),
-    updateCharacter: (request: UpdateTavernCharacterRequest) =>
-      invokeTavern(IPC_CHANNELS.tavern.updateCharacter, request),
-    deleteCharacter: (request: DeleteTavernCharacterRequest | string) =>
-      invokeTavern(IPC_CHANNELS.tavern.deleteCharacter, request),
-    setCharacterEnabled: (request: SetTavernCharacterEnabledRequest) =>
-      invokeTavern(IPC_CHANNELS.tavern.setCharacterEnabled, request),
-    createLorebook: (request: CreateTavernLorebookRequest) =>
-      invokeTavern(IPC_CHANNELS.tavern.createLorebook, request),
-    updateLorebook: (request: UpdateTavernLorebookRequest) =>
-      invokeTavern(IPC_CHANNELS.tavern.updateLorebook, request),
-    deleteLorebook: (request: DeleteTavernLorebookRequest | string) =>
-      invokeTavern(IPC_CHANNELS.tavern.deleteLorebook, request),
-    setLorebookEnabled: (request: SetTavernLorebookEnabledRequest) =>
-      invokeTavern(IPC_CHANNELS.tavern.setLorebookEnabled, request),
-    createPromptPreset: (request: CreateTavernPromptPresetRequest) =>
-      invokeTavern(IPC_CHANNELS.tavern.createPromptPreset, request),
-    updatePromptPreset: (request: UpdateTavernPromptPresetRequest) =>
-      invokeTavern(IPC_CHANNELS.tavern.updatePromptPreset, request),
-    deletePromptPreset: (request: DeleteTavernPromptPresetRequest | string) =>
-      invokeTavern(IPC_CHANNELS.tavern.deletePromptPreset, request),
-    setPromptPresetEnabled: (request: SetTavernPromptPresetEnabledRequest) =>
-      invokeTavern(IPC_CHANNELS.tavern.setPromptPresetEnabled, request),
-    createUserProfile: (request: CreateTavernUserProfileRequest) =>
-      invokeTavern(IPC_CHANNELS.tavern.createUserProfile, request),
-    updateUserProfile: (request: UpdateTavernUserProfileRequest) =>
-      invokeTavern(IPC_CHANNELS.tavern.updateUserProfile, request),
-    deleteUserProfile: (request: DeleteTavernUserProfileRequest | string) =>
-      invokeTavern(IPC_CHANNELS.tavern.deleteUserProfile, request),
-    setUserProfileEnabled: (request: SetTavernUserProfileEnabledRequest) =>
-      invokeTavern(IPC_CHANNELS.tavern.setUserProfileEnabled, request),
-    createSession: (request: CreateTavernSessionRequest) =>
-      invokeTavern(IPC_CHANNELS.tavern.createSession, request),
-    updateSessionBinding: (request: UpdateTavernSessionBindingRequest) =>
-      invokeTavern(IPC_CHANNELS.tavern.updateSessionBinding, request),
-    previewPrompt: (request: TavernPromptPreviewRequest) =>
-      invokeTavern(IPC_CHANNELS.tavern.previewPrompt, request),
-    onChanged: (callback) => createUnsubscriber(IPC_CHANNELS.tavern.changed, callback),
   },
 }
 

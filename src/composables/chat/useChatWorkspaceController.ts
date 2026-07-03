@@ -1,6 +1,5 @@
 import { isComplexDocumentAttachment } from '@shared/attachment-documents'
 import type { ChatSessionKind, ToolProfile } from '@shared/types/chat'
-import type { TavernLorebook, TavernPromptPreviewResult } from '@shared/types/tavern'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
@@ -18,7 +17,6 @@ import {
 import { useSessions } from '@/composables/useSessions'
 import { useChatStore } from '@/stores/chat'
 import { useSettingsStore } from '@/stores/settings'
-import { useTavernStore } from '@/stores/tavern'
 import { copyToClipboard } from '@/utils/clipboard'
 import { useToast } from '@/utils/toast'
 
@@ -26,10 +24,10 @@ import { useChatWorkspaceModel } from './useChatWorkspaceModel'
 import { useChatWorkspaceScroll } from './useChatWorkspaceScroll'
 
 type SessionKindFilter = ChatSessionKind
-type SessionMode = Extract<SessionKindFilter, 'chat' | 'tavern'>
+type SessionMode = Extract<SessionKindFilter, 'chat'>
 
-const sessionKindFilters = new Set<SessionKindFilter>(['chat', 'tavern', 'cat', 'cron', 'vision'])
-const sessionModes = new Set<SessionMode>(['chat', 'tavern'])
+const sessionKindFilters = new Set<SessionKindFilter>(['chat', 'cat', 'cron', 'vision'])
+const sessionModes = new Set<SessionMode>(['chat'])
 
 function isSessionKindFilter(value: unknown): value is SessionKindFilter {
   return typeof value === 'string' && sessionKindFilters.has(value as SessionKindFilter)
@@ -45,7 +43,6 @@ export function useChatWorkspaceController() {
   const { t } = useI18n()
   const chatStore = useChatStore()
   const settingsStore = useSettingsStore()
-  const tavernStore = useTavernStore()
   const toast = useToast()
   const {
     sessions,
@@ -65,14 +62,6 @@ export function useChatWorkspaceController() {
   const fileInput = ref<HTMLInputElement | null>(null)
   const creatingSession = ref(false)
   const toolProfileSaving = ref(false)
-  const tavernSelectedCharacterId = ref('')
-  const tavernSelectedLorebookIds = ref<string[]>([])
-  const tavernSelectedPromptPresetId = ref('')
-  const tavernSelectedUserProfileId = ref('')
-  const tavernScanDepth = ref(12)
-  const tavernLoreBudget = ref(800)
-  const tavernPromptPreview = ref<TavernPromptPreviewResult | null>(null)
-  const tavernPreviewLoading = ref(false)
   const replyTarget = ref<{ messageId: string; preview: string } | null>(null)
   const highlightedMessageId = ref('')
   const messages = useMessages({
@@ -108,13 +97,7 @@ export function useChatWorkspaceController() {
   const agentToolProfile = computed(() => settingsStore.agentToolProfile)
   const showReasoningContent = computed(() => settingsStore.showReasoningContent)
   const activeSession = computed(() => getCurrentSession.value)
-  const activeTavernMetadata = computed(() => activeSession.value?.metadata?.tavern)
-  const isTavernHomeMode = computed(() => route.name === 'tavern')
-  const effectiveToolProfile = computed<ToolProfile>(() =>
-    isTavernHomeMode.value || activeTavernMetadata.value?.enabled
-      ? 'minimal'
-      : agentToolProfile.value
-  )
+  const effectiveToolProfile = computed<ToolProfile>(() => agentToolProfile.value)
   const attachmentWarning = computed(() => {
     if (!media.stagedFiles.value.length) return ''
     if (media.stagedFiles.value.length > ATTACHMENT_LIMITS.maxFilesPerMessage) {
@@ -175,81 +158,6 @@ export function useChatWorkspaceController() {
   const sidebarOpen = computed(() => chatStore.sidebarOpen)
   const activeContextUsage = computed(() => chatStore.activeContextUsage)
   const activeContextUsageLoading = computed(() => chatStore.activeContextUsageLoading)
-  const activeTavernCharacter = computed(() =>
-    tavernStore.characterById(activeTavernMetadata.value?.characterId)
-  )
-  const activeTavernLorebookNames = computed(() =>
-    (activeTavernMetadata.value?.lorebookIds ?? [])
-      .map((id) => tavernStore.lorebookById(id)?.name || '缺失世界书')
-      .filter(Boolean)
-  )
-  const activeTavernPromptPreset = computed(() =>
-    tavernStore.promptPresetById(activeTavernMetadata.value?.promptPresetId)
-  )
-  const activeTavernUserProfile = computed(() =>
-    tavernStore.userProfileById(activeTavernMetadata.value?.userProfileId)
-  )
-  const activeTavernGreetingOptions = computed(() => {
-    const character = activeTavernCharacter.value
-    if (!character) return []
-    return [character.firstMessage, ...character.alternateGreetings]
-      .map((text, index) => ({
-        index,
-        label: index === 0 ? 'First message' : `Alternate ${index}`,
-        text: text?.trim() || '',
-      }))
-      .filter((item) => item.text)
-  })
-  const activeTavernCanReplaceGreeting = computed(
-    () =>
-      Boolean(activeTavernMetadata.value?.enabled) &&
-      !messages.activeMessages.value.some((record) => messages.isUserMessage(record))
-  )
-  const tavernCharacters = computed(() => tavernStore.characters)
-  const tavernLorebooks = computed(() => tavernStore.lorebooks)
-  const tavernPromptPresets = computed(() =>
-    tavernStore.promptPresets.filter((preset) => preset.enabled !== false)
-  )
-  const tavernUserProfiles = computed(() =>
-    tavernStore.userProfiles.filter((profile) => profile.enabled !== false)
-  )
-  const tavernSelectedCharacter = computed(() =>
-    tavernStore.characterById(tavernSelectedCharacterId.value)
-  )
-  const tavernSelectedLorebooks = computed(() =>
-    tavernSelectedLorebookIds.value
-      .map((id) => tavernStore.lorebookById(id))
-      .filter((lorebook): lorebook is TavernLorebook => Boolean(lorebook))
-  )
-  const tavernSelectedPromptPreset = computed(() =>
-    tavernStore.promptPresetById(tavernSelectedPromptPresetId.value)
-  )
-  const tavernSelectedUserProfile = computed(() =>
-    tavernStore.userProfileById(tavernSelectedUserProfileId.value)
-  )
-  const tavernSelectedCharacterLabel = computed(
-    () => tavernSelectedCharacter.value?.name || '选择角色卡'
-  )
-  const tavernSelectedLorebookLabel = computed(() => {
-    if (!tavernSelectedLorebooks.value.length) return '无世界书'
-    if (tavernSelectedLorebooks.value.length === 1) return tavernSelectedLorebooks.value[0].name
-    return `${tavernSelectedLorebooks.value.length} 本世界书`
-  })
-  const tavernSelectedPromptPresetLabel = computed(
-    () => tavernSelectedPromptPreset.value?.name || '无 preset'
-  )
-  const tavernSelectedUserProfileLabel = computed(
-    () => tavernSelectedUserProfile.value?.name || '无酒馆用户'
-  )
-  const tavernCanSend = computed(
-    () =>
-      !messages.sending.value &&
-      !currentSessionRunning.value &&
-      !media.uploadPending.value &&
-      Boolean(model.selectedModel.value) &&
-      Boolean(tavernSelectedCharacter.value) &&
-      !attachmentWarning.value
-  )
   const toolProfileOptions = computed<
     Array<{
       value: ToolProfile
@@ -283,30 +191,6 @@ export function useChatWorkspaceController() {
     highlightedMessageId,
     showReasoningContent,
     activeSession,
-    activeTavernMetadata,
-    activeTavernCharacter,
-    activeTavernLorebookNames,
-    activeTavernPromptPreset,
-    activeTavernUserProfile,
-    activeTavernGreetingOptions,
-    activeTavernCanReplaceGreeting,
-    tavernCharacters,
-    tavernLorebooks,
-    tavernPromptPresets,
-    tavernUserProfiles,
-    tavernSelectedCharacterId,
-    tavernSelectedLorebookIds,
-    tavernSelectedPromptPresetId,
-    tavernSelectedUserProfileId,
-    tavernScanDepth,
-    tavernLoreBudget,
-    tavernPromptPreview,
-    tavernPreviewLoading,
-    tavernSelectedCharacterLabel,
-    tavernSelectedLorebookLabel,
-    tavernSelectedPromptPresetLabel,
-    tavernSelectedUserProfileLabel,
-    tavernCanSend,
     showScrollToBottom: scroll.showScrollToBottom,
     draft,
     stagedFiles: media.stagedFiles,
@@ -332,7 +216,6 @@ export function useChatWorkspaceController() {
     setMessagesScrollArea: scroll.setMessagesScrollArea,
     scrollToLatestMessage: scroll.scrollToLatestMessage,
     openSettings,
-    openTavernSettings,
     openFilePicker,
     handleFileInputChange,
     handleFilesDropped,
@@ -340,22 +223,8 @@ export function useChatWorkspaceController() {
     removeUploadAt,
     handleModelChange: model.handleModelChange,
     handleToolProfileChange,
-    handleTavernCharacterChange,
-    handleTavernLorebookToggle,
-    handleTavernPromptPresetChange,
-    handleTavernUserProfileChange,
-    handleTavernScanDepthChange,
-    handleTavernLoreBudgetChange,
-    handleTavernGreetingChange,
-    handleActiveTavernPromptPresetChange,
-    handleActiveTavernUserProfileChange,
-    handleActiveTavernScanDepthChange,
-    handleActiveTavernLoreBudgetChange,
-    handleTavernPromptPreview,
-    clearTavernPromptPreview,
     handlePaste: media.handlePaste,
     handleSubmit,
-    handleTavernSubmit,
     handleStop,
     handleCopyMessage,
     handleCopyCode,
@@ -396,13 +265,6 @@ export function useChatWorkspaceController() {
     () => route.name,
     async (routeName) => {
       if (routeSessionId()) return
-      if (routeName === 'tavern') {
-        sessionMode.value = 'tavern'
-        if (isSessionMode(sessionKindFilter.value)) {
-          await setSessionKindFilter('tavern')
-        }
-        return
-      }
       if (routeName === 'home') {
         sessionMode.value = 'chat'
         if (isSessionMode(sessionKindFilter.value)) {
@@ -433,35 +295,6 @@ export function useChatWorkspaceController() {
       chatStore.reconcileContextUsageFromSessions(nextSessions)
     },
     { deep: true }
-  )
-
-  watch(
-    tavernCharacters,
-    (characters) => {
-      if (characters.some((character) => character.id === tavernSelectedCharacterId.value)) {
-        return
-      }
-      handleTavernCharacterChange(characters[0]?.id ?? '')
-    },
-    { immediate: true }
-  )
-
-  watch(
-    tavernPromptPresets,
-    (presets) => {
-      if (presets.some((preset) => preset.id === tavernSelectedPromptPresetId.value)) return
-      tavernSelectedPromptPresetId.value = presets[0]?.id ?? ''
-    },
-    { immediate: true }
-  )
-
-  watch(
-    tavernUserProfiles,
-    (profiles) => {
-      if (profiles.some((profile) => profile.id === tavernSelectedUserProfileId.value)) return
-      tavernSelectedUserProfileId.value = profiles[0]?.id ?? ''
-    },
-    { immediate: true }
   )
 
   watch(
@@ -504,7 +337,6 @@ export function useChatWorkspaceController() {
       getFilteredSessions(),
       model.loadProviders(),
       settingsStore.load(),
-      tavernStore.load(),
     ])
     results.forEach((result) => {
       if (result.status === 'rejected') {
@@ -609,7 +441,7 @@ export function useChatWorkspaceController() {
     resetActiveSession(options)
     sessionMode.value = kind
     await setSessionKindFilter(kind)
-    await router.push(kind === 'tavern' ? '/tavern' : '/')
+    await router.push('/')
   }
 
   async function handleNewChat() {
@@ -627,10 +459,6 @@ export function useChatWorkspaceController() {
 
   async function openSettings() {
     await router.push('/settings')
-  }
-
-  async function openTavernSettings() {
-    await router.push({ name: 'settings', query: { tab: 'tavern' } })
   }
 
   async function toggleCatVisibility() {
@@ -672,122 +500,6 @@ export function useChatWorkspaceController() {
       toast.error(error, { description: 'Agent 权限保存失败' })
     } finally {
       toolProfileSaving.value = false
-    }
-  }
-
-  function handleTavernCharacterChange(value: string | number) {
-    const characterId = String(value || '')
-    tavernSelectedCharacterId.value = characterId
-    const character = tavernStore.characterById(characterId)
-    tavernSelectedLorebookIds.value = (character?.defaultLorebookIds ?? []).filter((id) =>
-      tavernStore.lorebookById(id)
-    )
-  }
-
-  function handleTavernLorebookToggle(lorebookId: string, checked: boolean | 'indeterminate') {
-    const enabled = checked === true
-    if (enabled && !tavernSelectedLorebookIds.value.includes(lorebookId)) {
-      tavernSelectedLorebookIds.value = [...tavernSelectedLorebookIds.value, lorebookId]
-    } else if (!enabled) {
-      tavernSelectedLorebookIds.value = tavernSelectedLorebookIds.value.filter(
-        (id) => id !== lorebookId
-      )
-    }
-  }
-
-  function handleTavernPromptPresetChange(value: string | number) {
-    tavernSelectedPromptPresetId.value = String(value || '')
-  }
-
-  function handleTavernUserProfileChange(value: string | number) {
-    tavernSelectedUserProfileId.value = String(value || '')
-  }
-
-  function handleTavernScanDepthChange(value: string | number) {
-    const next = Number(value)
-    if (Number.isFinite(next)) tavernScanDepth.value = Math.max(0, Math.round(next))
-  }
-
-  function handleTavernLoreBudgetChange(value: string | number) {
-    const next = Number(value)
-    if (Number.isFinite(next)) tavernLoreBudget.value = Math.max(0, Math.round(next))
-  }
-
-  async function updateActiveTavernRuntimeBinding(patch: {
-    promptPresetId?: string | null
-    userProfileId?: string | null
-    loreSettings?: { scanDepth?: number; loreBudget?: number }
-  }) {
-    if (!currSessionId.value || !activeTavernMetadata.value) return
-    try {
-      const result = await tavernStore.updateSessionBinding({
-        sessionId: currSessionId.value,
-        ...patch,
-      })
-      const session = sessions.value.find((item) => item.id === result.session.id)
-      if (session) Object.assign(session, result.session)
-      await getFilteredSessions()
-    } catch (error) {
-      toast.error(error, { description: '更新酒馆运行设置失败' })
-    }
-  }
-
-  async function handleActiveTavernPromptPresetChange(value: string | number) {
-    const id = String(value || '')
-    await updateActiveTavernRuntimeBinding({ promptPresetId: id || null })
-  }
-
-  async function handleActiveTavernUserProfileChange(value: string | number) {
-    const id = String(value || '')
-    await updateActiveTavernRuntimeBinding({ userProfileId: id || null })
-  }
-
-  async function handleActiveTavernScanDepthChange(value: string | number) {
-    const next = Math.max(0, Math.round(Number(value)))
-    if (!Number.isFinite(next)) return
-    await updateActiveTavernRuntimeBinding({ loreSettings: { scanDepth: next } })
-  }
-
-  async function handleActiveTavernLoreBudgetChange(value: string | number) {
-    const next = Math.max(0, Math.round(Number(value)))
-    if (!Number.isFinite(next)) return
-    await updateActiveTavernRuntimeBinding({ loreSettings: { loreBudget: next } })
-  }
-
-  async function handleTavernPromptPreview() {
-    if (!currSessionId.value || !activeTavernMetadata.value) return
-    tavernPreviewLoading.value = true
-    try {
-      tavernPromptPreview.value = await tavernStore.previewPrompt({
-        sessionId: currSessionId.value,
-        currentInput: draft.value,
-      })
-    } catch (error) {
-      toast.error(error, { description: '生成 prompt preview 失败' })
-    } finally {
-      tavernPreviewLoading.value = false
-    }
-  }
-
-  function clearTavernPromptPreview() {
-    tavernPromptPreview.value = null
-  }
-
-  async function handleTavernGreetingChange(value: string | number) {
-    if (!currSessionId.value || !activeTavernMetadata.value) return
-    const selectedGreetingIndex = Number(value)
-    if (!Number.isFinite(selectedGreetingIndex)) return
-    try {
-      const result = await tavernStore.updateSessionBinding({
-        sessionId: currSessionId.value,
-        selectedGreetingIndex,
-      })
-      const session = sessions.value.find((item) => item.id === result.session.id)
-      if (session) Object.assign(session, result.session)
-      await messages.loadSessionMessages(currSessionId.value)
-      await getFilteredSessions()
-    } catch (error) {
-      toast.error(error, { description: '切换开场白失败' })
     }
   }
 
@@ -873,63 +585,6 @@ export function useChatWorkspaceController() {
     }
   }
 
-  async function handleTavernSubmit() {
-    if (!tavernCanSend.value) return
-
-    const selectedModel = model.selectedModel.value
-    const character = tavernSelectedCharacter.value
-    if (!selectedModel || !character) return
-
-    const messageId = crypto.randomUUID?.() || `${Date.now()}-${Math.random()}`
-    const parts = buildOutgoingParts()
-    messages.sending.value = true
-
-    try {
-      const result = await tavernStore.createSession({
-        characterId: character.id,
-        lorebookIds: tavernSelectedLorebookIds.value,
-        promptPresetId: tavernSelectedPromptPresetId.value || undefined,
-        userProfileId: tavernSelectedUserProfileId.value || undefined,
-        loreSettings: {
-          scanDepth: tavernScanDepth.value,
-          loreBudget: tavernLoreBudget.value,
-        },
-        providerId: selectedModel.providerId,
-        modelId: selectedModel.modelId,
-      })
-      const sessionId = result.session.id
-
-      sessionKindFilter.value = 'tavern'
-      currSessionId.value = sessionId
-      selectedSessions.value = [sessionId]
-      chatStore.activeSessionId = sessionId
-
-      await model.selectModel(selectedModel)
-      await getFilteredSessions()
-
-      if (parts.length) {
-        chatStore.setPendingInitialMessage({
-          sessionId,
-          messageId,
-          parts,
-          selectedProvider: selectedModel.providerId,
-          selectedModel: selectedModel.modelId,
-          toolProfile: undefined,
-        })
-      }
-
-      draft.value = ''
-      chatStore.draft = ''
-      media.clearStaged()
-      replyTarget.value = null
-      await router.push(`/chat/${sessionId}`)
-    } catch (error) {
-      toast.error(error, { description: '创建酒馆会话失败' })
-    } finally {
-      messages.sending.value = false
-    }
-  }
-
   async function consumePendingInitialMessage(sessionId: string) {
     if (isHomeMode.value) return
 
@@ -988,11 +643,7 @@ export function useChatWorkspaceController() {
     return parts
   }
 
-  function runToolProfileForSession(sessionId: string): ToolProfile | undefined {
-    const session =
-      sessions.value.find((item) => item.id === sessionId) ||
-      (activeSession.value?.id === sessionId ? activeSession.value : undefined)
-    if (session?.metadata?.tavern?.enabled) return undefined
+  function runToolProfileForSession(_sessionId: string): ToolProfile | undefined {
     return agentToolProfile.value
   }
 

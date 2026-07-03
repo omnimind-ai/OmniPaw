@@ -111,38 +111,6 @@ try {
     sessions.list({ kind: 'cat' }).some((item) => item.id === visionSession.id),
     false
   )
-  const tavernSession: ChatSession = {
-    id: 'tavern-session-smoke',
-    title: 'Tavern smoke',
-    kind: 'tavern',
-    status: 'active',
-    messageCount: 0,
-    metadata: {
-      tavern: {
-        enabled: true,
-        version: 1,
-        characterId: 'character-smoke',
-        characterName: 'Smoke Character',
-        lorebookIds: [],
-        userName: 'Luna',
-        selectedGreetingIndex: 0,
-        contextPreset: 'default',
-      },
-    },
-    createdAt: 2004,
-    updatedAt: 2004,
-  }
-  sessions.save(tavernSession)
-  assert.equal(sessions.get(tavernSession.id)?.kind, 'tavern')
-  assert.equal(sessions.list({ kind: 'tavern' }).length, 1)
-  assert.equal(
-    sessions.list({ kind: 'chat' }).some((item) => item.id === tavernSession.id),
-    false
-  )
-  assert.equal(
-    sessions.list({ kind: 'all' }).some((item) => item.id === tavernSession.id),
-    true
-  )
   assert.equal(sessions.markDeleted(visionSession.id, 2004), true)
   assert.equal(sessions.list({ kind: 'vision' }).length, 0)
   assert.equal(sessions.list({ kind: 'vision', includeDeleted: true }).length, 1)

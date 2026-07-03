@@ -13,7 +13,6 @@ import { registerProviderIpcHandlers } from './provider'
 import { registerSettingsIpcHandlers } from './settings'
 import { registerShortcutIpcHandlers } from './shortcuts'
 import { registerSkillIpcHandlers } from './skill'
-import { registerTavernIpcHandlers } from './tavern'
 import { registerTerminalProcessIpcHandlers } from './terminal-process'
 import { registerToolIpcHandlers } from './tools'
 import type { IpcHandlerOptions } from './types'
@@ -33,7 +32,6 @@ export function registerIpcHandlers(options: IpcHandlerOptions): void {
   registerChatIpcHandlers(options)
   registerProviderIpcHandlers(options)
   registerObservationIpcHandlers(options)
-  registerTavernIpcHandlers(options)
   registerSkillIpcHandlers(options)
   registerCronIpcHandlers(options)
   registerToolIpcHandlers(options)

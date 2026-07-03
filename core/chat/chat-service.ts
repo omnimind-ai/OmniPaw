@@ -11,11 +11,6 @@ import type { CompanionMemoryService } from '@core/memory/service'
 import type { ObservationManager } from '@core/observation'
 import type { ProviderManager } from '@core/provider/manager'
 import type { SkillManager } from '@core/skill/skill-manager'
-import type { TavernContextService } from '@core/tavern/context-service'
-import { normalizeLoreSettings, normalizeTavernSessionMetadata } from '@core/tavern/context-service'
-import type { TavernManager } from '@core/tavern/manager'
-import { TavernRegistryValidationError, tavernRegistryError } from '@core/tavern/registry-schema'
-import { estimateTextTokens, hashSensitiveText, renderTavernTemplate } from '@core/tavern/template'
 import type {
   AbortRunRequest,
   AbortRunResponse,
@@ -46,16 +41,6 @@ import type {
   DesktopSystemContextSettings,
   DesktopToolSettings,
 } from '@shared/types/settings'
-import type {
-  CreateTavernSessionRequest,
-  TavernCharacter,
-  TavernPromptPreviewRequest,
-  TavernPromptPreviewResult,
-  TavernPromptPreviewSectionKind,
-  TavernSessionMetadata,
-  TavernSessionOperationResult,
-  UpdateTavernSessionBindingRequest,
-} from '@shared/types/tavern'
 import type { WebContents } from 'electron'
 import type { AttachmentService } from './attachment-service'
 import type { ContextCompactionService } from './context-compaction'
@@ -92,8 +77,6 @@ export interface ChatServiceOptions {
   systemContextDefaults?: () => DesktopSystemContextSettings | undefined
   companionRoles?: () => readonly DesktopCompanionRoleSettings[]
   companionRoleDefaults?: () => DesktopCompanionRoleSettings | undefined
-  tavernManager?: TavernManager
-  tavernContextService?: TavernContextService
   memoryService?: CompanionMemoryService
   agentToolProfile?: () => ToolProfile
   maxAgentSteps?: () => number
@@ -165,7 +148,6 @@ export class ChatService {
         skills: options.skills,
         compactSkillDescriptions: options.compactSkillDescriptions,
         contextDefaults: options.contextDefaults,
-        tavernContextService: options.tavernContextService,
         memoryService: options.memoryService,
         toolRegistry: new ToolRegistry({
           messages: options.messages,
@@ -289,7 +271,7 @@ export class ChatService {
   }
 
   buildDefaultSystemContext(
-    kind: Extract<ChatSessionKind, 'chat' | 'tavern' | 'cat' | 'vision'> = 'chat'
+    kind: Extract<ChatSessionKind, 'chat' | 'cat' | 'vision'> = 'chat'
   ): ChatSystemContextConfig | undefined {
     const defaults = this.options.systemContextDefaults?.()
     const roleInstruction =
@@ -424,340 +406,12 @@ export class ChatService {
     return this.runOrchestrator.regenerateMessage(request, webContents)
   }
 
-  async createTavernSession(
-    request: CreateTavernSessionRequest
-  ): Promise<TavernSessionOperationResult> {
-    const manager = this.requireTavernManager()
-    const character = manager.getCharacter(request.characterId)
-    if (!character || character.enabled === false) {
-      throw new TavernRegistryValidationError(
-        tavernRegistryError('not_found', `Tavern character not found: ${request.characterId}.`)
-      )
-    }
-    const modelRef = await this.resolveInitialModelRef(request)
-    const lorebookIds = normalizeLorebookBinding(
-      request.lorebookIds?.length ? request.lorebookIds : character.defaultLorebookIds,
-      manager
-    )
-    const promptPresetId = normalizeOptionalRegistryId(request.promptPresetId, (id) =>
-      manager.getPromptPreset(id)
-    )
-    const userProfile = request.userProfileId
-      ? manager.getUserProfile(request.userProfileId)
-      : undefined
-    const userProfileId = userProfile ? userProfile.id : undefined
-    const selectedGreetingIndex = clampGreetingIndex(character, request.selectedGreetingIndex ?? 0)
-    const now = Date.now()
-    const metadata: TavernSessionMetadata = {
-      enabled: true,
-      version: 1,
-      characterId: character.id,
-      characterName: character.name,
-      lorebookIds,
-      promptPresetId,
-      userProfileId,
-      userDescriptionSnapshot:
-        request.userDescriptionSnapshot ??
-        (userProfile?.enabled === false ? '' : userProfile?.description),
-      userName: request.userName?.trim() || 'User',
-      selectedGreetingIndex,
-      contextPreset: request.contextPreset ?? 'default',
-      loreSettings: normalizeLoreSettings(request.loreSettings),
-      createdAt: now,
-      updatedAt: now,
-    }
-    const session = withoutRoleContext(
-      this.createSessionRecord({
-        kind: 'tavern',
-        title: request.title?.trim() || character.name,
-        modelRef,
-        includeDefaultSystemContext: true,
-        metadata: { tavern: metadata },
-      })
-    )
-    this.options.sessions.save(session)
-    const greetingCreated = this.seedTavernGreeting(session, character, metadata)
-    this.logger?.info('Tavern chat session created.', {
-      sessionId: session.id,
-      characterId: character.id,
-      lorebookCount: lorebookIds.length,
-      greetingCreated,
-    })
-    return {
-      ok: true,
-      registry: manager.list().registry,
-      status: manager.status(),
-      session: this.options.sessions.get(session.id) ?? session,
-      greetingReplaced: greetingCreated,
-    }
-  }
-
-  updateTavernSessionBinding(
-    request: UpdateTavernSessionBindingRequest
-  ): TavernSessionOperationResult {
-    const manager = this.requireTavernManager()
-    const session = this.requireSession(request.sessionId)
-    const existing = normalizeTavernSessionMetadata(session.metadata?.tavern)
-    if (!existing?.enabled) {
-      throw new TavernRegistryValidationError(
-        tavernRegistryError('unsupported_operation', 'Session is not a tavern session.')
-      )
-    }
-    const characterId = request.characterId ?? existing.characterId
-    const character = manager.getCharacter(characterId)
-    if (!character || character.enabled === false) {
-      throw new TavernRegistryValidationError(
-        tavernRegistryError('not_found', `Tavern character not found: ${characterId}.`)
-      )
-    }
-    const lorebookIds =
-      request.lorebookIds !== undefined
-        ? normalizeLorebookBinding(request.lorebookIds, manager)
-        : existing.lorebookIds
-    const promptPresetId =
-      request.promptPresetId === null
-        ? undefined
-        : request.promptPresetId !== undefined
-          ? normalizeOptionalRegistryId(request.promptPresetId, (id) => manager.getPromptPreset(id))
-          : existing.promptPresetId
-    const requestedUserProfile =
-      request.userProfileId === null
-        ? undefined
-        : request.userProfileId !== undefined
-          ? manager.getUserProfile(request.userProfileId)
-          : manager.getUserProfile(existing.userProfileId)
-    const userProfileId =
-      request.userProfileId === null
-        ? undefined
-        : request.userProfileId !== undefined
-          ? requestedUserProfile?.id
-          : existing.userProfileId
-    const nextMetadata: TavernSessionMetadata = {
-      ...existing,
-      characterId: character.id,
-      characterName: character.name,
-      lorebookIds,
-      promptPresetId,
-      userProfileId,
-      userDescriptionSnapshot:
-        request.userDescriptionSnapshot !== undefined
-          ? request.userDescriptionSnapshot
-          : request.userProfileId !== undefined
-            ? (requestedUserProfile?.description ?? existing.userDescriptionSnapshot ?? '')
-            : existing.userDescriptionSnapshot,
-      userName: request.userName?.trim() || existing.userName || 'User',
-      selectedGreetingIndex: clampGreetingIndex(
-        character,
-        request.selectedGreetingIndex ?? existing.selectedGreetingIndex
-      ),
-      contextPreset: request.contextPreset ?? existing.contextPreset ?? 'default',
-      loreSettings: normalizeLoreSettings({
-        ...existing.loreSettings,
-        ...(request.loreSettings ?? {}),
-      }),
-      updatedAt: Date.now(),
-    }
-    const updated: ChatSession = {
-      ...session,
-      kind: 'tavern',
-      title: session.title || character.name,
-      metadata: {
-        ...(session.metadata ?? {}),
-        tavern: nextMetadata,
-      },
-      updatedAt: Date.now(),
-    }
-    this.options.sessions.save(updated)
-    const greetingReplaced = this.replaceTavernGreetingBeforeUserTurn(
-      updated,
-      character,
-      nextMetadata
-    )
-    this.logger?.info('Tavern session binding updated.', {
-      sessionId: updated.id,
-      characterId: character.id,
-      lorebookCount: lorebookIds.length,
-      greetingReplaced,
-    })
-    return {
-      ok: true,
-      registry: manager.list().registry,
-      status: manager.status(),
-      session: this.options.sessions.get(updated.id) ?? updated,
-      greetingReplaced,
-    }
-  }
-
-  previewTavernPrompt(request: TavernPromptPreviewRequest): TavernPromptPreviewResult {
-    const startedAt = Date.now()
-    const manager = this.requireTavernManager()
-    const tavernContextService = this.options.tavernContextService
-    if (!tavernContextService) {
-      throw new TavernRegistryValidationError(
-        tavernRegistryError('unsupported_operation', 'Tavern context service is not available.')
-      )
-    }
-    const session = this.requireSession(request.sessionId)
-    const metadata = normalizeTavernSessionMetadata(session.metadata?.tavern)
-    if (!metadata?.enabled) {
-      throw new TavernRegistryValidationError(
-        tavernRegistryError('unsupported_operation', 'Session is not a tavern session.')
-      )
-    }
-    const messages = this.options.messages.listBySession(session.id)
-    const previewMessages = request.currentInput?.trim()
-      ? [
-          ...messages,
-          {
-            id: 'tavern-preview-current-input',
-            sessionId: session.id,
-            role: 'user' as const,
-            status: 'complete' as const,
-            parts: [{ type: 'plain' as const, text: request.currentInput }],
-            createdAt: Date.now(),
-            updatedAt: Date.now(),
-          },
-        ]
-      : messages
-    const currentUserMessageId =
-      previewMessages.filter((message) => message.role === 'user').at(-1)?.id ??
-      'tavern-preview-current-input'
-    const plan = tavernContextService.buildPlan({
-      session: {
-        ...session,
-        metadata: {
-          ...(session.metadata ?? {}),
-          tavern: metadata,
-        },
-      },
-      messages: previewMessages,
-      currentUserMessageId,
-    })
-    if (!plan) {
-      throw new TavernRegistryValidationError(
-        tavernRegistryError('unsupported_operation', 'Tavern prompt preview is unavailable.')
-      )
-    }
-    const character = manager.getCharacter(metadata.characterId)
-    const sections = [
-      ...plan.selectedUnits.map((unit) => ({
-        id: unit.id,
-        kind: previewKind(unit.kind),
-        title: previewTitle(unit.kind),
-        text: unit.text,
-        estimatedTokens: unit.estimatedTokens,
-        sourceId: unit.refId,
-        placement: unit.placement ?? unit.position,
-        hash: unit.hash,
-      })),
-      ...messages
-        .filter((message) => message.role === 'user' || message.role === 'assistant')
-        .map((message) => {
-          const text = chatMessageText(message)
-          return {
-            id: `history:${message.id}`,
-            kind: 'history' as const,
-            title:
-              message.role === 'assistant' ? character?.name || 'Assistant' : metadata.userName,
-            text,
-            estimatedTokens: estimateTextTokens(text),
-            sourceId: message.id,
-            hash: hashSensitiveText(text),
-          }
-        })
-        .filter((section) => Boolean(section.text.trim())),
-      ...(request.currentInput?.trim()
-        ? [
-            {
-              id: 'current-input',
-              kind: 'current-input' as const,
-              title: metadata.userName,
-              text: request.currentInput.trim(),
-              estimatedTokens: estimateTextTokens(request.currentInput.trim()),
-              hash: hashSensitiveText(request.currentInput.trim()),
-            },
-          ]
-        : []),
-    ] satisfies TavernPromptPreviewResult['sections']
-    this.logger?.info('Tavern prompt preview built.', {
-      sessionId: session.id,
-      characterId: metadata.characterId,
-      promptPresetId: metadata.promptPresetId,
-      userProfileId: metadata.userProfileId,
-      sectionCount: sections.length,
-      durationMs: Date.now() - startedAt,
-    })
-    return {
-      ok: true,
-      sessionId: session.id,
-      generatedAt: Date.now(),
-      characterId: metadata.characterId,
-      promptPresetId: metadata.promptPresetId,
-      userProfileId: metadata.userProfileId,
-      missingLorebookIds: plan.missingLorebookIds,
-      missingPromptPresetId: plan.missingPromptPresetId,
-      missingUserProfileId: plan.missingUserProfileId,
-      loreSettings: metadata.loreSettings,
-      sections,
-      snapshot: plan.snapshot,
-    }
-  }
-
   private requireSession(sessionId: string): ChatSession {
     const session = this.options.sessions.get(sessionId)
     if (!session || session.status === 'deleted') {
       throw new Error(`Session not found: ${sessionId}`)
     }
     return session
-  }
-
-  private requireTavernManager(): TavernManager {
-    if (!this.options.tavernManager) {
-      throw new TavernRegistryValidationError(
-        tavernRegistryError('unsupported_operation', 'Tavern manager is not available.')
-      )
-    }
-    return this.options.tavernManager
-  }
-
-  private seedTavernGreeting(
-    session: ChatSession,
-    character: TavernCharacter,
-    metadata: TavernSessionMetadata
-  ): boolean {
-    const text = tavernGreetingText(character, metadata)
-    if (!text) {
-      return false
-    }
-    const now = Date.now()
-    const message: ChatMessage = {
-      id: crypto.randomUUID(),
-      sessionId: session.id,
-      role: 'assistant',
-      status: 'complete',
-      parts: [{ type: 'plain', text }],
-      metadata: {
-        tavern: {
-          greeting: true,
-          local: true,
-          characterId: character.id,
-          selectedGreetingIndex: metadata.selectedGreetingIndex,
-        },
-      },
-      createdAt: now,
-      updatedAt: now,
-    }
-    this.options.messages.save(message)
-    this.options.sessions.updateMessageSummary(
-      session.id,
-      {
-        messageCount: 1,
-        lastMessagePreview: text.slice(0, 240),
-        lastMessageAt: now,
-      },
-      now
-    )
-    return true
   }
 
   private seedCompanionRoleGreeting(
@@ -803,54 +457,6 @@ export class ChatService {
     return true
   }
 
-  private replaceTavernGreetingBeforeUserTurn(
-    session: ChatSession,
-    character: TavernCharacter,
-    metadata: TavernSessionMetadata
-  ): boolean {
-    const messages = this.options.messages.listBySession(session.id)
-    if (messages.some((message) => message.role === 'user')) {
-      return false
-    }
-    const text = tavernGreetingText(character, metadata)
-    if (!text) {
-      return false
-    }
-    const existing = messages.find((message) => isTavernGreetingMessage(message))
-    const now = Date.now()
-    if (existing) {
-      this.options.messages.updateParts(
-        existing.id,
-        [{ type: 'plain', text }],
-        {
-          status: 'complete',
-          metadata: {
-            ...(existing.metadata ?? {}),
-            tavern: {
-              greeting: true,
-              local: true,
-              characterId: character.id,
-              selectedGreetingIndex: metadata.selectedGreetingIndex,
-            },
-          },
-        },
-        now
-      )
-    } else {
-      this.seedTavernGreeting(session, character, metadata)
-    }
-    this.options.sessions.updateMessageSummary(
-      session.id,
-      {
-        messageCount: existing ? messages.length : messages.length + 1,
-        lastMessagePreview: text.slice(0, 240),
-        lastMessageAt: now,
-      },
-      now
-    )
-    return true
-  }
-
   private async resolveInitialModelRef(
     request: CreateSessionRequest
   ): Promise<{ providerId: string; modelId: string } | undefined> {
@@ -877,7 +483,7 @@ export class ChatService {
   }
 
   private createSessionRecord(input: {
-    kind: Extract<ChatSessionKind, 'chat' | 'tavern' | 'cat' | 'vision'>
+    kind: Extract<ChatSessionKind, 'chat' | 'cat' | 'vision'>
     title?: string
     modelRef?: { providerId: string; modelId: string }
     includeDefaultSystemContext: boolean
@@ -972,16 +578,6 @@ export class ChatService {
       return undefined
     }
     return role
-  }
-}
-
-export class TavernChatOperationError extends Error {
-  readonly code: 'unsupported_operation'
-
-  constructor(message: string) {
-    super(message)
-    this.name = 'TavernChatOperationError'
-    this.code = 'unsupported_operation'
   }
 }
 
@@ -1173,40 +769,6 @@ function normalizePreferredSessionIds(request: GetOrCreateSessionRequest): strin
   return normalized
 }
 
-function normalizeOptionalRegistryId<T>(
-  value: string | undefined,
-  resolve: (id: string) => T | undefined
-): string | undefined {
-  const id = value?.trim()
-  if (!id) return undefined
-  return resolve(id) ? id : undefined
-}
-
-function previewTitle(
-  kind: 'prompt-preset' | 'character' | 'lore' | 'example' | 'post-history'
-): string {
-  switch (kind) {
-    case 'prompt-preset':
-      return 'Prompt preset'
-    case 'character':
-      return 'Character'
-    case 'lore':
-      return 'Lorebook'
-    case 'example':
-      return 'Example dialogue'
-    case 'post-history':
-      return 'Final instructions'
-  }
-}
-
-function previewKind(
-  kind: 'prompt-preset' | 'character' | 'lore' | 'example' | 'post-history'
-): TavernPromptPreviewSectionKind {
-  if (kind === 'prompt-preset') return 'prompt-preset'
-  if (kind === 'post-history') return 'final'
-  return kind
-}
-
 function chatMessageText(message: ChatMessage): string {
   return chatMessagePartsText(message.parts)
 }
@@ -1263,25 +825,6 @@ function companionRoleCharTokenWeight(char: string): number {
   return 0.35
 }
 
-function tavernGreetingText(
-  character: TavernCharacter,
-  metadata: TavernSessionMetadata
-): string | undefined {
-  const greetings = characterGreetingTexts(character)
-  const raw = greetings[metadata.selectedGreetingIndex] ?? greetings[0]
-  const rendered = renderTavernTemplate(raw, {
-    char: character.name,
-    user: metadata.userName || 'User',
-  }).trim()
-  return rendered || undefined
-}
-
-function characterGreetingTexts(character: TavernCharacter): string[] {
-  return [character.firstMessage, ...character.alternateGreetings]
-    .filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
-    .map((item) => item.trim())
-}
-
 function companionRoleGreetingText(role: DesktopCompanionRoleSettings): string | undefined {
   const greetings = [role.greeting, ...role.alternateGreetings]
     .filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
@@ -1302,46 +845,4 @@ function renderCompanionRoleTemplate(text: string, role: DesktopCompanionRoleSet
     .replace(/\{\{\s*user\s*\}\}/gi, userName)
     .replace(/<char>/gi, charName)
     .replace(/<user>/gi, userName)
-}
-
-function clampGreetingIndex(character: TavernCharacter, index: number): number {
-  const max = Math.max(0, characterGreetingTexts(character).length - 1)
-  if (!Number.isFinite(index)) {
-    return 0
-  }
-  return Math.max(0, Math.min(max, Math.floor(index)))
-}
-
-function normalizeLorebookBinding(ids: readonly string[], manager: TavernManager): string[] {
-  const seen = new Set<string>()
-  const result: string[] = []
-  for (const id of ids) {
-    const trimmed = id.trim()
-    if (!trimmed || seen.has(trimmed)) continue
-    if (!manager.getLorebook(trimmed)) continue
-    seen.add(trimmed)
-    result.push(trimmed)
-  }
-  return result
-}
-
-function isTavernGreetingMessage(message: ChatMessage): boolean {
-  const tavern = message.metadata?.tavern
-  return Boolean(
-    tavern &&
-      typeof tavern === 'object' &&
-      'greeting' in tavern &&
-      (tavern as { greeting?: unknown }).greeting === true
-  )
-}
-
-function withoutRoleContext(session: ChatSession): ChatSession {
-  if (!session.systemContext?.role) {
-    return session
-  }
-  const { role: _role, ...systemContext } = session.systemContext
-  return {
-    ...session,
-    systemContext,
-  }
 }

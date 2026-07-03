@@ -2,7 +2,6 @@ import type { ChatSession, ChatSessionKind, ContextPolicy } from '@shared/types/
 
 export const VISION_SESSION_TITLE = '主动视觉'
 export const CAT_SESSION_TITLE = '小猫会话'
-export const TAVERN_SESSION_TITLE = '酒馆会话'
 
 export function createVisionSessionContextPolicy(): ContextPolicy {
   return {
@@ -13,7 +12,7 @@ export function createVisionSessionContextPolicy(): ContextPolicy {
 }
 
 export function createDefaultSessionContextPolicy(input: {
-  kind: Extract<ChatSessionKind, 'chat' | 'tavern' | 'cat'>
+  kind: Extract<ChatSessionKind, 'chat' | 'cat'>
   recentMessages?: number
   includeAttachments?: ContextPolicy['includeAttachments']
 }): ContextPolicy {
@@ -41,7 +40,7 @@ export function createVisionSessionRecord(now = Date.now()): ChatSession {
 }
 
 export function createDefaultSessionRecord(input: {
-  kind: Extract<ChatSessionKind, 'chat' | 'tavern' | 'cat'>
+  kind: Extract<ChatSessionKind, 'chat' | 'cat'>
   title?: string
   defaultProviderId?: string
   defaultModelId?: string
@@ -56,13 +55,7 @@ export function createDefaultSessionRecord(input: {
   const systemPrompt = input.systemPrompt?.trim() || undefined
   return {
     id: crypto.randomUUID(),
-    title:
-      input.title?.trim() ||
-      (input.kind === 'cat'
-        ? CAT_SESSION_TITLE
-        : input.kind === 'tavern'
-          ? TAVERN_SESSION_TITLE
-          : '新会话'),
+    title: input.title?.trim() || (input.kind === 'cat' ? CAT_SESSION_TITLE : '新会话'),
     kind: input.kind,
     status: 'active',
     defaultProviderId: input.defaultProviderId,

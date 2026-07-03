@@ -192,35 +192,6 @@ import type {
   SkillChangedEvent,
   SkillListResponse,
 } from './skill'
-import type {
-  CreateTavernCharacterRequest,
-  CreateTavernLorebookRequest,
-  CreateTavernPromptPresetRequest,
-  CreateTavernSessionRequest,
-  CreateTavernUserProfileRequest,
-  DeleteTavernCharacterRequest,
-  DeleteTavernLorebookRequest,
-  DeleteTavernPromptPresetRequest,
-  DeleteTavernUserProfileRequest,
-  ImportTavernCharacterRequest,
-  ImportTavernCharacterResult,
-  SetTavernCharacterEnabledRequest,
-  SetTavernLorebookEnabledRequest,
-  SetTavernPromptPresetEnabledRequest,
-  SetTavernUserProfileEnabledRequest,
-  TavernPromptPreviewRequest,
-  TavernPromptPreviewResult,
-  TavernRegistryChangedEvent,
-  TavernRegistryLoadResponse,
-  TavernRegistryMutationResult,
-  TavernRegistryStatus,
-  TavernSessionOperationResult,
-  UpdateTavernCharacterRequest,
-  UpdateTavernLorebookRequest,
-  UpdateTavernPromptPresetRequest,
-  UpdateTavernSessionBindingRequest,
-  UpdateTavernUserProfileRequest,
-} from './tavern'
 import type { ManagedToolInfo, SetToolEnabledRequest, SetToolEnabledResponse } from './tool'
 import type { DesktopWindowState, DesktopWindowStateChangedEvent } from './window'
 
@@ -659,61 +630,5 @@ export interface OmniPawBridge {
     listInstalledModels: () => Promise<InstalledModelRecord[]>
     onStatusChanged: (callback: (event: OmniInferRuntimeSnapshot) => void) => Unsubscribe
     onLog: (callback: (event: OmniInferLogEntry) => void) => Unsubscribe
-  }
-  tavern: {
-    load: () => Promise<TavernRegistryLoadResponse>
-    list: () => Promise<TavernRegistryLoadResponse>
-    status: () => Promise<TavernRegistryStatus>
-    importCharacter: (request: ImportTavernCharacterRequest) => Promise<ImportTavernCharacterResult>
-    createCharacter: (
-      request: CreateTavernCharacterRequest
-    ) => Promise<TavernRegistryMutationResult>
-    updateCharacter: (
-      request: UpdateTavernCharacterRequest
-    ) => Promise<TavernRegistryMutationResult>
-    deleteCharacter: (
-      request: DeleteTavernCharacterRequest | string
-    ) => Promise<TavernRegistryMutationResult>
-    setCharacterEnabled: (
-      request: SetTavernCharacterEnabledRequest
-    ) => Promise<TavernRegistryMutationResult>
-    createLorebook: (request: CreateTavernLorebookRequest) => Promise<TavernRegistryMutationResult>
-    updateLorebook: (request: UpdateTavernLorebookRequest) => Promise<TavernRegistryMutationResult>
-    deleteLorebook: (
-      request: DeleteTavernLorebookRequest | string
-    ) => Promise<TavernRegistryMutationResult>
-    setLorebookEnabled: (
-      request: SetTavernLorebookEnabledRequest
-    ) => Promise<TavernRegistryMutationResult>
-    createPromptPreset: (
-      request: CreateTavernPromptPresetRequest
-    ) => Promise<TavernRegistryMutationResult>
-    updatePromptPreset: (
-      request: UpdateTavernPromptPresetRequest
-    ) => Promise<TavernRegistryMutationResult>
-    deletePromptPreset: (
-      request: DeleteTavernPromptPresetRequest | string
-    ) => Promise<TavernRegistryMutationResult>
-    setPromptPresetEnabled: (
-      request: SetTavernPromptPresetEnabledRequest
-    ) => Promise<TavernRegistryMutationResult>
-    createUserProfile: (
-      request: CreateTavernUserProfileRequest
-    ) => Promise<TavernRegistryMutationResult>
-    updateUserProfile: (
-      request: UpdateTavernUserProfileRequest
-    ) => Promise<TavernRegistryMutationResult>
-    deleteUserProfile: (
-      request: DeleteTavernUserProfileRequest | string
-    ) => Promise<TavernRegistryMutationResult>
-    setUserProfileEnabled: (
-      request: SetTavernUserProfileEnabledRequest
-    ) => Promise<TavernRegistryMutationResult>
-    createSession: (request: CreateTavernSessionRequest) => Promise<TavernSessionOperationResult>
-    updateSessionBinding: (
-      request: UpdateTavernSessionBindingRequest
-    ) => Promise<TavernSessionOperationResult>
-    previewPrompt: (request: TavernPromptPreviewRequest) => Promise<TavernPromptPreviewResult>
-    onChanged: (callback: (event: TavernRegistryChangedEvent) => void) => Unsubscribe
   }
 }

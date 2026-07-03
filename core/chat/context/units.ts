@@ -1,5 +1,4 @@
 import { CONTEXT_PROMPTS } from '@core/prompts'
-import type { TavernContextPlan, TavernContextUnitPlan } from '@core/tavern/context-service'
 import type {
   ChatContextSummary,
   ChatMessage,
@@ -81,13 +80,6 @@ export function buildTransientInstructionUnits(
     })
   })
   return units
-}
-
-export function buildTavernContextUnits(plan: TavernContextPlan | undefined): ContextUnit[] {
-  if (!plan) {
-    return []
-  }
-  return plan.selectedUnits.map((unit) => tavernUnit(unit))
 }
 
 export function buildMemoryContextUnits(
@@ -295,23 +287,6 @@ function pushTextUnit(
   })
 }
 
-function tavernUnit(unit: TavernContextUnitPlan): ContextUnit {
-  const messages: ProviderMessage[] = [{ role: 'system', content: unit.text }]
-  return {
-    id: unit.id,
-    kind: tavernKind(unit.kind),
-    source: unit.lorebookId ? `tavern.lorebook.${unit.lorebookId}` : 'tavern',
-    priority: unit.priority,
-    required: unit.required,
-    estimatedTokens: estimateTokens(messages),
-    messages,
-    refId: unit.refId,
-    contentHash: unit.hash,
-    droppedReason: unit.droppedReason,
-    tavernPosition: unit.position,
-  }
-}
-
 function memoryUnit(item: CompanionMemoryContextItem): ContextUnit {
   const text = `Relevant memory (${item.kind}): ${item.content}`
   const messages: ProviderMessage[] = [{ role: 'system', content: text }]
@@ -336,21 +311,6 @@ function memoryPriority(item: CompanionMemoryContextItem): number {
   return 820 + item.importance * 6 + Math.round(item.score)
 }
 
-function tavernKind(kind: TavernContextUnitPlan['kind']): ContextUnitKind {
-  switch (kind) {
-    case 'prompt-preset':
-      return 'tavern-prompt-preset'
-    case 'character':
-      return 'tavern-character'
-    case 'lore':
-      return 'tavern-lore'
-    case 'example':
-      return 'tavern-example'
-    case 'post-history':
-      return 'tavern-post-history'
-  }
-}
-
 function sortUnits(units: ContextUnit[]): ContextUnit[] {
   return [...units].sort((left, right) => {
     const leftOrder = unitOrder(left)
@@ -366,11 +326,6 @@ function sortUnits(units: ContextUnit[]): ContextUnit[] {
 }
 
 function unitOrder(unit: ContextUnit): number {
-  if (unit.kind === 'tavern-lore') {
-    if (unit.tavernPosition === 'before-history') return 7
-    if (unit.tavernPosition === 'after-history') return 30
-    return 5
-  }
   return kindOrder(unit.kind)
 }
 
@@ -382,14 +337,6 @@ function kindOrder(kind: ContextUnitKind): number {
       return 1
     case 'role':
       return 2
-    case 'tavern-prompt-preset':
-      return 3
-    case 'tavern-character':
-      return 4
-    case 'tavern-lore':
-      return 5
-    case 'tavern-example':
-      return 6
     case 'memory-profile':
       return 7
     case 'memory-preference':
@@ -412,8 +359,6 @@ function kindOrder(kind: ContextUnitKind): number {
       return 10
     case 'summary':
       return 11
-    case 'tavern-post-history':
-      return 30
     default:
       return 20
   }

@@ -458,46 +458,6 @@ try {
   assert.equal(roleKnowledgeQuietMessages.includes('sunlit role knowledge'), false)
   companionRoles.splice(0, companionRoles.length)
 
-  const tavernMemorySession = {
-    ...selectedSession,
-    id: 'tavern-memory-smoke',
-    title: 'Tavern memory smoke',
-    kind: 'tavern' as const,
-    metadata: {
-      tavern: {
-        enabled: true,
-        version: 1 as const,
-        characterId: 'memory-character',
-        characterName: 'Memory Character',
-        lorebookIds: [],
-        userName: 'Luna',
-        selectedGreetingIndex: 0,
-        contextPreset: 'default' as const,
-      },
-    },
-    createdAt: Date.now(),
-    updatedAt: Date.now(),
-  }
-  sessionRepo.save(tavernMemorySession)
-  const memoryCountBeforeTavern = memoryRepo.list({ includeInactive: true }).total
-  const tavernSend = await sessionModelService.sendInternalMessage(
-    {
-      sessionId: tavernMemorySession.id,
-      content: 'please remember that tavern-only secret is blue',
-      providerId: kimiProvider.id,
-      modelId: 'kimi',
-      mode: 'fast_chat',
-      toolProfile: 'minimal',
-      maxSteps: 1,
-    },
-    {
-      send() {},
-    }
-  )
-  await tavernSend.terminalEvent
-  await waitForMicrotasks()
-  assert.equal(memoryRepo.list({ includeInactive: true }).total, memoryCountBeforeTavern)
-  assert.equal(runRepo.get(tavernSend.runId)?.requestSnapshot?.memory?.selected.length, 0)
   const catSession = await sessionModelService.getOrCreateSession({ kind: 'cat' })
   assert.equal(catSession.kind, 'cat')
   assert.equal(catSession.title, CAT_SESSION_TITLE)

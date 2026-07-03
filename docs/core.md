@@ -56,7 +56,7 @@
 ### 数据根
 
 - MUST：Electron 业务数据统一从 `<appData>/omnipaw/` 派生，路径解析集中在 `core/utils/data-paths.ts`。
-- MUST：配置、Provider registry、Tavern registry 和 MCP registry 位于统一数据根的 `config/` 子目录；SQLite、skill state、skills、附件、agent workspace 和业务日志位于同一数据根下的各自子路径。
+- MUST：配置、Provider registry 和 MCP registry 位于统一数据根的 `config/` 子目录；SQLite、skill state、skills、附件、agent workspace 和业务日志位于同一数据根下的各自子路径。
 - SHOULD：内部开发阶段以当前统一数据根为唯一真实来源，不做旧路径隐式迁移。
 
 ### 配置对象
