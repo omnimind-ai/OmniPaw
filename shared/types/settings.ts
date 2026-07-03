@@ -1,4 +1,5 @@
 import type { ContextAttachmentPolicy, ToolProfile } from './chat'
+import type { CompanionRoleKnowledgeEntry, CompanionRoleSourceMetadata } from './companion-role'
 import type { LocalAgentTerminalSettings, LocalAgentWorkspaceSettings } from './local-agent'
 import type { DesktopMemorySettings } from './memory'
 import type { ObservationScope, ObservationScreenshotRetention } from './observation'
@@ -64,9 +65,12 @@ export interface DesktopCompanionRoleSettings {
   relationship: string
   background: string
   greeting: string
+  alternateGreetings: string[]
   proactiveStyle: string
   interactionMode: CompanionRoleInteractionMode
   advanced: DesktopCompanionRoleAdvancedSettings
+  knowledgeEntries: CompanionRoleKnowledgeEntry[]
+  source?: CompanionRoleSourceMetadata
   defaultProviderId?: string
   defaultModelId?: string
 }

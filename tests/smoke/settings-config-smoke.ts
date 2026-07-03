@@ -3,6 +3,7 @@ import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { ToolManagementService } from '../../core/agent/tools/management-service'
+import { CompanionRoleService } from '../../core/companion-role'
 import {
   ConfigValidationError,
   cloneDefaultConfig,
@@ -109,6 +110,71 @@ try {
   assert.equal(normalized.observation.dailyCaptureLimit, 12)
   assert.equal(normalized.observation.consecutiveFailureLimit, 4)
   assert.equal(normalized.observation.notificationCooldownMs, 45_000)
+
+  const roleConfig = normalizeConfig({
+    ...cloneDefaultConfig(),
+    app: {
+      ...cloneDefaultConfig().app,
+      companionRoles: [
+        {
+          ...cloneDefaultConfig().app.companionRoles[0],
+          alternateGreetings: ['早呀'],
+          knowledgeEntries: [
+            {
+              id: 'role-knowledge-smoke',
+              enabled: true,
+              title: '桌面设定',
+              content: '角色住在用户桌面里。',
+              keys: ['桌面'],
+              constant: true,
+              priority: 2,
+              order: 1,
+            },
+          ],
+          source: {
+            kind: 'sillytavern-json',
+            sourceName: 'smoke.json',
+          },
+        },
+      ],
+    },
+  }).config
+  assert.equal(roleConfig.app.companionRoles[0]?.alternateGreetings[0], '早呀')
+  assert.equal(roleConfig.app.companionRoles[0]?.knowledgeEntries[0]?.title, '桌面设定')
+  assert.equal(roleConfig.app.companionRoles[0]?.source?.kind, 'sillytavern-json')
+
+  const companionRoleService = new CompanionRoleService()
+  const importedRole = companionRoleService.importCard({
+    sourceKind: 'json',
+    sourceName: 'mika.json',
+    content: JSON.stringify({
+      spec: 'chara_card_v2',
+      data: {
+        name: 'Mika',
+        description: 'A cheerful desktop partner.',
+        personality: 'bright and concise',
+        first_mes: 'Hi {{user}}, Mika is here.',
+        alternate_greetings: ['Ready when you are.'],
+        character_book: {
+          name: 'Mika book',
+          entries: [
+            {
+              comment: 'Moon lore',
+              keys: ['moon'],
+              content: 'Mika likes moonlit desktop themes.',
+              constant: true,
+              priority: 7,
+            },
+          ],
+        },
+      },
+    }),
+  })
+  assert.equal(importedRole.role.name, 'Mika')
+  assert.equal(importedRole.role.alternateGreetings?.[0], 'Ready when you are.')
+  assert.equal(importedRole.knowledgeEntryCount, 1)
+  assert.equal(importedRole.role.knowledgeEntries?.[0]?.title, 'Moon lore')
+  assert.equal(importedRole.source.kind, 'sillytavern-json')
 
   const defaultObservation = cloneDefaultConfig().observation
   assert.equal(defaultObservation.screenshotRetention, 'ephemeral')

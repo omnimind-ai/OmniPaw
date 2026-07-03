@@ -198,6 +198,8 @@ export default {
           'Create multiple desktop characters and choose the active one. The active character is compiled into companion session context.',
         tabs: {
           basic: 'Basics',
+          memory: 'Memory',
+          knowledge: 'Knowledge',
           appearance: 'Appearance',
           behavior: 'Behavior',
           advanced: 'Advanced',
@@ -212,6 +214,7 @@ export default {
         disabled: 'Disabled',
         actions: {
           add: 'New Character',
+          importCard: 'Import Character Card',
           duplicate: 'Duplicate',
           delete: 'Delete',
         },
@@ -274,10 +277,35 @@ export default {
             description: 'The opening feeling when the character appears or starts a conversation.',
             placeholder: 'I am here. What should we work on together?',
           },
+          alternateGreetings: {
+            title: 'Alternate greetings',
+            description:
+              'One optional greeting per line, used by imported character cards and future randomized openings.',
+            placeholder: 'Morning, I am ready.\nWhat should we handle first today?',
+          },
           proactiveStyle: {
             title: 'Proactive style',
             description: 'Controls the character’s initiative and boundaries.',
             placeholder: 'Offer gentle nudges without interrupting focus.',
+          },
+        },
+        knowledge: {
+          title: 'Character knowledge',
+          description:
+            'World book and setting entries from character cards are saved here and injected with this character into new sessions.',
+          count: '{count} knowledge entries',
+          add: 'Add knowledge',
+          delete: 'Delete knowledge',
+          empty: 'No character knowledge yet.',
+          newTitle: 'New knowledge',
+          untitled: 'Untitled knowledge',
+          order: 'Order {index}',
+          fields: {
+            title: 'Knowledge title',
+            content: 'Knowledge content injected into character session context',
+            keys: 'Trigger keywords, separated by commas',
+            priority: 'Priority',
+            constant: 'Always inject',
           },
         },
         advanced: {
@@ -316,6 +344,11 @@ export default {
         hints: {
           newSessions:
             'Character settings are injected only into newly created companion sessions; existing sessions are not rewritten. Appearance is saved on each character and configured independently in that character.',
+        },
+        toasts: {
+          importCardSuccess: 'Character card imported.',
+          importCardSummary: '{name}, {count} knowledge entries',
+          importCardFailed: 'Failed to import character card.',
         },
       },
       importButton: 'Import Pack',
@@ -461,9 +494,19 @@ export default {
       },
     },
     memory: {
-      panelTitle: 'Companion Memory',
+      panelTitle: 'Shared Memory',
       panelDescription:
-        'Manage long-term memory for regular chats and desktop companion sessions. Tavern, active vision, and scheduled tasks do not participate in this memory pipeline.',
+        'Manage user facts, preferences, boundaries, and long-term notes shared by all characters.',
+      commonPanelTitle: 'Shared Memory',
+      commonPanelDescription:
+        'These memories are available to every character and are best for durable facts and preferences about the user.',
+      rolePanelTitle: '{name} Memory',
+      rolePanelDescription:
+        'These memories belong only to the current character, such as private nicknames, promises, and relationship progress.',
+      commonEmptyTitle: 'No shared memories yet',
+      commonEmptyHint: 'After creating one, every character can use it in context.',
+      roleEmptyTitle: 'No character memories yet',
+      roleEmptyHint: 'After creating one, only the current character will read it.',
       searchLabel: 'Search memories',
       searchPlaceholder: 'Search memory content',
       clearSearchLabel: 'Clear memory search',
@@ -605,6 +648,13 @@ export default {
         title: 'Create memory',
         description:
           'Manually write a long-term memory; it will enter the memory list after saving.',
+        commonTitle: 'Create shared memory',
+        commonDescription:
+          'Save user facts, preferences, boundaries, or long-term notes that every character can read.',
+        roleTitle: 'Create character memory',
+        roleDescription:
+          'Save a memory specific to this character and the user. Other characters will not read it.',
+        roleContentPlaceholder: 'For example: this character likes calling the user Captain.',
         kind: 'Memory kind',
         selectKind: 'Select kind',
         kindFact: 'Fact',

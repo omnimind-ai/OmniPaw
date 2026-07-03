@@ -315,6 +315,65 @@ try {
   assert.equal((chineseMemorySnapshot?.vectorCandidateCount ?? 0) > 0, true)
   assert.equal(chineseMemorySnapshot?.strategy, 'hybrid')
 
+  const activeRoleMemory = memoryRepo.create({
+    kind: 'relationship',
+    scope: 'character',
+    characterId: 'role-memory-a',
+    content: 'The current character calls the user Captain in role memory smoke tests.',
+    importance: 5,
+    confidence: 1,
+  })
+  const otherRoleMemory = memoryRepo.create({
+    kind: 'relationship',
+    scope: 'character',
+    characterId: 'role-memory-b',
+    content: 'Another character calls the user Navigator in role memory smoke tests.',
+    importance: 5,
+    confidence: 1,
+  })
+  const roleMemorySession = await sessionModelService.createSession({
+    providerId: kimiProvider.id,
+    modelId: 'kimi',
+  })
+  sessionRepo.save({
+    ...roleMemorySession,
+    systemContext: {
+      ...(roleMemorySession.systemContext ?? {}),
+      role: {
+        refId: 'role-memory-a',
+        label: 'Role Memory A',
+        text: 'You are Role Memory A.',
+      },
+    },
+  })
+  memorySettings.maxContextItems = 2
+  const roleMemorySend = await sessionModelService.sendInternalMessage(
+    {
+      sessionId: roleMemorySession.id,
+      content: 'What does this character call me in role memory smoke tests?',
+      providerId: kimiProvider.id,
+      modelId: 'kimi',
+      mode: 'fast_chat',
+      toolProfile: 'minimal',
+      maxSteps: 1,
+    },
+    {
+      send() {},
+    }
+  )
+  await roleMemorySend.terminalEvent
+  const roleMemorySnapshot = runRepo.get(roleMemorySend.runId)?.requestSnapshot?.memory
+  assert.equal(
+    roleMemorySnapshot?.selected.some((item) => item.id === activeRoleMemory.id),
+    true
+  )
+  assert.equal(
+    roleMemorySnapshot?.selected.some((item) => item.id === otherRoleMemory.id),
+    false
+  )
+  assert.equal(JSON.stringify(providerRequests.at(-1)?.messages).includes('Captain'), true)
+  assert.equal(JSON.stringify(providerRequests.at(-1)?.messages).includes('Navigator'), false)
+
   const tavernMemorySession = {
     ...selectedSession,
     id: 'tavern-memory-smoke',

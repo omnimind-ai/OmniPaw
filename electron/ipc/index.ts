@@ -2,6 +2,7 @@ import { registerAppIpcHandlers } from './app'
 import { registerCatAppearanceIpcHandlers } from './cat-appearance'
 import { registerCatPetIpcHandlers } from './cat-pet'
 import { registerChatIpcHandlers } from './chat'
+import { registerCompanionRoleIpcHandlers } from './companion-role'
 import { registerCronIpcHandlers } from './cron'
 import { registerLoggingIpcHandlers } from './logging'
 import { registerMcpIpcHandlers } from './mcp'
@@ -25,6 +26,7 @@ export function registerIpcHandlers(options: IpcHandlerOptions): void {
   registerWindowIpcHandlers(options)
   registerCatAppearanceIpcHandlers(options)
   registerCatPetIpcHandlers(options)
+  registerCompanionRoleIpcHandlers(options)
   registerSettingsIpcHandlers(options)
   registerShortcutIpcHandlers(options)
   registerMemoryIpcHandlers(options)

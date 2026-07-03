@@ -1,5 +1,9 @@
 <script setup lang="ts">
-import type { CompanionMemoryKind, CreateCompanionMemoryRequest } from '@shared/types/memory'
+import type {
+  CompanionMemoryKind,
+  CompanionMemoryScope,
+  CreateCompanionMemoryRequest,
+} from '@shared/types/memory'
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { Button } from '@/components/ui/button'
@@ -33,8 +37,13 @@ const { t } = useI18n()
 
 const open = defineModel<boolean>('open', { required: true })
 
-defineProps<{
+const props = defineProps<{
   saving: boolean
+  scope?: CompanionMemoryScope
+  characterId?: string
+  title?: string
+  description?: string
+  contentPlaceholder?: string
 }>()
 
 const emit = defineEmits<{
@@ -58,7 +67,8 @@ function submit(): void {
 
   emit('submit', {
     kind: kind.value,
-    scope: 'user',
+    scope: props.scope ?? 'user',
+    characterId: props.characterId,
     content: trimmedContent,
     importance: clampInteger(importance.value, 1, 5),
     confidence: 1,
@@ -82,9 +92,9 @@ function clampInteger(value: string | number, min: number, max: number): number 
   <Dialog v-model:open="open">
     <DialogContent class="sm:max-w-2xl">
       <DialogHeader>
-        <DialogTitle>{{ t('settings.memory.createModal.title') }}</DialogTitle>
+        <DialogTitle>{{ props.title ?? t('settings.memory.createModal.title') }}</DialogTitle>
         <DialogDescription>
-          {{ t('settings.memory.createModal.description') }}
+          {{ props.description ?? t('settings.memory.createModal.description') }}
         </DialogDescription>
       </DialogHeader>
 
@@ -133,7 +143,7 @@ function clampInteger(value: string | number, min: number, max: number): number 
             id="memory-create-content"
             v-model="content"
             rows="5"
-            :placeholder="t('settings.memory.createModal.contentPlaceholder')"
+            :placeholder="props.contentPlaceholder ?? t('settings.memory.createModal.contentPlaceholder')"
           />
         </Field>
       </FieldGroup>

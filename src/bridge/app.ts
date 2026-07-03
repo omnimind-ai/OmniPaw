@@ -44,6 +44,12 @@ import {
   moodFromAffection,
 } from '@shared/types/cat-pet'
 import type {
+  CompanionRoleKnowledgeEntry,
+  CompanionRoleSourceMetadata,
+  ImportCompanionRoleCardRequest,
+  ImportCompanionRoleCardResponse,
+} from '@shared/types/companion-role'
+import type {
   CreateCronTaskRequest,
   CreateCronTaskResponse,
   CronTaskChangedEvent,
@@ -260,6 +266,7 @@ export interface BridgeDesktopSettingsConfig {
       relationship: string
       background: string
       greeting: string
+      alternateGreetings: string[]
       proactiveStyle: string
       interactionMode: 'companion' | 'assistant' | 'roleplay'
       advanced: {
@@ -269,6 +276,8 @@ export interface BridgeDesktopSettingsConfig {
         exampleDialogue: string
         finalInstructions: string
       }
+      knowledgeEntries: CompanionRoleKnowledgeEntry[]
+      source?: CompanionRoleSourceMetadata
       defaultProviderId?: string
       defaultModelId?: string
     }>
@@ -1088,6 +1097,11 @@ export interface RendererOmniPawBridge {
       request: CompanionMemorySettingsRequest | DesktopMemorySettings
     ) => Promise<DesktopMemorySettings>
   }
+  companionRole?: {
+    importCard: (
+      request: ImportCompanionRoleCardRequest
+    ) => Promise<ImportCompanionRoleCardResponse>
+  }
   observation?: {
     permissionStatus: () => Promise<ObservationPermissionStatus>
     status: (request?: ObservationStatusRequest) => Promise<ObservationState>
@@ -1744,6 +1758,10 @@ const fallbackBridge: RendererOmniPawBridge = {
     getSettings: async () => fallbackSettingsConfig().app.memory,
     updateSettings: () => rejectFallbackPersistence<DesktopMemorySettings>('memory.updateSettings'),
   },
+  companionRole: {
+    importCard: () =>
+      rejectFallbackPersistence<ImportCompanionRoleCardResponse>('companionRole.importCard'),
+  },
   observation: {
     permissionStatus: async () => ({
       platform: 'fallback',
@@ -2226,6 +2244,7 @@ function fallbackSettingsConfig(): BridgeDesktopSettingsConfig {
           relationship: '桌面伙伴',
           background: '',
           greeting: '我在这里，有什么想让我陪你一起处理的吗？',
+          alternateGreetings: [],
           proactiveStyle: '适度主动提醒，但不打扰用户专注。',
           interactionMode: 'companion',
           advanced: {
@@ -2235,6 +2254,8 @@ function fallbackSettingsConfig(): BridgeDesktopSettingsConfig {
             exampleDialogue: '',
             finalInstructions: '',
           },
+          knowledgeEntries: [],
+          source: undefined,
           defaultProviderId: undefined,
           defaultModelId: undefined,
         },
@@ -2481,6 +2502,19 @@ function createMemoryBridge(
   }
 }
 
+function createCompanionRoleBridge(
+  bridge: RendererOmniPawBridge['companionRole'] | undefined
+): RendererOmniPawBridge['companionRole'] {
+  if (!bridge) {
+    return fallbackBridge.companionRole
+  }
+
+  return {
+    ...fallbackBridge.companionRole,
+    ...bridge,
+  }
+}
+
 function createProviderBridge(
   bridge: RendererOmniPawBridge['provider'] | undefined
 ): RendererOmniPawBridge['provider'] {
@@ -2578,6 +2612,7 @@ export const appBridge: RendererOmniPawBridge = exposedBridge
       settings: createSettingsBridge(exposedBridge.settings),
       shortcuts: createShortcutsBridge(exposedBridge.shortcuts),
       memory: createMemoryBridge(exposedBridge.memory),
+      companionRole: createCompanionRoleBridge(exposedBridge.companionRole),
       observation: createObservationBridge(exposedBridge.observation),
       provider: createProviderBridge(exposedBridge.provider),
       cron: createCronBridge(exposedBridge.cron),

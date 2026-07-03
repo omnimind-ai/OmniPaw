@@ -104,6 +104,9 @@ export const IPC_CHANNELS = {
     getSettings: 'memory:get-settings',
     updateSettings: 'memory:update-settings',
   },
+  companionRole: {
+    importCard: 'companion-role:import-card',
+  },
   observation: {
     permissionStatus: 'observation:permission-status',
     status: 'observation:status',

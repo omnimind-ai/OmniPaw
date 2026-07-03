@@ -192,6 +192,8 @@ export default {
           '可以创建多个桌面角色，并选择当前启用的角色。当前角色会被整理为桌宠会话的角色上下文。',
         tabs: {
           basic: '基本设定',
+          memory: '角色记忆',
+          knowledge: '角色知识',
           appearance: '外观形象',
           behavior: '互动行为',
           advanced: '高级设置',
@@ -206,6 +208,7 @@ export default {
         disabled: '停用',
         actions: {
           add: '新建角色',
+          importCard: '导入角色卡',
           duplicate: '复制',
           delete: '删除',
         },
@@ -265,10 +268,33 @@ export default {
             description: '角色首次出现或主动打开会话时的开场感觉。',
             placeholder: '我在这里，有什么想让我陪你一起处理的吗？',
           },
+          alternateGreetings: {
+            title: '备用开场白',
+            description: '每行一个可选开场白，用于导入角色卡或之后做随机开场。',
+            placeholder: '早呀，我已经待命啦。\n今天想先处理哪件事？',
+          },
           proactiveStyle: {
             title: '主动互动风格',
             description: '控制主动提醒和陪伴的分寸。',
             placeholder: '适度主动提醒，但不打扰用户专注。',
+          },
+        },
+        knowledge: {
+          title: '角色知识',
+          description: '角色卡里的世界书和设定条目会保存在这里，并随当前角色一起注入新建会话。',
+          count: '{count} 条知识',
+          add: '新增知识',
+          delete: '删除知识',
+          empty: '暂无角色知识。',
+          newTitle: '新知识',
+          untitled: '未命名知识',
+          order: '排序 {index}',
+          fields: {
+            title: '知识标题',
+            content: '写入角色会话上下文的知识内容',
+            keys: '触发关键词，用逗号分隔',
+            priority: '优先级',
+            constant: '始终注入',
           },
         },
         advanced: {
@@ -300,6 +326,11 @@ export default {
         hints: {
           newSessions:
             '角色设定只注入新建桌宠会话，已有会话不会被自动改写；外观形象保存在角色里，并在每个角色的外观设置中独立配置。',
+        },
+        toasts: {
+          importCardSuccess: '角色卡已导入。',
+          importCardSummary: '{name}，{count} 条角色知识',
+          importCardFailed: '角色卡导入失败。',
         },
       },
       importButton: '导入外观包',
@@ -435,9 +466,16 @@ export default {
       },
     },
     memory: {
-      panelTitle: '伙伴记忆',
-      panelDescription:
-        '管理普通聊天和桌面伙伴会话使用的长期记忆。酒馆、主动视觉和计划任务不会参与这条记忆流水线。',
+      panelTitle: '通用记忆',
+      panelDescription: '管理所有角色共享的用户事实、偏好、边界和长期事项。',
+      commonPanelTitle: '通用记忆',
+      commonPanelDescription: '这些记忆会被所有角色读取，适合保存关于用户本人的长期事实和偏好。',
+      rolePanelTitle: '{name} 的角色记忆',
+      rolePanelDescription: '这些记忆只属于当前角色，适合保存专属称呼、互动约定和关系进展。',
+      commonEmptyTitle: '暂无通用记忆',
+      commonEmptyHint: '新建后，所有角色都可以在上下文中使用这些记忆。',
+      roleEmptyTitle: '暂无角色记忆',
+      roleEmptyHint: '新建后，只有当前角色会读取这些专属记忆。',
       searchLabel: '搜索记忆',
       searchPlaceholder: '搜索记忆内容',
       clearSearchLabel: '清除记忆搜索',
@@ -566,6 +604,11 @@ export default {
       createModal: {
         title: '新建记忆',
         description: '手动写入一条长期记忆，保存后会进入记忆列表。',
+        commonTitle: '新建通用记忆',
+        commonDescription: '保存关于用户本人的事实、偏好、边界或长期事项，所有角色都可读取。',
+        roleTitle: '新建角色记忆',
+        roleDescription: '保存当前角色和用户之间的专属记忆，其他角色不会读取。',
+        roleContentPlaceholder: '例如：这个角色喜欢称呼用户为队长。',
         kind: '记忆类型',
         selectKind: '选择类型',
         kindFact: '事实',

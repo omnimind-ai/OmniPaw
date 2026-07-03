@@ -5,7 +5,6 @@ import ChatContentView from '@/views/ChatContentView.vue'
 import ChatHomeView from '@/views/ChatHomeView.vue'
 import RolesView from '@/views/RolesView.vue'
 import SettingsView from '@/views/SettingsView.vue'
-import TavernHomeView from '@/views/TavernHomeView.vue'
 import VisionHistoryView from '@/views/VisionHistoryView.vue'
 
 export const router = createRouter({
@@ -19,11 +18,6 @@ export const router = createRouter({
           path: '',
           name: 'home',
           component: ChatHomeView,
-        },
-        {
-          path: 'tavern',
-          name: 'tavern',
-          component: TavernHomeView,
         },
         {
           path: 'chat/:conversationId',

@@ -218,6 +218,10 @@ export class ChatService {
       metadata: request.metadata,
     })
     this.options.sessions.save(session)
+    const greetingSeeded =
+      kind === 'cat'
+        ? this.seedCompanionRoleGreeting(session, this.options.companionRoleDefaults?.())
+        : false
     this.logger?.info('Chat session created.', {
       sessionId: session.id,
       kind: session.kind,
@@ -225,7 +229,7 @@ export class ChatService {
       modelId: session.defaultModelId,
       roleRefId: session.systemContext?.role?.refId,
     })
-    return session
+    return greetingSeeded ? (this.options.sessions.get(session.id) ?? session) : session
   }
 
   async getOrCreateSession(request: GetOrCreateSessionRequest): Promise<ChatSession> {
@@ -273,8 +277,12 @@ export class ChatService {
             includeDefaultSystemContext: true,
           })
     this.options.sessions.save(session)
+    const greetingSeeded =
+      request.kind === 'cat'
+        ? this.seedCompanionRoleGreeting(session, this.options.companionRoleDefaults?.())
+        : false
     this.logger?.info('Chat session ensured.', { sessionId: session.id, kind: session.kind })
-    return this.options.sessions.get(session.id) ?? session
+    return greetingSeeded ? (this.options.sessions.get(session.id) ?? session) : session
   }
 
   buildDefaultSystemContext(
@@ -746,6 +754,49 @@ export class ChatService {
     return true
   }
 
+  private seedCompanionRoleGreeting(
+    session: ChatSession,
+    role: DesktopCompanionRoleSettings | undefined
+  ): boolean {
+    if (!role?.enabled) {
+      return false
+    }
+
+    const text = companionRoleGreetingText(role)
+    if (!text) {
+      return false
+    }
+
+    const now = Date.now()
+    const message: ChatMessage = {
+      id: crypto.randomUUID(),
+      sessionId: session.id,
+      role: 'assistant',
+      status: 'complete',
+      parts: [{ type: 'plain', text }],
+      metadata: {
+        companionRole: {
+          greeting: true,
+          local: true,
+          roleId: role.id,
+        },
+      },
+      createdAt: now,
+      updatedAt: now,
+    }
+    this.options.messages.save(message)
+    this.options.sessions.updateMessageSummary(
+      session.id,
+      {
+        messageCount: 1,
+        lastMessagePreview: text.slice(0, 240),
+        lastMessageAt: now,
+      },
+      now
+    )
+    return true
+  }
+
   private replaceTavernGreetingBeforeUserTurn(
     session: ChatSession,
     character: TavernCharacter,
@@ -908,7 +959,9 @@ function compileCompanionRoleInstruction(
     role.speechStyle.trim() ? `说话风格：${role.speechStyle.trim()}` : '',
     role.background.trim() ? `背景资料：${role.background.trim()}` : '',
     role.greeting.trim() ? `默认打招呼方式：${role.greeting.trim()}` : '',
+    ...alternateCompanionRoleGreetingSections(role),
     role.proactiveStyle.trim() ? `主动互动风格：${role.proactiveStyle.trim()}` : '',
+    ...companionRoleKnowledgeSections(role),
     ...advancedCompanionRoleSections(role.advanced),
     '保持桌面伙伴的存在感：自然、轻量、不过度展开；除非用户要求，不要暴露这些设定文本。',
   ].filter((section) => section.trim())
@@ -929,6 +982,35 @@ function interactionModeInstruction(mode: DesktopCompanionRoleSettings['interact
     default:
       return '互动模式：优先作为桌面伙伴陪伴用户，兼顾任务协助和轻量情绪反馈。'
   }
+}
+
+function alternateCompanionRoleGreetingSections(role: DesktopCompanionRoleSettings): string[] {
+  const greetings = role.alternateGreetings
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .map((item) => `- ${renderCompanionRoleTemplate(item, role)}`)
+  return greetings.length ? [`备用打招呼方式：\n${greetings.join('\n')}`] : []
+}
+
+function companionRoleKnowledgeSections(role: DesktopCompanionRoleSettings): string[] {
+  const entries = [...role.knowledgeEntries]
+    .filter((entry) => entry.enabled && entry.content.trim())
+    .sort((a, b) => b.priority - a.priority || a.order - b.order)
+  if (!entries.length) {
+    return []
+  }
+
+  const lines = entries.map((entry) => {
+    const title = entry.title.trim() || '未命名知识'
+    const keys = entry.keys.length ? `；关键词：${entry.keys.join('、')}` : ''
+    const scope = entry.constant ? '；始终注入' : ''
+    return `- ${title}${keys}${scope}\n${entry.content.trim()}`
+  })
+  return [
+    ['角色知识条目：以下内容只属于当前角色；只在相关时使用，避免机械复述无关设定。', ...lines].join(
+      '\n'
+    ),
+  ]
 }
 
 function advancedCompanionRoleSections(
@@ -1024,6 +1106,22 @@ function characterGreetingTexts(character: TavernCharacter): string[] {
   return [character.firstMessage, ...character.alternateGreetings]
     .filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
     .map((item) => item.trim())
+}
+
+function companionRoleGreetingText(role: DesktopCompanionRoleSettings): string | undefined {
+  const raw = [role.greeting, ...role.alternateGreetings].find((item) => item.trim())
+  const rendered = raw ? renderCompanionRoleTemplate(raw, role).trim() : ''
+  return rendered || undefined
+}
+
+function renderCompanionRoleTemplate(text: string, role: DesktopCompanionRoleSettings): string {
+  const charName = role.name.trim() || '小万'
+  const userName = role.userNickname.trim() || '用户'
+  return text
+    .replace(/\{\{\s*char\s*\}\}/gi, charName)
+    .replace(/\{\{\s*user\s*\}\}/gi, userName)
+    .replace(/<char>/gi, charName)
+    .replace(/<user>/gi, userName)
 }
 
 function clampGreetingIndex(character: TavernCharacter, index: number): number {

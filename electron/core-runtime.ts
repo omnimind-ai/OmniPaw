@@ -11,6 +11,7 @@ import { ContextCompactionService } from '@core/chat/context-compaction'
 import { ContextBuilder } from '@core/chat/context-manager'
 import type { ChatRunEventTarget } from '@core/chat/run-manager'
 import { RunManager } from '@core/chat/run-manager'
+import { CompanionRoleService } from '@core/companion-role'
 import { ConfigValidationError } from '@core/config/schema'
 import { ConfigStore } from '@core/config/store'
 import { ConfigToolSettingsStore } from '@core/config/tool-settings-store'
@@ -106,6 +107,7 @@ export interface CoreRuntime {
   catAppearanceManager: CatAppearanceManager
   catPetManager: CatPetManager
   chatService: ChatService
+  companionRoleService: CompanionRoleService
   configStore: ConfigStore
   cronManager: CronManager
   mcpServerManager: McpServerManager
@@ -393,6 +395,7 @@ export function createCoreRuntime(options: CoreRuntimeOptions): CoreRuntime {
     },
     logger: coreLogger.child({ scope: 'memory' }),
   })
+  const companionRoleService = new CompanionRoleService()
   let chatService: ChatService
   const observationManager = new ObservationManager({
     capture: desktopCapture,
@@ -476,6 +479,7 @@ export function createCoreRuntime(options: CoreRuntimeOptions): CoreRuntime {
     catAppearanceManager,
     catPetManager,
     chatService,
+    companionRoleService,
     configStore,
     cronManager,
     mcpServerManager,

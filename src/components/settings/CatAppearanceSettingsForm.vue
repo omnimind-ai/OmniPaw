@@ -1,9 +1,27 @@
 <script setup lang="ts">
-import { ArrowLeftIcon, ChevronDownIcon, PlusIcon, UserRoundIcon } from 'lucide-vue-next'
+import type {
+  CompanionRoleCardImportSourceKind,
+  CompanionRoleKnowledgeEntry,
+  CompanionRoleKnowledgeEntryDraft,
+  CompanionRoleSourceMetadata,
+  ImportedCompanionRoleDraft,
+} from '@shared/types/companion-role'
+import {
+  ArrowLeftIcon,
+  ChevronDownIcon,
+  FileJsonIcon,
+  PlusIcon,
+  UserRoundIcon,
+} from 'lucide-vue-next'
 import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
-import type { BridgeDesktopSettingsConfig } from '@/bridge/app'
+import {
+  appBridge,
+  type BridgeDesktopSettingsConfig,
+  ensureElectronBridge,
+  isFallbackBridge,
+} from '@/bridge/app'
 import CompanionRoleEditor from '@/components/settings/companion-role-settings/CompanionRoleEditor.vue'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -22,6 +40,7 @@ import {
   SidebarSeparator,
   SidebarTrigger,
 } from '@/components/ui/sidebar'
+import { errorToText, useToast } from '@/utils/toast'
 
 type CompanionRole = BridgeDesktopSettingsConfig['app']['companionRoles'][number]
 
@@ -31,8 +50,11 @@ const props = defineProps<{
 
 const { t } = useI18n()
 const router = useRouter()
+const toast = useToast()
 
 const rolesOpen = ref(true)
+const roleCardInput = ref<HTMLInputElement>()
+const importingRoleCard = ref(false)
 
 const roles = computed(() => props.draft.app.companionRoles)
 const activeRoleId = computed(() => props.draft.app.activeCompanionRoleId)
@@ -40,6 +62,7 @@ const activeRole = computed(
   () => roles.value.find((role) => role.id === activeRoleId.value) ?? roles.value[0]
 )
 const canDeleteRole = computed(() => roles.value.length > 1)
+const importRoleCardDisabled = computed(() => importingRoleCard.value || isFallbackBridge)
 
 function selectRole(target: CompanionRole): void {
   props.draft.app.activeCompanionRoleId = target.id
@@ -62,6 +85,15 @@ function duplicateActiveRole(): void {
       name: activeRole.value.name || defaultRoleName(),
     }),
     advanced: { ...activeRole.value.advanced },
+    alternateGreetings: [...activeRole.value.alternateGreetings],
+    knowledgeEntries: activeRole.value.knowledgeEntries.map((entry, index) => ({
+      ...entry,
+      id: createRoleKnowledgeId(index),
+      keys: [...entry.keys],
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    })),
+    source: activeRole.value.source ? { ...activeRole.value.source } : undefined,
   }
   roles.value.push(nextRole)
   props.draft.app.activeCompanionRoleId = nextRole.id
@@ -90,6 +122,7 @@ function createCompanionRole(): CompanionRole {
     relationship: '',
     background: '',
     greeting: '',
+    alternateGreetings: [],
     proactiveStyle: '',
     interactionMode: 'companion',
     advanced: {
@@ -99,13 +132,163 @@ function createCompanionRole(): CompanionRole {
       exampleDialogue: '',
       finalInstructions: '',
     },
+    knowledgeEntries: [],
+    source: undefined,
     defaultProviderId: undefined,
     defaultModelId: undefined,
   }
 }
 
+function openRoleCardImport(): void {
+  try {
+    ensureElectronBridge(t('settings.catAppearance.role.actions.importCard'))
+  } catch (error) {
+    toast.error(errorToText(error, t('settings.catAppearance.role.toasts.importCardFailed')))
+    return
+  }
+  roleCardInput.value?.click()
+}
+
+async function importRoleCard(event: Event): Promise<void> {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  input.value = ''
+  if (!file || importingRoleCard.value) return
+
+  importingRoleCard.value = true
+  try {
+    const request = await createRoleCardImportRequest(file)
+    const result = await appBridge.companionRole.importCard(request)
+    const nextRole = createRoleFromImportedDraft(result.role, result.source)
+    roles.value.push(nextRole)
+    props.draft.app.activeCompanionRoleId = nextRole.id
+    rolesOpen.value = true
+    toast.success(t('settings.catAppearance.role.toasts.importCardSuccess'), {
+      description: t('settings.catAppearance.role.toasts.importCardSummary', {
+        name: nextRole.name,
+        count: result.knowledgeEntryCount,
+      }),
+    })
+  } catch (error) {
+    toast.error(errorToText(error, t('settings.catAppearance.role.toasts.importCardFailed')))
+  } finally {
+    importingRoleCard.value = false
+  }
+}
+
+async function createRoleCardImportRequest(file: File): Promise<{
+  content?: string
+  dataBase64?: string
+  sourceKind: CompanionRoleCardImportSourceKind
+  mimeType?: string
+  sourceName: string
+}> {
+  const sourceKind = roleCardSourceKind(file)
+  if (sourceKind === 'json') {
+    return {
+      content: await file.text(),
+      sourceKind,
+      mimeType: file.type || 'application/json',
+      sourceName: file.name,
+    }
+  }
+
+  return {
+    dataBase64: await fileToBase64(file),
+    sourceKind,
+    mimeType: file.type || (sourceKind === 'png' ? 'image/png' : 'image/webp'),
+    sourceName: file.name,
+  }
+}
+
+function roleCardSourceKind(file: File): CompanionRoleCardImportSourceKind {
+  const type = file.type.toLocaleLowerCase()
+  const name = file.name.toLocaleLowerCase()
+  if (type === 'image/png' || name.endsWith('.png')) return 'png'
+  if (type === 'image/webp' || name.endsWith('.webp')) return 'webp'
+  return 'json'
+}
+
+function fileToBase64(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onerror = () => reject(reader.error ?? new Error('Failed to read file.'))
+    reader.onload = () => {
+      const result = typeof reader.result === 'string' ? reader.result : ''
+      const commaIndex = result.indexOf(',')
+      resolve(commaIndex >= 0 ? result.slice(commaIndex + 1) : result)
+    }
+    reader.readAsDataURL(file)
+  })
+}
+
+function createRoleFromImportedDraft(
+  draft: ImportedCompanionRoleDraft,
+  source: CompanionRoleSourceMetadata
+): CompanionRole {
+  return {
+    id: createRoleId(),
+    enabled: true,
+    name: draft.name?.trim() || defaultRoleName(),
+    appearancePackId: 'builtin',
+    userNickname: draft.userNickname ?? '',
+    personality: draft.personality ?? '',
+    speechStyle: draft.speechStyle ?? '',
+    relationship: draft.relationship ?? '',
+    background: draft.background ?? '',
+    greeting: draft.greeting ?? '',
+    alternateGreetings: normalizeStringList(draft.alternateGreetings),
+    proactiveStyle: draft.proactiveStyle ?? '',
+    interactionMode: source.kind === 'manual' ? 'companion' : 'roleplay',
+    advanced: {
+      enabled: Boolean(draft.advanced?.enabled),
+      systemPrompt: draft.advanced?.systemPrompt ?? '',
+      knowledge: draft.advanced?.knowledge ?? '',
+      exampleDialogue: draft.advanced?.exampleDialogue ?? '',
+      finalInstructions: draft.advanced?.finalInstructions ?? '',
+    },
+    knowledgeEntries: normalizeImportedKnowledgeEntries(draft.knowledgeEntries),
+    source: draft.source ?? source,
+    defaultProviderId: undefined,
+    defaultModelId: undefined,
+  }
+}
+
+function normalizeImportedKnowledgeEntries(
+  entries: CompanionRoleKnowledgeEntryDraft[] | undefined
+): CompanionRoleKnowledgeEntry[] {
+  const now = Date.now()
+  return (entries ?? [])
+    .map((entry, index) => {
+      const content = entry.content?.trim() ?? ''
+      if (!content) return undefined
+      return {
+        id: entry.id?.trim() || createRoleKnowledgeId(index),
+        enabled: entry.enabled ?? true,
+        title: entry.title?.trim() || t('settings.catAppearance.role.knowledge.untitled'),
+        content,
+        keys: normalizeStringList(entry.keys),
+        constant: entry.constant ?? true,
+        priority: Number.isFinite(entry.priority) ? Number(entry.priority) : 0,
+        order: Number.isFinite(entry.order) ? Number(entry.order) : index,
+        tokenBudget: Number.isFinite(entry.tokenBudget) ? Number(entry.tokenBudget) : undefined,
+        createdAt: now,
+        updatedAt: now,
+      }
+    })
+    .filter((entry): entry is CompanionRoleKnowledgeEntry => Boolean(entry))
+}
+
+function normalizeStringList(value: string[] | undefined): string[] {
+  return (value ?? []).map((item) => item.trim()).filter(Boolean)
+}
+
 function createRoleId(): string {
   return `role-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
+}
+
+function createRoleKnowledgeId(index: number): string {
+  return `role-knowledge-${Date.now().toString(36)}-${index}-${Math.random().toString(36).slice(2, 8)}`
 }
 
 function defaultRoleName(): string {
@@ -131,6 +314,13 @@ function defaultRoleName(): string {
             <ArrowLeftIcon />
           </Button>
           <span class="truncate text-sm font-medium">{{ t('settings.catAppearance.title') }}</span>
+          <input
+            ref="roleCardInput"
+            class="sr-only"
+            type="file"
+            accept=".json,.png,.webp,application/json,image/png,image/webp"
+            @change="importRoleCard"
+          >
         </div>
       </SidebarHeader>
 
@@ -157,6 +347,16 @@ function defaultRoleName(): string {
                   {{ roles.length }}
                 </Badge>
               </button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon-sm"
+                :disabled="importRoleCardDisabled"
+                :aria-label="t('settings.catAppearance.role.actions.importCard')"
+                @click="openRoleCardImport"
+              >
+                <FileJsonIcon />
+              </Button>
               <Button
                 type="button"
                 variant="ghost"

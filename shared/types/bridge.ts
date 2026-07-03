@@ -64,6 +64,10 @@ import type {
   UploadAttachmentResponse,
 } from './chat'
 import type {
+  ImportCompanionRoleCardRequest,
+  ImportCompanionRoleCardResponse,
+} from './companion-role'
+import type {
   CreateCronTaskRequest,
   CreateCronTaskResponse,
   CronTaskChangedEvent,
@@ -494,6 +498,11 @@ export interface OmniPawBridge {
     updateSettings: (
       request: CompanionMemorySettingsRequest | DesktopMemorySettings
     ) => Promise<DesktopMemorySettings>
+  }
+  companionRole: {
+    importCard: (
+      request: ImportCompanionRoleCardRequest
+    ) => Promise<ImportCompanionRoleCardResponse>
   }
   observation: {
     permissionStatus: () => Promise<ObservationPermissionStatus>

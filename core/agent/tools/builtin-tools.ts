@@ -353,7 +353,7 @@ function createMemoryCreateExecutor(options: BuiltinToolOptions): AgentTool['exe
       throw new Error('memory_create requires content.')
     }
     const sourceMessageIds = latestUserMessageIds(options)
-    const memory = options.memoryService.create({
+    const memory = options.memoryService.createForSession(options.sessionId, {
       kind: writeArgs.kind ?? 'fact',
       scope: writeArgs.scope ?? 'user',
       content,

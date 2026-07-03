@@ -564,6 +564,27 @@ export class CompanionMemoryRepo {
       clauses.push('(memory_id = @memoryId OR related_memory_id = @memoryId)')
       params.memoryId = request.memoryId
     }
+    if (request.scopes?.length || request.characterId) {
+      const memoryClauses: string[] = []
+      if (request.scopes?.length) {
+        memoryClauses.push(
+          `items.scope IN (${placeholders('proposalScope', request.scopes, params)})`
+        )
+      }
+      if (request.characterId) {
+        memoryClauses.push(
+          "(items.scope != 'character' OR items.character_id = @proposalCharacterId)"
+        )
+        params.proposalCharacterId = request.characterId
+      }
+      clauses.push(`
+        EXISTS (
+          SELECT 1 FROM companion_memory_items items
+          WHERE items.id = COALESCE(memory_id, related_memory_id)
+            AND ${memoryClauses.join(' AND ')}
+        )
+      `)
+    }
     const where = clauses.length ? `WHERE ${clauses.join(' AND ')}` : ''
     const limit = clampInteger(request.limit ?? 100, 1, 500)
     const items = this.db
@@ -738,7 +759,7 @@ export class CompanionMemoryRepo {
       params.sessionId = filters.sessionId
     }
     if (filters.characterId) {
-      clauses.push(`(${prefix}character_id = @characterId OR ${prefix}character_id IS NULL)`)
+      clauses.push(`(${prefix}scope != 'character' OR ${prefix}character_id = @characterId)`)
       params.characterId = filters.characterId
     }
     if (filters.userId) {

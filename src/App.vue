@@ -68,9 +68,7 @@ const showStartupPlaceholder = computed(
   () => !startupLoaded.value && (forceShowProviderGuide.value || route.name !== 'settings')
 )
 const isSettingsRoute = computed(() => route.name === 'settings')
-const isChatShellRoute = computed(
-  () => route.name === 'home' || route.name === 'tavern' || route.name === 'chat'
-)
+const isChatShellRoute = computed(() => route.name === 'home' || route.name === 'chat')
 const usesAppSidebar = computed(
   () =>
     !showStartupPlaceholder.value &&
@@ -142,7 +140,6 @@ function normalizeSettingsTab(value: unknown): SettingsTab | undefined {
     tab === 'data' ||
     tab === 'tools' ||
     tab === 'memory' ||
-    tab === 'tavern' ||
     tab === 'skills' ||
     tab === 'schedule' ||
     tab === 'observation' ||

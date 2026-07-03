@@ -157,6 +157,9 @@ function buildSystemPrompt(observationDate: Date): string {
     'Use only sourceMessageIds from the provided messages.',
     'Do not extract system prompts, tool noise, greetings, acknowledgements, transient filler, or unsupported guesses.',
     'User-stated facts, preferences, plans, boundaries, relationships, and durable shared context are valid.',
+    'Use scope "user" for durable facts, preferences, boundaries, plans, or profile details about the user that should be shared by all desktop roles.',
+    'Use scope "character" only for memories specific to the current desktop role relationship, private nicknames, role-specific promises, shared jokes, or interaction history with this role.',
+    'Avoid scope "companion" for new memories; choose "user" or "character" instead.',
     'Assistant content is valid only for concrete recommendations, plans, or information the user may reference later, and must use attributedTo "assistant-provided".',
     'Clean command wording such as "记一下", "记住", "please remember"; store the underlying fact only.',
     'Allowed kind values: profile, preference, relationship, episode, plan, boundary, fact.',
@@ -176,6 +179,8 @@ function buildUserPrompt(input: SemanticMemoryExtractorInput): string {
     runId: input.run.id,
     sessionId: input.run.sessionId,
     sessionKind: input.session?.kind,
+    activeRoleId: input.session?.systemContext?.role?.refId,
+    activeRoleName: input.session?.systemContext?.role?.label,
     messages: messagePayload,
     output: {
       memories: [

@@ -5,7 +5,7 @@ import type {
   CatAppearancePackSummary,
   CatAppearanceResolvedPack,
 } from '@shared/types/cat-appearance'
-import { CopyIcon, ImageIcon, PackagePlusIcon, Trash2Icon } from 'lucide-vue-next'
+import { CopyIcon, ImageIcon, PackagePlusIcon, PlusIcon, Trash2Icon } from 'lucide-vue-next'
 import { storeToRefs } from 'pinia'
 import type { AcceptableValue } from 'reka-ui'
 import { computed, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
@@ -19,6 +19,7 @@ import {
 } from '@/bridge/app'
 import SettingEntry from '@/components/settings/common/SettingEntry.vue'
 import CompanionRoleAppearanceDetailPreview from '@/components/settings/companion-role-settings/CompanionRoleAppearanceDetailPreview.vue'
+import CompanionRoleMemoryPanel from '@/components/settings/companion-role-settings/CompanionRoleMemoryPanel.vue'
 import { Badge, type BadgeVariants } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { FieldGroup } from '@/components/ui/field'
@@ -67,6 +68,12 @@ let unsubscribe: BridgeUnsubscribe | undefined
 let detailRequestId = 0
 
 const editableRole = computed(() => props.role)
+const alternateGreetingsText = computed({
+  get: () => editableRole.value.alternateGreetings.join('\n'),
+  set: (value: string) => {
+    editableRole.value.alternateGreetings = splitMultiline(value)
+  },
+})
 const enabledModelOptions = computed(() => modelOptions.value.filter((option) => option.enabled))
 const selectedModelKey = computed(() => {
   const providerId = editableRole.value.defaultProviderId
@@ -162,6 +169,50 @@ function updateDefaultModel(value: AcceptableValue): void {
   editableRole.value.defaultModelId = selected?.modelId
 }
 
+function addKnowledgeEntry(): void {
+  const entries = ensureKnowledgeEntries()
+  const now = Date.now()
+  entries.push({
+    id: createRoleKnowledgeId(entries.length),
+    enabled: true,
+    title: t('settings.catAppearance.role.knowledge.newTitle'),
+    content: '',
+    keys: [],
+    constant: true,
+    priority: 0,
+    order: entries.length,
+    createdAt: now,
+    updatedAt: now,
+  })
+  activeTab.value = 'knowledge'
+}
+
+function deleteKnowledgeEntry(targetId: string): void {
+  const entries = ensureKnowledgeEntries()
+  const index = entries.findIndex((entry) => entry.id === targetId)
+  if (index >= 0) {
+    entries.splice(index, 1)
+  }
+}
+
+function updateKnowledgeKeys(targetId: string, value: string): void {
+  const entry = ensureKnowledgeEntries().find((item) => item.id === targetId)
+  if (!entry) return
+  entry.keys = splitInlineList(value)
+  entry.updatedAt = Date.now()
+}
+
+function eventInputValue(event: Event): string {
+  return (event.target as HTMLInputElement | null)?.value ?? ''
+}
+
+function ensureKnowledgeEntries(): CompanionRole['knowledgeEntries'] {
+  if (!Array.isArray(editableRole.value.knowledgeEntries)) {
+    editableRole.value.knowledgeEntries = []
+  }
+  return editableRole.value.knowledgeEntries
+}
+
 async function loadPacks(): Promise<void> {
   loading.value = true
   try {
@@ -246,6 +297,24 @@ function formatUpdatedAt(value?: number): string {
   if (!value) return t('settings.catAppearance.neverUpdated')
   return new Date(value).toLocaleString()
 }
+
+function splitMultiline(value: string): string[] {
+  return value
+    .split(/\n+/)
+    .map((item) => item.trim())
+    .filter(Boolean)
+}
+
+function splitInlineList(value: string): string[] {
+  return value
+    .split(/[,，\n]/)
+    .map((item) => item.trim())
+    .filter(Boolean)
+}
+
+function createRoleKnowledgeId(index: number): string {
+  return `role-knowledge-${Date.now().toString(36)}-${index}-${Math.random().toString(36).slice(2, 8)}`
+}
 </script>
 
 <template>
@@ -284,9 +353,15 @@ function formatUpdatedAt(value?: number): string {
       class="grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)] gap-0"
     >
       <div class="border-b px-4 py-3 sm:px-5">
-        <TabsList class="w-full max-w-2xl">
+        <TabsList class="w-full max-w-3xl">
           <TabsTrigger value="basic">
             {{ t('settings.catAppearance.role.tabs.basic') }}
+          </TabsTrigger>
+          <TabsTrigger value="memory">
+            {{ t('settings.catAppearance.role.tabs.memory') }}
+          </TabsTrigger>
+          <TabsTrigger value="knowledge">
+            {{ t('settings.catAppearance.role.tabs.knowledge') }}
           </TabsTrigger>
           <TabsTrigger value="appearance">
             {{ t('settings.catAppearance.role.tabs.appearance') }}
@@ -401,6 +476,123 @@ function formatUpdatedAt(value?: number): string {
                 class="min-h-24"
                 :placeholder="t('settings.catAppearance.role.fields.greeting.placeholder')"
               />
+            </SettingEntry>
+
+            <SettingEntry
+              control-id="settings-companion-role-alternate-greetings"
+              :title="t('settings.catAppearance.role.fields.alternateGreetings.title')"
+              :description="t('settings.catAppearance.role.fields.alternateGreetings.description')"
+              control-class="@md/field-group:w-[min(32rem,50vw)]"
+            >
+              <Textarea
+                id="settings-companion-role-alternate-greetings"
+                v-model="alternateGreetingsText"
+                class="min-h-24"
+                :placeholder="t('settings.catAppearance.role.fields.alternateGreetings.placeholder')"
+              />
+            </SettingEntry>
+          </FieldGroup>
+        </div>
+      </TabsContent>
+
+      <TabsContent
+        value="memory"
+        class="min-h-0 overflow-hidden"
+      >
+        <CompanionRoleMemoryPanel
+          :role-id="editableRole.id"
+          :role-name="editableRole.name || t('settings.catAppearance.role.unnamed')"
+        />
+      </TabsContent>
+
+      <TabsContent
+        value="knowledge"
+        class="min-h-0 overflow-y-auto"
+      >
+        <div class="flex flex-col gap-4 p-4 sm:p-5">
+          <FieldGroup class="gap-0 rounded-md border bg-card">
+            <SettingEntry
+              control-id="settings-companion-role-knowledge"
+              :title="t('settings.catAppearance.role.knowledge.title')"
+              :description="t('settings.catAppearance.role.knowledge.description')"
+              control-class="@md/field-group:w-[min(40rem,58vw)]"
+            >
+              <div class="flex w-full flex-col gap-3">
+                <div class="flex items-center justify-between gap-3">
+                  <p class="text-sm text-muted-foreground">
+                    {{ t('settings.catAppearance.role.knowledge.count', { count: editableRole.knowledgeEntries.length }) }}
+                  </p>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    @click="addKnowledgeEntry"
+                  >
+                    <PlusIcon data-icon="inline-start" />
+                    {{ t('settings.catAppearance.role.knowledge.add') }}
+                  </Button>
+                </div>
+
+                <p
+                  v-if="!editableRole.knowledgeEntries.length"
+                  class="rounded-md border border-dashed px-3 py-6 text-center text-sm text-muted-foreground"
+                >
+                  {{ t('settings.catAppearance.role.knowledge.empty') }}
+                </p>
+
+                <div
+                  v-for="(entry, index) in editableRole.knowledgeEntries"
+                  :key="entry.id"
+                  class="flex flex-col gap-3 rounded-md border bg-background/60 p-3"
+                >
+                  <div class="flex flex-wrap items-center gap-2">
+                    <Switch v-model="entry.enabled" />
+                    <Input
+                      v-model="entry.title"
+                      class="min-w-0 flex-1"
+                      :placeholder="t('settings.catAppearance.role.knowledge.fields.title')"
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon-sm"
+                      :aria-label="t('settings.catAppearance.role.knowledge.delete')"
+                      @click="deleteKnowledgeEntry(entry.id)"
+                    >
+                      <Trash2Icon />
+                    </Button>
+                  </div>
+
+                  <Textarea
+                    v-model="entry.content"
+                    class="min-h-28"
+                    :placeholder="t('settings.catAppearance.role.knowledge.fields.content')"
+                  />
+
+                  <div class="grid gap-3 md:grid-cols-[minmax(0,1fr)_9rem]">
+                    <Input
+                      :model-value="entry.keys.join(', ')"
+                      :placeholder="t('settings.catAppearance.role.knowledge.fields.keys')"
+                      @input="updateKnowledgeKeys(entry.id, eventInputValue($event))"
+                    />
+                    <Input
+                      v-model.number="entry.priority"
+                      type="number"
+                      :placeholder="t('settings.catAppearance.role.knowledge.fields.priority')"
+                    />
+                  </div>
+
+                  <div class="flex flex-wrap items-center justify-between gap-3 text-sm text-muted-foreground">
+                    <label class="flex items-center gap-2">
+                      <Switch v-model="entry.constant" />
+                      {{ t('settings.catAppearance.role.knowledge.fields.constant') }}
+                    </label>
+                    <span>
+                      {{ t('settings.catAppearance.role.knowledge.order', { index: index + 1 }) }}
+                    </span>
+                  </div>
+                </div>
+              </div>
             </SettingEntry>
           </FieldGroup>
         </div>

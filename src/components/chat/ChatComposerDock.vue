@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
 import ChatComposer from '@/components/chat/ChatComposer.vue'
-import TavernRuntimeDock from '@/components/tavern/TavernRuntimeDock.vue'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { useChatWorkspaceContext } from './chat-workspace-context'
@@ -85,8 +84,6 @@ const {
           {{ t('chat.noModel.openSettings') }}
         </Button>
       </div>
-
-      <TavernRuntimeDock class="mb-2" />
 
       <ChatComposer
         v-model="draft"

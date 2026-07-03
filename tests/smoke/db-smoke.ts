@@ -401,8 +401,42 @@ try {
       },
     ],
   })
+  const roleMemory = memories.create({
+    kind: 'relationship',
+    scope: 'character',
+    characterId: 'role-smoke-a',
+    content: 'Role A calls Luna captain in memory smoke tests.',
+    importance: 4,
+    confidence: 0.9,
+  })
+  const otherRoleMemory = memories.create({
+    kind: 'relationship',
+    scope: 'character',
+    characterId: 'role-smoke-b',
+    content: 'Role B calls Luna navigator in memory smoke tests.',
+    importance: 4,
+    confidence: 0.9,
+  })
   assert.equal(memories.get(memory.id)?.kind, 'preference')
   assert.equal(memories.inspect(memory.id)?.sources[0]?.evidenceHash, 'evidence-smoke')
+  assert.equal(
+    memories
+      .list({ scopes: ['global', 'user'], includeInactive: true })
+      .items.some((item) => item.id === roleMemory.id),
+    false
+  )
+  assert.equal(
+    memories
+      .list({ scopes: ['character'], characterId: 'role-smoke-a', includeInactive: true })
+      .items.some((item) => item.id === roleMemory.id),
+    true
+  )
+  assert.equal(
+    memories
+      .list({ scopes: ['character'], characterId: 'role-smoke-a', includeInactive: true })
+      .items.some((item) => item.id === otherRoleMemory.id),
+    false
+  )
   assert.equal(
     memories.listEmbeddings({ sessionId: session.id }).some((item) => item.memoryId === memory.id),
     true
@@ -432,6 +466,29 @@ try {
     confidence: 0.4,
   })
   assert.equal(memories.listProposals({ status: 'pending' }).items[0]?.id, proposal.id)
+  const roleProposal = memories.createProposal({
+    kind: 'review',
+    memoryId: roleMemory.id,
+    proposedContent: roleMemory.content,
+    reason: 'Role memory smoke proposal.',
+    confidence: 0.8,
+  })
+  assert.equal(
+    memories
+      .listProposals({ status: 'pending', scopes: ['global', 'user'] })
+      .items.some((item) => item.id === roleProposal.id),
+    false
+  )
+  assert.equal(
+    memories
+      .listProposals({
+        status: 'pending',
+        scopes: ['character'],
+        characterId: 'role-smoke-a',
+      })
+      .items.some((item) => item.id === roleProposal.id),
+    true
+  )
   assert.equal(
     memories.updateProposal({ proposalId: proposal.id, status: 'ignored' })?.status,
     'ignored'

@@ -1,6 +1,10 @@
 import { redactSensitiveText } from '@core/logging/redaction'
 import type { ContextAttachmentPolicy, ToolProfile } from '@shared/types/chat'
 import type {
+  CompanionRoleKnowledgeEntry,
+  CompanionRoleSourceMetadata,
+} from '@shared/types/companion-role'
+import type {
   ExternalRootGrant,
   LocalAgentTerminalSettings,
   LocalAgentWorkspaceSettings,
@@ -65,6 +69,7 @@ const defaultCompanionRole: DesktopCompanionRoleSettings = {
   relationship: '桌面伙伴',
   background: '',
   greeting: '我在这里，有什么想让我陪你一起处理的吗？',
+  alternateGreetings: [],
   proactiveStyle: '适度主动提醒，但不打扰用户专注。',
   interactionMode: 'companion',
   advanced: {
@@ -74,6 +79,8 @@ const defaultCompanionRole: DesktopCompanionRoleSettings = {
     exampleDialogue: '',
     finalInstructions: '',
   },
+  knowledgeEntries: [],
+  source: undefined,
   defaultProviderId: undefined,
   defaultModelId: undefined,
 }
@@ -776,6 +783,13 @@ function validateCompanionRole(
         })
       }
     }
+    validateStringArray(settings.alternateGreetings, `${basePath}.alternateGreetings`, issues)
+    validateCompanionRoleKnowledgeEntries(
+      settings.knowledgeEntries,
+      `${basePath}.knowledgeEntries`,
+      issues
+    )
+    validateCompanionRoleSource(settings.source, `${basePath}.source`, issues)
     validateCompanionRoleAdvancedSettings(settings.advanced, `${basePath}.advanced`, issues)
     if (
       settings.defaultProviderId !== undefined &&
@@ -807,6 +821,138 @@ function validateCompanionRole(
       path: 'app.activeCompanionRoleId',
       message: 'Active companion role ID must reference an existing role.',
       code: 'invalid_reference',
+    })
+  }
+}
+
+function validateCompanionRoleKnowledgeEntries(
+  entries: CompanionRoleKnowledgeEntry[],
+  basePath: string,
+  issues: SettingsValidationIssue[]
+): void {
+  if (!Array.isArray(entries)) {
+    issues.push({
+      path: basePath,
+      message: 'Companion role knowledge entries must be an array.',
+      code: 'invalid_type',
+    })
+    return
+  }
+
+  for (const [index, entry] of entries.entries()) {
+    const entryPath = `${basePath}[${index}]`
+    if (!isPlainObject(entry)) {
+      issues.push({
+        path: entryPath,
+        message: 'Companion role knowledge entry must be an object.',
+        code: 'invalid_type',
+      })
+      continue
+    }
+
+    const textFields: Array<keyof CompanionRoleKnowledgeEntry> = ['id', 'title', 'content']
+    for (const field of textFields) {
+      if (typeof entry[field] !== 'string') {
+        issues.push({
+          path: `${entryPath}.${field}`,
+          message: 'Companion role knowledge text fields must be strings.',
+          code: 'invalid_type',
+        })
+      }
+    }
+    if (typeof entry.enabled !== 'boolean') {
+      issues.push({
+        path: `${entryPath}.enabled`,
+        message: 'Companion role knowledge enabled flag must be boolean.',
+        code: 'invalid_type',
+      })
+    }
+    if (typeof entry.constant !== 'boolean') {
+      issues.push({
+        path: `${entryPath}.constant`,
+        message: 'Companion role knowledge constant flag must be boolean.',
+        code: 'invalid_type',
+      })
+    }
+    if (!Number.isFinite(entry.priority)) {
+      issues.push({
+        path: `${entryPath}.priority`,
+        message: 'Companion role knowledge priority must be a finite number.',
+        code: 'invalid_number',
+      })
+    }
+    if (!Number.isFinite(entry.order)) {
+      issues.push({
+        path: `${entryPath}.order`,
+        message: 'Companion role knowledge order must be a finite number.',
+        code: 'invalid_number',
+      })
+    }
+    if (entry.tokenBudget !== undefined && !Number.isFinite(entry.tokenBudget)) {
+      issues.push({
+        path: `${entryPath}.tokenBudget`,
+        message: 'Companion role knowledge token budget must be a finite number.',
+        code: 'invalid_number',
+      })
+    }
+    if (entry.createdAt !== undefined && !Number.isFinite(entry.createdAt)) {
+      issues.push({
+        path: `${entryPath}.createdAt`,
+        message: 'Companion role knowledge created time must be a finite number.',
+        code: 'invalid_number',
+      })
+    }
+    if (entry.updatedAt !== undefined && !Number.isFinite(entry.updatedAt)) {
+      issues.push({
+        path: `${entryPath}.updatedAt`,
+        message: 'Companion role knowledge updated time must be a finite number.',
+        code: 'invalid_number',
+      })
+    }
+    validateStringArray(entry.keys, `${entryPath}.keys`, issues)
+  }
+}
+
+function validateStringArray(
+  value: unknown,
+  path: string,
+  issues: SettingsValidationIssue[]
+): void {
+  if (!Array.isArray(value) || value.some((item) => typeof item !== 'string')) {
+    issues.push({
+      path,
+      message: 'Value must be an array of strings.',
+      code: 'invalid_type',
+    })
+  }
+}
+
+function validateCompanionRoleSource(
+  source: CompanionRoleSourceMetadata | undefined,
+  basePath: string,
+  issues: SettingsValidationIssue[]
+): void {
+  if (source === undefined) {
+    return
+  }
+  if (!isPlainObject(source)) {
+    issues.push({
+      path: basePath,
+      message: 'Companion role source metadata must be an object.',
+      code: 'invalid_type',
+    })
+    return
+  }
+  if (
+    source.kind !== 'manual' &&
+    source.kind !== 'sillytavern-json' &&
+    source.kind !== 'sillytavern-png' &&
+    source.kind !== 'sillytavern-webp'
+  ) {
+    issues.push({
+      path: `${basePath}.kind`,
+      message: 'Companion role source metadata kind is invalid.',
+      code: 'invalid_enum',
     })
   }
 }
@@ -2131,12 +2277,18 @@ function normalizeCompanionRoleSettings(
       typeof rawValue.relationship === 'string' ? rawValue.relationship : defaults.relationship,
     background: typeof rawValue.background === 'string' ? rawValue.background : defaults.background,
     greeting: typeof rawValue.greeting === 'string' ? rawValue.greeting : defaults.greeting,
+    alternateGreetings: normalizeStringArray(
+      rawValue.alternateGreetings,
+      defaults.alternateGreetings
+    ),
     proactiveStyle:
       typeof rawValue.proactiveStyle === 'string'
         ? rawValue.proactiveStyle
         : defaults.proactiveStyle,
     interactionMode,
     advanced: normalizeCompanionRoleAdvancedSettings(rawValue.advanced),
+    knowledgeEntries: normalizeCompanionRoleKnowledgeEntries(rawValue.knowledgeEntries),
+    source: normalizeCompanionRoleSource(rawValue.source),
     defaultProviderId:
       typeof rawValue.defaultProviderId === 'string' && rawValue.defaultProviderId.trim()
         ? rawValue.defaultProviderId
@@ -2145,6 +2297,97 @@ function normalizeCompanionRoleSettings(
       typeof rawValue.defaultModelId === 'string' && rawValue.defaultModelId.trim()
         ? rawValue.defaultModelId
         : undefined,
+  }
+}
+
+function normalizeCompanionRoleKnowledgeEntries(rawValue: unknown): CompanionRoleKnowledgeEntry[] {
+  if (!Array.isArray(rawValue)) {
+    return []
+  }
+
+  return rawValue
+    .map((item, index) => normalizeCompanionRoleKnowledgeEntry(item, index))
+    .filter((entry): entry is CompanionRoleKnowledgeEntry => Boolean(entry))
+}
+
+function normalizeCompanionRoleKnowledgeEntry(
+  rawValue: unknown,
+  index: number
+): CompanionRoleKnowledgeEntry | undefined {
+  if (!isPlainObject(rawValue)) {
+    return undefined
+  }
+
+  const content = typeof rawValue.content === 'string' ? rawValue.content : ''
+  if (!content.trim()) {
+    return undefined
+  }
+
+  const now = Date.now()
+  const id =
+    typeof rawValue.id === 'string' && rawValue.id.trim()
+      ? rawValue.id
+      : `role-knowledge-${now.toString(36)}-${index + 1}`
+
+  return {
+    id,
+    enabled: typeof rawValue.enabled === 'boolean' ? rawValue.enabled : true,
+    title:
+      typeof rawValue.title === 'string' && rawValue.title.trim()
+        ? rawValue.title
+        : `Knowledge ${index + 1}`,
+    content,
+    keys: normalizeStringArray(rawValue.keys, []),
+    constant: typeof rawValue.constant === 'boolean' ? rawValue.constant : true,
+    priority:
+      typeof rawValue.priority === 'number' && Number.isFinite(rawValue.priority)
+        ? rawValue.priority
+        : 0,
+    order:
+      typeof rawValue.order === 'number' && Number.isFinite(rawValue.order)
+        ? rawValue.order
+        : index,
+    tokenBudget:
+      typeof rawValue.tokenBudget === 'number' && Number.isFinite(rawValue.tokenBudget)
+        ? rawValue.tokenBudget
+        : undefined,
+    createdAt:
+      typeof rawValue.createdAt === 'number' && Number.isFinite(rawValue.createdAt)
+        ? rawValue.createdAt
+        : now,
+    updatedAt:
+      typeof rawValue.updatedAt === 'number' && Number.isFinite(rawValue.updatedAt)
+        ? rawValue.updatedAt
+        : now,
+  }
+}
+
+function normalizeCompanionRoleSource(rawValue: unknown): CompanionRoleSourceMetadata | undefined {
+  if (!isPlainObject(rawValue)) {
+    return undefined
+  }
+
+  const kind =
+    rawValue.kind === 'manual' ||
+    rawValue.kind === 'sillytavern-json' ||
+    rawValue.kind === 'sillytavern-png' ||
+    rawValue.kind === 'sillytavern-webp'
+      ? rawValue.kind
+      : undefined
+  if (!kind) {
+    return undefined
+  }
+
+  return {
+    kind,
+    version: typeof rawValue.version === 'string' ? rawValue.version : undefined,
+    importedAt:
+      typeof rawValue.importedAt === 'number' && Number.isFinite(rawValue.importedAt)
+        ? rawValue.importedAt
+        : undefined,
+    sourceName: typeof rawValue.sourceName === 'string' ? rawValue.sourceName : undefined,
+    mimeType: typeof rawValue.mimeType === 'string' ? rawValue.mimeType : undefined,
+    contentHash: typeof rawValue.contentHash === 'string' ? rawValue.contentHash : undefined,
   }
 }
 

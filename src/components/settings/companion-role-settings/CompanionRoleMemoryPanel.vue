@@ -1,44 +1,38 @@
 <script setup lang="ts">
 import type {
   CompanionMemoryItem,
-  CompanionMemoryMaintenanceProposal,
   CompanionMemoryScope,
   CompanionMemoryStatus,
   CreateCompanionMemoryRequest,
   UpdateCompanionMemoryRequest,
 } from '@shared/types/memory'
 import { storeToRefs } from 'pinia'
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import type { BridgeDesktopSettingsConfig } from '@/bridge/app'
 import MemoryCreateModal from '@/components/settings/memory-settings/MemoryCreateModal.vue'
 import MemoryDetailModal from '@/components/settings/memory-settings/MemoryDetailModal.vue'
 import MemoryList from '@/components/settings/memory-settings/MemoryList.vue'
-import MemoryPolicyModal from '@/components/settings/memory-settings/MemoryPolicyModal.vue'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
 import { useDelayedFlag } from '@/composables/useDelayedFlag'
 import { useMemoryStore } from '@/stores/memory'
 import { errorToText, useToast } from '@/utils/toast'
 
-defineProps<{
-  draft: BridgeDesktopSettingsConfig
+const props = defineProps<{
+  roleId: string
+  roleName: string
 }>()
 
 const { t } = useI18n()
 const toast = useToast()
 const memoryStore = useMemoryStore()
-const { items, selected, loading, saving, total, proposals, proposalTotal } =
-  storeToRefs(memoryStore)
+const { items, selected, loading, saving, total } = storeToRefs(memoryStore)
 
+const characterScopes: CompanionMemoryScope[] = ['character']
 const searchQuery = ref('')
 const includeInactive = ref(false)
-const policyModalOpen = ref(false)
 const createModalOpen = ref(false)
 const detailModalOpen = ref(false)
 const detailLoading = ref(false)
 const confirmDeleteMemoryId = ref<string | undefined>()
-const commonMemoryScopes: CompanionMemoryScope[] = ['global', 'user']
 
 const selectedMemory = computed(() => selected.value?.memory)
 const selectedSources = computed(() => selected.value?.sources ?? [])
@@ -46,23 +40,31 @@ const selectedLinks = computed(() => selected.value?.links ?? [])
 const selectedProposals = computed(() => selected.value?.proposals ?? [])
 const showMemoryListSkeleton = useDelayedFlag(() => loading.value)
 
+watch(
+  () => props.roleId,
+  () => {
+    selected.value = null
+    detailModalOpen.value = false
+    confirmDeleteMemoryId.value = undefined
+    void reload()
+  },
+  { immediate: true }
+)
+
 watch(detailModalOpen, (isOpen) => {
   if (!isOpen) {
     selected.value = null
   }
 })
 
-onMounted(() => {
-  void reload()
-  void reloadProposals()
-})
-
 async function reload(): Promise<void> {
+  if (!props.roleId) return
   try {
     const filters = {
       query: searchQuery.value.trim() || undefined,
       includeInactive: includeInactive.value,
-      scopes: commonMemoryScopes,
+      scopes: characterScopes,
+      characterId: props.roleId,
       limit: 100,
     }
     if (filters.query) {
@@ -73,19 +75,6 @@ async function reload(): Promise<void> {
   } catch (error) {
     toast.error(errorToText(error, t('settings.memory.toast.listLoadFailed')))
   }
-}
-
-async function reloadProposals(): Promise<void> {
-  try {
-    await memoryStore.loadProposals({ status: 'pending', scopes: commonMemoryScopes, limit: 50 })
-  } catch (error) {
-    toast.error(errorToText(error, t('settings.memory.toast.proposalsLoadFailed')))
-  }
-}
-
-function openPolicySettings(): void {
-  confirmDeleteMemoryId.value = undefined
-  policyModalOpen.value = true
 }
 
 function openCreateMemory(): void {
@@ -103,8 +92,8 @@ async function submitCreateMemory(request: CreateCompanionMemoryRequest): Promis
   try {
     const memory = await memoryStore.create({
       ...request,
-      scope: request.scope === 'global' ? 'global' : 'user',
-      characterId: undefined,
+      scope: 'character',
+      characterId: props.roleId,
     })
     createModalOpen.value = false
     await reload()
@@ -118,7 +107,11 @@ async function submitCreateMemory(request: CreateCompanionMemoryRequest): Promis
 
 async function submitMemoryUpdate(request: UpdateCompanionMemoryRequest): Promise<void> {
   try {
-    const updated = await memoryStore.update(request)
+    const updated = await memoryStore.update({
+      ...request,
+      scope: 'character',
+      characterId: props.roleId,
+    })
     if (updated) {
       await reload()
       await inspectMemory(updated.id)
@@ -126,26 +119,6 @@ async function submitMemoryUpdate(request: UpdateCompanionMemoryRequest): Promis
     }
   } catch (error) {
     toast.error(errorToText(error, t('settings.memory.toast.saveFailed')))
-  }
-}
-
-async function updateProposal(
-  proposal: CompanionMemoryMaintenanceProposal,
-  status: 'accepted' | 'ignored'
-): Promise<void> {
-  try {
-    await memoryStore.updateProposal({ proposalId: proposal.id, status })
-    await reload()
-    if (selectedMemory.value?.id) {
-      await inspectMemory(selectedMemory.value.id)
-    }
-    toast.success(
-      status === 'accepted'
-        ? t('settings.memory.toast.proposalAccepted')
-        : t('settings.memory.toast.proposalIgnored')
-    )
-  } catch (error) {
-    toast.error(errorToText(error, t('settings.memory.toast.proposalFailed')))
   }
 }
 
@@ -245,60 +218,7 @@ function clampInteger(value: string | number, min: number, max: number): number 
 </script>
 
 <template>
-  <div class="flex h-full min-h-0 flex-1 flex-col overflow-hidden">
-    <div
-      v-if="proposals.length"
-      class="mb-3 flex flex-col gap-2 rounded-md border px-3 py-3"
-    >
-      <div class="flex flex-wrap items-center justify-between gap-2">
-        <div class="flex items-center gap-2">
-          <Badge variant="outline">{{ t('settings.memory.maintenance.title') }} {{ proposalTotal }}</Badge>
-          <span class="text-sm text-muted-foreground">{{ t('settings.memory.maintenance.description') }}</span>
-        </div>
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          @click="reloadProposals"
-        >
-          {{ t('settings.memory.maintenance.refresh') }}
-        </Button>
-      </div>
-      <div class="flex flex-col gap-2">
-        <div
-          v-for="proposal in proposals.slice(0, 3)"
-          :key="proposal.id"
-          class="flex flex-wrap items-center justify-between gap-2 rounded-md border px-3 py-2 text-sm"
-        >
-          <div class="min-w-0">
-            <div class="flex flex-wrap items-center gap-2">
-              <Badge variant="outline">{{ proposal.kind }}</Badge>
-              <span class="truncate text-muted-foreground">{{ proposal.reason }}</span>
-            </div>
-          </div>
-          <div class="flex items-center gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              :disabled="saving"
-              @click="updateProposal(proposal, 'ignored')"
-            >
-              {{ t('settings.memory.maintenance.ignore') }}
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              :disabled="saving"
-              @click="updateProposal(proposal, 'accepted')"
-            >
-              {{ t('settings.memory.maintenance.accept') }}
-            </Button>
-          </div>
-        </div>
-      </div>
-    </div>
-
+  <div class="flex h-full min-h-0 flex-1 flex-col overflow-hidden p-4 sm:p-5">
     <MemoryList
       v-model:search-query="searchQuery"
       class="min-h-0 flex-1"
@@ -309,11 +229,11 @@ function clampInteger(value: string | number, min: number, max: number): number 
       :show-skeleton="showMemoryListSkeleton"
       :include-inactive="includeInactive"
       :confirm-delete-memory-id="confirmDeleteMemoryId"
-      :title="t('settings.memory.commonPanelTitle')"
-      :description="t('settings.memory.commonPanelDescription')"
-      :empty-title="t('settings.memory.commonEmptyTitle')"
-      :empty-hint="t('settings.memory.commonEmptyHint')"
-      @policy="openPolicySettings"
+      :title="t('settings.memory.rolePanelTitle', { name: roleName })"
+      :description="t('settings.memory.rolePanelDescription')"
+      :empty-title="t('settings.memory.roleEmptyTitle')"
+      :empty-hint="t('settings.memory.roleEmptyHint')"
+      :show-policy="false"
       @create="openCreateMemory"
       @detail="openMemoryDetail"
       @refresh="reload"
@@ -325,17 +245,14 @@ function clampInteger(value: string | number, min: number, max: number): number 
       @delete="deleteMemory"
     />
 
-    <MemoryPolicyModal
-      v-model:open="policyModalOpen"
-      :draft="draft"
-    />
-
     <MemoryCreateModal
       v-model:open="createModalOpen"
       :saving="saving"
-      :scope="'user'"
-      :title="t('settings.memory.createModal.commonTitle')"
-      :description="t('settings.memory.createModal.commonDescription')"
+      scope="character"
+      :character-id="roleId"
+      :title="t('settings.memory.createModal.roleTitle')"
+      :description="t('settings.memory.createModal.roleDescription')"
+      :content-placeholder="t('settings.memory.createModal.roleContentPlaceholder')"
       @submit="submitCreateMemory"
     />
 

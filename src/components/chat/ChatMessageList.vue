@@ -205,14 +205,22 @@ function messageThinkingStatusClass(record: ChatRecord) {
   return cn(messageStatusClass(record), 'text-muted-foreground')
 }
 
-function isLocalTavernGreeting(record: ChatRecord) {
+function isLocalGreeting(record: ChatRecord) {
   const tavern = record.metadata?.tavern
-  return Boolean(
+  const companionRole = record.metadata?.companionRole
+  const isTavernGreeting = Boolean(
     tavern &&
       typeof tavern === 'object' &&
       'greeting' in tavern &&
       (tavern as { greeting?: unknown }).greeting === true
   )
+  const isCompanionRoleGreeting = Boolean(
+    companionRole &&
+      typeof companionRole === 'object' &&
+      'greeting' in companionRole &&
+      (companionRole as { greeting?: unknown }).greeting === true
+  )
+  return isTavernGreeting || isCompanionRoleGreeting
 }
 
 function fileChangesFor(record: ChatRecord) {
@@ -339,7 +347,7 @@ function fileChangesFor(record: ChatRecord) {
           :checkpoint-id="record.checkpointId"
           :user="isUserMessage(record)"
           :copied="copiedRecordId === recordId(record)"
-          :disable-regenerate="isLocalTavernGreeting(record)"
+          :disable-regenerate="isLocalGreeting(record)"
           @copy="copyRecord(record)"
           @quote="quoteRecord(record)"
           @edit="beginEdit(record)"

@@ -2,7 +2,6 @@
 import {
   CatIcon,
   ClockIcon,
-  DramaIcon,
   EyeIcon,
   MessageSquareIcon,
   MoreHorizontalIcon,
@@ -58,7 +57,6 @@ import {
   SidebarSeparator,
   SidebarTrigger,
 } from '@/components/ui/sidebar'
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import type { Session } from '@/composables/useSessions'
 import { cn } from '@/lib/utils'
 
@@ -110,13 +108,6 @@ const sessionModeOptions = computed(() => [
     newLabel: t('chat.sidebar.newChat'),
     icon: MessageSquareIcon,
   },
-  {
-    value: 'tavern' as SessionMode,
-    label: t('chat.sidebar.mode.tavern.label'),
-    title: t('chat.sidebar.mode.tavern.title'),
-    newLabel: t('chat.sidebar.newChat'),
-    icon: DramaIcon,
-  },
 ])
 
 const sessionKindOptions = computed(() => [
@@ -125,12 +116,6 @@ const sessionKindOptions = computed(() => [
     label: t('chat.sidebar.kind.chat.label'),
     title: t('chat.sidebar.kind.chat.title'),
     icon: MessageSquareIcon,
-  },
-  {
-    value: 'tavern' as SessionKindFilter,
-    label: t('chat.sidebar.kind.tavern.label'),
-    title: t('chat.sidebar.kind.tavern.title'),
-    icon: DramaIcon,
   },
   {
     value: 'cat' as SessionKindFilter,
@@ -161,14 +146,6 @@ const activeSessionModeOption = computed(
     sessionModeOptions.value.find((option) => option.value === activeSessionMode.value) ||
     sessionModeOptions.value[0]
 )
-const nextCollapsedMode = computed<SessionMode>(() =>
-  activeSessionMode.value === 'tavern' ? 'chat' : 'tavern'
-)
-const nextCollapsedModeOption = computed(
-  () =>
-    sessionModeOptions.value.find((option) => option.value === nextCollapsedMode.value) ||
-    sessionModeOptions.value[0]
-)
 const activeSessionKindOption = computed(
   () =>
     sessionKindOptions.value.find((option) => option.value === props.sessionKindFilter) ||
@@ -176,13 +153,6 @@ const activeSessionKindOption = computed(
 )
 const sessionListLabel = computed(() => activeSessionKindOption.value.title)
 const newChatLabel = computed(() => activeSessionModeOption.value.newLabel)
-const collapsedModeTooltip = computed(() =>
-  t('chat.sidebar.collapsedTooltip', {
-    current: activeSessionModeOption.value.title,
-    next: nextCollapsedModeOption.value.label,
-  })
-)
-
 const filteredSessions = computed(() => {
   const query = normalizedSearchQuery.value
   if (!query) return props.sessions
@@ -296,26 +266,10 @@ function clearSearch() {
 
 function updateSessionKindFilter(value: unknown) {
   if (!value || typeof value !== 'string') return
-  if (
-    value !== 'chat' &&
-    value !== 'tavern' &&
-    value !== 'cat' &&
-    value !== 'cron' &&
-    value !== 'vision'
-  ) {
+  if (value !== 'chat' && value !== 'cat' && value !== 'cron' && value !== 'vision') {
     return
   }
   emit('updateSessionKindFilter', value)
-}
-
-function updateSessionMode(value: unknown) {
-  if (!value || typeof value !== 'string') return
-  if (value !== 'chat' && value !== 'tavern') return
-  emit('updateSessionMode', value)
-}
-
-function toggleCollapsedMode() {
-  emit('updateSessionMode', nextCollapsedMode.value)
 }
 </script>
 
@@ -344,39 +298,6 @@ function toggleCollapsedMode() {
         </SidebarMenuItem>
       </SidebarMenu>
 
-      <Tabs
-        :model-value="activeSessionMode"
-        class="group-data-[collapsible=icon]:hidden gap-1"
-        @update:model-value="updateSessionMode"
-      >
-        <TabsList class="grid !h-6 w-full grid-cols-2 p-px group-data-horizontal/tabs:!h-6">
-          <TabsTrigger
-            v-for="option in sessionModeOptions"
-            :key="option.value"
-            :value="option.value"
-            class="box-border !h-full min-h-0 gap-0.5 overflow-hidden !px-1 !py-0 !text-[13px] leading-none has-data-[icon=inline-start]:!pl-1 [&_svg:not([class*=size-])]:!size-3"
-          >
-            <component
-              :is="option.icon"
-              data-icon="inline-start"
-            />
-            {{ option.label }}
-          </TabsTrigger>
-        </TabsList>
-      </Tabs>
-
-      <SidebarMenu class="hidden group-data-[collapsible=icon]:block">
-        <SidebarMenuItem>
-          <SidebarMenuButton
-            :is-active="activeSessionMode === 'tavern'"
-            :tooltip="collapsedModeTooltip"
-            :aria-label="collapsedModeTooltip"
-            @click="toggleCollapsedMode"
-          >
-            <component :is="activeSessionModeOption.icon" />
-          </SidebarMenuButton>
-        </SidebarMenuItem>
-      </SidebarMenu>
     </SidebarHeader>
 
     <SidebarSeparator class="group-data-[collapsible=icon]:hidden" />
