@@ -11,7 +11,7 @@ import {
   ChevronDownIcon,
   FileJsonIcon,
   PlusIcon,
-  UserRoundIcon,
+  SparklesIcon,
 } from 'lucide-vue-next'
 import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
@@ -438,7 +438,7 @@ function defaultRoleName(): string {
                       :tooltip="item.name || t('settings.catAppearance.role.unnamed')"
                       @click="selectRole(item)"
                     >
-                      <UserRoundIcon />
+                      <SparklesIcon />
                       <span>
                         {{ item.name || t('settings.catAppearance.role.unnamed') }}
                       </span>

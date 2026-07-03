@@ -9,8 +9,8 @@ import {
   PlusIcon,
   SearchIcon,
   SettingsIcon,
+  SparklesIcon,
   Trash2Icon,
-  UserRoundIcon,
   XIcon,
 } from 'lucide-vue-next'
 import { computed, ref, watch } from 'vue'
@@ -452,7 +452,7 @@ function updateSessionKindFilter(value: unknown) {
             :aria-label="t('chat.sidebar.footer.roles')"
             @click="emit('openRoles')"
           >
-            <UserRoundIcon />
+            <SparklesIcon />
           </SidebarMenuButton>
 
           <SidebarMenuButton
