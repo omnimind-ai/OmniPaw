@@ -371,6 +371,28 @@ export default {
           importJson: 'Import JSON',
           pastedSourceName: 'pasted-character-card.json',
         },
+        preview: {
+          action: 'Preview',
+          title: 'Character Prompt Preview',
+          description:
+            'Review the character settings injected into companion sessions and the character knowledge triggered by a sample message.',
+          inputLabel: 'Sample current message',
+          inputPlaceholder:
+            'Type a user message to preview which character knowledge entries would trigger.',
+          tokenSummary: '{count} estimated tokens total',
+          tokens: '{count} tokens',
+          empty: 'Nothing to preview yet.',
+          kinds: {
+            base: 'Base',
+            knowledge: 'Knowledge',
+            advanced: 'Advanced',
+          },
+          sections: {
+            base: 'Base Character Settings',
+            knowledge: 'Per-turn Character Knowledge',
+            advanced: 'Advanced Character Settings',
+          },
+        },
       },
       importButton: 'Import Pack',
       importing: 'Importing',

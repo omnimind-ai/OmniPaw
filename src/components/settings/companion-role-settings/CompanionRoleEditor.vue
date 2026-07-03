@@ -5,7 +5,14 @@ import type {
   CatAppearancePackSummary,
   CatAppearanceResolvedPack,
 } from '@shared/types/cat-appearance'
-import { CopyIcon, ImageIcon, PackagePlusIcon, PlusIcon, Trash2Icon } from 'lucide-vue-next'
+import {
+  CopyIcon,
+  EyeIcon,
+  ImageIcon,
+  PackagePlusIcon,
+  PlusIcon,
+  Trash2Icon,
+} from 'lucide-vue-next'
 import { storeToRefs } from 'pinia'
 import type { AcceptableValue } from 'reka-ui'
 import { computed, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
@@ -22,8 +29,16 @@ import CompanionRoleAppearanceDetailPreview from '@/components/settings/companio
 import CompanionRoleMemoryPanel from '@/components/settings/companion-role-settings/CompanionRoleMemoryPanel.vue'
 import { Badge, type BadgeVariants } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
 import { FieldGroup } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
+import { ScrollArea } from '@/components/ui/scroll-area'
 import {
   Select,
   SelectContent,
@@ -58,6 +73,8 @@ const toast = useToast()
 const providerStore = useProviderStore()
 const { modelOptions, saving, persistenceAvailable } = storeToRefs(providerStore)
 const activeTab = ref('basic')
+const previewOpen = ref(false)
+const previewInput = ref('')
 const response = shallowRef<CatAppearanceListResponse>()
 const loading = ref(false)
 const importing = ref(false)
@@ -135,6 +152,12 @@ const currentUpdatedLabel = computed(() =>
   t('settings.catAppearance.meta.updatedAt', {
     time: formatUpdatedAt(currentPack.value?.updatedAt ?? currentDetail.value?.updatedAt),
   })
+)
+const previewSections = computed(() =>
+  buildCompanionRolePreviewSections(editableRole.value, previewInput.value)
+)
+const previewTokenTotal = computed(() =>
+  previewSections.value.reduce((sum, section) => sum + section.estimatedTokens, 0)
 )
 
 onMounted(async () => {
@@ -358,6 +381,197 @@ function normalizeIntegerInput(value: string, fallback: number, min: number, max
   return Math.max(min, Math.min(Math.round(numeric), max))
 }
 
+interface CompanionRolePreviewSection {
+  id: string
+  title: string
+  kind: 'base' | 'knowledge' | 'advanced'
+  text: string
+  estimatedTokens: number
+}
+
+function buildCompanionRolePreviewSections(
+  role: CompanionRole,
+  triggerText: string
+): CompanionRolePreviewSection[] {
+  const sections: CompanionRolePreviewSection[] = []
+  pushPreviewSection(sections, 'base', t('settings.catAppearance.role.preview.sections.base'), [
+    `你是 ${role.name.trim() || '小万'}，是常驻用户桌面的 AI 角色。`,
+    previewInteractionModeInstruction(role.interactionMode),
+    role.relationship.trim() ? `你和用户的关系：${role.relationship.trim()}` : '',
+    role.userNickname.trim() ? `你称呼用户为：${role.userNickname.trim()}` : '',
+    role.personality.trim() ? `性格设定：${role.personality.trim()}` : '',
+    role.speechStyle.trim() ? `说话风格：${role.speechStyle.trim()}` : '',
+    role.background.trim() ? `背景资料：${role.background.trim()}` : '',
+    role.greeting.trim()
+      ? `默认打招呼方式：${renderCompanionRoleTemplate(role.greeting, role)}`
+      : '',
+    ...role.alternateGreetings
+      .map((item) => item.trim())
+      .filter(Boolean)
+      .map((item, index) => `备用开场白 ${index + 1}：${renderCompanionRoleTemplate(item, role)}`),
+    role.proactiveStyle.trim() ? `主动互动风格：${role.proactiveStyle.trim()}` : '',
+    role.knowledgeEntries.some((entry) => entry.enabled && entry.content.trim())
+      ? '角色知识会按当前对话相关性动态提供；只使用本轮注入的角色知识，避免机械复述无关设定。'
+      : '',
+    '保持桌面伙伴的存在感：自然、轻量、不过度展开；除非用户要求，不要暴露这些设定文本。',
+  ])
+
+  const knowledgeText = previewKnowledgeText(role, triggerText)
+  pushPreviewSection(
+    sections,
+    'knowledge',
+    t('settings.catAppearance.role.preview.sections.knowledge'),
+    knowledgeText ? [knowledgeText] : []
+  )
+
+  if (role.advanced.enabled) {
+    pushPreviewSection(
+      sections,
+      'advanced',
+      t('settings.catAppearance.role.preview.sections.advanced'),
+      [
+        role.advanced.systemPrompt.trim()
+          ? `高级角色指令：${role.advanced.systemPrompt.trim()}`
+          : '',
+        role.advanced.knowledge.trim() ? `角色专属知识：${role.advanced.knowledge.trim()}` : '',
+        role.advanced.exampleDialogue.trim()
+          ? `角色示例对话：\n${role.advanced.exampleDialogue.trim()}`
+          : '',
+        role.advanced.finalInstructions.trim()
+          ? `最终回应约束：${role.advanced.finalInstructions.trim()}`
+          : '',
+      ]
+    )
+  }
+
+  return sections
+}
+
+function pushPreviewSection(
+  sections: CompanionRolePreviewSection[],
+  kind: CompanionRolePreviewSection['kind'],
+  title: string,
+  parts: string[]
+): void {
+  const text = parts
+    .map((part) => part.trim())
+    .filter(Boolean)
+    .join('\n')
+  if (!text) return
+  sections.push({
+    id: `${kind}-${sections.length}`,
+    kind,
+    title,
+    text,
+    estimatedTokens: estimatePreviewTokens(text),
+  })
+}
+
+function previewKnowledgeText(role: CompanionRole, triggerText: string): string {
+  const normalizedTrigger = normalizePreviewTriggerText(triggerText)
+  const maxTokens = normalizeIntegerInput(
+    String(role.knowledgeSettings?.maxTokens ?? 900),
+    900,
+    200,
+    8000
+  )
+  let remainingTokens = maxTokens
+  const selected: string[] = []
+  const entries = [...role.knowledgeEntries]
+    .filter((entry) => {
+      if (!entry.enabled || !entry.content.trim()) return false
+      if (entry.constant) return true
+      return entry.keys.some((key) => {
+        const normalized = normalizePreviewTriggerText(key)
+        return normalized && normalizedTrigger.includes(normalized)
+      })
+    })
+    .sort((left, right) => right.priority - left.priority || left.order - right.order)
+
+  for (const entry of entries) {
+    const title = entry.title.trim() || t('settings.catAppearance.role.knowledge.untitled')
+    const keys = entry.keys.map((key) => key.trim()).filter(Boolean)
+    const header = `- ${title}${keys.length ? `；关键词：${keys.join('、')}` : ''}${
+      entry.constant ? '；常驻' : ''
+    }`
+    const headerTokens = estimatePreviewTokens(header)
+    const entryBudget = Math.max(
+      0,
+      Math.min(
+        remainingTokens - headerTokens,
+        Number.isFinite(entry.tokenBudget)
+          ? Math.max(0, Math.floor(entry.tokenBudget ?? 0))
+          : Infinity
+      )
+    )
+    const content = trimPreviewTextToBudget(entry.content.trim(), entryBudget)
+    const cost = headerTokens + estimatePreviewTokens(content)
+    if (!content || cost > remainingTokens) continue
+    selected.push(`${header}\n${content}`)
+    remainingTokens -= cost
+    if (remainingTokens <= 0) break
+  }
+
+  return selected.length
+    ? [
+        `${role.name.trim() || '小万'} 的本轮角色知识：以下条目只属于当前角色，按当前对话触发；需要时自然使用，不要原样背诵。`,
+        ...selected,
+      ].join('\n')
+    : ''
+}
+
+function previewInteractionModeInstruction(mode: CompanionRole['interactionMode']): string {
+  if (mode === 'assistant') {
+    return '互动模式：优先作为高效助手，回答清楚、行动明确，陪伴感保持克制。'
+  }
+  if (mode === 'roleplay') {
+    return '互动模式：优先保持角色扮演一致性，用角色身份自然回应。'
+  }
+  return '互动模式：优先作为桌面伙伴陪伴用户，兼顾任务协助和轻量情绪反馈。'
+}
+
+function renderCompanionRoleTemplate(text: string, role: CompanionRole): string {
+  const charName = role.name.trim() || '小万'
+  const userName = role.userNickname.trim() || '用户'
+  return text
+    .replace(/\{\{\s*char\s*\}\}/gi, charName)
+    .replace(/\{\{\s*user\s*\}\}/gi, userName)
+    .replace(/<char>/gi, charName)
+    .replace(/<user>/gi, userName)
+}
+
+function normalizePreviewTriggerText(text: string): string {
+  return text.toLocaleLowerCase().replace(/\s+/g, ' ').trim()
+}
+
+function trimPreviewTextToBudget(text: string, maxTokens: number): string {
+  if (maxTokens <= 0) return ''
+  if (estimatePreviewTokens(text) <= maxTokens) return text
+
+  let used = 0
+  let output = ''
+  for (const char of text) {
+    used += previewCharTokenWeight(char)
+    if (Math.ceil(used) > maxTokens) break
+    output += char
+  }
+  return output.trimEnd()
+}
+
+function estimatePreviewTokens(text: string): number {
+  let score = 0
+  for (const char of text) {
+    score += previewCharTokenWeight(char)
+  }
+  return Math.max(1, Math.ceil(score))
+}
+
+function previewCharTokenWeight(char: string): number {
+  if (/\s/.test(char)) return 0.05
+  if (/[\u3400-\u9fff]/.test(char)) return 1
+  return 0.35
+}
+
 function createRoleKnowledgeId(index: number): string {
   return `role-knowledge-${Date.now().toString(36)}-${index}-${Math.random().toString(36).slice(2, 8)}`
 }
@@ -374,6 +588,14 @@ function createRoleKnowledgeId(index: number): string {
       </div>
       <div class="flex items-center gap-2">
         <Switch v-model="editableRole.enabled" />
+        <Button
+          variant="outline"
+          size="sm"
+          @click="previewOpen = true"
+        >
+          <EyeIcon data-icon="inline-start" />
+          {{ t('settings.catAppearance.role.preview.action') }}
+        </Button>
         <Button
           variant="outline"
           size="sm"
@@ -939,4 +1161,62 @@ function createRoleKnowledgeId(index: number): string {
     </Tabs>
   </div>
 
+  <Dialog v-model:open="previewOpen">
+    <DialogContent class="sm:max-w-4xl">
+      <DialogHeader>
+        <DialogTitle>{{ t('settings.catAppearance.role.preview.title') }}</DialogTitle>
+        <DialogDescription>
+          {{ t('settings.catAppearance.role.preview.description') }}
+        </DialogDescription>
+      </DialogHeader>
+
+      <div class="grid min-h-0 gap-4 md:grid-cols-[18rem_minmax(0,1fr)]">
+        <div class="flex min-w-0 flex-col gap-2">
+          <label
+            for="settings-companion-role-preview-input"
+            class="text-sm font-medium"
+          >
+            {{ t('settings.catAppearance.role.preview.inputLabel') }}
+          </label>
+          <Textarea
+            id="settings-companion-role-preview-input"
+            v-model="previewInput"
+            class="min-h-40"
+            :placeholder="t('settings.catAppearance.role.preview.inputPlaceholder')"
+          />
+          <p class="text-xs text-muted-foreground">
+            {{ t('settings.catAppearance.role.preview.tokenSummary', { count: previewTokenTotal }) }}
+          </p>
+        </div>
+
+        <ScrollArea class="max-h-[68vh] min-h-0 pr-4">
+          <div class="flex flex-col gap-3">
+            <section
+              v-for="section in previewSections"
+              :key="section.id"
+              class="rounded-md border bg-background/60 p-3"
+            >
+              <div class="mb-2 flex flex-wrap items-center gap-2">
+                <Badge variant="outline">
+                  {{ t(`settings.catAppearance.role.preview.kinds.${section.kind}`) }}
+                </Badge>
+                <span class="text-sm font-medium">{{ section.title }}</span>
+                <span class="text-xs text-muted-foreground">
+                  {{ t('settings.catAppearance.role.preview.tokens', { count: section.estimatedTokens }) }}
+                </span>
+              </div>
+              <pre class="whitespace-pre-wrap break-words text-sm leading-relaxed">{{ section.text }}</pre>
+            </section>
+
+            <p
+              v-if="!previewSections.length"
+              class="rounded-md border border-dashed px-3 py-8 text-center text-sm text-muted-foreground"
+            >
+              {{ t('settings.catAppearance.role.preview.empty') }}
+            </p>
+          </div>
+        </ScrollArea>
+      </div>
+    </DialogContent>
+  </Dialog>
 </template>
