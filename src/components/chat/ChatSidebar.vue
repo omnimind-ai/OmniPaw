@@ -13,9 +13,10 @@ import {
   Trash2Icon,
   XIcon,
 } from 'lucide-vue-next'
-import { computed, ref, watch } from 'vue'
+import { type CSSProperties, computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-
+import type { ChatCompanionRoleOption } from '@/components/chat/chat-workspace-context'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -62,6 +63,18 @@ import { cn } from '@/lib/utils'
 
 type SessionKindFilter = 'chat' | 'cat' | 'cron' | 'vision'
 type SessionMode = Extract<SessionKindFilter, 'chat'>
+type SessionRoleSignatureKind = 'known' | 'captured' | 'unknown' | 'unassigned'
+
+interface SessionRoleSignature {
+  label: string
+  identity: string
+  kind: SessionRoleSignatureKind
+}
+
+interface SidebarSessionItem {
+  session: Session
+  role: SessionRoleSignature | null
+}
 
 const props = withDefaults(
   defineProps<{
@@ -69,12 +82,14 @@ const props = withDefaults(
     activeSessionId?: string
     sessionMode?: SessionMode
     sessionKindFilter?: SessionKindFilter
+    companionRoleOptions?: ChatCompanionRoleOption[]
     creating?: boolean
     runningSessionIds?: string[]
   }>(),
   {
     sessionMode: 'chat',
     sessionKindFilter: 'chat',
+    companionRoleOptions: () => [],
     runningSessionIds: () => [],
   }
 )
@@ -153,13 +168,24 @@ const activeSessionKindOption = computed(
 )
 const sessionListLabel = computed(() => activeSessionKindOption.value.title)
 const newChatLabel = computed(() => activeSessionModeOption.value.newLabel)
-const filteredSessions = computed(() => {
+const filteredSessionItems = computed<SidebarSessionItem[]>(() => {
+  const items = props.sessions.map((session) => ({
+    session,
+    role: sessionRoleSignature(session),
+  }))
   const query = normalizedSearchQuery.value
-  if (!query) return props.sessions
+  if (!query) return items
 
-  return props.sessions.filter((session) => {
+  return items.filter(({ session, role }) => {
     const title = sessionTitle(session).toLowerCase()
-    return title.includes(query) || session.id.toLowerCase().includes(query)
+    const roleLabel = role?.label.toLowerCase() ?? ''
+    const roleIdentity = role?.identity.toLowerCase() ?? ''
+    return (
+      title.includes(query) ||
+      roleLabel.includes(query) ||
+      roleIdentity.includes(query) ||
+      session.id.toLowerCase().includes(query)
+    )
   })
 })
 
@@ -223,6 +249,82 @@ function sessionRawTitle(session: Session) {
 
 function sessionTitle(session: Session) {
   return sessionRawTitle(session) || t('chat.sidebar.session.defaultTitle')
+}
+
+function sessionTooltip(session: Session, role: SessionRoleSignature | null) {
+  if (!role) return sessionTitle(session)
+  return t('chat.sidebar.sessionRole.tooltip', {
+    title: sessionTitle(session),
+    role: role.label,
+  })
+}
+
+function sessionRoleSignature(session: Session): SessionRoleSignature | null {
+  if (!shouldShowSessionRole(session)) return null
+
+  const roleInstruction = session.systemContext?.role
+  const roleRefId = roleInstruction?.refId?.trim()
+  const configuredRole = roleRefId
+    ? props.companionRoleOptions.find((role) => role.id === roleRefId)
+    : undefined
+  const configuredName = configuredRole?.name.trim()
+  if (configuredName && roleRefId) {
+    return {
+      label: configuredName,
+      identity: roleRefId,
+      kind: 'known',
+    }
+  }
+
+  const capturedLabel = roleInstruction?.label?.trim()
+  if (capturedLabel) {
+    return {
+      label: capturedLabel,
+      identity: roleRefId || capturedLabel,
+      kind: 'captured',
+    }
+  }
+
+  if (roleRefId) {
+    return {
+      label: t('chat.sidebar.sessionRole.unknown'),
+      identity: roleRefId,
+      kind: 'unknown',
+    }
+  }
+
+  return {
+    label: t('chat.sidebar.sessionRole.unassigned'),
+    identity: `${session.id}:unassigned`,
+    kind: 'unassigned',
+  }
+}
+
+function shouldShowSessionRole(session: Session) {
+  const kind = session.kind ?? 'chat'
+  return kind === 'chat' || kind === 'cat'
+}
+
+function sessionRoleBadgeStyle(role: SessionRoleSignature): CSSProperties {
+  const hue = stableHue(role.identity)
+  const soft = role.kind === 'unknown' || role.kind === 'unassigned'
+  const lightness = soft ? 0.68 : 0.74
+  const chroma = soft ? 0.04 : 0.13
+
+  return {
+    '--session-role-accent': `oklch(${lightness} ${chroma} ${hue})`,
+    backgroundColor: 'color-mix(in oklab, var(--session-role-accent) 12%, var(--sidebar-accent))',
+    borderColor: 'color-mix(in oklab, var(--session-role-accent) 34%, var(--sidebar-border))',
+    color: 'color-mix(in oklab, var(--session-role-accent) 50%, var(--sidebar-foreground))',
+  } as CSSProperties
+}
+
+function stableHue(input: string) {
+  let hash = 0
+  for (const char of input) {
+    hash = (hash * 31 + char.charCodeAt(0)) >>> 0
+  }
+  return hash % 360
 }
 
 function isSessionRunning(sessionId: string) {
@@ -369,25 +471,35 @@ function updateSessionKindFilter(value: unknown) {
 
           <SidebarMenu>
             <SidebarMenuItem
-              v-for="session in filteredSessions"
-              :key="session.id"
+              v-for="item in filteredSessionItems"
+              :key="item.session.id"
             >
               <SidebarMenuButton
-                :is-active="session.id === activeSessionId"
-                :tooltip="sessionTitle(session)"
-                :class="cn(isSessionRunning(session.id) && 'pr-12')"
-                @click="emit('selectSession', session.id)"
+                :is-active="item.session.id === activeSessionId"
+                :tooltip="sessionTooltip(item.session, item.role)"
+                :class="cn('min-w-0 gap-1.5', isSessionRunning(item.session.id) && 'pr-12')"
+                @click="emit('selectSession', item.session.id)"
               >
                 <span
-                  v-if="isSessionRunning(session.id)"
+                  v-if="isSessionRunning(item.session.id)"
                   class="size-1.5 shrink-0 rounded-full bg-primary"
                   aria-hidden="true"
                 />
-                <span>{{ sessionTitle(session) }}</span>
+                <span class="min-w-0 flex-1 truncate">{{ sessionTitle(item.session) }}</span>
+                <Badge
+                  v-if="item.role"
+                  variant="outline"
+                  class="ml-auto h-5 max-w-[5.75rem] rounded-md px-1.5 py-0 text-[11px] font-medium leading-none shadow-none transition-colors group-data-active/menu-button:bg-sidebar/80"
+                  :style="sessionRoleBadgeStyle(item.role)"
+                  :aria-label="t('chat.sidebar.sessionRole.ariaLabel', { role: item.role.label })"
+                >
+                  <SparklesIcon data-icon="inline-start" />
+                  <span class="min-w-0 truncate">{{ item.role.label }}</span>
+                </Badge>
               </SidebarMenuButton>
 
               <span
-                v-if="isSessionRunning(session.id)"
+                v-if="isSessionRunning(item.session.id)"
                 class="sr-only"
               >
                 {{ t('chat.sidebar.session.running') }}
@@ -397,7 +509,7 @@ function updateSessionKindFilter(value: unknown) {
                 <DropdownMenuTrigger as-child>
                   <SidebarMenuAction
                     show-on-hover
-                    :aria-label="t('chat.sidebar.session.actionAriaLabel', { title: sessionTitle(session) })"
+                    :aria-label="t('chat.sidebar.session.actionAriaLabel', { title: sessionTitle(item.session) })"
                     @click.stop
                   >
                     <MoreHorizontalIcon />
@@ -408,13 +520,13 @@ function updateSessionKindFilter(value: unknown) {
                   class="w-40"
                 >
                   <DropdownMenuGroup>
-                    <DropdownMenuItem @select="openRenameDialog(session)">
+                    <DropdownMenuItem @select="openRenameDialog(item.session)">
                       <PencilIcon />
                       {{ t('chat.sidebar.session.rename') }}
                     </DropdownMenuItem>
                     <DropdownMenuItem
                       variant="destructive"
-                      @select="openDeleteDialog(session)"
+                      @select="openDeleteDialog(item.session)"
                     >
                       <Trash2Icon />
                       {{ t('chat.sidebar.session.delete') }}

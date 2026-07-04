@@ -1437,6 +1437,12 @@ export default {
         rename: '重命名',
         delete: '删除',
       },
+      sessionRole: {
+        ariaLabel: '角色：{role}',
+        tooltip: '{title}，角色：{role}',
+        unassigned: '未指定角色',
+        unknown: '未知角色',
+      },
       empty: {
         noSessions: '暂无{kind}',
         noResults: '未找到会话',

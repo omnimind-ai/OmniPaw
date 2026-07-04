@@ -34,6 +34,7 @@ const {
   currSessionId: chatCurrSessionId,
   sessionMode: chatSessionMode,
   sessionKindFilter: chatSessionKindFilter,
+  companionRoleOptions: chatCompanionRoleOptions,
   creatingSession: chatCreatingSession,
   runningSessionIds: chatRunningSessionIds,
   sidebarOpen: chatSidebarOpen,
@@ -292,6 +293,7 @@ onBeforeUnmount(() => {
           :active-session-id="chatCurrSessionId"
           :session-mode="chatSessionMode"
           :session-kind-filter="chatSessionKindFilter"
+          :companion-role-options="chatCompanionRoleOptions"
           :creating="chatCreatingSession"
           :running-session-ids="chatRunningSessionIds"
           @new-chat="handleNewChat"

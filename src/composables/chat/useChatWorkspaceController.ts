@@ -867,6 +867,7 @@ export function useChatWorkspaceController() {
     currSessionId,
     sessionMode,
     sessionKindFilter,
+    companionRoleOptions,
     creatingSession,
     runningSessionIds: messages.runningSessionIds,
     sidebarOpen,

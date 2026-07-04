@@ -1511,6 +1511,12 @@ export default {
         rename: 'Rename',
         delete: 'Delete',
       },
+      sessionRole: {
+        ariaLabel: 'Character: {role}',
+        tooltip: '{title}, character: {role}',
+        unassigned: 'No character',
+        unknown: 'Unknown character',
+      },
       empty: {
         noSessions: 'No {kind}',
         noResults: 'No conversations found',
