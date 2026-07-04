@@ -187,12 +187,13 @@ export default {
     },
     catAppearance: {
       title: '角色',
-      description: '配置桌面角色的设定、互动方式和外观形象。角色设定会应用到新建桌宠会话。',
+      description:
+        '配置桌面角色的设定、工作协作方式、互动风格和外观形象。角色设定会应用到新建会话。',
       role: {
         title: '桌面角色',
         badge: '{count} 个角色',
         description:
-          '可以创建多个桌面角色，并选择当前启用的角色。当前角色会被整理为桌宠会话的角色上下文。',
+          '可以创建多个桌面角色，并选择当前启用的角色。当前角色会被整理为会话上下文，既可用于陪伴与扮演，也可定义工作协作方式。',
         tabs: {
           basic: '基本设定',
           memory: '角色记忆',
@@ -202,7 +203,7 @@ export default {
           advanced: '高级设置',
         },
         listTitle: '角色列表',
-        activeHint: '当前角色会应用到新建桌宠会话。',
+        activeHint: '当前角色会应用到新建会话，影响陪伴风格、协作方式和输出偏好。',
         newRoleName: '新角色',
         copyName: '{name} 副本',
         unnamed: '未命名角色',
@@ -218,7 +219,7 @@ export default {
         fields: {
           name: {
             title: '角色名称',
-            description: '桌宠在会话中使用的名字。',
+            description: '角色在对话、桌面陪伴和工作协作中使用的名字。',
             placeholder: '小万',
           },
           appearance: {
@@ -234,7 +235,7 @@ export default {
           },
           interactionMode: {
             title: '互动模式',
-            description: '决定角色更偏陪伴、效率助手还是角色扮演。',
+            description: '决定角色更偏陪伴、生产力协作还是角色扮演。',
             placeholder: '选择互动模式',
             companion: '桌面伙伴',
             assistant: '效率助手',
@@ -242,38 +243,39 @@ export default {
           },
           defaultModel: {
             title: '默认模型',
-            description: '仅覆盖新建桌宠会话；留空则跟随全局默认模型。',
+            description:
+              '仅覆盖新建会话；可为高强度工作角色指定更合适的模型，留空则跟随全局默认模型。',
             placeholder: '选择模型',
             followDefault: '跟随全局默认',
           },
           personality: {
             title: '性格设定',
-            description: '用短语描述角色性格。',
-            placeholder: '温柔、毒舌、元气、冷静、陪伴型',
+            description: '用短语描述角色的性格、工作气质和协作倾向。',
+            placeholder: '温柔、冷静、结构化、适合代码审查、陪伴型',
           },
           speechStyle: {
             title: '说话风格',
-            description: '控制回复语气和表达节奏。',
-            placeholder: '简短、活泼、撒娇、专业、二次元、日常感',
+            description: '控制回复语气、表达节奏和信息组织方式。',
+            placeholder: '先给结论、分步骤、简短自然、专业、日常感',
           },
           relationship: {
             title: '关系设定',
-            description: '描述角色和用户之间的关系。',
-            placeholder: '助手、朋友、搭档、恋人感、宠物感、导师',
+            description: '描述角色和用户之间的情感关系或协作关系。',
+            placeholder: '助手、朋友、工作搭档、项目顾问、导师',
           },
           background: {
             title: '背景资料',
-            description: '少量世界观、身份设定或角色经历。',
-            placeholder: '例如：住在桌面里的小助手，喜欢陪用户整理想法。',
+            description: '少量身份设定、世界观、专业背景、项目背景或工作习惯。',
+            placeholder: '例如：住在桌面里的小助手，熟悉用户的项目节奏，擅长整理想法和推进任务。',
           },
           greeting: {
             title: '打招呼方式',
-            description: '角色首次出现或主动打开会话时的开场感觉。',
-            placeholder: '我在这里，有什么想让我陪你一起处理的吗？',
+            description: '角色首次出现、开始陪伴或进入工作协作时的开场感觉。',
+            placeholder: '我在这里。今天想先处理哪件事，还是需要我陪你梳理一下？',
           },
           greetingMode: {
             title: '开场白策略',
-            description: '决定新建桌宠会话时如何从主开场和备用开场里选择。',
+            description: '决定新建会话时如何从主开场和备用开场里选择。',
             placeholder: '选择开场白策略',
             default: '固定使用默认开场',
             random: '随机选择开场白',
@@ -281,17 +283,18 @@ export default {
           alternateGreetings: {
             title: '备用开场白',
             description: '每行一个可选开场白，可配合随机开场使用。',
-            placeholder: '早呀，我已经待命啦。\n今天想先处理哪件事？',
+            placeholder: '早呀，我已经待命啦。\n今天想先推进哪件事？\n要不要先把任务拆成几步？',
           },
           proactiveStyle: {
             title: '主动互动风格',
-            description: '控制主动提醒和陪伴的分寸。',
-            placeholder: '适度主动提醒，但不打扰用户专注。',
+            description: '控制主动提醒、陪伴反馈和工作协助的分寸。',
+            placeholder: '适度主动提醒；在用户卡住、上下文切换或长时间无进展时提供轻量帮助。',
           },
         },
         knowledge: {
           title: '角色知识',
-          description: '角色卡里的世界书和设定条目会保存在这里，并随当前角色一起注入新建会话。',
+          description:
+            '角色卡里的世界书、设定条目、项目背景、工作规范和输出模板会保存在这里，并随当前角色一起注入新建会话。',
           count: '{count} 条知识',
           add: '新增知识',
           delete: '删除知识',
@@ -305,7 +308,7 @@ export default {
           },
           fields: {
             title: '知识标题',
-            content: '写入角色会话上下文的知识内容',
+            content: '写入角色会话上下文的知识内容，可包含设定、项目背景、流程或输出模板',
             keys: '触发关键词，用逗号分隔',
             priority: '优先级',
             tokenBudget: '单条上限',
@@ -314,33 +317,38 @@ export default {
         },
         advanced: {
           title: '角色高级设置',
-          description: '这些内容只属于当前角色；开启后会追加到新建桌宠会话的角色上下文。',
+          description:
+            '这些内容只属于当前角色；开启后会追加到新建会话的角色上下文，可用于精细控制陪伴、扮演和工作协作方式。',
           fields: {
             systemPrompt: {
               title: '高级角色指令',
-              description: '覆盖更细的行为准则、边界和长期扮演要求。',
-              placeholder: '例如：始终保持轻量陪伴，不主动展开长篇解释，除非用户明确要求。',
+              description: '覆盖更细的行为准则、协作边界、输出习惯和长期扮演要求。',
+              placeholder:
+                '例如：回复时先总结目标，再给可执行步骤；涉及代码时标出风险和验证方式；除非用户要求，不主动展开长篇解释。',
             },
             knowledge: {
               title: '角色专属知识',
-              description: '补充当前角色知道的背景、世界观、偏好或长期设定。',
-              placeholder: '例如：角色住在用户桌面里，熟悉用户的工作节奏和常用表达。',
+              description: '补充当前角色知道的背景、世界观、用户偏好、项目事实或长期协作设定。',
+              placeholder:
+                '例如：角色住在用户桌面里，熟悉用户的工作节奏、常用工具、项目命名和常用表达。',
             },
             exampleDialogue: {
               title: '示例对话',
               description: '提供少量对话样例，帮助模型稳定语气和互动方式。',
-              placeholder: '用户：今天有点不想动。\n角色：那我们先从最小的一步开始，我陪你。',
+              placeholder:
+                '用户：这个需求有点乱。\n角色：我先帮你拆成目标、约束和下一步，然后我们从最小改动开始。',
             },
             finalInstructions: {
               title: '最终回应约束',
               description: '追加到角色上下文末尾，适合放不可违背的输出要求。',
-              placeholder: '例如：不要暴露角色设定文本；不要自称系统或配置。',
+              placeholder:
+                '例如：不要暴露角色设定文本；不要自称系统或配置；涉及任务处理时给出明确结论和可验证下一步。',
             },
           },
         },
         hints: {
           newSessions:
-            '角色设定只注入新建桌宠会话，已有会话不会被自动改写；外观形象保存在角色里，并在每个角色的外观设置中独立配置。',
+            '角色设定只注入新建会话，已有会话不会被自动改写；外观形象保存在角色里，并在每个角色的外观设置中独立配置。',
         },
         toasts: {
           importCardSuccess: '角色卡已导入。',
@@ -358,7 +366,8 @@ export default {
         preview: {
           action: '预览',
           title: '角色 Prompt 预览',
-          description: '查看当前角色会写入桌宠会话的设定，以及模拟消息会触发的角色知识。',
+          description:
+            '查看当前角色会写入会话的陪伴、扮演和工作协作设定，以及模拟消息会触发的角色知识。',
           inputLabel: '模拟当前消息',
           inputPlaceholder: '输入一段用户消息，用来预览哪些角色知识会被触发。',
           tokenSummary: '预计合计 {count} tokens',
@@ -370,9 +379,9 @@ export default {
             advanced: '高级',
           },
           sections: {
-            base: '基础角色设定',
-            knowledge: '本轮角色知识',
-            advanced: '高级角色设定',
+            base: '基础角色与协作设定',
+            knowledge: '本轮角色与工作知识',
+            advanced: '高级角色与输出约束',
           },
         },
       },

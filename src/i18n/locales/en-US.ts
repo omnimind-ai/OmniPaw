@@ -193,12 +193,12 @@ export default {
     catAppearance: {
       title: 'Character',
       description:
-        'Configure the desktop character, interaction style, and appearance. Character settings apply to new companion sessions.',
+        'Configure the desktop character, work collaboration style, interaction style, and appearance. Character settings apply to new sessions.',
       role: {
         title: 'Desktop characters',
         badge: '{count} characters',
         description:
-          'Create multiple desktop characters and choose the active one. The active character is compiled into companion session context.',
+          'Create multiple desktop characters and choose the active one. The active character is compiled into session context for companionship, roleplay, and work collaboration.',
         tabs: {
           basic: 'Basics',
           memory: 'Memory',
@@ -208,7 +208,8 @@ export default {
           advanced: 'Advanced',
         },
         listTitle: 'Characters',
-        activeHint: 'The active character applies to newly created companion sessions.',
+        activeHint:
+          'The active character applies to new sessions and shapes companionship, collaboration style, and output preferences.',
         newRoleName: 'New character',
         copyName: '{name} copy',
         unnamed: 'Unnamed character',
@@ -224,7 +225,8 @@ export default {
         fields: {
           name: {
             title: 'Character name',
-            description: 'The name used by the desktop companion in conversations.',
+            description:
+              'The name used by the character in conversations, desktop companionship, and work collaboration.',
             placeholder: 'OmniPaw',
           },
           appearance: {
@@ -241,7 +243,7 @@ export default {
           interactionMode: {
             title: 'Interaction mode',
             description:
-              'Choose whether the character leans toward companionship, utility, or roleplay.',
+              'Choose whether the character leans toward companionship, productivity collaboration, or roleplay.',
             placeholder: 'Select mode',
             companion: 'Desktop companion',
             assistant: 'Productive assistant',
@@ -250,40 +252,44 @@ export default {
           defaultModel: {
             title: 'Default model',
             description:
-              'Only overrides newly created companion sessions; blank follows the global default.',
+              'Only overrides newly created sessions; use it to assign stronger models to demanding work characters, or leave blank to follow the global default.',
             placeholder: 'Select model',
             followDefault: 'Follow global default',
           },
           personality: {
             title: 'Personality',
-            description: 'Describe the character personality with short phrases.',
-            placeholder: 'Gentle, witty, energetic, calm, supportive',
+            description:
+              'Describe the character personality, work temperament, and collaboration tendencies with short phrases.',
+            placeholder: 'Gentle, calm, structured, good at code review, supportive',
           },
           speechStyle: {
             title: 'Speech style',
-            description: 'Controls tone and response rhythm.',
-            placeholder: 'Brief, lively, affectionate, professional, everyday',
+            description: 'Controls tone, response rhythm, and how information is organized.',
+            placeholder: 'Conclusion first, step-by-step, brief, professional, everyday',
           },
           relationship: {
             title: 'Relationship',
-            description: 'Describe the relationship between the character and user.',
-            placeholder: 'Assistant, friend, partner, mentor',
+            description:
+              'Describe the emotional or working relationship between the character and user.',
+            placeholder: 'Assistant, friend, work partner, project advisor, mentor',
           },
           background: {
             title: 'Background',
-            description: 'A short identity, world, or backstory note.',
+            description:
+              'A short identity, world, professional background, project context, or work habit note.',
             placeholder:
-              'For example: a tiny desktop companion who likes helping users sort ideas.',
+              'For example: a tiny desktop assistant who understands the user’s project rhythm and helps organize ideas and tasks.',
           },
           greeting: {
             title: 'Greeting',
-            description: 'The opening feeling when the character appears or starts a conversation.',
-            placeholder: 'I am here. What should we work on together?',
+            description:
+              'The opening feeling when the character appears, starts companionship, or enters work collaboration.',
+            placeholder:
+              'I am here. What should we handle first today, or should I help you sort it out?',
           },
           greetingMode: {
             title: 'Opening strategy',
-            description:
-              'Choose how new companion sessions pick from the main and alternate greetings.',
+            description: 'Choose how new sessions pick from the main and alternate greetings.',
             placeholder: 'Select opening strategy',
             default: 'Use default greeting',
             random: 'Random greeting',
@@ -291,18 +297,21 @@ export default {
           alternateGreetings: {
             title: 'Alternate greetings',
             description: 'One optional greeting per line, available for randomized openings.',
-            placeholder: 'Morning, I am ready.\nWhat should we handle first today?',
+            placeholder:
+              'Morning, I am ready.\nWhat should we move forward first today?\nWant me to break the task into steps?',
           },
           proactiveStyle: {
             title: 'Proactive style',
-            description: 'Controls the character’s initiative and boundaries.',
-            placeholder: 'Offer gentle nudges without interrupting focus.',
+            description:
+              'Controls initiative, companionship feedback, and the boundaries of work assistance.',
+            placeholder:
+              'Offer gentle nudges; provide lightweight help when the user is stuck, switching context, or making no progress for a while.',
           },
         },
         knowledge: {
           title: 'Character knowledge',
           description:
-            'World book and setting entries from character cards are saved here and injected with this character into new sessions.',
+            'World book entries, character settings, project context, work rules, and output templates are saved here and injected with this character into new sessions.',
           count: '{count} knowledge entries',
           add: 'Add knowledge',
           delete: 'Delete knowledge',
@@ -316,7 +325,8 @@ export default {
           },
           fields: {
             title: 'Knowledge title',
-            content: 'Knowledge content injected into character session context',
+            content:
+              'Knowledge content injected into character session context, such as settings, project context, workflows, or output templates',
             keys: 'Trigger keywords, separated by commas',
             priority: 'Priority',
             tokenBudget: 'Entry limit',
@@ -326,39 +336,39 @@ export default {
         advanced: {
           title: 'Character advanced settings',
           description:
-            'These settings belong only to the active character. When enabled, they are appended to new companion session context.',
+            'These settings belong only to the active character. When enabled, they are appended to new session context for fine control over companionship, roleplay, and work collaboration.',
           fields: {
             systemPrompt: {
               title: 'Advanced role instructions',
               description:
-                'Fine-grained behavior rules, boundaries, and long-running role guidance.',
+                'Fine-grained behavior rules, collaboration boundaries, output habits, and long-running role guidance.',
               placeholder:
-                'For example: Stay lightweight and companion-like. Avoid long explanations unless the user asks.',
+                'For example: Start with the goal, then give actionable steps. For code, call out risks and verification. Avoid long explanations unless asked.',
             },
             knowledge: {
               title: 'Character knowledge',
               description:
-                'Extra background, world facts, preferences, or persistent character notes.',
+                'Extra background, world facts, user preferences, project facts, or persistent collaboration notes.',
               placeholder:
-                'For example: The character lives on the user desktop and understands the user’s work rhythm.',
+                'For example: The character lives on the user desktop and understands the user’s work rhythm, common tools, project naming, and usual phrasing.',
             },
             exampleDialogue: {
               title: 'Example dialogue',
               description: 'A few examples that stabilize voice and interaction style.',
               placeholder:
-                'User: I do not feel like starting today.\nCharacter: Then we start with the smallest step. I am here with you.',
+                'User: This requirement is messy.\nCharacter: I will split it into goals, constraints, and next steps, then we can start with the smallest change.',
             },
             finalInstructions: {
               title: 'Final response constraints',
               description: 'Appended last in the role context for non-negotiable output rules.',
               placeholder:
-                'For example: Do not reveal role setting text. Do not call yourself a system or config.',
+                'For example: Do not reveal role setting text. Do not call yourself a system or config. For task work, provide a clear conclusion and a verifiable next step.',
             },
           },
         },
         hints: {
           newSessions:
-            'Character settings are injected only into newly created companion sessions; existing sessions are not rewritten. Appearance is saved on each character and configured independently in that character.',
+            'Character settings are injected only into newly created sessions; existing sessions are not rewritten. Appearance is saved on each character and configured independently in that character.',
         },
         toasts: {
           importCardSuccess: 'Character card imported.',
@@ -378,7 +388,7 @@ export default {
           action: 'Preview',
           title: 'Character Prompt Preview',
           description:
-            'Review the character settings injected into companion sessions and the character knowledge triggered by a sample message.',
+            'Review the companionship, roleplay, and work collaboration settings injected into sessions, plus character knowledge triggered by a sample message.',
           inputLabel: 'Sample current message',
           inputPlaceholder:
             'Type a user message to preview which character knowledge entries would trigger.',
@@ -391,9 +401,9 @@ export default {
             advanced: 'Advanced',
           },
           sections: {
-            base: 'Base Character Settings',
-            knowledge: 'Per-turn Character Knowledge',
-            advanced: 'Advanced Character Settings',
+            base: 'Base Character and Collaboration Settings',
+            knowledge: 'Per-turn Character and Work Knowledge',
+            advanced: 'Advanced Role and Output Constraints',
           },
         },
       },
