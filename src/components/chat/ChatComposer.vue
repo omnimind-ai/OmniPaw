@@ -2,7 +2,7 @@
 import type { ToolProfile } from '@shared/types/chat'
 import {
   ArrowUpIcon,
-  DramaIcon,
+  CpuIcon,
   PlusIcon,
   ReplyIcon,
   ShieldCheckIcon,
@@ -505,7 +505,7 @@ function handleDrop(event: DragEvent) {
                       :disabled="companionRoleSaving"
                       :aria-label="t('chat.composer.switchCharacterAria', { character: selectedCompanionRoleLabel })"
                     >
-                      <DramaIcon data-icon="inline-start" />
+                      <SparklesIcon data-icon="inline-start" />
                       <span class="hidden truncate @min-[30rem]/chat-composer:inline">
                         {{ selectedCompanionRoleLabel }}
                       </span>
@@ -543,7 +543,7 @@ function handleDrop(event: DragEvent) {
                       :disabled="!modelOptions.length"
                       :aria-label="t('chat.composer.switchModelAria', { model: selectedModelLabel })"
                     >
-                      <SparklesIcon data-icon="inline-start" />
+                      <CpuIcon data-icon="inline-start" />
                       <span class="hidden truncate @min-[30rem]/chat-composer:inline @min-[44rem]/chat-composer:hidden">
                         {{ selectedModelCompactLabel }}
                       </span>

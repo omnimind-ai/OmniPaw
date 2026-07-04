@@ -6,7 +6,13 @@ import type {
   CompanionRoleSourceMetadata,
   ImportedCompanionRoleDraft,
 } from '@shared/types/companion-role'
-import { ArrowLeftIcon, ChevronDownIcon, DramaIcon, FileJsonIcon, PlusIcon } from 'lucide-vue-next'
+import {
+  ArrowLeftIcon,
+  ChevronDownIcon,
+  FileJsonIcon,
+  PlusIcon,
+  SparklesIcon,
+} from 'lucide-vue-next'
 import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
@@ -432,7 +438,7 @@ function defaultRoleName(): string {
                       :tooltip="item.name || t('settings.catAppearance.role.unnamed')"
                       @click="selectRole(item)"
                     >
-                      <DramaIcon />
+                      <SparklesIcon />
                       <span>
                         {{ item.name || t('settings.catAppearance.role.unnamed') }}
                       </span>
