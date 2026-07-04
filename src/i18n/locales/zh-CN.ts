@@ -49,6 +49,10 @@ export default {
         light: '亮色',
         dark: '深色',
       },
+      welcomeTitle: {
+        title: '首页欢迎语',
+        description: '自定义空对话首页的主标题；留空时使用默认欢迎语。',
+      },
       zoom: {
         title: '缩放比例',
         description: '当前范围 {min} - {max}。',

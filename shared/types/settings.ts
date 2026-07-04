@@ -88,6 +88,7 @@ export interface DesktopBaseSettings {
   theme: AppTheme
   initialized: boolean
   minimizeToTrayOnStartup: boolean
+  welcomeTitle: string
   showReasoningContent: boolean
   zoom: {
     factor: number

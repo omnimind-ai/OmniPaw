@@ -31,6 +31,10 @@ export const useSettingsStore = defineStore('settings', () => {
     get: () => draft.value?.app.showReasoningContent ?? true,
     set: (value) => updateAppSetting('showReasoningContent', value),
   })
+  const welcomeTitle = computed({
+    get: () => draft.value?.app.welcomeTitle ?? '',
+    set: (value) => updateAppSetting('welcomeTitle', value),
+  })
   const maxRecentMessages = computed({
     get: () => draft.value?.app.maxRecentMessages ?? 20,
     set: (value) => updateAppSetting('maxRecentMessages', value),
@@ -219,6 +223,7 @@ export const useSettingsStore = defineStore('settings', () => {
     persistenceAvailable,
     compactSkillDescriptions,
     showReasoningContent,
+    welcomeTitle,
     maxRecentMessages,
     agentToolProfile,
     load,

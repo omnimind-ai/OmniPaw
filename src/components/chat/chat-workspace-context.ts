@@ -15,6 +15,7 @@ export interface ChatCompanionRoleOption {
 export interface ChatWorkspaceContext {
   currSessionId: Ref<string>
   showWelcome: ComputedRef<boolean>
+  welcomeTitle: ComputedRef<string>
   activeMessages: ComputedRef<ChatRecord[]>
   showMessageList: ComputedRef<boolean>
   showMessageSkeleton: Ref<boolean>

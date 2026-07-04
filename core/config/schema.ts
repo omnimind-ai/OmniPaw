@@ -97,6 +97,7 @@ export const defaultConfig: DesktopSettingsConfig = {
     theme: 'system',
     initialized: false,
     minimizeToTrayOnStartup: false,
+    welcomeTitle: '',
     showReasoningContent: true,
     zoom: {
       factor: 1,
@@ -466,6 +467,10 @@ function normalizeObject(defaultValue: unknown, rawValue: unknown, path: string)
       : defaultConfig.app.activeCompanionRoleId
   }
 
+  if (path === 'app.welcomeTitle') {
+    return typeof rawValue === 'string' ? rawValue : defaultConfig.app.welcomeTitle
+  }
+
   if (path === 'app.companionRole') {
     return normalizeCompanionRoleSettings(rawValue)
   }
@@ -661,6 +666,13 @@ function validateApp(config: DesktopSettingsConfig, issues: SettingsValidationIs
     issues.push({
       path: 'app.initialized',
       message: 'Value must be boolean.',
+      code: 'invalid_type',
+    })
+  }
+  if (typeof config.app.welcomeTitle !== 'string') {
+    issues.push({
+      path: 'app.welcomeTitle',
+      message: 'Welcome title must be a string.',
       code: 'invalid_type',
     })
   }

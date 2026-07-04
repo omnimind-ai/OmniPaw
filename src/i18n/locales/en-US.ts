@@ -49,6 +49,10 @@ export default {
         light: 'Light',
         dark: 'Dark',
       },
+      welcomeTitle: {
+        title: 'Home welcome title',
+        description: 'Customize the main title on the empty chat home. Leave blank to use default.',
+      },
       zoom: {
         title: 'Zoom',
         description: 'Current range: {min} - {max}.',

@@ -106,6 +106,9 @@ export function useChatWorkspaceController() {
   )
   const activeSession = computed(() => getCurrentSession.value)
   const settingsConfig = computed(() => settingsStore.draft ?? settingsStore.config)
+  const welcomeTitle = computed(
+    () => settingsConfig.value?.app.welcomeTitle?.trim() || t('chat.welcome.title')
+  )
   const companionRoleOptions = computed<ChatCompanionRoleOption[]>(() =>
     (settingsConfig.value?.app.companionRoles ?? []).map((role) => ({
       id: role.id,
@@ -217,6 +220,7 @@ export function useChatWorkspaceController() {
   const workspaceContext: ChatWorkspaceContext = {
     currSessionId,
     showWelcome,
+    welcomeTitle,
     activeMessages: messages.activeMessages,
     showMessageList,
     showMessageSkeleton,

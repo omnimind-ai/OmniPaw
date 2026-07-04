@@ -46,6 +46,13 @@ const theme = computed({
   },
 })
 
+const welcomeTitle = computed({
+  get: () => props.draft.app.welcomeTitle,
+  set: (value: string) => {
+    props.draft.app.welcomeTitle = value
+  },
+})
+
 const minimizeToTrayOnStartup = computed({
   get: () => props.draft.app.minimizeToTrayOnStartup,
   set: (value: boolean) => {
@@ -223,6 +230,19 @@ function clearBackgroundImage(): void {
               </SelectGroup>
             </SelectContent>
           </Select>
+        </SettingEntry>
+
+        <SettingEntry
+          control-id="settings-welcome-title"
+          :title="t('settings.general.welcomeTitle.title')"
+          :description="t('settings.general.welcomeTitle.description')"
+        >
+          <Input
+            id="settings-welcome-title"
+            v-model="welcomeTitle"
+            class="w-full md:w-80"
+            :placeholder="t('chat.welcome.title')"
+          />
         </SettingEntry>
 
         <SettingEntry
