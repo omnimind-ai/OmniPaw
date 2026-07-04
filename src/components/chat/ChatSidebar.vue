@@ -308,14 +308,11 @@ function shouldShowSessionRole(session: Session) {
 function sessionRoleBadgeStyle(role: SessionRoleSignature): CSSProperties {
   const hue = stableHue(role.identity)
   const soft = role.kind === 'unknown' || role.kind === 'unassigned'
-  const lightness = soft ? 0.68 : 0.74
-  const chroma = soft ? 0.04 : 0.13
+  const lightness = soft ? 0.66 : 0.72
+  const chroma = soft ? 0.035 : 0.14
 
   return {
     '--session-role-accent': `oklch(${lightness} ${chroma} ${hue})`,
-    backgroundColor: 'color-mix(in oklab, var(--session-role-accent) 12%, var(--sidebar-accent))',
-    borderColor: 'color-mix(in oklab, var(--session-role-accent) 34%, var(--sidebar-border))',
-    color: 'color-mix(in oklab, var(--session-role-accent) 50%, var(--sidebar-foreground))',
   } as CSSProperties
 }
 
@@ -488,12 +485,15 @@ function updateSessionKindFilter(value: unknown) {
                 <span class="min-w-0 flex-1 truncate">{{ sessionTitle(item.session) }}</span>
                 <Badge
                   v-if="item.role"
-                  variant="outline"
-                  class="ml-auto h-5 max-w-[5.75rem] rounded-md px-1.5 py-0 text-[11px] font-medium leading-none shadow-none transition-colors group-data-active/menu-button:bg-sidebar/80"
+                  variant="ghost"
+                  class="ml-auto h-5 max-w-[5.5rem] border-0 bg-transparent px-0 py-0 text-[11px] font-normal leading-none text-sidebar-foreground/50 opacity-75 shadow-none transition-[color,opacity] group-hover/menu-item:text-sidebar-foreground/70 group-hover/menu-item:opacity-100 group-data-active/menu-button:text-sidebar-accent-foreground/75 group-data-active/menu-button:opacity-100"
                   :style="sessionRoleBadgeStyle(item.role)"
                   :aria-label="t('chat.sidebar.sessionRole.ariaLabel', { role: item.role.label })"
                 >
-                  <SparklesIcon data-icon="inline-start" />
+                  <SparklesIcon
+                    class="text-[color:var(--session-role-accent)] opacity-90"
+                    data-icon="inline-start"
+                  />
                   <span class="min-w-0 truncate">{{ item.role.label }}</span>
                 </Badge>
               </SidebarMenuButton>
