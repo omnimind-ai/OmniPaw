@@ -433,6 +433,7 @@ function updateSessionKindFilter(value: unknown) {
                 <Button
                   variant="outline"
                   size="icon-sm"
+                  class="border-border/70 bg-transparent text-foreground shadow-none backdrop-blur-sm hover:bg-background/35 hover:text-foreground aria-expanded:bg-background/45 aria-expanded:text-foreground data-[state=open]:bg-background/45 data-[state=open]:text-foreground"
                   :aria-label="t('chat.sidebar.search.filterAriaLabel', { kind: activeSessionKindOption.title })"
                 >
                   <component

@@ -69,7 +69,7 @@ const {
   >
     <h1
       v-if="props.welcome && showWelcome"
-      class="text-center text-3xl font-semibold tracking-normal md:text-4xl"
+      class="text-center text-3xl font-semibold tracking-normal text-foreground/85 md:text-4xl"
     >
       {{ welcomeTitle }}
     </h1>

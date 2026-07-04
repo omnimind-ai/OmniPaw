@@ -1554,7 +1554,7 @@ export default {
       },
     },
     welcome: {
-      title: '👋 Welcome to OmniPaw',
+      title: 'Welcome back. Where should we start today?',
     },
     noModel: {
       message: 'No models configured',

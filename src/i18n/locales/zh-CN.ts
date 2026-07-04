@@ -1478,7 +1478,7 @@ export default {
       },
     },
     welcome: {
-      title: '👋 欢迎使用 OmniPaw',
+      title: '欢迎回来，今天从哪里开始？',
     },
     noModel: {
       message: '未配置可用模型',
