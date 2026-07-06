@@ -364,6 +364,7 @@ function defaultRoleName(): string {
     :default-open="true"
   >
     <Sidebar
+      data-sidebar="sidebar"
       collapsible="none"
       class="border-r bg-sidebar/95"
     >

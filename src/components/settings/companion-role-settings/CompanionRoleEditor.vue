@@ -571,7 +571,10 @@ function createRoleKnowledgeId(index: number): string {
 </script>
 
 <template>
-  <div class="grid h-full min-h-0 flex-1 grid-rows-[auto_minmax(0,1fr)] overflow-hidden rounded-lg border bg-card shadow-sm">
+  <div
+    data-slot="card"
+    class="grid h-full min-h-0 flex-1 grid-rows-[auto_minmax(0,1fr)] overflow-hidden rounded-lg border bg-card shadow-sm"
+  >
     <div class="flex flex-wrap items-center justify-between gap-3 border-b px-4 py-4 sm:px-5">
       <div class="min-w-0">
         <h1 class="truncate text-xl font-semibold">
