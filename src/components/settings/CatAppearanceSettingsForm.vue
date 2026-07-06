@@ -8,8 +8,8 @@ import type {
 } from '@shared/types/companion-role'
 import {
   ArrowLeftIcon,
-  ChevronDownIcon,
   FileJsonIcon,
+  MoreHorizontalIcon,
   PlusIcon,
   SparklesIcon,
 } from 'lucide-vue-next'
@@ -26,7 +26,13 @@ import CompanionRoleEditor from '@/components/settings/companion-role-settings/C
 import RoleCardImportDialog from '@/components/settings/companion-role-settings/RoleCardImportDialog.vue'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Collapsible, CollapsibleContent } from '@/components/ui/collapsible'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import {
   Sidebar,
   SidebarContent,
@@ -39,7 +45,6 @@ import {
   SidebarMenuItem,
   SidebarProvider,
   SidebarSeparator,
-  SidebarTrigger,
 } from '@/components/ui/sidebar'
 import { errorToText, useToast } from '@/utils/toast'
 
@@ -53,7 +58,6 @@ const { t } = useI18n()
 const router = useRouter()
 const toast = useToast()
 
-const rolesOpen = ref(true)
 const roleCardInput = ref<HTMLInputElement>()
 const roleCardImportDialogOpen = ref(false)
 const roleCardJsonContent = ref('')
@@ -72,14 +76,12 @@ const canImportRoleCardJson = computed(
 
 function selectRole(target: CompanionRole): void {
   props.draft.app.activeCompanionRoleId = target.id
-  rolesOpen.value = true
 }
 
 function createRole(): void {
   const nextRole = createCompanionRole()
   roles.value.push(nextRole)
   props.draft.app.activeCompanionRoleId = nextRole.id
-  rolesOpen.value = true
 }
 
 function duplicateActiveRole(): void {
@@ -256,7 +258,6 @@ function applyImportedRoleCard(
   const nextRole = createRoleFromImportedDraft(result.role, result.source)
   roles.value.push(nextRole)
   props.draft.app.activeCompanionRoleId = nextRole.id
-  rolesOpen.value = true
   roleCardImportDialogOpen.value = false
   toast.success(t('settings.catAppearance.role.toasts.importCardSuccess'), {
     description: t('settings.catAppearance.role.toasts.importCardSummary', {
@@ -346,14 +347,16 @@ function defaultRoleName(): string {
 </script>
 
 <template>
-  <SidebarProvider class="h-full min-h-0 w-full">
+  <SidebarProvider
+    class="h-full min-h-0 w-full bg-muted/40"
+    :default-open="true"
+  >
     <Sidebar
-      collapsible="offcanvas"
-      class="border-r"
+      collapsible="none"
+      class="border-r bg-sidebar/95"
     >
       <SidebarHeader>
         <div class="flex items-center gap-2">
-          <SidebarTrigger class="md:hidden" />
           <Button
             variant="ghost"
             size="icon-sm"
@@ -376,78 +379,72 @@ function defaultRoleName(): string {
       <SidebarSeparator />
 
       <SidebarContent>
-        <Collapsible v-model:open="rolesOpen">
-          <SidebarGroup>
-            <div class="flex items-center justify-between gap-2 px-2">
-              <button
-                type="button"
-                class="flex min-w-0 flex-1 items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm font-medium text-sidebar-foreground outline-none hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2"
-                @click="rolesOpen = !rolesOpen"
+        <SidebarGroup>
+          <div class="flex items-center justify-between gap-2 px-2">
+            <div class="flex min-w-0 flex-1 items-center gap-2 px-2 py-1.5 text-sm font-medium text-sidebar-foreground">
+              <span class="truncate">{{ t('settings.catAppearance.role.listTitle') }}</span>
+              <Badge
+                variant="outline"
+                class="ml-auto"
               >
-                <ChevronDownIcon
-                  class="transition-transform"
-                  :class="rolesOpen ? '' : '-rotate-90'"
-                />
-                <span class="truncate">{{ t('settings.catAppearance.role.listTitle') }}</span>
-                <Badge
-                  variant="outline"
-                  class="ml-auto"
-                >
-                  {{ roles.length }}
-                </Badge>
-              </button>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-sm"
-                :disabled="importRoleCardDisabled"
-                :aria-label="t('settings.catAppearance.role.actions.importCard')"
-                @click="openRoleCardImport"
-              >
-                <FileJsonIcon />
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-sm"
-                :aria-label="t('settings.catAppearance.role.actions.add')"
-                @click="createRole"
-              >
-                <PlusIcon />
-              </Button>
+                {{ roles.length }}
+              </Badge>
             </div>
-
-            <CollapsibleContent>
-              <SidebarGroupContent>
-                <SidebarMenu>
-                  <SidebarMenuItem
-                    v-for="item in roles"
-                    :key="item.id"
+            <DropdownMenu>
+              <DropdownMenuTrigger as-child>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  :aria-label="t('settings.catAppearance.role.actions.more')"
+                >
+                  <MoreHorizontalIcon />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuGroup>
+                  <DropdownMenuItem @select="createRole">
+                    <PlusIcon data-icon="inline-start" />
+                    {{ t('settings.catAppearance.role.actions.add') }}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    :disabled="importRoleCardDisabled"
+                    @select="openRoleCardImport"
                   >
-                    <SidebarMenuButton
-                      size="lg"
-                      :is-active="item.id === activeRoleId"
-                      :tooltip="item.name || t('settings.catAppearance.role.unnamed')"
-                      @click="selectRole(item)"
-                    >
-                      <SparklesIcon />
-                      <span>
-                        {{ item.name || t('settings.catAppearance.role.unnamed') }}
-                      </span>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                </SidebarMenu>
-              </SidebarGroupContent>
-            </CollapsibleContent>
-          </SidebarGroup>
-        </Collapsible>
+                    <FileJsonIcon data-icon="inline-start" />
+                    {{ t('settings.catAppearance.role.actions.importCard') }}
+                  </DropdownMenuItem>
+                </DropdownMenuGroup>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+
+          <SidebarGroupContent>
+            <SidebarMenu>
+              <SidebarMenuItem
+                v-for="item in roles"
+                :key="item.id"
+              >
+                <SidebarMenuButton
+                  size="lg"
+                  :is-active="item.id === activeRoleId"
+                  :tooltip="item.name || t('settings.catAppearance.role.unnamed')"
+                  @click="selectRole(item)"
+                >
+                  <SparklesIcon />
+                  <span>
+                    {{ item.name || t('settings.catAppearance.role.unnamed') }}
+                  </span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            </SidebarMenu>
+          </SidebarGroupContent>
+        </SidebarGroup>
       </SidebarContent>
     </Sidebar>
 
     <SidebarInset class="h-full overflow-hidden">
-      <main class="relative flex h-full min-h-0 flex-1 flex-col bg-muted/40">
-        <SidebarTrigger class="absolute left-3 top-3 md:hidden" />
-
+      <main class="relative flex h-full min-h-0 flex-1 flex-col bg-transparent">
         <div class="mx-auto flex h-full min-h-0 w-full max-w-6xl flex-1 flex-col overflow-hidden px-4 py-4 md:px-6 md:py-6">
           <CompanionRoleEditor
             v-if="activeRole"

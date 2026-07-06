@@ -212,6 +212,7 @@ export default {
         disabled: '停用',
         actions: {
           add: '新建角色',
+          more: '角色操作',
           importCard: '导入角色卡',
           duplicate: '复制',
           delete: '删除',

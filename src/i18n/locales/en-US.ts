@@ -218,6 +218,7 @@ export default {
         disabled: 'Disabled',
         actions: {
           add: 'New Character',
+          more: 'Character actions',
           importCard: 'Import Character Card',
           duplicate: 'Duplicate',
           delete: 'Delete',

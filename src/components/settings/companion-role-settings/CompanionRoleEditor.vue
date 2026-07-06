@@ -571,7 +571,7 @@ function createRoleKnowledgeId(index: number): string {
 </script>
 
 <template>
-  <div class="grid h-full min-h-0 flex-1 grid-rows-[auto_minmax(0,1fr)] overflow-hidden rounded-md border bg-card">
+  <div class="grid h-full min-h-0 flex-1 grid-rows-[auto_minmax(0,1fr)] overflow-hidden rounded-lg border bg-card shadow-sm">
     <div class="flex flex-wrap items-center justify-between gap-3 border-b px-4 py-4 sm:px-5">
       <div class="min-w-0">
         <h1 class="truncate text-xl font-semibold">
@@ -613,8 +613,8 @@ function createRoleKnowledgeId(index: number): string {
       v-model="activeTab"
       class="grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)] gap-0"
     >
-      <div class="border-b px-4 py-3 sm:px-5">
-        <TabsList class="w-full max-w-3xl">
+      <div class="flex justify-center border-b px-4 py-3 sm:px-5">
+        <TabsList class="w-full max-w-4xl">
           <TabsTrigger value="basic">
             {{ t('settings.catAppearance.role.tabs.basic') }}
           </TabsTrigger>
