@@ -241,7 +241,6 @@ export interface BridgeDesktopSettingsConfig {
       greetingMode: 'default' | 'random'
       alternateGreetings: string[]
       proactiveStyle: string
-      interactionMode: 'companion' | 'assistant' | 'roleplay'
       advanced: {
         enabled: boolean
         systemPrompt: string
@@ -2066,7 +2065,6 @@ function fallbackSettingsConfig(): BridgeDesktopSettingsConfig {
           greetingMode: 'default',
           alternateGreetings: [],
           proactiveStyle: '适度主动提醒，但不打扰用户专注。',
-          interactionMode: 'companion',
           advanced: {
             enabled: false,
             systemPrompt: '',

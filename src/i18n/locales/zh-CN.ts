@@ -199,7 +199,6 @@ export default {
           memory: '角色记忆',
           knowledge: '角色知识',
           appearance: '外观形象',
-          behavior: '互动行为',
           advanced: '高级设置',
         },
         sections: {
@@ -224,8 +223,8 @@ export default {
             description: '选择这个角色在桌面悬浮窗中使用的外观包。',
           },
           behavior: {
-            title: '互动行为',
-            description: '调整角色的互动倾向、默认模型和主动协助分寸。',
+            title: '协作设置',
+            description: '设置角色的新会话默认模型和主动协助分寸。',
           },
           advanced: {
             title: '高级设置',
@@ -266,14 +265,6 @@ export default {
             title: '用户称呼',
             description: '角色如何称呼你；留空时由模型自然判断。',
             placeholder: '主人、搭档、你的名字',
-          },
-          interactionMode: {
-            title: '互动模式',
-            description: '决定角色更偏陪伴、生产力协作还是角色扮演。',
-            placeholder: '选择互动模式',
-            companion: '桌面伙伴',
-            assistant: '效率助手',
-            roleplay: '角色扮演',
           },
           defaultModel: {
             title: '默认模型',

@@ -44,7 +44,6 @@ export interface DesktopAppBackgroundSettings {
   image?: DesktopAppBackgroundImage
 }
 
-export type CompanionRoleInteractionMode = 'companion' | 'assistant' | 'roleplay'
 export type CompanionRoleGreetingMode = 'default' | 'random'
 
 export interface DesktopCompanionRoleKnowledgeSettings {
@@ -74,7 +73,6 @@ export interface DesktopCompanionRoleSettings {
   greetingMode: CompanionRoleGreetingMode
   alternateGreetings: string[]
   proactiveStyle: string
-  interactionMode: CompanionRoleInteractionMode
   advanced: DesktopCompanionRoleAdvancedSettings
   knowledgeSettings: DesktopCompanionRoleKnowledgeSettings
   knowledgeEntries: CompanionRoleKnowledgeEntry[]

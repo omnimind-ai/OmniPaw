@@ -72,7 +72,6 @@ const defaultCompanionRole: DesktopCompanionRoleSettings = {
   greetingMode: 'default',
   alternateGreetings: [],
   proactiveStyle: '适度主动提醒，但不打扰用户专注。',
-  interactionMode: 'companion',
   advanced: {
     enabled: false,
     systemPrompt: '',
@@ -771,13 +770,6 @@ function validateCompanionRole(
         path: `${basePath}.appearancePackId`,
         message: 'Companion role appearance pack ID must be a string.',
         code: 'invalid_type',
-      })
-    }
-    if (!['companion', 'assistant', 'roleplay'].includes(settings.interactionMode)) {
-      issues.push({
-        path: `${basePath}.interactionMode`,
-        message: 'Companion role interaction mode must be companion, assistant, or roleplay.',
-        code: 'invalid_enum',
       })
     }
     if (!['default', 'random'].includes(settings.greetingMode)) {
@@ -2294,12 +2286,6 @@ function normalizeCompanionRoleSettings(
     }
   }
 
-  const interactionMode = ['companion', 'assistant', 'roleplay'].includes(
-    String(rawValue.interactionMode)
-  )
-    ? (rawValue.interactionMode as DesktopCompanionRoleSettings['interactionMode'])
-    : defaults.interactionMode
-
   return {
     id:
       typeof rawValue.id === 'string' && rawValue.id.trim()
@@ -2332,7 +2318,6 @@ function normalizeCompanionRoleSettings(
       typeof rawValue.proactiveStyle === 'string'
         ? rawValue.proactiveStyle
         : defaults.proactiveStyle,
-    interactionMode,
     advanced: normalizeCompanionRoleAdvancedSettings(rawValue.advanced),
     knowledgeSettings: normalizeCompanionRoleKnowledgeSettings(rawValue.knowledgeSettings),
     knowledgeEntries: normalizeCompanionRoleKnowledgeEntries(rawValue.knowledgeEntries),

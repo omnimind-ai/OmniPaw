@@ -204,7 +204,6 @@ export default {
           memory: 'Memory',
           knowledge: 'Knowledge',
           appearance: 'Appearance',
-          behavior: 'Behavior',
           advanced: 'Advanced',
         },
         sections: {
@@ -231,8 +230,8 @@ export default {
               'Choose the appearance pack used by this character in the floating window.',
           },
           behavior: {
-            title: 'Interaction Behavior',
-            description: 'Adjust interaction tendency, default model, and proactive assistance.',
+            title: 'Collaboration Settings',
+            description: 'Set the new-session default model and proactive assistance boundaries.',
           },
           advanced: {
             title: 'Advanced Settings',
@@ -276,15 +275,6 @@ export default {
             title: 'User nickname',
             description: 'How the character addresses you; leave blank to let the model decide.',
             placeholder: 'Partner, boss, your name',
-          },
-          interactionMode: {
-            title: 'Interaction mode',
-            description:
-              'Choose whether the character leans toward companionship, productivity collaboration, or roleplay.',
-            placeholder: 'Select mode',
-            companion: 'Desktop companion',
-            assistant: 'Productive assistant',
-            roleplay: 'Roleplay',
           },
           defaultModel: {
             title: 'Default model',

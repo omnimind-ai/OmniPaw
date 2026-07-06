@@ -164,7 +164,6 @@ export function compileCompanionRoleInstruction(
   const name = role.name.trim() || '小万'
   const sections = [
     `你是 ${name}，是常驻用户桌面的 AI 角色。`,
-    interactionModeInstruction(role.interactionMode),
     role.relationship.trim() ? `你和用户的关系：${role.relationship.trim()}` : '',
     role.userNickname.trim() ? `你称呼用户为：${role.userNickname.trim()}` : '',
     role.personality.trim() ? `性格设定：${role.personality.trim()}` : '',
@@ -262,17 +261,6 @@ export function companionRoleKnowledgeScanDepth(
   role: DesktopCompanionRoleSettings | undefined
 ): number {
   return normalizeCompanionRoleInteger(role?.knowledgeSettings?.scanDepth, 8, 1, 40)
-}
-
-function interactionModeInstruction(mode: DesktopCompanionRoleSettings['interactionMode']): string {
-  switch (mode) {
-    case 'assistant':
-      return '互动模式：优先作为高效助手，回答清楚、行动明确，陪伴感保持克制。'
-    case 'roleplay':
-      return '互动模式：优先保持角色扮演一致性，用角色身份自然回应。'
-    default:
-      return '互动模式：优先作为桌面伙伴陪伴用户，兼顾任务协助和轻量情绪反馈。'
-  }
 }
 
 function alternateCompanionRoleGreetingSections(role: DesktopCompanionRoleSettings): string[] {

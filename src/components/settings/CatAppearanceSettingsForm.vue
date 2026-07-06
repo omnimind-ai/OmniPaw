@@ -146,7 +146,6 @@ function createCompanionRole(): CompanionRole {
     greetingMode: 'default',
     alternateGreetings: [],
     proactiveStyle: '',
-    interactionMode: 'companion',
     advanced: {
       enabled: false,
       systemPrompt: '',
@@ -297,7 +296,6 @@ function createRoleFromImportedDraft(
     greetingMode: 'default',
     alternateGreetings: normalizeStringList(draft.alternateGreetings),
     proactiveStyle: draft.proactiveStyle ?? '',
-    interactionMode: source.kind === 'manual' ? 'companion' : 'roleplay',
     advanced: {
       enabled: Boolean(draft.advanced?.enabled),
       systemPrompt: draft.advanced?.systemPrompt ?? '',

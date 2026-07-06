@@ -185,13 +185,6 @@ function modelLabel(option: ProviderModelOption): string {
   return `${option.providerName} / ${option.modelName}`
 }
 
-function updateInteractionMode(value: AcceptableValue): void {
-  const next = typeof value === 'string' ? value : ''
-  if (next === 'assistant' || next === 'roleplay' || next === 'companion') {
-    editableRole.value.interactionMode = next
-  }
-}
-
 function updateGreetingMode(value: AcceptableValue): void {
   const next = typeof value === 'string' ? value : ''
   if (next === 'default' || next === 'random') {
@@ -406,7 +399,6 @@ function buildCompanionRolePreviewSections(
   const sections: CompanionRolePreviewSection[] = []
   pushPreviewSection(sections, 'base', t('settings.catAppearance.role.preview.sections.base'), [
     `你是 ${role.name.trim() || '小万'}，是常驻用户桌面的 AI 角色。`,
-    previewInteractionModeInstruction(role.interactionMode),
     role.relationship.trim() ? `你和用户的关系：${role.relationship.trim()}` : '',
     role.userNickname.trim() ? `你称呼用户为：${role.userNickname.trim()}` : '',
     role.personality.trim() ? `性格设定：${role.personality.trim()}` : '',
@@ -530,16 +522,6 @@ function previewKnowledgeText(role: CompanionRole, triggerText: string): string 
     : ''
 }
 
-function previewInteractionModeInstruction(mode: CompanionRole['interactionMode']): string {
-  if (mode === 'assistant') {
-    return '互动模式：优先作为高效助手，回答清楚、行动明确，陪伴感保持克制。'
-  }
-  if (mode === 'roleplay') {
-    return '互动模式：优先保持角色扮演一致性，用角色身份自然回应。'
-  }
-  return '互动模式：优先作为桌面伙伴陪伴用户，兼顾任务协助和轻量情绪反馈。'
-}
-
 function renderCompanionRoleTemplate(text: string, role: CompanionRole): string {
   const charName = role.name.trim() || '小万'
   const userName = role.userNickname.trim() || '用户'
@@ -646,9 +628,6 @@ function createRoleKnowledgeId(index: number): string {
           </TabsTrigger>
           <TabsTrigger value="appearance">
             {{ t('settings.catAppearance.role.tabs.appearance') }}
-          </TabsTrigger>
-          <TabsTrigger value="behavior">
-            {{ t('settings.catAppearance.role.tabs.behavior') }}
           </TabsTrigger>
           <TabsTrigger value="advanced">
             {{ t('settings.catAppearance.role.tabs.advanced') }}
@@ -815,6 +794,61 @@ function createRoleKnowledgeId(index: number): string {
                   v-model="alternateGreetingsText"
                   class="min-h-24"
                   :placeholder="t('settings.catAppearance.role.fields.alternateGreetings.placeholder')"
+                />
+              </SettingEntry>
+            </FieldGroup>
+          </SettingsSection>
+
+          <SettingsSection
+            :title="t('settings.catAppearance.role.sections.behavior.title')"
+            :description="t('settings.catAppearance.role.sections.behavior.description')"
+            :icon="BotIcon"
+          >
+            <FieldGroup class="gap-0">
+              <SettingEntry
+                control-id="settings-companion-role-model"
+                :title="t('settings.catAppearance.role.fields.defaultModel.title')"
+                :description="t('settings.catAppearance.role.fields.defaultModel.description')"
+              >
+                <Select
+                  :model-value="selectedModelKey"
+                  :disabled="modelSelectDisabled"
+                  @update:model-value="updateDefaultModel"
+                >
+                  <SelectTrigger
+                    id="settings-companion-role-model"
+                    class="w-full md:w-72"
+                  >
+                    <SelectValue :placeholder="t('settings.catAppearance.role.fields.defaultModel.placeholder')" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectGroup>
+                      <SelectItem :value="NONE_VALUE">
+                        {{ t('settings.catAppearance.role.fields.defaultModel.followDefault') }}
+                      </SelectItem>
+                      <SelectItem
+                        v-for="option in enabledModelOptions"
+                        :key="option.key"
+                        :value="option.key"
+                      >
+                        {{ modelLabel(option) }}
+                      </SelectItem>
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
+              </SettingEntry>
+
+              <SettingEntry
+                control-id="settings-companion-role-proactive"
+                :title="t('settings.catAppearance.role.fields.proactiveStyle.title')"
+                :description="t('settings.catAppearance.role.fields.proactiveStyle.description')"
+                control-class="@md/field-group:w-[min(32rem,50vw)]"
+              >
+                <Textarea
+                  id="settings-companion-role-proactive"
+                  v-model="editableRole.proactiveStyle"
+                  class="min-h-24"
+                  :placeholder="t('settings.catAppearance.role.fields.proactiveStyle.placeholder')"
                 />
               </SettingEntry>
             </FieldGroup>
@@ -1039,99 +1073,6 @@ function createRoleKnowledgeId(index: number): string {
             :loading="loading || currentDetailLoading"
             :error="currentDetailError"
           />
-        </div>
-      </TabsContent>
-
-      <TabsContent
-        value="behavior"
-        class="min-h-0 overflow-y-auto"
-      >
-        <div class="flex flex-col gap-4 p-4 sm:p-5">
-          <SettingsSection
-            :title="t('settings.catAppearance.role.sections.behavior.title')"
-            :description="t('settings.catAppearance.role.sections.behavior.description')"
-            :icon="BotIcon"
-          >
-            <FieldGroup class="gap-0">
-              <SettingEntry
-                control-id="settings-companion-role-mode"
-                :title="t('settings.catAppearance.role.fields.interactionMode.title')"
-                :description="t('settings.catAppearance.role.fields.interactionMode.description')"
-              >
-                <Select
-                  :model-value="editableRole.interactionMode"
-                  @update:model-value="updateInteractionMode"
-                >
-                  <SelectTrigger
-                    id="settings-companion-role-mode"
-                    class="w-full md:w-56"
-                  >
-                    <SelectValue :placeholder="t('settings.catAppearance.role.fields.interactionMode.placeholder')" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectGroup>
-                      <SelectItem value="companion">
-                        {{ t('settings.catAppearance.role.fields.interactionMode.companion') }}
-                      </SelectItem>
-                      <SelectItem value="assistant">
-                        {{ t('settings.catAppearance.role.fields.interactionMode.assistant') }}
-                      </SelectItem>
-                      <SelectItem value="roleplay">
-                        {{ t('settings.catAppearance.role.fields.interactionMode.roleplay') }}
-                      </SelectItem>
-                    </SelectGroup>
-                  </SelectContent>
-                </Select>
-              </SettingEntry>
-
-              <SettingEntry
-                control-id="settings-companion-role-model"
-                :title="t('settings.catAppearance.role.fields.defaultModel.title')"
-                :description="t('settings.catAppearance.role.fields.defaultModel.description')"
-              >
-                <Select
-                  :model-value="selectedModelKey"
-                  :disabled="modelSelectDisabled"
-                  @update:model-value="updateDefaultModel"
-                >
-                  <SelectTrigger
-                    id="settings-companion-role-model"
-                    class="w-full md:w-72"
-                  >
-                    <SelectValue :placeholder="t('settings.catAppearance.role.fields.defaultModel.placeholder')" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectGroup>
-                      <SelectItem :value="NONE_VALUE">
-                        {{ t('settings.catAppearance.role.fields.defaultModel.followDefault') }}
-                      </SelectItem>
-                      <SelectItem
-                        v-for="option in enabledModelOptions"
-                        :key="option.key"
-                        :value="option.key"
-                      >
-                        {{ modelLabel(option) }}
-                      </SelectItem>
-                    </SelectGroup>
-                  </SelectContent>
-                </Select>
-              </SettingEntry>
-
-              <SettingEntry
-                control-id="settings-companion-role-proactive"
-                :title="t('settings.catAppearance.role.fields.proactiveStyle.title')"
-                :description="t('settings.catAppearance.role.fields.proactiveStyle.description')"
-                control-class="@md/field-group:w-[min(32rem,50vw)]"
-              >
-                <Textarea
-                  id="settings-companion-role-proactive"
-                  v-model="editableRole.proactiveStyle"
-                  class="min-h-24"
-                  :placeholder="t('settings.catAppearance.role.fields.proactiveStyle.placeholder')"
-                />
-              </SettingEntry>
-            </FieldGroup>
-          </SettingsSection>
         </div>
       </TabsContent>
 
