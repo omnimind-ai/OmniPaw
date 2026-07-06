@@ -207,6 +207,39 @@ export default {
           behavior: 'Behavior',
           advanced: 'Advanced',
         },
+        sections: {
+          identity: {
+            title: 'Identity and Names',
+            description: 'Set the character name and how the character addresses the user.',
+          },
+          persona: {
+            title: 'Personality and Relationship',
+            description:
+              'Use short phrases to stabilize personality, speech style, and relationship.',
+          },
+          opening: {
+            title: 'Background and Opening',
+            description: 'Add light background notes and configure new-session openings.',
+          },
+          knowledge: {
+            title: 'Character Knowledge',
+            description: 'Manage lightweight knowledge entries triggered for this character.',
+          },
+          appearance: {
+            title: 'Appearance',
+            description:
+              'Choose the appearance pack used by this character in the floating window.',
+          },
+          behavior: {
+            title: 'Interaction Behavior',
+            description: 'Adjust interaction tendency, default model, and proactive assistance.',
+          },
+          advanced: {
+            title: 'Advanced Settings',
+            description:
+              'Append finer role instructions, character knowledge, and output constraints.',
+          },
+        },
         listTitle: 'Characters',
         searchLabel: 'Search characters',
         searchPlaceholder: 'Search characters',
@@ -325,7 +358,21 @@ export default {
           order: 'Order {index}',
           settings: {
             scanDepth: 'Recent messages scanned',
+            scanDepthDescription: 'Recent message range used to match trigger keywords.',
             maxTokens: 'Per-turn knowledge limit',
+            maxTokensDescription: 'Total token budget for character knowledge injected each turn.',
+          },
+          createDialog: {
+            title: 'Add character knowledge',
+            description:
+              'Fill in the knowledge content and trigger rules before adding it to this character.',
+            contentLabel: 'Knowledge content',
+            keysLabel: 'Trigger keywords',
+            keysDescription:
+              'Leave empty when using “Always inject”; separate multiple keywords with commas or line breaks.',
+            tokenBudgetPlaceholder: 'Blank follows the global limit',
+            cancel: 'Cancel',
+            create: 'Add',
           },
           fields: {
             title: 'Knowledge title',

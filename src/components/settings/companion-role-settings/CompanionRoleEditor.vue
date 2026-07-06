@@ -6,12 +6,18 @@ import type {
   CatAppearanceResolvedPack,
 } from '@shared/types/cat-appearance'
 import {
+  BookOpenIcon,
+  BotIcon,
+  BrainIcon,
   CopyIcon,
   EyeIcon,
   ImageIcon,
+  MessageCircleIcon,
   PackagePlusIcon,
   PlusIcon,
+  SlidersHorizontalIcon,
   Trash2Icon,
+  UserRoundIcon,
 } from 'lucide-vue-next'
 import { storeToRefs } from 'pinia'
 import type { AcceptableValue } from 'reka-ui'
@@ -25,12 +31,16 @@ import {
   isFallbackBridge,
 } from '@/bridge/app'
 import SettingEntry from '@/components/settings/common/SettingEntry.vue'
+import SettingsSection from '@/components/settings/common/SettingsSection.vue'
 import CompanionRoleAppearanceDetailPreview from '@/components/settings/companion-role-settings/CompanionRoleAppearanceDetailPreview.vue'
+import CompanionRoleKnowledgeCreateDialog, {
+  type CreateCompanionRoleKnowledgeEntryPayload,
+} from '@/components/settings/companion-role-settings/CompanionRoleKnowledgeCreateDialog.vue'
 import CompanionRoleMemoryPanel from '@/components/settings/companion-role-settings/CompanionRoleMemoryPanel.vue'
 import CompanionRolePreviewDialog from '@/components/settings/companion-role-settings/CompanionRolePreviewDialog.vue'
 import { Badge, type BadgeVariants } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { FieldGroup } from '@/components/ui/field'
+import { Field, FieldGroup, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import {
   Select,
@@ -68,6 +78,7 @@ const { modelOptions, saving, persistenceAvailable } = storeToRefs(providerStore
 const activeTab = ref('basic')
 const previewOpen = ref(false)
 const previewInput = ref('')
+const knowledgeCreateDialogOpen = ref(false)
 const response = shallowRef<CatAppearanceListResponse>()
 const loading = ref(false)
 const importing = ref(false)
@@ -201,22 +212,28 @@ function updateDefaultModel(value: AcceptableValue): void {
   editableRole.value.defaultModelId = selected?.modelId
 }
 
-function addKnowledgeEntry(): void {
+function openKnowledgeCreateDialog(): void {
+  knowledgeCreateDialogOpen.value = true
+}
+
+function createKnowledgeEntry(payload: CreateCompanionRoleKnowledgeEntryPayload): void {
   const entries = ensureKnowledgeEntries()
   const now = Date.now()
   entries.push({
     id: createRoleKnowledgeId(entries.length),
     enabled: true,
-    title: t('settings.catAppearance.role.knowledge.newTitle'),
-    content: '',
-    keys: [],
-    constant: true,
-    priority: 0,
+    title: payload.title || t('settings.catAppearance.role.knowledge.newTitle'),
+    content: payload.content,
+    keys: payload.keys,
+    constant: payload.constant,
+    priority: payload.priority,
     order: entries.length,
+    tokenBudget: payload.tokenBudget,
     createdAt: now,
     updatedAt: now,
   })
   activeTab.value = 'knowledge'
+  knowledgeCreateDialogOpen.value = false
 }
 
 function deleteKnowledgeEntry(targetId: string): void {
@@ -644,146 +661,164 @@ function createRoleKnowledgeId(index: number): string {
         class="min-h-0 overflow-y-auto"
       >
         <div class="flex flex-col gap-4 p-4 sm:p-5">
-          <FieldGroup class="gap-0 rounded-md border bg-card">
-            <SettingEntry
-              control-id="settings-companion-role-name"
-              :title="t('settings.catAppearance.role.fields.name.title')"
-              :description="t('settings.catAppearance.role.fields.name.description')"
-            >
-              <Input
-                id="settings-companion-role-name"
-                v-model="editableRole.name"
-                class="w-full md:w-72"
-                :placeholder="t('settings.catAppearance.role.fields.name.placeholder')"
-              />
-            </SettingEntry>
-
-            <SettingEntry
-              control-id="settings-companion-role-user"
-              :title="t('settings.catAppearance.role.fields.userNickname.title')"
-              :description="t('settings.catAppearance.role.fields.userNickname.description')"
-            >
-              <Input
-                id="settings-companion-role-user"
-                v-model="editableRole.userNickname"
-                class="w-full md:w-72"
-                :placeholder="t('settings.catAppearance.role.fields.userNickname.placeholder')"
-              />
-            </SettingEntry>
-          </FieldGroup>
-
-          <FieldGroup class="gap-0 rounded-md border bg-card">
-            <SettingEntry
-              control-id="settings-companion-role-personality"
-              :title="t('settings.catAppearance.role.fields.personality.title')"
-              :description="t('settings.catAppearance.role.fields.personality.description')"
-            >
-              <Input
-                id="settings-companion-role-personality"
-                v-model="editableRole.personality"
-                class="w-full md:w-96"
-                :placeholder="t('settings.catAppearance.role.fields.personality.placeholder')"
-              />
-            </SettingEntry>
-
-            <SettingEntry
-              control-id="settings-companion-role-speech"
-              :title="t('settings.catAppearance.role.fields.speechStyle.title')"
-              :description="t('settings.catAppearance.role.fields.speechStyle.description')"
-            >
-              <Input
-                id="settings-companion-role-speech"
-                v-model="editableRole.speechStyle"
-                class="w-full md:w-96"
-                :placeholder="t('settings.catAppearance.role.fields.speechStyle.placeholder')"
-              />
-            </SettingEntry>
-
-            <SettingEntry
-              control-id="settings-companion-role-relationship"
-              :title="t('settings.catAppearance.role.fields.relationship.title')"
-              :description="t('settings.catAppearance.role.fields.relationship.description')"
-            >
-              <Input
-                id="settings-companion-role-relationship"
-                v-model="editableRole.relationship"
-                class="w-full md:w-96"
-                :placeholder="t('settings.catAppearance.role.fields.relationship.placeholder')"
-              />
-            </SettingEntry>
-          </FieldGroup>
-
-          <FieldGroup class="gap-0 rounded-md border bg-card">
-            <SettingEntry
-              control-id="settings-companion-role-background"
-              :title="t('settings.catAppearance.role.fields.background.title')"
-              :description="t('settings.catAppearance.role.fields.background.description')"
-              control-class="@md/field-group:w-[min(32rem,50vw)]"
-            >
-              <Textarea
-                id="settings-companion-role-background"
-                v-model="editableRole.background"
-                class="min-h-24"
-                :placeholder="t('settings.catAppearance.role.fields.background.placeholder')"
-              />
-            </SettingEntry>
-
-            <SettingEntry
-              control-id="settings-companion-role-greeting"
-              :title="t('settings.catAppearance.role.fields.greeting.title')"
-              :description="t('settings.catAppearance.role.fields.greeting.description')"
-              control-class="@md/field-group:w-[min(32rem,50vw)]"
-            >
-              <Textarea
-                id="settings-companion-role-greeting"
-                v-model="editableRole.greeting"
-                class="min-h-24"
-                :placeholder="t('settings.catAppearance.role.fields.greeting.placeholder')"
-              />
-            </SettingEntry>
-
-            <SettingEntry
-              control-id="settings-companion-role-greeting-mode"
-              :title="t('settings.catAppearance.role.fields.greetingMode.title')"
-              :description="t('settings.catAppearance.role.fields.greetingMode.description')"
-            >
-              <Select
-                :model-value="editableRole.greetingMode"
-                @update:model-value="updateGreetingMode"
+          <SettingsSection
+            :title="t('settings.catAppearance.role.sections.identity.title')"
+            :description="t('settings.catAppearance.role.sections.identity.description')"
+            :icon="UserRoundIcon"
+          >
+            <FieldGroup class="gap-0">
+              <SettingEntry
+                control-id="settings-companion-role-name"
+                :title="t('settings.catAppearance.role.fields.name.title')"
+                :description="t('settings.catAppearance.role.fields.name.description')"
               >
-                <SelectTrigger
-                  id="settings-companion-role-greeting-mode"
-                  class="w-full md:w-56"
-                >
-                  <SelectValue :placeholder="t('settings.catAppearance.role.fields.greetingMode.placeholder')" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectGroup>
-                    <SelectItem value="default">
-                      {{ t('settings.catAppearance.role.fields.greetingMode.default') }}
-                    </SelectItem>
-                    <SelectItem value="random">
-                      {{ t('settings.catAppearance.role.fields.greetingMode.random') }}
-                    </SelectItem>
-                  </SelectGroup>
-                </SelectContent>
-              </Select>
-            </SettingEntry>
+                <Input
+                  id="settings-companion-role-name"
+                  v-model="editableRole.name"
+                  class="w-full md:w-72"
+                  :placeholder="t('settings.catAppearance.role.fields.name.placeholder')"
+                />
+              </SettingEntry>
 
-            <SettingEntry
-              control-id="settings-companion-role-alternate-greetings"
-              :title="t('settings.catAppearance.role.fields.alternateGreetings.title')"
-              :description="t('settings.catAppearance.role.fields.alternateGreetings.description')"
-              control-class="@md/field-group:w-[min(32rem,50vw)]"
-            >
-              <Textarea
-                id="settings-companion-role-alternate-greetings"
-                v-model="alternateGreetingsText"
-                class="min-h-24"
-                :placeholder="t('settings.catAppearance.role.fields.alternateGreetings.placeholder')"
-              />
-            </SettingEntry>
-          </FieldGroup>
+              <SettingEntry
+                control-id="settings-companion-role-user"
+                :title="t('settings.catAppearance.role.fields.userNickname.title')"
+                :description="t('settings.catAppearance.role.fields.userNickname.description')"
+              >
+                <Input
+                  id="settings-companion-role-user"
+                  v-model="editableRole.userNickname"
+                  class="w-full md:w-72"
+                  :placeholder="t('settings.catAppearance.role.fields.userNickname.placeholder')"
+                />
+              </SettingEntry>
+            </FieldGroup>
+          </SettingsSection>
+
+          <SettingsSection
+            :title="t('settings.catAppearance.role.sections.persona.title')"
+            :description="t('settings.catAppearance.role.sections.persona.description')"
+            :icon="BrainIcon"
+          >
+            <FieldGroup class="gap-0">
+              <SettingEntry
+                control-id="settings-companion-role-personality"
+                :title="t('settings.catAppearance.role.fields.personality.title')"
+                :description="t('settings.catAppearance.role.fields.personality.description')"
+              >
+                <Input
+                  id="settings-companion-role-personality"
+                  v-model="editableRole.personality"
+                  class="w-full md:w-96"
+                  :placeholder="t('settings.catAppearance.role.fields.personality.placeholder')"
+                />
+              </SettingEntry>
+
+              <SettingEntry
+                control-id="settings-companion-role-speech"
+                :title="t('settings.catAppearance.role.fields.speechStyle.title')"
+                :description="t('settings.catAppearance.role.fields.speechStyle.description')"
+              >
+                <Input
+                  id="settings-companion-role-speech"
+                  v-model="editableRole.speechStyle"
+                  class="w-full md:w-96"
+                  :placeholder="t('settings.catAppearance.role.fields.speechStyle.placeholder')"
+                />
+              </SettingEntry>
+
+              <SettingEntry
+                control-id="settings-companion-role-relationship"
+                :title="t('settings.catAppearance.role.fields.relationship.title')"
+                :description="t('settings.catAppearance.role.fields.relationship.description')"
+              >
+                <Input
+                  id="settings-companion-role-relationship"
+                  v-model="editableRole.relationship"
+                  class="w-full md:w-96"
+                  :placeholder="t('settings.catAppearance.role.fields.relationship.placeholder')"
+                />
+              </SettingEntry>
+            </FieldGroup>
+          </SettingsSection>
+
+          <SettingsSection
+            :title="t('settings.catAppearance.role.sections.opening.title')"
+            :description="t('settings.catAppearance.role.sections.opening.description')"
+            :icon="MessageCircleIcon"
+          >
+            <FieldGroup class="gap-0">
+              <SettingEntry
+                control-id="settings-companion-role-background"
+                :title="t('settings.catAppearance.role.fields.background.title')"
+                :description="t('settings.catAppearance.role.fields.background.description')"
+                control-class="@md/field-group:w-[min(32rem,50vw)]"
+              >
+                <Textarea
+                  id="settings-companion-role-background"
+                  v-model="editableRole.background"
+                  class="min-h-24"
+                  :placeholder="t('settings.catAppearance.role.fields.background.placeholder')"
+                />
+              </SettingEntry>
+
+              <SettingEntry
+                control-id="settings-companion-role-greeting"
+                :title="t('settings.catAppearance.role.fields.greeting.title')"
+                :description="t('settings.catAppearance.role.fields.greeting.description')"
+                control-class="@md/field-group:w-[min(32rem,50vw)]"
+              >
+                <Textarea
+                  id="settings-companion-role-greeting"
+                  v-model="editableRole.greeting"
+                  class="min-h-24"
+                  :placeholder="t('settings.catAppearance.role.fields.greeting.placeholder')"
+                />
+              </SettingEntry>
+
+              <SettingEntry
+                control-id="settings-companion-role-greeting-mode"
+                :title="t('settings.catAppearance.role.fields.greetingMode.title')"
+                :description="t('settings.catAppearance.role.fields.greetingMode.description')"
+              >
+                <Select
+                  :model-value="editableRole.greetingMode"
+                  @update:model-value="updateGreetingMode"
+                >
+                  <SelectTrigger
+                    id="settings-companion-role-greeting-mode"
+                    class="w-full md:w-56"
+                  >
+                    <SelectValue :placeholder="t('settings.catAppearance.role.fields.greetingMode.placeholder')" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectGroup>
+                      <SelectItem value="default">
+                        {{ t('settings.catAppearance.role.fields.greetingMode.default') }}
+                      </SelectItem>
+                      <SelectItem value="random">
+                        {{ t('settings.catAppearance.role.fields.greetingMode.random') }}
+                      </SelectItem>
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
+              </SettingEntry>
+
+              <SettingEntry
+                control-id="settings-companion-role-alternate-greetings"
+                :title="t('settings.catAppearance.role.fields.alternateGreetings.title')"
+                :description="t('settings.catAppearance.role.fields.alternateGreetings.description')"
+                control-class="@md/field-group:w-[min(32rem,50vw)]"
+              >
+                <Textarea
+                  id="settings-companion-role-alternate-greetings"
+                  v-model="alternateGreetingsText"
+                  class="min-h-24"
+                  :placeholder="t('settings.catAppearance.role.fields.alternateGreetings.placeholder')"
+                />
+              </SettingEntry>
+            </FieldGroup>
+          </SettingsSection>
         </div>
       </TabsContent>
 
@@ -802,125 +837,134 @@ function createRoleKnowledgeId(index: number): string {
         class="min-h-0 overflow-y-auto"
       >
         <div class="flex flex-col gap-4 p-4 sm:p-5">
-          <FieldGroup class="gap-0 rounded-md border bg-card">
-            <SettingEntry
-              control-id="settings-companion-role-knowledge"
-              :title="t('settings.catAppearance.role.knowledge.title')"
-              :description="t('settings.catAppearance.role.knowledge.description')"
-              control-class="@md/field-group:w-[min(40rem,58vw)]"
-            >
-              <div class="flex w-full flex-col gap-3">
-                <div class="grid gap-3 md:grid-cols-2">
-                  <label class="flex flex-col gap-1 text-sm">
-                    <span class="font-medium">
-                      {{ t('settings.catAppearance.role.knowledge.settings.scanDepth') }}
-                    </span>
-                    <Input
-                      :model-value="knowledgeSettings.scanDepth"
-                      type="number"
-                      min="1"
-                      max="40"
-                      @input="updateKnowledgeScanDepth(eventInputValue($event))"
-                    />
-                  </label>
-                  <label class="flex flex-col gap-1 text-sm">
-                    <span class="font-medium">
-                      {{ t('settings.catAppearance.role.knowledge.settings.maxTokens') }}
-                    </span>
-                    <Input
-                      :model-value="knowledgeSettings.maxTokens"
-                      type="number"
-                      min="200"
-                      max="8000"
-                      @input="updateKnowledgeMaxTokens(eventInputValue($event))"
-                    />
-                  </label>
-                </div>
+          <SettingsSection
+            :title="t('settings.catAppearance.role.sections.knowledge.title')"
+            :description="t('settings.catAppearance.role.sections.knowledge.description')"
+            :icon="BookOpenIcon"
+          >
+            <template #actions>
+              <Button
+                type="button"
+                size="sm"
+                @click="openKnowledgeCreateDialog"
+              >
+                <PlusIcon data-icon="inline-start" />
+                {{ t('settings.catAppearance.role.knowledge.add') }}
+              </Button>
+            </template>
 
-                <div class="flex items-center justify-between gap-3">
-                  <p class="text-sm text-muted-foreground">
-                    {{ t('settings.catAppearance.role.knowledge.count', { count: editableRole.knowledgeEntries.length }) }}
-                  </p>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    @click="addKnowledgeEntry"
+            <FieldGroup class="gap-0">
+              <SettingEntry
+                control-id="settings-companion-role-knowledge-scan-depth"
+                :title="t('settings.catAppearance.role.knowledge.settings.scanDepth')"
+                :description="t('settings.catAppearance.role.knowledge.settings.scanDepthDescription')"
+              >
+                <Input
+                  id="settings-companion-role-knowledge-scan-depth"
+                  :model-value="knowledgeSettings.scanDepth"
+                  class="w-full md:w-32"
+                  type="number"
+                  min="1"
+                  max="40"
+                  @input="updateKnowledgeScanDepth(eventInputValue($event))"
+                />
+              </SettingEntry>
+
+              <SettingEntry
+                control-id="settings-companion-role-knowledge-max-tokens"
+                :title="t('settings.catAppearance.role.knowledge.settings.maxTokens')"
+                :description="t('settings.catAppearance.role.knowledge.settings.maxTokensDescription')"
+              >
+                <Input
+                  id="settings-companion-role-knowledge-max-tokens"
+                  :model-value="knowledgeSettings.maxTokens"
+                  class="w-full md:w-32"
+                  type="number"
+                  min="200"
+                  max="8000"
+                  @input="updateKnowledgeMaxTokens(eventInputValue($event))"
+                />
+              </SettingEntry>
+
+              <SettingEntry
+                control-id="settings-companion-role-knowledge"
+                :title="t('settings.catAppearance.role.knowledge.count', { count: editableRole.knowledgeEntries.length })"
+                :description="t('settings.catAppearance.role.knowledge.description')"
+                control-class="@md/field-group:w-[min(44rem,60vw)]"
+              >
+                <div class="flex w-full flex-col gap-3">
+                  <p
+                    v-if="!editableRole.knowledgeEntries.length"
+                    class="rounded-md border border-dashed px-3 py-6 text-center text-sm text-muted-foreground"
                   >
-                    <PlusIcon data-icon="inline-start" />
-                    {{ t('settings.catAppearance.role.knowledge.add') }}
-                  </Button>
-                </div>
+                    {{ t('settings.catAppearance.role.knowledge.empty') }}
+                  </p>
 
-                <p
-                  v-if="!editableRole.knowledgeEntries.length"
-                  class="rounded-md border border-dashed px-3 py-6 text-center text-sm text-muted-foreground"
-                >
-                  {{ t('settings.catAppearance.role.knowledge.empty') }}
-                </p>
+                  <div
+                    v-for="(entry, index) in editableRole.knowledgeEntries"
+                    :key="entry.id"
+                    class="flex flex-col gap-3 rounded-md border bg-background/60 p-3"
+                  >
+                    <div class="flex flex-wrap items-center gap-2">
+                      <Switch v-model="entry.enabled" />
+                      <Input
+                        v-model="entry.title"
+                        class="min-w-0 flex-1"
+                        :placeholder="t('settings.catAppearance.role.knowledge.fields.title')"
+                      />
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon-sm"
+                        :aria-label="t('settings.catAppearance.role.knowledge.delete')"
+                        @click="deleteKnowledgeEntry(entry.id)"
+                      >
+                        <Trash2Icon />
+                      </Button>
+                    </div>
 
-                <div
-                  v-for="(entry, index) in editableRole.knowledgeEntries"
-                  :key="entry.id"
-                  class="flex flex-col gap-3 rounded-md border bg-background/60 p-3"
-                >
-                  <div class="flex flex-wrap items-center gap-2">
-                    <Switch v-model="entry.enabled" />
-                    <Input
-                      v-model="entry.title"
-                      class="min-w-0 flex-1"
-                      :placeholder="t('settings.catAppearance.role.knowledge.fields.title')"
+                    <Textarea
+                      v-model="entry.content"
+                      class="min-h-28"
+                      :placeholder="t('settings.catAppearance.role.knowledge.fields.content')"
                     />
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon-sm"
-                      :aria-label="t('settings.catAppearance.role.knowledge.delete')"
-                      @click="deleteKnowledgeEntry(entry.id)"
-                    >
-                      <Trash2Icon />
-                    </Button>
-                  </div>
 
-                  <Textarea
-                    v-model="entry.content"
-                    class="min-h-28"
-                    :placeholder="t('settings.catAppearance.role.knowledge.fields.content')"
-                  />
+                    <div class="grid gap-3 md:grid-cols-[minmax(0,1fr)_8rem_9rem]">
+                      <Input
+                        :model-value="entry.keys.join(', ')"
+                        :placeholder="t('settings.catAppearance.role.knowledge.fields.keys')"
+                        @input="updateKnowledgeKeys(entry.id, eventInputValue($event))"
+                      />
+                      <Input
+                        v-model.number="entry.priority"
+                        type="number"
+                        :placeholder="t('settings.catAppearance.role.knowledge.fields.priority')"
+                      />
+                      <Input
+                        :model-value="entry.tokenBudget ?? ''"
+                        type="number"
+                        min="50"
+                        :placeholder="t('settings.catAppearance.role.knowledge.fields.tokenBudget')"
+                        @input="updateKnowledgeTokenBudget(entry.id, eventInputValue($event))"
+                      />
+                    </div>
 
-                  <div class="grid gap-3 md:grid-cols-[minmax(0,1fr)_8rem_9rem]">
-                    <Input
-                      :model-value="entry.keys.join(', ')"
-                      :placeholder="t('settings.catAppearance.role.knowledge.fields.keys')"
-                      @input="updateKnowledgeKeys(entry.id, eventInputValue($event))"
-                    />
-                    <Input
-                      v-model.number="entry.priority"
-                      type="number"
-                      :placeholder="t('settings.catAppearance.role.knowledge.fields.priority')"
-                    />
-                    <Input
-                      :model-value="entry.tokenBudget ?? ''"
-                      type="number"
-                      min="50"
-                      :placeholder="t('settings.catAppearance.role.knowledge.fields.tokenBudget')"
-                      @input="updateKnowledgeTokenBudget(entry.id, eventInputValue($event))"
-                    />
-                  </div>
-
-                  <div class="flex flex-wrap items-center justify-between gap-3 text-sm text-muted-foreground">
-                    <label class="flex items-center gap-2">
-                      <Switch v-model="entry.constant" />
-                      {{ t('settings.catAppearance.role.knowledge.fields.constant') }}
-                    </label>
-                    <span>
-                      {{ t('settings.catAppearance.role.knowledge.order', { index: index + 1 }) }}
-                    </span>
+                    <div class="flex flex-wrap items-center justify-between gap-3 text-sm text-muted-foreground">
+                      <Field orientation="horizontal">
+                        <Switch v-model="entry.constant" />
+                        <FieldLabel>
+                          {{ t('settings.catAppearance.role.knowledge.fields.constant') }}
+                        </FieldLabel>
+                      </Field>
+                      <span>
+                        {{ t('settings.catAppearance.role.knowledge.order', { index: index + 1 }) }}
+                      </span>
+                    </div>
                   </div>
                 </div>
-              </div>
-            </SettingEntry>
-          </FieldGroup>
+              </SettingEntry>
+            </FieldGroup>
+          </SettingsSection>
         </div>
       </TabsContent>
 
@@ -929,59 +973,65 @@ function createRoleKnowledgeId(index: number): string {
         class="min-h-0 overflow-y-auto"
       >
         <div class="flex flex-col gap-4 p-4 sm:p-5">
-          <FieldGroup class="gap-0 rounded-md border bg-card">
-            <SettingEntry
-              control-id="settings-companion-role-appearance-current"
-              :title="t('settings.catAppearance.role.fields.appearance.title')"
-              :description="t('settings.catAppearance.role.fields.appearance.description')"
-            >
-              <div class="flex w-full min-w-0 flex-col gap-3 md:w-[32rem]">
-                <div class="flex min-w-0 items-start gap-3 rounded-md border bg-background/60 p-3">
-                  <div class="flex size-10 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
-                    <ImageIcon />
-                  </div>
-                  <div class="flex min-w-0 flex-1 flex-col gap-1">
-                    <div class="flex min-w-0 flex-wrap items-center gap-2">
-                      <p class="truncate text-sm font-medium">
-                        {{ currentPack?.name || activeRoleAppearancePackId }}
-                      </p>
-                      <Badge
-                        v-if="currentPack"
-                        :variant="statusVariant(currentPack)"
-                      >
-                        {{ currentStatusLabel }}
-                      </Badge>
-                      <Badge
-                        v-if="currentPack"
-                        :variant="sourceVariant(currentPack.source)"
-                      >
-                        {{ currentSourceLabel }}
-                      </Badge>
+          <SettingsSection
+            :title="t('settings.catAppearance.role.sections.appearance.title')"
+            :description="t('settings.catAppearance.role.sections.appearance.description')"
+            :icon="ImageIcon"
+          >
+            <FieldGroup class="gap-0">
+              <SettingEntry
+                control-id="settings-companion-role-appearance-current"
+                :title="t('settings.catAppearance.role.fields.appearance.title')"
+                :description="t('settings.catAppearance.role.fields.appearance.description')"
+              >
+                <div class="flex w-full min-w-0 flex-col gap-3 md:w-[32rem]">
+                  <div class="flex min-w-0 items-start gap-3 rounded-md border bg-background/60 p-3">
+                    <div class="flex size-10 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
+                      <ImageIcon />
                     </div>
-                    <p class="text-sm text-muted-foreground">
-                      {{ currentUpdatedLabel }}
-                    </p>
-                    <p
-                      v-if="currentPack?.error || currentDetailError"
-                      class="line-clamp-2 text-sm text-destructive"
-                    >
-                      {{ currentPack?.error || currentDetailError }}
-                    </p>
+                    <div class="flex min-w-0 flex-1 flex-col gap-1">
+                      <div class="flex min-w-0 flex-wrap items-center gap-2">
+                        <p class="truncate text-sm font-medium">
+                          {{ currentPack?.name || activeRoleAppearancePackId }}
+                        </p>
+                        <Badge
+                          v-if="currentPack"
+                          :variant="statusVariant(currentPack)"
+                        >
+                          {{ currentStatusLabel }}
+                        </Badge>
+                        <Badge
+                          v-if="currentPack"
+                          :variant="sourceVariant(currentPack.source)"
+                        >
+                          {{ currentSourceLabel }}
+                        </Badge>
+                      </div>
+                      <p class="text-sm text-muted-foreground">
+                        {{ currentUpdatedLabel }}
+                      </p>
+                      <p
+                        v-if="currentPack?.error || currentDetailError"
+                        class="line-clamp-2 text-sm text-destructive"
+                      >
+                        {{ currentPack?.error || currentDetailError }}
+                      </p>
+                    </div>
                   </div>
-                </div>
 
-                <Button
-                  type="button"
-                  class="w-fit"
-                  :disabled="importDisabled"
-                  @click="importPack"
-                >
-                  <PackagePlusIcon data-icon="inline-start" />
-                  {{ importButtonLabel }}
-                </Button>
-              </div>
-            </SettingEntry>
-          </FieldGroup>
+                  <Button
+                    type="button"
+                    class="w-fit"
+                    :disabled="importDisabled"
+                    @click="importPack"
+                  >
+                    <PackagePlusIcon data-icon="inline-start" />
+                    {{ importButtonLabel }}
+                  </Button>
+                </div>
+              </SettingEntry>
+            </FieldGroup>
+          </SettingsSection>
 
           <CompanionRoleAppearanceDetailPreview
             :pack="currentPack"
@@ -997,85 +1047,91 @@ function createRoleKnowledgeId(index: number): string {
         class="min-h-0 overflow-y-auto"
       >
         <div class="flex flex-col gap-4 p-4 sm:p-5">
-          <FieldGroup class="gap-0 rounded-md border bg-card">
-            <SettingEntry
-              control-id="settings-companion-role-mode"
-              :title="t('settings.catAppearance.role.fields.interactionMode.title')"
-              :description="t('settings.catAppearance.role.fields.interactionMode.description')"
-            >
-              <Select
-                :model-value="editableRole.interactionMode"
-                @update:model-value="updateInteractionMode"
+          <SettingsSection
+            :title="t('settings.catAppearance.role.sections.behavior.title')"
+            :description="t('settings.catAppearance.role.sections.behavior.description')"
+            :icon="BotIcon"
+          >
+            <FieldGroup class="gap-0">
+              <SettingEntry
+                control-id="settings-companion-role-mode"
+                :title="t('settings.catAppearance.role.fields.interactionMode.title')"
+                :description="t('settings.catAppearance.role.fields.interactionMode.description')"
               >
-                <SelectTrigger
-                  id="settings-companion-role-mode"
-                  class="w-full md:w-56"
+                <Select
+                  :model-value="editableRole.interactionMode"
+                  @update:model-value="updateInteractionMode"
                 >
-                  <SelectValue :placeholder="t('settings.catAppearance.role.fields.interactionMode.placeholder')" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectGroup>
-                    <SelectItem value="companion">
-                      {{ t('settings.catAppearance.role.fields.interactionMode.companion') }}
-                    </SelectItem>
-                    <SelectItem value="assistant">
-                      {{ t('settings.catAppearance.role.fields.interactionMode.assistant') }}
-                    </SelectItem>
-                    <SelectItem value="roleplay">
-                      {{ t('settings.catAppearance.role.fields.interactionMode.roleplay') }}
-                    </SelectItem>
-                  </SelectGroup>
-                </SelectContent>
-              </Select>
-            </SettingEntry>
+                  <SelectTrigger
+                    id="settings-companion-role-mode"
+                    class="w-full md:w-56"
+                  >
+                    <SelectValue :placeholder="t('settings.catAppearance.role.fields.interactionMode.placeholder')" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectGroup>
+                      <SelectItem value="companion">
+                        {{ t('settings.catAppearance.role.fields.interactionMode.companion') }}
+                      </SelectItem>
+                      <SelectItem value="assistant">
+                        {{ t('settings.catAppearance.role.fields.interactionMode.assistant') }}
+                      </SelectItem>
+                      <SelectItem value="roleplay">
+                        {{ t('settings.catAppearance.role.fields.interactionMode.roleplay') }}
+                      </SelectItem>
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
+              </SettingEntry>
 
-            <SettingEntry
-              control-id="settings-companion-role-model"
-              :title="t('settings.catAppearance.role.fields.defaultModel.title')"
-              :description="t('settings.catAppearance.role.fields.defaultModel.description')"
-            >
-              <Select
-                :model-value="selectedModelKey"
-                :disabled="modelSelectDisabled"
-                @update:model-value="updateDefaultModel"
+              <SettingEntry
+                control-id="settings-companion-role-model"
+                :title="t('settings.catAppearance.role.fields.defaultModel.title')"
+                :description="t('settings.catAppearance.role.fields.defaultModel.description')"
               >
-                <SelectTrigger
-                  id="settings-companion-role-model"
-                  class="w-full md:w-72"
+                <Select
+                  :model-value="selectedModelKey"
+                  :disabled="modelSelectDisabled"
+                  @update:model-value="updateDefaultModel"
                 >
-                  <SelectValue :placeholder="t('settings.catAppearance.role.fields.defaultModel.placeholder')" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectGroup>
-                    <SelectItem :value="NONE_VALUE">
-                      {{ t('settings.catAppearance.role.fields.defaultModel.followDefault') }}
-                    </SelectItem>
-                    <SelectItem
-                      v-for="option in enabledModelOptions"
-                      :key="option.key"
-                      :value="option.key"
-                    >
-                      {{ modelLabel(option) }}
-                    </SelectItem>
-                  </SelectGroup>
-                </SelectContent>
-              </Select>
-            </SettingEntry>
+                  <SelectTrigger
+                    id="settings-companion-role-model"
+                    class="w-full md:w-72"
+                  >
+                    <SelectValue :placeholder="t('settings.catAppearance.role.fields.defaultModel.placeholder')" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectGroup>
+                      <SelectItem :value="NONE_VALUE">
+                        {{ t('settings.catAppearance.role.fields.defaultModel.followDefault') }}
+                      </SelectItem>
+                      <SelectItem
+                        v-for="option in enabledModelOptions"
+                        :key="option.key"
+                        :value="option.key"
+                      >
+                        {{ modelLabel(option) }}
+                      </SelectItem>
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
+              </SettingEntry>
 
-            <SettingEntry
-              control-id="settings-companion-role-proactive"
-              :title="t('settings.catAppearance.role.fields.proactiveStyle.title')"
-              :description="t('settings.catAppearance.role.fields.proactiveStyle.description')"
-              control-class="@md/field-group:w-[min(32rem,50vw)]"
-            >
-              <Textarea
-                id="settings-companion-role-proactive"
-                v-model="editableRole.proactiveStyle"
-                class="min-h-24"
-                :placeholder="t('settings.catAppearance.role.fields.proactiveStyle.placeholder')"
-              />
-            </SettingEntry>
-          </FieldGroup>
+              <SettingEntry
+                control-id="settings-companion-role-proactive"
+                :title="t('settings.catAppearance.role.fields.proactiveStyle.title')"
+                :description="t('settings.catAppearance.role.fields.proactiveStyle.description')"
+                control-class="@md/field-group:w-[min(32rem,50vw)]"
+              >
+                <Textarea
+                  id="settings-companion-role-proactive"
+                  v-model="editableRole.proactiveStyle"
+                  class="min-h-24"
+                  :placeholder="t('settings.catAppearance.role.fields.proactiveStyle.placeholder')"
+                />
+              </SettingEntry>
+            </FieldGroup>
+          </SettingsSection>
         </div>
       </TabsContent>
 
@@ -1084,74 +1140,80 @@ function createRoleKnowledgeId(index: number): string {
         class="min-h-0 overflow-y-auto"
       >
         <div class="flex flex-col gap-4 p-4 sm:p-5">
-          <FieldGroup class="gap-0 rounded-md border bg-card">
-            <SettingEntry
-              control-id="settings-companion-role-advanced-enabled"
-              :title="t('settings.catAppearance.role.advanced.title')"
-              :description="t('settings.catAppearance.role.advanced.description')"
-            >
-              <Switch
-                id="settings-companion-role-advanced-enabled"
-                v-model="editableRole.advanced.enabled"
-              />
-            </SettingEntry>
+          <SettingsSection
+            :title="t('settings.catAppearance.role.sections.advanced.title')"
+            :description="t('settings.catAppearance.role.sections.advanced.description')"
+            :icon="SlidersHorizontalIcon"
+          >
+            <FieldGroup class="gap-0">
+              <SettingEntry
+                control-id="settings-companion-role-advanced-enabled"
+                :title="t('settings.catAppearance.role.advanced.title')"
+                :description="t('settings.catAppearance.role.advanced.description')"
+              >
+                <Switch
+                  id="settings-companion-role-advanced-enabled"
+                  v-model="editableRole.advanced.enabled"
+                />
+              </SettingEntry>
 
-            <SettingEntry
-              control-id="settings-companion-role-advanced-system"
-              :title="t('settings.catAppearance.role.advanced.fields.systemPrompt.title')"
-              :description="t('settings.catAppearance.role.advanced.fields.systemPrompt.description')"
-              control-class="@md/field-group:w-[min(32rem,50vw)]"
-            >
-              <Textarea
-                id="settings-companion-role-advanced-system"
-                v-model="editableRole.advanced.systemPrompt"
-                class="min-h-28"
-                :placeholder="t('settings.catAppearance.role.advanced.fields.systemPrompt.placeholder')"
-              />
-            </SettingEntry>
+              <SettingEntry
+                control-id="settings-companion-role-advanced-system"
+                :title="t('settings.catAppearance.role.advanced.fields.systemPrompt.title')"
+                :description="t('settings.catAppearance.role.advanced.fields.systemPrompt.description')"
+                control-class="@md/field-group:w-[min(32rem,50vw)]"
+              >
+                <Textarea
+                  id="settings-companion-role-advanced-system"
+                  v-model="editableRole.advanced.systemPrompt"
+                  class="min-h-28"
+                  :placeholder="t('settings.catAppearance.role.advanced.fields.systemPrompt.placeholder')"
+                />
+              </SettingEntry>
 
-            <SettingEntry
-              control-id="settings-companion-role-advanced-knowledge"
-              :title="t('settings.catAppearance.role.advanced.fields.knowledge.title')"
-              :description="t('settings.catAppearance.role.advanced.fields.knowledge.description')"
-              control-class="@md/field-group:w-[min(32rem,50vw)]"
-            >
-              <Textarea
-                id="settings-companion-role-advanced-knowledge"
-                v-model="editableRole.advanced.knowledge"
-                class="min-h-28"
-                :placeholder="t('settings.catAppearance.role.advanced.fields.knowledge.placeholder')"
-              />
-            </SettingEntry>
+              <SettingEntry
+                control-id="settings-companion-role-advanced-knowledge"
+                :title="t('settings.catAppearance.role.advanced.fields.knowledge.title')"
+                :description="t('settings.catAppearance.role.advanced.fields.knowledge.description')"
+                control-class="@md/field-group:w-[min(32rem,50vw)]"
+              >
+                <Textarea
+                  id="settings-companion-role-advanced-knowledge"
+                  v-model="editableRole.advanced.knowledge"
+                  class="min-h-28"
+                  :placeholder="t('settings.catAppearance.role.advanced.fields.knowledge.placeholder')"
+                />
+              </SettingEntry>
 
-            <SettingEntry
-              control-id="settings-companion-role-advanced-examples"
-              :title="t('settings.catAppearance.role.advanced.fields.exampleDialogue.title')"
-              :description="t('settings.catAppearance.role.advanced.fields.exampleDialogue.description')"
-              control-class="@md/field-group:w-[min(32rem,50vw)]"
-            >
-              <Textarea
-                id="settings-companion-role-advanced-examples"
-                v-model="editableRole.advanced.exampleDialogue"
-                class="min-h-32"
-                :placeholder="t('settings.catAppearance.role.advanced.fields.exampleDialogue.placeholder')"
-              />
-            </SettingEntry>
+              <SettingEntry
+                control-id="settings-companion-role-advanced-examples"
+                :title="t('settings.catAppearance.role.advanced.fields.exampleDialogue.title')"
+                :description="t('settings.catAppearance.role.advanced.fields.exampleDialogue.description')"
+                control-class="@md/field-group:w-[min(32rem,50vw)]"
+              >
+                <Textarea
+                  id="settings-companion-role-advanced-examples"
+                  v-model="editableRole.advanced.exampleDialogue"
+                  class="min-h-32"
+                  :placeholder="t('settings.catAppearance.role.advanced.fields.exampleDialogue.placeholder')"
+                />
+              </SettingEntry>
 
-            <SettingEntry
-              control-id="settings-companion-role-advanced-final"
-              :title="t('settings.catAppearance.role.advanced.fields.finalInstructions.title')"
-              :description="t('settings.catAppearance.role.advanced.fields.finalInstructions.description')"
-              control-class="@md/field-group:w-[min(32rem,50vw)]"
-            >
-              <Textarea
-                id="settings-companion-role-advanced-final"
-                v-model="editableRole.advanced.finalInstructions"
-                class="min-h-28"
-                :placeholder="t('settings.catAppearance.role.advanced.fields.finalInstructions.placeholder')"
-              />
-            </SettingEntry>
-          </FieldGroup>
+              <SettingEntry
+                control-id="settings-companion-role-advanced-final"
+                :title="t('settings.catAppearance.role.advanced.fields.finalInstructions.title')"
+                :description="t('settings.catAppearance.role.advanced.fields.finalInstructions.description')"
+                control-class="@md/field-group:w-[min(32rem,50vw)]"
+              >
+                <Textarea
+                  id="settings-companion-role-advanced-final"
+                  v-model="editableRole.advanced.finalInstructions"
+                  class="min-h-28"
+                  :placeholder="t('settings.catAppearance.role.advanced.fields.finalInstructions.placeholder')"
+                />
+              </SettingEntry>
+            </FieldGroup>
+          </SettingsSection>
         </div>
       </TabsContent>
     </Tabs>
@@ -1162,5 +1224,10 @@ function createRoleKnowledgeId(index: number): string {
     v-model:input="previewInput"
     :sections="previewSections"
     :token-total="previewTokenTotal"
+  />
+
+  <CompanionRoleKnowledgeCreateDialog
+    v-model:open="knowledgeCreateDialogOpen"
+    @submit="createKnowledgeEntry"
   />
 </template>

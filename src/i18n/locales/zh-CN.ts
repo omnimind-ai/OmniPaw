@@ -202,6 +202,36 @@ export default {
           behavior: '互动行为',
           advanced: '高级设置',
         },
+        sections: {
+          identity: {
+            title: '身份与称呼',
+            description: '设置角色名称，以及角色如何称呼用户。',
+          },
+          persona: {
+            title: '性格与关系',
+            description: '用短语稳定角色性格、说话风格和与用户的关系。',
+          },
+          opening: {
+            title: '背景与开场',
+            description: '补充少量背景资料，并设置新会话开场方式。',
+          },
+          knowledge: {
+            title: '角色知识',
+            description: '管理当前角色会按对话触发的轻量知识条目。',
+          },
+          appearance: {
+            title: '外观形象',
+            description: '选择这个角色在桌面悬浮窗中使用的外观包。',
+          },
+          behavior: {
+            title: '互动行为',
+            description: '调整角色的互动倾向、默认模型和主动协助分寸。',
+          },
+          advanced: {
+            title: '高级设置',
+            description: '追加更细的角色指令、专属知识和输出约束。',
+          },
+        },
         listTitle: '角色列表',
         searchLabel: '搜索角色',
         searchPlaceholder: '搜索角色',
@@ -308,7 +338,19 @@ export default {
           order: '排序 {index}',
           settings: {
             scanDepth: '扫描最近消息数',
+            scanDepthDescription: '用于匹配触发关键词的最近消息范围。',
             maxTokens: '本轮知识上限',
+            maxTokensDescription: '每轮注入角色知识时可使用的总 token 预算。',
+          },
+          createDialog: {
+            title: '新增角色知识',
+            description: '先填写知识内容和触发方式，保存后才会加入当前角色。',
+            contentLabel: '知识内容',
+            keysLabel: '触发关键词',
+            keysDescription: '留空时可配合“始终注入”；多个关键词用逗号或换行分隔。',
+            tokenBudgetPlaceholder: '留空跟随全局上限',
+            cancel: '取消',
+            create: '新增',
           },
           fields: {
             title: '知识标题',
