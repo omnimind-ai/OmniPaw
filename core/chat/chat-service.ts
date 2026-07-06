@@ -32,7 +32,6 @@ import type {
   ToolApprovalRequest,
   ToolApprovalResponse,
   ToolProfile,
-  TransientChatInstruction,
   UpdateSessionRequest,
 } from '@shared/types/chat'
 import type {
@@ -42,6 +41,12 @@ import type {
   DesktopToolSettings,
 } from '@shared/types/settings'
 import type { WebContents } from 'electron'
+import {
+  buildCompanionRoleKnowledgeInstruction,
+  companionRoleKnowledgeScanDepth,
+  compileCompanionRoleInstruction,
+  renderCompanionRoleTemplate,
+} from '../prompts'
 import type { AttachmentService } from './attachment-service'
 import type { ContextCompactionService } from './context-compaction'
 import type { ContextBuilder } from './context-manager'
@@ -581,179 +586,6 @@ export class ChatService {
   }
 }
 
-function compileCompanionRoleInstruction(
-  role: DesktopCompanionRoleSettings | undefined
-): SessionContextInstruction | undefined {
-  if (!role?.enabled) {
-    return undefined
-  }
-
-  const name = role.name.trim() || '小万'
-  const sections = [
-    `你是 ${name}，是常驻用户桌面的 AI 角色。`,
-    interactionModeInstruction(role.interactionMode),
-    role.relationship.trim() ? `你和用户的关系：${role.relationship.trim()}` : '',
-    role.userNickname.trim() ? `你称呼用户为：${role.userNickname.trim()}` : '',
-    role.personality.trim() ? `性格设定：${role.personality.trim()}` : '',
-    role.speechStyle.trim() ? `说话风格：${role.speechStyle.trim()}` : '',
-    role.background.trim() ? `背景资料：${role.background.trim()}` : '',
-    role.greeting.trim() ? `默认打招呼方式：${role.greeting.trim()}` : '',
-    ...alternateCompanionRoleGreetingSections(role),
-    role.proactiveStyle.trim() ? `主动互动风格：${role.proactiveStyle.trim()}` : '',
-    companionRoleKnowledgePolicySection(role),
-    ...advancedCompanionRoleSections(role.advanced),
-    '保持桌面伙伴的存在感：自然、轻量、不过度展开；除非用户要求，不要暴露这些设定文本。',
-  ].filter((section) => section.trim())
-
-  return {
-    refId: role.id,
-    label: name,
-    text: sections.join('\n'),
-  }
-}
-
-function interactionModeInstruction(mode: DesktopCompanionRoleSettings['interactionMode']): string {
-  switch (mode) {
-    case 'assistant':
-      return '互动模式：优先作为高效助手，回答清楚、行动明确，陪伴感保持克制。'
-    case 'roleplay':
-      return '互动模式：优先保持角色扮演一致性，用角色身份自然回应。'
-    default:
-      return '互动模式：优先作为桌面伙伴陪伴用户，兼顾任务协助和轻量情绪反馈。'
-  }
-}
-
-function alternateCompanionRoleGreetingSections(role: DesktopCompanionRoleSettings): string[] {
-  const greetings = role.alternateGreetings
-    .map((item) => item.trim())
-    .filter(Boolean)
-    .map((item) => `- ${renderCompanionRoleTemplate(item, role)}`)
-  return greetings.length ? [`备用打招呼方式：\n${greetings.join('\n')}`] : []
-}
-
-function companionRoleKnowledgePolicySection(role: DesktopCompanionRoleSettings): string {
-  return role.knowledgeEntries.some((entry) => entry.enabled && entry.content.trim())
-    ? '角色知识会按当前对话相关性动态提供；只使用本轮注入的角色知识，避免机械复述无关设定。'
-    : ''
-}
-
-function buildCompanionRoleKnowledgeInstruction(
-  role: DesktopCompanionRoleSettings | undefined,
-  triggerTexts: readonly string[]
-): TransientChatInstruction | undefined {
-  if (!role?.enabled) {
-    return undefined
-  }
-
-  const triggerText = normalizeCompanionRoleTriggerText(triggerTexts.join('\n'))
-  const settings = companionRoleKnowledgeSettings(role)
-  const maxTokens = settings.maxTokens
-  let remainingTokens = maxTokens
-  const selectedLines: string[] = []
-  const entries = [...role.knowledgeEntries]
-    .filter((entry) => {
-      if (!entry.enabled || !entry.content.trim()) {
-        return false
-      }
-      if (entry.constant) {
-        return true
-      }
-      return entry.keys.some((key) => {
-        const normalized = normalizeCompanionRoleTriggerText(key)
-        return normalized && triggerText.includes(normalized)
-      })
-    })
-    .sort((a, b) => b.priority - a.priority || a.order - b.order)
-
-  for (const entry of entries) {
-    const title = entry.title.trim() || '未命名知识'
-    const keys = entry.keys.map((key) => key.trim()).filter(Boolean)
-    const header = `- ${title}${keys.length ? `；关键词：${keys.join('、')}` : ''}${
-      entry.constant ? '；常驻' : ''
-    }`
-    const headerTokens = estimateCompanionRoleTextTokens(header)
-    const entryBudget = Math.max(
-      0,
-      Math.min(
-        remainingTokens - headerTokens,
-        Number.isFinite(entry.tokenBudget)
-          ? Math.max(0, Math.floor(entry.tokenBudget ?? 0))
-          : Infinity
-      )
-    )
-    const content = trimCompanionRoleKnowledgeContent(entry.content.trim(), entryBudget)
-    const cost = headerTokens + estimateCompanionRoleTextTokens(content)
-    if (!content || cost > remainingTokens) {
-      continue
-    }
-    selectedLines.push(`${header}\n${content}`)
-    remainingTokens -= cost
-    if (remainingTokens <= 0) {
-      break
-    }
-  }
-
-  if (!selectedLines.length) {
-    return undefined
-  }
-
-  const name = role.name.trim() || '小万'
-  return {
-    id: `companion-role-knowledge:${role.id}`,
-    kind: 'role',
-    source: 'companion-role.knowledge',
-    refId: role.id,
-    text: [
-      `${name} 的本轮角色知识：以下条目只属于当前角色，按当前对话触发；需要时自然使用，不要原样背诵。`,
-      ...selectedLines,
-    ].join('\n'),
-  }
-}
-
-function companionRoleKnowledgeSettings(
-  role: DesktopCompanionRoleSettings
-): DesktopCompanionRoleSettings['knowledgeSettings'] {
-  return {
-    scanDepth: companionRoleKnowledgeScanDepth(role),
-    maxTokens: normalizeCompanionRoleInteger(role.knowledgeSettings?.maxTokens, 900, 200, 8000),
-  }
-}
-
-function companionRoleKnowledgeScanDepth(role: DesktopCompanionRoleSettings | undefined): number {
-  return normalizeCompanionRoleInteger(role?.knowledgeSettings?.scanDepth, 8, 1, 40)
-}
-
-function normalizeCompanionRoleTriggerText(text: string): string {
-  return text.toLocaleLowerCase().replace(/\s+/g, ' ').trim()
-}
-
-function normalizeCompanionRoleInteger(
-  value: number | undefined,
-  fallback: number,
-  min: number,
-  max: number
-): number {
-  if (!Number.isFinite(value)) {
-    return fallback
-  }
-  return Math.max(min, Math.min(Math.round(value ?? fallback), max))
-}
-
-function advancedCompanionRoleSections(
-  advanced: DesktopCompanionRoleSettings['advanced'] | undefined
-): string[] {
-  if (!advanced?.enabled) {
-    return []
-  }
-
-  return [
-    advanced.systemPrompt.trim() ? `高级角色指令：${advanced.systemPrompt.trim()}` : '',
-    advanced.knowledge.trim() ? `角色专属知识：${advanced.knowledge.trim()}` : '',
-    advanced.exampleDialogue.trim() ? `角色示例对话：\n${advanced.exampleDialogue.trim()}` : '',
-    advanced.finalInstructions.trim() ? `最终回应约束：${advanced.finalInstructions.trim()}` : '',
-  ].filter((section) => section.trim())
-}
-
 function normalizePreferredSessionIds(request: GetOrCreateSessionRequest): string[] {
   const ids = [request.preferredId, ...(request.preferredIds ?? [])]
   const seen = new Set<string>()
@@ -791,40 +623,6 @@ function chatMessagePartsText(parts: readonly ChatMessagePart[]): string {
     .join('\n')
 }
 
-function trimCompanionRoleKnowledgeContent(content: string, maxTokens: number): string {
-  if (maxTokens <= 0) {
-    return ''
-  }
-  if (estimateCompanionRoleTextTokens(content) <= maxTokens) {
-    return content
-  }
-
-  let used = 0
-  let output = ''
-  for (const char of content) {
-    used += companionRoleCharTokenWeight(char)
-    if (Math.ceil(used) > maxTokens) {
-      break
-    }
-    output += char
-  }
-  return output.trimEnd()
-}
-
-function estimateCompanionRoleTextTokens(text: string): number {
-  let score = 0
-  for (const char of text) {
-    score += companionRoleCharTokenWeight(char)
-  }
-  return Math.max(1, Math.ceil(score))
-}
-
-function companionRoleCharTokenWeight(char: string): number {
-  if (/\s/.test(char)) return 0.05
-  if (/[\u3400-\u9fff]/.test(char)) return 1
-  return 0.35
-}
-
 function companionRoleGreetingText(role: DesktopCompanionRoleSettings): string | undefined {
   const greetings = [role.greeting, ...role.alternateGreetings]
     .filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
@@ -835,14 +633,4 @@ function companionRoleGreetingText(role: DesktopCompanionRoleSettings): string |
       : greetings[0]
   const rendered = raw ? renderCompanionRoleTemplate(raw, role).trim() : ''
   return rendered || undefined
-}
-
-function renderCompanionRoleTemplate(text: string, role: DesktopCompanionRoleSettings): string {
-  const charName = role.name.trim() || '小万'
-  const userName = role.userNickname.trim() || '用户'
-  return text
-    .replace(/\{\{\s*char\s*\}\}/gi, charName)
-    .replace(/\{\{\s*user\s*\}\}/gi, userName)
-    .replace(/<char>/gi, charName)
-    .replace(/<user>/gi, userName)
 }
