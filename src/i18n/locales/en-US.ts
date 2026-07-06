@@ -208,6 +208,9 @@ export default {
           advanced: 'Advanced',
         },
         listTitle: 'Characters',
+        searchLabel: 'Search characters',
+        searchPlaceholder: 'Search characters',
+        noSearchMatch: 'No matching characters.',
         activeHint:
           'The active character applies to new sessions and shapes companionship, collaboration style, and output preferences.',
         newRoleName: 'New character',

@@ -8,9 +8,11 @@ import type {
 } from '@shared/types/companion-role'
 import {
   ArrowLeftIcon,
+  CheckIcon,
   FileJsonIcon,
   MoreHorizontalIcon,
   PlusIcon,
+  SearchIcon,
   SparklesIcon,
 } from 'lucide-vue-next'
 import { computed, ref } from 'vue'
@@ -39,6 +41,7 @@ import {
   SidebarGroup,
   SidebarGroupContent,
   SidebarHeader,
+  SidebarInput,
   SidebarInset,
   SidebarMenu,
   SidebarMenuButton,
@@ -61,9 +64,18 @@ const toast = useToast()
 const roleCardInput = ref<HTMLInputElement>()
 const roleCardImportDialogOpen = ref(false)
 const roleCardJsonContent = ref('')
+const roleSearchQuery = ref('')
 const importingRoleCard = ref(false)
 
 const roles = computed(() => props.draft.app.companionRoles)
+const normalizedRoleSearchQuery = computed(() => roleSearchQuery.value.trim().toLocaleLowerCase())
+const filteredRoles = computed(() => {
+  const query = normalizedRoleSearchQuery.value
+  if (!query) return roles.value
+  return roles.value.filter((role) =>
+    (role.name || t('settings.catAppearance.role.unnamed')).toLocaleLowerCase().includes(query)
+  )
+})
 const activeRoleId = computed(() => props.draft.app.activeCompanionRoleId)
 const activeRole = computed(
   () => roles.value.find((role) => role.id === activeRoleId.value) ?? roles.value[0]
@@ -381,15 +393,18 @@ function defaultRoleName(): string {
       <SidebarContent>
         <SidebarGroup>
           <div class="flex items-center justify-between gap-2 px-2">
-            <div class="flex min-w-0 flex-1 items-center gap-2 px-2 py-1.5 text-sm font-medium text-sidebar-foreground">
-              <span class="truncate">{{ t('settings.catAppearance.role.listTitle') }}</span>
-              <Badge
-                variant="outline"
-                class="ml-auto"
-              >
-                {{ roles.length }}
-              </Badge>
+            <div class="relative min-w-0 flex-1">
+              <SearchIcon class="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground" />
+              <SidebarInput
+                v-model="roleSearchQuery"
+                class="pl-8"
+                :aria-label="t('settings.catAppearance.role.searchLabel')"
+                :placeholder="t('settings.catAppearance.role.searchPlaceholder')"
+              />
             </div>
+            <Badge variant="outline">
+              {{ filteredRoles.length }}
+            </Badge>
             <DropdownMenu>
               <DropdownMenuTrigger as-child>
                 <Button
@@ -422,22 +437,33 @@ function defaultRoleName(): string {
           <SidebarGroupContent>
             <SidebarMenu>
               <SidebarMenuItem
-                v-for="item in roles"
+                v-for="item in filteredRoles"
                 :key="item.id"
               >
                 <SidebarMenuButton
                   size="lg"
                   :is-active="item.id === activeRoleId"
                   :tooltip="item.name || t('settings.catAppearance.role.unnamed')"
+                  :aria-current="item.id === activeRoleId ? 'true' : undefined"
                   @click="selectRole(item)"
                 >
                   <SparklesIcon />
                   <span>
                     {{ item.name || t('settings.catAppearance.role.unnamed') }}
                   </span>
+                  <CheckIcon
+                    v-if="item.id === activeRoleId"
+                    class="ml-auto text-primary"
+                  />
                 </SidebarMenuButton>
               </SidebarMenuItem>
             </SidebarMenu>
+            <p
+              v-if="!filteredRoles.length"
+              class="px-3 py-6 text-center text-sm text-muted-foreground"
+            >
+              {{ t('settings.catAppearance.role.noSearchMatch') }}
+            </p>
           </SidebarGroupContent>
         </SidebarGroup>
       </SidebarContent>
