@@ -23,17 +23,10 @@ import {
   isFallbackBridge,
 } from '@/bridge/app'
 import CompanionRoleEditor from '@/components/settings/companion-role-settings/CompanionRoleEditor.vue'
+import RoleCardImportDialog from '@/components/settings/companion-role-settings/RoleCardImportDialog.vue'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Collapsible, CollapsibleContent } from '@/components/ui/collapsible'
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@/components/ui/dialog'
 import {
   Sidebar,
   SidebarContent,
@@ -48,7 +41,6 @@ import {
   SidebarSeparator,
   SidebarTrigger,
 } from '@/components/ui/sidebar'
-import { Textarea } from '@/components/ui/textarea'
 import { errorToText, useToast } from '@/utils/toast'
 
 type CompanionRole = BridgeDesktopSettingsConfig['app']['companionRoles'][number]
@@ -468,42 +460,13 @@ function defaultRoleName(): string {
       </main>
     </SidebarInset>
 
-    <Dialog v-model:open="roleCardImportDialogOpen">
-      <DialogContent class="sm:max-w-xl">
-        <DialogHeader>
-          <DialogTitle>{{ t('settings.catAppearance.role.importDialog.title') }}</DialogTitle>
-          <DialogDescription>
-            {{ t('settings.catAppearance.role.importDialog.description') }}
-          </DialogDescription>
-        </DialogHeader>
-
-        <div class="flex flex-col gap-3">
-          <Textarea
-            v-model="roleCardJsonContent"
-            class="min-h-52 font-mono text-xs"
-            :placeholder="t('settings.catAppearance.role.importDialog.jsonPlaceholder')"
-          />
-        </div>
-
-        <DialogFooter class="gap-2 sm:justify-between">
-          <Button
-            type="button"
-            variant="outline"
-            :disabled="importRoleCardDisabled"
-            @click="chooseRoleCardFile"
-          >
-            <FileJsonIcon data-icon="inline-start" />
-            {{ t('settings.catAppearance.role.importDialog.chooseFile') }}
-          </Button>
-          <Button
-            type="button"
-            :disabled="!canImportRoleCardJson"
-            @click="importPastedRoleCard"
-          >
-            {{ t('settings.catAppearance.role.importDialog.importJson') }}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+    <RoleCardImportDialog
+      v-model:open="roleCardImportDialogOpen"
+      v-model:json-content="roleCardJsonContent"
+      :import-disabled="importRoleCardDisabled"
+      :can-import-json="canImportRoleCardJson"
+      @choose-file="chooseRoleCardFile"
+      @import-json="importPastedRoleCard"
+    />
   </SidebarProvider>
 </template>
