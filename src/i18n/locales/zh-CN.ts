@@ -250,6 +250,7 @@ export default {
           exportCard: '导出角色',
           duplicate: '复制',
           delete: '删除',
+          confirmDelete: '确认删除',
         },
         fields: {
           name: {

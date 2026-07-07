@@ -65,6 +65,7 @@ type CompanionRole = BridgeDesktopSettingsConfig['app']['companionRoles'][number
 const props = defineProps<{
   role: CompanionRole
   canDeleteRole: boolean
+  confirmDeleteRoleId?: string
 }>()
 
 const emit = defineEmits<{
@@ -610,13 +611,17 @@ function createRoleKnowledgeId(index: number): string {
           {{ t('settings.catAppearance.role.actions.exportCard') }}
         </Button>
         <Button
-          variant="outline"
+          :variant="confirmDeleteRoleId === editableRole.id ? 'destructive' : 'outline'"
           size="sm"
           :disabled="!canDeleteRole"
           @click="emit('deleteRole', editableRole)"
         >
           <Trash2Icon data-icon="inline-start" />
-          {{ t('settings.catAppearance.role.actions.delete') }}
+          {{
+            confirmDeleteRoleId === editableRole.id
+              ? t('settings.catAppearance.role.actions.confirmDelete')
+              : t('settings.catAppearance.role.actions.delete')
+          }}
         </Button>
       </div>
     </div>

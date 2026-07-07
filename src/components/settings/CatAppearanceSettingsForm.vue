@@ -69,6 +69,7 @@ const roleSearchQuery = ref('')
 const importingRole = ref(false)
 const importingRoleCard = ref(false)
 const exportingRoleCard = ref(false)
+const confirmDeleteRoleId = ref<string>()
 
 const roles = computed(() => props.draft.app.companionRoles)
 const normalizedRoleSearchQuery = computed(() => roleSearchQuery.value.trim().toLocaleLowerCase())
@@ -91,10 +92,12 @@ const canImportRoleCardJson = computed(
 )
 
 function selectRole(target: CompanionRole): void {
+  confirmDeleteRoleId.value = undefined
   props.draft.app.activeCompanionRoleId = target.id
 }
 
 function createRole(): void {
+  confirmDeleteRoleId.value = undefined
   const nextRole = createCompanionRole()
   roles.value.push(nextRole)
   props.draft.app.activeCompanionRoleId = nextRole.id
@@ -102,6 +105,7 @@ function createRole(): void {
 
 function duplicateActiveRole(): void {
   if (!activeRole.value) return
+  confirmDeleteRoleId.value = undefined
   const nextRole: CompanionRole = {
     ...activeRole.value,
     id: createRoleId(),
@@ -126,8 +130,13 @@ function duplicateActiveRole(): void {
 
 function deleteRole(target: CompanionRole): void {
   if (!canDeleteRole.value) return
+  if (confirmDeleteRoleId.value !== target.id) {
+    confirmDeleteRoleId.value = target.id
+    return
+  }
   const index = roles.value.findIndex((item) => item.id === target.id)
   if (index < 0) return
+  confirmDeleteRoleId.value = undefined
   roles.value.splice(index, 1)
   if (props.draft.app.activeCompanionRoleId === target.id) {
     props.draft.app.activeCompanionRoleId =
@@ -169,6 +178,7 @@ function createCompanionRole(): CompanionRole {
 }
 
 function chooseRoleFile(): void {
+  confirmDeleteRoleId.value = undefined
   try {
     ensureElectronBridge(t('settings.catAppearance.role.actions.importRole'))
   } catch (error) {
@@ -179,6 +189,7 @@ function chooseRoleFile(): void {
 }
 
 function openRoleCardImport(): void {
+  confirmDeleteRoleId.value = undefined
   try {
     ensureElectronBridge(t('settings.catAppearance.role.actions.importCard'))
   } catch (error) {
@@ -190,6 +201,7 @@ function openRoleCardImport(): void {
 
 async function exportActiveRoleCard(): Promise<void> {
   if (!activeRole.value || exportingRoleCard.value) return
+  confirmDeleteRoleId.value = undefined
 
   try {
     ensureElectronBridge(t('settings.catAppearance.role.actions.exportCard'))
@@ -215,6 +227,7 @@ async function exportActiveRoleCard(): Promise<void> {
 }
 
 function chooseRoleCardFile(): void {
+  confirmDeleteRoleId.value = undefined
   roleCardInput.value?.click()
 }
 
@@ -378,6 +391,7 @@ function applyImportedRole(
     summaryKey: string
   }
 ): void {
+  confirmDeleteRoleId.value = undefined
   const nextRole = createRoleFromImportedDraft(result.role, result.source)
   roles.value.push(nextRole)
   props.draft.app.activeCompanionRoleId = nextRole.id
@@ -667,6 +681,7 @@ function defaultRoleName(): string {
             v-if="activeRole"
             :role="activeRole"
             :can-delete-role="canDeleteRole"
+            :confirm-delete-role-id="confirmDeleteRoleId"
             @duplicate-role="duplicateActiveRole"
             @export-role="exportActiveRoleCard"
             @delete-role="deleteRole"

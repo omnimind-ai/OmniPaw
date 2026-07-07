@@ -259,6 +259,7 @@ export default {
           exportCard: 'Export Character',
           duplicate: 'Duplicate',
           delete: 'Delete',
+          confirmDelete: 'Confirm delete',
         },
         fields: {
           name: {
