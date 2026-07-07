@@ -5,6 +5,14 @@ import type {
   CatAppearancePackSummary,
   CatAppearanceResolvedPack,
 } from '@shared/types/cat-appearance'
+import type { CatPetInteractionConfig } from '@shared/types/cat-pet'
+import {
+  CAT_PET_ACTIONS,
+  CAT_PET_DAILY_LIMITS,
+  CAT_PET_UNLOCK_AFFECTION,
+  defaultCatPetInteractionConfigs,
+  normalizeCatPetInteractionConfigs,
+} from '@shared/types/cat-pet'
 import {
   BookOpenIcon,
   BotIcon,
@@ -12,6 +20,7 @@ import {
   CopyIcon,
   DownloadIcon,
   EyeIcon,
+  HandIcon,
   ImageIcon,
   MessageCircleIcon,
   PackagePlusIcon,
@@ -58,6 +67,9 @@ import { type ProviderModelOption, useProviderStore } from '@/stores/provider'
 import { errorToText, useToast } from '@/utils/toast'
 
 const NONE_VALUE = '__none__'
+const defaultPetInteractionById = new Map(
+  defaultCatPetInteractionConfigs().map((item) => [item.id, item])
+)
 
 type BadgeVariant = NonNullable<BadgeVariants['variant']>
 type CompanionRole = BridgeDesktopSettingsConfig['app']['companionRoles'][number]
@@ -184,6 +196,14 @@ watch(activeRoleAppearancePackId, () => {
   void loadCurrentDetail()
 })
 
+watch(
+  () => editableRole.value.id,
+  () => {
+    ensurePetInteractions()
+  },
+  { immediate: true }
+)
+
 function modelLabel(option: ProviderModelOption): string {
   return `${option.providerName} / ${option.modelName}`
 }
@@ -280,6 +300,56 @@ function ensureKnowledgeEntries(): CompanionRole['knowledgeEntries'] {
     editableRole.value.knowledgeEntries = []
   }
   return editableRole.value.knowledgeEntries
+}
+
+function ensurePetInteractions(): CompanionRole['petInteractions'] {
+  const normalized = normalizeCatPetInteractionConfigs(editableRole.value.petInteractions)
+  if (JSON.stringify(editableRole.value.petInteractions) !== JSON.stringify(normalized)) {
+    editableRole.value.petInteractions = normalized
+  }
+  return editableRole.value.petInteractions
+}
+
+function petInteractionFallback(item: CatPetInteractionConfig): CatPetInteractionConfig {
+  return defaultPetInteractionById.get(item.id) ?? item
+}
+
+function petInteractionTitle(item: CatPetInteractionConfig, index: number): string {
+  return (
+    item.label?.trim() ||
+    petInteractionFallback(item).label ||
+    t('settings.catAppearance.role.interactions.slot', { index: index + 1 })
+  )
+}
+
+function petInteractionDescription(item: CatPetInteractionConfig): string {
+  return item.description?.trim() || petInteractionFallback(item).description || ''
+}
+
+function petInteractionAvailability(item: CatPetInteractionConfig): string {
+  const unlockAffection = CAT_PET_UNLOCK_AFFECTION[item.id]
+  if (unlockAffection > 0) {
+    return t('catPet.config.unlockAt', { count: unlockAffection })
+  }
+  return t('catPet.config.availableNow')
+}
+
+function petInteractionDailyLimit(item: CatPetInteractionConfig): string {
+  return t('settings.catAppearance.role.interactions.dailyLimit', {
+    count: CAT_PET_DAILY_LIMITS[item.id],
+  })
+}
+
+function updatePetInteraction(
+  index: number,
+  patch: Partial<Omit<CatPetInteractionConfig, 'id'>>
+): void {
+  const items = ensurePetInteractions()
+  const current = items[index]
+  if (!current) return
+  const next = [...items]
+  next[index] = { ...current, ...patch }
+  editableRole.value.petInteractions = next
 }
 
 async function loadPacks(): Promise<void> {
@@ -629,8 +699,8 @@ function createRoleKnowledgeId(index: number): string {
       v-model="activeTab"
       class="grid h-full min-h-0 grid-rows-[auto_minmax(0,1fr)] gap-0"
     >
-      <div class="flex justify-center border-b px-4 py-3 sm:px-5">
-        <TabsList class="w-full max-w-4xl">
+      <div class="overflow-x-auto border-b px-4 py-3 sm:px-5">
+        <TabsList class="mx-auto w-max min-w-full max-w-5xl">
           <TabsTrigger value="basic">
             {{ t('settings.catAppearance.role.tabs.basic') }}
           </TabsTrigger>
@@ -642,6 +712,9 @@ function createRoleKnowledgeId(index: number): string {
           </TabsTrigger>
           <TabsTrigger value="appearance">
             {{ t('settings.catAppearance.role.tabs.appearance') }}
+          </TabsTrigger>
+          <TabsTrigger value="interactions">
+            {{ t('settings.catAppearance.role.tabs.interactions') }}
           </TabsTrigger>
           <TabsTrigger value="advanced">
             {{ t('settings.catAppearance.role.tabs.advanced') }}
@@ -1087,6 +1160,96 @@ function createRoleKnowledgeId(index: number): string {
             :loading="loading || currentDetailLoading"
             :error="currentDetailError"
           />
+        </div>
+      </TabsContent>
+
+      <TabsContent
+        value="interactions"
+        class="min-h-0 overflow-y-auto"
+      >
+        <div class="flex flex-col gap-4 p-4 sm:p-5">
+          <SettingsSection
+            :title="t('settings.catAppearance.role.sections.interactions.title')"
+            :description="t('settings.catAppearance.role.sections.interactions.description')"
+            :icon="HandIcon"
+          >
+            <FieldGroup class="gap-0">
+              <SettingEntry
+                v-for="(item, index) in editableRole.petInteractions"
+                :key="item.id"
+                :control-id="`settings-companion-role-interaction-label-${item.id}`"
+                :title="petInteractionTitle(item, index)"
+                :description="petInteractionDescription(item)"
+                control-class="@md/field-group:w-[min(38rem,58vw)]"
+              >
+                <template #meta>
+                  <div class="flex flex-wrap gap-1.5">
+                    <Badge variant="secondary">
+                      {{ petInteractionAvailability(item) }}
+                    </Badge>
+                    <Badge variant="outline">
+                      {{ petInteractionDailyLimit(item) }}
+                    </Badge>
+                  </div>
+                </template>
+
+                <div class="flex w-full min-w-0 flex-col gap-3">
+                  <div class="flex items-center justify-between gap-3 rounded-md border bg-background/60 px-3 py-2">
+                    <span class="text-sm text-muted-foreground">
+                      {{ t('settings.catAppearance.role.interactions.fields.enabled') }}
+                    </span>
+                    <Switch
+                      :id="`settings-companion-role-interaction-enabled-${item.id}`"
+                      :model-value="item.enabled !== false"
+                      :aria-label="t('catPet.config.enabledAria', { name: petInteractionTitle(item, index) })"
+                      @update:model-value="updatePetInteraction(index, { enabled: Boolean($event) })"
+                    />
+                  </div>
+
+                  <div class="grid gap-2 md:grid-cols-2">
+                    <Input
+                      :id="`settings-companion-role-interaction-label-${item.id}`"
+                      :model-value="item.label"
+                      maxlength="18"
+                      :aria-label="t('settings.catAppearance.role.interactions.fields.label')"
+                      :placeholder="petInteractionFallback(item).label"
+                      @update:model-value="updatePetInteraction(index, { label: String($event) })"
+                    />
+                    <Input
+                      :model-value="item.description"
+                      maxlength="80"
+                      :aria-label="t('settings.catAppearance.role.interactions.fields.description')"
+                      :placeholder="t('catPet.config.hintPlaceholder')"
+                      @update:model-value="updatePetInteraction(index, { description: String($event) })"
+                    />
+                    <Input
+                      :model-value="item.positiveFeedback"
+                      maxlength="120"
+                      :aria-label="t('settings.catAppearance.role.interactions.fields.positiveFeedback')"
+                      :placeholder="t('catPet.config.positivePlaceholder')"
+                      @update:model-value="updatePetInteraction(index, { positiveFeedback: String($event) })"
+                    />
+                    <Input
+                      :model-value="item.negativeFeedback"
+                      maxlength="120"
+                      :aria-label="t('settings.catAppearance.role.interactions.fields.negativeFeedback')"
+                      :placeholder="t('catPet.config.negativePlaceholder')"
+                      @update:model-value="updatePetInteraction(index, { negativeFeedback: String($event) })"
+                    />
+                  </div>
+                </div>
+              </SettingEntry>
+            </FieldGroup>
+          </SettingsSection>
+
+          <p class="text-sm text-muted-foreground">
+            {{
+              t('settings.catAppearance.role.interactions.summary', {
+                count: editableRole.petInteractions.length,
+                total: CAT_PET_ACTIONS.length,
+              })
+            }}
+          </p>
         </div>
       </TabsContent>
 

@@ -199,6 +199,7 @@ export default {
           memory: '角色记忆',
           knowledge: '角色知识',
           appearance: '外观形象',
+          interactions: '互动配置',
           advanced: '高级设置',
         },
         sections: {
@@ -221,6 +222,10 @@ export default {
           appearance: {
             title: '外观形象',
             description: '选择这个角色在桌面悬浮窗中使用的外观包。',
+          },
+          interactions: {
+            title: '互动配置',
+            description: '配置桌宠状态面板里的互动按钮、启用状态和反馈文案。',
           },
           behavior: {
             title: '协作设置',
@@ -315,6 +320,18 @@ export default {
             title: '主动互动风格',
             description: '控制主动提醒、陪伴反馈和工作协助的分寸。',
             placeholder: '适度主动提醒；在用户卡住、上下文切换或长时间无进展时提供轻量帮助。',
+          },
+        },
+        interactions: {
+          slot: '互动 {index}',
+          dailyLimit: '每日 {count} 次',
+          summary: '已配置 {count}/{total} 个互动，改动会随当前角色自动保存。',
+          fields: {
+            enabled: '启用互动',
+            label: '按钮名称',
+            description: '按钮说明',
+            positiveFeedback: '成功反馈',
+            negativeFeedback: '未奏效反馈',
           },
         },
         knowledge: {

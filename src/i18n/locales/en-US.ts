@@ -204,6 +204,7 @@ export default {
           memory: 'Memory',
           knowledge: 'Knowledge',
           appearance: 'Appearance',
+          interactions: 'Interactions',
           advanced: 'Advanced',
         },
         sections: {
@@ -228,6 +229,11 @@ export default {
             title: 'Appearance',
             description:
               'Choose the appearance pack used by this character in the floating window.',
+          },
+          interactions: {
+            title: 'Interaction Settings',
+            description:
+              'Configure the pet status panel interaction buttons, enabled states, and feedback text.',
           },
           behavior: {
             title: 'Collaboration Settings',
@@ -334,6 +340,19 @@ export default {
               'Controls initiative, companionship feedback, and the boundaries of work assistance.',
             placeholder:
               'Offer gentle nudges; provide lightweight help when the user is stuck, switching context, or making no progress for a while.',
+          },
+        },
+        interactions: {
+          slot: 'Interaction {index}',
+          dailyLimit: '{count} per day',
+          summary:
+            '{count}/{total} interactions configured. Changes are auto-saved with this character.',
+          fields: {
+            enabled: 'Enable interaction',
+            label: 'Button label',
+            description: 'Button hint',
+            positiveFeedback: 'Success feedback',
+            negativeFeedback: 'Negative feedback',
           },
         },
         knowledge: {

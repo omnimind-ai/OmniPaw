@@ -1,16 +1,11 @@
 <script setup lang="ts">
-import type {
-  CatPetAction,
-  CatPetInteractionConfig,
-  CatPetInteractionDefinition,
-} from '@shared/types/cat-pet'
+import type { CatPetAction, CatPetInteractionDefinition } from '@shared/types/cat-pet'
 import {
   ArrowLeftIcon,
   HandIcon,
   HeartIcon,
   Loader2Icon,
   RefreshCwIcon,
-  Settings2Icon,
   SmileIcon,
   SparklesIcon,
 } from 'lucide-vue-next'
@@ -25,7 +20,6 @@ import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { useCatPetStore } from '@/stores/cat-pet'
 import { errorToText, useToast } from '@/utils/toast'
-import CatPetInteractionConfigModal from './CatPetInteractionConfigModal.vue'
 
 defineProps<{
   sideLabel: string
@@ -44,7 +38,6 @@ const {
   affectionMax,
   mood,
   interactions,
-  interactionConfigs,
   todayUsage,
   limits,
   recent,
@@ -52,11 +45,9 @@ const {
   remainingByAction,
   loading,
   performing,
-  savingInteractions,
 } = storeToRefs(store)
 
 const idleImage = ref<string>(fallbackIdleImage)
-const configOpen = ref(false)
 let appearanceUnsubscribe: BridgeUnsubscribe | undefined
 
 const actionIcons: Record<CatPetAction, Component> = {
@@ -234,16 +225,6 @@ async function handleRefresh(): Promise<void> {
   }
 }
 
-async function handleSaveInteractions(items: CatPetInteractionConfig[]): Promise<void> {
-  try {
-    await store.updateInteractions(items)
-    configOpen.value = false
-    toast.success(t('catPet.config.saved'))
-  } catch (err) {
-    toast.error(errorToText(err, t('catPet.errors.configFailed')))
-  }
-}
-
 function dotClass(filled: boolean): string {
   return filled
     ? 'inline-block size-1.5 rounded-full bg-foreground/80'
@@ -363,17 +344,6 @@ function formatAwayLabel(ms: number): string {
       <div class="flex flex-col gap-3 rounded-lg border border-border/70 bg-muted/30 px-3 py-3">
         <div class="flex items-center justify-between gap-2">
           <p class="text-xs font-medium text-muted-foreground">{{ t('catPet.todayInteractions') }}</p>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            class="h-7 px-2"
-            :disabled="savingInteractions"
-            @click="configOpen = true"
-          >
-            <Settings2Icon data-icon="inline-start" />
-            {{ t('catPet.config.button') }}
-          </Button>
         </div>
 
         <div class="grid grid-cols-2 gap-2 text-sm">
@@ -437,14 +407,6 @@ function formatAwayLabel(ms: number): string {
         </div>
       </div>
     </div>
-
-    <CatPetInteractionConfigModal
-      v-model:open="configOpen"
-      :interaction-configs="interactionConfigs"
-      :interactions="interactions"
-      :saving="savingInteractions"
-      @save="handleSaveInteractions"
-    />
   </section>
 </template>
 
