@@ -44,6 +44,14 @@ import {
   moodFromAffection,
 } from '@shared/types/cat-pet'
 import type {
+  CompanionRoleKnowledgeEntry,
+  CompanionRoleSourceMetadata,
+  ExportCompanionRoleCardRequest,
+  ExportCompanionRoleCardResponse,
+  ImportCompanionRoleCardRequest,
+  ImportCompanionRoleCardResponse,
+} from '@shared/types/companion-role'
+import type {
   CreateCronTaskRequest,
   CreateCronTaskResponse,
   CronTaskChangedEvent,
@@ -126,37 +134,6 @@ import type {
 } from '@shared/types/omniinfer'
 import type { DesktopShortcutSettings, ShortcutStatusChangedEvent } from '@shared/types/shortcuts'
 import { SHORTCUT_ACTIONS } from '@shared/types/shortcuts'
-import type {
-  CopyPersonaToTavernUserProfileRequest,
-  CreateTavernCharacterRequest,
-  CreateTavernLorebookRequest,
-  CreateTavernPromptPresetRequest,
-  CreateTavernSessionRequest,
-  CreateTavernUserProfileRequest,
-  DeleteTavernCharacterRequest,
-  DeleteTavernLorebookRequest,
-  DeleteTavernPromptPresetRequest,
-  DeleteTavernUserProfileRequest,
-  ExportTavernCharacterPersonaRequest,
-  ImportTavernCharacterRequest,
-  ImportTavernCharacterResult,
-  SetTavernCharacterEnabledRequest,
-  SetTavernLorebookEnabledRequest,
-  SetTavernPromptPresetEnabledRequest,
-  SetTavernUserProfileEnabledRequest,
-  TavernPromptPreviewRequest,
-  TavernPromptPreviewResult,
-  TavernRegistryChangedEvent,
-  TavernRegistryLoadResponse,
-  TavernRegistryMutationResult,
-  TavernRegistryStatus,
-  TavernSessionOperationResult,
-  UpdateTavernCharacterRequest,
-  UpdateTavernLorebookRequest,
-  UpdateTavernPromptPresetRequest,
-  UpdateTavernSessionBindingRequest,
-  UpdateTavernUserProfileRequest,
-} from '@shared/types/tavern'
 import type { DesktopWindowState, DesktopWindowStateChangedEvent } from '@shared/types/window'
 
 export type BridgeUnsubscribe = () => void
@@ -242,6 +219,7 @@ export interface BridgeDesktopSettingsConfig {
     theme: BridgeAppTheme
     initialized: boolean
     minimizeToTrayOnStartup: boolean
+    welcomeTitle: string
     showReasoningContent: boolean
     zoom: {
       factor: number
@@ -262,8 +240,9 @@ export interface BridgeDesktopSettingsConfig {
       relationship: string
       background: string
       greeting: string
+      greetingMode: 'default' | 'random'
+      alternateGreetings: string[]
       proactiveStyle: string
-      interactionMode: 'companion' | 'assistant' | 'roleplay'
       advanced: {
         enabled: boolean
         systemPrompt: string
@@ -271,6 +250,12 @@ export interface BridgeDesktopSettingsConfig {
         exampleDialogue: string
         finalInstructions: string
       }
+      knowledgeSettings: {
+        scanDepth: number
+        maxTokens: number
+      }
+      knowledgeEntries: CompanionRoleKnowledgeEntry[]
+      source?: CompanionRoleSourceMetadata
       defaultProviderId?: string
       defaultModelId?: string
     }>
@@ -356,7 +341,7 @@ export interface BridgeDesktopSettingsChangedEvent {
 export interface BridgeChatSession {
   id: string
   title: string
-  kind?: 'chat' | 'tavern' | 'cat' | 'cron' | 'vision' | string
+  kind?: 'chat' | 'cat' | 'cron' | 'vision' | string
   status: 'active' | 'archived' | 'deleted'
   defaultProviderId?: string
   defaultModelId?: string
@@ -374,7 +359,7 @@ export interface BridgeChatSession {
 }
 
 export interface BridgeListSessionsRequest {
-  kind?: 'chat' | 'tavern' | 'cat' | 'cron' | 'vision' | 'all'
+  kind?: 'chat' | 'cat' | 'cron' | 'vision' | 'all'
   includeDeleted?: boolean
 }
 
@@ -1090,6 +1075,14 @@ export interface RendererOmniPawBridge {
       request: CompanionMemorySettingsRequest | DesktopMemorySettings
     ) => Promise<DesktopMemorySettings>
   }
+  companionRole?: {
+    importCard: (
+      request: ImportCompanionRoleCardRequest
+    ) => Promise<ImportCompanionRoleCardResponse>
+    exportCard?: (
+      request: ExportCompanionRoleCardRequest
+    ) => Promise<ExportCompanionRoleCardResponse>
+  }
   observation?: {
     permissionStatus: () => Promise<ObservationPermissionStatus>
     status: (request?: ObservationStatusRequest) => Promise<ObservationState>
@@ -1268,162 +1261,6 @@ export interface RendererOmniPawBridge {
     listTools: () => Promise<BridgeMcpToolInventoryResponse>
     onChanged: (callback: (event: BridgeMcpChangedEvent) => void) => BridgeUnsubscribe
   }
-  persona?: {
-    load: () => Promise<BridgePersonaRegistryLoadResponse>
-    list: () => Promise<BridgePersonaRegistryLoadResponse>
-    status: () => Promise<BridgePersonaRegistryStatus>
-    create: (request: BridgeCreatePersonaRequest) => Promise<BridgePersonaRegistryMutationResult>
-    update: (request: BridgeUpdatePersonaRequest) => Promise<BridgePersonaRegistryMutationResult>
-    delete: (
-      request: BridgeDeletePersonaRequest | string
-    ) => Promise<BridgePersonaRegistryMutationResult>
-    setDefault: (
-      request: BridgeSetDefaultPersonaRequest
-    ) => Promise<BridgePersonaRegistryMutationResult>
-    onChanged: (callback: (event: BridgePersonaRegistryChangedEvent) => void) => BridgeUnsubscribe
-  }
-  tavern?: {
-    load: () => Promise<TavernRegistryLoadResponse>
-    list: () => Promise<TavernRegistryLoadResponse>
-    status: () => Promise<TavernRegistryStatus>
-    importCharacter: (request: ImportTavernCharacterRequest) => Promise<ImportTavernCharacterResult>
-    createCharacter: (
-      request: CreateTavernCharacterRequest
-    ) => Promise<TavernRegistryMutationResult>
-    updateCharacter: (
-      request: UpdateTavernCharacterRequest
-    ) => Promise<TavernRegistryMutationResult>
-    deleteCharacter: (
-      request: DeleteTavernCharacterRequest | string
-    ) => Promise<TavernRegistryMutationResult>
-    setCharacterEnabled: (
-      request: SetTavernCharacterEnabledRequest
-    ) => Promise<TavernRegistryMutationResult>
-    createLorebook: (request: CreateTavernLorebookRequest) => Promise<TavernRegistryMutationResult>
-    updateLorebook: (request: UpdateTavernLorebookRequest) => Promise<TavernRegistryMutationResult>
-    deleteLorebook: (
-      request: DeleteTavernLorebookRequest | string
-    ) => Promise<TavernRegistryMutationResult>
-    setLorebookEnabled: (
-      request: SetTavernLorebookEnabledRequest
-    ) => Promise<TavernRegistryMutationResult>
-    createPromptPreset: (
-      request: CreateTavernPromptPresetRequest
-    ) => Promise<TavernRegistryMutationResult>
-    updatePromptPreset: (
-      request: UpdateTavernPromptPresetRequest
-    ) => Promise<TavernRegistryMutationResult>
-    deletePromptPreset: (
-      request: DeleteTavernPromptPresetRequest | string
-    ) => Promise<TavernRegistryMutationResult>
-    setPromptPresetEnabled: (
-      request: SetTavernPromptPresetEnabledRequest
-    ) => Promise<TavernRegistryMutationResult>
-    createUserProfile: (
-      request: CreateTavernUserProfileRequest
-    ) => Promise<TavernRegistryMutationResult>
-    updateUserProfile: (
-      request: UpdateTavernUserProfileRequest
-    ) => Promise<TavernRegistryMutationResult>
-    deleteUserProfile: (
-      request: DeleteTavernUserProfileRequest | string
-    ) => Promise<TavernRegistryMutationResult>
-    setUserProfileEnabled: (
-      request: SetTavernUserProfileEnabledRequest
-    ) => Promise<TavernRegistryMutationResult>
-    copyPersonaToUserProfile: (
-      request: CopyPersonaToTavernUserProfileRequest
-    ) => Promise<TavernRegistryMutationResult>
-    exportCharacterAsPersona: (
-      request: ExportTavernCharacterPersonaRequest
-    ) => Promise<TavernRegistryMutationResult>
-    createSession: (request: CreateTavernSessionRequest) => Promise<TavernSessionOperationResult>
-    updateSessionBinding: (
-      request: UpdateTavernSessionBindingRequest
-    ) => Promise<TavernSessionOperationResult>
-    previewPrompt: (request: TavernPromptPreviewRequest) => Promise<TavernPromptPreviewResult>
-    onChanged: (callback: (event: TavernRegistryChangedEvent) => void) => BridgeUnsubscribe
-  }
-}
-
-export interface BridgePersonaProfile {
-  id: string
-  name: string
-  description?: string
-  prompt: string
-  createdAt: number
-  updatedAt: number
-}
-
-export interface BridgePersonaRegistry {
-  version: 1
-  profiles: BridgePersonaProfile[]
-  defaultPersonaId?: string
-  updatedAt: number
-}
-
-export interface BridgePersonaRegistryStatus {
-  path: string
-  backupPath: string
-  exists: boolean
-  backupExists: boolean
-  loaded: boolean
-  version?: 1
-  recoverable: boolean
-  error?: {
-    code: string
-    message: string
-    path?: string
-    recoverable: boolean
-    issues?: Array<{ path: string; message: string; code?: string }>
-  }
-}
-
-export interface BridgePersonaRegistryLoadResponse {
-  registry: BridgePersonaRegistry
-  status: BridgePersonaRegistryStatus
-}
-
-export interface BridgePersonaRegistryMutationResult extends BridgePersonaRegistryLoadResponse {
-  ok?: boolean
-  profile?: BridgePersonaProfile
-}
-
-export type BridgePersonaRegistryChangeReason =
-  | 'load'
-  | 'save'
-  | 'create'
-  | 'update'
-  | 'delete'
-  | 'default'
-
-export interface BridgePersonaRegistryChangedEvent extends BridgePersonaRegistryLoadResponse {
-  reason: BridgePersonaRegistryChangeReason
-  profile?: BridgePersonaProfile
-}
-
-export interface BridgePersonaProfileDraft {
-  id?: string
-  name: string
-  description?: string
-  prompt: string
-}
-
-export interface BridgeCreatePersonaRequest {
-  profile: BridgePersonaProfileDraft
-}
-
-export interface BridgeUpdatePersonaRequest {
-  id: string
-  profile: BridgePersonaProfileDraft
-}
-
-export interface BridgeDeletePersonaRequest {
-  id: string
-}
-
-export interface BridgeSetDefaultPersonaRequest {
-  id?: string
 }
 
 export type BridgeRuntime = 'electron' | 'fallback'
@@ -1513,60 +1350,6 @@ function emptyProviderRegistryStatus(): BridgeProviderRegistryStatus {
     loaded: true,
     version: 2,
     recoverable: false,
-  }
-}
-
-function emptyPersonaRegistryStatus(): BridgePersonaRegistryStatus {
-  return {
-    path: '',
-    backupPath: '',
-    exists: false,
-    backupExists: false,
-    loaded: true,
-    version: 1,
-    recoverable: false,
-  }
-}
-
-function emptyPersonaRegistry(): BridgePersonaRegistry {
-  return {
-    version: 1,
-    profiles: [],
-    defaultPersonaId: undefined,
-    updatedAt: 0,
-  }
-}
-
-function emptyPersonaRegistryLoadResponse(): BridgePersonaRegistryLoadResponse {
-  return {
-    registry: emptyPersonaRegistry(),
-    status: emptyPersonaRegistryStatus(),
-  }
-}
-
-function emptyTavernRegistryStatus(): TavernRegistryStatus {
-  return {
-    path: '',
-    backupPath: '',
-    exists: false,
-    backupExists: false,
-    loaded: true,
-    version: 2,
-    recoverable: false,
-  }
-}
-
-function emptyTavernRegistryLoadResponse(): TavernRegistryLoadResponse {
-  return {
-    registry: {
-      version: 2,
-      characters: [],
-      lorebooks: [],
-      promptPresets: [],
-      userProfiles: [],
-      updatedAt: 0,
-    },
-    status: emptyTavernRegistryStatus(),
   }
 }
 
@@ -1879,6 +1662,12 @@ const fallbackBridge: RendererOmniPawBridge = {
     getSettings: async () => fallbackSettingsConfig().app.memory,
     updateSettings: () => rejectFallbackPersistence<DesktopMemorySettings>('memory.updateSettings'),
   },
+  companionRole: {
+    importCard: () =>
+      rejectFallbackPersistence<ImportCompanionRoleCardResponse>('companionRole.importCard'),
+    exportCard: () =>
+      rejectFallbackPersistence<ExportCompanionRoleCardResponse>('companionRole.exportCard'),
+  },
   observation: {
     permissionStatus: async () => ({
       platform: 'fallback',
@@ -1935,34 +1724,10 @@ const fallbackBridge: RendererOmniPawBridge = {
         createdAt: now,
         updatedAt: now,
       }
-      const tavernSession: BridgeChatSession = {
-        id: 'fallback-tavern',
-        title: '酒馆会话',
-        kind: 'tavern',
-        status: 'active',
-        defaultProviderId: 'omniinfer-local',
-        defaultModelId: 'local-small-model',
-        createdAt: now,
-        updatedAt: now,
-        metadata: {
-          tavern: {
-            enabled: true,
-            version: 1,
-            characterId: 'fallback-character',
-            characterName: '酒馆角色',
-            lorebookIds: [],
-            userName: 'User',
-            selectedGreetingIndex: 0,
-            contextPreset: 'default',
-            loreSettings: { scanDepth: 12, loreBudget: 800 },
-          },
-        },
-      }
       if (request?.kind === 'cat') return [catSession]
-      if (request?.kind === 'tavern') return [tavernSession]
       if (request?.kind === 'cron') return []
       if (request?.kind === 'vision') return [visionSession]
-      if (request?.kind === 'all') return [chatSession, tavernSession, catSession, visionSession]
+      if (request?.kind === 'all') return [chatSession, catSession, visionSession]
       return [chatSession]
     },
     getSession: async (sessionId) =>
@@ -2246,74 +2011,6 @@ const fallbackBridge: RendererOmniPawBridge = {
     listTools: async () => ({ tools: [], servers: [] }),
     onChanged: () => () => {},
   },
-  persona: {
-    load: async () => emptyPersonaRegistryLoadResponse(),
-    list: async () => emptyPersonaRegistryLoadResponse(),
-    status: async () => emptyPersonaRegistryStatus(),
-    create: () => rejectFallbackPersistence<BridgePersonaRegistryMutationResult>('persona.create'),
-    update: () => rejectFallbackPersistence<BridgePersonaRegistryMutationResult>('persona.update'),
-    delete: () => rejectFallbackPersistence<BridgePersonaRegistryMutationResult>('persona.delete'),
-    setDefault: () =>
-      rejectFallbackPersistence<BridgePersonaRegistryMutationResult>('persona.setDefault'),
-    onChanged: () => () => {},
-  },
-  tavern: {
-    load: async () => emptyTavernRegistryLoadResponse(),
-    list: async () => emptyTavernRegistryLoadResponse(),
-    status: async () => emptyTavernRegistryStatus(),
-    importCharacter: () =>
-      rejectFallbackPersistence<ImportTavernCharacterResult>('tavern.importCharacter'),
-    createCharacter: () =>
-      rejectFallbackPersistence<TavernRegistryMutationResult>('tavern.createCharacter'),
-    updateCharacter: () =>
-      rejectFallbackPersistence<TavernRegistryMutationResult>('tavern.updateCharacter'),
-    deleteCharacter: () =>
-      rejectFallbackPersistence<TavernRegistryMutationResult>('tavern.deleteCharacter'),
-    setCharacterEnabled: () =>
-      rejectFallbackPersistence<TavernRegistryMutationResult>('tavern.setCharacterEnabled'),
-    createLorebook: () =>
-      rejectFallbackPersistence<TavernRegistryMutationResult>('tavern.createLorebook'),
-    updateLorebook: () =>
-      rejectFallbackPersistence<TavernRegistryMutationResult>('tavern.updateLorebook'),
-    deleteLorebook: () =>
-      rejectFallbackPersistence<TavernRegistryMutationResult>('tavern.deleteLorebook'),
-    setLorebookEnabled: () =>
-      rejectFallbackPersistence<TavernRegistryMutationResult>('tavern.setLorebookEnabled'),
-    createPromptPreset: () =>
-      rejectFallbackPersistence<TavernRegistryMutationResult>('tavern.createPromptPreset'),
-    updatePromptPreset: () =>
-      rejectFallbackPersistence<TavernRegistryMutationResult>('tavern.updatePromptPreset'),
-    deletePromptPreset: () =>
-      rejectFallbackPersistence<TavernRegistryMutationResult>('tavern.deletePromptPreset'),
-    setPromptPresetEnabled: () =>
-      rejectFallbackPersistence<TavernRegistryMutationResult>('tavern.setPromptPresetEnabled'),
-    createUserProfile: () =>
-      rejectFallbackPersistence<TavernRegistryMutationResult>('tavern.createUserProfile'),
-    updateUserProfile: () =>
-      rejectFallbackPersistence<TavernRegistryMutationResult>('tavern.updateUserProfile'),
-    deleteUserProfile: () =>
-      rejectFallbackPersistence<TavernRegistryMutationResult>('tavern.deleteUserProfile'),
-    setUserProfileEnabled: () =>
-      rejectFallbackPersistence<TavernRegistryMutationResult>('tavern.setUserProfileEnabled'),
-    copyPersonaToUserProfile: () =>
-      rejectFallbackPersistence<TavernRegistryMutationResult>('tavern.copyPersonaToUserProfile'),
-    exportCharacterAsPersona: () =>
-      rejectFallbackPersistence<TavernRegistryMutationResult>('tavern.exportCharacterAsPersona'),
-    createSession: () =>
-      rejectFallbackPersistence<TavernSessionOperationResult>('tavern.createSession'),
-    updateSessionBinding: () =>
-      rejectFallbackPersistence<TavernSessionOperationResult>('tavern.updateSessionBinding'),
-    previewPrompt: async (request) => ({
-      ok: true,
-      sessionId: request.sessionId,
-      generatedAt: Date.now(),
-      missingLorebookIds: [],
-      loreSettings: { scanDepth: 12, loreBudget: 800 },
-      sections: [],
-      snapshot: { enabled: true, loreSettings: { scanDepth: 12, loreBudget: 800 } },
-    }),
-    onChanged: () => () => {},
-  },
 }
 
 function fallbackShortcutStatus(): BridgeShortcutStatusChangedEvent {
@@ -2342,6 +2039,7 @@ function fallbackSettingsConfig(): BridgeDesktopSettingsConfig {
       theme: 'system',
       initialized: false,
       minimizeToTrayOnStartup: false,
+      welcomeTitle: '',
       showReasoningContent: true,
       zoom: {
         factor: 1,
@@ -2376,8 +2074,9 @@ function fallbackSettingsConfig(): BridgeDesktopSettingsConfig {
           relationship: '桌面伙伴',
           background: '',
           greeting: '我在这里，有什么想让我陪你一起处理的吗？',
+          greetingMode: 'default',
+          alternateGreetings: [],
           proactiveStyle: '适度主动提醒，但不打扰用户专注。',
-          interactionMode: 'companion',
           advanced: {
             enabled: false,
             systemPrompt: '',
@@ -2385,6 +2084,12 @@ function fallbackSettingsConfig(): BridgeDesktopSettingsConfig {
             exampleDialogue: '',
             finalInstructions: '',
           },
+          knowledgeSettings: {
+            scanDepth: 8,
+            maxTokens: 900,
+          },
+          knowledgeEntries: [],
+          source: undefined,
           defaultProviderId: undefined,
           defaultModelId: undefined,
         },
@@ -2580,12 +2285,13 @@ function createCatAppearanceBridge(
 function createCatPetBridge(
   bridge: RendererOmniPawBridge['catPet'] | undefined
 ): RendererOmniPawBridge['catPet'] {
-  if (!bridge) {
-    return fallbackBridge.catPet
+  const fallbackCatPetBridge = fallbackBridge.catPet
+  if (!bridge || !fallbackCatPetBridge) {
+    return bridge ?? fallbackCatPetBridge
   }
 
   return {
-    ...fallbackBridge.catPet!,
+    ...fallbackCatPetBridge,
     ...bridge,
   }
 }
@@ -2626,6 +2332,19 @@ function createMemoryBridge(
 
   return {
     ...fallbackBridge.memory,
+    ...bridge,
+  }
+}
+
+function createCompanionRoleBridge(
+  bridge: RendererOmniPawBridge['companionRole'] | undefined
+): RendererOmniPawBridge['companionRole'] {
+  if (!bridge) {
+    return fallbackBridge.companionRole
+  }
+
+  return {
+    ...fallbackBridge.companionRole,
     ...bridge,
   }
 }
@@ -2701,32 +2420,6 @@ function createOmniInferBridge(
   }
 }
 
-function createPersonaBridge(
-  bridge: RendererOmniPawBridge['persona'] | undefined
-): RendererOmniPawBridge['persona'] {
-  if (!bridge) {
-    return fallbackBridge.persona
-  }
-
-  return {
-    ...fallbackBridge.persona,
-    ...bridge,
-  }
-}
-
-function createTavernBridge(
-  bridge: RendererOmniPawBridge['tavern'] | undefined
-): RendererOmniPawBridge['tavern'] {
-  if (!bridge) {
-    return fallbackBridge.tavern
-  }
-
-  return {
-    ...fallbackBridge.tavern,
-    ...bridge,
-  }
-}
-
 export const appBridge: RendererOmniPawBridge = exposedBridge
   ? {
       ...fallbackBridge,
@@ -2740,12 +2433,11 @@ export const appBridge: RendererOmniPawBridge = exposedBridge
       settings: createSettingsBridge(exposedBridge.settings),
       shortcuts: createShortcutsBridge(exposedBridge.shortcuts),
       memory: createMemoryBridge(exposedBridge.memory),
+      companionRole: createCompanionRoleBridge(exposedBridge.companionRole),
       observation: createObservationBridge(exposedBridge.observation),
       provider: createProviderBridge(exposedBridge.provider),
       cron: createCronBridge(exposedBridge.cron),
       omniinfer: createOmniInferBridge(exposedBridge.omniinfer),
-      persona: createPersonaBridge(exposedBridge.persona),
-      tavern: createTavernBridge(exposedBridge.tavern),
     }
   : fallbackBridge
 

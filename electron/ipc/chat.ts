@@ -18,7 +18,7 @@ import type { CoreRuntime } from '../core-runtime'
 import { isRecord, registerLoggedIpcHandler } from './common'
 import type { IpcHandlerOptions } from './types'
 
-const chatSessionKinds = new Set<ChatSessionKind>(['chat', 'tavern', 'cat', 'cron', 'vision'])
+const chatSessionKinds = new Set<ChatSessionKind>(['chat', 'cat', 'cron', 'vision'])
 
 export function registerChatIpcHandlers(options: IpcHandlerOptions): void {
   const runtime = options.runtime

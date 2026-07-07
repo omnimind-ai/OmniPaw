@@ -1,4 +1,5 @@
 import type { ContextAttachmentPolicy, ToolProfile } from './chat'
+import type { CompanionRoleKnowledgeEntry, CompanionRoleSourceMetadata } from './companion-role'
 import type { LocalAgentTerminalSettings, LocalAgentWorkspaceSettings } from './local-agent'
 import type { DesktopMemorySettings } from './memory'
 import type { ObservationScope, ObservationScreenshotRetention } from './observation'
@@ -43,7 +44,12 @@ export interface DesktopAppBackgroundSettings {
   image?: DesktopAppBackgroundImage
 }
 
-export type CompanionRoleInteractionMode = 'companion' | 'assistant' | 'roleplay'
+export type CompanionRoleGreetingMode = 'default' | 'random'
+
+export interface DesktopCompanionRoleKnowledgeSettings {
+  scanDepth: number
+  maxTokens: number
+}
 
 export interface DesktopCompanionRoleAdvancedSettings {
   enabled: boolean
@@ -64,9 +70,13 @@ export interface DesktopCompanionRoleSettings {
   relationship: string
   background: string
   greeting: string
+  greetingMode: CompanionRoleGreetingMode
+  alternateGreetings: string[]
   proactiveStyle: string
-  interactionMode: CompanionRoleInteractionMode
   advanced: DesktopCompanionRoleAdvancedSettings
+  knowledgeSettings: DesktopCompanionRoleKnowledgeSettings
+  knowledgeEntries: CompanionRoleKnowledgeEntry[]
+  source?: CompanionRoleSourceMetadata
   defaultProviderId?: string
   defaultModelId?: string
 }
@@ -76,6 +86,7 @@ export interface DesktopBaseSettings {
   theme: AppTheme
   initialized: boolean
   minimizeToTrayOnStartup: boolean
+  welcomeTitle: string
   showReasoningContent: boolean
   zoom: {
     factor: number

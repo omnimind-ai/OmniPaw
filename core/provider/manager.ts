@@ -707,16 +707,11 @@ export class ProviderManager {
   }
 
   async setEmbeddingModel(
-    selection: Partial<ProviderModelRef> | undefined
+    _selection: Partial<ProviderModelRef> | undefined
   ): Promise<ProviderRegistryMutationResult> {
     const registry = this.requireRegistryStore().get()
     const nextSettings = { ...registry.settings }
-    nextSettings.embeddingModelRef = this.normalizeOptionalEnabledModelRefWithInput(
-      registry,
-      selection,
-      'Embedding model',
-      'text'
-    )
+    delete nextSettings.embeddingModelRef
     return this.registryResult(this.saveRegistry({ ...registry, settings: nextSettings }), {
       ok: true,
     })
@@ -969,25 +964,7 @@ export class ProviderManager {
   async resolveEmbeddingProvider(): Promise<
     { provider: ProviderRecord; model: ProviderModelRecord } | undefined
   > {
-    if (!this.registryStore) {
-      return undefined
-    }
-
-    const registry = this.registryStore.get()
-    const ref = registry.settings.embeddingModelRef
-    if (!ref) {
-      return undefined
-    }
-
-    const resolved = resolveRegistrySelection(registry, ref.providerId, ref.modelId)
-    if (!resolved) {
-      return undefined
-    }
-
-    const model = resolved.provider.models?.find(
-      (item) => item.id === resolved.modelId && item.enabled !== false
-    )
-    return model ? { provider: resolved.provider, model } : undefined
+    return undefined
   }
 
   async createProviderClient(providerId: string): Promise<BaseProvider> {

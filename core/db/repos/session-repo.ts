@@ -221,7 +221,7 @@ function isSystemContextConfig(value: unknown): value is ChatSystemContextConfig
   return (
     (candidate.baseSystemPrompt === undefined || typeof candidate.baseSystemPrompt === 'string') &&
     (candidate.mask === undefined || typeof candidate.mask === 'object') &&
-    (candidate.persona === undefined || typeof candidate.persona === 'object') &&
+    (candidate.role === undefined || typeof candidate.role === 'object') &&
     (candidate.runtimeInstructions === undefined || Array.isArray(candidate.runtimeInstructions))
   )
 }

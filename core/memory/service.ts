@@ -51,6 +51,8 @@ import {
   SemanticExtractionError,
 } from './semantic-extractor'
 
+const NO_ACTIVE_CHARACTER_ID = '__omnipaw_no_active_character__'
+
 export interface CompanionMemoryServiceOptions {
   repo: CompanionMemoryRepo
   sessions: ChatSessionRepo
@@ -146,6 +148,17 @@ export class CompanionMemoryService {
     })
   }
 
+  createForSession(sessionId: string, request: CreateCompanionMemoryRequest): CompanionMemoryItem {
+    const session = this.options.sessions.get(sessionId)
+    const target = manualMemoryWriteTarget(request.scope, session)
+    return this.create({
+      ...request,
+      scope: target.scope,
+      characterId: request.characterId ?? target.characterId,
+      sessionId: request.sessionId ?? sessionId,
+    })
+  }
+
   update(request: UpdateCompanionMemoryRequest): CompanionMemoryItem | undefined {
     return this.options.repo.update(request)
   }
@@ -229,13 +242,16 @@ export class CompanionMemoryService {
     const limit = clampInteger(request.limit ?? Math.min(settings.maxContextItems, 8), 1, 20)
     const minConfidence = clampNumber(request.minConfidence ?? settings.minConfidence, 0, 1)
     const searchLimit = Math.max(20, limit * 4)
+    const scopeFilter = request.sessionOnly
+      ? { scopes: ['session'] as CompanionMemoryScope[] }
+      : memoryRetrievalScopeFilter(session, request.scopes)
     const filters = {
       query,
       sessionId: request.sessionId,
+      ...scopeFilter,
       minConfidence,
       limit: searchLimit,
       kinds: request.kinds,
-      scopes: request.sessionOnly ? (['session'] as CompanionMemoryScope[]) : request.scopes,
     }
 
     const lexicalResults = mode === 'search' ? this.searchForRetrieval(filters) : []
@@ -331,7 +347,12 @@ export class CompanionMemoryService {
           continue
         }
         seen.add(normalizeMemoryKey(content))
-        const duplicate = this.findDuplicateMemory(content, run.sessionId)
+        const target = memoryWriteTarget(candidate, session)
+        const duplicate = this.findDuplicateMemory(content, {
+          sessionId: run.sessionId,
+          scope: target.scope,
+          characterId: target.characterId,
+        })
         if (duplicate) {
           if (candidate.linkedMemoryIds?.length) {
             this.linkCandidateMemory(duplicate.id, candidate, 'duplicate')
@@ -341,7 +362,7 @@ export class CompanionMemoryService {
         const sourceText = messages.map((message) => messageText(message)).join('\n')
         const memory = this.options.repo.create({
           kind: candidate.kind,
-          scope: candidate.scope ?? (session?.kind === 'cat' ? 'companion' : 'user'),
+          scope: target.scope,
           status:
             candidate.confidence <
             this.options.policy.settingsSnapshot().lowConfidenceReviewThreshold
@@ -351,6 +372,7 @@ export class CompanionMemoryService {
           subject: candidate.subject,
           confidence: candidate.confidence,
           importance: candidate.importance,
+          characterId: target.characterId,
           sessionId: run.sessionId,
           sourceRunId: run.id,
           observedAt: Date.now(),
@@ -452,15 +474,18 @@ export class CompanionMemoryService {
     }
 
     const searchLimit = Math.max(50, settings.maxContextItems * 4)
+    const scopeFilter = memoryRetrievalScopeFilter(input.session)
     const lexicalResults = this.searchForRetrieval({
       query,
       sessionId: input.session.id,
+      ...scopeFilter,
       minConfidence: settings.minConfidence,
       limit: searchLimit,
     })
     const vectorResults = await this.searchVectorForRetrieval({
       query,
       sessionId: input.session.id,
+      ...scopeFilter,
       minConfidence: settings.minConfidence,
       limit: searchLimit,
     })
@@ -545,12 +570,14 @@ export class CompanionMemoryService {
     limit: number
     kinds?: CompanionMemoryKind[]
     scopes?: CompanionMemoryScope[]
+    characterId?: string
   }): CompanionMemorySearchResult[] {
     const results = new Map<string, CompanionMemorySearchResult>()
     for (const query of memorySearchQueries(filters.query)) {
       const batch = this.options.repo.search({
         query,
         sessionId: filters.sessionId,
+        characterId: filters.characterId,
         minConfidence: filters.minConfidence,
         limit: filters.limit,
         kinds: filters.kinds,
@@ -576,12 +603,14 @@ export class CompanionMemoryService {
     limit: number
     kinds?: CompanionMemoryKind[]
     scopes?: CompanionMemoryScope[]
+    characterId?: string
   }): Promise<CompanionMemorySearchResult[]> {
     const queryEmbedding = await this.embeddingProvider.embedText(filters.query)
     await this.ensureEmbeddings(filters, filters.query, queryEmbedding)
     const embeddings = this.options.repo.listEmbeddings(
       {
         sessionId: filters.sessionId,
+        characterId: filters.characterId,
         minConfidence: filters.minConfidence,
         limit: 1000,
         kinds: filters.kinds,
@@ -685,10 +714,23 @@ export class CompanionMemoryService {
     }
   }
 
-  private findDuplicateMemory(content: string, sessionId: string): CompanionMemoryItem | undefined {
+  private findDuplicateMemory(
+    content: string,
+    filters: {
+      sessionId: string
+      scope: CompanionMemoryScope
+      characterId?: string
+    }
+  ): CompanionMemoryItem | undefined {
     const key = normalizeMemoryKey(content)
     return this.options.repo
-      .list({ sessionId, includeInactive: true, limit: 500 })
+      .list({
+        sessionId: filters.sessionId,
+        scopes: [filters.scope],
+        characterId: filters.characterId,
+        includeInactive: true,
+        limit: 500,
+      })
       .items.find((item) => normalizeMemoryKey(item.content) === key && item.status !== 'deleted')
   }
 
@@ -771,7 +813,13 @@ export class CompanionMemoryService {
       return []
     }
     return this.options.repo
-      .list({ sessionId: memory.sessionId, includeInactive: true, limit: 500 })
+      .list({
+        sessionId: memory.sessionId,
+        scopes: [memory.scope],
+        characterId: memory.scope === 'character' ? memory.characterId : undefined,
+        includeInactive: true,
+        limit: 500,
+      })
       .items.filter((item) => item.id !== memory.id && item.status !== 'deleted')
       .map((item) => {
         const tokens = memoryTokensFor(item.content)
@@ -903,6 +951,56 @@ function dedupeCandidates(candidates: MemoryCandidate[]): MemoryCandidate[] {
     result.push(candidate)
   }
   return result.slice(0, 8)
+}
+
+function memoryRetrievalScopeFilter(
+  session: ChatSession | undefined,
+  requestedScopes?: CompanionMemoryScope[]
+): {
+  scopes: CompanionMemoryScope[]
+  characterId?: string
+} {
+  const roleId = sessionRoleId(session)
+  const defaultScopes: CompanionMemoryScope[] = ['global', 'user']
+  if (roleId) {
+    defaultScopes.push('character')
+  }
+  const scopes = requestedScopes?.length ? requestedScopes : defaultScopes
+  return {
+    scopes,
+    characterId: scopes.includes('character') ? (roleId ?? NO_ACTIVE_CHARACTER_ID) : undefined,
+  }
+}
+
+function memoryWriteTarget(
+  candidate: Pick<MemoryCandidate, 'scope'>,
+  session: ChatSession | undefined
+): {
+  scope: CompanionMemoryScope
+  characterId?: string
+} {
+  return manualMemoryWriteTarget(candidate.scope, session)
+}
+
+function manualMemoryWriteTarget(
+  requestedScope: CompanionMemoryScope | undefined,
+  session: ChatSession | undefined
+): {
+  scope: CompanionMemoryScope
+  characterId?: string
+} {
+  const roleId = sessionRoleId(session)
+  if (requestedScope === 'character' || requestedScope === 'companion') {
+    return roleId ? { scope: 'character', characterId: roleId } : { scope: 'user' }
+  }
+  return {
+    scope: requestedScope ?? 'user',
+  }
+}
+
+function sessionRoleId(session: ChatSession | undefined): string | undefined {
+  const roleId = session?.systemContext?.role?.refId?.trim()
+  return roleId || undefined
 }
 
 const retrievalStopwords = new Set([

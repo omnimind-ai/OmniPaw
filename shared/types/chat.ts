@@ -1,6 +1,5 @@
 import type { LocalToolApprovalPlan } from './local-agent'
 import type { CompanionMemoryRequestSnapshot } from './memory'
-import type { TavernRequestSnapshotMetadata, TavernSessionMetadata } from './tavern'
 
 export type ID = string
 export type UnixMs = number
@@ -20,7 +19,7 @@ export type MessageStatus =
 export type AttachmentKind = 'image' | 'audio' | 'video' | 'file' | 'text'
 
 export type ChatSessionStatus = 'active' | 'archived' | 'deleted'
-export type ChatSessionKind = 'chat' | 'tavern' | 'cat' | 'cron' | 'vision'
+export type ChatSessionKind = 'chat' | 'cat' | 'cron' | 'vision'
 
 export type ChatRunStatus = 'queued' | 'running' | 'complete' | 'error' | 'aborted'
 
@@ -210,12 +209,7 @@ export type ContextUsageSource = 'estimated' | 'actual' | 'mixed'
 export type ContextUnitKind =
   | 'base-system'
   | 'mask'
-  | 'persona'
-  | 'tavern-prompt-preset'
-  | 'tavern-character'
-  | 'tavern-lore'
-  | 'tavern-example'
-  | 'tavern-post-history'
+  | 'role'
   | 'memory-profile'
   | 'memory-preference'
   | 'memory-relationship'
@@ -234,7 +228,6 @@ export type ContextUnitSource =
   | 'session'
   | 'settings'
   | 'runtime'
-  | 'tavern'
   | 'memory'
   | 'skill'
   | 'tool'
@@ -268,7 +261,7 @@ export interface SessionContextInstruction {
 export interface ChatSystemContextConfig {
   baseSystemPrompt?: string
   mask?: SessionContextInstruction
-  persona?: SessionContextInstruction
+  role?: SessionContextInstruction
   runtimeInstructions?: SessionContextInstruction[]
 }
 
@@ -504,9 +497,7 @@ export interface ProviderRequestSnapshot {
     omittedReason?: string
     readSkillIds?: string[]
   }
-  tavern?: TavernRequestSnapshotMetadata
   memory?: CompanionMemoryRequestSnapshot
-  omittedInventoryReasons?: string[]
   maxSteps?: number
   complexDocumentAttachments?: ComplexDocumentAttachmentRunDiagnostic
   fallbackReason?: string
@@ -558,7 +549,7 @@ export interface TransientChatImageInput {
 
 export type TransientChatInstructionKind = Extract<
   ContextUnitKind,
-  'base-system' | 'mask' | 'persona' | 'runtime'
+  'base-system' | 'mask' | 'role' | 'runtime'
 >
 
 export interface TransientChatInstruction {
@@ -783,6 +774,4 @@ export type Session = ChatSession
 export type Message = ChatMessage
 export type ToolCall = ToolCallDisplay
 
-export interface ChatSessionMetadata extends Record<string, unknown> {
-  tavern?: TavernSessionMetadata
-}
+export interface ChatSessionMetadata extends Record<string, unknown> {}

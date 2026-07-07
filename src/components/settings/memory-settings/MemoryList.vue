@@ -44,6 +44,11 @@ const props = defineProps<{
   showSkeleton: boolean
   includeInactive: boolean
   confirmDeleteMemoryId?: string
+  title?: string
+  description?: string
+  showPolicy?: boolean
+  emptyTitle?: string
+  emptyHint?: string
   class?: HTMLAttributes['class']
 }>()
 
@@ -64,8 +69,8 @@ const emit = defineEmits<{
 <template>
   <Card :class="cn('grid h-full min-h-0 flex-1 grid-rows-[auto_auto_minmax(0,1fr)] gap-0 rounded-md border border-border py-0 ring-0', props.class)">
     <SettingsPanelHeader
-      :title="t('settings.memory.panelTitle')"
-      :description="t('settings.memory.panelDescription')"
+      :title="props.title ?? t('settings.memory.panelTitle')"
+      :description="props.description ?? t('settings.memory.panelDescription')"
       :icon="BrainIcon"
     />
 
@@ -87,6 +92,7 @@ const emit = defineEmits<{
 
       <template #actions>
         <Button
+          v-if="props.showPolicy !== false"
           type="button"
           variant="outline"
           @click="emit('policy')"
@@ -153,8 +159,8 @@ const emit = defineEmits<{
         >
           <BrainIcon class="size-8 opacity-50" />
           <div class="flex flex-col gap-1">
-            <p class="font-medium text-foreground">{{ t('settings.memory.list.emptyTitle') }}</p>
-            <p>{{ t('settings.memory.list.emptyHint') }}</p>
+            <p class="font-medium text-foreground">{{ props.emptyTitle ?? t('settings.memory.list.emptyTitle') }}</p>
+            <p>{{ props.emptyHint ?? t('settings.memory.list.emptyHint') }}</p>
           </div>
           <Button
             type="button"

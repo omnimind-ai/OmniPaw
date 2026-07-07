@@ -34,6 +34,7 @@ const {
   currSessionId: chatCurrSessionId,
   sessionMode: chatSessionMode,
   sessionKindFilter: chatSessionKindFilter,
+  companionRoleOptions: chatCompanionRoleOptions,
   creatingSession: chatCreatingSession,
   runningSessionIds: chatRunningSessionIds,
   sidebarOpen: chatSidebarOpen,
@@ -68,9 +69,7 @@ const showStartupPlaceholder = computed(
   () => !startupLoaded.value && (forceShowProviderGuide.value || route.name !== 'settings')
 )
 const isSettingsRoute = computed(() => route.name === 'settings')
-const isChatShellRoute = computed(
-  () => route.name === 'home' || route.name === 'tavern' || route.name === 'chat'
-)
+const isChatShellRoute = computed(() => route.name === 'home' || route.name === 'chat')
 const usesAppSidebar = computed(
   () =>
     !showStartupPlaceholder.value &&
@@ -142,9 +141,7 @@ function normalizeSettingsTab(value: unknown): SettingsTab | undefined {
     tab === 'data' ||
     tab === 'tools' ||
     tab === 'memory' ||
-    tab === 'tavern' ||
     tab === 'skills' ||
-    tab === 'personas' ||
     tab === 'schedule' ||
     tab === 'observation' ||
     tab === 'about'
@@ -296,6 +293,7 @@ onBeforeUnmount(() => {
           :active-session-id="chatCurrSessionId"
           :session-mode="chatSessionMode"
           :session-kind-filter="chatSessionKindFilter"
+          :companion-role-options="chatCompanionRoleOptions"
           :creating="chatCreatingSession"
           :running-session-ids="chatRunningSessionIds"
           @new-chat="handleNewChat"

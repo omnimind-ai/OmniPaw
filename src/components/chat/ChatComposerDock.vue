@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
 import ChatComposer from '@/components/chat/ChatComposer.vue'
-import TavernRuntimeDock from '@/components/tavern/TavernRuntimeDock.vue'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { useChatWorkspaceContext } from './chat-workspace-context'
@@ -20,6 +19,7 @@ const props = withDefaults(
 const {
   currSessionId,
   showWelcome,
+  welcomeTitle,
   selectedModel,
   providersLoading,
   openSettings,
@@ -30,6 +30,9 @@ const {
   selectedModelKey,
   selectedModelLabel,
   selectedModelMeta,
+  companionRoleOptions,
+  activeCompanionRoleId,
+  companionRoleSaving,
   agentToolProfile,
   toolProfileOptions,
   toolProfileSaving,
@@ -47,6 +50,7 @@ const {
   handleFilesDropped,
   clearReply,
   handleModelChange,
+  handleCompanionRoleChange,
   handleToolProfileChange,
   handlePaste,
   handleSubmit,
@@ -65,9 +69,9 @@ const {
   >
     <h1
       v-if="props.welcome && showWelcome"
-      class="text-center text-3xl font-semibold tracking-normal md:text-4xl"
+      class="text-center text-3xl font-semibold tracking-normal text-foreground/85 md:text-4xl"
     >
-      {{ t('chat.welcome.title') }}
+      {{ welcomeTitle }}
     </h1>
 
     <div class="w-full max-w-4xl">
@@ -86,8 +90,6 @@ const {
         </Button>
       </div>
 
-      <TavernRuntimeDock class="mb-2" />
-
       <ChatComposer
         v-model="draft"
         :staged-files="stagedFiles"
@@ -96,6 +98,9 @@ const {
         :selected-model-key="selectedModelKey"
         :selected-model-label="selectedModelLabel"
         :selected-model-meta="selectedModelMeta"
+        :companion-role-options="companionRoleOptions"
+        :active-companion-role-id="activeCompanionRoleId"
+        :companion-role-saving="companionRoleSaving"
         :tool-profile="agentToolProfile"
         :tool-profile-options="toolProfileOptions"
         :show-tool-profile="true"
@@ -115,6 +120,7 @@ const {
         @files-dropped="handleFilesDropped"
         @clear-reply="clearReply"
         @select-model="handleModelChange"
+        @select-companion-role="handleCompanionRoleChange"
         @select-tool-profile="handleToolProfileChange"
         @paste="handlePaste"
         @submit="handleSubmit"

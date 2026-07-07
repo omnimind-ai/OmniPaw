@@ -1,12 +1,20 @@
 import { isComplexDocumentAttachment } from '@shared/attachment-documents'
-import type { ChatSessionKind, ToolProfile } from '@shared/types/chat'
-import type { TavernLorebook, TavernPromptPreviewResult } from '@shared/types/tavern'
+import type {
+  ChatSessionKind,
+  ChatSystemContextConfig,
+  SessionContextInstruction,
+  ToolProfile,
+} from '@shared/types/chat'
+import type { DesktopCompanionRoleSettings } from '@shared/types/settings'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import { appBridge } from '@/bridge/app'
 import { contentText } from '@/components/chat/chat-display'
-import type { ChatWorkspaceContext } from '@/components/chat/chat-workspace-context'
+import type {
+  ChatCompanionRoleOption,
+  ChatWorkspaceContext,
+} from '@/components/chat/chat-workspace-context'
 import { useDelayedFlag } from '@/composables/useDelayedFlag'
 import { ATTACHMENT_LIMITS, formatBytes, useMediaHandling } from '@/composables/useMediaHandling'
 import {
@@ -18,7 +26,6 @@ import {
 import { useSessions } from '@/composables/useSessions'
 import { useChatStore } from '@/stores/chat'
 import { useSettingsStore } from '@/stores/settings'
-import { useTavernStore } from '@/stores/tavern'
 import { copyToClipboard } from '@/utils/clipboard'
 import { useToast } from '@/utils/toast'
 
@@ -26,10 +33,10 @@ import { useChatWorkspaceModel } from './useChatWorkspaceModel'
 import { useChatWorkspaceScroll } from './useChatWorkspaceScroll'
 
 type SessionKindFilter = ChatSessionKind
-type SessionMode = Extract<SessionKindFilter, 'chat' | 'tavern'>
+type SessionMode = Extract<SessionKindFilter, 'chat'>
 
-const sessionKindFilters = new Set<SessionKindFilter>(['chat', 'tavern', 'cat', 'cron', 'vision'])
-const sessionModes = new Set<SessionMode>(['chat', 'tavern'])
+const sessionKindFilters = new Set<SessionKindFilter>(['chat', 'cat', 'cron', 'vision'])
+const sessionModes = new Set<SessionMode>(['chat'])
 
 function isSessionKindFilter(value: unknown): value is SessionKindFilter {
   return typeof value === 'string' && sessionKindFilters.has(value as SessionKindFilter)
@@ -45,7 +52,6 @@ export function useChatWorkspaceController() {
   const { t } = useI18n()
   const chatStore = useChatStore()
   const settingsStore = useSettingsStore()
-  const tavernStore = useTavernStore()
   const toast = useToast()
   const {
     sessions,
@@ -65,14 +71,7 @@ export function useChatWorkspaceController() {
   const fileInput = ref<HTMLInputElement | null>(null)
   const creatingSession = ref(false)
   const toolProfileSaving = ref(false)
-  const tavernSelectedCharacterId = ref('')
-  const tavernSelectedLorebookIds = ref<string[]>([])
-  const tavernSelectedPromptPresetId = ref('')
-  const tavernSelectedUserProfileId = ref('')
-  const tavernScanDepth = ref(12)
-  const tavernLoreBudget = ref(800)
-  const tavernPromptPreview = ref<TavernPromptPreviewResult | null>(null)
-  const tavernPreviewLoading = ref(false)
+  const companionRoleSaving = ref(false)
   const replyTarget = ref<{ messageId: string; preview: string } | null>(null)
   const highlightedMessageId = ref('')
   const messages = useMessages({
@@ -105,16 +104,35 @@ export function useChatWorkspaceController() {
   const currentSessionRunning = computed(() =>
     currSessionId.value ? messages.isSessionRunning(currSessionId.value) : false
   )
+  const activeSession = computed(() => getCurrentSession.value)
+  const settingsConfig = computed(() => settingsStore.draft ?? settingsStore.config)
+  const welcomeTitle = computed(
+    () => settingsConfig.value?.app.welcomeTitle?.trim() || t('chat.welcome.title')
+  )
+  const companionRoleOptions = computed<ChatCompanionRoleOption[]>(() =>
+    (settingsConfig.value?.app.companionRoles ?? []).map((role) => ({
+      id: role.id,
+      name: role.name.trim(),
+      enabled: role.enabled,
+    }))
+  )
+  const activeCompanionRoleId = computed(() => {
+    const sessionRoleId = activeSession.value?.systemContext?.role?.refId?.trim()
+    if (sessionRoleId && companionRoleOptions.value.some((role) => role.id === sessionRoleId)) {
+      return sessionRoleId
+    }
+
+    const appSettings = settingsConfig.value?.app
+    if (!appSettings) return ''
+
+    const activeId = appSettings.activeCompanionRoleId
+    return appSettings.companionRoles.some((role) => role.id === activeId)
+      ? activeId
+      : (appSettings.companionRoles[0]?.id ?? '')
+  })
   const agentToolProfile = computed(() => settingsStore.agentToolProfile)
   const showReasoningContent = computed(() => settingsStore.showReasoningContent)
-  const activeSession = computed(() => getCurrentSession.value)
-  const activeTavernMetadata = computed(() => activeSession.value?.metadata?.tavern)
-  const isTavernHomeMode = computed(() => route.name === 'tavern')
-  const effectiveToolProfile = computed<ToolProfile>(() =>
-    isTavernHomeMode.value || activeTavernMetadata.value?.enabled
-      ? 'minimal'
-      : agentToolProfile.value
-  )
+  const effectiveToolProfile = computed<ToolProfile>(() => agentToolProfile.value)
   const attachmentWarning = computed(() => {
     if (!media.stagedFiles.value.length) return ''
     if (media.stagedFiles.value.length > ATTACHMENT_LIMITS.maxFilesPerMessage) {
@@ -175,81 +193,6 @@ export function useChatWorkspaceController() {
   const sidebarOpen = computed(() => chatStore.sidebarOpen)
   const activeContextUsage = computed(() => chatStore.activeContextUsage)
   const activeContextUsageLoading = computed(() => chatStore.activeContextUsageLoading)
-  const activeTavernCharacter = computed(() =>
-    tavernStore.characterById(activeTavernMetadata.value?.characterId)
-  )
-  const activeTavernLorebookNames = computed(() =>
-    (activeTavernMetadata.value?.lorebookIds ?? [])
-      .map((id) => tavernStore.lorebookById(id)?.name || '缺失世界书')
-      .filter(Boolean)
-  )
-  const activeTavernPromptPreset = computed(() =>
-    tavernStore.promptPresetById(activeTavernMetadata.value?.promptPresetId)
-  )
-  const activeTavernUserProfile = computed(() =>
-    tavernStore.userProfileById(activeTavernMetadata.value?.userProfileId)
-  )
-  const activeTavernGreetingOptions = computed(() => {
-    const character = activeTavernCharacter.value
-    if (!character) return []
-    return [character.firstMessage, ...character.alternateGreetings]
-      .map((text, index) => ({
-        index,
-        label: index === 0 ? 'First message' : `Alternate ${index}`,
-        text: text?.trim() || '',
-      }))
-      .filter((item) => item.text)
-  })
-  const activeTavernCanReplaceGreeting = computed(
-    () =>
-      Boolean(activeTavernMetadata.value?.enabled) &&
-      !messages.activeMessages.value.some((record) => messages.isUserMessage(record))
-  )
-  const tavernCharacters = computed(() => tavernStore.characters)
-  const tavernLorebooks = computed(() => tavernStore.lorebooks)
-  const tavernPromptPresets = computed(() =>
-    tavernStore.promptPresets.filter((preset) => preset.enabled !== false)
-  )
-  const tavernUserProfiles = computed(() =>
-    tavernStore.userProfiles.filter((profile) => profile.enabled !== false)
-  )
-  const tavernSelectedCharacter = computed(() =>
-    tavernStore.characterById(tavernSelectedCharacterId.value)
-  )
-  const tavernSelectedLorebooks = computed(() =>
-    tavernSelectedLorebookIds.value
-      .map((id) => tavernStore.lorebookById(id))
-      .filter((lorebook): lorebook is TavernLorebook => Boolean(lorebook))
-  )
-  const tavernSelectedPromptPreset = computed(() =>
-    tavernStore.promptPresetById(tavernSelectedPromptPresetId.value)
-  )
-  const tavernSelectedUserProfile = computed(() =>
-    tavernStore.userProfileById(tavernSelectedUserProfileId.value)
-  )
-  const tavernSelectedCharacterLabel = computed(
-    () => tavernSelectedCharacter.value?.name || '选择角色卡'
-  )
-  const tavernSelectedLorebookLabel = computed(() => {
-    if (!tavernSelectedLorebooks.value.length) return '无世界书'
-    if (tavernSelectedLorebooks.value.length === 1) return tavernSelectedLorebooks.value[0].name
-    return `${tavernSelectedLorebooks.value.length} 本世界书`
-  })
-  const tavernSelectedPromptPresetLabel = computed(
-    () => tavernSelectedPromptPreset.value?.name || '无 preset'
-  )
-  const tavernSelectedUserProfileLabel = computed(
-    () => tavernSelectedUserProfile.value?.name || '无酒馆用户'
-  )
-  const tavernCanSend = computed(
-    () =>
-      !messages.sending.value &&
-      !currentSessionRunning.value &&
-      !media.uploadPending.value &&
-      Boolean(model.selectedModel.value) &&
-      Boolean(tavernSelectedCharacter.value) &&
-      !attachmentWarning.value
-  )
   const toolProfileOptions = computed<
     Array<{
       value: ToolProfile
@@ -277,36 +220,13 @@ export function useChatWorkspaceController() {
   const workspaceContext: ChatWorkspaceContext = {
     currSessionId,
     showWelcome,
+    welcomeTitle,
     activeMessages: messages.activeMessages,
     showMessageList,
     showMessageSkeleton,
     highlightedMessageId,
     showReasoningContent,
     activeSession,
-    activeTavernMetadata,
-    activeTavernCharacter,
-    activeTavernLorebookNames,
-    activeTavernPromptPreset,
-    activeTavernUserProfile,
-    activeTavernGreetingOptions,
-    activeTavernCanReplaceGreeting,
-    tavernCharacters,
-    tavernLorebooks,
-    tavernPromptPresets,
-    tavernUserProfiles,
-    tavernSelectedCharacterId,
-    tavernSelectedLorebookIds,
-    tavernSelectedPromptPresetId,
-    tavernSelectedUserProfileId,
-    tavernScanDepth,
-    tavernLoreBudget,
-    tavernPromptPreview,
-    tavernPreviewLoading,
-    tavernSelectedCharacterLabel,
-    tavernSelectedLorebookLabel,
-    tavernSelectedPromptPresetLabel,
-    tavernSelectedUserProfileLabel,
-    tavernCanSend,
     showScrollToBottom: scroll.showScrollToBottom,
     draft,
     stagedFiles: media.stagedFiles,
@@ -318,6 +238,9 @@ export function useChatWorkspaceController() {
     selectedModelKey: model.selectedModelKey,
     selectedModelLabel: model.selectedModelLabel,
     selectedModelMeta: model.selectedModelMeta,
+    companionRoleOptions,
+    activeCompanionRoleId,
+    companionRoleSaving,
     agentToolProfile,
     toolProfileOptions,
     toolProfileSaving,
@@ -332,30 +255,16 @@ export function useChatWorkspaceController() {
     setMessagesScrollArea: scroll.setMessagesScrollArea,
     scrollToLatestMessage: scroll.scrollToLatestMessage,
     openSettings,
-    openTavernSettings,
     openFilePicker,
     handleFileInputChange,
     handleFilesDropped,
     removeStagedFile,
     removeUploadAt,
     handleModelChange: model.handleModelChange,
+    handleCompanionRoleChange,
     handleToolProfileChange,
-    handleTavernCharacterChange,
-    handleTavernLorebookToggle,
-    handleTavernPromptPresetChange,
-    handleTavernUserProfileChange,
-    handleTavernScanDepthChange,
-    handleTavernLoreBudgetChange,
-    handleTavernGreetingChange,
-    handleActiveTavernPromptPresetChange,
-    handleActiveTavernUserProfileChange,
-    handleActiveTavernScanDepthChange,
-    handleActiveTavernLoreBudgetChange,
-    handleTavernPromptPreview,
-    clearTavernPromptPreview,
     handlePaste: media.handlePaste,
     handleSubmit,
-    handleTavernSubmit,
     handleStop,
     handleCopyMessage,
     handleCopyCode,
@@ -396,13 +305,6 @@ export function useChatWorkspaceController() {
     () => route.name,
     async (routeName) => {
       if (routeSessionId()) return
-      if (routeName === 'tavern') {
-        sessionMode.value = 'tavern'
-        if (isSessionMode(sessionKindFilter.value)) {
-          await setSessionKindFilter('tavern')
-        }
-        return
-      }
       if (routeName === 'home') {
         sessionMode.value = 'chat'
         if (isSessionMode(sessionKindFilter.value)) {
@@ -433,35 +335,6 @@ export function useChatWorkspaceController() {
       chatStore.reconcileContextUsageFromSessions(nextSessions)
     },
     { deep: true }
-  )
-
-  watch(
-    tavernCharacters,
-    (characters) => {
-      if (characters.some((character) => character.id === tavernSelectedCharacterId.value)) {
-        return
-      }
-      handleTavernCharacterChange(characters[0]?.id ?? '')
-    },
-    { immediate: true }
-  )
-
-  watch(
-    tavernPromptPresets,
-    (presets) => {
-      if (presets.some((preset) => preset.id === tavernSelectedPromptPresetId.value)) return
-      tavernSelectedPromptPresetId.value = presets[0]?.id ?? ''
-    },
-    { immediate: true }
-  )
-
-  watch(
-    tavernUserProfiles,
-    (profiles) => {
-      if (profiles.some((profile) => profile.id === tavernSelectedUserProfileId.value)) return
-      tavernSelectedUserProfileId.value = profiles[0]?.id ?? ''
-    },
-    { immediate: true }
   )
 
   watch(
@@ -504,7 +377,6 @@ export function useChatWorkspaceController() {
       getFilteredSessions(),
       model.loadProviders(),
       settingsStore.load(),
-      tavernStore.load(),
     ])
     results.forEach((result) => {
       if (result.status === 'rejected') {
@@ -609,7 +481,7 @@ export function useChatWorkspaceController() {
     resetActiveSession(options)
     sessionMode.value = kind
     await setSessionKindFilter(kind)
-    await router.push(kind === 'tavern' ? '/tavern' : '/')
+    await router.push('/')
   }
 
   async function handleNewChat() {
@@ -627,10 +499,6 @@ export function useChatWorkspaceController() {
 
   async function openSettings() {
     await router.push('/settings')
-  }
-
-  async function openTavernSettings() {
-    await router.push({ name: 'settings', query: { tab: 'tavern' } })
   }
 
   async function toggleCatVisibility() {
@@ -675,120 +543,63 @@ export function useChatWorkspaceController() {
     }
   }
 
-  function handleTavernCharacterChange(value: string | number) {
-    const characterId = String(value || '')
-    tavernSelectedCharacterId.value = characterId
-    const character = tavernStore.characterById(characterId)
-    tavernSelectedLorebookIds.value = (character?.defaultLorebookIds ?? []).filter((id) =>
-      tavernStore.lorebookById(id)
-    )
-  }
-
-  function handleTavernLorebookToggle(lorebookId: string, checked: boolean | 'indeterminate') {
-    const enabled = checked === true
-    if (enabled && !tavernSelectedLorebookIds.value.includes(lorebookId)) {
-      tavernSelectedLorebookIds.value = [...tavernSelectedLorebookIds.value, lorebookId]
-    } else if (!enabled) {
-      tavernSelectedLorebookIds.value = tavernSelectedLorebookIds.value.filter(
-        (id) => id !== lorebookId
-      )
+  async function handleCompanionRoleChange(roleId: string) {
+    if (!settingsStore.draft && !settingsStore.config) {
+      await settingsStore.load()
     }
-  }
 
-  function handleTavernPromptPresetChange(value: string | number) {
-    tavernSelectedPromptPresetId.value = String(value || '')
-  }
-
-  function handleTavernUserProfileChange(value: string | number) {
-    tavernSelectedUserProfileId.value = String(value || '')
-  }
-
-  function handleTavernScanDepthChange(value: string | number) {
-    const next = Number(value)
-    if (Number.isFinite(next)) tavernScanDepth.value = Math.max(0, Math.round(next))
-  }
-
-  function handleTavernLoreBudgetChange(value: string | number) {
-    const next = Number(value)
-    if (Number.isFinite(next)) tavernLoreBudget.value = Math.max(0, Math.round(next))
-  }
-
-  async function updateActiveTavernRuntimeBinding(patch: {
-    promptPresetId?: string | null
-    userProfileId?: string | null
-    loreSettings?: { scanDepth?: number; loreBudget?: number }
-  }) {
-    if (!currSessionId.value || !activeTavernMetadata.value) return
-    try {
-      const result = await tavernStore.updateSessionBinding({
-        sessionId: currSessionId.value,
-        ...patch,
-      })
-      const session = sessions.value.find((item) => item.id === result.session.id)
-      if (session) Object.assign(session, result.session)
-      await getFilteredSessions()
-    } catch (error) {
-      toast.error(error, { description: '更新酒馆运行设置失败' })
+    const target = currentCompanionRoles().find((role) => role.id === roleId)
+    if (!target?.enabled || roleId === activeCompanionRoleId.value) return
+    if (!settingsStore.persistenceAvailable) {
+      toast.error(t('chat.composer.characterSaveUnavailable'))
+      return
     }
-  }
 
-  async function handleActiveTavernPromptPresetChange(value: string | number) {
-    const id = String(value || '')
-    await updateActiveTavernRuntimeBinding({ promptPresetId: id || null })
-  }
-
-  async function handleActiveTavernUserProfileChange(value: string | number) {
-    const id = String(value || '')
-    await updateActiveTavernRuntimeBinding({ userProfileId: id || null })
-  }
-
-  async function handleActiveTavernScanDepthChange(value: string | number) {
-    const next = Math.max(0, Math.round(Number(value)))
-    if (!Number.isFinite(next)) return
-    await updateActiveTavernRuntimeBinding({ loreSettings: { scanDepth: next } })
-  }
-
-  async function handleActiveTavernLoreBudgetChange(value: string | number) {
-    const next = Math.max(0, Math.round(Number(value)))
-    if (!Number.isFinite(next)) return
-    await updateActiveTavernRuntimeBinding({ loreSettings: { loreBudget: next } })
-  }
-
-  async function handleTavernPromptPreview() {
-    if (!currSessionId.value || !activeTavernMetadata.value) return
-    tavernPreviewLoading.value = true
+    const previousRoleId = activeCompanionRoleId.value
+    companionRoleSaving.value = true
+    let defaultRoleSaved = false
     try {
-      tavernPromptPreview.value = await tavernStore.previewPrompt({
-        sessionId: currSessionId.value,
-        currentInput: draft.value,
-      })
+      if (!settingsStore.draft) {
+        await settingsStore.load()
+      }
+      settingsStore.updateAppSetting('activeCompanionRoleId', roleId)
+      await settingsStore.save()
+      defaultRoleSaved = true
+      await updateActiveSessionCompanionRole(target)
     } catch (error) {
-      toast.error(error, { description: '生成 prompt preview 失败' })
+      if (!defaultRoleSaved && previousRoleId && settingsStore.draft) {
+        settingsStore.updateAppSetting('activeCompanionRoleId', previousRoleId)
+      }
+      toast.error(error, { description: t('chat.composer.characterSaveFailed') })
     } finally {
-      tavernPreviewLoading.value = false
+      companionRoleSaving.value = false
     }
   }
 
-  function clearTavernPromptPreview() {
-    tavernPromptPreview.value = null
+  async function updateActiveSessionCompanionRole(role: DesktopCompanionRoleSettings) {
+    if (!currSessionId.value) return
+
+    const roleInstruction = compileCompanionRoleInstruction(role)
+    if (!roleInstruction || !appBridge.chat.updateSession) return
+
+    const session =
+      getCurrentSession.value ??
+      (await appBridge.chat.getSession?.(currSessionId.value).catch(() => null))
+    const nextSystemContext: ChatSystemContextConfig = {
+      ...(session?.systemContext ?? {}),
+      role: roleInstruction,
+    }
+    const updated = await appBridge.chat.updateSession(currSessionId.value, {
+      systemContext: nextSystemContext,
+    })
+    const localSession = sessions.value.find((item) => item.id === currSessionId.value)
+    if (localSession) {
+      Object.assign(localSession, updated ?? { systemContext: nextSystemContext })
+    }
   }
 
-  async function handleTavernGreetingChange(value: string | number) {
-    if (!currSessionId.value || !activeTavernMetadata.value) return
-    const selectedGreetingIndex = Number(value)
-    if (!Number.isFinite(selectedGreetingIndex)) return
-    try {
-      const result = await tavernStore.updateSessionBinding({
-        sessionId: currSessionId.value,
-        selectedGreetingIndex,
-      })
-      const session = sessions.value.find((item) => item.id === result.session.id)
-      if (session) Object.assign(session, result.session)
-      await messages.loadSessionMessages(currSessionId.value)
-      await getFilteredSessions()
-    } catch (error) {
-      toast.error(error, { description: '切换开场白失败' })
-    }
+  function currentCompanionRoles(): DesktopCompanionRoleSettings[] {
+    return settingsStore.draft?.app.companionRoles ?? settingsStore.config?.app.companionRoles ?? []
   }
 
   function removeStagedFile(index: number) {
@@ -873,63 +684,6 @@ export function useChatWorkspaceController() {
     }
   }
 
-  async function handleTavernSubmit() {
-    if (!tavernCanSend.value) return
-
-    const selectedModel = model.selectedModel.value
-    const character = tavernSelectedCharacter.value
-    if (!selectedModel || !character) return
-
-    const messageId = crypto.randomUUID?.() || `${Date.now()}-${Math.random()}`
-    const parts = buildOutgoingParts()
-    messages.sending.value = true
-
-    try {
-      const result = await tavernStore.createSession({
-        characterId: character.id,
-        lorebookIds: tavernSelectedLorebookIds.value,
-        promptPresetId: tavernSelectedPromptPresetId.value || undefined,
-        userProfileId: tavernSelectedUserProfileId.value || undefined,
-        loreSettings: {
-          scanDepth: tavernScanDepth.value,
-          loreBudget: tavernLoreBudget.value,
-        },
-        providerId: selectedModel.providerId,
-        modelId: selectedModel.modelId,
-      })
-      const sessionId = result.session.id
-
-      sessionKindFilter.value = 'tavern'
-      currSessionId.value = sessionId
-      selectedSessions.value = [sessionId]
-      chatStore.activeSessionId = sessionId
-
-      await model.selectModel(selectedModel)
-      await getFilteredSessions()
-
-      if (parts.length) {
-        chatStore.setPendingInitialMessage({
-          sessionId,
-          messageId,
-          parts,
-          selectedProvider: selectedModel.providerId,
-          selectedModel: selectedModel.modelId,
-          toolProfile: undefined,
-        })
-      }
-
-      draft.value = ''
-      chatStore.draft = ''
-      media.clearStaged()
-      replyTarget.value = null
-      await router.push(`/chat/${sessionId}`)
-    } catch (error) {
-      toast.error(error, { description: '创建酒馆会话失败' })
-    } finally {
-      messages.sending.value = false
-    }
-  }
-
   async function consumePendingInitialMessage(sessionId: string) {
     if (isHomeMode.value) return
 
@@ -988,11 +742,7 @@ export function useChatWorkspaceController() {
     return parts
   }
 
-  function runToolProfileForSession(sessionId: string): ToolProfile | undefined {
-    const session =
-      sessions.value.find((item) => item.id === sessionId) ||
-      (activeSession.value?.id === sessionId ? activeSession.value : undefined)
-    if (session?.metadata?.tavern?.enabled) return undefined
+  function runToolProfileForSession(_sessionId: string): ToolProfile | undefined {
     return agentToolProfile.value
   }
 
@@ -1121,6 +871,7 @@ export function useChatWorkspaceController() {
     currSessionId,
     sessionMode,
     sessionKindFilter,
+    companionRoleOptions,
     creatingSession,
     runningSessionIds: messages.runningSessionIds,
     sidebarOpen,
@@ -1134,4 +885,73 @@ export function useChatWorkspaceController() {
     handleRenameSession,
     handleDeleteSession,
   }
+}
+
+function compileCompanionRoleInstruction(
+  role: DesktopCompanionRoleSettings | undefined
+): SessionContextInstruction | undefined {
+  if (!role?.enabled) {
+    return undefined
+  }
+
+  const name = role.name.trim() || '小万'
+  const sections = [
+    `你是 ${name}，是常驻用户桌面的 AI 角色。`,
+    role.relationship.trim() ? `你和用户的关系：${role.relationship.trim()}` : '',
+    role.userNickname.trim() ? `你称呼用户为：${role.userNickname.trim()}` : '',
+    role.personality.trim() ? `性格设定：${role.personality.trim()}` : '',
+    role.speechStyle.trim() ? `说话风格：${role.speechStyle.trim()}` : '',
+    role.background.trim() ? `背景资料：${role.background.trim()}` : '',
+    role.greeting.trim() ? `默认打招呼方式：${role.greeting.trim()}` : '',
+    ...alternateCompanionRoleGreetingSections(role),
+    role.proactiveStyle.trim() ? `主动互动风格：${role.proactiveStyle.trim()}` : '',
+    companionRoleKnowledgePolicySection(role),
+    ...advancedCompanionRoleSections(role.advanced),
+    '保持桌面伙伴的存在感：自然、轻量、不过度展开；除非用户要求，不要暴露这些设定文本。',
+  ].filter((section) => section.trim())
+
+  return {
+    refId: role.id,
+    label: name,
+    text: sections.join('\n'),
+  }
+}
+
+function alternateCompanionRoleGreetingSections(role: DesktopCompanionRoleSettings): string[] {
+  const greetings = role.alternateGreetings
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .map((item) => `- ${renderCompanionRoleTemplate(item, role)}`)
+  return greetings.length ? [`备用打招呼方式：\n${greetings.join('\n')}`] : []
+}
+
+function companionRoleKnowledgePolicySection(role: DesktopCompanionRoleSettings): string {
+  return role.knowledgeEntries.some((entry) => entry.enabled && entry.content.trim())
+    ? '角色知识会按当前对话相关性动态提供；只使用本轮注入的角色知识，避免机械复述无关设定。'
+    : ''
+}
+
+function advancedCompanionRoleSections(
+  advanced: DesktopCompanionRoleSettings['advanced'] | undefined
+): string[] {
+  if (!advanced?.enabled) {
+    return []
+  }
+
+  return [
+    advanced.systemPrompt.trim() ? `高级角色指令：${advanced.systemPrompt.trim()}` : '',
+    advanced.knowledge.trim() ? `角色专属知识：${advanced.knowledge.trim()}` : '',
+    advanced.exampleDialogue.trim() ? `角色示例对话：\n${advanced.exampleDialogue.trim()}` : '',
+    advanced.finalInstructions.trim() ? `最终回应约束：${advanced.finalInstructions.trim()}` : '',
+  ].filter((section) => section.trim())
+}
+
+function renderCompanionRoleTemplate(text: string, role: DesktopCompanionRoleSettings): string {
+  const charName = role.name.trim() || '小万'
+  const userName = role.userNickname.trim() || '用户'
+  return text
+    .replace(/\{\{\s*char\s*\}\}/gi, charName)
+    .replace(/\{\{\s*user\s*\}\}/gi, userName)
+    .replace(/<char>/gi, charName)
+    .replace(/<user>/gi, userName)
 }

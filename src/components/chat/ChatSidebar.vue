@@ -2,7 +2,6 @@
 import {
   CatIcon,
   ClockIcon,
-  DramaIcon,
   EyeIcon,
   MessageSquareIcon,
   MoreHorizontalIcon,
@@ -10,13 +9,14 @@ import {
   PlusIcon,
   SearchIcon,
   SettingsIcon,
+  SparklesIcon,
   Trash2Icon,
-  UserRoundIcon,
   XIcon,
 } from 'lucide-vue-next'
-import { computed, ref, watch } from 'vue'
+import { type CSSProperties, computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-
+import type { ChatCompanionRoleOption } from '@/components/chat/chat-workspace-context'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -58,12 +58,23 @@ import {
   SidebarSeparator,
   SidebarTrigger,
 } from '@/components/ui/sidebar'
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import type { Session } from '@/composables/useSessions'
 import { cn } from '@/lib/utils'
 
-type SessionKindFilter = 'chat' | 'tavern' | 'cat' | 'cron' | 'vision'
-type SessionMode = Extract<SessionKindFilter, 'chat' | 'tavern'>
+type SessionKindFilter = 'chat' | 'cat' | 'cron' | 'vision'
+type SessionMode = Extract<SessionKindFilter, 'chat'>
+type SessionRoleSignatureKind = 'known' | 'captured' | 'unknown' | 'unassigned'
+
+interface SessionRoleSignature {
+  label: string
+  identity: string
+  kind: SessionRoleSignatureKind
+}
+
+interface SidebarSessionItem {
+  session: Session
+  role: SessionRoleSignature | null
+}
 
 const props = withDefaults(
   defineProps<{
@@ -71,12 +82,14 @@ const props = withDefaults(
     activeSessionId?: string
     sessionMode?: SessionMode
     sessionKindFilter?: SessionKindFilter
+    companionRoleOptions?: ChatCompanionRoleOption[]
     creating?: boolean
     runningSessionIds?: string[]
   }>(),
   {
     sessionMode: 'chat',
     sessionKindFilter: 'chat',
+    companionRoleOptions: () => [],
     runningSessionIds: () => [],
   }
 )
@@ -110,13 +123,6 @@ const sessionModeOptions = computed(() => [
     newLabel: t('chat.sidebar.newChat'),
     icon: MessageSquareIcon,
   },
-  {
-    value: 'tavern' as SessionMode,
-    label: t('chat.sidebar.mode.tavern.label'),
-    title: t('chat.sidebar.mode.tavern.title'),
-    newLabel: t('chat.sidebar.newChat'),
-    icon: DramaIcon,
-  },
 ])
 
 const sessionKindOptions = computed(() => [
@@ -125,12 +131,6 @@ const sessionKindOptions = computed(() => [
     label: t('chat.sidebar.kind.chat.label'),
     title: t('chat.sidebar.kind.chat.title'),
     icon: MessageSquareIcon,
-  },
-  {
-    value: 'tavern' as SessionKindFilter,
-    label: t('chat.sidebar.kind.tavern.label'),
-    title: t('chat.sidebar.kind.tavern.title'),
-    icon: DramaIcon,
   },
   {
     value: 'cat' as SessionKindFilter,
@@ -161,14 +161,6 @@ const activeSessionModeOption = computed(
     sessionModeOptions.value.find((option) => option.value === activeSessionMode.value) ||
     sessionModeOptions.value[0]
 )
-const nextCollapsedMode = computed<SessionMode>(() =>
-  activeSessionMode.value === 'tavern' ? 'chat' : 'tavern'
-)
-const nextCollapsedModeOption = computed(
-  () =>
-    sessionModeOptions.value.find((option) => option.value === nextCollapsedMode.value) ||
-    sessionModeOptions.value[0]
-)
 const activeSessionKindOption = computed(
   () =>
     sessionKindOptions.value.find((option) => option.value === props.sessionKindFilter) ||
@@ -176,20 +168,24 @@ const activeSessionKindOption = computed(
 )
 const sessionListLabel = computed(() => activeSessionKindOption.value.title)
 const newChatLabel = computed(() => activeSessionModeOption.value.newLabel)
-const collapsedModeTooltip = computed(() =>
-  t('chat.sidebar.collapsedTooltip', {
-    current: activeSessionModeOption.value.title,
-    next: nextCollapsedModeOption.value.label,
-  })
-)
-
-const filteredSessions = computed(() => {
+const filteredSessionItems = computed<SidebarSessionItem[]>(() => {
+  const items = props.sessions.map((session) => ({
+    session,
+    role: sessionRoleSignature(session),
+  }))
   const query = normalizedSearchQuery.value
-  if (!query) return props.sessions
+  if (!query) return items
 
-  return props.sessions.filter((session) => {
+  return items.filter(({ session, role }) => {
     const title = sessionTitle(session).toLowerCase()
-    return title.includes(query) || session.id.toLowerCase().includes(query)
+    const roleLabel = role?.label.toLowerCase() ?? ''
+    const roleIdentity = role?.identity.toLowerCase() ?? ''
+    return (
+      title.includes(query) ||
+      roleLabel.includes(query) ||
+      roleIdentity.includes(query) ||
+      session.id.toLowerCase().includes(query)
+    )
   })
 })
 
@@ -255,6 +251,79 @@ function sessionTitle(session: Session) {
   return sessionRawTitle(session) || t('chat.sidebar.session.defaultTitle')
 }
 
+function sessionTooltip(session: Session, role: SessionRoleSignature | null) {
+  if (!role) return sessionTitle(session)
+  return t('chat.sidebar.sessionRole.tooltip', {
+    title: sessionTitle(session),
+    role: role.label,
+  })
+}
+
+function sessionRoleSignature(session: Session): SessionRoleSignature | null {
+  if (!shouldShowSessionRole(session)) return null
+
+  const roleInstruction = session.systemContext?.role
+  const roleRefId = roleInstruction?.refId?.trim()
+  const configuredRole = roleRefId
+    ? props.companionRoleOptions.find((role) => role.id === roleRefId)
+    : undefined
+  const configuredName = configuredRole?.name.trim()
+  if (configuredName && roleRefId) {
+    return {
+      label: configuredName,
+      identity: roleRefId,
+      kind: 'known',
+    }
+  }
+
+  const capturedLabel = roleInstruction?.label?.trim()
+  if (capturedLabel) {
+    return {
+      label: capturedLabel,
+      identity: roleRefId || capturedLabel,
+      kind: 'captured',
+    }
+  }
+
+  if (roleRefId) {
+    return {
+      label: t('chat.sidebar.sessionRole.unknown'),
+      identity: roleRefId,
+      kind: 'unknown',
+    }
+  }
+
+  return {
+    label: t('chat.sidebar.sessionRole.unassigned'),
+    identity: `${session.id}:unassigned`,
+    kind: 'unassigned',
+  }
+}
+
+function shouldShowSessionRole(session: Session) {
+  const kind = session.kind ?? 'chat'
+  return kind === 'chat' || kind === 'cat'
+}
+
+function sessionRoleBadgeStyle(role: SessionRoleSignature): CSSProperties {
+  const hue = stableHue(role.identity)
+  const soft = role.kind === 'unknown' || role.kind === 'unassigned'
+  const lightness = soft ? 0.66 : 0.72
+  const chroma = soft ? 0.035 : 0.14
+
+  return {
+    '--session-role-accent': `oklch(${lightness} ${chroma} ${hue})`,
+  } as CSSProperties
+}
+
+function stableHue(input: string) {
+  let hash = 0
+  for (const char of input) {
+    hash = (hash * 31 + char.charCodeAt(0)) >>> 0
+  }
+  return hash % 360
+}
+
 function isSessionRunning(sessionId: string) {
   return runningSessionIdSet.value.has(sessionId)
 }
@@ -296,26 +365,10 @@ function clearSearch() {
 
 function updateSessionKindFilter(value: unknown) {
   if (!value || typeof value !== 'string') return
-  if (
-    value !== 'chat' &&
-    value !== 'tavern' &&
-    value !== 'cat' &&
-    value !== 'cron' &&
-    value !== 'vision'
-  ) {
+  if (value !== 'chat' && value !== 'cat' && value !== 'cron' && value !== 'vision') {
     return
   }
   emit('updateSessionKindFilter', value)
-}
-
-function updateSessionMode(value: unknown) {
-  if (!value || typeof value !== 'string') return
-  if (value !== 'chat' && value !== 'tavern') return
-  emit('updateSessionMode', value)
-}
-
-function toggleCollapsedMode() {
-  emit('updateSessionMode', nextCollapsedMode.value)
 }
 </script>
 
@@ -344,39 +397,6 @@ function toggleCollapsedMode() {
         </SidebarMenuItem>
       </SidebarMenu>
 
-      <Tabs
-        :model-value="activeSessionMode"
-        class="group-data-[collapsible=icon]:hidden gap-1"
-        @update:model-value="updateSessionMode"
-      >
-        <TabsList class="grid !h-6 w-full grid-cols-2 p-px group-data-horizontal/tabs:!h-6">
-          <TabsTrigger
-            v-for="option in sessionModeOptions"
-            :key="option.value"
-            :value="option.value"
-            class="box-border !h-full min-h-0 gap-0.5 overflow-hidden !px-1 !py-0 !text-[13px] leading-none has-data-[icon=inline-start]:!pl-1 [&_svg:not([class*=size-])]:!size-3"
-          >
-            <component
-              :is="option.icon"
-              data-icon="inline-start"
-            />
-            {{ option.label }}
-          </TabsTrigger>
-        </TabsList>
-      </Tabs>
-
-      <SidebarMenu class="hidden group-data-[collapsible=icon]:block">
-        <SidebarMenuItem>
-          <SidebarMenuButton
-            :is-active="activeSessionMode === 'tavern'"
-            :tooltip="collapsedModeTooltip"
-            :aria-label="collapsedModeTooltip"
-            @click="toggleCollapsedMode"
-          >
-            <component :is="activeSessionModeOption.icon" />
-          </SidebarMenuButton>
-        </SidebarMenuItem>
-      </SidebarMenu>
     </SidebarHeader>
 
     <SidebarSeparator class="group-data-[collapsible=icon]:hidden" />
@@ -413,6 +433,7 @@ function toggleCollapsedMode() {
                 <Button
                   variant="outline"
                   size="icon-sm"
+                  class="border-border/70 bg-transparent text-foreground shadow-none backdrop-blur-sm hover:bg-background/35 hover:text-foreground aria-expanded:bg-background/45 aria-expanded:text-foreground data-[state=open]:bg-background/45 data-[state=open]:text-foreground"
                   :aria-label="t('chat.sidebar.search.filterAriaLabel', { kind: activeSessionKindOption.title })"
                 >
                   <component
@@ -448,25 +469,38 @@ function toggleCollapsedMode() {
 
           <SidebarMenu>
             <SidebarMenuItem
-              v-for="session in filteredSessions"
-              :key="session.id"
+              v-for="item in filteredSessionItems"
+              :key="item.session.id"
             >
               <SidebarMenuButton
-                :is-active="session.id === activeSessionId"
-                :tooltip="sessionTitle(session)"
-                :class="cn(isSessionRunning(session.id) && 'pr-12')"
-                @click="emit('selectSession', session.id)"
+                :is-active="item.session.id === activeSessionId"
+                :tooltip="sessionTooltip(item.session, item.role)"
+                :class="cn('min-w-0 gap-1.5', isSessionRunning(item.session.id) && 'pr-12')"
+                @click="emit('selectSession', item.session.id)"
               >
                 <span
-                  v-if="isSessionRunning(session.id)"
+                  v-if="isSessionRunning(item.session.id)"
                   class="size-1.5 shrink-0 rounded-full bg-primary"
                   aria-hidden="true"
                 />
-                <span>{{ sessionTitle(session) }}</span>
+                <span class="min-w-0 flex-1 truncate">{{ sessionTitle(item.session) }}</span>
+                <Badge
+                  v-if="item.role"
+                  variant="ghost"
+                  class="ml-auto h-5 max-w-[5.5rem] border-0 bg-transparent px-0 py-0 text-[11px] font-normal leading-none text-sidebar-foreground/50 opacity-75 shadow-none transition-[color,opacity] group-hover/menu-item:text-sidebar-foreground/70 group-hover/menu-item:opacity-100 group-data-active/menu-button:text-sidebar-accent-foreground/75 group-data-active/menu-button:opacity-100"
+                  :style="sessionRoleBadgeStyle(item.role)"
+                  :aria-label="t('chat.sidebar.sessionRole.ariaLabel', { role: item.role.label })"
+                >
+                  <SparklesIcon
+                    class="text-[color:var(--session-role-accent)] opacity-90"
+                    data-icon="inline-start"
+                  />
+                  <span class="min-w-0 truncate">{{ item.role.label }}</span>
+                </Badge>
               </SidebarMenuButton>
 
               <span
-                v-if="isSessionRunning(session.id)"
+                v-if="isSessionRunning(item.session.id)"
                 class="sr-only"
               >
                 {{ t('chat.sidebar.session.running') }}
@@ -476,7 +510,7 @@ function toggleCollapsedMode() {
                 <DropdownMenuTrigger as-child>
                   <SidebarMenuAction
                     show-on-hover
-                    :aria-label="t('chat.sidebar.session.actionAriaLabel', { title: sessionTitle(session) })"
+                    :aria-label="t('chat.sidebar.session.actionAriaLabel', { title: sessionTitle(item.session) })"
                     @click.stop
                   >
                     <MoreHorizontalIcon />
@@ -487,13 +521,13 @@ function toggleCollapsedMode() {
                   class="w-40"
                 >
                   <DropdownMenuGroup>
-                    <DropdownMenuItem @select="openRenameDialog(session)">
+                    <DropdownMenuItem @select="openRenameDialog(item.session)">
                       <PencilIcon />
                       {{ t('chat.sidebar.session.rename') }}
                     </DropdownMenuItem>
                     <DropdownMenuItem
                       variant="destructive"
-                      @select="openDeleteDialog(session)"
+                      @select="openDeleteDialog(item.session)"
                     >
                       <Trash2Icon />
                       {{ t('chat.sidebar.session.delete') }}
@@ -531,7 +565,7 @@ function toggleCollapsedMode() {
             :aria-label="t('chat.sidebar.footer.roles')"
             @click="emit('openRoles')"
           >
-            <UserRoundIcon />
+            <SparklesIcon />
           </SidebarMenuButton>
 
           <SidebarMenuButton

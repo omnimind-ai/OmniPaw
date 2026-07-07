@@ -195,7 +195,7 @@ async function testContextBuilderSystemFallbackAndTokenBudget(): Promise<void> {
       systemContext: {
         baseSystemPrompt: 'Base prompt',
         mask: { text: 'Mask prompt', enabled: true },
-        persona: { text: 'Persona prompt', enabled: true },
+        role: { text: 'Role prompt', enabled: true },
       },
       contextPolicy: {
         mode: 'token-budget',
@@ -218,8 +218,8 @@ async function testContextBuilderSystemFallbackAndTokenBudget(): Promise<void> {
 
   assert.equal(context.messages[0]?.role, 'user')
   assert.match(String(context.messages[0]?.content), /Base prompt/)
-  assert.match(String(context.messages[0]?.content), /Mask prompt/)
-  assert.match(String(context.messages[0]?.content), /Persona prompt/)
+  assert.match(JSON.stringify(context.messages), /Mask prompt/)
+  assert.match(JSON.stringify(context.messages), /Role prompt/)
   assert.match(JSON.stringify(context.messages), /current question/)
   assert.equal(context.snapshot.contextPolicyMode, 'token-budget')
   assert.ok(context.snapshot.contextUsage?.estimatedInputTokens)

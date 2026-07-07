@@ -51,14 +51,11 @@ function normalizeSessionId(request: unknown): string {
   return ''
 }
 
-function normalizeKind(request: unknown): 'chat' | 'tavern' | 'cat' | 'vision' | undefined {
+function normalizeKind(request: unknown): 'chat' | 'cat' | 'vision' | undefined {
   if (!isRecord(request)) {
     return undefined
   }
-  return request.kind === 'tavern' ||
-    request.kind === 'cat' ||
-    request.kind === 'vision' ||
-    request.kind === 'chat'
+  return request.kind === 'cat' || request.kind === 'vision' || request.kind === 'chat'
     ? request.kind
     : undefined
 }

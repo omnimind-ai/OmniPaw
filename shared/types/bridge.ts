@@ -64,6 +64,12 @@ import type {
   UploadAttachmentResponse,
 } from './chat'
 import type {
+  ExportCompanionRoleCardRequest,
+  ExportCompanionRoleCardResponse,
+  ImportCompanionRoleCardRequest,
+  ImportCompanionRoleCardResponse,
+} from './companion-role'
+import type {
   CreateCronTaskRequest,
   CreateCronTaskResponse,
   CronTaskChangedEvent,
@@ -153,16 +159,6 @@ import type {
   SetThinkingRequest,
 } from './omniinfer'
 import type {
-  CreatePersonaRequest,
-  DeletePersonaRequest,
-  PersonaRegistryChangedEvent,
-  PersonaRegistryLoadResponse,
-  PersonaRegistryMutationResult,
-  PersonaRegistryStatus,
-  SetDefaultPersonaRequest,
-  UpdatePersonaRequest,
-} from './persona'
-import type {
   CreateProviderFromPresetRequest,
   DeleteProviderRequest,
   OpenAICodexOAuthProviderRequest,
@@ -198,37 +194,6 @@ import type {
   SkillChangedEvent,
   SkillListResponse,
 } from './skill'
-import type {
-  CopyPersonaToTavernUserProfileRequest,
-  CreateTavernCharacterRequest,
-  CreateTavernLorebookRequest,
-  CreateTavernPromptPresetRequest,
-  CreateTavernSessionRequest,
-  CreateTavernUserProfileRequest,
-  DeleteTavernCharacterRequest,
-  DeleteTavernLorebookRequest,
-  DeleteTavernPromptPresetRequest,
-  DeleteTavernUserProfileRequest,
-  ExportTavernCharacterPersonaRequest,
-  ImportTavernCharacterRequest,
-  ImportTavernCharacterResult,
-  SetTavernCharacterEnabledRequest,
-  SetTavernLorebookEnabledRequest,
-  SetTavernPromptPresetEnabledRequest,
-  SetTavernUserProfileEnabledRequest,
-  TavernPromptPreviewRequest,
-  TavernPromptPreviewResult,
-  TavernRegistryChangedEvent,
-  TavernRegistryLoadResponse,
-  TavernRegistryMutationResult,
-  TavernRegistryStatus,
-  TavernSessionOperationResult,
-  UpdateTavernCharacterRequest,
-  UpdateTavernLorebookRequest,
-  UpdateTavernPromptPresetRequest,
-  UpdateTavernSessionBindingRequest,
-  UpdateTavernUserProfileRequest,
-} from './tavern'
 import type { ManagedToolInfo, SetToolEnabledRequest, SetToolEnabledResponse } from './tool'
 import type { DesktopWindowState, DesktopWindowStateChangedEvent } from './window'
 
@@ -507,6 +472,14 @@ export interface OmniPawBridge {
       request: CompanionMemorySettingsRequest | DesktopMemorySettings
     ) => Promise<DesktopMemorySettings>
   }
+  companionRole: {
+    importCard: (
+      request: ImportCompanionRoleCardRequest
+    ) => Promise<ImportCompanionRoleCardResponse>
+    exportCard: (
+      request: ExportCompanionRoleCardRequest
+    ) => Promise<ExportCompanionRoleCardResponse>
+  }
   observation: {
     permissionStatus: () => Promise<ObservationPermissionStatus>
     status: (request?: ObservationStatusRequest) => Promise<ObservationState>
@@ -648,16 +621,6 @@ export interface OmniPawBridge {
     listTools: () => Promise<McpToolInventoryResponse>
     onChanged: (callback: (event: McpServerChangedEvent) => void) => Unsubscribe
   }
-  persona: {
-    load: () => Promise<PersonaRegistryLoadResponse>
-    list: () => Promise<PersonaRegistryLoadResponse>
-    status: () => Promise<PersonaRegistryStatus>
-    create: (request: CreatePersonaRequest) => Promise<PersonaRegistryMutationResult>
-    update: (request: UpdatePersonaRequest) => Promise<PersonaRegistryMutationResult>
-    delete: (request: DeletePersonaRequest | string) => Promise<PersonaRegistryMutationResult>
-    setDefault: (request: SetDefaultPersonaRequest) => Promise<PersonaRegistryMutationResult>
-    onChanged: (callback: (event: PersonaRegistryChangedEvent) => void) => Unsubscribe
-  }
   omniinfer: {
     getStatus: () => Promise<OmniInferRuntimeSnapshot>
     start: () => Promise<OmniInferRuntimeSnapshot>
@@ -672,67 +635,5 @@ export interface OmniPawBridge {
     listInstalledModels: () => Promise<InstalledModelRecord[]>
     onStatusChanged: (callback: (event: OmniInferRuntimeSnapshot) => void) => Unsubscribe
     onLog: (callback: (event: OmniInferLogEntry) => void) => Unsubscribe
-  }
-  tavern: {
-    load: () => Promise<TavernRegistryLoadResponse>
-    list: () => Promise<TavernRegistryLoadResponse>
-    status: () => Promise<TavernRegistryStatus>
-    importCharacter: (request: ImportTavernCharacterRequest) => Promise<ImportTavernCharacterResult>
-    createCharacter: (
-      request: CreateTavernCharacterRequest
-    ) => Promise<TavernRegistryMutationResult>
-    updateCharacter: (
-      request: UpdateTavernCharacterRequest
-    ) => Promise<TavernRegistryMutationResult>
-    deleteCharacter: (
-      request: DeleteTavernCharacterRequest | string
-    ) => Promise<TavernRegistryMutationResult>
-    setCharacterEnabled: (
-      request: SetTavernCharacterEnabledRequest
-    ) => Promise<TavernRegistryMutationResult>
-    createLorebook: (request: CreateTavernLorebookRequest) => Promise<TavernRegistryMutationResult>
-    updateLorebook: (request: UpdateTavernLorebookRequest) => Promise<TavernRegistryMutationResult>
-    deleteLorebook: (
-      request: DeleteTavernLorebookRequest | string
-    ) => Promise<TavernRegistryMutationResult>
-    setLorebookEnabled: (
-      request: SetTavernLorebookEnabledRequest
-    ) => Promise<TavernRegistryMutationResult>
-    createPromptPreset: (
-      request: CreateTavernPromptPresetRequest
-    ) => Promise<TavernRegistryMutationResult>
-    updatePromptPreset: (
-      request: UpdateTavernPromptPresetRequest
-    ) => Promise<TavernRegistryMutationResult>
-    deletePromptPreset: (
-      request: DeleteTavernPromptPresetRequest | string
-    ) => Promise<TavernRegistryMutationResult>
-    setPromptPresetEnabled: (
-      request: SetTavernPromptPresetEnabledRequest
-    ) => Promise<TavernRegistryMutationResult>
-    createUserProfile: (
-      request: CreateTavernUserProfileRequest
-    ) => Promise<TavernRegistryMutationResult>
-    updateUserProfile: (
-      request: UpdateTavernUserProfileRequest
-    ) => Promise<TavernRegistryMutationResult>
-    deleteUserProfile: (
-      request: DeleteTavernUserProfileRequest | string
-    ) => Promise<TavernRegistryMutationResult>
-    setUserProfileEnabled: (
-      request: SetTavernUserProfileEnabledRequest
-    ) => Promise<TavernRegistryMutationResult>
-    copyPersonaToUserProfile: (
-      request: CopyPersonaToTavernUserProfileRequest
-    ) => Promise<TavernRegistryMutationResult>
-    exportCharacterAsPersona: (
-      request: ExportTavernCharacterPersonaRequest
-    ) => Promise<TavernRegistryMutationResult>
-    createSession: (request: CreateTavernSessionRequest) => Promise<TavernSessionOperationResult>
-    updateSessionBinding: (
-      request: UpdateTavernSessionBindingRequest
-    ) => Promise<TavernSessionOperationResult>
-    previewPrompt: (request: TavernPromptPreviewRequest) => Promise<TavernPromptPreviewResult>
-    onChanged: (callback: (event: TavernRegistryChangedEvent) => void) => Unsubscribe
   }
 }

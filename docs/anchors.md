@@ -12,7 +12,6 @@
 | IPC 共享注册工具 | `electron/ipc/common.ts` |
 | IPC 注册依赖类型 | `electron/ipc/types.ts` |
 | IPC domain handler | `electron/ipc/<domain>.ts` |
-| Persona IPC | `electron/ipc/persona.ts` |
 | Workspace IPC | `electron/ipc/workspace.ts` |
 | Terminal process IPC | `electron/ipc/terminal-process.ts` |
 | OmniInfer IPC | `electron/ipc/omniinfer.ts` |
@@ -42,7 +41,6 @@
 | 设置页组件 | `src/components/settings/` |
 | Provider 设置子组件 | `src/components/settings/provider-settings/` |
 | Provider 删除确认弹窗 | `src/components/settings/provider-settings/ProviderDeleteModal.vue` |
-| Persona 设置 | `src/components/settings/PersonaSettingsForm.vue` |
 | 本地 Agent 设置 | `src/components/settings/LocalAgentSettingsForm.vue` |
 | OmniInfer Provider 基础配置 Tab | `src/components/settings/provider-settings/ProviderOmniInferBasicTab.vue` |
 | OmniInfer renderer store | `src/stores/omniinfer.ts` |
@@ -86,9 +84,6 @@
 | OmniInfer 进程 controller 抽象 | `core/omniinfer/process-controller.ts` |
 | Provider 凭据解析 | `core/provider/credentials.ts` |
 | Provider 错误归一化 | `core/provider/errors.ts` |
-| Persona 管理 | `core/persona/manager.ts` |
-| Persona registry schema | `core/persona/registry-schema.ts` |
-| Persona registry store | `core/persona/registry-store.ts` |
 | Skill 管理 | `core/skill/skill-manager.ts` |
 | Cron 管理 | `core/cron/cron-manager.ts` |
 
@@ -103,7 +98,6 @@
 | 设置共享类型 | `shared/types/settings.ts` |
 | Provider 共享类型 | `shared/types/provider.ts` |
 | Chat 共享类型 | `shared/types/chat.ts` |
-| Persona 共享类型 | `shared/types/persona.ts` |
 | 本地 Agent 共享类型 | `shared/types/local-agent.ts` |
 | 数据库连接和 migration 执行 | `core/db/client.ts` |
 | migration 列表 | `core/db/migrations.ts` |
@@ -120,7 +114,6 @@
 | Electron Node 脚本运行器 | `scripts/run-electron-node.mjs` |
 | 配置 smoke | `tests/smoke/settings-config-smoke.ts` |
 | Provider registry smoke | `tests/smoke/provider-registry-smoke.ts` |
-| Persona registry smoke | `tests/smoke/persona-registry-smoke.ts` |
 | 数据库 smoke | `tests/smoke/db-smoke.ts` |
 | 聊天 core smoke | `tests/smoke/chat-core-smoke.ts` |
 | Agent runtime smoke | `tests/smoke/agent-runtime-smoke.ts` |

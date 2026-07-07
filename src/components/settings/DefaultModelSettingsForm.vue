@@ -48,7 +48,6 @@ const { t } = useI18n()
 const providerStore = useProviderStore()
 const {
   defaultModelKey,
-  embeddingModelKey,
   fallbackModelKeys,
   modelOptions,
   observationReactionModelKey,
@@ -103,9 +102,8 @@ function updateTitleModel(value: AcceptableValue) {
   void providerStore.setTitleModelKey(normalizedValue === NONE_VALUE ? '' : normalizedValue)
 }
 
-function updateEmbeddingModel(value: AcceptableValue) {
-  const normalizedValue = typeof value === 'string' ? value : ''
-  void providerStore.setEmbeddingModelKey(normalizedValue === NONE_VALUE ? '' : normalizedValue)
+function updateEmbeddingModel(_value: AcceptableValue) {
+  void providerStore.setEmbeddingModelKey('')
 }
 
 function updateObservationVisionModel(value: AcceptableValue) {
@@ -309,8 +307,8 @@ function modelLabel(option: ProviderModelOption) {
           :description="t('settings.defaultModel.embeddingModel.description')"
         >
           <Select
-            :model-value="embeddingModelKey || NONE_VALUE"
-            :disabled="saving || !enabledTextOptions.length || !persistenceAvailable"
+            :model-value="NONE_VALUE"
+            :disabled="saving || !persistenceAvailable"
             @update:model-value="updateEmbeddingModel"
           >
             <SelectTrigger
@@ -322,13 +320,6 @@ function modelLabel(option: ProviderModelOption) {
             <SelectContent>
               <SelectGroup>
                 <SelectItem :value="NONE_VALUE">{{ t('settings.defaultModel.embeddingModel.useLocal') }}</SelectItem>
-                <SelectItem
-                  v-for="option in enabledTextOptions"
-                  :key="option.key"
-                  :value="option.key"
-                >
-                  {{ modelLabel(option) }}
-                </SelectItem>
               </SelectGroup>
             </SelectContent>
           </Select>

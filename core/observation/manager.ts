@@ -685,17 +685,17 @@ export class ObservationManager {
     observationInstruction: string
   ): TransientChatInstruction[] {
     const instructions: TransientChatInstruction[] = []
-    const persona =
+    const role =
       typeof chat.buildDefaultSystemContext === 'function'
-        ? chat.buildDefaultSystemContext()?.persona
+        ? chat.buildDefaultSystemContext()?.role
         : undefined
-    if (persona?.text?.trim()) {
+    if (role?.text?.trim()) {
       instructions.push({
-        id: 'observation:persona',
-        kind: 'persona',
-        source: persona.refId ?? 'persona.active',
-        refId: persona.refId,
-        text: persona.text,
+        id: 'observation:role',
+        kind: 'role',
+        source: role.refId ?? 'role.active',
+        refId: role.refId,
+        text: role.text,
       })
     }
     instructions.push({

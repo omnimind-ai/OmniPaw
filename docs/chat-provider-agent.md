@@ -5,7 +5,7 @@
 按任务类型展开：
 
 1. 聊天会话/消息/run：读 `聊天运行流`
-2. 系统上下文/人格：读 `系统上下文与 Persona`
+2. 系统上下文/角色：读 `系统上下文与 Role`
 3. 附件：读 `附件`
 4. Provider/模型：读 `Provider`
 5. Agent/工具：读 `Agent 与工具`
@@ -29,19 +29,17 @@
 - SHOULD：为长运行任务记录 request snapshot，便于排查模式、工具、上下文和 fallback 原因。
 - SHOULD：UI 中的流式展示基于 `onStreamEvent`，legacy token/done 订阅只作为过渡。
 
-## 系统上下文与 Persona
+## 系统上下文与 Role
 
-- MUST：基础 system prompt、mask、persona 作为会话 `systemContext` 进入上下文，不作为普通聊天消息持久化。
-- MUST：新会话创建时捕获当前默认系统上下文和 active persona；后续修改 persona 不隐式改写已有会话。
-- MUST：Persona registry 通过 `PersonaManager` 管理，renderer 只能通过 bridge/store 创建、更新、删除和设置默认人格。
-- MUST：persona prompt 与 mask text 视为用户指令类敏感内容，不写入日志、tool result、request snapshot 或 renderer debug context。
-- MUST：删除 active persona 时只清理 registry 默认引用；已创建会话保留创建时的 `systemContext`，除非显式更新会话。
-- SHOULD：上下文选择保持 base system、mask、persona 高于摘要、技能 inventory 和普通消息。
+- MUST：基础 system prompt、mask、role 作为会话 `systemContext` 进入上下文，不作为普通聊天消息持久化。
+- MUST：新会话创建时捕获当前默认系统上下文和 active role；后续修改角色不隐式改写已有会话。
+- MUST：role prompt 与 mask text 视为用户指令类敏感内容，不写入日志、tool result、request snapshot 或 renderer debug context。
+- SHOULD：上下文选择保持 base system、mask、role 高于摘要、技能 inventory 和普通消息。
 
 ## 日志
 
 - MUST：聊天、Provider、Agent 和工具链路的日志只记录 sessionId、runId、providerId、modelId、tool name、status、duration、fallback reason、error code/message、retryable/recoverable 等结构化信息。
-- MUST：不得记录原始 prompt、system prompt、persona prompt、mask text、消息正文、附件内容、tool args/result、Provider 响应体、API key、凭据或 MCP 原始 env/header。
+- MUST：不得记录原始 prompt、system prompt、role prompt、mask text、消息正文、附件内容、tool args/result、Provider 响应体、API key、凭据或 MCP 原始 env/header。
 - MUST：错误进入日志前先走已有归一化和脱敏流程，避免把原始异常对象和敏感上下文直接写出。
 - SHOULD：长运行或流式路径在 started、completed、failed、aborted 等节点补齐日志，便于追踪 run 生命周期。
 - SHOULD：debug 级上下文只保留最小可追踪信息。
@@ -127,17 +125,6 @@
 - MUST：scheduled task 执行仍走既有 Agent/provider/tool policy，不直接调用工具实现或 Provider client。
 - MUST：`scheduledTasks.enabled` 默认关闭；开启执行能力时同步配置、UI、runner 状态和 smoke。
 
-## 酒馆角色扮演模式
-
-- MUST：酒馆模式通过 `ChatSession.metadata.tavern` 表达会话级绑定，不改变 `minimal`、`assistant`、`power` 的工具权限语义。
-- MUST：角色卡字段、世界书正文、message examples、greeting 和 post-history instructions 都按用户指令类敏感 prompt 处理；日志、request snapshot、toast 错误和非编辑诊断只记录 ID、hash、数量、token 估算、错误码和 recoverability。
-- MUST：renderer 只能通过 `appBridge.tavern` 管理角色、世界书、导出 Persona 和创建/更新酒馆会话，不直接导入 `core/tavern`、Node、Electron main、数据库或 registry 文件。
-- MUST：酒馆会话默认走低噪声 run profile：`fast_chat`、`minimal`、无 tool inventory、无 provider-native tools、无 skill inventory；不得修改全局 `agentToolProfile`。
-- MUST：酒馆角色、世界书、examples 和 post-history 作为独立 context units 进入 `ContextBuilder`，不写入普通聊天消息；只有用户可见开场白会作为本地 assistant message 保存，并带 `metadata.tavern.greeting`。
-- MUST：本地 greeting 没有 provider run，不能作为普通 provider assistant message regenerate；无用户消息前可替换 greeting，有用户消息后不得自动改写可见历史。
-- SHOULD：世界书激活保持 deterministic：constant 条目、关键词命中、priority/order、命中位置和稳定 ID tie-break；预算丢弃只进入脱敏 accounting。
-- SHOULD：角色导出 Persona 是一次性快照，默认不包含世界书正文、first message 或 alternate greetings。
-
 ## 消息片段变更
 
 新增 `ChatMessagePart` 类型时：
@@ -156,8 +143,6 @@
 | 上下文 | `core/chat/context-manager.ts` |
 | run 管理 | `core/chat/run-manager.ts` |
 | 附件 | `core/chat/attachment-service.ts` |
-| Persona 管理 | `core/persona/manager.ts` |
-| Persona registry | `core/persona/registry-store.ts` |
 | Agent 运行入口 | `core/agent/agent-runner.ts` |
 | Agent step engine | `core/agent/step-engine.ts` |
 | Agent run 支撑模块 | `core/agent/run/` |
@@ -174,11 +159,6 @@
 | OpenAI 兼容 Provider | `core/provider/providers/openai.ts` |
 | 聊天 shared types | `shared/types/chat.ts` |
 | Provider shared types | `shared/types/provider.ts` |
-| 酒馆 shared types | `shared/types/tavern.ts` |
-| 酒馆 registry / manager | `core/tavern/` |
-| 酒馆 IPC | `electron/ipc/tavern.ts` |
-| 酒馆 renderer store | `src/stores/tavern.ts` |
-| 酒馆管理 UI | `src/components/tavern/` |
 | renderer 消息 composable | `src/composables/useMessages.ts` |
 | renderer 附件 composable | `src/composables/useMediaHandling.ts` |
 
@@ -186,7 +166,7 @@
 
 - [ ] run、message、stream event 状态一致。
 - [ ] abort 路径更新 run 和 assistant message。
-- [ ] systemContext/persona 没有被误写入普通消息、日志或 request snapshot。
+- [ ] systemContext/role 没有被误写入普通消息、日志或 request snapshot。
 - [ ] Provider 错误已归一化。
 - [ ] 工具风险等级和 policy 已核对。
 - [ ] workspace/terminal 的 profile、approval、full access 边界已核对。

@@ -1,4 +1,3 @@
-import type { TavernContextPlan } from '@core/tavern/context-service'
 import type {
   ChatContextSummary,
   ChatMessage,
@@ -37,7 +36,6 @@ export interface BuildContextInput {
   transientImageInputs?: TransientChatImageInput[]
   transientSystemInstructions?: TransientChatInstruction[]
   transientCurrentMessageParts?: ChatMessagePart[]
-  tavernContext?: TavernContextPlan
   memoryContext?: CompanionMemoryContextPlan
 }
 
@@ -72,7 +70,6 @@ export interface ContextUnit {
   contentHash?: string
   droppedReason?: string
   fallbackReason?: string
-  tavernPosition?: 'after-character' | 'before-history' | 'after-history'
 }
 
 export interface ContextUnitStats {

@@ -10,12 +10,10 @@ import LocalAgentSettingsForm from '@/components/settings/LocalAgentSettingsForm
 import McpServerSettingsForm from '@/components/settings/McpServerSettingsForm.vue'
 import MemorySettingsForm from '@/components/settings/MemorySettingsForm.vue'
 import ObservationSettingsForm from '@/components/settings/ObservationSettingsForm.vue'
-import PersonaSettingsForm from '@/components/settings/PersonaSettingsForm.vue'
 import ProviderSettingsForm from '@/components/settings/ProviderSettingsForm.vue'
 import ScheduledTaskSettingsForm from '@/components/settings/ScheduledTaskSettingsForm.vue'
 import ShortcutSettingsForm from '@/components/settings/ShortcutSettingsForm.vue'
 import SkillSettingsForm from '@/components/settings/SkillSettingsForm.vue'
-import TavernSettingsForm from '@/components/settings/TavernSettingsForm.vue'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { SidebarTrigger } from '@/components/ui/sidebar'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -39,14 +37,7 @@ let saveQueued = false
 
 const hasChanges = computed(() => JSON.stringify(draft.value) !== JSON.stringify(config.value))
 const showInitialSkeleton = useDelayedFlag(() => loading.value && !draft.value)
-const fullHeightPanelTabs = new Set<SettingsTab>([
-  'personas',
-  'memory',
-  'skills',
-  'tools',
-  'schedule',
-  'tavern',
-])
+const fullHeightPanelTabs = new Set<SettingsTab>(['memory', 'skills', 'tools', 'schedule'])
 const isFullHeightPanelTab = computed(() => fullHeightPanelTabs.has(activeTab.value))
 const contentClass = computed(() => {
   if (activeTab.value === 'providers') {
@@ -177,9 +168,7 @@ function normalizeSettingsTab(value: unknown): SettingsTab | undefined {
     tab === 'data' ||
     tab === 'tools' ||
     tab === 'memory' ||
-    tab === 'tavern' ||
     tab === 'skills' ||
-    tab === 'personas' ||
     tab === 'schedule' ||
     tab === 'observation' ||
     tab === 'about'
@@ -218,11 +207,6 @@ function normalizeSettingsTab(value: unknown): SettingsTab | undefined {
         设置尚未加载。
       </div>
 
-      <PersonaSettingsForm
-        v-else-if="activeTab === 'personas'"
-        class="h-full min-h-0 flex-1"
-      />
-
       <SkillSettingsForm
         v-else-if="activeTab === 'skills'"
         class="h-full min-h-0 flex-1"
@@ -242,11 +226,6 @@ function normalizeSettingsTab(value: unknown): SettingsTab | undefined {
       <ScheduledTaskSettingsForm
         v-else-if="activeTab === 'schedule'"
         :draft="draft"
-        class="h-full min-h-0 flex-1"
-      />
-
-      <TavernSettingsForm
-        v-else-if="activeTab === 'tavern'"
         class="h-full min-h-0 flex-1"
       />
     </div>

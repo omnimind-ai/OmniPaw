@@ -15,5 +15,5 @@ export interface OpenDirectoryResponse {
 
 export interface OpenChatSessionRequest {
   sessionId: string
-  kind?: 'chat' | 'tavern' | 'cat' | 'vision'
+  kind?: 'chat' | 'cat' | 'vision'
 }

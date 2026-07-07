@@ -40,6 +40,7 @@ import { errorFromResponse, normalizeProviderError } from '../../core/provider/e
 import { parseSseStream } from '../../core/provider/providers/openai'
 import type { ChatMessage } from '../../shared/types/chat'
 import type { ProviderConfig, ProviderModel } from '../../shared/types/provider'
+import type { DesktopCompanionRoleSettings } from '../../shared/types/settings'
 
 const tempDir = mkdtempSync(join(tmpdir(), 'omnipaw-chat-core-smoke-'))
 const client = new DatabaseClient({ path: join(tempDir, 'smoke.sqlite3') })
@@ -145,6 +146,7 @@ try {
     policy: new CompanionMemoryPolicyService(() => memorySettings),
     settings: () => memorySettings,
   })
+  const companionRoles: DesktopCompanionRoleSettings[] = []
   const runManager = new RunManager(runRepo)
   const providerRequests: Array<{ providerId: string; messages: unknown[] }> = []
   const sessionModelService = new ChatService({
@@ -191,6 +193,8 @@ try {
     contextCompaction: new ContextCompactionService(new ChatContextSummaryRepo(db)),
     runManager,
     memoryService,
+    companionRoles: () => companionRoles,
+    companionRoleDefaults: () => companionRoles[0],
     contextDefaults: () => ({
       recentMessages: 20,
       maxInputBudgetPercent: 75,
@@ -315,32 +319,42 @@ try {
   assert.equal((chineseMemorySnapshot?.vectorCandidateCount ?? 0) > 0, true)
   assert.equal(chineseMemorySnapshot?.strategy, 'hybrid')
 
-  const tavernMemorySession = {
-    ...selectedSession,
-    id: 'tavern-memory-smoke',
-    title: 'Tavern memory smoke',
-    kind: 'tavern' as const,
-    metadata: {
-      tavern: {
-        enabled: true,
-        version: 1 as const,
-        characterId: 'memory-character',
-        characterName: 'Memory Character',
-        lorebookIds: [],
-        userName: 'Luna',
-        selectedGreetingIndex: 0,
-        contextPreset: 'default' as const,
+  const activeRoleMemory = memoryRepo.create({
+    kind: 'relationship',
+    scope: 'character',
+    characterId: 'role-memory-a',
+    content: 'The current character calls the user Captain in role memory smoke tests.',
+    importance: 5,
+    confidence: 1,
+  })
+  const otherRoleMemory = memoryRepo.create({
+    kind: 'relationship',
+    scope: 'character',
+    characterId: 'role-memory-b',
+    content: 'Another character calls the user Navigator in role memory smoke tests.',
+    importance: 5,
+    confidence: 1,
+  })
+  const roleMemorySession = await sessionModelService.createSession({
+    providerId: kimiProvider.id,
+    modelId: 'kimi',
+  })
+  sessionRepo.save({
+    ...roleMemorySession,
+    systemContext: {
+      ...(roleMemorySession.systemContext ?? {}),
+      role: {
+        refId: 'role-memory-a',
+        label: 'Role Memory A',
+        text: 'You are Role Memory A.',
       },
     },
-    createdAt: Date.now(),
-    updatedAt: Date.now(),
-  }
-  sessionRepo.save(tavernMemorySession)
-  const memoryCountBeforeTavern = memoryRepo.list({ includeInactive: true }).total
-  const tavernSend = await sessionModelService.sendInternalMessage(
+  })
+  memorySettings.maxContextItems = 2
+  const roleMemorySend = await sessionModelService.sendInternalMessage(
     {
-      sessionId: tavernMemorySession.id,
-      content: 'please remember that tavern-only secret is blue',
+      sessionId: roleMemorySession.id,
+      content: 'What does this character call me in role memory smoke tests?',
       providerId: kimiProvider.id,
       modelId: 'kimi',
       mode: 'fast_chat',
@@ -351,10 +365,99 @@ try {
       send() {},
     }
   )
-  await tavernSend.terminalEvent
-  await waitForMicrotasks()
-  assert.equal(memoryRepo.list({ includeInactive: true }).total, memoryCountBeforeTavern)
-  assert.equal(runRepo.get(tavernSend.runId)?.requestSnapshot?.memory?.selected.length, 0)
+  await roleMemorySend.terminalEvent
+  const roleMemorySnapshot = runRepo.get(roleMemorySend.runId)?.requestSnapshot?.memory
+  assert.equal(
+    roleMemorySnapshot?.selected.some((item) => item.id === activeRoleMemory.id),
+    true
+  )
+  assert.equal(
+    roleMemorySnapshot?.selected.some((item) => item.id === otherRoleMemory.id),
+    false
+  )
+  assert.equal(JSON.stringify(providerRequests.at(-1)?.messages).includes('Captain'), true)
+  assert.equal(JSON.stringify(providerRequests.at(-1)?.messages).includes('Navigator'), false)
+
+  const baseCompanionRole = cloneDefaultConfig().app.companionRoles[0]!
+  companionRoles.splice(0, companionRoles.length, {
+    ...baseCompanionRole,
+    id: 'role-knowledge-smoke',
+    name: 'Mika',
+    greetingMode: 'default',
+    knowledgeSettings: {
+      scanDepth: 4,
+      maxTokens: 500,
+    },
+    knowledgeEntries: [
+      {
+        id: 'role-knowledge-moon',
+        enabled: true,
+        title: 'Moonlit desktop',
+        content: 'Mika keeps a moonlit desktop map for role knowledge smoke tests.',
+        keys: ['moonlit'],
+        constant: false,
+        priority: 5,
+        order: 0,
+      },
+      {
+        id: 'role-knowledge-sun',
+        enabled: true,
+        title: 'Sunlit desktop',
+        content: 'This sunlit role knowledge entry should not be selected.',
+        keys: ['sunlit'],
+        constant: false,
+        priority: 4,
+        order: 1,
+      },
+    ],
+  })
+  const roleKnowledgeSession = await sessionModelService.createSession({
+    providerId: kimiProvider.id,
+    modelId: 'kimi',
+  })
+  const roleKnowledgeSend = await sessionModelService.sendInternalMessage(
+    {
+      sessionId: roleKnowledgeSession.id,
+      content: 'Please use the moonlit setup.',
+      providerId: kimiProvider.id,
+      modelId: 'kimi',
+      mode: 'fast_chat',
+      toolProfile: 'minimal',
+      maxSteps: 1,
+    },
+    {
+      send() {},
+    }
+  )
+  await roleKnowledgeSend.terminalEvent
+  const roleKnowledgeMessages = JSON.stringify(providerRequests.at(-1)?.messages)
+  assert.equal(roleKnowledgeMessages.includes('moonlit desktop map'), true)
+  assert.equal(roleKnowledgeMessages.includes('sunlit role knowledge'), false)
+
+  const roleKnowledgeQuietSession = await sessionModelService.createSession({
+    providerId: kimiProvider.id,
+    modelId: 'kimi',
+  })
+  const roleKnowledgeQuietSend = await sessionModelService.sendInternalMessage(
+    {
+      sessionId: roleKnowledgeQuietSession.id,
+      content: 'Please keep this generic.',
+      providerId: kimiProvider.id,
+      modelId: 'kimi',
+      mode: 'fast_chat',
+      toolProfile: 'minimal',
+      maxSteps: 1,
+    },
+    {
+      send() {},
+    }
+  )
+  await roleKnowledgeQuietSend.terminalEvent
+  const roleKnowledgeQuietMessages = JSON.stringify(providerRequests.at(-1)?.messages)
+  assert.equal(roleKnowledgeQuietMessages.includes('moonlit desktop map'), false)
+  assert.equal(roleKnowledgeQuietMessages.includes('sunlit role knowledge'), false)
+  companionRoles.splice(0, companionRoles.length)
+
   const catSession = await sessionModelService.getOrCreateSession({ kind: 'cat' })
   assert.equal(catSession.kind, 'cat')
   assert.equal(catSession.title, CAT_SESSION_TITLE)

@@ -264,6 +264,8 @@ export interface UpdateCompanionMemoryProposalRequest {
 export interface CompanionMemoryProposalListRequest {
   status?: CompanionMemoryProposalStatus
   memoryId?: ID
+  scopes?: CompanionMemoryScope[]
+  characterId?: ID
   limit?: number
 }
 

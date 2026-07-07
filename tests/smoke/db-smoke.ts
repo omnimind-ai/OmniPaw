@@ -111,38 +111,6 @@ try {
     sessions.list({ kind: 'cat' }).some((item) => item.id === visionSession.id),
     false
   )
-  const tavernSession: ChatSession = {
-    id: 'tavern-session-smoke',
-    title: 'Tavern smoke',
-    kind: 'tavern',
-    status: 'active',
-    messageCount: 0,
-    metadata: {
-      tavern: {
-        enabled: true,
-        version: 1,
-        characterId: 'character-smoke',
-        characterName: 'Smoke Character',
-        lorebookIds: [],
-        userName: 'Luna',
-        selectedGreetingIndex: 0,
-        contextPreset: 'default',
-      },
-    },
-    createdAt: 2004,
-    updatedAt: 2004,
-  }
-  sessions.save(tavernSession)
-  assert.equal(sessions.get(tavernSession.id)?.kind, 'tavern')
-  assert.equal(sessions.list({ kind: 'tavern' }).length, 1)
-  assert.equal(
-    sessions.list({ kind: 'chat' }).some((item) => item.id === tavernSession.id),
-    false
-  )
-  assert.equal(
-    sessions.list({ kind: 'all' }).some((item) => item.id === tavernSession.id),
-    true
-  )
   assert.equal(sessions.markDeleted(visionSession.id, 2004), true)
   assert.equal(sessions.list({ kind: 'vision' }).length, 0)
   assert.equal(sessions.list({ kind: 'vision', includeDeleted: true }).length, 1)
@@ -401,8 +369,42 @@ try {
       },
     ],
   })
+  const roleMemory = memories.create({
+    kind: 'relationship',
+    scope: 'character',
+    characterId: 'role-smoke-a',
+    content: 'Role A calls Luna captain in memory smoke tests.',
+    importance: 4,
+    confidence: 0.9,
+  })
+  const otherRoleMemory = memories.create({
+    kind: 'relationship',
+    scope: 'character',
+    characterId: 'role-smoke-b',
+    content: 'Role B calls Luna navigator in memory smoke tests.',
+    importance: 4,
+    confidence: 0.9,
+  })
   assert.equal(memories.get(memory.id)?.kind, 'preference')
   assert.equal(memories.inspect(memory.id)?.sources[0]?.evidenceHash, 'evidence-smoke')
+  assert.equal(
+    memories
+      .list({ scopes: ['global', 'user'], includeInactive: true })
+      .items.some((item) => item.id === roleMemory.id),
+    false
+  )
+  assert.equal(
+    memories
+      .list({ scopes: ['character'], characterId: 'role-smoke-a', includeInactive: true })
+      .items.some((item) => item.id === roleMemory.id),
+    true
+  )
+  assert.equal(
+    memories
+      .list({ scopes: ['character'], characterId: 'role-smoke-a', includeInactive: true })
+      .items.some((item) => item.id === otherRoleMemory.id),
+    false
+  )
   assert.equal(
     memories.listEmbeddings({ sessionId: session.id }).some((item) => item.memoryId === memory.id),
     true
@@ -432,6 +434,29 @@ try {
     confidence: 0.4,
   })
   assert.equal(memories.listProposals({ status: 'pending' }).items[0]?.id, proposal.id)
+  const roleProposal = memories.createProposal({
+    kind: 'review',
+    memoryId: roleMemory.id,
+    proposedContent: roleMemory.content,
+    reason: 'Role memory smoke proposal.',
+    confidence: 0.8,
+  })
+  assert.equal(
+    memories
+      .listProposals({ status: 'pending', scopes: ['global', 'user'] })
+      .items.some((item) => item.id === roleProposal.id),
+    false
+  )
+  assert.equal(
+    memories
+      .listProposals({
+        status: 'pending',
+        scopes: ['character'],
+        characterId: 'role-smoke-a',
+      })
+      .items.some((item) => item.id === roleProposal.id),
+    true
+  )
   assert.equal(
     memories.updateProposal({ proposalId: proposal.id, status: 'ignored' })?.status,
     'ignored'

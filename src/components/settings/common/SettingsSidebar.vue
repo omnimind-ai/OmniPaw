@@ -5,7 +5,6 @@ import {
   BotIcon,
   BrainIcon,
   CalendarClockIcon,
-  DramaIcon,
   EyeIcon,
   InfoIcon,
   KeyboardIcon,
@@ -14,7 +13,6 @@ import {
   ServerIcon,
   SlidersHorizontalIcon,
   TerminalIcon,
-  UserIcon,
   WrenchIcon,
 } from 'lucide-vue-next'
 import type { Component } from 'vue'
@@ -44,10 +42,8 @@ export type SettingsTab =
   | 'display'
   | 'data'
   | 'tools'
-  | 'tavern'
   | 'memory'
   | 'skills'
-  | 'personas'
   | 'schedule'
   | 'observation'
   | 'about'
@@ -81,9 +77,7 @@ const settingsItems: SettingsNavItem[] = [
 ]
 
 const capabilityItems: SettingsNavItem[] = [
-  { value: 'personas', labelKey: 'settings.sidebar.nav.personas', icon: UserIcon },
   { value: 'memory', labelKey: 'settings.sidebar.nav.memory', icon: BrainIcon },
-  { value: 'tavern', labelKey: 'settings.sidebar.nav.tavern', icon: DramaIcon },
   { value: 'tools', labelKey: 'settings.sidebar.nav.tools', icon: WrenchIcon },
   { value: 'observation', labelKey: 'settings.sidebar.nav.observation', icon: EyeIcon },
   { value: 'skills', labelKey: 'settings.sidebar.nav.skills', icon: BookOpenIcon },

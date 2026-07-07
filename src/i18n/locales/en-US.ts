@@ -11,9 +11,7 @@ export default {
         shortcuts: 'Shortcuts',
         catAppearance: 'Character',
         agent: 'Agent capabilities',
-        personas: 'Personas',
         memory: 'Memory',
-        tavern: 'Tavern',
         tools: 'Tools',
         observation: 'Vision observation',
         skills: 'Skills',
@@ -50,6 +48,10 @@ export default {
         system: 'System default',
         light: 'Light',
         dark: 'Dark',
+      },
+      welcomeTitle: {
+        title: 'Home welcome title',
+        description: 'Customize the main title on the empty chat home. Leave blank to use default.',
       },
       zoom: {
         title: 'Zoom',
@@ -191,29 +193,58 @@ export default {
     catAppearance: {
       title: 'Character',
       description:
-        'Configure the desktop character, interaction style, and appearance. Character settings apply to new companion sessions.',
-      tabs: {
-        basic: 'Character',
-        appearance: 'Appearance Library',
-      },
-      library: {
-        title: 'Appearance Library',
-        description:
-          'Import, inspect, and manage appearance packs, then bind available appearances to the active character.',
-      },
+        'Configure the desktop character, work collaboration style, interaction style, and appearance. Character settings apply to new sessions.',
       role: {
         title: 'Desktop characters',
         badge: '{count} characters',
         description:
-          'Create multiple desktop characters and choose the active one. The active character is compiled into companion session context.',
+          'Create multiple desktop characters and choose the active one. The active character is compiled into session context for companionship, roleplay, and work collaboration.',
         tabs: {
           basic: 'Basics',
+          memory: 'Memory',
+          knowledge: 'Knowledge',
           appearance: 'Appearance',
-          behavior: 'Behavior',
           advanced: 'Advanced',
         },
+        sections: {
+          identity: {
+            title: 'Identity and Names',
+            description: 'Set the character name and how the character addresses the user.',
+          },
+          persona: {
+            title: 'Personality and Relationship',
+            description:
+              'Use short phrases to stabilize personality, speech style, and relationship.',
+          },
+          opening: {
+            title: 'Background and Opening',
+            description: 'Add light background notes and configure new-session openings.',
+          },
+          knowledge: {
+            title: 'Character Knowledge',
+            description: 'Manage lightweight knowledge entries triggered for this character.',
+          },
+          appearance: {
+            title: 'Appearance',
+            description:
+              'Choose the appearance pack used by this character in the floating window.',
+          },
+          behavior: {
+            title: 'Collaboration Settings',
+            description: 'Set the new-session default model and proactive assistance boundaries.',
+          },
+          advanced: {
+            title: 'Advanced Settings',
+            description:
+              'Append finer role instructions, character knowledge, and output constraints.',
+          },
+        },
         listTitle: 'Characters',
-        activeHint: 'The active character applies to newly created companion sessions.',
+        searchLabel: 'Search characters',
+        searchPlaceholder: 'Search characters',
+        noSearchMatch: 'No matching characters.',
+        activeHint:
+          'The active character applies to new sessions and shapes companionship, collaboration style, and output preferences.',
         newRoleName: 'New character',
         copyName: '{name} copy',
         unnamed: 'Unnamed character',
@@ -222,13 +253,19 @@ export default {
         disabled: 'Disabled',
         actions: {
           add: 'New Character',
+          more: 'Character actions',
+          importRole: 'Import Character',
+          importCard: 'Import Character Card',
+          exportCard: 'Export Character',
           duplicate: 'Duplicate',
           delete: 'Delete',
+          confirmDelete: 'Confirm delete',
         },
         fields: {
           name: {
             title: 'Character name',
-            description: 'The name used by the desktop companion in conversations.',
+            description:
+              'The name used by the character in conversations, desktop companionship, and work collaboration.',
             placeholder: 'OmniPaw',
           },
           appearance: {
@@ -242,116 +279,190 @@ export default {
             description: 'How the character addresses you; leave blank to let the model decide.',
             placeholder: 'Partner, boss, your name',
           },
-          interactionMode: {
-            title: 'Interaction mode',
-            description:
-              'Choose whether the character leans toward companionship, utility, or roleplay.',
-            placeholder: 'Select mode',
-            companion: 'Desktop companion',
-            assistant: 'Productive assistant',
-            roleplay: 'Roleplay',
-          },
           defaultModel: {
             title: 'Default model',
             description:
-              'Only overrides newly created companion sessions; blank follows the global default.',
+              'Only overrides newly created sessions; use it to assign stronger models to demanding work characters, or leave blank to follow the global default.',
             placeholder: 'Select model',
             followDefault: 'Follow global default',
           },
           personality: {
             title: 'Personality',
-            description: 'Describe the character personality with short phrases.',
-            placeholder: 'Gentle, witty, energetic, calm, supportive',
+            description:
+              'Describe the character personality, work temperament, and collaboration tendencies with short phrases.',
+            placeholder: 'Gentle, calm, structured, good at code review, supportive',
           },
           speechStyle: {
             title: 'Speech style',
-            description: 'Controls tone and response rhythm.',
-            placeholder: 'Brief, lively, affectionate, professional, everyday',
+            description: 'Controls tone, response rhythm, and how information is organized.',
+            placeholder: 'Conclusion first, step-by-step, brief, professional, everyday',
           },
           relationship: {
             title: 'Relationship',
-            description: 'Describe the relationship between the character and user.',
-            placeholder: 'Assistant, friend, partner, mentor',
+            description:
+              'Describe the emotional or working relationship between the character and user.',
+            placeholder: 'Assistant, friend, work partner, project advisor, mentor',
           },
           background: {
             title: 'Background',
-            description: 'A short identity, world, or backstory note.',
+            description:
+              'A short identity, world, professional background, project context, or work habit note.',
             placeholder:
-              'For example: a tiny desktop companion who likes helping users sort ideas.',
+              'For example: a tiny desktop assistant who understands the user’s project rhythm and helps organize ideas and tasks.',
           },
           greeting: {
             title: 'Greeting',
-            description: 'The opening feeling when the character appears or starts a conversation.',
-            placeholder: 'I am here. What should we work on together?',
+            description:
+              'The opening feeling when the character appears, starts companionship, or enters work collaboration.',
+            placeholder:
+              'I am here. What should we handle first today, or should I help you sort it out?',
+          },
+          greetingMode: {
+            title: 'Opening strategy',
+            description: 'Choose how new sessions pick from the main and alternate greetings.',
+            placeholder: 'Select opening strategy',
+            default: 'Use default greeting',
+            random: 'Random greeting',
+          },
+          alternateGreetings: {
+            title: 'Alternate greetings',
+            description: 'One optional greeting per line, available for randomized openings.',
+            placeholder:
+              'Morning, I am ready.\nWhat should we move forward first today?\nWant me to break the task into steps?',
           },
           proactiveStyle: {
             title: 'Proactive style',
-            description: 'Controls the character’s initiative and boundaries.',
-            placeholder: 'Offer gentle nudges without interrupting focus.',
+            description:
+              'Controls initiative, companionship feedback, and the boundaries of work assistance.',
+            placeholder:
+              'Offer gentle nudges; provide lightweight help when the user is stuck, switching context, or making no progress for a while.',
+          },
+        },
+        knowledge: {
+          title: 'Character knowledge',
+          description:
+            'World book entries, character settings, project context, work rules, and output templates are saved here and injected with this character into new sessions.',
+          count: '{count} knowledge entries',
+          add: 'Add knowledge',
+          delete: 'Delete knowledge',
+          empty: 'No character knowledge yet.',
+          newTitle: 'New knowledge',
+          untitled: 'Untitled knowledge',
+          order: 'Order {index}',
+          settings: {
+            scanDepth: 'Recent messages scanned',
+            scanDepthDescription: 'Recent message range used to match trigger keywords.',
+            maxTokens: 'Per-turn knowledge limit',
+            maxTokensDescription: 'Total token budget for character knowledge injected each turn.',
+          },
+          createDialog: {
+            title: 'Add character knowledge',
+            description:
+              'Fill in the knowledge content and trigger rules before adding it to this character.',
+            contentLabel: 'Knowledge content',
+            keysLabel: 'Trigger keywords',
+            keysDescription:
+              'Leave empty when using “Always inject”; separate multiple keywords with commas or line breaks.',
+            tokenBudgetPlaceholder: 'Blank follows the global limit',
+            cancel: 'Cancel',
+            create: 'Add',
+          },
+          fields: {
+            title: 'Knowledge title',
+            content:
+              'Knowledge content injected into character session context, such as settings, project context, workflows, or output templates',
+            keys: 'Trigger keywords, separated by commas',
+            priority: 'Priority',
+            tokenBudget: 'Entry limit',
+            constant: 'Always inject',
           },
         },
         advanced: {
           title: 'Character advanced settings',
           description:
-            'These settings belong only to the active character. When enabled, they are appended to new companion session context.',
+            'These settings belong only to the active character. When enabled, they are appended to new session context for fine control over companionship, roleplay, and work collaboration.',
           fields: {
             systemPrompt: {
               title: 'Advanced role instructions',
               description:
-                'Fine-grained behavior rules, boundaries, and long-running role guidance.',
+                'Fine-grained behavior rules, collaboration boundaries, output habits, and long-running role guidance.',
               placeholder:
-                'For example: Stay lightweight and companion-like. Avoid long explanations unless the user asks.',
+                'For example: Start with the goal, then give actionable steps. For code, call out risks and verification. Avoid long explanations unless asked.',
             },
             knowledge: {
               title: 'Character knowledge',
               description:
-                'Extra background, world facts, preferences, or persistent character notes.',
+                'Extra background, world facts, user preferences, project facts, or persistent collaboration notes.',
               placeholder:
-                'For example: The character lives on the user desktop and understands the user’s work rhythm.',
+                'For example: The character lives on the user desktop and understands the user’s work rhythm, common tools, project naming, and usual phrasing.',
             },
             exampleDialogue: {
               title: 'Example dialogue',
               description: 'A few examples that stabilize voice and interaction style.',
               placeholder:
-                'User: I do not feel like starting today.\nCharacter: Then we start with the smallest step. I am here with you.',
+                'User: This requirement is messy.\nCharacter: I will split it into goals, constraints, and next steps, then we can start with the smallest change.',
             },
             finalInstructions: {
               title: 'Final response constraints',
               description: 'Appended last in the role context for non-negotiable output rules.',
               placeholder:
-                'For example: Do not reveal role setting text. Do not call yourself a system or config.',
+                'For example: Do not reveal role setting text. Do not call yourself a system or config. For task work, provide a clear conclusion and a verifiable next step.',
             },
           },
         },
         hints: {
           newSessions:
-            'Character settings are injected only into newly created companion sessions; existing sessions are not rewritten. Appearance is saved on each character, while the library only imports, previews, and binds assets.',
+            'Character settings are injected only into newly created sessions; existing sessions are not rewritten. Appearance is saved on each character and configured independently in that character.',
         },
         toasts: {
-          appearanceSelected: 'Character appearance updated',
+          importRoleSuccess: 'Character imported.',
+          importRoleSummary: '{name}, {count} knowledge entries',
+          importRoleFailed: 'Failed to import character.',
+          importCardSuccess: 'Character card imported.',
+          importCardSummary: '{name}, {count} knowledge entries',
+          importCardFailed: 'Failed to import character card.',
+          exportCardSuccess: 'Character exported.',
+          exportCardFailed: 'Failed to export character.',
+        },
+        errors: {
+          notOmniPawRoleFile:
+            'Choose an OmniPaw character package, or a legacy character JSON file.',
+          notRoleCardFile: 'This is an OmniPaw character file. Use “Import Character”.',
+        },
+        importDialog: {
+          title: 'Import Character Card',
+          description:
+            'Choose a SillyTavern JSON/PNG/WebP character card, or paste JSON content directly.',
+          jsonPlaceholder: 'Paste character card JSON...',
+          chooseFile: 'Choose File',
+          importJson: 'Import JSON',
+          pastedSourceName: 'pasted-character-card.json',
+        },
+        preview: {
+          action: 'Preview',
+          title: 'Character Prompt Preview',
+          description:
+            'Review the companionship, roleplay, and work collaboration settings injected into sessions, plus character knowledge triggered by a sample message.',
+          inputLabel: 'Sample current message',
+          inputPlaceholder:
+            'Type a user message to preview which character knowledge entries would trigger.',
+          tokenSummary: '{count} estimated tokens total',
+          tokens: '{count} tokens',
+          empty: 'Nothing to preview yet.',
+          kinds: {
+            base: 'Base',
+            knowledge: 'Knowledge',
+            advanced: 'Advanced',
+          },
+          sections: {
+            base: 'Base Character and Collaboration Settings',
+            knowledge: 'Per-turn Character and Work Knowledge',
+            advanced: 'Advanced Role and Output Constraints',
+          },
         },
       },
-      searchLabel: 'Search appearance packs',
-      searchPlaceholder: 'Search name, description, or status',
-      clearSearchLabel: 'Clear appearance search',
-      packCount: '{count} packs',
-      refreshButton: 'Refresh',
-      refreshing: 'Refreshing',
       importButton: 'Import Pack',
       importing: 'Importing',
-      emptyTitle: 'No appearance packs',
-      emptyHint:
-        'The built-in appearance is always available. Imported local zip packs appear here.',
-      noMatch: 'No matching appearance packs',
-      noMatchHint: 'Try a different keyword, or clear search to view all packs.',
-      clearSearch: 'Clear search',
-      selectButton: 'Bind to Active Character',
-      selecting: 'Enabling',
-      deleteButton: 'Delete',
-      deleting: 'Deleting',
-      detailButton: 'Details',
-      currentPack: 'Active Character',
-      unavailable: 'Unavailable',
       neverUpdated: 'Never updated',
       bridgeNotReady: 'Appearance pack management is only available in the Electron desktop app.',
       source: {
@@ -359,7 +470,6 @@ export default {
         local: 'Local',
       },
       status: {
-        active: 'Current',
         available: 'Available',
         invalid: 'Invalid',
         missing: 'Missing',
@@ -369,12 +479,11 @@ export default {
       },
       detail: {
         title: 'Appearance Pack Details',
-        description: 'View resource images and their mapped actions.',
+        description: 'View this appearance pack’s mapped action assets.',
         unavailable: 'This appearance pack is unavailable, so resources cannot be previewed.',
         loadFailed: 'Failed to load appearance pack details.',
         notConfigured: 'Not configured',
         noPreview: 'No preview',
-        close: 'Close',
         assetAlt: '{name} {action} asset',
         assetActions: {
           idle: 'Idle',
@@ -390,23 +499,10 @@ export default {
           finish: 'Completion feedback',
         },
       },
-      delete: {
-        title: 'Delete Appearance Pack',
-        description: 'Delete “{name}”? This removes the local resource files and cannot be undone.',
-        packName: 'this appearance pack',
-        cancelButton: 'Cancel',
-        deleteButton: 'Delete',
-      },
       toasts: {
         loadFailed: 'Failed to load appearance packs.',
-        refreshFailed: 'Failed to refresh appearance packs.',
-        refreshed: 'Appearance packs refreshed.',
         importFailed: 'Failed to import appearance pack.',
         imported: 'Appearance pack imported.',
-        deleteFailed: 'Failed to delete appearance pack.',
-        deleted: 'Appearance pack deleted.',
-        selectFailed: 'Failed to enable appearance pack.',
-        selected: 'Appearance pack enabled.',
       },
     },
     localAgent: {
@@ -508,9 +604,19 @@ export default {
       },
     },
     memory: {
-      panelTitle: 'Companion Memory',
+      panelTitle: 'Shared Memory',
       panelDescription:
-        'Manage long-term memory for regular chats and desktop companion sessions. Tavern, active vision, and scheduled tasks do not participate in this memory pipeline.',
+        'Manage user facts, preferences, boundaries, and long-term notes shared by all characters.',
+      commonPanelTitle: 'Shared Memory',
+      commonPanelDescription:
+        'These memories are available to every character and are best for durable facts and preferences about the user.',
+      rolePanelTitle: '{name} Memory',
+      rolePanelDescription:
+        'These memories belong only to the current character, such as private nicknames, promises, and relationship progress.',
+      commonEmptyTitle: 'No shared memories yet',
+      commonEmptyHint: 'After creating one, every character can use it in context.',
+      roleEmptyTitle: 'No character memories yet',
+      roleEmptyHint: 'After creating one, only the current character will read it.',
       searchLabel: 'Search memories',
       searchPlaceholder: 'Search memory content',
       clearSearchLabel: 'Clear memory search',
@@ -652,6 +758,13 @@ export default {
         title: 'Create memory',
         description:
           'Manually write a long-term memory; it will enter the memory list after saving.',
+        commonTitle: 'Create shared memory',
+        commonDescription:
+          'Save user facts, preferences, boundaries, or long-term notes that every character can read.',
+        roleTitle: 'Create character memory',
+        roleDescription:
+          'Save a memory specific to this character and the user. Other characters will not read it.',
+        roleContentPlaceholder: 'For example: this character likes calling the user Captain.',
         kind: 'Memory kind',
         selectKind: 'Select kind',
         kindFact: 'Fact',
@@ -945,68 +1058,6 @@ export default {
         auditLoadFailed: 'Failed to load run records.',
       },
     },
-    persona: {
-      title: 'Personas',
-      description:
-        'Manage persona profiles used in conversations. The currently enabled persona is applied to new sessions.',
-      searchLabel: 'Search personas',
-      searchPlaceholder: 'Search persona names or descriptions',
-      searchClearLabel: 'Clear persona search',
-      summaryCount: 'personas',
-      createButton: 'New persona',
-      firstCreateButton: 'Create first persona',
-      noPersonasTitle: 'No personas created yet.',
-      noPersonasDesc: 'After creation, you can enable different system contexts in new sessions.',
-      noMatchTitle: 'No matching personas.',
-      noMatchDesc: 'Try another name or description keyword.',
-      clearSearchButton: 'Clear search',
-      loadErrorToast: 'Failed to load personas.',
-      persistenceUnavailable: 'Not connected to Electron main process; personas cannot be saved.',
-      recoveryError: 'Failed to load persona registry: {message}',
-      currentlyEnabled: 'Currently enabled',
-      noDescriptionProvided: 'No description provided.',
-      activateButton: 'Enable',
-      activateAriaLabel: 'Enable persona',
-      deactivateButton: 'Disable',
-      deactivateAriaLabel: 'Disable persona',
-      editButton: 'Edit',
-      deleteAriaLabel: 'Delete',
-      activateSuccessToast: 'Persona "{name}" enabled.',
-      activateErrorToast: 'Failed to enable persona.',
-      deactivateSuccessToast: 'Persona disabled.',
-      deactivateErrorToast: 'Failed to disable persona.',
-      dialogCreate: {
-        title: 'New persona',
-        editTitle: 'Edit persona',
-        description:
-          'The currently enabled persona prompt is injected only as conversation header context and will not be written to chat messages, logs, or request snapshots.',
-        nameLabel: 'Name',
-        namePlaceholder: 'e.g., Warm Assistant',
-        descriptionLabel: 'Description (optional)',
-        descriptionPlaceholder: 'Brief explanation of persona characteristics',
-        promptLabel: 'Persona Prompt',
-        promptPlaceholder: 'e.g., You are a warm, patient assistant...',
-        promptHelp:
-          'This prompt is injected only as conversation header context and will not be written to chat messages or logs.',
-        cancelButton: 'Cancel',
-        submitButton: 'Create persona',
-        submitEditButton: 'Save changes',
-        validationNameRequired: 'Please enter a persona name.',
-        validationPromptRequired: 'Please enter a persona prompt.',
-        createSuccessToast: 'Persona created.',
-        updateSuccessToast: 'Persona updated.',
-        saveErrorToast: 'Failed to save persona.',
-      },
-      dialogDelete: {
-        title: 'Delete persona',
-        description:
-          'Are you sure you want to delete persona "{name}"? This action cannot be undone, and conversation snapshots with this persona applied will not change.',
-        cancelButton: 'Cancel',
-        deleteButton: 'Delete',
-        deleteSuccessToast: 'Persona deleted.',
-        deleteErrorToast: 'Failed to delete persona.',
-      },
-    },
     mcpServer: {
       title: 'Tools',
       description: 'Manage external MCP servers and built-in tools',
@@ -1162,202 +1213,6 @@ export default {
       refreshServerSuccessToast: 'MCP server refreshed.',
       refreshErrorToast: 'Failed to refresh MCP server.',
       toolsLoadErrorToast: 'Failed to load built-in tools.',
-    },
-    tavern: {
-      title: 'Tavern Roleplay',
-      description: 'Import character cards and manage lorebooks',
-      tabs: {
-        characters: 'Characters',
-        lorebooks: 'Lorebooks',
-        presets: 'Presets',
-        profiles: 'Profiles',
-        import: 'Import',
-      },
-      charactersTab: {
-        searchLabel: 'Search characters',
-        searchPlaceholder: 'Search character name, description, or tags',
-        clearLabel: 'Clear character search',
-        countBadge: '{count} characters',
-        createButton: 'Create character',
-        emptyState: 'No characters yet',
-        noMatch: 'No matching characters.',
-        clearSearchButton: 'Clear search',
-        lorebookBadge: 'Lorebook {count}',
-        editButton: 'Edit',
-        deleteAriaLabel: 'Delete character',
-      },
-      characterEditor: {
-        createTitle: 'Create character',
-        editTitle: 'Edit character',
-        description:
-          'Edit character card settings, greetings, message examples, and default bound lorebooks.',
-        nameLabel: 'Name',
-        namePlaceholder: 'Character name',
-        descriptionLabel: 'Description',
-        personalityLabel: 'Personality',
-        scenarioLabel: 'Scenario',
-        systemPromptLabel: 'System prompt',
-        postHistoryLabel: 'Post-history instructions',
-        firstMessageLabel: 'First message',
-        alternateGreetingsLabel: 'Alternate greetings',
-        messageExamplesLabel: 'Message examples',
-        separatorPlaceholder: 'One line between sections',
-        tagsLabel: 'Tags',
-        tagsPlaceholder: 'tag-a, tag-b',
-        lorebookSectionTitle: 'Default bound lorebooks',
-        noLorebooksMessage: 'No lorebooks yet.',
-      },
-      character: {
-        saveButton: 'Save character',
-        deleteButton: 'Delete character',
-        exportButton: 'Export as Persona',
-        saveSuccess: 'Character saved',
-        saveFailed: 'Failed to save character',
-        deleteConfirm: 'Delete character "{name}"?',
-        deleteSuccess: 'Character deleted',
-        deleteFailed: 'Failed to delete character',
-        exportSuccess: 'Exported as Persona',
-        exportDescription:
-          'The export result is an independent snapshot that excludes lorebooks and greetings by default.',
-        exportFailed: 'Failed to export as Persona',
-      },
-      lorebooksTab: {
-        searchLabel: 'Search lorebooks',
-        searchPlaceholder: 'Search lorebook name, description, or entries',
-        clearSearchLabel: 'Clear lorebook search',
-        totalBadge: '{count} lorebooks',
-        createButton: 'Create lorebook',
-        emptyMessage: 'No lorebooks',
-        noMatchMessage: 'No matching lorebooks.',
-        clearSearchButton: 'Clear search',
-        entryCountBadge: '{count} entries',
-        editButton: 'Edit',
-        deleteAriaLabel: 'Delete lorebook',
-      },
-      lorebookEditor: {
-        createTitle: 'Create lorebook',
-        editTitle: 'Edit lorebook',
-        description: 'Edit lorebook information, trigger keywords, placement, and entries.',
-        nameLabel: 'Name',
-        descriptionLabel: 'Description',
-        entriesLabel: 'Entries',
-        addEntryButton: 'Add entry',
-        enableEntryLabel: 'Enable entry',
-        deleteEntryAriaLabel: 'Delete lorebook entry',
-        keysLabel: 'Keywords',
-        keysPlaceholder: 'keyword-a, keyword-b',
-        secondaryKeysLabel: 'Secondary keys',
-        secondaryKeysPlaceholder: 'secondary-key-a, secondary-key-b',
-        priorityLabel: 'Priority',
-        orderLabel: 'Order',
-        constantLabel: 'Constant',
-        selectiveLabel: 'Selective',
-        positionAfterCharacter: 'After character',
-        positionBeforeHistory: 'Before history',
-        positionAfterHistory: 'After history',
-        contentLabel: 'Content',
-      },
-      lorebook: {
-        saveButton: 'Save lorebook',
-        deleteButton: 'Delete lorebook',
-        saveSuccess: 'Lorebook saved',
-        saveFailed: 'Failed to save lorebook',
-        deleteConfirm: 'Delete lorebook "{name}"?',
-        deleteSuccess: 'Lorebook deleted',
-        deleteFailed: 'Failed to delete lorebook',
-      },
-      presetsTab: {
-        searchLabel: 'Search presets',
-        searchPlaceholder: 'Search preset name, description, or prompts',
-        clearLabel: 'Clear preset search',
-        presetCountBadge: '{count} presets',
-        createButton: 'Create preset',
-        emptyStateTitle: 'No prompt presets',
-        noMatchTitle: 'No matching presets.',
-        clearSearchButton: 'Clear search',
-        slotCountBadge: '{count} slots',
-        disabledBadge: 'Disabled',
-        editButton: 'Edit',
-        deleteAriaLabel: 'Delete prompt preset',
-      },
-      presetEditor: {
-        createTitle: 'Create Prompt Preset',
-        editTitle: 'Edit Prompt Preset',
-        description: 'Edit main and final prompts for Tavern prompt presets.',
-        enableLabel: 'Enable preset',
-        nameLabel: 'Name',
-        descriptionLabel: 'Description',
-        mainPromptEnableLabel: 'Enable main prompt',
-        mainPromptLabel: 'Main prompt',
-        finalPromptEnableLabel: 'Enable final prompt',
-        finalPromptLabel: 'Final / post-history prompt',
-        finalPromptPlaceholder: 'Will be placed after regular history, near the current user turn',
-      },
-      preset: {
-        saveButton: 'Save Preset',
-        deleteButton: 'Delete Preset',
-        saveSuccess: 'Prompt preset saved',
-        saveFailed: 'Failed to save prompt preset',
-        deleteConfirm: 'Delete preset "{name}"?',
-        deleteSuccess: 'Prompt preset deleted',
-        deleteFailed: 'Failed to delete prompt preset',
-      },
-      profileEditor: {
-        createTitle: 'Create Profile',
-        editTitle: 'Edit Profile',
-        description: 'Manage user profile snapshots for Tavern mode.',
-        fieldDescription:
-          'Tavern user profiles are independent snapshots that do not auto-sync with Personas and do not write back to Personas.',
-        enableLabel: 'Enable profile',
-        nameLabel: 'Name',
-        descriptionLabel: 'Description',
-        descriptionPlaceholder: '{{persona}} will use the text here',
-        copyLabel: 'Copy from regular Persona',
-        selectPlaceholder: 'Select Persona',
-        copyButton: 'Copy',
-      },
-      userProfile: {
-        saveButton: 'Save profile',
-        deleteButton: 'Delete profile',
-        saveSuccess: 'Tavern user profile saved',
-        saveFailed: 'Failed to save Tavern user profile',
-        deleteConfirm: 'Delete profile "{name}"?',
-        deleteSuccess: 'Tavern user profile deleted',
-        deleteFailed: 'Failed to delete Tavern user profile',
-        copySuccess: 'Copied as independent Tavern user profile',
-        copyDescription:
-          'The copy result does not sync automatically and will not update the original Persona.',
-        copyFailed: 'Failed to copy Persona',
-      },
-      userProfilesTab: {
-        searchLabel: 'Search users',
-        searchPlaceholder: 'Search user names or descriptions',
-        searchClearLabel: 'Clear user search',
-        userCount: '{count} users',
-        createButton: 'Create user',
-        emptyState: 'No Tavern user profiles yet',
-        noMatchMessage: 'No matching users.',
-        clearSearchButton: 'Clear search',
-        snapshotBadge: 'Snapshot',
-        disabledBadge: 'Disabled',
-        editButton: 'Edit',
-        deleteAriaLabel: 'Delete Tavern user profile',
-      },
-      import: {
-        textSuccess: 'Character card imported',
-        textFailed: 'Failed to import character card',
-        fileSuccess: 'Character card imported',
-        fileFailed: 'Failed to import character card file',
-      },
-      importTab: {
-        cardJsonLabel: 'Character Card JSON',
-        supportDescription: 'Supports SillyTavern V1/V2 JSON, PNG, and WebP character cards.',
-        importTextButton: 'Import Text',
-        selectFileButton: 'Select File',
-      },
-      errors: {
-        loadFailed: 'Failed to load Tavern configuration',
-      },
     },
     provider: {
       title: 'Model Services',
@@ -1690,19 +1545,11 @@ export default {
           label: 'Chat',
           title: 'Regular conversation',
         },
-        tavern: {
-          label: 'Tavern',
-          title: 'Tavern conversation',
-        },
       },
       kind: {
         chat: {
           label: 'Regular',
           title: 'Regular conversation',
-        },
-        tavern: {
-          label: 'Tavern',
-          title: 'Tavern conversation',
         },
         cat: {
           label: 'Cat',
@@ -1731,6 +1578,12 @@ export default {
         actionAriaLabel: '{title} actions',
         rename: 'Rename',
         delete: 'Delete',
+      },
+      sessionRole: {
+        ariaLabel: 'Character: {role}',
+        tooltip: '{title}, character: {role}',
+        unassigned: 'No character',
+        unknown: 'Unknown character',
       },
       empty: {
         noSessions: 'No {kind}',
@@ -1765,7 +1618,7 @@ export default {
       },
     },
     welcome: {
-      title: '👋 Welcome to OmniPaw',
+      title: 'Welcome back. Where should we start today?',
     },
     noModel: {
       message: 'No models configured',
@@ -1784,6 +1637,11 @@ export default {
       addAttachmentAria: 'Add attachment',
       switchModelAria: 'Switch model: {model}',
       switchModel: 'Switch model',
+      switchCharacterAria: 'Switch character: {character}',
+      switchCharacter: 'Character',
+      characterFallbackLabel: 'Character',
+      characterSaveFailed: 'Failed to save character.',
+      characterSaveUnavailable: 'This runtime cannot save character selection.',
       agentPermissionAria: 'Agent permission: {description}',
       agentPermission: 'Agent permission',
       attachmentPresets: {
@@ -1852,30 +1710,6 @@ export default {
       power: {
         label: 'Advanced',
         description: 'Full local access, no per-command interception.',
-      },
-    },
-    tavernDock: {
-      welcomeTitle: 'What role do you want Xiaoman to become today?',
-      noCharacter: {
-        message: 'No character cards configured',
-        openSettings: 'Open Tavern Settings',
-      },
-      character: 'Character',
-      characterAria: 'Character: {name}',
-      lorebook: 'Lorebook',
-      lorebookAria: 'Lorebook: {name}',
-      entriesCount: '{count} entries',
-      noPreset: 'No preset',
-      presetAria: 'Prompt preset: {name}',
-      slotsCount: '{count} slots',
-      userProfile: 'Tavern User Profile',
-      userProfileAria: 'Tavern User: {name}',
-      noUserProfile: 'No Tavern User',
-      userProfileSnapshotNote:
-        'Independent snapshot that does not auto-sync or write back to regular Persona.',
-      minimalProfile: {
-        label: 'Minimal',
-        description: 'Tavern mode always uses a low-noise context.',
       },
     },
   },

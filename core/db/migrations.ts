@@ -234,20 +234,6 @@ export const migrations: Migration[] = [
     `,
   },
   {
-    id: 7,
-    name: 'promote_tavern_chat_sessions_to_kind',
-    sql: `
-      UPDATE chat_sessions
-      SET kind = 'tavern'
-      WHERE kind = 'chat'
-        AND CASE
-          WHEN metadata_json IS NOT NULL AND json_valid(metadata_json)
-            THEN json_extract(metadata_json, '$.tavern.enabled') = 1
-          ELSE 0
-        END;
-    `,
-  },
-  {
     id: 8,
     name: 'create_companion_memory_tables',
     sql: `
