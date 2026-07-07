@@ -421,7 +421,7 @@ export class ChatService {
     session: ChatSession,
     role: DesktopCompanionRoleSettings | undefined
   ): boolean {
-    if (!role?.enabled) {
+    if (!role) {
       return false
     }
 
@@ -607,7 +607,7 @@ export class ChatService {
     const role =
       this.options.companionRoles?.().find((item) => item.id === roleRefId) ??
       this.options.companionRoleDefaults?.()
-    if (!role?.enabled || role.id !== roleRefId) {
+    if (!role || role.id !== roleRefId) {
       return undefined
     }
     return role

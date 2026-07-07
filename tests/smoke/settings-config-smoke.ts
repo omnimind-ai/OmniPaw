@@ -118,6 +118,7 @@ try {
       companionRoles: [
         {
           ...cloneDefaultConfig().app.companionRoles[0],
+          enabled: false,
           greetingMode: 'random',
           alternateGreetings: ['早呀'],
           knowledgeSettings: {
@@ -144,6 +145,7 @@ try {
       ],
     },
   }).config
+  assert.equal('enabled' in roleConfig.app.companionRoles[0]!, false)
   assert.equal(roleConfig.app.companionRoles[0]?.greetingMode, 'random')
   assert.equal(roleConfig.app.companionRoles[0]?.alternateGreetings[0], '早呀')
   assert.equal(roleConfig.app.companionRoles[0]?.knowledgeSettings.scanDepth, 5)

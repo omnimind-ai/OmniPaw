@@ -62,7 +62,6 @@ export interface DesktopCompanionRoleAdvancedSettings {
 
 export interface DesktopCompanionRoleSettings {
   id: string
-  enabled: boolean
   name: string
   appearancePackId?: string
   userNickname: string

@@ -7,7 +7,6 @@ export const XIAOWAN_APPEARANCE_PACK_ID = 'builtin'
 export function createXiaowanCompanionRolePreset(): DesktopCompanionRoleSettings {
   return {
     id: XIAOWAN_COMPANION_ROLE_ID,
-    enabled: true,
     name: '小万',
     appearancePackId: XIAOWAN_APPEARANCE_PACK_ID,
     userNickname: '',

@@ -242,7 +242,6 @@ export interface BridgeDesktopSettingsConfig {
     systemContext: BridgeSystemContextSettings
     companionRoles: Array<{
       id: string
-      enabled: boolean
       name: string
       appearancePackId?: string
       userNickname: string

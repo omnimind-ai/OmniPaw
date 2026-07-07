@@ -113,7 +113,6 @@ export function useChatWorkspaceController() {
     (settingsConfig.value?.app.companionRoles ?? []).map((role) => ({
       id: role.id,
       name: role.name.trim(),
-      enabled: role.enabled,
     }))
   )
   const activeCompanionRoleId = computed(() => {
@@ -549,7 +548,7 @@ export function useChatWorkspaceController() {
     }
 
     const target = currentCompanionRoles().find((role) => role.id === roleId)
-    if (!target?.enabled || roleId === activeCompanionRoleId.value) return
+    if (!target || roleId === activeCompanionRoleId.value) return
     if (!settingsStore.persistenceAvailable) {
       toast.error(t('chat.composer.characterSaveUnavailable'))
       return
@@ -890,7 +889,7 @@ export function useChatWorkspaceController() {
 function compileCompanionRoleInstruction(
   role: DesktopCompanionRoleSettings | undefined
 ): SessionContextInstruction | undefined {
-  if (!role?.enabled) {
+  if (!role) {
     return undefined
   }
 

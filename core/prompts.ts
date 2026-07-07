@@ -157,7 +157,7 @@ export const CONTEXT_PROMPTS = {
 export function compileCompanionRoleInstruction(
   role: DesktopCompanionRoleSettings | undefined
 ): SessionContextInstruction | undefined {
-  if (!role?.enabled) {
+  if (!role) {
     return undefined
   }
 
@@ -188,7 +188,7 @@ export function buildCompanionRoleKnowledgeInstruction(
   role: DesktopCompanionRoleSettings | undefined,
   triggerTexts: readonly string[]
 ): TransientChatInstruction | undefined {
-  if (!role?.enabled) {
+  if (!role) {
     return undefined
   }
 

@@ -735,13 +735,6 @@ function validateCompanionRole(
       ids.add(settings.id)
     }
 
-    if (typeof settings.enabled !== 'boolean') {
-      issues.push({
-        path: `${basePath}.enabled`,
-        message: 'Companion role enabled flag must be boolean.',
-        code: 'invalid_type',
-      })
-    }
     if (settings.appearancePackId !== undefined && typeof settings.appearancePackId !== 'string') {
       issues.push({
         path: `${basePath}.appearancePackId`,
@@ -2345,7 +2338,6 @@ function normalizeCompanionRoleSettings(
         : index === 0
           ? defaults.id
           : `role-${index + 1}`,
-    enabled: typeof rawValue.enabled === 'boolean' ? rawValue.enabled : defaults.enabled,
     name: typeof rawValue.name === 'string' ? rawValue.name : defaults.name,
     appearancePackId:
       typeof rawValue.appearancePackId === 'string' && rawValue.appearancePackId.trim()

@@ -9,7 +9,6 @@ import type { ProviderModelOption } from '@/stores/provider'
 export interface ChatCompanionRoleOption {
   id: string
   name: string
-  enabled: boolean
 }
 
 export interface ChatWorkspaceContext {

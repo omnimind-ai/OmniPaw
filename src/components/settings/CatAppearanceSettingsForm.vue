@@ -152,7 +152,6 @@ function deleteRole(target: CompanionRole): void {
 function createCompanionRole(): CompanionRole {
   return {
     id: createRoleId(),
-    enabled: true,
     name: defaultRoleName(),
     appearancePackId: 'builtin',
     userNickname: '',
@@ -434,7 +433,6 @@ function createRoleFromImportedDraft(
 ): CompanionRole {
   return {
     id: createRoleId(),
-    enabled: true,
     name: draft.name?.trim() || defaultRoleName(),
     appearancePackId: draft.appearancePackId || 'builtin',
     userNickname: draft.userNickname ?? '',
@@ -563,7 +561,7 @@ function defaultRoleName(): string {
     <Sidebar
       data-sidebar="sidebar"
       collapsible="none"
-      class="border-r bg-sidebar/95"
+      class="[--sidebar-width:clamp(16rem,18vw,19rem)] border-r bg-sidebar/95"
     >
       <SidebarHeader>
         <div class="flex items-center gap-2">
@@ -596,18 +594,21 @@ function defaultRoleName(): string {
       <SidebarSeparator />
 
       <SidebarContent>
-        <SidebarGroup>
-          <div class="flex items-center justify-between gap-2 px-2">
+        <SidebarGroup class="gap-3 px-3 py-3">
+          <div class="flex min-w-0 items-center gap-2">
             <div class="relative min-w-0 flex-1">
               <SearchIcon class="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground" />
               <SidebarInput
                 v-model="roleSearchQuery"
-                class="pl-8"
+                class="min-w-0 pl-8"
                 :aria-label="t('settings.catAppearance.role.searchLabel')"
                 :placeholder="t('settings.catAppearance.role.searchPlaceholder')"
               />
             </div>
-            <Badge variant="outline">
+            <Badge
+              variant="outline"
+              class="shrink-0"
+            >
               {{ filteredRoles.length }}
             </Badge>
             <DropdownMenu>
@@ -616,6 +617,7 @@ function defaultRoleName(): string {
                   type="button"
                   variant="ghost"
                   size="icon-sm"
+                  class="shrink-0"
                   :aria-label="t('settings.catAppearance.role.actions.more')"
                 >
                   <MoreHorizontalIcon />
@@ -646,7 +648,7 @@ function defaultRoleName(): string {
             </DropdownMenu>
           </div>
 
-          <SidebarGroupContent>
+          <SidebarGroupContent class="min-w-0">
             <SidebarMenu>
               <SidebarMenuItem
                 v-for="item in filteredRoles"
@@ -655,6 +657,7 @@ function defaultRoleName(): string {
               >
                 <SidebarMenuButton
                   size="lg"
+                  class="h-14 px-3"
                   :is-active="item.id === activeRoleId"
                   :tooltip="item.name || t('settings.catAppearance.role.unnamed')"
                   :aria-current="item.id === activeRoleId ? 'true' : undefined"

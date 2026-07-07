@@ -240,8 +240,6 @@ export default {
         copyName: '{name} 副本',
         unnamed: '未命名角色',
         noRelationship: '未设置关系',
-        enabled: '启用',
-        disabled: '停用',
         actions: {
           add: '新建角色',
           more: '角色操作',

@@ -249,8 +249,6 @@ export default {
         copyName: '{name} copy',
         unnamed: 'Unnamed character',
         noRelationship: 'No relationship set',
-        enabled: 'Enabled',
-        disabled: 'Disabled',
         actions: {
           add: 'New Character',
           more: 'Character actions',

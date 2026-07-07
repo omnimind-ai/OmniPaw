@@ -584,8 +584,7 @@ function createRoleKnowledgeId(index: number): string {
         </h1>
         <p class="text-sm text-muted-foreground">{{ t('settings.catAppearance.role.activeHint') }}</p>
       </div>
-      <div class="flex items-center gap-2">
-        <Switch v-model="editableRole.enabled" />
+      <div class="flex min-w-0 flex-wrap items-center justify-end gap-2">
         <Button
           variant="outline"
           size="sm"

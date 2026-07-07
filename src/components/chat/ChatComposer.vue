@@ -526,7 +526,7 @@ function handleDrop(event: DragEvent) {
                         v-for="role in availableCompanionRoleOptions"
                         :key="role.id"
                         :value="role.id"
-                        :disabled="companionRoleSaving || !role.enabled"
+                        :disabled="companionRoleSaving"
                       >
                         <span class="truncate">
                           {{ role.name || t('chat.composer.characterFallbackLabel') }}
