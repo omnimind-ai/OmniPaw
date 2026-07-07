@@ -226,12 +226,7 @@ async function importRole(event: Event): Promise<void> {
 
   importingRole.value = true
   try {
-    const result = await appBridge.companionRole.importCard({
-      content: await file.text(),
-      sourceKind: 'json',
-      mimeType: file.type || 'application/json',
-      sourceName: file.name,
-    })
+    const result = await appBridge.companionRole.importCard(await createRoleImportRequest(file))
     if (!isOmniPawRoleImport(result)) {
       throw new Error(t('settings.catAppearance.role.errors.notOmniPawRoleFile'))
     }
@@ -243,6 +238,30 @@ async function importRole(event: Event): Promise<void> {
     toast.error(errorToText(error, t('settings.catAppearance.role.toasts.importRoleFailed')))
   } finally {
     importingRole.value = false
+  }
+}
+
+async function createRoleImportRequest(file: File): Promise<{
+  content?: string
+  dataBase64?: string
+  sourceKind: CompanionRoleCardImportSourceKind
+  mimeType?: string
+  sourceName: string
+}> {
+  if (file.name.toLocaleLowerCase().endsWith('.omnipaw-role')) {
+    return {
+      dataBase64: await fileToBase64(file),
+      sourceKind: 'omnipaw-role',
+      mimeType: file.type || 'application/zip',
+      sourceName: file.name,
+    }
+  }
+
+  return {
+    content: await file.text(),
+    sourceKind: 'json',
+    mimeType: file.type || 'application/json',
+    sourceName: file.name,
   }
 }
 
@@ -525,7 +544,7 @@ function defaultRoleName(): string {
             ref="roleImportInput"
             class="sr-only"
             type="file"
-            accept=".json,.omnipaw-role.json,application/json"
+            accept=".omnipaw-role,.json,application/json"
             @change="importRole"
           >
           <input

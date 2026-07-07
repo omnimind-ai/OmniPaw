@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto'
 import { inflateSync } from 'node:zlib'
+import { normalizeArchivePath, readZipEntries, validateArchivePaths } from '@core/utils/zip'
 import type { CatAppearanceEmbeddedPack } from '@shared/types/cat-appearance'
 import type {
   CompanionRoleKnowledgeEntryDraft,
@@ -64,6 +65,10 @@ export function importCompanionRoleCard(
 
 function parseCompanionRoleCard(request: ImportCompanionRoleCardRequest): ParsedCharacterCard {
   const sourceKind = resolveSourceKind(request)
+  if (sourceKind === 'omnipaw-role') {
+    return parseOmniPawRolePackage(decodeImportBytes(request), request.sourceName, request.mimeType)
+  }
+
   if (sourceKind === 'json') {
     return parseCharacterJson(request.content ?? '', request.sourceName, {
       mimeType: request.mimeType,
@@ -94,7 +99,7 @@ function parseCharacterJson(
   content: string,
   sourceName?: string,
   options: {
-    sourceKind?: 'json' | 'png' | 'webp'
+    sourceKind?: 'json' | 'png' | 'webp' | 'omnipaw-role'
     mimeType?: string
     sourceContent?: string
   } = {}
@@ -254,6 +259,97 @@ function parseOmniPawExportedRole(
   }
 }
 
+function parseOmniPawRolePackage(
+  bytes: Buffer,
+  sourceName?: string,
+  mimeType?: string
+): ParsedCharacterCard {
+  const entries = readZipEntries(bytes).map((entry) => ({
+    ...entry,
+    name: normalizeArchivePath(entry.name),
+  }))
+  validateArchivePaths(entries.map((entry) => entry.name))
+  const byName = new Map(entries.map((entry) => [entry.name, entry.data]))
+  const manifest = asRecord(readJsonEntry(byName, 'manifest.json'))
+  if (manifest?.spec !== 'omnipaw_role_package') {
+    throwUnsupportedImport()
+  }
+
+  const rolePath = pickString(manifest, ['rolePath']) ?? 'role.json'
+  const role = normalizeOmniPawExportedRole(asRecord(readJsonEntry(byName, rolePath)))
+  if (!role) {
+    throwUnsupportedImport()
+  }
+
+  return {
+    name: role.name,
+    alternateGreetings: [],
+    messageExamples: [],
+    tags: [],
+    lorebooks: [],
+    source: {
+      kind: 'manual',
+      version: String(manifest.specVersion ?? ''),
+      importedAt: Date.now(),
+      sourceName,
+      mimeType,
+      contentHash: hashSensitiveBytes(bytes),
+    },
+    exportedRole: role,
+    appearancePack: packageAppearancePack(entries, manifest, role),
+  }
+}
+
+function readJsonEntry(entries: Map<string, Buffer>, path: string): unknown {
+  const data = entries.get(normalizeArchivePath(path))
+  if (!data) {
+    throwUnsupportedImport()
+  }
+  try {
+    return JSON.parse(data.toString('utf8')) as unknown
+  } catch {
+    throw new CompanionRoleCardImportError('invalid_json', `${path} JSON is invalid.`)
+  }
+}
+
+function packageAppearancePack(
+  entries: Array<{ name: string; data: Buffer }>,
+  manifest: Record<string, unknown>,
+  role: ImportedCompanionRoleDraft
+): CatAppearanceEmbeddedPack | undefined {
+  const appearancePath = normalizeArchivePath(pickString(manifest, ['appearancePath']) ?? '')
+  if (!appearancePath) return undefined
+  const prefix = appearancePath.endsWith('/') ? appearancePath : `${appearancePath}/`
+  const metadataEntry = entries.find((entry) => entry.name === `${prefix}omnipaw-appearance.json`)
+  const metadata = metadataEntry ? asRecord(parseOptionalJson(metadataEntry.data)) : undefined
+  const files = entries.flatMap((entry) => {
+    if (!entry.name.startsWith(prefix) || entry.name === `${prefix}omnipaw-appearance.json`) {
+      return []
+    }
+    return [
+      {
+        path: entry.name.slice(prefix.length),
+        dataBase64: entry.data.toString('base64'),
+      },
+    ]
+  })
+  if (!files.length) return undefined
+  return {
+    originalPackId:
+      pickString(metadata, ['originalPackId']) ?? role.appearancePackId ?? 'imported-appearance',
+    rootName: pickString(metadata, ['rootName']),
+    files,
+  }
+}
+
+function parseOptionalJson(data: Buffer): unknown {
+  try {
+    return JSON.parse(data.toString('utf8')) as unknown
+  } catch {
+    return undefined
+  }
+}
+
 function normalizeOmniPawExportedRole(
   role: Record<string, unknown> | undefined
 ): ImportedCompanionRoleDraft | undefined {
@@ -330,12 +426,15 @@ function normalizeOmniPawExportedKnowledgeEntries(
   })
 }
 
-function resolveSourceKind(request: ImportCompanionRoleCardRequest): 'json' | 'png' | 'webp' {
+function resolveSourceKind(
+  request: ImportCompanionRoleCardRequest
+): 'json' | 'png' | 'webp' | 'omnipaw-role' {
   if (request.sourceKind) return request.sourceKind
   const mime = request.mimeType?.toLocaleLowerCase()
   if (mime === 'image/png') return 'png'
   if (mime === 'image/webp') return 'webp'
   const name = request.sourceName?.toLocaleLowerCase() ?? ''
+  if (name.endsWith('.omnipaw-role')) return 'omnipaw-role'
   if (name.endsWith('.png')) return 'png'
   if (name.endsWith('.webp')) return 'webp'
   return 'json'
@@ -344,10 +443,7 @@ function resolveSourceKind(request: ImportCompanionRoleCardRequest): 'json' | 'p
 function decodeImportBytes(request: ImportCompanionRoleCardRequest): Buffer {
   const encoded = request.dataBase64?.trim()
   if (!encoded) {
-    throw new CompanionRoleCardImportError(
-      'invalid_metadata',
-      'Character image import data is missing.'
-    )
+    throw new CompanionRoleCardImportError('invalid_metadata', 'Character import data is missing.')
   }
   try {
     return Buffer.from(encoded, 'base64')
@@ -599,6 +695,10 @@ function asRecord(value: unknown): Record<string, unknown> | undefined {
 }
 
 function hashSensitiveText(value: string): string {
+  return createHash('sha256').update(value).digest('hex')
+}
+
+function hashSensitiveBytes(value: Buffer): string {
   return createHash('sha256').update(value).digest('hex')
 }
 

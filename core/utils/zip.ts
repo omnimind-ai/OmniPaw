@@ -1,4 +1,4 @@
-import { inflateRawSync } from 'node:zlib'
+import { deflateRawSync, inflateRawSync } from 'node:zlib'
 
 export interface ZipArchiveEntry {
   name: string
@@ -54,6 +54,67 @@ export function readZipEntries(
     entries.push({ name, data })
   }
   return entries
+}
+
+export function writeZipEntries(entries: ZipArchiveEntry[]): Buffer {
+  const localParts: Buffer[] = []
+  const centralParts: Buffer[] = []
+  let localOffset = 0
+
+  for (const entry of entries) {
+    const name = normalizeArchivePath(entry.name)
+    const nameBytes = Buffer.from(name, 'utf8')
+    const compressed = deflateRawSync(entry.data)
+    const crc = crc32(entry.data)
+    const localHeader = Buffer.alloc(30)
+    localHeader.writeUInt32LE(0x04034b50, 0)
+    localHeader.writeUInt16LE(20, 4)
+    localHeader.writeUInt16LE(0, 6)
+    localHeader.writeUInt16LE(8, 8)
+    localHeader.writeUInt16LE(0, 10)
+    localHeader.writeUInt16LE(0, 12)
+    localHeader.writeUInt32LE(crc, 14)
+    localHeader.writeUInt32LE(compressed.byteLength, 18)
+    localHeader.writeUInt32LE(entry.data.byteLength, 22)
+    localHeader.writeUInt16LE(nameBytes.byteLength, 26)
+    localHeader.writeUInt16LE(0, 28)
+    localParts.push(localHeader, nameBytes, compressed)
+
+    const centralHeader = Buffer.alloc(46)
+    centralHeader.writeUInt32LE(0x02014b50, 0)
+    centralHeader.writeUInt16LE(20, 4)
+    centralHeader.writeUInt16LE(20, 6)
+    centralHeader.writeUInt16LE(0, 8)
+    centralHeader.writeUInt16LE(8, 10)
+    centralHeader.writeUInt16LE(0, 12)
+    centralHeader.writeUInt16LE(0, 14)
+    centralHeader.writeUInt32LE(crc, 16)
+    centralHeader.writeUInt32LE(compressed.byteLength, 20)
+    centralHeader.writeUInt32LE(entry.data.byteLength, 24)
+    centralHeader.writeUInt16LE(nameBytes.byteLength, 28)
+    centralHeader.writeUInt16LE(0, 30)
+    centralHeader.writeUInt16LE(0, 32)
+    centralHeader.writeUInt16LE(0, 34)
+    centralHeader.writeUInt16LE(0, 36)
+    centralHeader.writeUInt32LE(0, 38)
+    centralHeader.writeUInt32LE(localOffset, 42)
+    centralParts.push(centralHeader, nameBytes)
+
+    localOffset += localHeader.byteLength + nameBytes.byteLength + compressed.byteLength
+  }
+
+  const localData = Buffer.concat(localParts)
+  const centralDirectory = Buffer.concat(centralParts)
+  const end = Buffer.alloc(22)
+  end.writeUInt32LE(0x06054b50, 0)
+  end.writeUInt16LE(0, 4)
+  end.writeUInt16LE(0, 6)
+  end.writeUInt16LE(entries.length, 8)
+  end.writeUInt16LE(entries.length, 10)
+  end.writeUInt32LE(centralDirectory.byteLength, 12)
+  end.writeUInt32LE(localData.byteLength, 16)
+  end.writeUInt16LE(0, 20)
+  return Buffer.concat([localData, centralDirectory, end])
 }
 
 export function normalizeArchivePath(name: string): string {
@@ -123,4 +184,20 @@ function failZip(message: string, options: ZipArchiveReaderOptions): never {
     options.throwError(message)
   }
   throw new Error(message)
+}
+
+const crc32Table = new Uint32Array(256).map((_value, index) => {
+  let current = index
+  for (let bit = 0; bit < 8; bit += 1) {
+    current = current & 1 ? 0xedb88320 ^ (current >>> 1) : current >>> 1
+  }
+  return current >>> 0
+})
+
+function crc32(data: Buffer): number {
+  let current = 0xffffffff
+  for (const byte of data) {
+    current = crc32Table[(current ^ byte) & 0xff] ^ (current >>> 8)
+  }
+  return (current ^ 0xffffffff) >>> 0
 }

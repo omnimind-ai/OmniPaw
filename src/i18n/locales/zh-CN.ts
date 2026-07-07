@@ -400,7 +400,7 @@ export default {
           exportCardFailed: '角色导出失败。',
         },
         errors: {
-          notOmniPawRoleFile: '请选择 OmniPaw 导出的角色 JSON 文件。',
+          notOmniPawRoleFile: '请选择 OmniPaw 导出的角色包，或旧版角色 JSON 文件。',
           notRoleCardFile: '这是 OmniPaw 角色文件，请使用“导入角色”。',
         },
         importDialog: {

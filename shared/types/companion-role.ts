@@ -1,7 +1,7 @@
 import type { CatAppearanceEmbeddedPack } from './cat-appearance'
 import type { ID, UnixMs } from './chat'
 
-export type CompanionRoleCardImportSourceKind = 'json' | 'png' | 'webp'
+export type CompanionRoleCardImportSourceKind = 'json' | 'png' | 'webp' | 'omnipaw-role'
 
 export interface CompanionRoleSourceMetadata {
   kind: 'manual' | 'sillytavern-json' | 'sillytavern-png' | 'sillytavern-webp'

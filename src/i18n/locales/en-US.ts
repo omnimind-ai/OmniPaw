@@ -424,7 +424,8 @@ export default {
           exportCardFailed: 'Failed to export character.',
         },
         errors: {
-          notOmniPawRoleFile: 'Choose a character JSON file exported by OmniPaw.',
+          notOmniPawRoleFile:
+            'Choose an OmniPaw character package, or a legacy character JSON file.',
           notRoleCardFile: 'This is an OmniPaw character file. Use “Import Character”.',
         },
         importDialog: {

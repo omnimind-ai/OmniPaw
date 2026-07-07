@@ -15,7 +15,7 @@ export class CompanionRoleService {
   }
 
   exportCard(request: ExportCompanionRoleCardRequest): {
-    content: string
+    data: Buffer
     defaultFileName: string
   } {
     return exportCompanionRoleCard(request)

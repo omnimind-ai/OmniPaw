@@ -25,7 +25,7 @@ export function registerCompanionRoleIpcHandlers(options: IpcHandlerOptions): vo
       const result = await dialog.showSaveDialog({
         defaultPath: exported.defaultFileName,
         filters: [
-          { name: 'OmniPaw role files', extensions: ['json'] },
+          { name: 'OmniPaw role files', extensions: ['omnipaw-role'] },
           { name: 'All files', extensions: ['*'] },
         ],
         properties: ['createDirectory', 'showOverwriteConfirmation'],
@@ -34,7 +34,7 @@ export function registerCompanionRoleIpcHandlers(options: IpcHandlerOptions): vo
         return { exported: false, canceled: true }
       }
 
-      await writeFile(result.filePath, exported.content, 'utf8')
+      await writeFile(result.filePath, exported.data)
       return {
         exported: true,
         destinationPath: result.filePath,
@@ -79,7 +79,8 @@ function normalizeImportCompanionRoleCardRequest(request: unknown): ImportCompan
     sourceKind:
       payload?.sourceKind === 'json' ||
       payload?.sourceKind === 'png' ||
-      payload?.sourceKind === 'webp'
+      payload?.sourceKind === 'webp' ||
+      payload?.sourceKind === 'omnipaw-role'
         ? payload.sourceKind
         : undefined,
     mimeType: typeof payload?.mimeType === 'string' ? payload.mimeType : undefined,

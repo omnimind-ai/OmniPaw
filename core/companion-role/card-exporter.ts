@@ -1,33 +1,69 @@
+import { writeZipEntries, type ZipArchiveEntry } from '@core/utils/zip'
 import type {
   CompanionRoleKnowledgeEntryDraft,
-  ExportCompanionRoleCardPayload,
   ExportCompanionRoleCardRequest,
   ImportedCompanionRoleDraft,
 } from '@shared/types/companion-role'
 
 export interface ExportedCompanionRoleCard {
-  content: string
+  data: Buffer
   defaultFileName: string
+}
+
+interface OmniPawRolePackageManifest {
+  spec: 'omnipaw_role_package'
+  specVersion: 1
+  exportedAt: number
+  rolePath: 'role.json'
+  appearancePath?: 'appearance/'
 }
 
 export function exportCompanionRoleCard(
   request: ExportCompanionRoleCardRequest
 ): ExportedCompanionRoleCard {
   const role = normalizeExportedRoleDraft(request.role)
-  const payload: ExportCompanionRoleCardPayload = {
-    spec: 'omnipaw_companion_role',
+  const manifest: OmniPawRolePackageManifest = {
+    spec: 'omnipaw_role_package',
     specVersion: 1,
     exportedAt: Date.now(),
-    role,
-    appearancePack: request.appearancePack,
+    rolePath: 'role.json',
+    appearancePath: request.appearancePack ? 'appearance/' : undefined,
   }
+  const entries: ZipArchiveEntry[] = [
+    jsonEntry('manifest.json', manifest),
+    jsonEntry('role.json', role),
+    ...appearancePackEntries(request.appearancePack),
+  ]
 
   return {
-    content: `${JSON.stringify(payload, null, 2)}\n`,
+    data: writeZipEntries(entries),
     defaultFileName: request.sourceName?.trim()
-      ? safeJsonFileName(request.sourceName)
-      : `${safeFileBaseName(role.name)}.omnipaw-role.json`,
+      ? safeRolePackageFileName(request.sourceName)
+      : `${safeFileBaseName(role.name)}.omnipaw-role`,
   }
+}
+
+function jsonEntry(name: string, value: unknown): ZipArchiveEntry {
+  return {
+    name,
+    data: Buffer.from(`${JSON.stringify(value, null, 2)}\n`, 'utf8'),
+  }
+}
+
+function appearancePackEntries(
+  pack: ExportCompanionRoleCardRequest['appearancePack']
+): ZipArchiveEntry[] {
+  if (!pack) return []
+  return [
+    jsonEntry('appearance/omnipaw-appearance.json', {
+      originalPackId: pack.originalPackId,
+      rootName: pack.rootName,
+    }),
+    ...pack.files.map((file) => ({
+      name: `appearance/${file.path}`,
+      data: Buffer.from(file.dataBase64, 'base64'),
+    })),
+  ]
 }
 
 function normalizeExportedRoleDraft(role: ImportedCompanionRoleDraft): ImportedCompanionRoleDraft {
@@ -109,6 +145,6 @@ function safeFileBaseName(value: string): string {
   return normalized || 'omnipaw-role'
 }
 
-function safeJsonFileName(value: string): string {
-  return `${safeFileBaseName(value.replace(/\.json$/i, ''))}.json`
+function safeRolePackageFileName(value: string): string {
+  return `${safeFileBaseName(value.replace(/(\.omnipaw-role|\.json)$/i, ''))}.omnipaw-role`
 }
