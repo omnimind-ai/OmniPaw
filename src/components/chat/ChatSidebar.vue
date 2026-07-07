@@ -13,10 +13,9 @@ import {
   Trash2Icon,
   XIcon,
 } from 'lucide-vue-next'
-import { type CSSProperties, computed, ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { ChatCompanionRoleOption } from '@/components/chat/chat-workspace-context'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -63,18 +62,6 @@ import { cn } from '@/lib/utils'
 
 type SessionKindFilter = 'chat' | 'cat' | 'cron' | 'vision'
 type SessionMode = Extract<SessionKindFilter, 'chat'>
-type SessionRoleSignatureKind = 'known' | 'captured' | 'unknown' | 'unassigned'
-
-interface SessionRoleSignature {
-  label: string
-  identity: string
-  kind: SessionRoleSignatureKind
-}
-
-interface SidebarSessionItem {
-  session: Session
-  role: SessionRoleSignature | null
-}
 
 const props = withDefaults(
   defineProps<{
@@ -168,24 +155,13 @@ const activeSessionKindOption = computed(
 )
 const sessionListLabel = computed(() => activeSessionKindOption.value.title)
 const newChatLabel = computed(() => activeSessionModeOption.value.newLabel)
-const filteredSessionItems = computed<SidebarSessionItem[]>(() => {
-  const items = props.sessions.map((session) => ({
-    session,
-    role: sessionRoleSignature(session),
-  }))
+const filteredSessions = computed(() => {
   const query = normalizedSearchQuery.value
-  if (!query) return items
+  if (!query) return props.sessions
 
-  return items.filter(({ session, role }) => {
+  return props.sessions.filter((session) => {
     const title = sessionTitle(session).toLowerCase()
-    const roleLabel = role?.label.toLowerCase() ?? ''
-    const roleIdentity = role?.identity.toLowerCase() ?? ''
-    return (
-      title.includes(query) ||
-      roleLabel.includes(query) ||
-      roleIdentity.includes(query) ||
-      session.id.toLowerCase().includes(query)
-    )
+    return title.includes(query) || session.id.toLowerCase().includes(query)
   })
 })
 
@@ -251,77 +227,8 @@ function sessionTitle(session: Session) {
   return sessionRawTitle(session) || t('chat.sidebar.session.defaultTitle')
 }
 
-function sessionTooltip(session: Session, role: SessionRoleSignature | null) {
-  if (!role) return sessionTitle(session)
-  return t('chat.sidebar.sessionRole.tooltip', {
-    title: sessionTitle(session),
-    role: role.label,
-  })
-}
-
-function sessionRoleSignature(session: Session): SessionRoleSignature | null {
-  if (!shouldShowSessionRole(session)) return null
-
-  const roleInstruction = session.systemContext?.role
-  const roleRefId = roleInstruction?.refId?.trim()
-  const configuredRole = roleRefId
-    ? props.companionRoleOptions.find((role) => role.id === roleRefId)
-    : undefined
-  const configuredName = configuredRole?.name.trim()
-  if (configuredName && roleRefId) {
-    return {
-      label: configuredName,
-      identity: roleRefId,
-      kind: 'known',
-    }
-  }
-
-  const capturedLabel = roleInstruction?.label?.trim()
-  if (capturedLabel) {
-    return {
-      label: capturedLabel,
-      identity: roleRefId || capturedLabel,
-      kind: 'captured',
-    }
-  }
-
-  if (roleRefId) {
-    return {
-      label: t('chat.sidebar.sessionRole.unknown'),
-      identity: roleRefId,
-      kind: 'unknown',
-    }
-  }
-
-  return {
-    label: t('chat.sidebar.sessionRole.unassigned'),
-    identity: `${session.id}:unassigned`,
-    kind: 'unassigned',
-  }
-}
-
-function shouldShowSessionRole(session: Session) {
-  const kind = session.kind ?? 'chat'
-  return kind === 'chat' || kind === 'cat'
-}
-
-function sessionRoleBadgeStyle(role: SessionRoleSignature): CSSProperties {
-  const hue = stableHue(role.identity)
-  const soft = role.kind === 'unknown' || role.kind === 'unassigned'
-  const lightness = soft ? 0.66 : 0.72
-  const chroma = soft ? 0.035 : 0.14
-
-  return {
-    '--session-role-accent': `oklch(${lightness} ${chroma} ${hue})`,
-  } as CSSProperties
-}
-
-function stableHue(input: string) {
-  let hash = 0
-  for (const char of input) {
-    hash = (hash * 31 + char.charCodeAt(0)) >>> 0
-  }
-  return hash % 360
+function sessionTooltip(session: Session) {
+  return sessionTitle(session)
 }
 
 function isSessionRunning(sessionId: string) {
@@ -469,38 +376,25 @@ function updateSessionKindFilter(value: unknown) {
 
           <SidebarMenu>
             <SidebarMenuItem
-              v-for="item in filteredSessionItems"
-              :key="item.session.id"
+              v-for="session in filteredSessions"
+              :key="session.id"
             >
               <SidebarMenuButton
-                :is-active="item.session.id === activeSessionId"
-                :tooltip="sessionTooltip(item.session, item.role)"
-                :class="cn('min-w-0 gap-1.5', isSessionRunning(item.session.id) && 'pr-12')"
-                @click="emit('selectSession', item.session.id)"
+                :is-active="session.id === activeSessionId"
+                :tooltip="sessionTooltip(session)"
+                :class="cn('min-w-0 gap-1.5', isSessionRunning(session.id) && 'pr-12')"
+                @click="emit('selectSession', session.id)"
               >
                 <span
-                  v-if="isSessionRunning(item.session.id)"
+                  v-if="isSessionRunning(session.id)"
                   class="size-1.5 shrink-0 rounded-full bg-primary"
                   aria-hidden="true"
                 />
-                <span class="min-w-0 flex-1 truncate">{{ sessionTitle(item.session) }}</span>
-                <Badge
-                  v-if="item.role"
-                  variant="ghost"
-                  class="ml-auto h-5 max-w-[5.5rem] border-0 bg-transparent px-0 py-0 text-[11px] font-normal leading-none text-sidebar-foreground/50 opacity-75 shadow-none transition-[color,opacity] group-hover/menu-item:text-sidebar-foreground/70 group-hover/menu-item:opacity-100 group-data-active/menu-button:text-sidebar-accent-foreground/75 group-data-active/menu-button:opacity-100"
-                  :style="sessionRoleBadgeStyle(item.role)"
-                  :aria-label="t('chat.sidebar.sessionRole.ariaLabel', { role: item.role.label })"
-                >
-                  <SparklesIcon
-                    class="text-[color:var(--session-role-accent)] opacity-90"
-                    data-icon="inline-start"
-                  />
-                  <span class="min-w-0 truncate">{{ item.role.label }}</span>
-                </Badge>
+                <span class="min-w-0 flex-1 truncate">{{ sessionTitle(session) }}</span>
               </SidebarMenuButton>
 
               <span
-                v-if="isSessionRunning(item.session.id)"
+                v-if="isSessionRunning(session.id)"
                 class="sr-only"
               >
                 {{ t('chat.sidebar.session.running') }}
@@ -510,7 +404,7 @@ function updateSessionKindFilter(value: unknown) {
                 <DropdownMenuTrigger as-child>
                   <SidebarMenuAction
                     show-on-hover
-                    :aria-label="t('chat.sidebar.session.actionAriaLabel', { title: sessionTitle(item.session) })"
+                    :aria-label="t('chat.sidebar.session.actionAriaLabel', { title: sessionTitle(session) })"
                     @click.stop
                   >
                     <MoreHorizontalIcon />
@@ -521,13 +415,13 @@ function updateSessionKindFilter(value: unknown) {
                   class="w-40"
                 >
                   <DropdownMenuGroup>
-                    <DropdownMenuItem @select="openRenameDialog(item.session)">
+                    <DropdownMenuItem @select="openRenameDialog(session)">
                       <PencilIcon />
                       {{ t('chat.sidebar.session.rename') }}
                     </DropdownMenuItem>
                     <DropdownMenuItem
                       variant="destructive"
-                      @select="openDeleteDialog(item.session)"
+                      @select="openDeleteDialog(session)"
                     >
                       <Trash2Icon />
                       {{ t('chat.sidebar.session.delete') }}
