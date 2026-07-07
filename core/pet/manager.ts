@@ -3,36 +3,46 @@ import type { Logger } from '@core/logging'
 import {
   CAT_PET_AFFECTION_MAX,
   CAT_PET_AFFECTION_MIN,
-  CAT_PET_DAILY_LIMITS,
+  CAT_PET_MOOD_MAX,
+  CAT_PET_MOOD_MIN,
   type CatPetAction,
+  type CatPetActionCounters,
   type CatPetChangedEvent,
   type CatPetChangeReason,
-  type CatPetOutcome,
+  type CatPetCustomInteractionConfig,
+  type CatPetInteractionRisk,
   type CatPetPerformResponse,
   type CatPetRecentInteraction,
   type CatPetState,
-  moodFromAffection,
+  type CatPetUpdateInteractionsRequest,
+  type CatPetUpdateInteractionsResponse,
+  emptyCatPetActionCounters,
+  isCatPetAction,
 } from '@shared/types/cat-pet'
-
-interface ActionDef {
-  positiveDelta: number
-  negativeDelta: number
-  positiveProbability: number
-}
-
-const ACTION_TABLE: Record<CatPetAction, ActionDef> = {
-  pat: { positiveDelta: 1, negativeDelta: -1, positiveProbability: 0.8 },
-  tease: { positiveDelta: 3, negativeDelta: -2, positiveProbability: 0.6 },
-}
+import {
+  buildInteractionDefinitions,
+  clampAffection,
+  clampMoodScore,
+  normalizeCustomInteractions,
+  normalizePersistedMood,
+  parseCustomInteractionsJson,
+  petChatRuntimeInstruction,
+  resolveInteractionOutcome,
+  resolveLaunchEffect,
+  serializeCustomInteractionsJson,
+} from './internal/engine'
 
 export interface CatPetManagerOptions {
   repo: CatPetRepo
   onChanged?: (event: CatPetChangedEvent) => void
   logger?: Logger
-  /** Test seam: deterministic outcome decider. Defaults to Math.random-based. */
   randomSource?: () => number
-  /** Test seam: clock. Defaults to Date.now. */
   now?: () => number
+}
+
+interface BuildStateOptions {
+  usageOverride?: Partial<Record<CatPetAction, number>>
+  touchSeen?: boolean
 }
 
 export class CatPetManager {
@@ -41,6 +51,7 @@ export class CatPetManager {
   private readonly logger?: Logger
   private readonly randomSource: () => number
   private readonly nowFn: () => number
+  private startupAwayMs = 0
 
   constructor(options: CatPetManagerOptions) {
     this.repo = options.repo
@@ -50,98 +61,213 @@ export class CatPetManager {
     this.nowFn = options.now ?? Date.now
   }
 
-  getState(): CatPetState {
-    return this.buildState()
+  recordLaunch(): void {
+    const now = this.nowFn()
+    const persisted = this.repo.getState()
+    const affection = clampAffection(persisted.affection)
+    const moodScore = clampMoodScore(persisted.moodScore)
+    const mood = normalizePersistedMood(persisted.mood, moodScore, affection)
+    const effect = resolveLaunchEffect({
+      vitals: { affection, mood, moodScore },
+      now,
+      lastSeenAt: persisted.lastSeenAt ?? persisted.lastLaunchAt,
+    })
+
+    this.startupAwayMs = effect.awayMs
+    this.repo.recordLaunch({
+      now,
+      mood: effect.moodAfter,
+      moodScore: effect.moodScoreAfter,
+    })
+
+    if (effect.moodDelta !== 0) {
+      this.logger?.debug('Cat pet launch mood adjusted.', {
+        awayMs: effect.awayMs,
+        moodDelta: effect.moodDelta,
+        mood: effect.moodAfter,
+      })
+    }
   }
 
-  /** Called once during core boot to emit the initial broadcast. */
+  getState(): CatPetState {
+    return this.buildState({ touchSeen: true })
+  }
+
+  getChatRuntimeInstruction(): string {
+    return petChatRuntimeInstruction(this.buildState({ touchSeen: true }))
+  }
+
   emitInitial(): void {
     this.broadcast('init')
   }
 
   perform(action: CatPetAction): CatPetPerformResponse {
-    const def = ACTION_TABLE[action]
-    if (!def) {
-      throw new Error(`Unknown cat pet action: ${action}`)
+    if (!isCatPetAction(action)) {
+      throw new Error(`Unknown cat pet action: ${String(action)}`)
     }
 
     const date = this.localDate()
-    const usage = this.repo.getDailyUsage(date)
-    const limit = CAT_PET_DAILY_LIMITS[action]
-    const used = action === 'pat' ? usage.pat : usage.tease
-
-    if (used >= limit) {
-      return { ok: false, reason: 'daily_limit', state: this.buildState(usage) }
+    const customInteractions = this.currentCustomInteractions()
+    const definitions = buildInteractionDefinitions(customInteractions)
+    const definition = definitions.find((item) => item.id === action)
+    if (!definition?.enabled) {
+      return { ok: false, reason: 'disabled_action', state: this.buildState({ touchSeen: true }) }
     }
 
-    const positive = this.randomSource() < def.positiveProbability
-    const outcome: CatPetOutcome = positive ? 'positive' : 'negative'
-    const delta = positive ? def.positiveDelta : def.negativeDelta
-    const performedAt = this.nowFn()
+    const usage = this.repo.getDailyUsage(date)
+    const used = usage[action] ?? 0
+    if (used >= definition.dailyLimit) {
+      return {
+        ok: false,
+        reason: 'daily_limit',
+        state: this.buildState({ usageOverride: usage, touchSeen: true }),
+      }
+    }
 
+    const persisted = this.repo.getState()
+    const affection = clampAffection(persisted.affection)
+    const moodScore = clampMoodScore(persisted.moodScore)
+    const mood = normalizePersistedMood(persisted.mood, moodScore, affection)
+    const outcome = resolveInteractionOutcome({
+      action,
+      vitals: { affection, mood, moodScore },
+      customInteractions,
+      random: this.randomSource(),
+    })
+    if (!outcome) {
+      return { ok: false, reason: 'disabled_action', state: this.buildState({ touchSeen: true }) }
+    }
+
+    const performedAt = this.nowFn()
     const record = this.repo.applyInteraction({
       action,
-      delta,
-      outcome,
+      risk: outcome.risk,
+      label: definition.label,
+      delta: outcome.affectionDelta,
+      moodDelta: outcome.moodDelta,
+      outcome: outcome.outcome,
+      affectionBefore: outcome.affectionBefore,
+      affectionAfter: outcome.affectionAfter,
+      moodBefore: outcome.moodBefore,
+      moodAfter: outcome.moodAfter,
+      moodScoreBefore: outcome.moodScoreBefore,
+      moodScoreAfter: outcome.moodScoreAfter,
       performedAt,
       performedDate: date,
-      affectionMin: CAT_PET_AFFECTION_MIN,
-      affectionMax: CAT_PET_AFFECTION_MAX,
     })
 
     const result: CatPetRecentInteraction = {
       action,
+      risk: record.risk,
+      label: record.label,
       delta: record.delta,
+      moodDelta: record.moodDelta,
       outcome: record.outcome,
       affectionAfter: record.affectionAfter,
+      moodScoreAfter: record.moodScoreAfter,
       performedAt: record.performedAt,
     }
 
     this.logger?.debug('Cat pet interaction recorded.', {
       action,
-      outcome,
-      delta,
+      risk: outcome.risk,
+      outcome: outcome.outcome,
+      affectionDelta: outcome.affectionDelta,
+      moodDelta: outcome.moodDelta,
+      probability: outcome.positiveProbability,
       before: record.affectionBefore,
       after: record.affectionAfter,
     })
 
-    const state = this.buildState()
+    const state = this.buildState({ touchSeen: false })
     this.broadcastState(state, 'action')
     return { ok: true, state, result }
   }
 
-  private buildState(usageOverride?: { pat: number; tease: number }): CatPetState {
-    const affection = this.repo.getAffection()
+  updateInteractions(request: CatPetUpdateInteractionsRequest): CatPetUpdateInteractionsResponse {
+    const customInteractions = normalizeCustomInteractions(request.customInteractions)
+    this.repo.saveCustomInteractions({
+      json: serializeCustomInteractionsJson(customInteractions),
+      now: this.nowFn(),
+    })
+    const state = this.buildState({ touchSeen: true })
+    this.broadcastState(state, 'config')
+    return { state }
+  }
+
+  private buildState(options: BuildStateOptions = {}): CatPetState {
+    const persisted = this.repo.getState()
+    const affection = clampAffection(persisted.affection)
+    const moodScore = clampMoodScore(persisted.moodScore)
+    const mood = normalizePersistedMood(persisted.mood, moodScore, affection)
+    const customInteractions = parseCustomInteractionsJson(persisted.customInteractionsJson)
+    const interactions = buildInteractionDefinitions(customInteractions)
     const date = this.localDate()
-    const usage = usageOverride ?? this.repo.getDailyUsage(date)
-    const recentRow = this.repo.getLatestInteraction(date)
-    const recent: CatPetRecentInteraction | undefined = recentRow
-      ? {
-          action: recentRow.action,
-          delta: recentRow.delta,
-          outcome: recentRow.outcome,
-          affectionAfter: recentRow.affection_after,
-          performedAt: recentRow.performed_at,
-        }
-      : undefined
+    const usage = completeCounters(options.usageOverride ?? this.repo.getDailyUsage(date))
+    const limits = completeCounters(
+      Object.fromEntries(interactions.map((item) => [item.id, item.dailyLimit])) as Partial<
+        Record<CatPetAction, number>
+      >
+    )
+    const recent = this.latestInteraction(date, customInteractions)
+
+    if (options.touchSeen) {
+      this.repo.touchSeen(this.nowFn())
+    }
 
     return {
       affection,
       affectionMax: CAT_PET_AFFECTION_MAX,
       affectionMin: CAT_PET_AFFECTION_MIN,
-      mood: moodFromAffection(affection),
+      mood,
+      moodScore,
+      moodMax: CAT_PET_MOOD_MAX,
+      moodMin: CAT_PET_MOOD_MIN,
       todayUsage: usage,
-      limits: {
-        pat: CAT_PET_DAILY_LIMITS.pat,
-        tease: CAT_PET_DAILY_LIMITS.tease,
-      },
+      limits,
+      interactions,
+      customInteractions,
+      launchCount: persisted.launchCount,
+      lastLaunchAt: persisted.lastLaunchAt,
+      lastSeenAt: persisted.lastSeenAt,
+      awayMs: this.startupAwayMs,
       recent,
     }
   }
 
+  private latestInteraction(
+    date: string,
+    customInteractions: readonly CatPetCustomInteractionConfig[]
+  ): CatPetRecentInteraction | undefined {
+    const row = this.repo.getLatestInteraction(date)
+    if (!row || !isCatPetAction(row.action)) {
+      return undefined
+    }
+
+    const definition = buildInteractionDefinitions(customInteractions).find(
+      (item) => item.id === row.action
+    )
+    const moodAfter = clampMoodScore(row.mood_score_after ?? 0)
+    return {
+      action: row.action,
+      risk: normalizeRisk(row.risk, definition?.risk),
+      label: row.label ?? definition?.label,
+      delta: row.delta,
+      moodDelta: row.mood_delta ?? 0,
+      outcome: row.outcome,
+      affectionAfter: row.affection_after,
+      moodScoreAfter: moodAfter,
+      performedAt: row.performed_at,
+    }
+  }
+
+  private currentCustomInteractions(): CatPetCustomInteractionConfig[] {
+    return parseCustomInteractionsJson(this.repo.getState().customInteractionsJson)
+  }
+
   private broadcast(reason: CatPetChangeReason): void {
     if (!this.onChanged) return
-    this.broadcastState(this.buildState(), reason)
+    this.broadcastState(this.buildState({ touchSeen: false }), reason)
   }
 
   private broadcastState(state: CatPetState, reason: CatPetChangeReason): void {
@@ -153,7 +279,6 @@ export class CatPetManager {
     }
   }
 
-  /** Local YYYY-MM-DD; daily limit uses the user's local timezone. */
   private localDate(): string {
     const d = new Date(this.nowFn())
     const year = d.getFullYear()
@@ -161,4 +286,21 @@ export class CatPetManager {
     const day = String(d.getDate()).padStart(2, '0')
     return `${year}-${month}-${day}`
   }
+}
+
+function completeCounters(values: Partial<Record<CatPetAction, number>>): CatPetActionCounters {
+  const counters = emptyCatPetActionCounters()
+  for (const key of Object.keys(values)) {
+    if (isCatPetAction(key)) {
+      counters[key] = Math.max(0, Math.floor(values[key] ?? 0))
+    }
+  }
+  return counters
+}
+
+function normalizeRisk(
+  value: string | null | undefined,
+  fallback: CatPetInteractionRisk | undefined
+): CatPetInteractionRisk {
+  return value === 'low' || value === 'medium' || value === 'high' ? value : (fallback ?? 'low')
 }

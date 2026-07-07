@@ -213,6 +213,7 @@ export function createCoreRuntime(options: CoreRuntimeOptions): CoreRuntime {
     onChanged: options.onCatPetChanged,
     logger: coreLogger.child({ scope: 'cat.pet' }),
   })
+  catPetManager.recordLaunch()
   catPetManager.emitInitial()
 
   const toolManagementService = new ToolManagementService(
@@ -414,6 +415,7 @@ export function createCoreRuntime(options: CoreRuntimeOptions): CoreRuntime {
         appSettings.companionRoles[0]
       )
     },
+    catPetRuntimeInstruction: () => catPetManager.getChatRuntimeInstruction(),
     memoryService,
     agentToolProfile: () => configStore.get().tools.agentToolProfile,
     maxAgentSteps: () => configStore.get().tools.maxAgentSteps,

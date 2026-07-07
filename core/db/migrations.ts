@@ -429,4 +429,53 @@ export const migrations: Migration[] = [
         ON cat_pet_interaction_log(performed_at DESC);
     `,
   },
+  {
+    id: 12,
+    name: 'extend_cat_pet_mood_and_interactions',
+    sql: `
+      ALTER TABLE cat_pet_state
+        ADD COLUMN mood TEXT NOT NULL DEFAULT 'normal';
+      ALTER TABLE cat_pet_state
+        ADD COLUMN mood_score INTEGER NOT NULL DEFAULT 0;
+      ALTER TABLE cat_pet_state
+        ADD COLUMN last_launch_at INTEGER;
+      ALTER TABLE cat_pet_state
+        ADD COLUMN last_seen_at INTEGER;
+      ALTER TABLE cat_pet_state
+        ADD COLUMN launch_count INTEGER NOT NULL DEFAULT 0;
+      ALTER TABLE cat_pet_state
+        ADD COLUMN custom_interactions_json TEXT;
+
+      UPDATE cat_pet_state
+      SET mood = CASE
+          WHEN affection <= 30 THEN 'sad'
+          WHEN affection <= 90 THEN 'down'
+          WHEN affection <= 150 THEN 'normal'
+          ELSE 'happy'
+        END,
+        mood_score = CASE
+          WHEN affection <= 30 THEN -45
+          WHEN affection <= 90 THEN -18
+          WHEN affection <= 150 THEN 0
+          ELSE 32
+        END,
+        last_seen_at = COALESCE(last_seen_at, updated_at),
+        last_launch_at = COALESCE(last_launch_at, updated_at);
+
+      ALTER TABLE cat_pet_interaction_log
+        ADD COLUMN mood_delta INTEGER NOT NULL DEFAULT 0;
+      ALTER TABLE cat_pet_interaction_log
+        ADD COLUMN mood_before TEXT;
+      ALTER TABLE cat_pet_interaction_log
+        ADD COLUMN mood_after TEXT;
+      ALTER TABLE cat_pet_interaction_log
+        ADD COLUMN mood_score_before INTEGER;
+      ALTER TABLE cat_pet_interaction_log
+        ADD COLUMN mood_score_after INTEGER;
+      ALTER TABLE cat_pet_interaction_log
+        ADD COLUMN risk TEXT;
+      ALTER TABLE cat_pet_interaction_log
+        ADD COLUMN label TEXT;
+    `,
+  },
 ]

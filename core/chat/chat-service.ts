@@ -82,6 +82,7 @@ export interface ChatServiceOptions {
   systemContextDefaults?: () => DesktopSystemContextSettings | undefined
   companionRoles?: () => readonly DesktopCompanionRoleSettings[]
   companionRoleDefaults?: () => DesktopCompanionRoleSettings | undefined
+  catPetRuntimeInstruction?: () => string | undefined
   memoryService?: CompanionMemoryService
   agentToolProfile?: () => ToolProfile
   maxAgentSteps?: () => number
@@ -371,10 +372,7 @@ export class ChatService {
     request: SendMessageRequest,
     webContents: WebContents
   ): Promise<SendMessageResponse> {
-    return this.runOrchestrator.sendMessage(
-      this.withCompanionRoleKnowledgeInstructions(request),
-      webContents
-    )
+    return this.runOrchestrator.sendMessage(this.withRuntimeInstructions(request), webContents)
   }
 
   async sendInternalMessage(
@@ -384,7 +382,7 @@ export class ChatService {
   ): Promise<InternalSendMessageResponse> {
     return this.runOrchestrator.sendInternalMessage(
       {
-        ...this.withCompanionRoleKnowledgeInstructions(request),
+        ...this.withRuntimeInstructions(request),
         titleGeneration: false,
       },
       target,
@@ -567,6 +565,36 @@ export class ChatService {
     return {
       ...request,
       transientSystemInstructions: [...(request.transientSystemInstructions ?? []), instruction],
+    }
+  }
+
+  private withRuntimeInstructions(request: SendMessageRequest): SendMessageRequest {
+    return this.withCatPetRuntimeInstruction(this.withCompanionRoleKnowledgeInstructions(request))
+  }
+
+  private withCatPetRuntimeInstruction(request: SendMessageRequest): SendMessageRequest {
+    const session = this.options.sessions.get(request.sessionId)
+    if (session?.kind !== 'cat') {
+      return request
+    }
+
+    const text = this.options.catPetRuntimeInstruction?.()?.trim()
+    if (!text) {
+      return request
+    }
+
+    return {
+      ...request,
+      transientSystemInstructions: [
+        ...(request.transientSystemInstructions ?? []),
+        {
+          id: 'cat-pet-state',
+          kind: 'runtime',
+          source: 'cat.pet',
+          refId: 'cat-pet',
+          text,
+        },
+      ],
     }
   }
 

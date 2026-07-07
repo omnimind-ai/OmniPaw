@@ -1,15 +1,33 @@
 <script setup lang="ts">
-import type { CatPetAction } from '@shared/types/cat-pet'
-import { ArrowLeftIcon, HandIcon, Loader2Icon, RefreshCwIcon, SparklesIcon } from 'lucide-vue-next'
+import type {
+  CatPetAction,
+  CatPetCustomInteractionConfig,
+  CatPetInteractionDefinition,
+} from '@shared/types/cat-pet'
+import {
+  ArrowLeftIcon,
+  HandIcon,
+  HeartIcon,
+  Loader2Icon,
+  RefreshCwIcon,
+  Settings2Icon,
+  SmileIcon,
+  SparklesIcon,
+  UtensilsIcon,
+  ZapIcon,
+} from 'lucide-vue-next'
 import { storeToRefs } from 'pinia'
+import type { Component } from 'vue'
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import fallbackIdleImage from '@/asserts/cat/ic_cat_normal.png'
 import { appBridge, type BridgeUnsubscribe } from '@/bridge/app'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
 import { useCatPetStore } from '@/stores/cat-pet'
 import { errorToText, useToast } from '@/utils/toast'
+import CatPetInteractionConfigModal from './CatPetInteractionConfigModal.vue'
 
 defineProps<{
   sideLabel: string
@@ -23,26 +41,39 @@ const { t } = useI18n()
 const toast = useToast()
 const store = useCatPetStore()
 const {
+  state,
   affection,
   affectionMax,
   mood,
+  moodScore,
+  interactions,
+  customInteractions,
   todayUsage,
   limits,
   recent,
   progressPercent,
-  remainingPat,
-  remainingTease,
-  canPat,
-  canTease,
+  moodPercent,
+  remainingByAction,
   loading,
   performing,
+  savingInteractions,
 } = storeToRefs(store)
 
 const idleImage = ref<string>(fallbackIdleImage)
+const configOpen = ref(false)
 let appearanceUnsubscribe: BridgeUnsubscribe | undefined
 
+const actionIcons: Record<CatPetAction, Component> = {
+  pat: HandIcon,
+  tease: SparklesIcon,
+  feed: UtensilsIcon,
+  custom_low: SmileIcon,
+  custom_medium: HeartIcon,
+  custom_high: ZapIcon,
+}
+
 function applyIdleAsset(url: string | undefined): void {
-  idleImage.value = url && url.trim() ? url : fallbackIdleImage
+  idleImage.value = url?.trim() ? url : fallbackIdleImage
 }
 
 onMounted(async () => {
@@ -68,57 +99,122 @@ onBeforeUnmount(() => {
 })
 
 const moodLabel = computed(() => t(`catPet.mood.${mood.value}`))
+const moodSummary = computed(() => t(`catPet.moodSummary.${mood.value}`))
+const awayLabel = computed(() => formatAwayLabel(state.value.awayMs ?? 0))
+
 const recentLabel = computed(() => {
   const value = recent.value
   if (!value) return t('catPet.empty')
-  return t(
-    `catPet.feedback.${value.action}${value.outcome === 'positive' ? 'Positive' : 'Negative'}`
-  )
+  const action = actionLabel(value.action)
+  const specificKey = `catPet.feedback.${value.action}${value.outcome === 'positive' ? 'Positive' : 'Negative'}`
+  const specific = t(specificKey)
+  if (specific !== specificKey) {
+    return specific
+  }
+  return t(`catPet.feedback.${value.outcome}`, { action })
 })
 
 const recentDeltaClass = computed(() =>
-  recent.value?.outcome === 'positive'
-    ? 'text-emerald-600 dark:text-emerald-400'
-    : recent.value?.outcome === 'negative'
-      ? 'text-rose-600 dark:text-rose-400'
-      : 'text-muted-foreground'
+  recent.value?.outcome === 'positive' ? 'text-primary' : 'text-destructive'
 )
 
 const recentDeltaText = computed(() => {
   const value = recent.value
   if (!value) return ''
-  return value.delta > 0 ? `+${value.delta}` : `${value.delta}`
+  const affectionText = value.delta > 0 ? `+${value.delta}` : `${value.delta}`
+  const moodText = value.moodDelta > 0 ? `+${value.moodDelta}` : `${value.moodDelta}`
+  return `${affectionText} / ${moodText}`
 })
 
-const moodBadgeVariant = computed<'default' | 'secondary' | 'outline'>(() => {
+const moodBadgeVariant = computed<'default' | 'secondary' | 'outline' | 'destructive'>(() => {
   switch (mood.value) {
     case 'attached':
     case 'happy':
       return 'default'
+    case 'angry':
     case 'sad':
+      return 'destructive'
+    case 'down':
       return 'outline'
     default:
       return 'secondary'
   }
 })
 
-const patTip = computed(() =>
-  canPat.value ? t('catPet.action.patHint') : t('catPet.action.patLimitTip')
-)
-const teaseTip = computed(() =>
-  canTease.value ? t('catPet.action.teaseHint') : t('catPet.action.teaseLimitTip')
+const moodVisualClass = computed(() =>
+  cn(
+    'cat-pet-visual relative flex h-36 w-36 items-center justify-center rounded-full',
+    mood.value === 'happy' || mood.value === 'attached'
+      ? 'bg-primary/10'
+      : mood.value === 'angry' || mood.value === 'sad'
+        ? 'bg-destructive/10'
+        : 'bg-muted/40'
+  )
 )
 
-async function handleAction(action: CatPetAction): Promise<void> {
+const catImageClass = computed(() =>
+  cn(
+    'cat-pet-avatar h-32 w-32 select-none object-contain drop-shadow-sm',
+    mood.value === 'angry' && 'cat-pet-avatar-angry',
+    mood.value === 'sad' && 'cat-pet-avatar-sad',
+    mood.value === 'down' && 'cat-pet-avatar-down',
+    mood.value === 'happy' && 'cat-pet-avatar-happy',
+    mood.value === 'attached' && 'cat-pet-avatar-attached'
+  )
+)
+
+const visibleInteractions = computed(() => interactions.value.filter((item) => item.enabled))
+
+function actionIcon(action: CatPetAction): Component {
+  return actionIcons[action]
+}
+
+function actionLabel(action: CatPetAction): string {
+  const definition = interactions.value.find((item) => item.id === action)
+  if (definition?.customizable && definition.label?.trim()) {
+    return definition.label.trim()
+  }
+  return t(`catPet.action.${action}`)
+}
+
+function actionHint(action: CatPetInteractionDefinition): string {
+  if (action.description?.trim()) {
+    return action.description.trim()
+  }
+  const key = `catPet.action.${action.id}Hint`
+  const value = t(key)
+  return value === key ? t('catPet.action.defaultHint') : value
+}
+
+function riskLabel(action: CatPetInteractionDefinition): string {
+  return t(`catPet.risk.${action.risk}`)
+}
+
+function actionDisabled(action: CatPetInteractionDefinition): boolean {
+  return performing.value || !store.canPerform(action.id)
+}
+
+function actionTitle(action: CatPetInteractionDefinition): string {
+  if (remainingByAction.value[action.id] <= 0) {
+    return t('catPet.action.limitTip')
+  }
+  return actionHint(action)
+}
+
+async function handleAction(action: CatPetInteractionDefinition): Promise<void> {
   if (performing.value) return
-  if (action === 'pat' && !canPat.value) return
-  if (action === 'tease' && !canTease.value) return
+  if (!store.canPerform(action.id)) {
+    toast.warning(t('catPet.action.limitTip'))
+    return
+  }
 
   try {
-    const response = await store.perform(action)
+    const response = await store.perform(action.id)
     if (!response.ok) {
       toast.warning(
-        action === 'pat' ? t('catPet.action.patLimitTip') : t('catPet.action.teaseLimitTip')
+        response.reason === 'disabled_action'
+          ? t('catPet.action.disabledTip')
+          : t('catPet.action.limitTip')
       )
     }
   } catch (err) {
@@ -134,10 +230,29 @@ async function handleRefresh(): Promise<void> {
   }
 }
 
+async function handleSaveInteractions(items: CatPetCustomInteractionConfig[]): Promise<void> {
+  try {
+    await store.updateInteractions(items)
+    configOpen.value = false
+    toast.success(t('catPet.config.saved'))
+  } catch (err) {
+    toast.error(errorToText(err, t('catPet.errors.configFailed')))
+  }
+}
+
 function dotClass(filled: boolean): string {
   return filled
-    ? 'inline-block size-2 rounded-full bg-foreground/80'
-    : 'inline-block size-2 rounded-full border border-muted-foreground/40 bg-transparent'
+    ? 'inline-block size-1.5 rounded-full bg-foreground/80'
+    : 'inline-block size-1.5 rounded-full border border-muted-foreground/40 bg-transparent'
+}
+
+function formatAwayLabel(ms: number): string {
+  if (ms < 6 * 60 * 60 * 1000) return ''
+  const hours = Math.floor(ms / (60 * 60 * 1000))
+  if (hours < 48) {
+    return t('catPet.away.hours', { count: hours })
+  }
+  return t('catPet.away.days', { count: Math.floor(hours / 24) })
 }
 </script>
 
@@ -188,17 +303,35 @@ function dotClass(filled: boolean): string {
     </header>
 
     <div class="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-4 py-3">
-      <div class="flex flex-col items-center gap-1">
-        <img
-          :src="idleImage"
-          :alt="t('catPet.title')"
-          class="h-36 w-32 select-none object-contain drop-shadow-sm"
-          draggable="false"
-        />
-        <p class="text-center text-xs text-muted-foreground/80">{{ t('catPet.tagline') }}</p>
+      <div class="flex flex-col items-center gap-2">
+        <div
+          :class="moodVisualClass"
+          :data-mood="mood"
+        >
+          <span
+            class="cat-pet-orbit absolute inset-2 rounded-full border border-border/60"
+            aria-hidden="true"
+          />
+          <img
+            :src="idleImage"
+            :alt="t('catPet.title')"
+            :class="catImageClass"
+            draggable="false"
+          >
+        </div>
+        <div class="flex flex-col items-center gap-1 text-center">
+          <p class="text-xs text-muted-foreground/80">{{ t('catPet.tagline') }}</p>
+          <p class="text-xs text-muted-foreground">{{ moodSummary }}</p>
+          <p
+            v-if="awayLabel"
+            class="text-xs text-muted-foreground"
+          >
+            {{ awayLabel }}
+          </p>
+        </div>
       </div>
 
-      <div class="space-y-2">
+      <div class="flex flex-col gap-2">
         <div class="flex items-center justify-between gap-2">
           <div class="flex min-w-0 items-center gap-2">
             <span class="text-xs font-medium text-muted-foreground">{{ t('catPet.affection') }}</span>
@@ -228,36 +361,57 @@ function dotClass(filled: boolean): string {
         </div>
       </div>
 
-      <div class="space-y-3 rounded-lg border border-border/70 bg-muted/30 px-3 py-3">
-        <p class="text-xs font-medium text-muted-foreground">{{ t('catPet.todayInteractions') }}</p>
-        <div class="grid grid-cols-2 gap-3 text-sm">
-          <div class="flex flex-col gap-1">
-            <span class="text-xs text-muted-foreground">{{ t('catPet.action.pat') }}</span>
+      <div class="flex flex-col gap-2">
+        <div class="flex items-center justify-between gap-2">
+          <span class="text-xs font-medium text-muted-foreground">{{ t('catPet.moodScore') }}</span>
+          <span class="text-sm font-semibold tabular-nums">{{ moodScore }}</span>
+        </div>
+        <div
+          class="relative h-2 w-full overflow-hidden rounded-full bg-muted"
+          role="progressbar"
+          :aria-valuenow="moodScore"
+          :aria-valuemin="-100"
+          :aria-valuemax="100"
+        >
+          <div
+            class="h-full rounded-full bg-primary/70 transition-[width] duration-300 ease-out"
+            :style="{ width: `${moodPercent}%` }"
+          />
+        </div>
+      </div>
+
+      <div class="flex flex-col gap-3 rounded-lg border border-border/70 bg-muted/30 px-3 py-3">
+        <div class="flex items-center justify-between gap-2">
+          <p class="text-xs font-medium text-muted-foreground">{{ t('catPet.todayInteractions') }}</p>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            class="h-7 px-2"
+            :disabled="savingInteractions"
+            @click="configOpen = true"
+          >
+            <Settings2Icon data-icon="inline-start" />
+            {{ t('catPet.config.button') }}
+          </Button>
+        </div>
+
+        <div class="grid grid-cols-2 gap-2 text-sm">
+          <div
+            v-for="action in interactions"
+            :key="`usage-${action.id}`"
+            class="flex min-w-0 flex-col gap-1"
+          >
+            <span class="truncate text-xs text-muted-foreground">{{ actionLabel(action.id) }}</span>
             <div class="flex items-center gap-1.5">
               <span class="font-medium tabular-nums">
-                {{ todayUsage.pat }} / {{ limits.pat }}
+                {{ todayUsage[action.id] }} / {{ limits[action.id] }}
               </span>
               <span class="flex gap-1 pl-1">
                 <span
-                  v-for="i in limits.pat"
-                  :key="`pat-${i}`"
-                  :class="dotClass(i <= todayUsage.pat)"
-                  aria-hidden="true"
-                />
-              </span>
-            </div>
-          </div>
-          <div class="flex flex-col gap-1">
-            <span class="text-xs text-muted-foreground">{{ t('catPet.action.tease') }}</span>
-            <div class="flex items-center gap-1.5">
-              <span class="font-medium tabular-nums">
-                {{ todayUsage.tease }} / {{ limits.tease }}
-              </span>
-              <span class="flex gap-1 pl-1">
-                <span
-                  v-for="i in limits.tease"
-                  :key="`tease-${i}`"
-                  :class="dotClass(i <= todayUsage.tease)"
+                  v-for="i in limits[action.id]"
+                  :key="`${action.id}-${i}`"
+                  :class="dotClass(i <= todayUsage[action.id])"
                   aria-hidden="true"
                 />
               </span>
@@ -268,40 +422,32 @@ function dotClass(filled: boolean): string {
 
       <div class="grid grid-cols-2 gap-2">
         <Button
+          v-for="action in visibleInteractions"
+          :key="action.id"
           type="button"
           variant="outline"
-          class="h-12 flex-col gap-0.5"
-          :disabled="!canPat || performing"
-          :title="patTip"
-          @click="handleAction('pat')"
+          class="h-14 min-w-0 flex-col gap-0.5 px-2"
+          :disabled="actionDisabled(action)"
+          :title="actionTitle(action)"
+          @click="handleAction(action)"
         >
-          <span class="flex items-center gap-1.5 text-sm font-medium">
-            <HandIcon class="size-4" />
-            {{ t('catPet.action.pat') }}
+          <span class="flex max-w-full min-w-0 items-center gap-1.5 text-sm font-medium">
+            <component
+              :is="actionIcon(action.id)"
+              data-icon="inline-start"
+            />
+            <span class="truncate">{{ actionLabel(action.id) }}</span>
           </span>
-          <!-- <span class="text-xs text-muted-foreground">
-            {{ t('catPet.action.remaining', { count: remainingPat }) }}
-          </span> -->
-        </Button>
-        <Button
-          type="button"
-          variant="outline"
-          class="h-12 flex-col gap-0.5"
-          :disabled="!canTease || performing"
-          :title="teaseTip"
-          @click="handleAction('tease')"
-        >
-          <span class="flex items-center gap-1.5 text-sm font-medium">
-            <SparklesIcon class="size-4" />
-            {{ t('catPet.action.tease') }}
+          <span class="flex max-w-full items-center gap-1 text-xs text-muted-foreground">
+            <span class="truncate">{{ riskLabel(action) }}</span>
+            <span class="tabular-nums">
+              {{ t('catPet.action.remaining', { count: remainingByAction[action.id] }) }}
+            </span>
           </span>
-          <!-- <span class="text-xs text-muted-foreground">
-            {{ t('catPet.action.remaining', { count: remainingTease }) }}
-          </span> -->
         </Button>
       </div>
 
-      <div class="space-y-1 rounded-lg border border-border/70 bg-muted/20 px-3 py-3">
+      <div class="flex flex-col gap-1 rounded-lg border border-border/70 bg-muted/20 px-3 py-3">
         <p class="text-xs font-medium text-muted-foreground">{{ t('catPet.recent') }}</p>
         <div class="flex items-start justify-between gap-2">
           <p class="text-sm leading-relaxed">{{ recentLabel }}</p>
@@ -314,5 +460,109 @@ function dotClass(filled: boolean): string {
         </div>
       </div>
     </div>
+
+    <CatPetInteractionConfigModal
+      v-model:open="configOpen"
+      :custom-interactions="customInteractions"
+      :saving="savingInteractions"
+      @save="handleSaveInteractions"
+    />
   </section>
 </template>
+
+<style scoped>
+.cat-pet-orbit {
+  animation: cat-pet-orbit 4.8s ease-in-out infinite;
+}
+
+.cat-pet-avatar-happy {
+  animation: cat-pet-happy 2.8s ease-in-out infinite;
+}
+
+.cat-pet-avatar-attached {
+  animation: cat-pet-attached 2.4s ease-in-out infinite;
+}
+
+.cat-pet-avatar-down {
+  animation: cat-pet-down 3.2s ease-in-out infinite;
+}
+
+.cat-pet-avatar-sad {
+  animation: cat-pet-sad 3.6s ease-in-out infinite;
+}
+
+.cat-pet-avatar-angry {
+  animation: cat-pet-angry 0.42s ease-in-out infinite alternate;
+}
+
+@keyframes cat-pet-orbit {
+  0%,
+  100% {
+    transform: scale(0.96);
+    opacity: 0.42;
+  }
+
+  50% {
+    transform: scale(1.04);
+    opacity: 0.72;
+  }
+}
+
+@keyframes cat-pet-happy {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+
+  50% {
+    transform: translateY(-5px);
+  }
+}
+
+@keyframes cat-pet-attached {
+  0%,
+  100% {
+    transform: translateY(0) scale(1);
+  }
+
+  50% {
+    transform: translateY(-4px) scale(1.04);
+  }
+}
+
+@keyframes cat-pet-down {
+  0%,
+  100% {
+    transform: translateY(2px);
+    opacity: 0.88;
+  }
+
+  50% {
+    transform: translateY(6px);
+    opacity: 0.72;
+  }
+}
+
+@keyframes cat-pet-sad {
+  0%,
+  100% {
+    transform: translateY(4px) rotate(-1deg);
+    opacity: 0.76;
+  }
+
+  50% {
+    transform: translateY(7px) rotate(1deg);
+    opacity: 0.62;
+  }
+}
+
+@keyframes cat-pet-angry {
+  from {
+    transform: translateX(-2px) rotate(-1deg);
+  }
+
+  to {
+    transform: translateX(2px) rotate(1deg);
+  }
+}
+</style>

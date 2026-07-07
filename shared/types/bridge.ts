@@ -37,6 +37,8 @@ import type {
   CatPetPerformRequest,
   CatPetPerformResponse,
   CatPetState,
+  CatPetUpdateInteractionsRequest,
+  CatPetUpdateInteractionsResponse,
 } from './cat-pet'
 import type {
   AbortRunRequest,
@@ -433,6 +435,9 @@ export interface OmniPawBridge {
   catPet: {
     getState: () => Promise<CatPetState>
     perform: (request: CatPetPerformRequest) => Promise<CatPetPerformResponse>
+    updateInteractions: (
+      request: CatPetUpdateInteractionsRequest
+    ) => Promise<CatPetUpdateInteractionsResponse>
     onChanged: (callback: (event: CatPetChangedEvent) => void) => Unsubscribe
   }
   settings: {
