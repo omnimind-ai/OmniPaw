@@ -1,3 +1,13 @@
+import {
+  CAT_PET_ACTIONS,
+  CAT_PET_CUSTOM_ACTIONS,
+  CAT_PET_DAILY_LIMITS,
+  CAT_PET_UNLOCK_AFFECTION,
+  createDefaultPetInteractionConfigs,
+  isPresetCatPetAction,
+  isPresetCatPetCustomAction,
+  normalizePetInteractionConfigs,
+} from '../../core/pet/presets/interactions'
 import type { UnixMs } from './chat'
 
 export const CAT_PET_AFFECTION_MAX = 200
@@ -7,62 +17,6 @@ export const CAT_PET_AFFECTION_DEFAULT = 50
 export const CAT_PET_MOOD_MAX = 100
 export const CAT_PET_MOOD_MIN = -100
 export const CAT_PET_MOOD_DEFAULT = 0
-
-export const CAT_PET_ACTIONS = ['pat', 'tease', 'custom_100', 'custom_150'] as const
-export const CAT_PET_CUSTOM_ACTIONS = ['custom_100', 'custom_150'] as const
-
-export const CAT_PET_DAILY_LIMITS = {
-  pat: 2,
-  tease: 1,
-  custom_100: 1,
-  custom_150: 1,
-} as const satisfies Record<CatPetAction, number>
-
-export const CAT_PET_UNLOCK_AFFECTION = {
-  pat: 0,
-  tease: 0,
-  custom_100: 100,
-  custom_150: 150,
-} as const satisfies Record<CatPetAction, number>
-
-const CAT_PET_DEFAULT_INTERACTIONS = [
-  {
-    id: 'pat',
-    enabled: true,
-    label: '摸摸',
-    description: '轻轻摸摸猫咪',
-    positiveFeedback: '猫咪舒服地眯起了眼',
-    negativeFeedback: '猫咪不太喜欢这样摸',
-  },
-  {
-    id: 'tease',
-    enabled: true,
-    label: '逗逗',
-    description: '逗逗猫咪',
-    positiveFeedback: '猫咪玩得很开心',
-    negativeFeedback: '猫咪有点不高兴',
-  },
-  {
-    id: 'custom_100',
-    enabled: true,
-    label: '轻声夸夸',
-    description: '关系更熟悉后解锁的亲近互动',
-    positiveFeedback: '猫咪认真听完，看起来更亲近了',
-    negativeFeedback: '猫咪还没有完全放松下来',
-  },
-  {
-    id: 'custom_150',
-    enabled: true,
-    label: '贴贴陪伴',
-    description: '关系很亲近后解锁的特别互动',
-    positiveFeedback: '猫咪主动靠近，安静地陪着你',
-    negativeFeedback: '猫咪现在想自己待一会儿',
-  },
-] as const satisfies readonly CatPetInteractionConfig[]
-
-const MAX_LABEL_LENGTH = 18
-const MAX_DESCRIPTION_LENGTH = 80
-const MAX_FEEDBACK_LENGTH = 120
 
 export type CatPetAction = (typeof CAT_PET_ACTIONS)[number]
 export type CatPetCustomAction = (typeof CAT_PET_CUSTOM_ACTIONS)[number]
@@ -173,40 +127,19 @@ export function emptyCatPetActionCounters(): CatPetActionCounters {
 }
 
 export function defaultCatPetInteractionConfigs(): CatPetInteractionConfig[] {
-  return CAT_PET_DEFAULT_INTERACTIONS.map((item) => ({ ...item }))
+  return createDefaultPetInteractionConfigs()
 }
 
 export function normalizeCatPetInteractionConfigs(input: unknown): CatPetInteractionConfig[] {
-  const byId = new Map<CatPetAction, CatPetInteractionConfig>()
-  const items = Array.isArray(input) ? input : []
-  for (const item of items) {
-    const record = asRecord(item)
-    const id = normalizeInteractionConfigId(record?.id)
-    if (!record || !id) {
-      continue
-    }
-    byId.set(id, {
-      id,
-      enabled: record.enabled !== false,
-      label: normalizeOptionalText(record.label, MAX_LABEL_LENGTH),
-      description: normalizeOptionalText(record.description, MAX_DESCRIPTION_LENGTH),
-      positiveFeedback: normalizeOptionalText(record.positiveFeedback, MAX_FEEDBACK_LENGTH),
-      negativeFeedback: normalizeOptionalText(record.negativeFeedback, MAX_FEEDBACK_LENGTH),
-    })
-  }
-
-  return defaultCatPetInteractionConfigs().map((fallback) => ({
-    ...fallback,
-    ...(byId.get(fallback.id) ?? {}),
-  }))
+  return normalizePetInteractionConfigs(input)
 }
 
 export function isCatPetAction(value: unknown): value is CatPetAction {
-  return typeof value === 'string' && (CAT_PET_ACTIONS as readonly string[]).includes(value)
+  return isPresetCatPetAction(value)
 }
 
 export function isCatPetCustomAction(value: unknown): value is CatPetCustomAction {
-  return typeof value === 'string' && (CAT_PET_CUSTOM_ACTIONS as readonly string[]).includes(value)
+  return isPresetCatPetCustomAction(value)
 }
 
 export function moodFromScore(score: number, affection = CAT_PET_AFFECTION_DEFAULT): CatPetMood {
@@ -225,26 +158,4 @@ export function moodFromAffection(affection: number): CatPetMood {
   return 'happy'
 }
 
-function normalizeInteractionConfigId(value: unknown): CatPetAction | undefined {
-  if (isCatPetAction(value)) {
-    return value
-  }
-  if (value === 'custom_medium') {
-    return 'custom_100'
-  }
-  if (value === 'custom_high') {
-    return 'custom_150'
-  }
-  return undefined
-}
-
-function normalizeOptionalText(value: unknown, maxLength: number): string | undefined {
-  const trimmed = typeof value === 'string' ? value.replace(/\s+/g, ' ').trim() : ''
-  return trimmed ? trimmed.slice(0, maxLength) : undefined
-}
-
-function asRecord(value: unknown): Record<string, unknown> | undefined {
-  return value && typeof value === 'object' && !Array.isArray(value)
-    ? (value as Record<string, unknown>)
-    : undefined
-}
+export { CAT_PET_ACTIONS, CAT_PET_CUSTOM_ACTIONS, CAT_PET_DAILY_LIMITS, CAT_PET_UNLOCK_AFFECTION }

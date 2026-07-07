@@ -16,6 +16,13 @@ import {
 import { basename, dirname, extname, isAbsolute, join, relative, resolve, sep } from 'node:path'
 
 import type { Logger } from '@core/logging'
+import {
+  BUILTIN_CAT_APPEARANCE_LAYOUT,
+  BUILTIN_CAT_APPEARANCE_PACK,
+  BUILTIN_CAT_APPEARANCE_PACK_ID,
+  DEFAULT_CAT_APPEARANCE_DURATIONS,
+  DEFAULT_CAT_APPEARANCE_LAYOUT,
+} from '@core/pet/presets'
 import { resolveOmniPawDataPaths, resolveOmniPawDataRoot } from '@core/utils/data-paths'
 import {
   isIgnoredZipEntry,
@@ -41,7 +48,7 @@ import type {
   CatAppearanceSetActiveRequest,
 } from '@shared/types/cat-appearance'
 
-const BUILTIN_PACK_ID = 'builtin'
+const BUILTIN_PACK_ID = BUILTIN_CAT_APPEARANCE_PACK_ID
 const MANIFEST_FILE_NAME = 'manifest.json'
 const CURRENT_STATE_VERSION = 1
 const MAX_MANIFEST_BYTES = 64 * 1024
@@ -50,7 +57,6 @@ const MAX_IMPORT_ARCHIVE_BYTES = 128 * 1024 * 1024
 const MAX_IMPORT_FILES = 256
 const MAX_IMPORT_TOTAL_BYTES = 256 * 1024 * 1024
 const WATCH_DEBOUNCE_MS = 180
-const BUILTIN_LAYOUT_SCALE = 86 / 116
 
 const assetKeys = new Set<CatAppearanceAssetKey>([
   'show',
@@ -77,34 +83,14 @@ const mimeByExtension: Record<string, string> = {
   '.avif': 'image/avif',
 }
 
-const builtinPack: CatAppearancePackSummary = {
-  id: BUILTIN_PACK_ID,
-  name: 'OmniPaw Cat',
-  description: 'Built-in OmniPaw cat appearance.',
-  source: 'builtin',
-  status: 'available',
-  active: false,
-}
+const builtinPack: CatAppearancePackSummary = BUILTIN_CAT_APPEARANCE_PACK
 
-export const defaultCatAppearanceDurations: CatAppearanceDurations = {
-  appearing: 1000,
-  dragTransition: 1100,
-  preparing: 1050,
-  completedEnd: 980,
-  completedFinish: 1500,
-}
+export const defaultCatAppearanceDurations: CatAppearanceDurations =
+  DEFAULT_CAT_APPEARANCE_DURATIONS
 
-export const defaultCatAppearanceLayout: CatAppearanceLayout = {
-  scale: 1,
-  offsetX: 0,
-  offsetY: 0,
-}
+export const defaultCatAppearanceLayout: CatAppearanceLayout = DEFAULT_CAT_APPEARANCE_LAYOUT
 
-export const builtinCatAppearanceLayout: CatAppearanceLayout = {
-  scale: BUILTIN_LAYOUT_SCALE,
-  offsetX: 0,
-  offsetY: 0,
-}
+export const builtinCatAppearanceLayout: CatAppearanceLayout = BUILTIN_CAT_APPEARANCE_LAYOUT
 
 export interface CatAppearanceAssetFile {
   path: string

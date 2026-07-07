@@ -145,6 +145,10 @@ import type {
 import type { DesktopShortcutSettings, ShortcutStatusChangedEvent } from '@shared/types/shortcuts'
 import { SHORTCUT_ACTIONS } from '@shared/types/shortcuts'
 import type { DesktopWindowState, DesktopWindowStateChangedEvent } from '@shared/types/window'
+import {
+  createXiaowanCompanionRolePreset,
+  XIAOWAN_COMPANION_ROLE_ID,
+} from '../../core/pet/presets/xiaowan'
 
 export type BridgeUnsubscribe = () => void
 export type BridgeDesktopWindowState = DesktopWindowState
@@ -2107,40 +2111,8 @@ function fallbackSettingsConfig(): BridgeDesktopSettingsConfig {
           text: '',
         },
       },
-      companionRoles: [
-        {
-          id: 'default',
-          enabled: true,
-          name: '小万',
-          appearancePackId: 'builtin',
-          userNickname: '',
-          personality: '温柔、可靠、带一点轻松感',
-          speechStyle: '简短、自然、日常感',
-          relationship: '桌面伙伴',
-          background: '',
-          greeting: '我在这里，有什么想让我陪你一起处理的吗？',
-          greetingMode: 'default',
-          alternateGreetings: [],
-          proactiveStyle: '适度主动提醒，但不打扰用户专注。',
-          petInteractions: defaultCatPetInteractionConfigs(),
-          advanced: {
-            enabled: false,
-            systemPrompt: '',
-            knowledge: '',
-            exampleDialogue: '',
-            finalInstructions: '',
-          },
-          knowledgeSettings: {
-            scanDepth: 8,
-            maxTokens: 900,
-          },
-          knowledgeEntries: [],
-          source: undefined,
-          defaultProviderId: undefined,
-          defaultModelId: undefined,
-        },
-      ],
-      activeCompanionRoleId: 'default',
+      companionRoles: [createXiaowanCompanionRolePreset()],
+      activeCompanionRoleId: XIAOWAN_COMPANION_ROLE_ID,
       background: {
         enabled: false,
         opacity: 0.35,

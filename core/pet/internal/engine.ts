@@ -1,36 +1,31 @@
 import {
   CAT_PET_ACTIONS,
+  CAT_PET_DAILY_LIMITS,
+  CAT_PET_INTERACTION_TEMPLATES,
+  CAT_PET_MOOD_TEXT,
+  CAT_PET_UNLOCK_AFFECTION,
+  normalizePetInteractionConfigs,
+  PET_CHAT_RUNTIME_INSTRUCTION,
+  type PetInteractionTemplate,
+} from '@core/pet/presets'
+import {
   CAT_PET_AFFECTION_DEFAULT,
   CAT_PET_AFFECTION_MAX,
   CAT_PET_AFFECTION_MIN,
-  CAT_PET_DAILY_LIMITS,
   CAT_PET_MOOD_DEFAULT,
   CAT_PET_MOOD_MAX,
   CAT_PET_MOOD_MIN,
-  CAT_PET_UNLOCK_AFFECTION,
   type CatPetAction,
   type CatPetInteractionConfig,
   type CatPetInteractionDefinition,
-  type CatPetInteractionEffect,
   type CatPetMood,
   type CatPetOutcome,
   type CatPetState,
   isCatPetAction,
   moodFromScore,
-  normalizeCatPetInteractionConfigs,
 } from '@shared/types/cat-pet'
 
 const HOUR_MS = 60 * 60 * 1000
-
-type InteractionIntensity = 'soft' | 'active' | 'deep'
-
-interface InteractionTemplate {
-  intensity: InteractionIntensity
-  customizable: boolean
-  positive: CatPetInteractionEffect
-  negative: CatPetInteractionEffect
-  positiveProbability: number
-}
 
 export interface PetVitals {
   affection: number
@@ -62,49 +57,18 @@ export interface PetLaunchEffect {
   moodScoreAfter: number
 }
 
-const ACTION_TEMPLATES: Record<CatPetAction, InteractionTemplate> = {
-  pat: {
-    intensity: 'soft',
-    customizable: false,
-    positive: { affection: 1, mood: 8 },
-    negative: { affection: 0, mood: -3 },
-    positiveProbability: 0.92,
-  },
-  tease: {
-    intensity: 'active',
-    customizable: false,
-    positive: { affection: 3, mood: 10 },
-    negative: { affection: -2, mood: -12 },
-    positiveProbability: 0.68,
-  },
-  custom_100: {
-    intensity: 'active',
-    customizable: true,
-    positive: { affection: 5, mood: 13 },
-    negative: { affection: -2, mood: -14 },
-    positiveProbability: 0.64,
-  },
-  custom_150: {
-    intensity: 'deep',
-    customizable: true,
-    positive: { affection: 9, mood: 18 },
-    negative: { affection: -5, mood: -25 },
-    positiveProbability: 0.48,
-  },
-}
-
 export function parseInteractionConfigsJson(value: string | null | undefined) {
   if (!value?.trim()) {
-    return normalizeCatPetInteractionConfigs(undefined)
+    return normalizePetInteractionConfigs(undefined)
   }
 
   try {
     const parsed = JSON.parse(value) as { interactions?: unknown; customInteractions?: unknown }
-    return normalizeCatPetInteractionConfigs(
+    return normalizePetInteractionConfigs(
       Array.isArray(parsed) ? parsed : (parsed.interactions ?? parsed.customInteractions)
     )
   } catch {
-    return normalizeCatPetInteractionConfigs(undefined)
+    return normalizePetInteractionConfigs(undefined)
   }
 }
 
@@ -112,7 +76,7 @@ export function serializeInteractionConfigsJson(
   interactions: readonly CatPetInteractionConfig[]
 ): string {
   return JSON.stringify({
-    interactions: normalizeCatPetInteractionConfigs(interactions),
+    interactions: normalizePetInteractionConfigs(interactions),
   })
 }
 
@@ -121,12 +85,12 @@ export function buildInteractionDefinitions(
   affection: number
 ): CatPetInteractionDefinition[] {
   const configById = new Map(
-    normalizeCatPetInteractionConfigs(interactionConfigs).map((item) => [item.id, item])
+    normalizePetInteractionConfigs(interactionConfigs).map((item) => [item.id, item])
   )
   const affectionValue = clampAffection(affection)
 
   return CAT_PET_ACTIONS.map((id) => {
-    const template = ACTION_TEMPLATES[id]
+    const template = CAT_PET_INTERACTION_TEMPLATES[id]
     const config = configById.get(id)
     const unlockAffection = CAT_PET_UNLOCK_AFFECTION[id]
     const label = config?.label?.trim() || id
@@ -180,7 +144,7 @@ export function resolveInteractionOutcome(input: {
     return undefined
   }
 
-  const template = ACTION_TEMPLATES[input.action]
+  const template = CAT_PET_INTERACTION_TEMPLATES[input.action]
   const probability = adjustedPositiveProbability(template, definition, input.vitals)
   const positive = input.random < probability
   const effect = positive ? definition.positive : definition.negative
@@ -272,18 +236,18 @@ export function petChatRuntimeInstruction(state: CatPetState): string {
   const away = formatAwayDuration(state.awayMs ?? 0)
   const moodText = petMoodText(state.mood)
   return [
-    '桌宠养成状态会轻微影响你的回复方式，但不要机械复述数值，除非用户主动询问。',
+    PET_CHAT_RUNTIME_INSTRUCTION.opening,
     `当前心情：${moodText}；好感度：${state.affection}/${state.affectionMax}。`,
     away ? `用户上次离开到这次启动约 ${away}。` : '',
-    '回复时保持当前角色设定：心情低落时可以更柔软、委屈或别扭一点；心情好时可以更轻快亲近；不要夸张表演，不要责备用户。',
-    '如果用户进行了桌宠互动或提到陪伴状态，可以自然承接互动带来的情绪变化。',
+    PET_CHAT_RUNTIME_INSTRUCTION.style,
+    PET_CHAT_RUNTIME_INSTRUCTION.interaction,
   ]
     .filter(Boolean)
     .join('\n')
 }
 
 function adjustedPositiveProbability(
-  template: InteractionTemplate,
+  template: PetInteractionTemplate,
   definition: CatPetInteractionDefinition,
   vitals: PetVitals
 ): number {
@@ -309,20 +273,7 @@ function adjustedPositiveProbability(
 }
 
 function petMoodText(mood: CatPetMood): string {
-  switch (mood) {
-    case 'angry':
-      return '有点生气'
-    case 'sad':
-      return '伤心'
-    case 'down':
-      return '失落'
-    case 'happy':
-      return '开心'
-    case 'attached':
-      return '很亲近'
-    default:
-      return '平静'
-  }
+  return CAT_PET_MOOD_TEXT[mood]
 }
 
 function formatAwayDuration(ms: number): string {

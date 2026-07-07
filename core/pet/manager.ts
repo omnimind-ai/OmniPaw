@@ -1,5 +1,6 @@
 import type { CatPetRepo } from '@core/db/repos/cat-pet-repo'
 import type { Logger } from '@core/logging'
+import { normalizePetInteractionConfigs } from '@core/pet/presets'
 import {
   CAT_PET_AFFECTION_MAX,
   CAT_PET_AFFECTION_MIN,
@@ -18,7 +19,6 @@ import {
   type CatPetUpdateInteractionsResponse,
   emptyCatPetActionCounters,
   isCatPetAction,
-  normalizeCatPetInteractionConfigs,
 } from '@shared/types/cat-pet'
 import {
   buildInteractionDefinitions,
@@ -198,7 +198,7 @@ export class CatPetManager {
   }
 
   updateInteractions(request: CatPetUpdateInteractionsRequest): CatPetUpdateInteractionsResponse {
-    const interactionConfigs = normalizeCatPetInteractionConfigs(
+    const interactionConfigs = normalizePetInteractionConfigs(
       request.interactions ?? request.customInteractions
     )
     this.saveInteractionConfigs?.(interactionConfigs)
@@ -280,7 +280,7 @@ export class CatPetManager {
   private currentInteractionConfigs(): CatPetInteractionConfig[] {
     const fromRole = this.interactionConfigs?.()
     if (fromRole) {
-      return normalizeCatPetInteractionConfigs(fromRole)
+      return normalizePetInteractionConfigs(fromRole)
     }
     return parseInteractionConfigsJson(this.repo.getState().customInteractionsJson)
   }

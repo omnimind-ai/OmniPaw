@@ -1,10 +1,10 @@
 import { redactSensitiveText } from '@core/logging/redaction'
 import {
   CAT_PET_ACTIONS,
-  defaultCatPetInteractionConfigs,
-  isCatPetAction,
-  normalizeCatPetInteractionConfigs,
-} from '@shared/types/cat-pet'
+  createXiaowanCompanionRolePreset,
+  isPresetCatPetAction as isCatPetAction,
+  normalizePetInteractionConfigs as normalizeCatPetInteractionConfigs,
+} from '@core/pet/presets'
 import type { ContextAttachmentPolicy, ToolProfile } from '@shared/types/chat'
 import type {
   CompanionRoleKnowledgeEntry,
@@ -64,37 +64,7 @@ const defaultProviderModel: DesktopProviderModel = {
   updatedAt: now,
 }
 
-const defaultCompanionRole: DesktopCompanionRoleSettings = {
-  id: 'default',
-  enabled: true,
-  name: '小万',
-  appearancePackId: 'builtin',
-  userNickname: '',
-  personality: '温柔、可靠、带一点轻松感',
-  speechStyle: '简短、自然、日常感',
-  relationship: '桌面伙伴',
-  background: '',
-  greeting: '我在这里，有什么想让我陪你一起处理的吗？',
-  greetingMode: 'default',
-  alternateGreetings: [],
-  proactiveStyle: '适度主动提醒，但不打扰用户专注。',
-  advanced: {
-    enabled: false,
-    systemPrompt: '',
-    knowledge: '',
-    exampleDialogue: '',
-    finalInstructions: '',
-  },
-  petInteractions: defaultCatPetInteractionConfigs(),
-  knowledgeSettings: {
-    scanDepth: 8,
-    maxTokens: 900,
-  },
-  knowledgeEntries: [],
-  source: undefined,
-  defaultProviderId: undefined,
-  defaultModelId: undefined,
-}
+const defaultCompanionRole = createXiaowanCompanionRolePreset()
 
 export const defaultConfig: DesktopSettingsConfig = {
   version: CURRENT_SETTINGS_VERSION,
