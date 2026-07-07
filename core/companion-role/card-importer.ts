@@ -2,6 +2,10 @@ import { createHash } from 'node:crypto'
 import { inflateSync } from 'node:zlib'
 import { normalizeArchivePath, readZipEntries, validateArchivePaths } from '@core/utils/zip'
 import type { CatAppearanceEmbeddedPack } from '@shared/types/cat-appearance'
+import {
+  defaultCatPetInteractionConfigs,
+  normalizeCatPetInteractionConfigs,
+} from '@shared/types/cat-pet'
 import type {
   CompanionRoleKnowledgeEntryDraft,
   CompanionRoleSourceMetadata,
@@ -222,6 +226,7 @@ function mapParsedCardToRole(parsed: ParsedCharacterCard): ImportedCompanionRole
     greeting: parsed.firstMessage ?? '',
     alternateGreetings: parsed.alternateGreetings,
     proactiveStyle: '',
+    petInteractions: defaultCatPetInteractionConfigs(),
     advanced,
     knowledgeEntries,
     source: parsed.source,
@@ -367,6 +372,7 @@ function normalizeOmniPawExportedRole(
     greeting: pickString(role, ['greeting']),
     alternateGreetings: stringArray(role.alternateGreetings),
     proactiveStyle: pickString(role, ['proactiveStyle']),
+    petInteractions: normalizeCatPetInteractionConfigs(role.petInteractions),
     advanced: advanced
       ? {
           enabled: advanced.enabled === true,

@@ -3,31 +3,29 @@ import {
   CAT_PET_AFFECTION_DEFAULT,
   CAT_PET_AFFECTION_MAX,
   CAT_PET_AFFECTION_MIN,
-  CAT_PET_CUSTOM_ACTIONS,
   CAT_PET_DAILY_LIMITS,
   CAT_PET_MOOD_DEFAULT,
   CAT_PET_MOOD_MAX,
   CAT_PET_MOOD_MIN,
+  CAT_PET_UNLOCK_AFFECTION,
   type CatPetAction,
-  type CatPetCustomAction,
-  type CatPetCustomInteractionConfig,
+  type CatPetInteractionConfig,
   type CatPetInteractionDefinition,
   type CatPetInteractionEffect,
-  type CatPetInteractionRisk,
   type CatPetMood,
   type CatPetOutcome,
   type CatPetState,
   isCatPetAction,
-  isCatPetCustomAction,
   moodFromScore,
+  normalizeCatPetInteractionConfigs,
 } from '@shared/types/cat-pet'
 
 const HOUR_MS = 60 * 60 * 1000
-const MAX_CUSTOM_LABEL_LENGTH = 18
-const MAX_CUSTOM_DESCRIPTION_LENGTH = 80
+
+type InteractionIntensity = 'soft' | 'active' | 'deep'
 
 interface InteractionTemplate {
-  risk: CatPetInteractionRisk
+  intensity: InteractionIntensity
   customizable: boolean
   positive: CatPetInteractionEffect
   negative: CatPetInteractionEffect
@@ -42,7 +40,6 @@ export interface PetVitals {
 
 export interface PetInteractionOutcome {
   action: CatPetAction
-  risk: CatPetInteractionRisk
   outcome: CatPetOutcome
   affectionDelta: number
   moodDelta: number
@@ -53,6 +50,7 @@ export interface PetInteractionOutcome {
   moodScoreBefore: number
   moodScoreAfter: number
   positiveProbability: number
+  feedback: string
 }
 
 export interface PetLaunchEffect {
@@ -66,42 +64,28 @@ export interface PetLaunchEffect {
 
 const ACTION_TEMPLATES: Record<CatPetAction, InteractionTemplate> = {
   pat: {
-    risk: 'low',
+    intensity: 'soft',
     customizable: false,
     positive: { affection: 1, mood: 8 },
     negative: { affection: 0, mood: -3 },
     positiveProbability: 0.92,
   },
   tease: {
-    risk: 'medium',
+    intensity: 'active',
     customizable: false,
     positive: { affection: 3, mood: 10 },
     negative: { affection: -2, mood: -12 },
     positiveProbability: 0.68,
   },
-  feed: {
-    risk: 'low',
-    customizable: false,
-    positive: { affection: 2, mood: 7 },
-    negative: { affection: 0, mood: -4 },
-    positiveProbability: 0.86,
-  },
-  custom_low: {
-    risk: 'low',
-    customizable: true,
-    positive: { affection: 2, mood: 8 },
-    negative: { affection: -1, mood: -6 },
-    positiveProbability: 0.82,
-  },
-  custom_medium: {
-    risk: 'medium',
+  custom_100: {
+    intensity: 'active',
     customizable: true,
     positive: { affection: 5, mood: 13 },
     negative: { affection: -2, mood: -14 },
     positiveProbability: 0.64,
   },
-  custom_high: {
-    risk: 'high',
+  custom_150: {
+    intensity: 'deep',
     customizable: true,
     positive: { affection: 9, mood: 18 },
     negative: { affection: -5, mood: -25 },
@@ -109,104 +93,95 @@ const ACTION_TEMPLATES: Record<CatPetAction, InteractionTemplate> = {
   },
 }
 
-export function defaultCustomInteractions(): CatPetCustomInteractionConfig[] {
-  return CAT_PET_CUSTOM_ACTIONS.map((id) => ({
-    id,
-    enabled: true,
-  }))
-}
-
-export function normalizeCustomInteractions(
-  input: readonly CatPetCustomInteractionConfig[] | undefined
-): CatPetCustomInteractionConfig[] {
-  const byId = new Map<CatPetCustomAction, CatPetCustomInteractionConfig>()
-  for (const item of input ?? []) {
-    if (!isCatPetCustomAction(item?.id)) {
-      continue
-    }
-    byId.set(item.id, {
-      id: item.id,
-      enabled: item.enabled !== false,
-      label: normalizeOptionalText(item.label, MAX_CUSTOM_LABEL_LENGTH),
-      description: normalizeOptionalText(item.description, MAX_CUSTOM_DESCRIPTION_LENGTH),
-    })
-  }
-
-  return defaultCustomInteractions().map((fallback) => ({
-    ...fallback,
-    ...(byId.get(fallback.id) ?? {}),
-  }))
-}
-
-export function parseCustomInteractionsJson(value: string | null | undefined) {
+export function parseInteractionConfigsJson(value: string | null | undefined) {
   if (!value?.trim()) {
-    return defaultCustomInteractions()
+    return normalizeCatPetInteractionConfigs(undefined)
   }
 
   try {
-    const parsed = JSON.parse(value) as { customInteractions?: CatPetCustomInteractionConfig[] }
-    return normalizeCustomInteractions(Array.isArray(parsed) ? parsed : parsed.customInteractions)
+    const parsed = JSON.parse(value) as { interactions?: unknown; customInteractions?: unknown }
+    return normalizeCatPetInteractionConfigs(
+      Array.isArray(parsed) ? parsed : (parsed.interactions ?? parsed.customInteractions)
+    )
   } catch {
-    return defaultCustomInteractions()
+    return normalizeCatPetInteractionConfigs(undefined)
   }
 }
 
-export function serializeCustomInteractionsJson(
-  customInteractions: readonly CatPetCustomInteractionConfig[]
+export function serializeInteractionConfigsJson(
+  interactions: readonly CatPetInteractionConfig[]
 ): string {
   return JSON.stringify({
-    customInteractions: normalizeCustomInteractions(customInteractions),
+    interactions: normalizeCatPetInteractionConfigs(interactions),
   })
 }
 
 export function buildInteractionDefinitions(
-  customInteractions: readonly CatPetCustomInteractionConfig[]
+  interactionConfigs: readonly CatPetInteractionConfig[],
+  affection: number
 ): CatPetInteractionDefinition[] {
-  const customById = new Map(
-    normalizeCustomInteractions(customInteractions).map((item) => [item.id, item])
+  const configById = new Map(
+    normalizeCatPetInteractionConfigs(interactionConfigs).map((item) => [item.id, item])
   )
+  const affectionValue = clampAffection(affection)
 
   return CAT_PET_ACTIONS.map((id) => {
     const template = ACTION_TEMPLATES[id]
-    const custom = template.customizable ? customById.get(id as CatPetCustomAction) : undefined
+    const config = configById.get(id)
+    const unlockAffection = CAT_PET_UNLOCK_AFFECTION[id]
+    const label = config?.label?.trim() || id
+    const feedback = {
+      positive: config?.positiveFeedback?.trim() || label,
+      negative: config?.negativeFeedback?.trim() || label,
+    }
     return {
       id,
-      risk: template.risk,
-      enabled: custom?.enabled ?? true,
+      enabled: config?.enabled !== false,
+      unlocked: affectionValue >= unlockAffection,
       customizable: template.customizable,
+      unlockAffection,
       dailyLimit: CAT_PET_DAILY_LIMITS[id],
       positive: template.positive,
       negative: template.negative,
       positiveProbability: template.positiveProbability,
-      label: custom?.label,
-      description: custom?.description,
+      label,
+      description: config?.description,
+      feedback,
     }
   })
 }
 
 export function interactionDefinitionForAction(
   action: CatPetAction,
-  customInteractions: readonly CatPetCustomInteractionConfig[]
+  interactionConfigs: readonly CatPetInteractionConfig[],
+  affection: number
 ): CatPetInteractionDefinition | undefined {
-  return buildInteractionDefinitions(customInteractions).find((item) => item.id === action)
+  return buildInteractionDefinitions(interactionConfigs, affection).find(
+    (item) => item.id === action
+  )
 }
 
 export function resolveInteractionOutcome(input: {
   action: CatPetAction
   vitals: PetVitals
-  customInteractions: readonly CatPetCustomInteractionConfig[]
+  interactionConfigs: readonly CatPetInteractionConfig[]
   random: number
 }): PetInteractionOutcome | undefined {
   if (!isCatPetAction(input.action)) {
     return undefined
   }
 
-  const definition = interactionDefinitionForAction(input.action, input.customInteractions)
-  if (!definition?.enabled) {
+  const definition = interactionDefinitionForAction(
+    input.action,
+    input.interactionConfigs,
+    input.vitals.affection
+  )
+  if (!definition?.enabled || !definition.unlocked) {
     return undefined
   }
 
-  const probability = adjustedPositiveProbability(definition, input.vitals)
+  const template = ACTION_TEMPLATES[input.action]
+  const probability = adjustedPositiveProbability(template, definition, input.vitals)
   const positive = input.random < probability
   const effect = positive ? definition.positive : definition.negative
   const affectionBefore = clampAffection(input.vitals.affection)
@@ -216,7 +191,6 @@ export function resolveInteractionOutcome(input: {
 
   return {
     action: input.action,
-    risk: definition.risk,
     outcome: positive ? 'positive' : 'negative',
     affectionDelta: affectionAfter - affectionBefore,
     moodDelta: moodScoreAfter - moodScoreBefore,
@@ -227,6 +201,7 @@ export function resolveInteractionOutcome(input: {
     moodScoreBefore,
     moodScoreAfter,
     positiveProbability: probability,
+    feedback: positive ? definition.feedback.positive : definition.feedback.negative,
   }
 }
 
@@ -298,7 +273,7 @@ export function petChatRuntimeInstruction(state: CatPetState): string {
   const moodText = petMoodText(state.mood)
   return [
     '桌宠养成状态会轻微影响你的回复方式，但不要机械复述数值，除非用户主动询问。',
-    `当前心情：${moodText}；好感度：${state.affection}/${state.affectionMax}；心情值：${state.moodScore}/${state.moodMax}。`,
+    `当前心情：${moodText}；好感度：${state.affection}/${state.affectionMax}。`,
     away ? `用户上次离开到这次启动约 ${away}。` : '',
     '回复时保持当前角色设定：心情低落时可以更柔软、委屈或别扭一点；心情好时可以更轻快亲近；不要夸张表演，不要责备用户。',
     '如果用户进行了桌宠互动或提到陪伴状态，可以自然承接互动带来的情绪变化。',
@@ -308,33 +283,29 @@ export function petChatRuntimeInstruction(state: CatPetState): string {
 }
 
 function adjustedPositiveProbability(
+  template: InteractionTemplate,
   definition: CatPetInteractionDefinition,
   vitals: PetVitals
 ): number {
   const affectionBias = ((clampAffection(vitals.affection) - 100) / 100) * 0.08
   const moodBias = (clampMoodScore(vitals.moodScore) / 100) * 0.1
-  const highRiskBadMoodPenalty =
-    definition.risk === 'high' && vitals.moodScore < -20 ? Math.abs(vitals.moodScore) / 500 : 0
-  const lowRiskBadMoodLift =
-    definition.risk === 'low' && vitals.moodScore < -35 ? Math.abs(vitals.moodScore) / 800 : 0
+  const deepBadMoodPenalty =
+    template.intensity === 'deep' && vitals.moodScore < -20 ? Math.abs(vitals.moodScore) / 500 : 0
+  const softBadMoodLift =
+    template.intensity === 'soft' && vitals.moodScore < -35 ? Math.abs(vitals.moodScore) / 800 : 0
+  const lockedProximityLift =
+    definition.unlockAffection > 0 && vitals.affection >= definition.unlockAffection ? 0.02 : 0
 
   return clamp(
     definition.positiveProbability +
       affectionBias +
       moodBias -
-      highRiskBadMoodPenalty +
-      lowRiskBadMoodLift,
+      deepBadMoodPenalty +
+      softBadMoodLift +
+      lockedProximityLift,
     0.12,
     0.96
   )
-}
-
-function normalizeOptionalText(value: string | undefined, maxLength: number): string | undefined {
-  const trimmed = value?.replace(/\s+/g, ' ').trim()
-  if (!trimmed) {
-    return undefined
-  }
-  return trimmed.slice(0, maxLength)
 }
 
 function petMoodText(mood: CatPetMood): string {

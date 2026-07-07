@@ -31,6 +31,7 @@ export function registerSettingsIpcHandlers(options: IpcHandlerOptions): void {
         const config = isSaveSettingsRequest(request) ? request.config : request
         const saved = runtime.configStore.save(config)
         syncActiveCompanionRoleAppearance(options, saved)
+        runtime.catPetManager.emitConfigChanged()
         runtime.cronManager.reloadSettings()
         options.onSettingsChanged('save', saved)
         return saved
@@ -40,6 +41,7 @@ export function registerSettingsIpcHandlers(options: IpcHandlerOptions): void {
     settingsResult(options, () => {
       const saved = runtime.configStore.reset()
       syncActiveCompanionRoleAppearance(options, saved)
+      runtime.catPetManager.emitConfigChanged()
       runtime.cronManager.reloadSettings()
       options.onSettingsChanged('reset', saved)
       return saved

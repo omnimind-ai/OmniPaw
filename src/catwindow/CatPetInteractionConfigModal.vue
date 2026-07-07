@@ -1,10 +1,10 @@
 <script setup lang="ts">
-import type {
-  CatPetCustomAction,
-  CatPetCustomInteractionConfig,
-  CatPetInteractionRisk,
+import type { CatPetInteractionConfig, CatPetInteractionDefinition } from '@shared/types/cat-pet'
+import {
+  CAT_PET_ACTIONS,
+  defaultCatPetInteractionConfigs,
+  normalizeCatPetInteractionConfigs,
 } from '@shared/types/cat-pet'
-import { CAT_PET_CUSTOM_ACTIONS } from '@shared/types/cat-pet'
 import { Settings2Icon } from 'lucide-vue-next'
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
@@ -23,18 +23,19 @@ import { Switch } from '@/components/ui/switch'
 
 const props = defineProps<{
   open: boolean
-  customInteractions: CatPetCustomInteractionConfig[]
+  interactionConfigs: CatPetInteractionConfig[]
+  interactions: CatPetInteractionDefinition[]
   saving?: boolean
 }>()
 
 const emit = defineEmits<{
   'update:open': [value: boolean]
-  save: [items: CatPetCustomInteractionConfig[]]
+  save: [items: CatPetInteractionConfig[]]
 }>()
 
 const { t } = useI18n()
 
-const draft = ref<CatPetCustomInteractionConfig[]>([])
+const draft = ref<CatPetInteractionConfig[]>([])
 
 const openModel = computed({
   get: () => props.open,
@@ -42,63 +43,55 @@ const openModel = computed({
 })
 
 watch(
-  () => [props.open, props.customInteractions] as const,
+  () => [props.open, props.interactionConfigs] as const,
   () => {
     if (!props.open) return
-    draft.value = CAT_PET_CUSTOM_ACTIONS.map((id) => {
-      const item = props.customInteractions.find((entry) => entry.id === id)
-      return {
-        id,
-        enabled: item?.enabled !== false,
-        label: item?.label ?? '',
-        description: item?.description ?? '',
-      }
-    })
+    draft.value = normalizeCatPetInteractionConfigs(props.interactionConfigs)
   },
   { immediate: true }
 )
 
-function riskForAction(action: CatPetCustomAction): CatPetInteractionRisk {
-  if (action === 'custom_high') return 'high'
-  if (action === 'custom_medium') return 'medium'
-  return 'low'
+function definitionFor(item: CatPetInteractionConfig): CatPetInteractionDefinition | undefined {
+  return props.interactions.find((entry) => entry.id === item.id)
 }
 
-function labelForAction(action: CatPetCustomAction): string {
-  return t(`catPet.action.${action}`)
+function fallbackFor(item: CatPetInteractionConfig): CatPetInteractionConfig {
+  return defaultCatPetInteractionConfigs().find((entry) => entry.id === item.id) ?? item
 }
 
-function riskLabel(action: CatPetCustomAction): string {
-  return t(`catPet.risk.${riskForAction(action)}`)
+function titleFor(item: CatPetInteractionConfig, index: number): string {
+  return (
+    item.label?.trim() || fallbackFor(item).label || t('catPet.config.slot', { index: index + 1 })
+  )
 }
 
-function updateLabel(index: number, value: string): void {
+function descriptionFor(item: CatPetInteractionConfig): string {
+  const definition = definitionFor(item)
+  if (definition?.unlockAffection) {
+    return t('catPet.config.unlockAt', { count: definition.unlockAffection })
+  }
+  return t('catPet.config.availableNow')
+}
+
+function updateItem(index: number, patch: Partial<CatPetInteractionConfig>): void {
   const next = [...draft.value]
-  next[index] = { ...next[index], label: value }
-  draft.value = next
-}
-
-function updateDescription(index: number, value: string): void {
-  const next = [...draft.value]
-  next[index] = { ...next[index], description: value }
-  draft.value = next
-}
-
-function updateEnabled(index: number, value: boolean): void {
-  const next = [...draft.value]
-  next[index] = { ...next[index], enabled: value }
+  next[index] = { ...next[index], ...patch }
   draft.value = next
 }
 
 function handleSave(): void {
   emit(
     'save',
-    draft.value.map((item) => ({
-      id: item.id,
-      enabled: item.enabled,
-      label: item.label?.trim() || undefined,
-      description: item.description?.trim() || undefined,
-    }))
+    normalizeCatPetInteractionConfigs(
+      draft.value.map((item) => ({
+        id: item.id,
+        enabled: item.enabled !== false,
+        label: item.label?.trim() || undefined,
+        description: item.description?.trim() || undefined,
+        positiveFeedback: item.positiveFeedback?.trim() || undefined,
+        negativeFeedback: item.negativeFeedback?.trim() || undefined,
+      }))
+    )
   )
 }
 </script>
@@ -124,35 +117,49 @@ function handleSave(): void {
         >
           <div class="flex items-start justify-between gap-3">
             <div class="min-w-0">
-              <FieldLabel :for="`cat-pet-custom-${item.id}`">
-                {{ labelForAction(item.id) }}
+              <FieldLabel :for="`cat-pet-interaction-${item.id}`">
+                {{ titleFor(item, index) }}
               </FieldLabel>
               <FieldDescription>
-                {{ riskLabel(item.id) }} · {{ t(`catPet.config.effect.${riskForAction(item.id)}`) }}
+                {{ descriptionFor(item) }}
               </FieldDescription>
             </div>
             <Switch
-              :id="`cat-pet-custom-enabled-${item.id}`"
-              :model-value="item.enabled"
-              :aria-label="t('catPet.config.enabledAria', { name: labelForAction(item.id) })"
-              @update:model-value="updateEnabled(index, Boolean($event))"
+              :id="`cat-pet-interaction-enabled-${item.id}`"
+              :model-value="item.enabled !== false"
+              :aria-label="t('catPet.config.enabledAria', { name: titleFor(item, index) })"
+              @update:model-value="updateItem(index, { enabled: Boolean($event) })"
             />
           </div>
 
           <Input
-            :id="`cat-pet-custom-${item.id}`"
+            :id="`cat-pet-interaction-${item.id}`"
             :model-value="item.label"
-            :placeholder="labelForAction(item.id)"
+            :placeholder="fallbackFor(item).label"
             maxlength="18"
             :disabled="saving"
-            @update:model-value="updateLabel(index, String($event))"
+            @update:model-value="updateItem(index, { label: String($event) })"
           />
           <Input
             :model-value="item.description"
             :placeholder="t('catPet.config.hintPlaceholder')"
             maxlength="80"
             :disabled="saving"
-            @update:model-value="updateDescription(index, String($event))"
+            @update:model-value="updateItem(index, { description: String($event) })"
+          />
+          <Input
+            :model-value="item.positiveFeedback"
+            :placeholder="t('catPet.config.positivePlaceholder')"
+            maxlength="120"
+            :disabled="saving"
+            @update:model-value="updateItem(index, { positiveFeedback: String($event) })"
+          />
+          <Input
+            :model-value="item.negativeFeedback"
+            :placeholder="t('catPet.config.negativePlaceholder')"
+            maxlength="120"
+            :disabled="saving"
+            @update:model-value="updateItem(index, { negativeFeedback: String($event) })"
           />
         </Field>
       </FieldGroup>
@@ -168,7 +175,7 @@ function handleSave(): void {
         </Button>
         <Button
           type="button"
-          :disabled="saving"
+          :disabled="saving || draft.length !== CAT_PET_ACTIONS.length"
           @click="handleSave"
         >
           {{ t('catPet.config.save') }}

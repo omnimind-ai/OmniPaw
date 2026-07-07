@@ -211,6 +211,31 @@ export function createCoreRuntime(options: CoreRuntimeOptions): CoreRuntime {
   const catPetManager = new CatPetManager({
     repo: catPetRepo,
     onChanged: options.onCatPetChanged,
+    interactionConfigs: () => activeCompanionRole(configStore.get())?.petInteractions,
+    saveInteractionConfigs: (petInteractions) => {
+      const config = configStore.get()
+      const role =
+        config.app.companionRoles.find((item) => item.id === config.app.activeCompanionRoleId) ??
+        config.app.companionRoles[0]
+      if (!role) {
+        return
+      }
+      const saved = configStore.save({
+        ...config,
+        app: {
+          ...config.app,
+          companionRoles: config.app.companionRoles.map((item) =>
+            item.id === role.id
+              ? {
+                  ...item,
+                  petInteractions,
+                }
+              : item
+          ),
+        },
+      })
+      options.onSettingsChanged('save', saved)
+    },
     logger: coreLogger.child({ scope: 'cat.pet' }),
   })
   catPetManager.recordLaunch()
@@ -645,9 +670,7 @@ function syncStartupCompanionRoleAppearance(
   config: DesktopSettingsConfig,
   lifecycleLogger: Logger
 ): void {
-  const activeRole =
-    config.app.companionRoles.find((role) => role.id === config.app.activeCompanionRoleId) ??
-    config.app.companionRoles[0]
+  const activeRole = activeCompanionRole(config)
   const packId = activeRole?.appearancePackId?.trim()
   if (!packId) {
     return
@@ -662,6 +685,15 @@ function syncStartupCompanionRoleAppearance(
       error: error instanceof Error ? error.message : String(error),
     })
   }
+}
+
+function activeCompanionRole(
+  config: DesktopSettingsConfig
+): DesktopSettingsConfig['app']['companionRoles'][number] | undefined {
+  return (
+    config.app.companionRoles.find((role) => role.id === config.app.activeCompanionRoleId) ??
+    config.app.companionRoles[0]
+  )
 }
 
 function loadStartupProviderRegistry(

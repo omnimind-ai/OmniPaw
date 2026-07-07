@@ -1,4 +1,10 @@
 import { redactSensitiveText } from '@core/logging/redaction'
+import {
+  CAT_PET_ACTIONS,
+  defaultCatPetInteractionConfigs,
+  isCatPetAction,
+  normalizeCatPetInteractionConfigs,
+} from '@shared/types/cat-pet'
 import type { ContextAttachmentPolicy, ToolProfile } from '@shared/types/chat'
 import type {
   CompanionRoleKnowledgeEntry,
@@ -79,6 +85,7 @@ const defaultCompanionRole: DesktopCompanionRoleSettings = {
     exampleDialogue: '',
     finalInstructions: '',
   },
+  petInteractions: defaultCatPetInteractionConfigs(),
   knowledgeSettings: {
     scanDepth: 8,
     maxTokens: 900,
@@ -829,6 +836,11 @@ function validateCompanionRole(
     )
     validateCompanionRoleSource(settings.source, `${basePath}.source`, issues)
     validateCompanionRoleAdvancedSettings(settings.advanced, `${basePath}.advanced`, issues)
+    validateCompanionRolePetInteractions(
+      settings.petInteractions,
+      `${basePath}.petInteractions`,
+      issues
+    )
     if (
       settings.defaultProviderId !== undefined &&
       typeof settings.defaultProviderId !== 'string'
@@ -860,6 +872,76 @@ function validateCompanionRole(
       message: 'Active companion role ID must reference an existing role.',
       code: 'invalid_reference',
     })
+  }
+}
+
+function validateCompanionRolePetInteractions(
+  interactions: DesktopCompanionRoleSettings['petInteractions'],
+  basePath: string,
+  issues: SettingsValidationIssue[]
+): void {
+  if (!Array.isArray(interactions)) {
+    issues.push({
+      path: basePath,
+      message: 'Companion role pet interactions must be an array.',
+      code: 'invalid_type',
+    })
+    return
+  }
+
+  const ids = new Set<string>()
+  for (const [index, interaction] of interactions.entries()) {
+    const itemPath = `${basePath}[${index}]`
+    if (!isPlainObject(interaction)) {
+      issues.push({
+        path: itemPath,
+        message: 'Companion role pet interaction must be an object.',
+        code: 'invalid_type',
+      })
+      continue
+    }
+    if (!isCatPetAction(interaction.id)) {
+      issues.push({
+        path: `${itemPath}.id`,
+        message: 'Companion role pet interaction ID is invalid.',
+        code: 'invalid_enum',
+      })
+    } else if (ids.has(interaction.id)) {
+      issues.push({
+        path: `${itemPath}.id`,
+        message: 'Companion role pet interaction IDs must be unique.',
+        code: 'duplicate_id',
+      })
+    } else {
+      ids.add(interaction.id)
+    }
+    if (interaction.enabled !== undefined && typeof interaction.enabled !== 'boolean') {
+      issues.push({
+        path: `${itemPath}.enabled`,
+        message: 'Companion role pet interaction enabled flag must be boolean.',
+        code: 'invalid_type',
+      })
+    }
+    for (const field of ['label', 'description', 'positiveFeedback', 'negativeFeedback'] as const) {
+      if (interaction[field] !== undefined && typeof interaction[field] !== 'string') {
+        issues.push({
+          path: `${itemPath}.${field}`,
+          message: 'Companion role pet interaction text fields must be strings.',
+          code: 'invalid_type',
+        })
+      }
+    }
+  }
+
+  for (const action of CAT_PET_ACTIONS) {
+    if (!ids.has(action)) {
+      issues.push({
+        path: basePath,
+        message: 'Companion role pet interactions must include every supported interaction.',
+        code: 'missing_id',
+      })
+      return
+    }
   }
 }
 
@@ -2319,6 +2401,9 @@ function normalizeCompanionRoleSettings(
         ? rawValue.proactiveStyle
         : defaults.proactiveStyle,
     advanced: normalizeCompanionRoleAdvancedSettings(rawValue.advanced),
+    petInteractions: normalizeCatPetInteractionConfigs(
+      rawValue.petInteractions ?? rawValue.customInteractions
+    ),
     knowledgeSettings: normalizeCompanionRoleKnowledgeSettings(rawValue.knowledgeSettings),
     knowledgeEntries: normalizeCompanionRoleKnowledgeEntries(rawValue.knowledgeEntries),
     source: normalizeCompanionRoleSource(rawValue.source),

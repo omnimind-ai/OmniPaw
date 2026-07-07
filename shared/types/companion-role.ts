@@ -1,4 +1,5 @@
 import type { CatAppearanceEmbeddedPack } from './cat-appearance'
+import type { CatPetInteractionConfig } from './cat-pet'
 import type { ID, UnixMs } from './chat'
 
 export type CompanionRoleCardImportSourceKind = 'json' | 'png' | 'webp' | 'omnipaw-role'
@@ -49,6 +50,7 @@ export interface ImportedCompanionRoleDraft {
   greeting?: string
   alternateGreetings?: string[]
   proactiveStyle?: string
+  petInteractions?: CatPetInteractionConfig[]
   advanced?: {
     enabled?: boolean
     systemPrompt?: string

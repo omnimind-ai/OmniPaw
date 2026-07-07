@@ -1,9 +1,4 @@
-import type {
-  CatPetAction,
-  CatPetInteractionRisk,
-  CatPetMood,
-  CatPetOutcome,
-} from '@shared/types/cat-pet'
+import type { CatPetAction, CatPetMood, CatPetOutcome } from '@shared/types/cat-pet'
 import { isCatPetAction } from '@shared/types/cat-pet'
 import type { DatabaseConnection } from '../client'
 
@@ -27,7 +22,6 @@ export interface CatPetLatestInteractionRow {
   mood_delta?: number | null
   mood_after?: string | null
   mood_score_after?: number | null
-  risk?: string | null
   label?: string | null
 }
 
@@ -49,7 +43,6 @@ export interface CatPetPersistedState {
 
 export interface CatPetInteractionRecord {
   action: CatPetAction
-  risk: CatPetInteractionRisk
   label?: string
   delta: number
   moodDelta: number
@@ -126,7 +119,7 @@ export class CatPetRepo {
     return this.db
       .prepare(
         `SELECT action, delta, outcome, affection_after, performed_at, mood_delta,
-                mood_after, mood_score_after, risk, label
+                mood_after, mood_score_after, label
          FROM cat_pet_interaction_log
          WHERE performed_date = ?
          ORDER BY performed_at DESC
@@ -191,8 +184,8 @@ export class CatPetRepo {
           `INSERT INTO cat_pet_interaction_log
              (action, delta, outcome, affection_before, affection_after, performed_at,
               performed_date, mood_delta, mood_before, mood_after, mood_score_before,
-              mood_score_after, risk, label)
-           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+              mood_score_after, label)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
         )
         .run(
           args.action,
@@ -207,7 +200,6 @@ export class CatPetRepo {
           args.moodAfter,
           args.moodScoreBefore,
           args.moodScoreAfter,
-          args.risk,
           args.label ?? null
         )
     })

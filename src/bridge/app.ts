@@ -37,18 +37,19 @@ import {
   CAT_PET_AFFECTION_DEFAULT,
   CAT_PET_AFFECTION_MAX,
   CAT_PET_AFFECTION_MIN,
-  CAT_PET_CUSTOM_ACTIONS,
   CAT_PET_DAILY_LIMITS,
   CAT_PET_MOOD_DEFAULT,
   CAT_PET_MOOD_MAX,
   CAT_PET_MOOD_MIN,
   type CatPetChangedEvent,
+  type CatPetInteractionConfig,
   type CatPetInteractionDefinition,
   type CatPetPerformRequest,
   type CatPetPerformResponse,
   type CatPetState,
   type CatPetUpdateInteractionsRequest,
   type CatPetUpdateInteractionsResponse,
+  defaultCatPetInteractionConfigs,
   emptyCatPetActionCounters,
   moodFromScore,
 } from '@shared/types/cat-pet'
@@ -252,6 +253,7 @@ export interface BridgeDesktopSettingsConfig {
       greetingMode: 'default' | 'random'
       alternateGreetings: string[]
       proactiveStyle: string
+      petInteractions: CatPetInteractionConfig[]
       advanced: {
         enabled: boolean
         systemPrompt: string
@@ -1341,34 +1343,32 @@ function fallbackCatPetState(): CatPetState {
     todayUsage: emptyCatPetActionCounters(),
     limits: { ...CAT_PET_DAILY_LIMITS },
     interactions: fallbackCatPetInteractions(),
-    customInteractions: CAT_PET_CUSTOM_ACTIONS.map((id) => ({ id, enabled: true })),
+    interactionConfigs: defaultCatPetInteractionConfigs(),
     launchCount: 0,
   }
 }
 
 function fallbackCatPetInteractions(): CatPetInteractionDefinition[] {
+  const configs = new Map(defaultCatPetInteractionConfigs().map((item) => [item.id, item]))
   return CAT_PET_ACTIONS.map((id) => {
-    const risk =
-      id === 'custom_high' ? 'high' : id === 'tease' || id === 'custom_medium' ? 'medium' : 'low'
+    const config = configs.get(id)
+    const unlockAffection = id === 'custom_100' ? 100 : id === 'custom_150' ? 150 : 0
     return {
       id,
-      risk,
       enabled: true,
+      unlocked: CAT_PET_AFFECTION_DEFAULT >= unlockAffection,
       customizable: id.startsWith('custom_'),
+      unlockAffection,
       dailyLimit: CAT_PET_DAILY_LIMITS[id],
-      positive:
-        risk === 'high'
-          ? { affection: 9, mood: 18 }
-          : risk === 'medium'
-            ? { affection: 4, mood: 12 }
-            : { affection: 2, mood: 8 },
-      negative:
-        risk === 'high'
-          ? { affection: -5, mood: -25 }
-          : risk === 'medium'
-            ? { affection: -2, mood: -12 }
-            : { affection: -1, mood: -5 },
-      positiveProbability: risk === 'high' ? 0.48 : risk === 'medium' ? 0.65 : 0.85,
+      positive: id === 'custom_150' ? { affection: 9, mood: 18 } : { affection: 2, mood: 8 },
+      negative: id === 'custom_150' ? { affection: -5, mood: -25 } : { affection: -1, mood: -5 },
+      positiveProbability: id === 'custom_150' ? 0.48 : 0.85,
+      label: config?.label ?? id,
+      description: config?.description,
+      feedback: {
+        positive: config?.positiveFeedback ?? config?.label ?? id,
+        negative: config?.negativeFeedback ?? config?.label ?? id,
+      },
     }
   })
 }
@@ -2122,6 +2122,7 @@ function fallbackSettingsConfig(): BridgeDesktopSettingsConfig {
           greetingMode: 'default',
           alternateGreetings: [],
           proactiveStyle: '适度主动提醒，但不打扰用户专注。',
+          petInteractions: defaultCatPetInteractionConfigs(),
           advanced: {
             enabled: false,
             systemPrompt: '',

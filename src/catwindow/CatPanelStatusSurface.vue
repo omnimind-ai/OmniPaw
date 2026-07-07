@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type {
   CatPetAction,
-  CatPetCustomInteractionConfig,
+  CatPetInteractionConfig,
   CatPetInteractionDefinition,
 } from '@shared/types/cat-pet'
 import {
@@ -13,8 +13,6 @@ import {
   Settings2Icon,
   SmileIcon,
   SparklesIcon,
-  UtensilsIcon,
-  ZapIcon,
 } from 'lucide-vue-next'
 import { storeToRefs } from 'pinia'
 import type { Component } from 'vue'
@@ -45,14 +43,12 @@ const {
   affection,
   affectionMax,
   mood,
-  moodScore,
   interactions,
-  customInteractions,
+  interactionConfigs,
   todayUsage,
   limits,
   recent,
   progressPercent,
-  moodPercent,
   remainingByAction,
   loading,
   performing,
@@ -66,10 +62,8 @@ let appearanceUnsubscribe: BridgeUnsubscribe | undefined
 const actionIcons: Record<CatPetAction, Component> = {
   pat: HandIcon,
   tease: SparklesIcon,
-  feed: UtensilsIcon,
-  custom_low: SmileIcon,
-  custom_medium: HeartIcon,
-  custom_high: ZapIcon,
+  custom_100: SmileIcon,
+  custom_150: HeartIcon,
 }
 
 function applyIdleAsset(url: string | undefined): void {
@@ -99,19 +93,28 @@ onBeforeUnmount(() => {
 })
 
 const moodLabel = computed(() => t(`catPet.mood.${mood.value}`))
-const moodSummary = computed(() => t(`catPet.moodSummary.${mood.value}`))
+const moodEmoji = computed(() => {
+  switch (mood.value) {
+    case 'angry':
+      return '💢'
+    case 'sad':
+      return '💧'
+    case 'down':
+      return '☁️'
+    case 'happy':
+      return '✨'
+    case 'attached':
+      return '💞'
+    default:
+      return '🌿'
+  }
+})
 const awayLabel = computed(() => formatAwayLabel(state.value.awayMs ?? 0))
 
 const recentLabel = computed(() => {
   const value = recent.value
   if (!value) return t('catPet.empty')
-  const action = actionLabel(value.action)
-  const specificKey = `catPet.feedback.${value.action}${value.outcome === 'positive' ? 'Positive' : 'Negative'}`
-  const specific = t(specificKey)
-  if (specific !== specificKey) {
-    return specific
-  }
-  return t(`catPet.feedback.${value.outcome}`, { action })
+  return value.feedback?.trim() || t('catPet.feedbackFallback', { action: value.label })
 })
 
 const recentDeltaClass = computed(() =>
@@ -121,9 +124,7 @@ const recentDeltaClass = computed(() =>
 const recentDeltaText = computed(() => {
   const value = recent.value
   if (!value) return ''
-  const affectionText = value.delta > 0 ? `+${value.delta}` : `${value.delta}`
-  const moodText = value.moodDelta > 0 ? `+${value.moodDelta}` : `${value.moodDelta}`
-  return `${affectionText} / ${moodText}`
+  return value.delta > 0 ? `+${value.delta}` : `${value.delta}`
 })
 
 const moodBadgeVariant = computed<'default' | 'secondary' | 'outline' | 'destructive'>(() => {
@@ -170,24 +171,11 @@ function actionIcon(action: CatPetAction): Component {
 }
 
 function actionLabel(action: CatPetAction): string {
-  const definition = interactions.value.find((item) => item.id === action)
-  if (definition?.customizable && definition.label?.trim()) {
-    return definition.label.trim()
-  }
-  return t(`catPet.action.${action}`)
+  return interactions.value.find((item) => item.id === action)?.label ?? action
 }
 
 function actionHint(action: CatPetInteractionDefinition): string {
-  if (action.description?.trim()) {
-    return action.description.trim()
-  }
-  const key = `catPet.action.${action.id}Hint`
-  const value = t(key)
-  return value === key ? t('catPet.action.defaultHint') : value
-}
-
-function riskLabel(action: CatPetInteractionDefinition): string {
-  return t(`catPet.risk.${action.risk}`)
+  return action.description?.trim() || t('catPet.action.defaultHint')
 }
 
 function actionDisabled(action: CatPetInteractionDefinition): boolean {
@@ -195,14 +183,28 @@ function actionDisabled(action: CatPetInteractionDefinition): boolean {
 }
 
 function actionTitle(action: CatPetInteractionDefinition): string {
+  if (!action.unlocked) {
+    return t('catPet.action.unlockTip', { count: action.unlockAffection })
+  }
   if (remainingByAction.value[action.id] <= 0) {
     return t('catPet.action.limitTip')
   }
   return actionHint(action)
 }
 
+function actionStatus(action: CatPetInteractionDefinition): string {
+  if (!action.unlocked) {
+    return t('catPet.action.unlockShort', { count: action.unlockAffection })
+  }
+  return t('catPet.action.remaining', { count: remainingByAction.value[action.id] })
+}
+
 async function handleAction(action: CatPetInteractionDefinition): Promise<void> {
   if (performing.value) return
+  if (!action.unlocked) {
+    toast.warning(t('catPet.action.unlockTip', { count: action.unlockAffection }))
+    return
+  }
   if (!store.canPerform(action.id)) {
     toast.warning(t('catPet.action.limitTip'))
     return
@@ -214,7 +216,9 @@ async function handleAction(action: CatPetInteractionDefinition): Promise<void> 
       toast.warning(
         response.reason === 'disabled_action'
           ? t('catPet.action.disabledTip')
-          : t('catPet.action.limitTip')
+          : response.reason === 'locked_action'
+            ? t('catPet.action.unlockTip', { count: action.unlockAffection })
+            : t('catPet.action.limitTip')
       )
     }
   } catch (err) {
@@ -230,7 +234,7 @@ async function handleRefresh(): Promise<void> {
   }
 }
 
-async function handleSaveInteractions(items: CatPetCustomInteractionConfig[]): Promise<void> {
+async function handleSaveInteractions(items: CatPetInteractionConfig[]): Promise<void> {
   try {
     await store.updateInteractions(items)
     configOpen.value = false
@@ -321,7 +325,10 @@ function formatAwayLabel(ms: number): string {
         </div>
         <div class="flex flex-col items-center gap-1 text-center">
           <p class="text-xs text-muted-foreground/80">{{ t('catPet.tagline') }}</p>
-          <p class="text-xs text-muted-foreground">{{ moodSummary }}</p>
+          <Badge :variant="moodBadgeVariant">
+            <span aria-hidden="true">{{ moodEmoji }}</span>
+            {{ moodLabel }}
+          </Badge>
           <p
             v-if="awayLabel"
             class="text-xs text-muted-foreground"
@@ -333,15 +340,7 @@ function formatAwayLabel(ms: number): string {
 
       <div class="flex flex-col gap-2">
         <div class="flex items-center justify-between gap-2">
-          <div class="flex min-w-0 items-center gap-2">
-            <span class="text-xs font-medium text-muted-foreground">{{ t('catPet.affection') }}</span>
-            <Badge
-              :variant="moodBadgeVariant"
-              class="shrink-0"
-            >
-              {{ moodLabel }}
-            </Badge>
-          </div>
+          <span class="text-xs font-medium text-muted-foreground">{{ t('catPet.affection') }}</span>
           <span class="text-sm tabular-nums">
             <span class="font-semibold">{{ affection }}</span>
             <span class="text-muted-foreground"> / {{ affectionMax }}</span>
@@ -357,25 +356,6 @@ function formatAwayLabel(ms: number): string {
           <div
             class="h-full rounded-full bg-foreground/70 transition-[width] duration-300 ease-out"
             :style="{ width: `${progressPercent}%` }"
-          />
-        </div>
-      </div>
-
-      <div class="flex flex-col gap-2">
-        <div class="flex items-center justify-between gap-2">
-          <span class="text-xs font-medium text-muted-foreground">{{ t('catPet.moodScore') }}</span>
-          <span class="text-sm font-semibold tabular-nums">{{ moodScore }}</span>
-        </div>
-        <div
-          class="relative h-2 w-full overflow-hidden rounded-full bg-muted"
-          role="progressbar"
-          :aria-valuenow="moodScore"
-          :aria-valuemin="-100"
-          :aria-valuemax="100"
-        >
-          <div
-            class="h-full rounded-full bg-primary/70 transition-[width] duration-300 ease-out"
-            :style="{ width: `${moodPercent}%` }"
           />
         </div>
       </div>
@@ -402,7 +382,7 @@ function formatAwayLabel(ms: number): string {
             :key="`usage-${action.id}`"
             class="flex min-w-0 flex-col gap-1"
           >
-            <span class="truncate text-xs text-muted-foreground">{{ actionLabel(action.id) }}</span>
+            <span class="truncate text-xs text-muted-foreground">{{ action.label }}</span>
             <div class="flex items-center gap-1.5">
               <span class="font-medium tabular-nums">
                 {{ todayUsage[action.id] }} / {{ limits[action.id] }}
@@ -436,13 +416,10 @@ function formatAwayLabel(ms: number): string {
               :is="actionIcon(action.id)"
               data-icon="inline-start"
             />
-            <span class="truncate">{{ actionLabel(action.id) }}</span>
+            <span class="truncate">{{ action.label }}</span>
           </span>
-          <span class="flex max-w-full items-center gap-1 text-xs text-muted-foreground">
-            <span class="truncate">{{ riskLabel(action) }}</span>
-            <span class="tabular-nums">
-              {{ t('catPet.action.remaining', { count: remainingByAction[action.id] }) }}
-            </span>
+          <span class="max-w-full truncate text-xs text-muted-foreground">
+            {{ actionStatus(action) }}
           </span>
         </Button>
       </div>
@@ -463,7 +440,8 @@ function formatAwayLabel(ms: number): string {
 
     <CatPetInteractionConfigModal
       v-model:open="configOpen"
-      :custom-interactions="customInteractions"
+      :interaction-configs="interactionConfigs"
+      :interactions="interactions"
       :saving="savingInteractions"
       @save="handleSaveInteractions"
     />

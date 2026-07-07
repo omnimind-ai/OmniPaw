@@ -1,4 +1,5 @@
 import { writeZipEntries, type ZipArchiveEntry } from '@core/utils/zip'
+import { normalizeCatPetInteractionConfigs } from '@shared/types/cat-pet'
 import type {
   CompanionRoleKnowledgeEntryDraft,
   ExportCompanionRoleCardRequest,
@@ -78,6 +79,7 @@ function normalizeExportedRoleDraft(role: ImportedCompanionRoleDraft): ImportedC
     greeting: normalizeOptionalText(role.greeting),
     alternateGreetings: normalizeStringList(role.alternateGreetings),
     proactiveStyle: normalizeOptionalText(role.proactiveStyle),
+    petInteractions: normalizeCatPetInteractionConfigs(role.petInteractions),
     advanced: role.advanced
       ? {
           enabled: Boolean(role.advanced.enabled),

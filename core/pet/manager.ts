@@ -9,8 +9,8 @@ import {
   type CatPetActionCounters,
   type CatPetChangedEvent,
   type CatPetChangeReason,
-  type CatPetCustomInteractionConfig,
-  type CatPetInteractionRisk,
+  type CatPetInteractionConfig,
+  type CatPetInteractionDefinition,
   type CatPetPerformResponse,
   type CatPetRecentInteraction,
   type CatPetState,
@@ -18,23 +18,25 @@ import {
   type CatPetUpdateInteractionsResponse,
   emptyCatPetActionCounters,
   isCatPetAction,
+  normalizeCatPetInteractionConfigs,
 } from '@shared/types/cat-pet'
 import {
   buildInteractionDefinitions,
   clampAffection,
   clampMoodScore,
-  normalizeCustomInteractions,
   normalizePersistedMood,
-  parseCustomInteractionsJson,
+  parseInteractionConfigsJson,
   petChatRuntimeInstruction,
   resolveInteractionOutcome,
   resolveLaunchEffect,
-  serializeCustomInteractionsJson,
+  serializeInteractionConfigsJson,
 } from './internal/engine'
 
 export interface CatPetManagerOptions {
   repo: CatPetRepo
   onChanged?: (event: CatPetChangedEvent) => void
+  interactionConfigs?: () => readonly CatPetInteractionConfig[] | undefined
+  saveInteractionConfigs?: (configs: CatPetInteractionConfig[]) => void
   logger?: Logger
   randomSource?: () => number
   now?: () => number
@@ -48,6 +50,8 @@ interface BuildStateOptions {
 export class CatPetManager {
   private readonly repo: CatPetRepo
   private readonly onChanged?: (event: CatPetChangedEvent) => void
+  private readonly interactionConfigs?: () => readonly CatPetInteractionConfig[] | undefined
+  private readonly saveInteractionConfigs?: (configs: CatPetInteractionConfig[]) => void
   private readonly logger?: Logger
   private readonly randomSource: () => number
   private readonly nowFn: () => number
@@ -56,6 +60,8 @@ export class CatPetManager {
   constructor(options: CatPetManagerOptions) {
     this.repo = options.repo
     this.onChanged = options.onChanged
+    this.interactionConfigs = options.interactionConfigs
+    this.saveInteractionConfigs = options.saveInteractionConfigs
     this.logger = options.logger
     this.randomSource = options.randomSource ?? Math.random
     this.nowFn = options.now ?? Date.now
@@ -101,17 +107,30 @@ export class CatPetManager {
     this.broadcast('init')
   }
 
+  emitConfigChanged(): void {
+    this.broadcast('config')
+  }
+
   perform(action: CatPetAction): CatPetPerformResponse {
     if (!isCatPetAction(action)) {
       throw new Error(`Unknown cat pet action: ${String(action)}`)
     }
 
     const date = this.localDate()
-    const customInteractions = this.currentCustomInteractions()
-    const definitions = buildInteractionDefinitions(customInteractions)
-    const definition = definitions.find((item) => item.id === action)
+    const interactionConfigs = this.currentInteractionConfigs()
+    const persisted = this.repo.getState()
+    const affection = clampAffection(persisted.affection)
+    const moodScore = clampMoodScore(persisted.moodScore)
+    const mood = normalizePersistedMood(persisted.mood, moodScore, affection)
+    const definition = buildInteractionDefinitions(interactionConfigs, affection).find(
+      (item) => item.id === action
+    )
+
     if (!definition?.enabled) {
       return { ok: false, reason: 'disabled_action', state: this.buildState({ touchSeen: true }) }
+    }
+    if (!definition.unlocked) {
+      return { ok: false, reason: 'locked_action', state: this.buildState({ touchSeen: true }) }
     }
 
     const usage = this.repo.getDailyUsage(date)
@@ -124,14 +143,10 @@ export class CatPetManager {
       }
     }
 
-    const persisted = this.repo.getState()
-    const affection = clampAffection(persisted.affection)
-    const moodScore = clampMoodScore(persisted.moodScore)
-    const mood = normalizePersistedMood(persisted.mood, moodScore, affection)
     const outcome = resolveInteractionOutcome({
       action,
       vitals: { affection, mood, moodScore },
-      customInteractions,
+      interactionConfigs,
       random: this.randomSource(),
     })
     if (!outcome) {
@@ -141,7 +156,6 @@ export class CatPetManager {
     const performedAt = this.nowFn()
     const record = this.repo.applyInteraction({
       action,
-      risk: outcome.risk,
       label: definition.label,
       delta: outcome.affectionDelta,
       moodDelta: outcome.moodDelta,
@@ -158,8 +172,8 @@ export class CatPetManager {
 
     const result: CatPetRecentInteraction = {
       action,
-      risk: record.risk,
-      label: record.label,
+      label: record.label ?? definition.label,
+      feedback: outcome.feedback,
       delta: record.delta,
       moodDelta: record.moodDelta,
       outcome: record.outcome,
@@ -170,7 +184,6 @@ export class CatPetManager {
 
     this.logger?.debug('Cat pet interaction recorded.', {
       action,
-      risk: outcome.risk,
       outcome: outcome.outcome,
       affectionDelta: outcome.affectionDelta,
       moodDelta: outcome.moodDelta,
@@ -185,9 +198,12 @@ export class CatPetManager {
   }
 
   updateInteractions(request: CatPetUpdateInteractionsRequest): CatPetUpdateInteractionsResponse {
-    const customInteractions = normalizeCustomInteractions(request.customInteractions)
+    const interactionConfigs = normalizeCatPetInteractionConfigs(
+      request.interactions ?? request.customInteractions
+    )
+    this.saveInteractionConfigs?.(interactionConfigs)
     this.repo.saveCustomInteractions({
-      json: serializeCustomInteractionsJson(customInteractions),
+      json: serializeInteractionConfigsJson(interactionConfigs),
       now: this.nowFn(),
     })
     const state = this.buildState({ touchSeen: true })
@@ -200,8 +216,8 @@ export class CatPetManager {
     const affection = clampAffection(persisted.affection)
     const moodScore = clampMoodScore(persisted.moodScore)
     const mood = normalizePersistedMood(persisted.mood, moodScore, affection)
-    const customInteractions = parseCustomInteractionsJson(persisted.customInteractionsJson)
-    const interactions = buildInteractionDefinitions(customInteractions)
+    const interactionConfigs = this.currentInteractionConfigs()
+    const interactions = buildInteractionDefinitions(interactionConfigs, affection)
     const date = this.localDate()
     const usage = completeCounters(options.usageOverride ?? this.repo.getDailyUsage(date))
     const limits = completeCounters(
@@ -209,7 +225,7 @@ export class CatPetManager {
         Record<CatPetAction, number>
       >
     )
-    const recent = this.latestInteraction(date, customInteractions)
+    const recent = this.latestInteraction(date, interactions)
 
     if (options.touchSeen) {
       this.repo.touchSeen(this.nowFn())
@@ -226,7 +242,7 @@ export class CatPetManager {
       todayUsage: usage,
       limits,
       interactions,
-      customInteractions,
+      interactionConfigs,
       launchCount: persisted.launchCount,
       lastLaunchAt: persisted.lastLaunchAt,
       lastSeenAt: persisted.lastSeenAt,
@@ -237,21 +253,21 @@ export class CatPetManager {
 
   private latestInteraction(
     date: string,
-    customInteractions: readonly CatPetCustomInteractionConfig[]
+    interactions: readonly CatPetInteractionDefinition[]
   ): CatPetRecentInteraction | undefined {
     const row = this.repo.getLatestInteraction(date)
     if (!row || !isCatPetAction(row.action)) {
       return undefined
     }
 
-    const definition = buildInteractionDefinitions(customInteractions).find(
-      (item) => item.id === row.action
-    )
+    const definition = interactions.find((item) => item.id === row.action)
     const moodAfter = clampMoodScore(row.mood_score_after ?? 0)
+    const label = row.label ?? definition?.label ?? row.action
+    const feedback = definition?.feedback[row.outcome]
     return {
       action: row.action,
-      risk: normalizeRisk(row.risk, definition?.risk),
-      label: row.label ?? definition?.label,
+      label,
+      feedback,
       delta: row.delta,
       moodDelta: row.mood_delta ?? 0,
       outcome: row.outcome,
@@ -261,8 +277,12 @@ export class CatPetManager {
     }
   }
 
-  private currentCustomInteractions(): CatPetCustomInteractionConfig[] {
-    return parseCustomInteractionsJson(this.repo.getState().customInteractionsJson)
+  private currentInteractionConfigs(): CatPetInteractionConfig[] {
+    const fromRole = this.interactionConfigs?.()
+    if (fromRole) {
+      return normalizeCatPetInteractionConfigs(fromRole)
+    }
+    return parseInteractionConfigsJson(this.repo.getState().customInteractionsJson)
   }
 
   private broadcast(reason: CatPetChangeReason): void {
@@ -296,11 +316,4 @@ function completeCounters(values: Partial<Record<CatPetAction, number>>): CatPet
     }
   }
   return counters
-}
-
-function normalizeRisk(
-  value: string | null | undefined,
-  fallback: CatPetInteractionRisk | undefined
-): CatPetInteractionRisk {
-  return value === 'low' || value === 'medium' || value === 'high' ? value : (fallback ?? 'low')
 }

@@ -27,7 +27,10 @@ export function registerCatPetIpcHandlers(options: IpcHandlerOptions): void {
     options,
     IPC_CHANNELS.catPet.updateInteractions,
     (_event, request: CatPetUpdateInteractionsRequest) => {
-      if (!request || !Array.isArray(request.customInteractions)) {
+      if (
+        !request ||
+        (!Array.isArray(request.interactions) && !Array.isArray(request.customInteractions))
+      ) {
         throw new Error('Invalid cat pet interaction config request.')
       }
       return options.runtime.catPetManager.updateInteractions(request)

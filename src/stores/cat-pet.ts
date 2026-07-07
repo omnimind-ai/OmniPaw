@@ -2,7 +2,8 @@ import type {
   CatPetAction,
   CatPetActionCounters,
   CatPetChangedEvent,
-  CatPetCustomInteractionConfig,
+  CatPetInteractionConfig,
+  CatPetInteractionDefinition,
   CatPetMood,
   CatPetPerformResponse,
   CatPetRecentInteraction,
@@ -14,11 +15,11 @@ import {
   CAT_PET_AFFECTION_DEFAULT,
   CAT_PET_AFFECTION_MAX,
   CAT_PET_AFFECTION_MIN,
-  CAT_PET_CUSTOM_ACTIONS,
   CAT_PET_DAILY_LIMITS,
   CAT_PET_MOOD_DEFAULT,
   CAT_PET_MOOD_MAX,
   CAT_PET_MOOD_MIN,
+  defaultCatPetInteractionConfigs,
   emptyCatPetActionCounters,
   moodFromScore,
 } from '@shared/types/cat-pet'
@@ -28,6 +29,29 @@ import { appBridge, type BridgeUnsubscribe } from '@/bridge/app'
 
 function fallbackState(): CatPetState {
   const moodScore = CAT_PET_MOOD_DEFAULT
+  const configs = new Map(defaultCatPetInteractionConfigs().map((item) => [item.id, item]))
+  const interactions: CatPetInteractionDefinition[] = CAT_PET_ACTIONS.map((id) => {
+    const unlockAffection = id === 'custom_100' ? 100 : id === 'custom_150' ? 150 : 0
+    const config = configs.get(id)
+    return {
+      id,
+      enabled: true,
+      unlocked: CAT_PET_AFFECTION_DEFAULT >= unlockAffection,
+      customizable: id.startsWith('custom_'),
+      unlockAffection,
+      dailyLimit: CAT_PET_DAILY_LIMITS[id],
+      positive: { affection: 1, mood: 4 },
+      negative: { affection: 0, mood: -2 },
+      positiveProbability: 0.8,
+      label: config?.label ?? id,
+      description: config?.description,
+      feedback: {
+        positive: config?.positiveFeedback ?? config?.label ?? id,
+        negative: config?.negativeFeedback ?? config?.label ?? id,
+      },
+    }
+  })
+
   return {
     affection: CAT_PET_AFFECTION_DEFAULT,
     affectionMax: CAT_PET_AFFECTION_MAX,
@@ -38,18 +62,8 @@ function fallbackState(): CatPetState {
     moodMin: CAT_PET_MOOD_MIN,
     todayUsage: emptyCatPetActionCounters(),
     limits: { ...CAT_PET_DAILY_LIMITS },
-    interactions: CAT_PET_ACTIONS.map((id) => ({
-      id,
-      risk:
-        id === 'custom_high' ? 'high' : id === 'tease' || id === 'custom_medium' ? 'medium' : 'low',
-      enabled: true,
-      customizable: id.startsWith('custom_'),
-      dailyLimit: CAT_PET_DAILY_LIMITS[id],
-      positive: { affection: 1, mood: 4 },
-      negative: { affection: 0, mood: -2 },
-      positiveProbability: 0.8,
-    })),
-    customInteractions: CAT_PET_CUSTOM_ACTIONS.map((id) => ({ id, enabled: true })),
+    interactions,
+    interactionConfigs: defaultCatPetInteractionConfigs(),
     launchCount: 0,
   }
 }
@@ -68,25 +82,16 @@ export const useCatPetStore = defineStore('catPet', () => {
   const affectionMin = computed(() => state.value.affectionMin)
   const mood = computed<CatPetMood>(() => state.value.mood)
   const moodScore = computed(() => state.value.moodScore)
-  const moodMax = computed(() => state.value.moodMax)
-  const moodMin = computed(() => state.value.moodMin)
   const todayUsage = computed(() => state.value.todayUsage)
   const limits = computed(() => state.value.limits)
   const interactions = computed(() => state.value.interactions)
-  const customInteractions = computed(() => state.value.customInteractions)
+  const interactionConfigs = computed(() => state.value.interactionConfigs)
   const recent = computed<CatPetRecentInteraction | undefined>(() => state.value.recent)
 
   const progressPercent = computed(() => {
     const range = affectionMax.value - affectionMin.value
     if (range <= 0) return 0
     const normalized = (affection.value - affectionMin.value) / range
-    return Math.max(0, Math.min(1, normalized)) * 100
-  })
-
-  const moodPercent = computed(() => {
-    const range = moodMax.value - moodMin.value
-    if (range <= 0) return 50
-    const normalized = (moodScore.value - moodMin.value) / range
     return Math.max(0, Math.min(1, normalized)) * 100
   })
 
@@ -148,7 +153,7 @@ export const useCatPetStore = defineStore('catPet', () => {
   }
 
   async function updateInteractions(
-    customInteractionsInput: CatPetCustomInteractionConfig[]
+    interactionsInput: CatPetInteractionConfig[]
   ): Promise<CatPetUpdateInteractionsResponse> {
     if (!appBridge.catPet?.updateInteractions) {
       throw new Error('Cat pet interaction settings are not available.')
@@ -157,7 +162,7 @@ export const useCatPetStore = defineStore('catPet', () => {
     error.value = null
     try {
       const response = await appBridge.catPet.updateInteractions({
-        customInteractions: customInteractionsInput,
+        interactions: interactionsInput,
       })
       state.value = response.state
       return response
@@ -171,7 +176,9 @@ export const useCatPetStore = defineStore('catPet', () => {
 
   function canPerform(action: CatPetAction): boolean {
     const definition = interactions.value.find((item) => item.id === action)
-    return Boolean(definition?.enabled && remainingByAction.value[action] > 0)
+    return Boolean(
+      definition?.enabled && definition.unlocked && remainingByAction.value[action] > 0
+    )
   }
 
   function subscribe(): void {
@@ -197,15 +204,12 @@ export const useCatPetStore = defineStore('catPet', () => {
     affectionMin,
     mood,
     moodScore,
-    moodMax,
-    moodMin,
     todayUsage,
     limits,
     interactions,
-    customInteractions,
+    interactionConfigs,
     recent,
     progressPercent,
-    moodPercent,
     remainingByAction,
     remainingPat,
     remainingTease,
