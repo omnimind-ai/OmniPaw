@@ -1,6 +1,6 @@
 import type { CatPetRepo } from '@core/db/repos/cat-pet-repo'
 import type { Logger } from '@core/logging'
-import { normalizePetInteractionConfigs } from '@core/pet/presets'
+import { normalizePetInteractionConfigs } from '@core/role/presets'
 import {
   CAT_PET_AFFECTION_MAX,
   CAT_PET_AFFECTION_MIN,
@@ -30,7 +30,7 @@ import {
   resolveInteractionOutcome,
   resolveLaunchEffect,
   serializeInteractionConfigsJson,
-} from './internal/engine'
+} from './engine'
 
 export interface CatPetManagerOptions {
   repo: CatPetRepo

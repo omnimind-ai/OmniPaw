@@ -1,4 +1,4 @@
-import { normalizePetInteractionConfigs } from '@core/pet/presets'
+import { normalizePetInteractionConfigs } from '@core/role/presets'
 import { writeZipEntries, type ZipArchiveEntry } from '@core/utils/zip'
 import type {
   CompanionRoleKnowledgeEntryDraft,

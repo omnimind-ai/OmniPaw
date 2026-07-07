@@ -1,16 +1,15 @@
-import type { DesktopCompanionRoleSettings } from '@shared/types/settings'
-
-import { BUILTIN_CAT_APPEARANCE_PACK_ID } from './appearance'
-import { createDefaultPetInteractionConfigs } from './interactions'
+import { defaultCatPetInteractionConfigs } from './types/cat-pet'
+import type { DesktopCompanionRoleSettings } from './types/settings'
 
 export const XIAOWAN_COMPANION_ROLE_ID = 'default'
+export const XIAOWAN_APPEARANCE_PACK_ID = 'builtin'
 
 export function createXiaowanCompanionRolePreset(): DesktopCompanionRoleSettings {
   return {
     id: XIAOWAN_COMPANION_ROLE_ID,
     enabled: true,
     name: '小万',
-    appearancePackId: BUILTIN_CAT_APPEARANCE_PACK_ID,
+    appearancePackId: XIAOWAN_APPEARANCE_PACK_ID,
     userNickname: '',
     personality: '温柔、可靠、带一点轻松感',
     speechStyle: '简短、自然、日常感',
@@ -27,7 +26,7 @@ export function createXiaowanCompanionRolePreset(): DesktopCompanionRoleSettings
       exampleDialogue: '',
       finalInstructions: '',
     },
-    petInteractions: createDefaultPetInteractionConfigs(),
+    petInteractions: defaultCatPetInteractionConfigs(),
     knowledgeSettings: {
       scanDepth: 8,
       maxTokens: 900,

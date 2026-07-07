@@ -1,3 +1,4 @@
+import { createXiaowanCompanionRolePreset, XIAOWAN_COMPANION_ROLE_ID } from '@shared/role-presets'
 import type { AppInfo, OpenChatSessionRequest, OpenDirectoryResponse } from '@shared/types/app'
 import type {
   CatBounds,
@@ -145,10 +146,6 @@ import type {
 import type { DesktopShortcutSettings, ShortcutStatusChangedEvent } from '@shared/types/shortcuts'
 import { SHORTCUT_ACTIONS } from '@shared/types/shortcuts'
 import type { DesktopWindowState, DesktopWindowStateChangedEvent } from '@shared/types/window'
-import {
-  createXiaowanCompanionRolePreset,
-  XIAOWAN_COMPANION_ROLE_ID,
-} from '../../core/pet/presets/xiaowan'
 
 export type BridgeUnsubscribe = () => void
 export type BridgeDesktopWindowState = DesktopWindowState

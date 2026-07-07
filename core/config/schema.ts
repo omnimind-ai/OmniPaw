@@ -4,7 +4,7 @@ import {
   createXiaowanCompanionRolePreset,
   isPresetCatPetAction as isCatPetAction,
   normalizePetInteractionConfigs as normalizeCatPetInteractionConfigs,
-} from '@core/pet/presets'
+} from '@core/role/presets'
 import type { ContextAttachmentPolicy, ToolProfile } from '@shared/types/chat'
 import type {
   CompanionRoleKnowledgeEntry,

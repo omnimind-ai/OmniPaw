@@ -3,7 +3,7 @@ import { inflateSync } from 'node:zlib'
 import {
   createDefaultPetInteractionConfigs,
   normalizePetInteractionConfigs,
-} from '@core/pet/presets'
+} from '@core/role/presets'
 import { normalizeArchivePath, readZipEntries, validateArchivePaths } from '@core/utils/zip'
 import type { CatAppearanceEmbeddedPack } from '@shared/types/cat-appearance'
 import type {

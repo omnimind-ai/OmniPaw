@@ -3,11 +3,11 @@ import type {
   ImportCompanionRoleCardRequest,
   ImportCompanionRoleCardResponse,
 } from '@shared/types/companion-role'
-import { exportCompanionRoleCard } from './card-exporter'
-import { importCompanionRoleCard } from './card-importer'
+import { exportCompanionRoleCard } from './exporter'
+import { importCompanionRoleCard } from './importer'
 
-export type { ExportedCompanionRoleCard } from './card-exporter'
-export { CompanionRoleCardImportError } from './card-importer'
+export type { ExportedCompanionRoleCard } from './exporter'
+export { CompanionRoleCardImportError } from './importer'
 
 export class CompanionRoleService {
   importCard(request: ImportCompanionRoleCardRequest): ImportCompanionRoleCardResponse {

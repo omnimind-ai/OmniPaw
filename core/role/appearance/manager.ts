@@ -22,7 +22,7 @@ import {
   BUILTIN_CAT_APPEARANCE_PACK_ID,
   DEFAULT_CAT_APPEARANCE_DURATIONS,
   DEFAULT_CAT_APPEARANCE_LAYOUT,
-} from '@core/pet/presets'
+} from '@core/role/presets'
 import { resolveOmniPawDataPaths, resolveOmniPawDataRoot } from '@core/utils/data-paths'
 import {
   isIgnoredZipEntry,

@@ -7,7 +7,7 @@ import {
   normalizePetInteractionConfigs,
   PET_CHAT_RUNTIME_INSTRUCTION,
   type PetInteractionTemplate,
-} from '@core/pet/presets'
+} from '@core/role/presets'
 import {
   CAT_PET_AFFECTION_DEFAULT,
   CAT_PET_AFFECTION_MAX,

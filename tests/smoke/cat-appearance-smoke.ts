@@ -3,7 +3,7 @@ import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-import { CatAppearanceManager } from '@core/appearance'
+import { CatAppearanceManager } from '@core/role/appearance'
 
 const tempDir = mkdtempSync(join(tmpdir(), 'omnipaw-cat-appearance-'))
 const manager = new CatAppearanceManager({
