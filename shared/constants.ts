@@ -106,6 +106,7 @@ export const IPC_CHANNELS = {
   },
   companionRole: {
     importCard: 'companion-role:import-card',
+    exportCard: 'companion-role:export-card',
   },
   observation: {
     permissionStatus: 'observation:permission-status',

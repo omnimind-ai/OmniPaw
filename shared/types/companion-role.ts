@@ -1,3 +1,4 @@
+import type { CatAppearanceEmbeddedPack } from './cat-appearance'
 import type { ID, UnixMs } from './chat'
 
 export type CompanionRoleCardImportSourceKind = 'json' | 'png' | 'webp'
@@ -39,6 +40,7 @@ export interface CompanionRoleKnowledgeEntryDraft {
 
 export interface ImportedCompanionRoleDraft {
   name: string
+  appearancePackId?: string
   userNickname?: string
   personality?: string
   speechStyle?: string
@@ -70,4 +72,25 @@ export interface ImportCompanionRoleCardResponse {
   role: ImportedCompanionRoleDraft
   source: CompanionRoleSourceMetadata
   knowledgeEntryCount: number
+  appearancePack?: CatAppearanceEmbeddedPack
+}
+
+export interface ExportCompanionRoleCardRequest {
+  role: ImportedCompanionRoleDraft
+  sourceName?: string
+  appearancePack?: CatAppearanceEmbeddedPack
+}
+
+export interface ExportCompanionRoleCardPayload {
+  spec: 'omnipaw_companion_role'
+  specVersion: 1
+  exportedAt: UnixMs
+  role: ImportedCompanionRoleDraft
+  appearancePack?: CatAppearanceEmbeddedPack
+}
+
+export interface ExportCompanionRoleCardResponse {
+  exported: boolean
+  canceled?: boolean
+  destinationPath?: string
 }

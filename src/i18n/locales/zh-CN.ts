@@ -245,7 +245,9 @@ export default {
         actions: {
           add: '新建角色',
           more: '角色操作',
+          importRole: '导入角色',
           importCard: '导入角色卡',
+          exportCard: '导出角色',
           duplicate: '复制',
           delete: '删除',
         },
@@ -388,9 +390,18 @@ export default {
             '角色设定只注入新建会话，已有会话不会被自动改写；外观形象保存在角色里，并在每个角色的外观设置中独立配置。',
         },
         toasts: {
+          importRoleSuccess: '角色已导入。',
+          importRoleSummary: '{name}，{count} 条角色知识',
+          importRoleFailed: '角色导入失败。',
           importCardSuccess: '角色卡已导入。',
           importCardSummary: '{name}，{count} 条角色知识',
           importCardFailed: '角色卡导入失败。',
+          exportCardSuccess: '角色已导出。',
+          exportCardFailed: '角色导出失败。',
+        },
+        errors: {
+          notOmniPawRoleFile: '请选择 OmniPaw 导出的角色 JSON 文件。',
+          notRoleCardFile: '这是 OmniPaw 角色文件，请使用“导入角色”。',
         },
         importDialog: {
           title: '导入角色卡',

@@ -61,11 +61,14 @@ const { t } = useI18n()
 const router = useRouter()
 const toast = useToast()
 
+const roleImportInput = ref<HTMLInputElement>()
 const roleCardInput = ref<HTMLInputElement>()
 const roleCardImportDialogOpen = ref(false)
 const roleCardJsonContent = ref('')
 const roleSearchQuery = ref('')
+const importingRole = ref(false)
 const importingRoleCard = ref(false)
+const exportingRoleCard = ref(false)
 
 const roles = computed(() => props.draft.app.companionRoles)
 const normalizedRoleSearchQuery = computed(() => roleSearchQuery.value.trim().toLocaleLowerCase())
@@ -81,6 +84,7 @@ const activeRole = computed(
   () => roles.value.find((role) => role.id === activeRoleId.value) ?? roles.value[0]
 )
 const canDeleteRole = computed(() => roles.value.length > 1)
+const importRoleDisabled = computed(() => importingRole.value || isFallbackBridge)
 const importRoleCardDisabled = computed(() => importingRoleCard.value || isFallbackBridge)
 const canImportRoleCardJson = computed(
   () => !importRoleCardDisabled.value && roleCardJsonContent.value.trim().length > 0
@@ -164,6 +168,16 @@ function createCompanionRole(): CompanionRole {
   }
 }
 
+function chooseRoleFile(): void {
+  try {
+    ensureElectronBridge(t('settings.catAppearance.role.actions.importRole'))
+  } catch (error) {
+    toast.error(errorToText(error, t('settings.catAppearance.role.toasts.importRoleFailed')))
+    return
+  }
+  roleImportInput.value?.click()
+}
+
 function openRoleCardImport(): void {
   try {
     ensureElectronBridge(t('settings.catAppearance.role.actions.importCard'))
@@ -174,8 +188,62 @@ function openRoleCardImport(): void {
   roleCardImportDialogOpen.value = true
 }
 
+async function exportActiveRoleCard(): Promise<void> {
+  if (!activeRole.value || exportingRoleCard.value) return
+
+  try {
+    ensureElectronBridge(t('settings.catAppearance.role.actions.exportCard'))
+  } catch (error) {
+    toast.error(errorToText(error, t('settings.catAppearance.role.toasts.exportCardFailed')))
+    return
+  }
+
+  exportingRoleCard.value = true
+  try {
+    const result = await appBridge.companionRole.exportCard({
+      role: createExportRoleDraft(activeRole.value),
+    })
+    if (!result.exported) return
+    toast.success(t('settings.catAppearance.role.toasts.exportCardSuccess'), {
+      description: result.destinationPath,
+    })
+  } catch (error) {
+    toast.error(errorToText(error, t('settings.catAppearance.role.toasts.exportCardFailed')))
+  } finally {
+    exportingRoleCard.value = false
+  }
+}
+
 function chooseRoleCardFile(): void {
   roleCardInput.value?.click()
+}
+
+async function importRole(event: Event): Promise<void> {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  input.value = ''
+  if (!file || importingRole.value) return
+
+  importingRole.value = true
+  try {
+    const result = await appBridge.companionRole.importCard({
+      content: await file.text(),
+      sourceKind: 'json',
+      mimeType: file.type || 'application/json',
+      sourceName: file.name,
+    })
+    if (!isOmniPawRoleImport(result)) {
+      throw new Error(t('settings.catAppearance.role.errors.notOmniPawRoleFile'))
+    }
+    applyImportedRole(result, {
+      successMessage: t('settings.catAppearance.role.toasts.importRoleSuccess'),
+      summaryKey: 'settings.catAppearance.role.toasts.importRoleSummary',
+    })
+  } catch (error) {
+    toast.error(errorToText(error, t('settings.catAppearance.role.toasts.importRoleFailed')))
+  } finally {
+    importingRole.value = false
+  }
 }
 
 async function importRoleCard(event: Event): Promise<void> {
@@ -187,8 +255,17 @@ async function importRoleCard(event: Event): Promise<void> {
   importingRoleCard.value = true
   try {
     const request = await createRoleCardImportRequest(file)
+    if (request.sourceKind === 'json' && isOmniPawRoleJsonContent(request.content)) {
+      throw new Error(t('settings.catAppearance.role.errors.notRoleCardFile'))
+    }
     const result = await appBridge.companionRole.importCard(request)
-    applyImportedRoleCard(result)
+    if (isOmniPawRoleImport(result)) {
+      throw new Error(t('settings.catAppearance.role.errors.notRoleCardFile'))
+    }
+    applyImportedRole(result, {
+      successMessage: t('settings.catAppearance.role.toasts.importCardSuccess'),
+      summaryKey: 'settings.catAppearance.role.toasts.importCardSummary',
+    })
   } catch (error) {
     toast.error(errorToText(error, t('settings.catAppearance.role.toasts.importCardFailed')))
   } finally {
@@ -199,6 +276,10 @@ async function importRoleCard(event: Event): Promise<void> {
 async function importPastedRoleCard(): Promise<void> {
   const content = roleCardJsonContent.value.trim()
   if (!content || importingRoleCard.value) return
+  if (isOmniPawRoleJsonContent(content)) {
+    toast.error(t('settings.catAppearance.role.errors.notRoleCardFile'))
+    return
+  }
 
   importingRoleCard.value = true
   try {
@@ -208,7 +289,13 @@ async function importPastedRoleCard(): Promise<void> {
       mimeType: 'application/json',
       sourceName: t('settings.catAppearance.role.importDialog.pastedSourceName'),
     })
-    applyImportedRoleCard(result)
+    if (isOmniPawRoleImport(result)) {
+      throw new Error(t('settings.catAppearance.role.errors.notRoleCardFile'))
+    }
+    applyImportedRole(result, {
+      successMessage: t('settings.catAppearance.role.toasts.importCardSuccess'),
+      summaryKey: 'settings.catAppearance.role.toasts.importCardSummary',
+    })
     roleCardJsonContent.value = ''
   } catch (error) {
     toast.error(errorToText(error, t('settings.catAppearance.role.toasts.importCardFailed')))
@@ -263,19 +350,43 @@ function fileToBase64(file: File): Promise<string> {
   })
 }
 
-function applyImportedRoleCard(
-  result: Awaited<ReturnType<typeof appBridge.companionRole.importCard>>
+type CompanionRoleImportResult = Awaited<ReturnType<typeof appBridge.companionRole.importCard>>
+
+function applyImportedRole(
+  result: CompanionRoleImportResult,
+  options: {
+    successMessage: string
+    summaryKey: string
+  }
 ): void {
   const nextRole = createRoleFromImportedDraft(result.role, result.source)
   roles.value.push(nextRole)
   props.draft.app.activeCompanionRoleId = nextRole.id
   roleCardImportDialogOpen.value = false
-  toast.success(t('settings.catAppearance.role.toasts.importCardSuccess'), {
-    description: t('settings.catAppearance.role.toasts.importCardSummary', {
+  toast.success(options.successMessage, {
+    description: t(options.summaryKey, {
       name: nextRole.name,
       count: result.knowledgeEntryCount,
     }),
   })
+}
+
+function isOmniPawRoleImport(result: CompanionRoleImportResult): boolean {
+  return result.source.kind === 'manual'
+}
+
+function isOmniPawRoleJsonContent(content: string | undefined): boolean {
+  if (!content) return false
+  try {
+    const parsed = JSON.parse(content) as unknown
+    return Boolean(
+      parsed &&
+        typeof parsed === 'object' &&
+        (parsed as { spec?: unknown }).spec === 'omnipaw_companion_role'
+    )
+  } catch {
+    return false
+  }
 }
 
 function createRoleFromImportedDraft(
@@ -286,7 +397,7 @@ function createRoleFromImportedDraft(
     id: createRoleId(),
     enabled: true,
     name: draft.name?.trim() || defaultRoleName(),
-    appearancePackId: 'builtin',
+    appearancePackId: draft.appearancePackId || 'builtin',
     userNickname: draft.userNickname ?? '',
     personality: draft.personality ?? '',
     speechStyle: draft.speechStyle ?? '',
@@ -311,6 +422,39 @@ function createRoleFromImportedDraft(
     source: draft.source ?? source,
     defaultProviderId: undefined,
     defaultModelId: undefined,
+  }
+}
+
+function createExportRoleDraft(role: CompanionRole): ImportedCompanionRoleDraft {
+  return {
+    name: role.name,
+    appearancePackId: role.appearancePackId,
+    userNickname: role.userNickname,
+    personality: role.personality,
+    speechStyle: role.speechStyle,
+    relationship: role.relationship,
+    background: role.background,
+    greeting: role.greeting,
+    alternateGreetings: [...role.alternateGreetings],
+    proactiveStyle: role.proactiveStyle,
+    advanced: {
+      enabled: role.advanced.enabled,
+      systemPrompt: role.advanced.systemPrompt,
+      knowledge: role.advanced.knowledge,
+      exampleDialogue: role.advanced.exampleDialogue,
+      finalInstructions: role.advanced.finalInstructions,
+    },
+    knowledgeEntries: role.knowledgeEntries.map((entry, index) => ({
+      enabled: entry.enabled,
+      title: entry.title,
+      content: entry.content,
+      keys: [...entry.keys],
+      constant: entry.constant,
+      priority: entry.priority,
+      order: entry.order ?? index,
+      tokenBudget: entry.tokenBudget,
+    })),
+    source: role.source,
   }
 }
 
@@ -378,6 +522,13 @@ function defaultRoleName(): string {
           </Button>
           <span class="truncate text-sm font-medium">{{ t('settings.catAppearance.title') }}</span>
           <input
+            ref="roleImportInput"
+            class="sr-only"
+            type="file"
+            accept=".json,.omnipaw-role.json,application/json"
+            @change="importRole"
+          >
+          <input
             ref="roleCardInput"
             class="sr-only"
             type="file"
@@ -422,6 +573,13 @@ function defaultRoleName(): string {
                     {{ t('settings.catAppearance.role.actions.add') }}
                   </DropdownMenuItem>
                   <DropdownMenuItem
+                    :disabled="importRoleDisabled"
+                    @select="chooseRoleFile"
+                  >
+                    <FileJsonIcon data-icon="inline-start" />
+                    {{ t('settings.catAppearance.role.actions.importRole') }}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
                     :disabled="importRoleCardDisabled"
                     @select="openRoleCardImport"
                   >
@@ -438,6 +596,7 @@ function defaultRoleName(): string {
               <SidebarMenuItem
                 v-for="item in filteredRoles"
                 :key="item.id"
+                class="after:pointer-events-none after:absolute after:inset-x-4 after:bottom-0 after:h-px after:bg-gradient-to-r after:from-transparent after:via-sidebar-border after:to-transparent last:after:hidden"
               >
                 <SidebarMenuButton
                   size="lg"
@@ -476,6 +635,7 @@ function defaultRoleName(): string {
             :role="activeRole"
             :can-delete-role="canDeleteRole"
             @duplicate-role="duplicateActiveRole"
+            @export-role="exportActiveRoleCard"
             @delete-role="deleteRole"
           />
         </div>

@@ -31,6 +31,7 @@ import type {
   CatAppearanceDeletePackRequest,
   CatAppearanceDeleteResponse,
   CatAppearanceDurations,
+  CatAppearanceEmbeddedPack,
   CatAppearanceGetPackRequest,
   CatAppearanceImportResponse,
   CatAppearanceListResponse,
@@ -385,6 +386,57 @@ export class CatAppearanceManager {
 
     try {
       const entries = readCatAppearanceZipEntries(readFileSync(archivePath))
+      writeArchiveEntries(unpackRootPath, entries)
+      const packPath = resolveArchivePackPath(
+        unpackRootPath,
+        entries.map((entry) => entry.name)
+      )
+      return this.importFromDirectory(packPath)
+    } finally {
+      rmSync(tempParentPath, { recursive: true, force: true })
+    }
+  }
+
+  exportEmbeddedPack(packId: string | undefined): CatAppearanceEmbeddedPack | undefined {
+    this.ensureLoaded()
+    const normalizedPackId = normalizePackId(packId)
+    if (!normalizedPackId || normalizedPackId === BUILTIN_PACK_ID) {
+      return undefined
+    }
+
+    const pack = this.packs.find(
+      (item) => item.id === normalizedPackId && item.status === 'available'
+    )
+    if (!pack) {
+      throw new Error(`Cat appearance pack is not available: ${normalizedPackId}`)
+    }
+
+    return {
+      originalPackId: pack.id,
+      rootName: pack.rootName,
+      files: readEmbeddedPackFiles(pack.path),
+    }
+  }
+
+  importEmbeddedPack(pack: CatAppearanceEmbeddedPack): CatAppearanceImportResponse {
+    this.ensureLoaded()
+    this.ensureDirectories()
+
+    if (!pack.files.length) {
+      throw new Error('Embedded cat appearance pack is empty.')
+    }
+
+    const entries = pack.files.map((file) => ({
+      name: normalizeArchivePath(file.path),
+      data: Buffer.from(file.dataBase64, 'base64'),
+    }))
+    validateEmbeddedPackEntries(entries)
+
+    const tempParentPath = mkdtempSync(join(dirname(this.rootPath), '.cat-appearance-embedded-'))
+    const unpackRootPath = join(tempParentPath, 'embedded')
+    mkdirSync(unpackRootPath, { recursive: true })
+
+    try {
       writeArchiveEntries(unpackRootPath, entries)
       const packPath = resolveArchivePackPath(
         unpackRootPath,
@@ -936,6 +988,63 @@ function readCatAppearanceZipEntries(bytes: Buffer): ZipArchiveEntry[] {
 
   validateArchivePaths(entries.map((entry) => entry.name))
   return entries
+}
+
+function readEmbeddedPackFiles(packPath: string): CatAppearanceEmbeddedPack['files'] {
+  const entries: ZipArchiveEntry[] = []
+  collectEmbeddedPackFiles(packPath, packPath, entries)
+  validateEmbeddedPackEntries(entries)
+  return entries.map((entry) => ({
+    path: entry.name,
+    dataBase64: entry.data.toString('base64'),
+  }))
+}
+
+function collectEmbeddedPackFiles(
+  rootPath: string,
+  currentPath: string,
+  entries: ZipArchiveEntry[]
+): void {
+  for (const dirent of readdirSync(currentPath, { withFileTypes: true })) {
+    const absolutePath = join(currentPath, dirent.name)
+    const relativePath = normalizeArchivePath(relative(rootPath, absolutePath))
+    if (isIgnoredCatAppearanceZipEntry(relativePath)) {
+      continue
+    }
+
+    const lstat = lstatSync(absolutePath)
+    if (lstat.isSymbolicLink()) {
+      throw new Error('Cat appearance pack contains symbolic links and cannot be exported.')
+    }
+    if (dirent.isDirectory()) {
+      collectEmbeddedPackFiles(rootPath, absolutePath, entries)
+      continue
+    }
+    if (!dirent.isFile()) {
+      continue
+    }
+    if (lstat.size > MAX_ASSET_BYTES && dirent.name !== MANIFEST_FILE_NAME) {
+      throw new Error(`Cat appearance asset exceeds ${MAX_ASSET_BYTES} bytes.`)
+    }
+    entries.push({
+      name: relativePath,
+      data: readFileSync(absolutePath),
+    })
+  }
+}
+
+function validateEmbeddedPackEntries(entries: ZipArchiveEntry[]): void {
+  if (!entries.length) {
+    throw new Error('Embedded cat appearance pack is empty.')
+  }
+  if (entries.length > MAX_IMPORT_FILES) {
+    throw new Error(`Embedded cat appearance pack contains more than ${MAX_IMPORT_FILES} files.`)
+  }
+  const totalBytes = entries.reduce((sum, entry) => sum + entry.data.byteLength, 0)
+  if (totalBytes > MAX_IMPORT_TOTAL_BYTES) {
+    throw new Error(`Embedded cat appearance pack exceeds ${MAX_IMPORT_TOTAL_BYTES} bytes.`)
+  }
+  validateArchivePaths(entries.map((entry) => entry.name))
 }
 
 function writeArchiveEntries(rootPath: string, entries: ZipArchiveEntry[]): void {

@@ -64,6 +64,8 @@ import type {
   UploadAttachmentResponse,
 } from './chat'
 import type {
+  ExportCompanionRoleCardRequest,
+  ExportCompanionRoleCardResponse,
   ImportCompanionRoleCardRequest,
   ImportCompanionRoleCardResponse,
 } from './companion-role'
@@ -474,6 +476,9 @@ export interface OmniPawBridge {
     importCard: (
       request: ImportCompanionRoleCardRequest
     ) => Promise<ImportCompanionRoleCardResponse>
+    exportCard: (
+      request: ExportCompanionRoleCardRequest
+    ) => Promise<ExportCompanionRoleCardResponse>
   }
   observation: {
     permissionStatus: () => Promise<ObservationPermissionStatus>

@@ -83,3 +83,14 @@ export interface CatAppearanceImportResponse extends CatAppearanceListResponse {
 export interface CatAppearanceDeleteResponse extends CatAppearanceListResponse {
   deletedPackId: string
 }
+
+export interface CatAppearanceEmbeddedPackFile {
+  path: string
+  dataBase64: string
+}
+
+export interface CatAppearanceEmbeddedPack {
+  originalPackId: string
+  rootName?: string
+  files: CatAppearanceEmbeddedPackFile[]
+}

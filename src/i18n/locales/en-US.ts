@@ -254,7 +254,9 @@ export default {
         actions: {
           add: 'New Character',
           more: 'Character actions',
+          importRole: 'Import Character',
           importCard: 'Import Character Card',
+          exportCard: 'Export Character',
           duplicate: 'Duplicate',
           delete: 'Delete',
         },
@@ -412,9 +414,18 @@ export default {
             'Character settings are injected only into newly created sessions; existing sessions are not rewritten. Appearance is saved on each character and configured independently in that character.',
         },
         toasts: {
+          importRoleSuccess: 'Character imported.',
+          importRoleSummary: '{name}, {count} knowledge entries',
+          importRoleFailed: 'Failed to import character.',
           importCardSuccess: 'Character card imported.',
           importCardSummary: '{name}, {count} knowledge entries',
           importCardFailed: 'Failed to import character card.',
+          exportCardSuccess: 'Character exported.',
+          exportCardFailed: 'Failed to export character.',
+        },
+        errors: {
+          notOmniPawRoleFile: 'Choose a character JSON file exported by OmniPaw.',
+          notRoleCardFile: 'This is an OmniPaw character file. Use “Import Character”.',
         },
         importDialog: {
           title: 'Import Character Card',

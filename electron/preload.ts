@@ -19,7 +19,10 @@ import type {
   UpsertProviderSourceRequest,
 } from '@shared/types/bridge'
 import type { CatPetPerformRequest } from '@shared/types/cat-pet'
-import type { ImportCompanionRoleCardRequest } from '@shared/types/companion-role'
+import type {
+  ExportCompanionRoleCardRequest,
+  ImportCompanionRoleCardRequest,
+} from '@shared/types/companion-role'
 import type {
   AgentWorkspaceStatus,
   CleanupWorkspaceResponse,
@@ -354,6 +357,8 @@ const bridge: OmniPawBridge = {
   companionRole: {
     importCard: (request: ImportCompanionRoleCardRequest) =>
       ipcRenderer.invoke(IPC_CHANNELS.companionRole.importCard, request),
+    exportCard: (request: ExportCompanionRoleCardRequest) =>
+      ipcRenderer.invoke(IPC_CHANNELS.companionRole.exportCard, request),
   },
   observation: {
     permissionStatus: () => ipcRenderer.invoke(IPC_CHANNELS.observation.permissionStatus),

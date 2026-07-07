@@ -10,6 +10,7 @@ import {
   BotIcon,
   BrainIcon,
   CopyIcon,
+  DownloadIcon,
   EyeIcon,
   ImageIcon,
   MessageCircleIcon,
@@ -68,6 +69,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   duplicateRole: []
+  exportRole: []
   deleteRole: [role: CompanionRole]
 }>()
 
@@ -598,6 +600,14 @@ function createRoleKnowledgeId(index: number): string {
         >
           <CopyIcon data-icon="inline-start" />
           {{ t('settings.catAppearance.role.actions.duplicate') }}
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          @click="emit('exportRole')"
+        >
+          <DownloadIcon data-icon="inline-start" />
+          {{ t('settings.catAppearance.role.actions.exportCard') }}
         </Button>
         <Button
           variant="outline"

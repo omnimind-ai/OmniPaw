@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto'
 import { inflateSync } from 'node:zlib'
+import type { CatAppearanceEmbeddedPack } from '@shared/types/cat-appearance'
 import type {
   CompanionRoleKnowledgeEntryDraft,
   CompanionRoleSourceMetadata,
@@ -27,6 +28,8 @@ interface ParsedCharacterCard {
   tags: string[]
   lorebooks: ParsedLorebook[]
   source: CompanionRoleSourceMetadata
+  exportedRole?: ImportedCompanionRoleDraft
+  appearancePack?: CatAppearanceEmbeddedPack
 }
 
 interface ParsedLorebook {
@@ -55,6 +58,7 @@ export function importCompanionRoleCard(
     role,
     source: parsed.source,
     knowledgeEntryCount: role.knowledgeEntries?.length ?? 0,
+    appearancePack: parsed.appearancePack,
   }
 }
 
@@ -103,6 +107,20 @@ function parseCharacterJson(
   }
 
   const root = asRecord(parsed)
+  const exportedRole = parseOmniPawExportedRole(root, content, sourceName, options.mimeType)
+  if (exportedRole) {
+    return {
+      name: exportedRole.role.name,
+      alternateGreetings: [],
+      messageExamples: [],
+      tags: [],
+      lorebooks: [],
+      source: exportedRole.source,
+      exportedRole: exportedRole.role,
+      appearancePack: exportedRole.appearancePack,
+    }
+  }
+
   const data = asRecord(root?.data) ?? root
   if (!data) {
     throwUnsupportedImport()
@@ -154,6 +172,13 @@ function parseCharacterJson(
 }
 
 function mapParsedCardToRole(parsed: ParsedCharacterCard): ImportedCompanionRoleDraft {
+  if (parsed.exportedRole) {
+    return {
+      ...parsed.exportedRole,
+      source: parsed.source,
+    }
+  }
+
   const background = [
     parsed.description ? `描述：${parsed.description}` : '',
     parsed.scenario ? `场景：${parsed.scenario}` : '',
@@ -196,6 +221,113 @@ function mapParsedCardToRole(parsed: ParsedCharacterCard): ImportedCompanionRole
     knowledgeEntries,
     source: parsed.source,
   }
+}
+
+function parseOmniPawExportedRole(
+  root: Record<string, unknown> | undefined,
+  content: string,
+  sourceName?: string,
+  mimeType?: string
+):
+  | {
+      role: ImportedCompanionRoleDraft
+      source: CompanionRoleSourceMetadata
+      appearancePack?: CatAppearanceEmbeddedPack
+    }
+  | undefined {
+  if (!root || root.spec !== 'omnipaw_companion_role') return undefined
+  const role = normalizeOmniPawExportedRole(asRecord(root.role))
+  if (!role) {
+    throwUnsupportedImport()
+  }
+  return {
+    role,
+    source: {
+      kind: 'manual',
+      version: String(root.specVersion ?? ''),
+      importedAt: Date.now(),
+      sourceName,
+      mimeType,
+      contentHash: hashSensitiveText(content),
+    },
+    appearancePack: normalizeEmbeddedAppearancePack(asRecord(root.appearancePack)),
+  }
+}
+
+function normalizeOmniPawExportedRole(
+  role: Record<string, unknown> | undefined
+): ImportedCompanionRoleDraft | undefined {
+  const name = pickString(role, ['name'])
+  if (!role || !name) return undefined
+  const advanced = asRecord(role.advanced)
+  return {
+    name,
+    appearancePackId: pickString(role, ['appearancePackId']),
+    userNickname: pickString(role, ['userNickname']),
+    personality: pickString(role, ['personality']),
+    speechStyle: pickString(role, ['speechStyle']),
+    relationship: pickString(role, ['relationship']),
+    background: pickString(role, ['background']),
+    greeting: pickString(role, ['greeting']),
+    alternateGreetings: stringArray(role.alternateGreetings),
+    proactiveStyle: pickString(role, ['proactiveStyle']),
+    advanced: advanced
+      ? {
+          enabled: advanced.enabled === true,
+          systemPrompt: pickString(advanced, ['systemPrompt']) ?? '',
+          knowledge: pickString(advanced, ['knowledge']) ?? '',
+          exampleDialogue: pickString(advanced, ['exampleDialogue']) ?? '',
+          finalInstructions: pickString(advanced, ['finalInstructions']) ?? '',
+        }
+      : undefined,
+    knowledgeEntries: normalizeOmniPawExportedKnowledgeEntries(role.knowledgeEntries),
+  }
+}
+
+function normalizeEmbeddedAppearancePack(
+  value: Record<string, unknown> | undefined
+): CatAppearanceEmbeddedPack | undefined {
+  if (!value) return undefined
+  const originalPackId = pickString(value, ['originalPackId'])
+  const rawFiles = Array.isArray(value.files) ? value.files : []
+  if (!originalPackId || !rawFiles.length) return undefined
+  const files = rawFiles.flatMap((item) => {
+    const file = asRecord(item)
+    const path = pickString(file, ['path'])
+    const dataBase64 = pickString(file, ['dataBase64'])
+    if (!path || !dataBase64) return []
+    return [{ path, dataBase64 }]
+  })
+  return files.length
+    ? {
+        originalPackId,
+        rootName: pickString(value, ['rootName']),
+        files,
+      }
+    : undefined
+}
+
+function normalizeOmniPawExportedKnowledgeEntries(
+  value: unknown
+): CompanionRoleKnowledgeEntryDraft[] {
+  if (!Array.isArray(value)) return []
+  return value.flatMap((item, index) => {
+    const entry = asRecord(item)
+    const content = pickString(entry, ['content'])
+    if (!entry || !content) return []
+    return [
+      {
+        enabled: entry.enabled !== false,
+        title: pickString(entry, ['title']),
+        content,
+        keys: stringArray(entry.keys),
+        constant: entry.constant === true,
+        priority: numberValue(entry.priority, 0),
+        order: numberValue(entry.order, index),
+        tokenBudget: positiveNumber(entry.tokenBudget),
+      },
+    ]
+  })
 }
 
 function resolveSourceKind(request: ImportCompanionRoleCardRequest): 'json' | 'png' | 'webp' {

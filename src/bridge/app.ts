@@ -46,6 +46,8 @@ import {
 import type {
   CompanionRoleKnowledgeEntry,
   CompanionRoleSourceMetadata,
+  ExportCompanionRoleCardRequest,
+  ExportCompanionRoleCardResponse,
   ImportCompanionRoleCardRequest,
   ImportCompanionRoleCardResponse,
 } from '@shared/types/companion-role'
@@ -1077,6 +1079,9 @@ export interface RendererOmniPawBridge {
     importCard: (
       request: ImportCompanionRoleCardRequest
     ) => Promise<ImportCompanionRoleCardResponse>
+    exportCard?: (
+      request: ExportCompanionRoleCardRequest
+    ) => Promise<ExportCompanionRoleCardResponse>
   }
   observation?: {
     permissionStatus: () => Promise<ObservationPermissionStatus>
@@ -1655,6 +1660,8 @@ const fallbackBridge: RendererOmniPawBridge = {
   companionRole: {
     importCard: () =>
       rejectFallbackPersistence<ImportCompanionRoleCardResponse>('companionRole.importCard'),
+    exportCard: () =>
+      rejectFallbackPersistence<ExportCompanionRoleCardResponse>('companionRole.exportCard'),
   },
   observation: {
     permissionStatus: async () => ({
