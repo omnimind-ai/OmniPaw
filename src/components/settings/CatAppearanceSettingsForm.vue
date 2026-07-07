@@ -473,7 +473,21 @@ function createExportRoleDraft(role: CompanionRole): ImportedCompanionRoleDraft 
       order: entry.order ?? index,
       tokenBudget: entry.tokenBudget,
     })),
-    source: role.source,
+    source: cloneRoleSourceMetadata(role.source),
+  }
+}
+
+function cloneRoleSourceMetadata(
+  source: CompanionRoleSourceMetadata | undefined
+): CompanionRoleSourceMetadata | undefined {
+  if (!source) return undefined
+  return {
+    kind: source.kind,
+    version: source.version,
+    importedAt: source.importedAt,
+    sourceName: source.sourceName,
+    mimeType: source.mimeType,
+    contentHash: source.contentHash,
   }
 }
 
