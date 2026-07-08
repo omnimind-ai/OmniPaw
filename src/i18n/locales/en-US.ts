@@ -361,6 +361,11 @@ export default {
             'Configure stories and gifts triggered when affection reaches a threshold while the pet is happy.',
           slot: 'Gift {index}',
           edit: 'Edit gift',
+          debugUnlock: 'Test gift story',
+          debugUnlocking: 'Triggering',
+          debugUnlocked: 'Gift story triggered',
+          debugNoPending: 'No locked gifts are pending.',
+          debugFailed: 'Failed to trigger gift test.',
           summary:
             'Fixed unlocks at affection 100, 200, and 300. Lower-threshold gifts unlock before higher-threshold gifts.',
           defaultStoryLine: 'This is the {name} I wanted to give you.',

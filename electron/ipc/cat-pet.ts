@@ -1,10 +1,6 @@
 import { IPC_CHANNELS } from '@shared/constants'
-import type {
-  CatPetAction,
-  CatPetPerformRequest,
-  CatPetUpdateInteractionsRequest,
-} from '@shared/types/cat-pet'
-import { isCatPetAction } from '@shared/types/cat-pet'
+import type { CatPetPerformRequest, CatPetUpdateInteractionsRequest } from '@shared/types/cat-pet'
+import { CAT_PET_DEBUG_UNLOCK_NEXT_GIFT_ACTION, isCatPetAction } from '@shared/types/cat-pet'
 import { registerLoggedIpcHandler } from './common'
 import type { IpcHandlerOptions } from './types'
 
@@ -15,8 +11,11 @@ export function registerCatPetIpcHandlers(options: IpcHandlerOptions): void {
   registerLoggedIpcHandler(
     options,
     IPC_CHANNELS.catPet.performAction,
-    (_event, request: CatPetPerformRequest | CatPetAction) => {
+    (_event, request: CatPetPerformRequest | string) => {
       const action = typeof request === 'string' ? request : request?.action
+      if (action === CAT_PET_DEBUG_UNLOCK_NEXT_GIFT_ACTION) {
+        return options.runtime.catPetManager.debugUnlockNextGift()
+      }
       if (!isCatPetAction(action)) {
         throw new Error(`Invalid cat pet action: ${String(action)}`)
       }
@@ -35,5 +34,8 @@ export function registerCatPetIpcHandlers(options: IpcHandlerOptions): void {
       }
       return options.runtime.catPetManager.updateInteractions(request)
     }
+  )
+  registerLoggedIpcHandler(options, IPC_CHANNELS.catPet.debugUnlockNextGift, () =>
+    options.runtime.catPetManager.debugUnlockNextGift()
   )
 }

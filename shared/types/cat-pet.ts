@@ -10,6 +10,7 @@ export const CAT_PET_MOOD_DEFAULT = 0
 
 export const CAT_PET_ACTIONS = ['pat', 'tease', 'custom_100', 'custom_150'] as const
 export const CAT_PET_CUSTOM_ACTIONS = ['custom_100', 'custom_150'] as const
+export const CAT_PET_DEBUG_UNLOCK_NEXT_GIFT_ACTION = '__debug_unlock_next_gift__'
 
 export type CatPetAction = (typeof CAT_PET_ACTIONS)[number]
 export type CatPetCustomAction = (typeof CAT_PET_CUSTOM_ACTIONS)[number]
@@ -251,6 +252,11 @@ export type CatPetPerformResponse =
 
 export interface CatPetUpdateInteractionsResponse {
   state: CatPetState
+}
+
+export interface CatPetDebugUnlockGiftResponse {
+  state: CatPetState
+  giftUnlock?: CatPetGiftUnlock
 }
 
 export interface CatPetChangedEvent {

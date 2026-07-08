@@ -311,6 +311,7 @@ const bridge: OmniPawBridge = {
       ipcRenderer.invoke(IPC_CHANNELS.catPet.performAction, request),
     updateInteractions: (request: CatPetUpdateInteractionsRequest) =>
       ipcRenderer.invoke(IPC_CHANNELS.catPet.updateInteractions, request),
+    debugUnlockNextGift: () => ipcRenderer.invoke(IPC_CHANNELS.catPet.debugUnlockNextGift),
     onChanged: (callback) => createUnsubscriber(IPC_CHANNELS.catPet.changed, callback),
   },
   settings: {

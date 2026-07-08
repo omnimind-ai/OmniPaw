@@ -43,6 +43,7 @@ import {
   CAT_PET_MOOD_MAX,
   CAT_PET_MOOD_MIN,
   type CatPetChangedEvent,
+  type CatPetDebugUnlockGiftResponse,
   type CatPetGiftConfig,
   type CatPetInteractionConfig,
   type CatPetInteractionDefinition,
@@ -1053,6 +1054,7 @@ export interface RendererOmniPawBridge {
     updateInteractions?: (
       request: CatPetUpdateInteractionsRequest
     ) => Promise<CatPetUpdateInteractionsResponse>
+    debugUnlockNextGift?: () => Promise<CatPetDebugUnlockGiftResponse>
     onChanged: (callback: (event: CatPetChangedEvent) => void) => BridgeUnsubscribe
   }
   settings?: {

@@ -5,10 +5,16 @@ import type {
   CatAppearancePackSummary,
   CatAppearanceResolvedPack,
 } from '@shared/types/cat-appearance'
-import type { CatPetGiftConfig, CatPetInteractionConfig } from '@shared/types/cat-pet'
+import type {
+  CatPetDebugUnlockGiftResponse,
+  CatPetGiftConfig,
+  CatPetInteractionConfig,
+  CatPetPerformRequest,
+} from '@shared/types/cat-pet'
 import {
   CAT_PET_ACTIONS,
   CAT_PET_DAILY_LIMITS,
+  CAT_PET_DEBUG_UNLOCK_NEXT_GIFT_ACTION,
   CAT_PET_UNLOCK_AFFECTION,
   defaultCatPetGiftConfigs,
   defaultCatPetInteractionConfigs,
@@ -103,6 +109,7 @@ const previewInput = ref('')
 const knowledgeCreateDialogOpen = ref(false)
 const giftDialogOpen = ref(false)
 const giftDialogDraft = ref<CatPetGiftConfig>()
+const debugUnlockGiftLoading = ref(false)
 const response = shallowRef<CatAppearanceListResponse>()
 const loading = ref(false)
 const importing = ref(false)
@@ -400,6 +407,43 @@ function savePetGift(gift: CatPetGiftConfig): void {
   editableRole.value.petGifts = normalizeCatPetGiftConfigs(next)
   giftDialogOpen.value = false
   giftDialogDraft.value = undefined
+}
+
+async function debugUnlockNextGift(): Promise<void> {
+  if (debugUnlockGiftLoading.value) return
+  debugUnlockGiftLoading.value = true
+  try {
+    ensureElectronBridge(t('settings.catAppearance.role.gifts.debugUnlock'))
+    const response = await invokeDebugUnlockNextGift()
+    if (!response?.giftUnlock) {
+      toast.info(t('settings.catAppearance.role.gifts.debugNoPending'))
+      return
+    }
+    toast.success(t('settings.catAppearance.role.gifts.debugUnlocked'), {
+      description: response.giftUnlock.gift.name,
+    })
+  } catch (error) {
+    toast.error(errorToText(error, t('settings.catAppearance.role.gifts.debugFailed')))
+  } finally {
+    debugUnlockGiftLoading.value = false
+  }
+}
+
+async function invokeDebugUnlockNextGift(): Promise<CatPetDebugUnlockGiftResponse> {
+  const directDebugUnlock = appBridge.catPet?.debugUnlockNextGift
+  if (directDebugUnlock) {
+    return directDebugUnlock()
+  }
+
+  const perform = appBridge.catPet?.perform
+  if (!perform) {
+    throw new Error(t('settings.catAppearance.role.gifts.debugFailed'))
+  }
+
+  // Existing preload bundles already expose perform, so this keeps the temporary test button usable during dev reloads.
+  return (await perform({
+    action: CAT_PET_DEBUG_UNLOCK_NEXT_GIFT_ACTION,
+  } as unknown as CatPetPerformRequest)) as unknown as CatPetDebugUnlockGiftResponse
 }
 
 function clonePetGift(item: CatPetGiftConfig): CatPetGiftConfig {
@@ -1307,6 +1351,23 @@ function createRoleKnowledgeId(index: number): string {
             :icon="GiftIcon"
             content-class="p-4 sm:p-5"
           >
+            <template #actions>
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                :disabled="debugUnlockGiftLoading || isFallbackBridge"
+                @click="debugUnlockNextGift"
+              >
+                <GiftIcon data-icon="inline-start" />
+                {{
+                  debugUnlockGiftLoading
+                    ? t('settings.catAppearance.role.gifts.debugUnlocking')
+                    : t('settings.catAppearance.role.gifts.debugUnlock')
+                }}
+              </Button>
+            </template>
+
             <div class="flex flex-col gap-3">
               <SettingsPanelItem
                 v-for="(item, index) in petGiftItems"

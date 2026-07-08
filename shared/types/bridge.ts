@@ -34,6 +34,7 @@ import type {
 } from './cat-appearance'
 import type {
   CatPetChangedEvent,
+  CatPetDebugUnlockGiftResponse,
   CatPetPerformRequest,
   CatPetPerformResponse,
   CatPetState,
@@ -438,6 +439,7 @@ export interface OmniPawBridge {
     updateInteractions: (
       request: CatPetUpdateInteractionsRequest
     ) => Promise<CatPetUpdateInteractionsResponse>
+    debugUnlockNextGift: () => Promise<CatPetDebugUnlockGiftResponse>
     onChanged: (callback: (event: CatPetChangedEvent) => void) => Unsubscribe
   }
   settings: {

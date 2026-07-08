@@ -10,6 +10,7 @@ import {
   type CatPetActionCounters,
   type CatPetChangedEvent,
   type CatPetChangeReason,
+  type CatPetDebugUnlockGiftResponse,
   type CatPetGiftConfig,
   type CatPetGiftUnlock,
   type CatPetInteractionConfig,
@@ -234,6 +235,17 @@ export class CatPetManager {
     const state = this.buildState({ touchSeen: true })
     this.broadcastState(state, 'config')
     return { state }
+  }
+
+  debugUnlockNextGift(): CatPetDebugUnlockGiftResponse {
+    const giftUnlock = this.maybeUnlockGift({
+      affection: CAT_PET_AFFECTION_MAX,
+      mood: 'happy',
+      unlockedAt: this.nowFn(),
+    })
+    const state = this.buildState({ touchSeen: false })
+    this.broadcastState(state, 'config', giftUnlock)
+    return { state, ...(giftUnlock ? { giftUnlock } : {}) }
   }
 
   private buildState(options: BuildStateOptions = {}): CatPetState {

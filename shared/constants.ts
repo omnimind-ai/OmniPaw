@@ -76,6 +76,7 @@ export const IPC_CHANNELS = {
     getState: 'cat-pet:get-state',
     performAction: 'cat-pet:perform-action',
     updateInteractions: 'cat-pet:update-interactions',
+    debugUnlockNextGift: 'cat-pet:debug-unlock-next-gift',
     changed: 'cat-pet:changed',
   },
   settings: {
