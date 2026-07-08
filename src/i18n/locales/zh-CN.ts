@@ -1741,7 +1741,6 @@ export default {
       unlockedDialogDescription: '这份礼物已经收进背包。',
       lockedDialogDescription: '达到条件后，礼物会在背包中解锁。',
       unlockCondition: '好感度达到 {count} 后解锁',
-      unlockHint: '礼物会按 100、200、300 的顺序依次触发。',
       noDescription: '这个礼物还没有介绍。',
       close: '关闭',
     },

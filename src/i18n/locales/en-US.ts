@@ -1830,7 +1830,6 @@ export default {
       unlockedDialogDescription: 'This gift is already saved in your bag.',
       lockedDialogDescription: 'This gift will unlock in the bag after you meet its condition.',
       unlockCondition: 'Unlocks when affection reaches {count}',
-      unlockHint: 'Gifts trigger in order at affection 100, 200, and 300.',
       noDescription: 'This gift does not have a description yet.',
       close: 'Close',
     },

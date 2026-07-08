@@ -132,9 +132,6 @@ function close(): void {
           <p class="text-sm font-medium leading-relaxed">
             {{ t('catPet.inventory.unlockCondition', { count: gift.unlockAffection }) }}
           </p>
-          <p class="text-xs leading-relaxed text-muted-foreground">
-            {{ t('catPet.inventory.unlockHint') }}
-          </p>
         </div>
       </div>
 
