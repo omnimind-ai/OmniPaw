@@ -20,6 +20,7 @@ import {
 import { Field, FieldDescription, FieldGroup, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
+import { catPetGiftImageSrc } from '@/utils/cat-pet-gift-images'
 import { errorToText, useToast } from '@/utils/toast'
 
 const props = defineProps<{
@@ -42,6 +43,7 @@ const storyText = ref('')
 
 const canSubmit = computed(() => Boolean(props.gift?.id && name.value.trim()))
 const fallbackGiftName = computed(() => props.gift?.name ?? '')
+const imageSrc = computed(() => catPetGiftImageSrc(image.value, props.gift?.id))
 
 watch(
   [open, () => props.gift],
@@ -209,8 +211,8 @@ function withImageMimeType(dataUrl: string, mimeType: string): string {
           <div class="flex min-w-0 items-center gap-3 rounded-md border bg-background/60 p-3">
             <div class="grid size-16 shrink-0 place-items-center overflow-hidden rounded-md border bg-muted">
               <img
-                v-if="image?.dataUrl"
-                :src="image.dataUrl"
+                v-if="imageSrc"
+                :src="imageSrc"
                 :alt="t('settings.catAppearance.role.gifts.imageAlt', { name: name || fallbackGiftName })"
                 class="size-full object-cover"
               />
@@ -233,7 +235,7 @@ function withImageMimeType(dataUrl: string, mimeType: string): string {
                   {{ t('settings.catAppearance.role.gifts.imageHint') }}
                 </FieldDescription>
                 <Button
-                  v-if="image?.dataUrl"
+                  v-if="imageSrc"
                   type="button"
                   variant="outline"
                   size="sm"

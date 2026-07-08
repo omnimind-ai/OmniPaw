@@ -26,6 +26,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { useCatPetStore } from '@/stores/cat-pet'
+import { catPetGiftImageSrc } from '@/utils/cat-pet-gift-images'
 import { errorToText, useToast } from '@/utils/toast'
 import CatPanelGiftInventoryModal from './CatPanelGiftInventoryModal.vue'
 
@@ -218,7 +219,7 @@ function actionStatus(action: CatPetInteractionDefinition): string {
 }
 
 function giftImageSrc(gift: CatPetGiftDefinition): string {
-  return gift.image?.dataUrl?.trim() ?? ''
+  return catPetGiftImageSrc(gift.image, gift.id)
 }
 
 function giftSlotAria(gift: CatPetGiftDefinition): string {

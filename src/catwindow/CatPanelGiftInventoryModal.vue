@@ -13,6 +13,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { cn } from '@/lib/utils'
+import { catPetGiftImageSrc } from '@/utils/cat-pet-gift-images'
 
 const open = defineModel<boolean>('open', { default: false })
 
@@ -25,7 +26,7 @@ const panelDialogInsetStyle =
   'top: var(--image-viewer-inset-top, var(--app-window-content-top)); right: var(--image-viewer-inset-right, 0); bottom: var(--image-viewer-inset-bottom, 0); left: var(--image-viewer-inset-left, 0); border-radius: var(--image-viewer-radius, 0);'
 
 const isUnlocked = computed(() => Boolean(props.gift?.unlocked))
-const imageSrc = computed(() => props.gift?.image?.dataUrl?.trim() ?? '')
+const imageSrc = computed(() => catPetGiftImageSrc(props.gift?.image, props.gift?.id))
 const titleText = computed(() =>
   isUnlocked.value && props.gift ? props.gift.name : t('catPet.inventory.lockedTitle')
 )

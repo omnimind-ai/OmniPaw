@@ -1,4 +1,3 @@
-import { createXiaowanCompanionRolePreset, XIAOWAN_COMPANION_ROLE_ID } from '@shared/role-presets'
 import type { AppInfo, OpenChatSessionRequest, OpenDirectoryResponse } from '@shared/types/app'
 import type {
   CatBounds,
@@ -149,6 +148,8 @@ import type {
 import type { DesktopShortcutSettings, ShortcutStatusChangedEvent } from '@shared/types/shortcuts'
 import { SHORTCUT_ACTIONS } from '@shared/types/shortcuts'
 import type { DesktopWindowState, DesktopWindowStateChangedEvent } from '@shared/types/window'
+
+const FALLBACK_COMPANION_ROLE_ID = 'default'
 
 export type BridgeUnsubscribe = () => void
 export type BridgeDesktopWindowState = DesktopWindowState
@@ -2088,6 +2089,40 @@ function fallbackShortcutStatus(): BridgeShortcutStatusChangedEvent {
   }
 }
 
+function fallbackCompanionRole(): BridgeDesktopSettingsConfig['app']['companionRoles'][number] {
+  return {
+    id: FALLBACK_COMPANION_ROLE_ID,
+    name: '小万',
+    appearancePackId: 'builtin',
+    userNickname: '',
+    personality: '温柔、可靠、带一点轻松感',
+    speechStyle: '简短、自然、日常感',
+    relationship: '桌面伙伴',
+    background: '',
+    greeting: '我在这里，有什么想让我陪你一起处理的吗？',
+    greetingMode: 'default',
+    alternateGreetings: [],
+    proactiveStyle: '适度主动提醒，但不打扰用户专注。',
+    advanced: {
+      enabled: false,
+      systemPrompt: '',
+      knowledge: '',
+      exampleDialogue: '',
+      finalInstructions: '',
+    },
+    petInteractions: defaultCatPetInteractionConfigs(),
+    petGifts: defaultCatPetGiftConfigs(),
+    knowledgeSettings: {
+      scanDepth: 8,
+      maxTokens: 900,
+    },
+    knowledgeEntries: [],
+    source: undefined,
+    defaultProviderId: undefined,
+    defaultModelId: undefined,
+  }
+}
+
 function fallbackSettingsConfig(): BridgeDesktopSettingsConfig {
   return {
     version: 1,
@@ -2119,8 +2154,8 @@ function fallbackSettingsConfig(): BridgeDesktopSettingsConfig {
           text: '',
         },
       },
-      companionRoles: [createXiaowanCompanionRolePreset()],
-      activeCompanionRoleId: XIAOWAN_COMPANION_ROLE_ID,
+      companionRoles: [fallbackCompanionRole()],
+      activeCompanionRoleId: FALLBACK_COMPANION_ROLE_ID,
       background: {
         enabled: false,
         opacity: 0.35,

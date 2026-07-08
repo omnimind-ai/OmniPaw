@@ -9,6 +9,7 @@ import { useAppLanguage } from '@/composables/useAppLanguage'
 import { useAppTheme } from '@/composables/useAppTheme'
 import { cn } from '@/lib/utils'
 import { useSettingsStore } from '@/stores/settings'
+import { catPetGiftImageSrc } from '@/utils/cat-pet-gift-images'
 
 type PanelSide = NonNullable<CatPanelPlacement['side']>
 
@@ -43,6 +44,9 @@ const giftComplete = computed(
   () => isGift.value && giftLineIndex.value >= giftStoryLines.value.length
 )
 const activeGiftLine = computed(() => giftStoryLines.value[giftLineIndex.value] ?? '')
+const giftImageSrc = computed(() =>
+  catPetGiftImageSrc(giftUnlock.value?.gift.image, giftUnlock.value?.gift.id)
+)
 
 const pointerClass = computed(() =>
   side.value === 'right'
@@ -226,8 +230,8 @@ onBeforeUnmount(() => {
         <template v-if="giftComplete">
           <div class="grid size-10 shrink-0 place-items-center self-center overflow-hidden rounded-full border bg-muted">
             <img
-              v-if="giftUnlock.gift.image?.dataUrl"
-              :src="giftUnlock.gift.image.dataUrl"
+              v-if="giftImageSrc"
+              :src="giftImageSrc"
               :alt="t('catWindow.bubble.giftImageAlt', { name: giftUnlock.gift.name })"
               class="size-full object-cover"
             />

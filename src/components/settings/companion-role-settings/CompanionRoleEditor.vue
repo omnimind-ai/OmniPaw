@@ -76,6 +76,7 @@ import { Switch } from '@/components/ui/switch'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
 import { type ProviderModelOption, useProviderStore } from '@/stores/provider'
+import { catPetGiftImageSrc } from '@/utils/cat-pet-gift-images'
 import { errorToText, useToast } from '@/utils/toast'
 
 const NONE_VALUE = '__none__'
@@ -392,6 +393,10 @@ function petGiftTitle(item: CatPetGiftConfig, index: number): string {
 
 function petGiftDescription(item: CatPetGiftConfig): string {
   return item.description?.trim() || petGiftFallback(item).description || ''
+}
+
+function petGiftImageSrc(item: CatPetGiftConfig): string {
+  return catPetGiftImageSrc(item.image, item.id)
 }
 
 function openGiftEditDialog(item: CatPetGiftConfig): void {
@@ -1379,8 +1384,8 @@ function createRoleKnowledgeId(index: number): string {
                 <template #avatar>
                   <div class="grid size-10 shrink-0 place-items-center overflow-hidden rounded-md border bg-muted text-muted-foreground">
                     <img
-                      v-if="item.image?.dataUrl"
-                      :src="item.image.dataUrl"
+                      v-if="petGiftImageSrc(item)"
+                      :src="petGiftImageSrc(item)"
                       :alt="t('settings.catAppearance.role.gifts.imageAlt', { name: petGiftTitle(item, index) })"
                       class="size-full object-cover"
                     />

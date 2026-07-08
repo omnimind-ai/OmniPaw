@@ -1,4 +1,5 @@
 export * from './appearance'
 export * from './gameplay'
+export * from './gifts'
 export * from './interactions'
 export * from './xiaowan'
