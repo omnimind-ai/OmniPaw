@@ -189,6 +189,15 @@ function createControllers(): void {
   trayController = createTrayController({
     app,
     appName: APP_NAME,
+    devActions: {
+      debugUnlockNextGift: () =>
+        runDevTrayAction('cat-pet.debugUnlockNextGift', debugUnlockNextGiftFromTray),
+      triggerObservationReaction: () =>
+        runDevTrayAction('observation.triggerDevReaction', triggerDevObservationReactionFromTray),
+      showDirectCatBubble: () =>
+        runDevTrayAction('cat.showDirectDevBubble', showDirectDevCatBubbleFromTray),
+    },
+    isDevMode,
     quitApp,
     shouldMinimizeToTray: isMinimizeToTrayEnabled,
     showMainWindow,
@@ -516,6 +525,74 @@ function showCatPetGiftBubble(event: CatPetGiftUnlock): void {
     text: event.gift.storyLines[0] ?? event.gift.name,
     gift: event,
     source: 'cat-pet-gift',
+  })
+}
+
+function isDevMode(): boolean {
+  return !app.isPackaged
+}
+
+function runDevTrayAction(action: string, handler: () => Promise<void>): void {
+  if (!isDevMode()) {
+    return
+  }
+
+  void handler().catch((error) => {
+    mainLogger.warn('Tray dev action failed.', { action, error })
+  })
+}
+
+async function debugUnlockNextGiftFromTray(): Promise<void> {
+  if (!runtime) {
+    throw new Error('Core runtime is unavailable.')
+  }
+
+  const response = runtime.catPetManager.debugUnlockNextGift()
+  if (!response.giftUnlock) {
+    mainLogger.info('Tray dev gift unlock skipped; no pending gift.')
+  }
+}
+
+async function triggerDevObservationReactionFromTray(): Promise<void> {
+  if (!runtime) {
+    throw new Error('Core runtime is unavailable.')
+  }
+
+  let state = await runtime.observationManager.status()
+  let run = state.activeRuns.find((item) => item.status === 'active')
+  if (!run) {
+    const settings = runtime.configStore.get().observation
+    state = await runtime.observationManager.start({
+      scope: settings.defaultScope,
+      screenshotRetention: settings.screenshotRetention,
+      sourceId: 'tray-dev-reaction',
+    })
+    run = state.activeRuns.find((item) => item.status === 'active')
+  }
+
+  await runtime.observationManager.trigger({
+    ...(run ? { runId: run.id } : {}),
+    devForceReaction: true,
+  })
+}
+
+async function showDirectDevCatBubbleFromTray(): Promise<void> {
+  showCatWindow()
+  await delay(250)
+  const event = showCatWindowBubble({
+    text: `气泡窗口测试 ${new Date().toLocaleTimeString()}`,
+    kind: 'observation',
+    autoDismissMs: 7_000,
+    source: 'tray-dev-direct-bubble',
+  })
+  if (!event) {
+    throw new Error('Cat bubble window did not accept the dev event.')
+  }
+}
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms)
   })
 }
 

@@ -138,9 +138,6 @@ function close(): void {
               v-if="isUnlocked"
               class="flex flex-col gap-2 rounded-lg border border-border/70 bg-muted/20 px-3 py-3"
             >
-              <Badge variant="secondary">
-                {{ t('catPet.inventory.unlocked') }}
-              </Badge>
               <p class="text-base font-semibold leading-snug">
                 {{ gift.name }}
               </p>

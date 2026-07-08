@@ -1,9 +1,17 @@
-import { type app, Menu, Tray } from 'electron'
+import { type app, Menu, type MenuItemConstructorOptions, Tray } from 'electron'
 import { createTrayIconImage } from './app-icon'
+
+interface TrayDevActions {
+  debugUnlockNextGift: () => void
+  triggerObservationReaction: () => void
+  showDirectCatBubble: () => void
+}
 
 interface TrayControllerOptions {
   app: typeof app
   appName: string
+  devActions?: TrayDevActions
+  isDevMode?: () => boolean
   quitApp: () => void
   shouldMinimizeToTray: () => boolean
   showMainWindow: () => void
@@ -41,23 +49,58 @@ export function createTrayController(options: TrayControllerOptions): TrayContro
     }
 
     const minimizeToTrayEnabled = options.shouldMinimizeToTray()
-    tray.setContextMenu(
-      Menu.buildFromTemplate([
-        {
-          label: '显示主窗口',
-          click: () => options.showMainWindow(),
-        },
-        {
-          label: `关闭到托盘：${minimizeToTrayEnabled ? '开启' : '关闭'}`,
-          enabled: false,
-        },
+    const template: MenuItemConstructorOptions[] = [
+      {
+        label: '显示主窗口',
+        click: () => options.showMainWindow(),
+      },
+      {
+        label: `关闭到托盘：${minimizeToTrayEnabled ? '开启' : '关闭'}`,
+        enabled: false,
+      },
+    ]
+
+    const devItems = buildDevMenuItems()
+    if (devItems.length > 0) {
+      template.push(
         { type: 'separator' },
         {
-          label: '退出',
-          click: () => options.quitApp(),
-        },
-      ])
+          label: '开发测试',
+          submenu: devItems,
+        }
+      )
+    }
+
+    template.push(
+      { type: 'separator' },
+      {
+        label: '退出',
+        click: () => options.quitApp(),
+      }
     )
+
+    tray.setContextMenu(Menu.buildFromTemplate(template))
+  }
+
+  function buildDevMenuItems(): MenuItemConstructorOptions[] {
+    if (!options.isDevMode?.() || !options.devActions) {
+      return []
+    }
+
+    return [
+      {
+        label: '测试触发礼物',
+        click: () => options.devActions?.debugUnlockNextGift(),
+      },
+      {
+        label: '模型测气泡',
+        click: () => options.devActions?.triggerObservationReaction(),
+      },
+      {
+        label: '直接弹气泡',
+        click: () => options.devActions?.showDirectCatBubble(),
+      },
+    ]
   }
 
   function destroy(): void {

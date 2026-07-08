@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { MessageCircleIcon, PlayCircleIcon, ShieldIcon, TimerIcon } from 'lucide-vue-next'
-import { computed, onMounted, ref } from 'vue'
+import { PlayCircleIcon, ShieldIcon, TimerIcon } from 'lucide-vue-next'
+import { computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { appBridge, type BridgeDesktopSettingsConfig, ensureElectronBridge } from '@/bridge/app'
+import type { BridgeDesktopSettingsConfig } from '@/bridge/app'
 import SettingEntry from '@/components/settings/common/SettingEntry.vue'
 import SettingsSection from '@/components/settings/common/SettingsSection.vue'
 import { Button } from '@/components/ui/button'
@@ -29,9 +29,6 @@ const observationStore = useObservationStore()
 const toast = useToast()
 const observation = computed(() => props.draft.observation)
 const runtime = computed(() => observationStore.runtime)
-const activeRun = computed(() => observationStore.activeRun)
-const showDevReactionTrigger = import.meta.env.DEV
-const directCatBubblePending = ref(false)
 const runtimeEnabled = computed({
   get: () => runtime.value?.active === true,
   set: (enabled: boolean) => {
@@ -98,53 +95,6 @@ async function toggleRuntime(enabled: boolean): Promise<void> {
   }
 }
 
-async function triggerDevReaction(): Promise<void> {
-  try {
-    let run = activeRun.value
-    if (!run) {
-      const next = await observationStore.start({
-        scope: observation.value.defaultScope,
-        screenshotRetention: observation.value.screenshotRetention,
-      })
-      run = next.activeRuns.find((item) => item.status === 'active')
-    }
-    await observationStore.trigger({
-      ...(run ? { runId: run.id } : {}),
-      devForceReaction: true,
-    })
-  } catch (error) {
-    toast.error(errorToText(error, t('settings.observation.errors.devReactionFailed')))
-  }
-}
-
-async function showDirectDevCatBubble(): Promise<void> {
-  directCatBubblePending.value = true
-  try {
-    ensureElectronBridge(t('settings.observation.directBubbleOperation'))
-    await appBridge.cat.show()
-    await delay(250)
-    const event = await appBridge.cat.showBubble?.({
-      text: t('settings.observation.bubbleTestLabel', { time: new Date().toLocaleTimeString() }),
-      kind: 'observation',
-      autoDismissMs: 7_000,
-      source: 'dev-direct-bubble',
-    })
-    if (!event) {
-      throw new Error(t('settings.observation.errors.bubbleWindowNoEvent'))
-    }
-  } catch (error) {
-    toast.error(errorToText(error, t('settings.observation.errors.bubbleDirectFailed')))
-  } finally {
-    directCatBubblePending.value = false
-  }
-}
-
-function delay(ms: number): Promise<void> {
-  return new Promise((resolve) => {
-    window.setTimeout(resolve, ms)
-  })
-}
-
 function clampInteger(value: string | number, min: number, max = Number.MAX_SAFE_INTEGER): number {
   const next = Math.round(Number(value))
   if (!Number.isFinite(next)) return min
@@ -185,28 +135,6 @@ function clampInteger(value: string | number, min: number, max = Number.MAX_SAFE
               @click="observationStore.trigger()"
             >
               {{ t('settings.observation.immediateObserve') }}
-            </Button>
-            <Button
-              v-if="showDevReactionTrigger"
-              type="button"
-              variant="outline"
-              size="sm"
-              :disabled="observationStore.running"
-              @click="triggerDevReaction"
-            >
-              <MessageCircleIcon data-icon="inline-start" />
-              {{ t('settings.observation.devTestBubble') }}
-            </Button>
-            <Button
-              v-if="showDevReactionTrigger"
-              type="button"
-              variant="outline"
-              size="sm"
-              :disabled="directCatBubblePending"
-              @click="showDirectDevCatBubble"
-            >
-              <MessageCircleIcon data-icon="inline-start" />
-              {{ t('settings.observation.directTestBubble') }}
             </Button>
           </div>
         </SettingEntry>
