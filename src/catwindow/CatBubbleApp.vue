@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import type { CatBubbleDismissReason, CatBubbleEvent, CatPanelPlacement } from '@shared/types/cat'
-import { XIcon } from 'lucide-vue-next'
+import type { CatPetGiftUnlock } from '@shared/types/cat-pet'
+import { GiftIcon, XIcon } from 'lucide-vue-next'
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { appBridge } from '@/bridge/app'
@@ -21,14 +22,27 @@ onMounted(() => {
 })
 
 const bubble = ref<CatBubbleEvent | null>(null)
+const giftLineIndex = ref(0)
 const side = ref<PanelSide>('right')
 let autoDismissTimer: ReturnType<typeof window.setTimeout> | undefined
 let autoDismissRemainingMs = 0
 let autoDismissAt = 0
 
-const visible = computed(() => Boolean(bubble.value?.visible && bubble.value.text.trim()))
+const visible = computed(() =>
+  Boolean(bubble.value?.visible && (bubble.value.text.trim() || bubble.value.gift))
+)
 const isObservation = computed(() => bubble.value?.kind === 'observation')
+const isGift = computed(() => bubble.value?.kind === 'gift' && Boolean(bubble.value.gift))
 const bubbleText = computed(() => bubble.value?.text ?? '')
+const giftUnlock = computed<CatPetGiftUnlock | undefined>(() => bubble.value?.gift)
+const giftStoryLines = computed(() => {
+  const lines = giftUnlock.value?.gift.storyLines.map((line) => line.trim()).filter(Boolean) ?? []
+  return lines.length ? lines : [bubbleText.value].filter(Boolean)
+})
+const giftComplete = computed(
+  () => isGift.value && giftLineIndex.value >= giftStoryLines.value.length
+)
+const activeGiftLine = computed(() => giftStoryLines.value[giftLineIndex.value] ?? '')
 
 const pointerClass = computed(() =>
   side.value === 'right'
@@ -43,7 +57,9 @@ const bubbleClass = computed(() =>
   cn(
     'relative flex min-h-16 w-full min-w-0 items-start gap-2 rounded-md border border-border bg-popover/95 p-3 text-popover-foreground shadow-xl outline-none backdrop-blur-sm transition-[transform,opacity]',
     visible.value ? 'translate-y-0 opacity-100' : 'translate-y-1 opacity-0',
-    isObservation.value ? 'cursor-pointer hover:bg-popover focus-visible:ring-2' : 'cursor-default'
+    isObservation.value || isGift.value
+      ? 'cursor-pointer hover:bg-popover focus-visible:ring-2'
+      : 'cursor-default'
   )
 )
 
@@ -91,6 +107,7 @@ function applyBubbleEvent(event: CatBubbleEvent) {
   }
 
   bubble.value = event
+  giftLineIndex.value = 0
   if (event.autoDismissMs) {
     scheduleAutoDismiss(event.autoDismissMs)
   }
@@ -122,6 +139,11 @@ async function openObservationSource() {
 }
 
 function handleBubbleClick() {
+  if (isGift.value) {
+    advanceGiftStory()
+    return
+  }
+
   if (!isObservation.value) {
     return
   }
@@ -137,11 +159,26 @@ function handleBubbleKeydown(event: KeyboardEvent) {
   }
 
   if (!isObservation.value || (event.key !== 'Enter' && event.key !== ' ')) {
+    if (isGift.value && (event.key === 'Enter' || event.key === ' ')) {
+      event.preventDefault()
+      advanceGiftStory()
+    }
     return
   }
 
   event.preventDefault()
   void openObservationSource()
+}
+
+function advanceGiftStory() {
+  if (!isGift.value) {
+    return
+  }
+  if (!giftComplete.value) {
+    giftLineIndex.value += 1
+    return
+  }
+  void dismissBubble('story-complete')
 }
 
 const unsubscribeBubble = appBridge.cat.onBubbleEvent?.(applyBubbleEvent) ?? (() => {})
@@ -163,9 +200,15 @@ onBeforeUnmount(() => {
     <section
       v-if="visible"
       :class="bubbleClass"
-      :role="isObservation ? 'button' : undefined"
-      :tabindex="isObservation ? 0 : undefined"
-      :aria-label="isObservation ? t('catWindow.bubble.viewObservationSource') : undefined"
+      :role="isObservation || isGift ? 'button' : undefined"
+      :tabindex="isObservation || isGift ? 0 : undefined"
+      :aria-label="
+        isObservation
+          ? t('catWindow.bubble.viewObservationSource')
+          : isGift
+            ? t('catWindow.bubble.giftStoryAria')
+            : undefined
+      "
       @click="handleBubbleClick"
       @keydown="handleBubbleKeydown"
       @mouseenter="pauseAutoDismiss"
@@ -178,15 +221,55 @@ onBeforeUnmount(() => {
         aria-hidden="true"
       />
 
-      <p class="min-w-0 flex-1 break-words text-sm font-medium leading-snug">
+      <template v-if="isGift && giftUnlock">
+        <template v-if="giftComplete">
+          <div class="grid size-16 shrink-0 place-items-center overflow-hidden rounded-md border bg-muted">
+            <img
+              v-if="giftUnlock.gift.image?.dataUrl"
+              :src="giftUnlock.gift.image.dataUrl"
+              :alt="t('catWindow.bubble.giftImageAlt', { name: giftUnlock.gift.name })"
+              class="size-full object-cover"
+            />
+            <GiftIcon
+              v-else
+              class="size-7 text-muted-foreground"
+              aria-hidden="true"
+            />
+          </div>
+
+          <div class="flex min-w-0 flex-1 flex-col gap-1 self-center">
+            <p class="break-words text-sm font-semibold leading-snug">
+              {{ t('catWindow.bubble.giftReceived', { name: giftUnlock.gift.name }) }}
+            </p>
+            <p
+              v-if="giftUnlock.gift.description"
+              class="line-clamp-2 break-words text-xs text-muted-foreground"
+            >
+              {{ giftUnlock.gift.description }}
+            </p>
+          </div>
+        </template>
+
+        <p
+          v-else
+          class="min-w-0 flex-1 break-words text-sm font-medium leading-snug"
+        >
+          {{ activeGiftLine }}
+        </p>
+      </template>
+
+      <p
+        v-else
+        class="min-w-0 flex-1 break-words text-sm font-medium leading-snug"
+      >
         {{ bubbleText }}
       </p>
 
       <button
-        v-if="isObservation"
+        v-if="isObservation || isGift"
         type="button"
         class="grid size-6 shrink-0 place-items-center rounded-md text-muted-foreground outline-none hover:bg-accent hover:text-accent-foreground focus-visible:ring-2"
-        :aria-label="t('catWindow.bubble.closeBubble')"
+        :aria-label="t(isGift ? 'catWindow.bubble.closeGift' : 'catWindow.bubble.closeBubble')"
         @click.stop="dismissBubble('close')"
       >
         <XIcon

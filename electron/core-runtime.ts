@@ -49,7 +49,7 @@ import { SkillManager, SkillValidationError } from '@core/skill'
 import { resolveOmniPawDataPaths } from '@core/utils/data-paths'
 import { SYSTEM_SESSION_IDS } from '@shared/constants'
 import type { CatAppearanceAssetKey, CatAppearanceChangedEvent } from '@shared/types/cat-appearance'
-import type { CatPetChangedEvent } from '@shared/types/cat-pet'
+import type { CatPetChangedEvent, CatPetGiftUnlock } from '@shared/types/cat-pet'
 import type { ChatSession } from '@shared/types/chat'
 import type { CronTaskChangedEvent } from '@shared/types/cron'
 import type { ObservationChangedEvent, ObservationReactionEvent } from '@shared/types/observation'
@@ -78,6 +78,7 @@ interface CoreRuntimeOptions {
   onSkillChanged: (event: SkillChangedEvent) => void
   onCatAppearanceChanged: (event: CatAppearanceChangedEvent) => void
   onCatPetChanged: (event: CatPetChangedEvent) => void
+  onCatPetGiftUnlocked?: (event: CatPetGiftUnlock) => void
   onObservationChanged: (event: ObservationChangedEvent) => void
   onObservationReaction: (event: ObservationReactionEvent) => void
   chatEventTarget?: () => ChatRunEventTarget | undefined
@@ -209,7 +210,10 @@ export function createCoreRuntime(options: CoreRuntimeOptions): CoreRuntime {
   const catPetManager = new CatPetManager({
     repo: catPetRepo,
     onChanged: options.onCatPetChanged,
+    activeRoleId: () => activeCompanionRole(configStore.get())?.id,
     interactionConfigs: () => activeCompanionRole(configStore.get())?.petInteractions,
+    giftConfigs: () => activeCompanionRole(configStore.get())?.petGifts,
+    onGiftUnlocked: options.onCatPetGiftUnlocked,
     saveInteractionConfigs: (petInteractions) => {
       const config = configStore.get()
       const role =

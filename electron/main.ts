@@ -13,7 +13,7 @@ import {
 } from '@shared/constants'
 import type { OpenChatSessionRequest } from '@shared/types/app'
 import type { CatAppearanceAssetKey, CatAppearanceChangedEvent } from '@shared/types/cat-appearance'
-import type { CatPetChangedEvent } from '@shared/types/cat-pet'
+import type { CatPetChangedEvent, CatPetGiftUnlock } from '@shared/types/cat-pet'
 import type { ChatSessionChangedEvent } from '@shared/types/chat'
 import type { CronTaskChangedEvent } from '@shared/types/cron'
 import type { ObservationChangedEvent, ObservationReactionEvent } from '@shared/types/observation'
@@ -40,6 +40,7 @@ import {
   setCatSessionIdResolver,
   setCatWindowLogger,
   showCatWindow,
+  showCatWindowBubble,
   toggleCatPanelWindow,
   toggleCatVisibility,
 } from './cat-window'
@@ -509,6 +510,15 @@ function broadcastCatPetChanged(event: CatPetChangedEvent): void {
   }
 }
 
+function showCatPetGiftBubble(event: CatPetGiftUnlock): void {
+  showCatWindowBubble({
+    kind: 'gift',
+    text: event.gift.storyLines[0] ?? event.gift.name,
+    gift: event,
+    source: 'cat-pet-gift',
+  })
+}
+
 function broadcastCronChanged(event: CronTaskChangedEvent): void {
   for (const window of BrowserWindow.getAllWindows()) {
     window.webContents.send(IPC_CHANNELS.cron.changed, event)
@@ -749,6 +759,7 @@ app
       onSkillChanged: broadcastSkillChanged,
       onCatAppearanceChanged: broadcastCatAppearanceChanged,
       onCatPetChanged: broadcastCatPetChanged,
+      onCatPetGiftUnlocked: showCatPetGiftBubble,
       onObservationChanged: broadcastObservationChanged,
       onObservationReaction: broadcastObservationReaction,
       chatEventTarget: createBroadcastChatEventTarget,

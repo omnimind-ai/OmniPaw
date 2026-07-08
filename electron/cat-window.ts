@@ -24,6 +24,11 @@ import type {
   CatTaskState,
   CatWindowState,
 } from '@shared/types/cat'
+import {
+  CAT_PET_GIFT_IMAGE_DATA_URL_MAX_LENGTH,
+  type CatPetGiftImage,
+  type CatPetGiftUnlock,
+} from '@shared/types/cat-pet'
 import type { ObservationReactionEvent } from '@shared/types/observation'
 import { app, BrowserWindow, ipcMain, screen } from 'electron'
 import { applyMacDockIcon, createAppIconImage } from './app-icon'
@@ -1040,7 +1045,16 @@ function normalizeCatBubbleShowRequest(
   request: CatBubbleShowRequest | string
 ): CatBubbleEvent | null {
   const input: CatBubbleShowRequest = typeof request === 'string' ? { text: request } : request
-  const text = sanitizeBoundedText(input.text, input.kind === 'observation' ? 180 : 80)
+  const gift = input.gift ? sanitizeCatPetGiftUnlock(input.gift) : undefined
+  const kind =
+    input.kind === 'observation' || input.observationReaction
+      ? 'observation'
+      : input.kind === 'gift' || gift
+        ? 'gift'
+        : 'status'
+  const text =
+    sanitizeBoundedText(input.text, kind === 'status' ? 80 : 180) ??
+    (gift ? sanitizeBoundedText(gift.gift.storyLines[0] ?? gift.gift.name, 180) : undefined)
   if (!text) {
     return null
   }
@@ -1052,9 +1066,10 @@ function normalizeCatBubbleShowRequest(
   return {
     id: normalizeIdentifier(input.id) ?? observationReaction?.id ?? crypto.randomUUID(),
     text,
-    kind: input.kind === 'observation' || observationReaction ? 'observation' : 'status',
+    kind,
     visible: true,
     ...(observationReaction ? { observationReaction } : {}),
+    ...(gift ? { gift } : {}),
     ...(isFiniteNumber(input.autoDismissMs)
       ? { autoDismissMs: clamp(Math.round(Number(input.autoDismissMs)), 1_000, 60_000) }
       : {}),
@@ -1087,7 +1102,9 @@ function showCatBubble(request: CatBubbleShowRequest | string): CatBubbleEvent |
     catWindow.showInactive()
   }
   window.setBounds(placement.bounds)
-  window.setIgnoreMouseEvents(event.kind !== 'observation', { forward: true })
+  window.setIgnoreMouseEvents(event.kind !== 'observation' && event.kind !== 'gift', {
+    forward: true,
+  })
 
   activeCatBubbleEvent = event
   catBubbleVisible = true
@@ -1100,6 +1117,10 @@ function showCatBubble(request: CatBubbleShowRequest | string): CatBubbleEvent |
   }
 
   return event
+}
+
+function showCatWindowBubble(request: CatBubbleShowRequest | string): CatBubbleEvent | null {
+  return showCatBubble(request)
 }
 
 function restoreMacApplicationVisibility(activate = false): void {
@@ -1427,6 +1448,63 @@ function sanitizeObservationReactionEvent(
   }
 }
 
+function sanitizeCatPetGiftUnlock(event: CatPetGiftUnlock): CatPetGiftUnlock | undefined {
+  const roleId = normalizeIdentifier(event.roleId)
+  const giftId = normalizeIdentifier(event.gift?.id)
+  const name = sanitizeBoundedText(event.gift?.name, 80)
+  if (!roleId || !giftId || !name) {
+    return undefined
+  }
+
+  const storyLines = Array.isArray(event.gift.storyLines)
+    ? event.gift.storyLines
+        .map((line) => sanitizeBoundedText(line, 180))
+        .filter((line): line is string => Boolean(line))
+        .slice(0, 8)
+    : []
+  const description = sanitizeBoundedText(event.gift.description, 180)
+  const image = sanitizeCatPetGiftImage(event.gift.image)
+  return {
+    roleId,
+    gift: {
+      id: giftId,
+      enabled: event.gift.enabled !== false,
+      unlockAffection: clamp(Math.round(Number(event.gift.unlockAffection) || 0), 0, 300),
+      name,
+      ...(description ? { description } : {}),
+      ...(image ? { image } : {}),
+      storyLines: storyLines.length ? storyLines : [name],
+    },
+    affection: clamp(Math.round(Number(event.affection) || 0), 0, 300),
+    mood: event.mood === 'attached' ? 'attached' : 'happy',
+    unlockedAt: Number.isFinite(event.unlockedAt) ? event.unlockedAt : Date.now(),
+  }
+}
+
+function sanitizeCatPetGiftImage(image: CatPetGiftImage | undefined): CatPetGiftImage | undefined {
+  if (!image || typeof image !== 'object') {
+    return undefined
+  }
+  const dataUrl =
+    typeof image.dataUrl === 'string' &&
+    image.dataUrl.length <= CAT_PET_GIFT_IMAGE_DATA_URL_MAX_LENGTH &&
+    /^data:image\/(?:png|jpe?g|webp|gif);base64,[a-z0-9+/=]+$/i.test(image.dataUrl)
+      ? image.dataUrl
+      : undefined
+  const packagePath = sanitizeBoundedText(image.packagePath, 240)
+  if (!dataUrl && !packagePath) {
+    return undefined
+  }
+  const mimeType = sanitizeBoundedText(image.mimeType, 80)
+  const fileName = sanitizeBoundedText(image.fileName, 120)
+  return {
+    ...(dataUrl ? { dataUrl } : {}),
+    ...(mimeType?.startsWith('image/') ? { mimeType } : {}),
+    ...(fileName ? { fileName } : {}),
+    ...(packagePath ? { packagePath } : {}),
+  }
+}
+
 export {
   clearCatDraft,
   closeCatPanelWindow,
@@ -1446,6 +1524,7 @@ export {
   setCatState,
   setCatWindowLogger,
   showCatWindow,
+  showCatWindowBubble,
   stageCatDraftAttachments,
   toggleCatPanelWindow,
   toggleCatVisibility,

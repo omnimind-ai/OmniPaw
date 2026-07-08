@@ -355,6 +355,29 @@ export default {
             negativeFeedback: 'Negative feedback',
           },
         },
+        gifts: {
+          title: 'Affection Gifts',
+          description:
+            'Configure stories and gifts triggered when affection reaches a threshold while the pet is happy.',
+          slot: 'Gift {index}',
+          clearImage: 'Remove image',
+          imageAlt: '{name} preview image',
+          storyPlaceholder:
+            'I have wanted to give this to you.\nI hope it stays with you for a while.\nPlease take it. This one is only for you.',
+          fields: {
+            enabled: 'Enable gift',
+            affection: 'Affection threshold',
+            name: 'Gift name',
+            description: 'Gift description',
+            image: 'Gift image',
+            story: 'Gift story',
+          },
+          errors: {
+            imageType: 'Choose an image file.',
+            imageSize: 'Image must be under {size} MB.',
+            imageRead: 'Failed to read gift image.',
+          },
+        },
         knowledge: {
           title: 'Character knowledge',
           description:
@@ -1811,6 +1834,10 @@ export default {
     bubble: {
       viewObservationSource: 'View observation source',
       closeBubble: 'Close observation',
+      giftStoryAria: 'View gift story',
+      giftReceived: 'Received {name}',
+      giftImageAlt: '{name} gift image',
+      closeGift: 'Close gift story',
     },
     panel: {
       alignmentLeft: 'Left',

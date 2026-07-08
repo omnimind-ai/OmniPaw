@@ -19,6 +19,7 @@ import {
   CAT_PET_MOOD_DEFAULT,
   CAT_PET_MOOD_MAX,
   CAT_PET_MOOD_MIN,
+  defaultCatPetGiftConfigs,
   defaultCatPetInteractionConfigs,
   emptyCatPetActionCounters,
   moodFromScore,
@@ -64,6 +65,9 @@ function fallbackState(): CatPetState {
     limits: { ...CAT_PET_DAILY_LIMITS },
     interactions,
     interactionConfigs: defaultCatPetInteractionConfigs(),
+    gifts: [],
+    giftConfigs: defaultCatPetGiftConfigs(),
+    unlockedGifts: [],
     launchCount: 0,
   }
 }

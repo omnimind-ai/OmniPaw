@@ -478,4 +478,20 @@ export const migrations: Migration[] = [
         ADD COLUMN label TEXT;
     `,
   },
+  {
+    id: 13,
+    name: 'create_cat_pet_gift_unlocks',
+    sql: `
+      CREATE TABLE IF NOT EXISTS cat_pet_gift_unlocks (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        role_id TEXT NOT NULL,
+        gift_id TEXT NOT NULL,
+        unlocked_at INTEGER NOT NULL,
+        UNIQUE(role_id, gift_id)
+      );
+
+      CREATE INDEX IF NOT EXISTS idx_cat_pet_gift_unlocks_role_time
+        ON cat_pet_gift_unlocks(role_id, unlocked_at DESC);
+    `,
+  },
 ]

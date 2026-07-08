@@ -43,6 +43,7 @@ import {
   CAT_PET_MOOD_MAX,
   CAT_PET_MOOD_MIN,
   type CatPetChangedEvent,
+  type CatPetGiftConfig,
   type CatPetInteractionConfig,
   type CatPetInteractionDefinition,
   type CatPetPerformRequest,
@@ -50,6 +51,7 @@ import {
   type CatPetState,
   type CatPetUpdateInteractionsRequest,
   type CatPetUpdateInteractionsResponse,
+  defaultCatPetGiftConfigs,
   defaultCatPetInteractionConfigs,
   emptyCatPetActionCounters,
   moodFromScore,
@@ -254,6 +256,7 @@ export interface BridgeDesktopSettingsConfig {
       alternateGreetings: string[]
       proactiveStyle: string
       petInteractions: CatPetInteractionConfig[]
+      petGifts: CatPetGiftConfig[]
       advanced: {
         enabled: boolean
         systemPrompt: string
@@ -1344,6 +1347,9 @@ function fallbackCatPetState(): CatPetState {
     limits: { ...CAT_PET_DAILY_LIMITS },
     interactions: fallbackCatPetInteractions(),
     interactionConfigs: defaultCatPetInteractionConfigs(),
+    gifts: [],
+    giftConfigs: defaultCatPetGiftConfigs(),
+    unlockedGifts: [],
     launchCount: 0,
   }
 }
@@ -1559,7 +1565,10 @@ const fallbackBridge: RendererOmniPawBridge = {
             ? `fallback:${Date.now()}`
             : request.id || `fallback:${Date.now()}`,
         text,
-        kind: typeof request === 'string' ? 'status' : request.kind || 'status',
+        kind:
+          typeof request === 'string'
+            ? 'status'
+            : request.kind || (request.gift ? 'gift' : 'status'),
         visible: true,
         ...(typeof request === 'string'
           ? {}
@@ -1567,6 +1576,7 @@ const fallbackBridge: RendererOmniPawBridge = {
               ...(request.observationReaction
                 ? { observationReaction: request.observationReaction }
                 : {}),
+              ...(request.gift ? { gift: request.gift } : {}),
               ...(request.autoDismissMs ? { autoDismissMs: request.autoDismissMs } : {}),
               ...(request.source ? { source: request.source } : {}),
             }),

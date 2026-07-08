@@ -1,4 +1,4 @@
-import type { CatPetInteractionConfig } from './cat-pet'
+import type { CatPetGiftConfig, CatPetInteractionConfig } from './cat-pet'
 import type { ContextAttachmentPolicy, ToolProfile } from './chat'
 import type { CompanionRoleKnowledgeEntry, CompanionRoleSourceMetadata } from './companion-role'
 import type { LocalAgentTerminalSettings, LocalAgentWorkspaceSettings } from './local-agent'
@@ -75,6 +75,7 @@ export interface DesktopCompanionRoleSettings {
   proactiveStyle: string
   advanced: DesktopCompanionRoleAdvancedSettings
   petInteractions: CatPetInteractionConfig[]
+  petGifts: CatPetGiftConfig[]
   knowledgeSettings: DesktopCompanionRoleKnowledgeSettings
   knowledgeEntries: CompanionRoleKnowledgeEntry[]
   source?: CompanionRoleSourceMetadata

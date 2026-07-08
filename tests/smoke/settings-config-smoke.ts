@@ -141,6 +141,16 @@ try {
             kind: 'sillytavern-json',
             sourceName: 'smoke.json',
           },
+          petGifts: [
+            {
+              id: 'gift_100',
+              enabled: true,
+              unlockAffection: 100,
+              name: 'Smoke Gift',
+              description: 'A normalized gift.',
+              storyLines: ['Here is a smoke gift.'],
+            },
+          ],
         },
       ],
     },
@@ -152,6 +162,8 @@ try {
   assert.equal(roleConfig.app.companionRoles[0]?.knowledgeSettings.maxTokens, 1200)
   assert.equal(roleConfig.app.companionRoles[0]?.knowledgeEntries[0]?.title, '桌面设定')
   assert.equal(roleConfig.app.companionRoles[0]?.source?.kind, 'sillytavern-json')
+  assert.equal(roleConfig.app.companionRoles[0]?.petGifts.length, 3)
+  assert.equal(roleConfig.app.companionRoles[0]?.petGifts[0]?.name, 'Smoke Gift')
 
   const companionRoleService = new CompanionRoleService()
   const importedRole = companionRoleService.importCard({
@@ -185,6 +197,37 @@ try {
   assert.equal(importedRole.knowledgeEntryCount, 1)
   assert.equal(importedRole.role.knowledgeEntries?.[0]?.title, 'Moon lore')
   assert.equal(importedRole.source.kind, 'sillytavern-json')
+
+  const exportedGiftPackage = companionRoleService.exportCard({
+    role: {
+      name: 'Gift Role',
+      petGifts: [
+        {
+          id: 'gift_100',
+          enabled: true,
+          unlockAffection: 100,
+          name: 'Gift Package Smoke',
+          description: 'Checks package gift images.',
+          image: {
+            dataUrl: 'data:image/png;base64,aW1hZ2Utc21va2U=',
+            mimeType: 'image/png',
+            fileName: 'gift-smoke.png',
+          },
+          storyLines: ['A packaged gift appears.'],
+        },
+      ],
+    },
+  })
+  const importedGiftPackage = companionRoleService.importCard({
+    sourceKind: 'omnipaw-role',
+    sourceName: 'gift-role.omnipaw-role',
+    dataBase64: exportedGiftPackage.data.toString('base64'),
+  })
+  assert.equal(importedGiftPackage.role.petGifts?.[0]?.name, 'Gift Package Smoke')
+  assert.equal(
+    importedGiftPackage.role.petGifts?.[0]?.image?.dataUrl,
+    'data:image/png;base64,aW1hZ2Utc21va2U='
+  )
 
   const defaultObservation = cloneDefaultConfig().observation
   assert.equal(defaultObservation.screenshotRetention, 'ephemeral')

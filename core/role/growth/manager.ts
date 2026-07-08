@@ -1,6 +1,6 @@
 import type { CatPetRepo } from '@core/db/repos/cat-pet-repo'
 import type { Logger } from '@core/logging'
-import { normalizePetInteractionConfigs } from '@core/role/presets'
+import { normalizePetGiftConfigs, normalizePetInteractionConfigs } from '@core/role/presets'
 import {
   CAT_PET_AFFECTION_MAX,
   CAT_PET_AFFECTION_MIN,
@@ -10,6 +10,8 @@ import {
   type CatPetActionCounters,
   type CatPetChangedEvent,
   type CatPetChangeReason,
+  type CatPetGiftConfig,
+  type CatPetGiftUnlock,
   type CatPetInteractionConfig,
   type CatPetInteractionDefinition,
   type CatPetPerformResponse,
@@ -21,6 +23,7 @@ import {
   isCatPetAction,
 } from '@shared/types/cat-pet'
 import {
+  buildGiftDefinitions,
   buildInteractionDefinitions,
   clampAffection,
   clampMoodScore,
@@ -29,6 +32,7 @@ import {
   petChatRuntimeInstruction,
   resolveInteractionOutcome,
   resolveLaunchEffect,
+  resolvePendingGiftUnlock,
   serializeInteractionConfigsJson,
 } from './engine'
 
@@ -37,6 +41,9 @@ export interface CatPetManagerOptions {
   onChanged?: (event: CatPetChangedEvent) => void
   interactionConfigs?: () => readonly CatPetInteractionConfig[] | undefined
   saveInteractionConfigs?: (configs: CatPetInteractionConfig[]) => void
+  giftConfigs?: () => readonly CatPetGiftConfig[] | undefined
+  activeRoleId?: () => string | undefined
+  onGiftUnlocked?: (event: CatPetGiftUnlock) => void
   logger?: Logger
   randomSource?: () => number
   now?: () => number
@@ -52,6 +59,9 @@ export class CatPetManager {
   private readonly onChanged?: (event: CatPetChangedEvent) => void
   private readonly interactionConfigs?: () => readonly CatPetInteractionConfig[] | undefined
   private readonly saveInteractionConfigs?: (configs: CatPetInteractionConfig[]) => void
+  private readonly giftConfigs?: () => readonly CatPetGiftConfig[] | undefined
+  private readonly activeRoleId?: () => string | undefined
+  private readonly onGiftUnlocked?: (event: CatPetGiftUnlock) => void
   private readonly logger?: Logger
   private readonly randomSource: () => number
   private readonly nowFn: () => number
@@ -62,6 +72,9 @@ export class CatPetManager {
     this.onChanged = options.onChanged
     this.interactionConfigs = options.interactionConfigs
     this.saveInteractionConfigs = options.saveInteractionConfigs
+    this.giftConfigs = options.giftConfigs
+    this.activeRoleId = options.activeRoleId
+    this.onGiftUnlocked = options.onGiftUnlocked
     this.logger = options.logger
     this.randomSource = options.randomSource ?? Math.random
     this.nowFn = options.now ?? Date.now
@@ -85,6 +98,13 @@ export class CatPetManager {
       mood: effect.moodAfter,
       moodScore: effect.moodScoreAfter,
     })
+    if (effect.moodDelta !== 0) {
+      this.maybeUnlockGift({
+        affection,
+        mood: effect.moodAfter,
+        unlockedAt: now,
+      })
+    }
 
     if (effect.moodDelta !== 0) {
       this.logger?.debug('Cat pet launch mood adjusted.', {
@@ -192,9 +212,14 @@ export class CatPetManager {
       after: record.affectionAfter,
     })
 
+    const giftUnlock = this.maybeUnlockGift({
+      affection: outcome.affectionAfter,
+      mood: outcome.moodAfter,
+      unlockedAt: performedAt,
+    })
     const state = this.buildState({ touchSeen: false })
-    this.broadcastState(state, 'action')
-    return { ok: true, state, result }
+    this.broadcastState(state, 'action', giftUnlock)
+    return { ok: true, state, result, ...(giftUnlock ? { giftUnlock } : {}) }
   }
 
   updateInteractions(request: CatPetUpdateInteractionsRequest): CatPetUpdateInteractionsResponse {
@@ -218,6 +243,15 @@ export class CatPetManager {
     const mood = normalizePersistedMood(persisted.mood, moodScore, affection)
     const interactionConfigs = this.currentInteractionConfigs()
     const interactions = buildInteractionDefinitions(interactionConfigs, affection)
+    const roleId = this.currentRoleId()
+    const giftConfigs = this.currentGiftConfigs()
+    const unlockedGifts = this.repo.listGiftUnlocks(roleId)
+    const unlockedGiftIds = new Set(unlockedGifts.map((gift) => gift.id))
+    const gifts = buildGiftDefinitions({
+      giftConfigs,
+      unlockedGiftIds,
+      affection,
+    })
     const date = this.localDate()
     const usage = completeCounters(options.usageOverride ?? this.repo.getDailyUsage(date))
     const limits = completeCounters(
@@ -243,6 +277,9 @@ export class CatPetManager {
       limits,
       interactions,
       interactionConfigs,
+      gifts,
+      giftConfigs,
+      unlockedGifts,
       launchCount: persisted.launchCount,
       lastLaunchAt: persisted.lastLaunchAt,
       lastSeenAt: persisted.lastSeenAt,
@@ -285,15 +322,75 @@ export class CatPetManager {
     return parseInteractionConfigsJson(this.repo.getState().customInteractionsJson)
   }
 
+  private currentGiftConfigs(): CatPetGiftConfig[] {
+    return normalizePetGiftConfigs(this.giftConfigs?.())
+  }
+
+  private currentRoleId(): string {
+    return this.activeRoleId?.()?.trim() || 'default'
+  }
+
+  private maybeUnlockGift(input: {
+    affection: number
+    mood: CatPetGiftUnlock['mood']
+    unlockedAt: number
+  }): CatPetGiftUnlock | undefined {
+    const roleId = this.currentRoleId()
+    const giftConfigs = this.currentGiftConfigs()
+    const unlockedGiftIds = new Set(this.repo.listGiftUnlocks(roleId).map((gift) => gift.id))
+    const candidate = resolvePendingGiftUnlock({
+      giftConfigs,
+      unlockedGiftIds,
+      affection: input.affection,
+      mood: input.mood,
+    })
+    if (!candidate) {
+      return undefined
+    }
+
+    this.repo.recordGiftUnlock({
+      roleId,
+      giftId: candidate.gift.id,
+      unlockedAt: input.unlockedAt,
+    })
+    const giftUnlock: CatPetGiftUnlock = {
+      roleId,
+      gift: {
+        ...candidate.gift,
+        ...(candidate.gift.image ? { image: { ...candidate.gift.image } } : {}),
+        storyLines: [...candidate.gift.storyLines],
+      },
+      affection: candidate.affection,
+      mood: candidate.mood,
+      unlockedAt: input.unlockedAt,
+    }
+    this.logger?.debug('Cat pet gift unlocked.', {
+      roleId,
+      giftId: candidate.gift.id,
+      affection: candidate.affection,
+      mood: candidate.mood,
+    })
+    try {
+      this.onGiftUnlocked?.(giftUnlock)
+    } catch (error) {
+      this.logger?.warn('Cat pet gift unlock callback failed.', { error })
+    }
+    return giftUnlock
+  }
+
   private broadcast(reason: CatPetChangeReason): void {
     if (!this.onChanged) return
     this.broadcastState(this.buildState({ touchSeen: false }), reason)
   }
 
-  private broadcastState(state: CatPetState, reason: CatPetChangeReason): void {
+  private broadcastState(
+    state: CatPetState,
+    reason: CatPetChangeReason,
+    giftUnlock?: CatPetGiftUnlock
+  ): void {
     if (!this.onChanged) return
     try {
-      this.onChanged({ state, reason })
+      this.onChanged({ state, reason, ...(giftUnlock ? { giftUnlock } : {}) })
     } catch (error) {
       this.logger?.warn('Cat pet change broadcast failed.', { error })
     }

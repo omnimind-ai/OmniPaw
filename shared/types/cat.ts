@@ -1,3 +1,4 @@
+import type { CatPetGiftUnlock } from './cat-pet'
 import type { AttachmentKind, ID, UnixMs } from './chat'
 import type { ObservationReactionEvent } from './observation'
 
@@ -28,12 +29,13 @@ export interface CatCommandEvent {
   source?: string
 }
 
-export type CatBubbleKind = 'status' | 'observation'
+export type CatBubbleKind = 'status' | 'observation' | 'gift'
 
 export type CatBubbleDismissReason =
   | 'timeout'
   | 'close'
   | 'source-opened'
+  | 'story-complete'
   | 'cat-hidden'
   | 'state-hidden'
   | 'replaced'
@@ -43,6 +45,7 @@ export interface CatBubbleShowRequest {
   text: string
   kind?: CatBubbleKind
   observationReaction?: ObservationReactionEvent
+  gift?: CatPetGiftUnlock
   autoDismissMs?: number
   source?: string
 }
@@ -53,6 +56,7 @@ export interface CatBubbleEvent {
   kind: CatBubbleKind
   visible: boolean
   observationReaction?: ObservationReactionEvent
+  gift?: CatPetGiftUnlock
   autoDismissMs?: number
   source?: string
   createdAt: UnixMs

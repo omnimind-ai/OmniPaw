@@ -1,6 +1,6 @@
-import type { UnixMs } from './chat'
+import type { ID, UnixMs } from './chat'
 
-export const CAT_PET_AFFECTION_MAX = 200
+export const CAT_PET_AFFECTION_MAX = 300
 export const CAT_PET_AFFECTION_MIN = 0
 export const CAT_PET_AFFECTION_DEFAULT = 50
 
@@ -36,6 +36,42 @@ export interface CatPetInteractionConfig {
   description?: string
   positiveFeedback?: string
   negativeFeedback?: string
+}
+
+export interface CatPetGiftImage {
+  dataUrl?: string
+  mimeType?: string
+  fileName?: string
+  packagePath?: string
+}
+
+export interface CatPetGiftConfig {
+  id: ID
+  enabled?: boolean
+  unlockAffection: number
+  name: string
+  description?: string
+  image?: CatPetGiftImage
+  storyLines: string[]
+}
+
+export interface CatPetGiftDefinition extends CatPetGiftConfig {
+  enabled: boolean
+  unlocked: boolean
+}
+
+export interface CatPetUnlockedGiftRecord {
+  id: ID
+  roleId: ID
+  unlockedAt: UnixMs
+}
+
+export interface CatPetGiftUnlock {
+  roleId: ID
+  gift: CatPetGiftConfig
+  affection: number
+  mood: CatPetMood
+  unlockedAt: UnixMs
 }
 
 export const CAT_PET_DAILY_LIMITS = {
@@ -87,9 +123,57 @@ const CAT_PET_DEFAULT_INTERACTIONS = [
   },
 ] as const satisfies readonly CatPetInteractionConfig[]
 
+const CAT_PET_DEFAULT_GIFTS = [
+  {
+    id: 'gift_100',
+    enabled: true,
+    unlockAffection: 100,
+    name: '小小爪印贴纸',
+    description: '来自桌面伙伴的第一份纪念礼物。',
+    storyLines: [
+      '我刚刚发现，我们已经变得很熟悉了。',
+      '所以这个送给你，算是我的小小爪印。',
+      '以后看到它，就当我也在旁边陪着你。',
+    ],
+  },
+  {
+    id: 'gift_200',
+    enabled: true,
+    unlockAffection: 200,
+    name: '温热铃铛',
+    description: '轻轻晃动时，会想起一起待过的时间。',
+    storyLines: [
+      '今天的心情很好，而且我想把这个交给你。',
+      '它不是很贵重，但我一直偷偷留着。',
+      '如果你听见铃声，就说明我在认真回应你。',
+    ],
+  },
+  {
+    id: 'gift_300',
+    enabled: true,
+    unlockAffection: 300,
+    name: '专属星星挂坠',
+    description: '好感度满值后获得的专属礼物。',
+    storyLines: [
+      '能走到这里，我真的很开心。',
+      '这颗星星给你，它只属于我们现在的关系。',
+      '以后无论忙不忙，我都会在桌面这里等你。',
+    ],
+  },
+] as const satisfies readonly CatPetGiftConfig[]
+
 const MAX_LABEL_LENGTH = 18
 const MAX_DESCRIPTION_LENGTH = 80
 const MAX_FEEDBACK_LENGTH = 120
+const MAX_GIFT_NAME_LENGTH = 40
+const MAX_GIFT_DESCRIPTION_LENGTH = 160
+const MAX_GIFT_STORY_LINE_LENGTH = 160
+const MAX_GIFT_STORY_LINES = 8
+const MAX_GIFT_IMAGE_FILE_NAME_LENGTH = 120
+const MAX_GIFT_IMAGE_PATH_LENGTH = 240
+
+export const CAT_PET_GIFT_IMAGE_MAX_BYTES = 1_500_000
+export const CAT_PET_GIFT_IMAGE_DATA_URL_MAX_LENGTH = 2_100_000
 
 export interface CatPetInteractionDefinition {
   id: CatPetAction
@@ -134,6 +218,9 @@ export interface CatPetState {
   limits: CatPetDailyLimits
   interactions: CatPetInteractionDefinition[]
   interactionConfigs: CatPetInteractionConfig[]
+  gifts: CatPetGiftDefinition[]
+  giftConfigs: CatPetGiftConfig[]
+  unlockedGifts: CatPetUnlockedGiftRecord[]
   launchCount: number
   lastLaunchAt?: UnixMs
   lastSeenAt?: UnixMs
@@ -151,7 +238,7 @@ export interface CatPetUpdateInteractionsRequest {
 }
 
 export type CatPetPerformResponse =
-  | { ok: true; state: CatPetState; result: CatPetRecentInteraction }
+  | { ok: true; state: CatPetState; result: CatPetRecentInteraction; giftUnlock?: CatPetGiftUnlock }
   | { ok: false; reason: 'daily_limit' | 'disabled_action' | 'locked_action'; state: CatPetState }
 
 export interface CatPetUpdateInteractionsResponse {
@@ -161,6 +248,7 @@ export interface CatPetUpdateInteractionsResponse {
 export interface CatPetChangedEvent {
   state: CatPetState
   reason: CatPetChangeReason
+  giftUnlock?: CatPetGiftUnlock
 }
 
 export function emptyCatPetActionCounters(): CatPetActionCounters {
@@ -174,6 +262,13 @@ export function emptyCatPetActionCounters(): CatPetActionCounters {
 
 export function defaultCatPetInteractionConfigs(): CatPetInteractionConfig[] {
   return CAT_PET_DEFAULT_INTERACTIONS.map((item) => ({ ...item }))
+}
+
+export function defaultCatPetGiftConfigs(): CatPetGiftConfig[] {
+  return CAT_PET_DEFAULT_GIFTS.map((item) => ({
+    ...item,
+    storyLines: [...item.storyLines],
+  }))
 }
 
 export function normalizeCatPetInteractionConfigs(input: unknown): CatPetInteractionConfig[] {
@@ -198,6 +293,44 @@ export function normalizeCatPetInteractionConfigs(input: unknown): CatPetInterac
   return defaultCatPetInteractionConfigs().map((fallback) => ({
     ...fallback,
     ...(byId.get(fallback.id) ?? {}),
+  }))
+}
+
+export function normalizeCatPetGiftConfigs(input: unknown): CatPetGiftConfig[] {
+  const byId = new Map<ID, CatPetGiftConfig>()
+  const items = Array.isArray(input) ? input : []
+  for (const item of items) {
+    const record = asRecord(item)
+    const id = normalizeGiftId(record?.id)
+    if (!record || !id) {
+      continue
+    }
+    const fallback = CAT_PET_DEFAULT_GIFTS.find((gift) => gift.id === id)
+    const fallbackStoryLines = fallback?.storyLines ?? []
+    const name =
+      normalizeOptionalText(record.name, MAX_GIFT_NAME_LENGTH) ??
+      fallback?.name ??
+      `Gift ${byId.size + 1}`
+    const storyLines = normalizeGiftStoryLines(record.storyLines, fallbackStoryLines, name)
+    const image = normalizeGiftImage(record.image)
+    const description =
+      normalizeOptionalText(record.description, MAX_GIFT_DESCRIPTION_LENGTH) ??
+      fallback?.description
+    byId.set(id, {
+      id,
+      enabled: record.enabled !== false,
+      unlockAffection: normalizeGiftAffection(record.unlockAffection, fallback?.unlockAffection),
+      name,
+      ...(description ? { description } : {}),
+      ...(image ? { image } : {}),
+      storyLines,
+    })
+  }
+
+  return defaultCatPetGiftConfigs().map((fallback) => ({
+    ...fallback,
+    ...(byId.get(fallback.id) ?? {}),
+    storyLines: byId.get(fallback.id)?.storyLines ?? [...fallback.storyLines],
   }))
 }
 
@@ -241,6 +374,81 @@ function normalizeInteractionConfigId(value: unknown): CatPetAction | undefined 
 function normalizeOptionalText(value: unknown, maxLength: number): string | undefined {
   const trimmed = typeof value === 'string' ? value.replace(/\s+/g, ' ').trim() : ''
   return trimmed ? trimmed.slice(0, maxLength) : undefined
+}
+
+function normalizeGiftId(value: unknown): ID | undefined {
+  const trimmed = normalizeOptionalText(value, 80)
+  if (!trimmed) {
+    return undefined
+  }
+  return CAT_PET_DEFAULT_GIFTS.some((gift) => gift.id === trimmed) ? trimmed : undefined
+}
+
+function normalizeGiftAffection(value: unknown, fallback = 100): number {
+  const numeric = typeof value === 'number' ? value : Number(value)
+  const finite = Number.isFinite(numeric) ? numeric : fallback
+  return Math.max(CAT_PET_AFFECTION_MIN, Math.min(Math.round(finite), CAT_PET_AFFECTION_MAX))
+}
+
+function normalizeGiftStoryLines(
+  value: unknown,
+  fallback: readonly string[],
+  giftName: string
+): string[] {
+  const rawItems =
+    typeof value === 'string' ? value.split(/\n+/) : Array.isArray(value) ? value : fallback
+  const normalized = rawItems
+    .map((item) => normalizeOptionalText(item, MAX_GIFT_STORY_LINE_LENGTH))
+    .filter((item): item is string => Boolean(item))
+    .slice(0, MAX_GIFT_STORY_LINES)
+  return normalized.length ? normalized : [`这是我想送给你的${giftName}。`]
+}
+
+function normalizeGiftImage(value: unknown): CatPetGiftImage | undefined {
+  const record = asRecord(value)
+  if (!record) {
+    return undefined
+  }
+  const dataUrl = normalizeGiftImageDataUrl(record.dataUrl)
+  const packagePath = normalizeGiftPackagePath(record.packagePath)
+  if (!dataUrl && !packagePath) {
+    return undefined
+  }
+  const mimeType =
+    normalizeOptionalText(record.mimeType, 80) ?? imageMimeTypeFromDataUrl(dataUrl) ?? undefined
+  const fileName = normalizeOptionalText(record.fileName, MAX_GIFT_IMAGE_FILE_NAME_LENGTH)
+  return {
+    ...(dataUrl ? { dataUrl } : {}),
+    ...(mimeType?.startsWith('image/') ? { mimeType } : {}),
+    ...(fileName ? { fileName } : {}),
+    ...(packagePath ? { packagePath } : {}),
+  }
+}
+
+function normalizeGiftImageDataUrl(value: unknown): string | undefined {
+  if (typeof value !== 'string') {
+    return undefined
+  }
+  const trimmed = value.trim()
+  if (trimmed.length > CAT_PET_GIFT_IMAGE_DATA_URL_MAX_LENGTH) {
+    return undefined
+  }
+  return /^data:image\/(?:png|jpe?g|webp|gif);base64,[a-z0-9+/=]+$/i.test(trimmed)
+    ? trimmed
+    : undefined
+}
+
+function normalizeGiftPackagePath(value: unknown): string | undefined {
+  const trimmed = normalizeOptionalText(value, MAX_GIFT_IMAGE_PATH_LENGTH)
+  if (!trimmed || trimmed.includes('..') || trimmed.startsWith('/') || trimmed.startsWith('\\')) {
+    return undefined
+  }
+  return trimmed
+}
+
+function imageMimeTypeFromDataUrl(value: string | undefined): string | undefined {
+  const match = value?.match(/^data:(image\/(?:png|jpe?g|webp|gif));base64,/i)
+  return match?.[1]?.toLowerCase()
 }
 
 function asRecord(value: unknown): Record<string, unknown> | undefined {

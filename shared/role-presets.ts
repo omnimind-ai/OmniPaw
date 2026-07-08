@@ -1,4 +1,4 @@
-import { defaultCatPetInteractionConfigs } from './types/cat-pet'
+import { defaultCatPetGiftConfigs, defaultCatPetInteractionConfigs } from './types/cat-pet'
 import type { DesktopCompanionRoleSettings } from './types/settings'
 
 export const XIAOWAN_COMPANION_ROLE_ID = 'default'
@@ -26,6 +26,7 @@ export function createXiaowanCompanionRolePreset(): DesktopCompanionRoleSettings
       finalInstructions: '',
     },
     petInteractions: defaultCatPetInteractionConfigs(),
+    petGifts: defaultCatPetGiftConfigs(),
     knowledgeSettings: {
       scanDepth: 8,
       maxTokens: 900,

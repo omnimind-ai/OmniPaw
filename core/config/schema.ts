@@ -3,6 +3,7 @@ import {
   CAT_PET_ACTIONS,
   createXiaowanCompanionRolePreset,
   isPresetCatPetAction as isCatPetAction,
+  normalizePetGiftConfigs as normalizeCatPetGiftConfigs,
   normalizePetInteractionConfigs as normalizeCatPetInteractionConfigs,
 } from '@core/role/presets'
 import type { ContextAttachmentPolicy, ToolProfile } from '@shared/types/chat'
@@ -804,6 +805,7 @@ function validateCompanionRole(
       `${basePath}.petInteractions`,
       issues
     )
+    validateCompanionRolePetGifts(settings.petGifts, `${basePath}.petGifts`, issues)
     if (
       settings.defaultProviderId !== undefined &&
       typeof settings.defaultProviderId !== 'string'
@@ -905,6 +907,126 @@ function validateCompanionRolePetInteractions(
       })
       return
     }
+  }
+}
+
+function validateCompanionRolePetGifts(
+  gifts: DesktopCompanionRoleSettings['petGifts'],
+  basePath: string,
+  issues: SettingsValidationIssue[]
+): void {
+  if (!Array.isArray(gifts)) {
+    issues.push({
+      path: basePath,
+      message: 'Companion role pet gifts must be an array.',
+      code: 'invalid_type',
+    })
+    return
+  }
+
+  const ids = new Set<string>()
+  for (const [index, gift] of gifts.entries()) {
+    const itemPath = `${basePath}[${index}]`
+    if (!isPlainObject(gift)) {
+      issues.push({
+        path: itemPath,
+        message: 'Companion role pet gift must be an object.',
+        code: 'invalid_type',
+      })
+      continue
+    }
+    if (typeof gift.id !== 'string' || !gift.id.trim()) {
+      issues.push({
+        path: `${itemPath}.id`,
+        message: 'Companion role pet gift ID must be a non-empty string.',
+        code: 'invalid_type',
+      })
+    } else if (ids.has(gift.id)) {
+      issues.push({
+        path: `${itemPath}.id`,
+        message: 'Companion role pet gift IDs must be unique.',
+        code: 'duplicate_id',
+      })
+    } else {
+      ids.add(gift.id)
+    }
+    if (gift.enabled !== undefined && typeof gift.enabled !== 'boolean') {
+      issues.push({
+        path: `${itemPath}.enabled`,
+        message: 'Companion role pet gift enabled flag must be boolean.',
+        code: 'invalid_type',
+      })
+    }
+    validateIntegerRange(gift.unlockAffection, `${itemPath}.unlockAffection`, 0, 300, issues)
+    if (typeof gift.name !== 'string' || !gift.name.trim()) {
+      issues.push({
+        path: `${itemPath}.name`,
+        message: 'Companion role pet gift name must be a non-empty string.',
+        code: 'invalid_type',
+      })
+    }
+    if (gift.description !== undefined && typeof gift.description !== 'string') {
+      issues.push({
+        path: `${itemPath}.description`,
+        message: 'Companion role pet gift description must be a string.',
+        code: 'invalid_type',
+      })
+    }
+    validateStringArray(gift.storyLines, `${itemPath}.storyLines`, issues)
+    if (!gift.storyLines.length) {
+      issues.push({
+        path: `${itemPath}.storyLines`,
+        message: 'Companion role pet gift story lines are required.',
+        code: 'required',
+      })
+    }
+    validateCompanionRolePetGiftImage(gift.image, `${itemPath}.image`, issues)
+  }
+}
+
+function validateCompanionRolePetGiftImage(
+  image: DesktopCompanionRoleSettings['petGifts'][number]['image'],
+  basePath: string,
+  issues: SettingsValidationIssue[]
+): void {
+  if (image === undefined) {
+    return
+  }
+  if (!isPlainObject(image)) {
+    issues.push({
+      path: basePath,
+      message: 'Companion role pet gift image must be an object.',
+      code: 'invalid_type',
+    })
+    return
+  }
+  if (image.dataUrl !== undefined && typeof image.dataUrl !== 'string') {
+    issues.push({
+      path: `${basePath}.dataUrl`,
+      message: 'Companion role pet gift image data URL must be a string.',
+      code: 'invalid_type',
+    })
+  }
+  if (image.mimeType !== undefined && typeof image.mimeType !== 'string') {
+    issues.push({
+      path: `${basePath}.mimeType`,
+      message: 'Companion role pet gift image MIME type must be a string.',
+      code: 'invalid_type',
+    })
+  }
+  if (image.fileName !== undefined && typeof image.fileName !== 'string') {
+    issues.push({
+      path: `${basePath}.fileName`,
+      message: 'Companion role pet gift image file name must be a string.',
+      code: 'invalid_type',
+    })
+  }
+  if (image.packagePath !== undefined && typeof image.packagePath !== 'string') {
+    issues.push({
+      path: `${basePath}.packagePath`,
+      message: 'Companion role pet gift image package path must be a string.',
+      code: 'invalid_type',
+    })
   }
 }
 
@@ -2366,6 +2488,7 @@ function normalizeCompanionRoleSettings(
     petInteractions: normalizeCatPetInteractionConfigs(
       rawValue.petInteractions ?? rawValue.customInteractions
     ),
+    petGifts: normalizeCatPetGiftConfigs(rawValue.petGifts ?? rawValue.gifts),
     knowledgeSettings: normalizeCompanionRoleKnowledgeSettings(rawValue.knowledgeSettings),
     knowledgeEntries: normalizeCompanionRoleKnowledgeEntries(rawValue.knowledgeEntries),
     source: normalizeCompanionRoleSource(rawValue.source),

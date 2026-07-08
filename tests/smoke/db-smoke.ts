@@ -8,6 +8,7 @@ import { nextRunAt, validateCronExpression } from '../../core/cron/schedule'
 import { DatabaseClient } from '../../core/db/client'
 import {
   AttachmentRepo,
+  CatPetRepo,
   ChatContextSummaryRepo,
   ChatMessageRepo,
   ChatRunRepo,
@@ -36,6 +37,7 @@ try {
   const messages = new ChatMessageRepo(db)
   const contextSummaries = new ChatContextSummaryRepo(db)
   const attachments = new AttachmentRepo(db)
+  const catPet = new CatPetRepo(db)
   const runs = new ChatRunRepo(db)
   const memories = new CompanionMemoryRepo(db)
   const cronTasks = new CronTaskRepo(db)
@@ -131,6 +133,19 @@ try {
   }
   attachments.save(attachment)
   assert.equal(attachments.getBySha256('sha256-smoke')?.id, attachment.id)
+
+  catPet.recordGiftUnlock({
+    roleId: 'role-smoke-a',
+    giftId: 'gift_100',
+    unlockedAt: 2002,
+  })
+  catPet.recordGiftUnlock({
+    roleId: 'role-smoke-a',
+    giftId: 'gift_100',
+    unlockedAt: 2003,
+  })
+  assert.equal(catPet.listGiftUnlocks('role-smoke-a').length, 1)
+  assert.equal(catPet.listGiftUnlocks('role-smoke-a')[0]?.id, 'gift_100')
 
   const userMessage: ChatMessage = {
     id: 'message-user',

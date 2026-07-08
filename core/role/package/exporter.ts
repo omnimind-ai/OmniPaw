@@ -1,4 +1,4 @@
-import { normalizePetInteractionConfigs } from '@core/role/presets'
+import { normalizePetGiftConfigs, normalizePetInteractionConfigs } from '@core/role/presets'
 import { writeZipEntries, type ZipArchiveEntry } from '@core/utils/zip'
 import type {
   CompanionRoleKnowledgeEntryDraft,
@@ -17,23 +17,27 @@ interface OmniPawRolePackageManifest {
   exportedAt: number
   rolePath: 'role.json'
   appearancePath?: 'appearance/'
+  giftsPath?: 'gifts/'
 }
 
 export function exportCompanionRoleCard(
   request: ExportCompanionRoleCardRequest
 ): ExportedCompanionRoleCard {
   const role = normalizeExportedRoleDraft(request.role)
+  const giftPackage = packageGiftImages(role)
   const manifest: OmniPawRolePackageManifest = {
     spec: 'omnipaw_role_package',
     specVersion: 1,
     exportedAt: Date.now(),
     rolePath: 'role.json',
     appearancePath: request.appearancePack ? 'appearance/' : undefined,
+    giftsPath: giftPackage.entries.length ? 'gifts/' : undefined,
   }
   const entries: ZipArchiveEntry[] = [
     jsonEntry('manifest.json', manifest),
-    jsonEntry('role.json', role),
+    jsonEntry('role.json', giftPackage.role),
     ...appearancePackEntries(request.appearancePack),
+    ...giftPackage.entries,
   ]
 
   return {
@@ -80,6 +84,7 @@ function normalizeExportedRoleDraft(role: ImportedCompanionRoleDraft): ImportedC
     alternateGreetings: normalizeStringList(role.alternateGreetings),
     proactiveStyle: normalizeOptionalText(role.proactiveStyle),
     petInteractions: normalizePetInteractionConfigs(role.petInteractions),
+    petGifts: normalizePetGiftConfigs(role.petGifts),
     advanced: role.advanced
       ? {
           enabled: Boolean(role.advanced.enabled),
@@ -92,6 +97,74 @@ function normalizeExportedRoleDraft(role: ImportedCompanionRoleDraft): ImportedC
     knowledgeEntries: normalizeExportedKnowledgeEntries(role.knowledgeEntries),
     source: role.source,
   }
+}
+
+function packageGiftImages(role: ImportedCompanionRoleDraft): {
+  role: ImportedCompanionRoleDraft
+  entries: ZipArchiveEntry[]
+} {
+  const usedPaths = new Set<string>()
+  const entries: ZipArchiveEntry[] = []
+  const petGifts = normalizePetGiftConfigs(role.petGifts).map((gift) => {
+    const image = gift.image
+    const parsed = parseDataImageUrl(image?.dataUrl)
+    if (!parsed) {
+      return gift
+    }
+
+    const baseName = safeFileBaseName(image?.fileName || gift.name || gift.id)
+      .replace(/\.[a-z0-9]+$/i, '')
+      .slice(0, 60)
+    const extension = imageExtension(parsed.mimeType)
+    let path = `gifts/${baseName || gift.id}.${extension}`
+    let suffix = 2
+    while (usedPaths.has(path)) {
+      path = `gifts/${baseName || gift.id}-${suffix}.${extension}`
+      suffix += 1
+    }
+    usedPaths.add(path)
+    entries.push({
+      name: path,
+      data: parsed.data,
+    })
+
+    return {
+      ...gift,
+      image: {
+        mimeType: parsed.mimeType,
+        ...(image?.fileName ? { fileName: image.fileName } : {}),
+        packagePath: path,
+      },
+    }
+  })
+
+  return {
+    role: {
+      ...role,
+      petGifts,
+    },
+    entries,
+  }
+}
+
+function parseDataImageUrl(
+  value: string | undefined
+): { mimeType: string; data: Buffer } | undefined {
+  const match = value?.match(/^data:(image\/(?:png|jpe?g|webp|gif));base64,([a-z0-9+/=]+)$/i)
+  if (!match) {
+    return undefined
+  }
+  return {
+    mimeType: match[1].toLowerCase(),
+    data: Buffer.from(match[2], 'base64'),
+  }
+}
+
+function imageExtension(mimeType: string): string {
+  if (mimeType === 'image/jpeg' || mimeType === 'image/jpg') return 'jpg'
+  if (mimeType === 'image/webp') return 'webp'
+  if (mimeType === 'image/gif') return 'gif'
+  return 'png'
 }
 
 function normalizeExportedKnowledgeEntries(

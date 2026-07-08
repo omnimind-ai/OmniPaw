@@ -5,12 +5,15 @@ import type {
   CatAppearancePackSummary,
   CatAppearanceResolvedPack,
 } from '@shared/types/cat-appearance'
-import type { CatPetInteractionConfig } from '@shared/types/cat-pet'
+import type { CatPetGiftConfig, CatPetInteractionConfig } from '@shared/types/cat-pet'
 import {
   CAT_PET_ACTIONS,
   CAT_PET_DAILY_LIMITS,
+  CAT_PET_GIFT_IMAGE_MAX_BYTES,
   CAT_PET_UNLOCK_AFFECTION,
+  defaultCatPetGiftConfigs,
   defaultCatPetInteractionConfigs,
+  normalizeCatPetGiftConfigs,
   normalizeCatPetInteractionConfigs,
 } from '@shared/types/cat-pet'
 import {
@@ -20,14 +23,17 @@ import {
   CopyIcon,
   DownloadIcon,
   EyeIcon,
+  GiftIcon,
   HandIcon,
   ImageIcon,
+  ImagePlusIcon,
   MessageCircleIcon,
   PackagePlusIcon,
   PlusIcon,
   SlidersHorizontalIcon,
   Trash2Icon,
   UserRoundIcon,
+  XIcon,
 } from 'lucide-vue-next'
 import { storeToRefs } from 'pinia'
 import type { AcceptableValue } from 'reka-ui'
@@ -70,9 +76,13 @@ const NONE_VALUE = '__none__'
 const defaultPetInteractionById = new Map(
   defaultCatPetInteractionConfigs().map((item) => [item.id, item])
 )
+const defaultPetGiftById = new Map(defaultCatPetGiftConfigs().map((item) => [item.id, item]))
 
 type BadgeVariant = NonNullable<BadgeVariants['variant']>
 type CompanionRole = BridgeDesktopSettingsConfig['app']['companionRoles'][number]
+type PetGiftPatch = Partial<Omit<CatPetGiftConfig, 'id' | 'image'>> & {
+  image?: CatPetGiftConfig['image'] | undefined
+}
 
 const props = defineProps<{
   role: CompanionRole
@@ -200,6 +210,7 @@ watch(
   () => editableRole.value.id,
   () => {
     ensurePetInteractions()
+    ensurePetGifts()
   },
   { immediate: true }
 )
@@ -310,6 +321,14 @@ function ensurePetInteractions(): CompanionRole['petInteractions'] {
   return editableRole.value.petInteractions
 }
 
+function ensurePetGifts(): CompanionRole['petGifts'] {
+  const normalized = normalizeCatPetGiftConfigs(editableRole.value.petGifts)
+  if (JSON.stringify(editableRole.value.petGifts) !== JSON.stringify(normalized)) {
+    editableRole.value.petGifts = normalized
+  }
+  return editableRole.value.petGifts
+}
+
 function petInteractionFallback(item: CatPetInteractionConfig): CatPetInteractionConfig {
   return defaultPetInteractionById.get(item.id) ?? item
 }
@@ -350,6 +369,101 @@ function updatePetInteraction(
   const next = [...items]
   next[index] = { ...current, ...patch }
   editableRole.value.petInteractions = next
+}
+
+function petGiftFallback(item: CatPetGiftConfig): CatPetGiftConfig {
+  return defaultPetGiftById.get(item.id) ?? item
+}
+
+function petGiftTitle(item: CatPetGiftConfig, index: number): string {
+  return (
+    item.name?.trim() ||
+    petGiftFallback(item).name ||
+    t('settings.catAppearance.role.gifts.slot', { index: index + 1 })
+  )
+}
+
+function petGiftStoryText(item: CatPetGiftConfig): string {
+  return item.storyLines.join('\n')
+}
+
+function updatePetGift(index: number, patch: PetGiftPatch): void {
+  const items = ensurePetGifts()
+  const current = items[index]
+  if (!current) return
+  const next = [...items]
+  const normalized = normalizeCatPetGiftConfigs([
+    {
+      ...current,
+      ...patch,
+    },
+  ]).find((gift) => gift.id === current.id)
+  if (!normalized) return
+  next[index] = normalized
+  editableRole.value.petGifts = normalizeCatPetGiftConfigs(next)
+}
+
+function updatePetGiftAffection(index: number, value: string): void {
+  const current = ensurePetGifts()[index]
+  const fallback = current ? petGiftFallback(current).unlockAffection : 100
+  updatePetGift(index, {
+    unlockAffection: normalizeIntegerInput(value, fallback, 0, 300),
+  })
+}
+
+function updatePetGiftStory(index: number, value: string): void {
+  updatePetGift(index, {
+    storyLines: splitMultiline(value),
+  })
+}
+
+function clearPetGiftImage(index: number): void {
+  updatePetGift(index, {
+    image: undefined,
+  })
+}
+
+async function updatePetGiftImage(index: number, event: Event): Promise<void> {
+  const input = event.target as HTMLInputElement | null
+  const file = input?.files?.[0]
+  if (!file) return
+  if (!file.type.startsWith('image/')) {
+    toast.error(t('settings.catAppearance.role.gifts.errors.imageType'))
+    if (input) input.value = ''
+    return
+  }
+  if (file.size > CAT_PET_GIFT_IMAGE_MAX_BYTES) {
+    toast.error(
+      t('settings.catAppearance.role.gifts.errors.imageSize', {
+        size: Math.round(CAT_PET_GIFT_IMAGE_MAX_BYTES / 1024 / 1024),
+      })
+    )
+    if (input) input.value = ''
+    return
+  }
+  try {
+    const dataUrl = await readFileAsDataUrl(file)
+    updatePetGift(index, {
+      image: {
+        dataUrl,
+        mimeType: file.type,
+        fileName: file.name,
+      },
+    })
+  } catch (error) {
+    toast.error(errorToText(error, t('settings.catAppearance.role.gifts.errors.imageRead')))
+  } finally {
+    if (input) input.value = ''
+  }
+}
+
+function readFileAsDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(typeof reader.result === 'string' ? reader.result : '')
+    reader.onerror = () => reject(reader.error ?? new Error('Failed to read image file.'))
+    reader.readAsDataURL(file)
+  })
 }
 
 async function loadPacks(): Promise<void> {
@@ -662,14 +776,6 @@ function createRoleKnowledgeId(index: number): string {
         >
           <EyeIcon data-icon="inline-start" />
           {{ t('settings.catAppearance.role.preview.action') }}
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
-          @click="emit('duplicateRole')"
-        >
-          <CopyIcon data-icon="inline-start" />
-          {{ t('settings.catAppearance.role.actions.duplicate') }}
         </Button>
         <Button
           variant="outline"
@@ -1237,6 +1343,116 @@ function createRoleKnowledgeId(index: number): string {
                       @update:model-value="updatePetInteraction(index, { negativeFeedback: String($event) })"
                     />
                   </div>
+                </div>
+              </SettingEntry>
+            </FieldGroup>
+          </SettingsSection>
+
+          <SettingsSection
+            :title="t('settings.catAppearance.role.gifts.title')"
+            :description="t('settings.catAppearance.role.gifts.description')"
+            :icon="GiftIcon"
+          >
+            <FieldGroup class="gap-0">
+              <SettingEntry
+                v-for="(item, index) in editableRole.petGifts"
+                :key="item.id"
+                :control-id="`settings-companion-role-gift-name-${item.id}`"
+                :title="petGiftTitle(item, index)"
+                :description="item.description || petGiftFallback(item).description"
+                control-class="@md/field-group:w-[min(42rem,62vw)]"
+              >
+                <template #meta>
+                  <div class="flex flex-wrap gap-1.5">
+                    <Badge variant="secondary">
+                      {{ t('catPet.config.unlockAt', { count: item.unlockAffection }) }}
+                    </Badge>
+                  </div>
+                </template>
+
+                <div class="flex w-full min-w-0 flex-col gap-3">
+                  <div class="flex items-center justify-between gap-3 rounded-md border bg-background/60 px-3 py-2">
+                    <span class="text-sm text-muted-foreground">
+                      {{ t('settings.catAppearance.role.gifts.fields.enabled') }}
+                    </span>
+                    <Switch
+                      :id="`settings-companion-role-gift-enabled-${item.id}`"
+                      :model-value="item.enabled !== false"
+                      :aria-label="t('settings.catAppearance.role.gifts.fields.enabled')"
+                      @update:model-value="updatePetGift(index, { enabled: Boolean($event) })"
+                    />
+                  </div>
+
+                  <div class="grid gap-2 md:grid-cols-[minmax(0,1fr)_8rem]">
+                    <Input
+                      :id="`settings-companion-role-gift-name-${item.id}`"
+                      :model-value="item.name"
+                      maxlength="40"
+                      :aria-label="t('settings.catAppearance.role.gifts.fields.name')"
+                      :placeholder="petGiftFallback(item).name"
+                      @update:model-value="updatePetGift(index, { name: String($event) })"
+                    />
+                    <Input
+                      :model-value="item.unlockAffection"
+                      type="number"
+                      min="0"
+                      max="300"
+                      :aria-label="t('settings.catAppearance.role.gifts.fields.affection')"
+                      @input="updatePetGiftAffection(index, eventInputValue($event))"
+                    />
+                  </div>
+
+                  <Input
+                    :model-value="item.description"
+                    maxlength="160"
+                    :aria-label="t('settings.catAppearance.role.gifts.fields.description')"
+                    :placeholder="petGiftFallback(item).description"
+                    @update:model-value="updatePetGift(index, { description: String($event) })"
+                  />
+
+                  <div class="flex min-w-0 items-center gap-3 rounded-md border bg-background/60 p-3">
+                    <div class="grid size-16 shrink-0 place-items-center overflow-hidden rounded-md border bg-muted">
+                      <img
+                        v-if="item.image?.dataUrl"
+                        :src="item.image.dataUrl"
+                        :alt="t('settings.catAppearance.role.gifts.imageAlt', { name: petGiftTitle(item, index) })"
+                        class="size-full object-cover"
+                      />
+                      <ImagePlusIcon
+                        v-else
+                        class="size-6 text-muted-foreground"
+                        aria-hidden="true"
+                      />
+                    </div>
+
+                    <div class="flex min-w-0 flex-1 flex-col gap-2">
+                      <Input
+                        type="file"
+                        accept="image/png,image/jpeg,image/webp,image/gif"
+                        :aria-label="t('settings.catAppearance.role.gifts.fields.image')"
+                        @change="updatePetGiftImage(index, $event)"
+                      />
+                      <Button
+                        v-if="item.image?.dataUrl"
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        class="w-fit"
+                        @click="clearPetGiftImage(index)"
+                      >
+                        <XIcon data-icon="inline-start" />
+                        {{ t('settings.catAppearance.role.gifts.clearImage') }}
+                      </Button>
+                    </div>
+                  </div>
+
+                  <Textarea
+                    :model-value="petGiftStoryText(item)"
+                    class="min-h-28"
+                    :aria-label="t('settings.catAppearance.role.gifts.fields.story')"
+                    :placeholder="t('settings.catAppearance.role.gifts.storyPlaceholder')"
+                    @input="updatePetGiftStory(index, eventInputValue($event))"
+                  />
                 </div>
               </SettingEntry>
             </FieldGroup>

@@ -1,4 +1,9 @@
-import type { CatPetAction, CatPetMood, CatPetOutcome } from '@shared/types/cat-pet'
+import type {
+  CatPetAction,
+  CatPetMood,
+  CatPetOutcome,
+  CatPetUnlockedGiftRecord,
+} from '@shared/types/cat-pet'
 import { isCatPetAction } from '@shared/types/cat-pet'
 import type { DatabaseConnection } from '../client'
 
@@ -28,6 +33,12 @@ export interface CatPetLatestInteractionRow {
 interface DailyUsageRow {
   action: string
   total: number
+}
+
+interface GiftUnlockRow {
+  gift_id: string
+  role_id: string
+  unlocked_at: number
 }
 
 export interface CatPetPersistedState {
@@ -126,6 +137,33 @@ export class CatPetRepo {
          LIMIT 1`
       )
       .get(date) as CatPetLatestInteractionRow | undefined
+  }
+
+  listGiftUnlocks(roleId: string): CatPetUnlockedGiftRecord[] {
+    return (
+      this.db
+        .prepare(
+          `SELECT gift_id, role_id, unlocked_at
+           FROM cat_pet_gift_unlocks
+           WHERE role_id = ?
+           ORDER BY unlocked_at ASC`
+        )
+        .all(roleId) as GiftUnlockRow[]
+    ).map((row) => ({
+      id: row.gift_id,
+      roleId: row.role_id,
+      unlockedAt: row.unlocked_at,
+    }))
+  }
+
+  recordGiftUnlock(input: { roleId: string; giftId: string; unlockedAt: number }): void {
+    this.db
+      .prepare(
+        `INSERT OR IGNORE INTO cat_pet_gift_unlocks
+           (role_id, gift_id, unlocked_at)
+         VALUES (?, ?, ?)`
+      )
+      .run(input.roleId, input.giftId, input.unlockedAt)
   }
 
   recordLaunch(input: { now: number; mood: CatPetMood; moodScore: number }): void {

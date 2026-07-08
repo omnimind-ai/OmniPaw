@@ -334,6 +334,28 @@ export default {
             negativeFeedback: '未奏效反馈',
           },
         },
+        gifts: {
+          title: '好感礼物',
+          description: '配置好感度到达阈值且心情开心时触发的剧情和礼物。',
+          slot: '礼物 {index}',
+          clearImage: '移除图片',
+          imageAlt: '{name} 预览图',
+          storyPlaceholder:
+            '我一直想把这个送给你。\n希望它能陪你久一点。\n收下吧，这是只给你的礼物。',
+          fields: {
+            enabled: '启用礼物',
+            affection: '好感阈值',
+            name: '礼物名称',
+            description: '礼物介绍',
+            image: '礼物图片',
+            story: '赠礼剧情',
+          },
+          errors: {
+            imageType: '请选择图片文件。',
+            imageSize: '图片不能超过 {size} MB。',
+            imageRead: '礼物图片读取失败。',
+          },
+        },
         knowledge: {
           title: '角色知识',
           description:
@@ -1725,6 +1747,10 @@ export default {
     bubble: {
       viewObservationSource: '查看观察反应来源',
       closeBubble: '关闭观察反应',
+      giftStoryAria: '查看礼物剧情',
+      giftReceived: '获得了 {name}',
+      giftImageAlt: '{name} 礼物图片',
+      closeGift: '关闭礼物剧情',
     },
     panel: {
       alignmentLeft: '左侧',

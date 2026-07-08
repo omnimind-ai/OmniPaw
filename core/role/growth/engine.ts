@@ -4,6 +4,7 @@ import {
   CAT_PET_INTERACTION_TEMPLATES,
   CAT_PET_MOOD_TEXT,
   CAT_PET_UNLOCK_AFFECTION,
+  normalizePetGiftConfigs,
   normalizePetInteractionConfigs,
   PET_CHAT_RUNTIME_INSTRUCTION,
   type PetInteractionTemplate,
@@ -16,6 +17,8 @@ import {
   CAT_PET_MOOD_MAX,
   CAT_PET_MOOD_MIN,
   type CatPetAction,
+  type CatPetGiftConfig,
+  type CatPetGiftDefinition,
   type CatPetInteractionConfig,
   type CatPetInteractionDefinition,
   type CatPetMood,
@@ -55,6 +58,12 @@ export interface PetLaunchEffect {
   moodAfter: CatPetMood
   moodScoreBefore: number
   moodScoreAfter: number
+}
+
+export interface PetGiftUnlockCandidate {
+  gift: CatPetGiftConfig
+  affection: number
+  mood: CatPetMood
 }
 
 export function parseInteractionConfigsJson(value: string | null | undefined) {
@@ -113,6 +122,39 @@ export function buildInteractionDefinitions(
       feedback,
     }
   })
+}
+
+export function buildGiftDefinitions(input: {
+  giftConfigs: readonly CatPetGiftConfig[]
+  unlockedGiftIds: ReadonlySet<string>
+  affection: number
+}): CatPetGiftDefinition[] {
+  return normalizePetGiftConfigs(input.giftConfigs).map((gift) => ({
+    ...gift,
+    enabled: gift.enabled !== false,
+    unlocked: input.unlockedGiftIds.has(gift.id),
+    unlockAffection: clampAffection(gift.unlockAffection),
+    storyLines: [...gift.storyLines],
+    ...(gift.image ? { image: { ...gift.image } } : {}),
+  }))
+}
+
+export function resolvePendingGiftUnlock(input: {
+  giftConfigs: readonly CatPetGiftConfig[]
+  unlockedGiftIds: ReadonlySet<string>
+  affection: number
+  mood: CatPetMood
+}): PetGiftUnlockCandidate | undefined {
+  if (!isGiftUnlockMood(input.mood)) {
+    return undefined
+  }
+
+  const affection = clampAffection(input.affection)
+  const gift = normalizePetGiftConfigs(input.giftConfigs)
+    .filter((gift) => gift.enabled !== false && !input.unlockedGiftIds.has(gift.id))
+    .sort((left, right) => left.unlockAffection - right.unlockAffection)
+    .find((gift) => affection >= clampAffection(gift.unlockAffection))
+  return gift ? { gift, affection, mood: input.mood } : undefined
 }
 
 export function interactionDefinitionForAction(
@@ -274,6 +316,10 @@ function adjustedPositiveProbability(
 
 function petMoodText(mood: CatPetMood): string {
   return CAT_PET_MOOD_TEXT[mood]
+}
+
+function isGiftUnlockMood(mood: CatPetMood): boolean {
+  return mood === 'happy' || mood === 'attached'
 }
 
 function formatAwayDuration(ms: number): string {

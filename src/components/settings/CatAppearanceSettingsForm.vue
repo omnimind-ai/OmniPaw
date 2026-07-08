@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import {
+  defaultCatPetGiftConfigs,
   defaultCatPetInteractionConfigs,
+  normalizeCatPetGiftConfigs,
   normalizeCatPetInteractionConfigs,
 } from '@shared/types/cat-pet'
 import type {
@@ -119,6 +121,11 @@ function duplicateActiveRole(): void {
     advanced: { ...activeRole.value.advanced },
     alternateGreetings: [...activeRole.value.alternateGreetings],
     petInteractions: activeRole.value.petInteractions.map((item) => ({ ...item })),
+    petGifts: activeRole.value.petGifts.map((item) => ({
+      ...item,
+      ...(item.image ? { image: { ...item.image } } : {}),
+      storyLines: [...item.storyLines],
+    })),
     knowledgeEntries: activeRole.value.knowledgeEntries.map((entry, index) => ({
       ...entry,
       id: createRoleKnowledgeId(index),
@@ -164,6 +171,7 @@ function createCompanionRole(): CompanionRole {
     alternateGreetings: [],
     proactiveStyle: '',
     petInteractions: defaultCatPetInteractionConfigs(),
+    petGifts: defaultCatPetGiftConfigs(),
     advanced: {
       enabled: false,
       systemPrompt: '',
@@ -445,6 +453,7 @@ function createRoleFromImportedDraft(
     alternateGreetings: normalizeStringList(draft.alternateGreetings),
     proactiveStyle: draft.proactiveStyle ?? '',
     petInteractions: normalizeCatPetInteractionConfigs(draft.petInteractions),
+    petGifts: normalizeCatPetGiftConfigs(draft.petGifts),
     advanced: {
       enabled: Boolean(draft.advanced?.enabled),
       systemPrompt: draft.advanced?.systemPrompt ?? '',
@@ -476,6 +485,7 @@ function createExportRoleDraft(role: CompanionRole): ImportedCompanionRoleDraft 
     alternateGreetings: [...role.alternateGreetings],
     proactiveStyle: role.proactiveStyle,
     petInteractions: normalizeCatPetInteractionConfigs(role.petInteractions),
+    petGifts: normalizeCatPetGiftConfigs(role.petGifts),
     advanced: {
       enabled: role.advanced.enabled,
       systemPrompt: role.advanced.systemPrompt,

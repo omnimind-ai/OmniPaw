@@ -2,6 +2,7 @@ import { createHash } from 'node:crypto'
 import { inflateSync } from 'node:zlib'
 import {
   createDefaultPetInteractionConfigs,
+  normalizePetGiftConfigs,
   normalizePetInteractionConfigs,
 } from '@core/role/presets'
 import { normalizeArchivePath, readZipEntries, validateArchivePaths } from '@core/utils/zip'
@@ -227,6 +228,7 @@ function mapParsedCardToRole(parsed: ParsedCharacterCard): ImportedCompanionRole
     alternateGreetings: parsed.alternateGreetings,
     proactiveStyle: '',
     petInteractions: createDefaultPetInteractionConfigs(),
+    petGifts: normalizePetGiftConfigs(undefined),
     advanced,
     knowledgeEntries,
     source: parsed.source,
@@ -285,9 +287,10 @@ function parseOmniPawRolePackage(
   if (!role) {
     throwUnsupportedImport()
   }
+  const resolvedRole = resolvePackageGiftImages(role, byName)
 
   return {
-    name: role.name,
+    name: resolvedRole.name,
     alternateGreetings: [],
     messageExamples: [],
     tags: [],
@@ -300,8 +303,8 @@ function parseOmniPawRolePackage(
       mimeType,
       contentHash: hashSensitiveBytes(bytes),
     },
-    exportedRole: role,
-    appearancePack: packageAppearancePack(entries, manifest, role),
+    exportedRole: resolvedRole,
+    appearancePack: packageAppearancePack(entries, manifest, resolvedRole),
   }
 }
 
@@ -373,6 +376,7 @@ function normalizeOmniPawExportedRole(
     alternateGreetings: stringArray(role.alternateGreetings),
     proactiveStyle: pickString(role, ['proactiveStyle']),
     petInteractions: normalizePetInteractionConfigs(role.petInteractions),
+    petGifts: normalizePetGiftConfigs(role.petGifts ?? role.gifts),
     advanced: advanced
       ? {
           enabled: advanced.enabled === true,
@@ -383,6 +387,34 @@ function normalizeOmniPawExportedRole(
         }
       : undefined,
     knowledgeEntries: normalizeOmniPawExportedKnowledgeEntries(role.knowledgeEntries),
+  }
+}
+
+function resolvePackageGiftImages(
+  role: ImportedCompanionRoleDraft,
+  entries: Map<string, Buffer>
+): ImportedCompanionRoleDraft {
+  return {
+    ...role,
+    petGifts: normalizePetGiftConfigs(role.petGifts).map((gift) => {
+      const packagePath = normalizeArchivePath(gift.image?.packagePath ?? '')
+      const data = packagePath ? entries.get(packagePath) : undefined
+      if (!data) {
+        return gift
+      }
+      const mimeType = gift.image?.mimeType?.startsWith('image/')
+        ? gift.image.mimeType
+        : mimeTypeFromPath(packagePath)
+      return {
+        ...gift,
+        image: {
+          ...gift.image,
+          mimeType,
+          dataUrl: `data:${mimeType};base64,${data.toString('base64')}`,
+          packagePath,
+        },
+      }
+    }),
   }
 }
 
@@ -407,6 +439,14 @@ function normalizeEmbeddedAppearancePack(
         files,
       }
     : undefined
+}
+
+function mimeTypeFromPath(path: string): string {
+  const lower = path.toLowerCase()
+  if (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) return 'image/jpeg'
+  if (lower.endsWith('.webp')) return 'image/webp'
+  if (lower.endsWith('.gif')) return 'image/gif'
+  return 'image/png'
 }
 
 function normalizeOmniPawExportedKnowledgeEntries(
