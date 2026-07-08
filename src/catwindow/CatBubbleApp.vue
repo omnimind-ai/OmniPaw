@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { CatBubbleDismissReason, CatBubbleEvent, CatPanelPlacement } from '@shared/types/cat'
 import type { CatPetGiftUnlock } from '@shared/types/cat-pet'
-import { GiftIcon, XIcon } from 'lucide-vue-next'
+import { ChevronDownIcon, GiftIcon, XIcon } from 'lucide-vue-next'
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { appBridge } from '@/bridge/app'
@@ -59,7 +59,8 @@ const bubbleClass = computed(() =>
     visible.value ? 'translate-y-0 opacity-100' : 'translate-y-1 opacity-0',
     isObservation.value || isGift.value
       ? 'cursor-pointer hover:bg-popover focus-visible:ring-2'
-      : 'cursor-default'
+      : 'cursor-default',
+    isObservation.value || isGift.value ? 'pr-10' : ''
   )
 )
 
@@ -223,7 +224,7 @@ onBeforeUnmount(() => {
 
       <template v-if="isGift && giftUnlock">
         <template v-if="giftComplete">
-          <div class="grid size-16 shrink-0 place-items-center overflow-hidden rounded-md border bg-muted">
+          <div class="grid size-10 shrink-0 place-items-center self-center overflow-hidden rounded-full border bg-muted">
             <img
               v-if="giftUnlock.gift.image?.dataUrl"
               :src="giftUnlock.gift.image.dataUrl"
@@ -252,10 +253,16 @@ onBeforeUnmount(() => {
 
         <p
           v-else
-          class="min-w-0 flex-1 break-words text-sm font-medium leading-snug"
+          class="min-w-0 flex-1 break-words pb-2 text-sm font-medium leading-snug"
         >
           {{ activeGiftLine }}
         </p>
+
+        <ChevronDownIcon
+          v-if="!giftComplete"
+          class="story-continue-indicator absolute bottom-2 right-3 size-4 text-muted-foreground"
+          aria-hidden="true"
+        />
       </template>
 
       <p
@@ -268,7 +275,7 @@ onBeforeUnmount(() => {
       <button
         v-if="isObservation || isGift"
         type="button"
-        class="grid size-6 shrink-0 place-items-center rounded-md text-muted-foreground outline-none hover:bg-accent hover:text-accent-foreground focus-visible:ring-2"
+        class="absolute right-2 top-2 grid size-6 place-items-center rounded-md text-muted-foreground outline-none hover:bg-accent hover:text-accent-foreground focus-visible:ring-2"
         :aria-label="t(isGift ? 'catWindow.bubble.closeGift' : 'catWindow.bubble.closeBubble')"
         @click.stop="dismissBubble('close')"
       >
@@ -280,3 +287,22 @@ onBeforeUnmount(() => {
     </section>
   </main>
 </template>
+
+<style scoped>
+.story-continue-indicator {
+  animation: story-continue-bounce 1.25s ease-in-out infinite;
+}
+
+@keyframes story-continue-bounce {
+  0%,
+  100% {
+    opacity: 0.45;
+    transform: translateY(-1px);
+  }
+
+  50% {
+    opacity: 0.95;
+    transform: translateY(3px);
+  }
+}
+</style>
