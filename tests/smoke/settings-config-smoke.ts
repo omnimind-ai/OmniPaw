@@ -148,6 +148,11 @@ try {
               unlockAffection: 100,
               name: 'Smoke Gift',
               description: 'A normalized gift.',
+              image: {
+                dataUrl: 'data:image/png;base64,aW1hZ2Utc21va2U=',
+                mimeType: 'image/png',
+                fileName: 'gift-smoke.png',
+              },
               storyLines: ['Here is a smoke gift.'],
             },
             {
@@ -170,9 +175,14 @@ try {
   assert.equal(roleConfig.app.companionRoles[0]?.knowledgeSettings.maxTokens, 1200)
   assert.equal(roleConfig.app.companionRoles[0]?.knowledgeEntries[0]?.title, '桌面设定')
   assert.equal(roleConfig.app.companionRoles[0]?.source?.kind, 'sillytavern-json')
-  assert.equal(roleConfig.app.companionRoles[0]?.petGifts.length, 2)
+  assert.equal(roleConfig.app.companionRoles[0]?.petGifts.length, 3)
   assert.equal(roleConfig.app.companionRoles[0]?.petGifts[0]?.name, 'Smoke Gift')
-  assert.equal(roleConfig.app.companionRoles[0]?.petGifts[1]?.id, 'gift_custom_smoke')
+  assert.equal(
+    roleConfig.app.companionRoles[0]?.petGifts[0]?.image?.dataUrl,
+    'data:image/png;base64,aW1hZ2Utc21va2U='
+  )
+  assert.equal(roleConfig.app.companionRoles[0]?.petGifts[1]?.id, 'gift_200')
+  assert.equal(roleConfig.app.companionRoles[0]?.petGifts[2]?.unlockAffection, 300)
 
   const companionRoleService = new CompanionRoleService()
   const importedRole = companionRoleService.importCard({
@@ -212,7 +222,7 @@ try {
       name: 'Gift Role',
       petGifts: [
         {
-          id: 'gift_custom_package_smoke',
+          id: 'gift_100',
           enabled: true,
           unlockAffection: 100,
           name: 'Gift Package Smoke',

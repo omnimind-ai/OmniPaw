@@ -172,6 +172,14 @@ const MAX_GIFT_STORY_LINES = 8
 const MAX_GIFT_IMAGE_FILE_NAME_LENGTH = 120
 const MAX_GIFT_IMAGE_PATH_LENGTH = 240
 
+export const CAT_PET_GIFT_IMAGE_MIME_TYPES = [
+  'image/png',
+  'image/jpeg',
+  'image/jpg',
+  'image/webp',
+  'image/gif',
+] as const
+export const CAT_PET_GIFT_IMAGE_ACCEPT = 'image/png,image/jpeg,image/webp,image/gif'
 export const CAT_PET_GIFT_IMAGE_MAX_BYTES = 1_500_000
 export const CAT_PET_GIFT_IMAGE_DATA_URL_MAX_LENGTH = 2_100_000
 
@@ -297,22 +305,18 @@ export function normalizeCatPetInteractionConfigs(input: unknown): CatPetInterac
 }
 
 export function normalizeCatPetGiftConfigs(input: unknown): CatPetGiftConfig[] {
-  if (!Array.isArray(input)) {
-    return defaultCatPetGiftConfigs()
-  }
-
   const byId = new Map<ID, CatPetGiftConfig>()
-  const orderedIds: ID[] = []
-  for (const item of input) {
+  const items = Array.isArray(input) ? input : []
+  for (const item of items) {
     const record = asRecord(item)
     const id = normalizeGiftId(record?.id)
     if (!record || !id) {
       continue
     }
-    if (!byId.has(id)) {
-      orderedIds.push(id)
-    }
     const fallback = CAT_PET_DEFAULT_GIFTS.find((gift) => gift.id === id)
+    if (!fallback) {
+      continue
+    }
     const fallbackStoryLines = fallback?.storyLines ?? []
     const name =
       normalizeOptionalText(record.name, MAX_GIFT_NAME_LENGTH) ??
@@ -325,8 +329,8 @@ export function normalizeCatPetGiftConfigs(input: unknown): CatPetGiftConfig[] {
       fallback?.description
     byId.set(id, {
       id,
-      enabled: record.enabled !== false,
-      unlockAffection: normalizeGiftAffection(record.unlockAffection, fallback?.unlockAffection),
+      enabled: true,
+      unlockAffection: fallback.unlockAffection,
       name,
       ...(description ? { description } : {}),
       ...(image ? { image } : {}),
@@ -334,9 +338,46 @@ export function normalizeCatPetGiftConfigs(input: unknown): CatPetGiftConfig[] {
     })
   }
 
-  return orderedIds
-    .map((id) => byId.get(id))
-    .filter((gift): gift is CatPetGiftConfig => Boolean(gift))
+  return defaultCatPetGiftConfigs().map((fallback) => {
+    const override = byId.get(fallback.id)
+    if (!override) {
+      return fallback
+    }
+    return {
+      ...fallback,
+      ...override,
+      enabled: true,
+      unlockAffection: fallback.unlockAffection,
+      storyLines: [...override.storyLines],
+    }
+  })
+}
+
+export function normalizeCatPetGiftImageMimeType(
+  value: unknown,
+  fileName?: unknown
+): (typeof CAT_PET_GIFT_IMAGE_MIME_TYPES)[number] | undefined {
+  const mimeType = normalizeOptionalText(value, 80)?.toLowerCase()
+  if (mimeType && isCatPetGiftImageMimeType(mimeType)) {
+    return mimeType === 'image/jpg' ? 'image/jpeg' : mimeType
+  }
+
+  const normalizedFileName = normalizeOptionalText(fileName, MAX_GIFT_IMAGE_FILE_NAME_LENGTH)
+  const extension = normalizedFileName?.split('.').pop()?.toLowerCase()
+  if (extension === 'png') return 'image/png'
+  if (extension === 'jpg' || extension === 'jpeg') return 'image/jpeg'
+  if (extension === 'webp') return 'image/webp'
+  if (extension === 'gif') return 'image/gif'
+  return undefined
+}
+
+export function isCatPetGiftImageMimeType(
+  value: unknown
+): value is (typeof CAT_PET_GIFT_IMAGE_MIME_TYPES)[number] {
+  return (
+    typeof value === 'string' &&
+    (CAT_PET_GIFT_IMAGE_MIME_TYPES as readonly string[]).includes(value.toLowerCase())
+  )
 }
 
 export function isCatPetAction(value: unknown): value is CatPetAction {
@@ -386,13 +427,7 @@ function normalizeGiftId(value: unknown): ID | undefined {
   if (!trimmed) {
     return undefined
   }
-  return trimmed
-}
-
-function normalizeGiftAffection(value: unknown, fallback = 100): number {
-  const numeric = typeof value === 'number' ? value : Number(value)
-  const finite = Number.isFinite(numeric) ? numeric : fallback
-  return Math.max(CAT_PET_AFFECTION_MIN, Math.min(Math.round(finite), CAT_PET_AFFECTION_MAX))
+  return CAT_PET_DEFAULT_GIFTS.some((gift) => gift.id === trimmed) ? trimmed : undefined
 }
 
 function normalizeGiftStoryLines(
@@ -420,11 +455,13 @@ function normalizeGiftImage(value: unknown): CatPetGiftImage | undefined {
     return undefined
   }
   const mimeType =
-    normalizeOptionalText(record.mimeType, 80) ?? imageMimeTypeFromDataUrl(dataUrl) ?? undefined
+    normalizeCatPetGiftImageMimeType(record.mimeType) ??
+    normalizeCatPetGiftImageMimeType(imageMimeTypeFromDataUrl(dataUrl)) ??
+    undefined
   const fileName = normalizeOptionalText(record.fileName, MAX_GIFT_IMAGE_FILE_NAME_LENGTH)
   return {
     ...(dataUrl ? { dataUrl } : {}),
-    ...(mimeType?.startsWith('image/') ? { mimeType } : {}),
+    ...(mimeType ? { mimeType } : {}),
     ...(fileName ? { fileName } : {}),
     ...(packagePath ? { packagePath } : {}),
   }
@@ -438,7 +475,10 @@ function normalizeGiftImageDataUrl(value: unknown): string | undefined {
   if (trimmed.length > CAT_PET_GIFT_IMAGE_DATA_URL_MAX_LENGTH) {
     return undefined
   }
-  return /^data:image\/(?:png|jpe?g|webp|gif);base64,[a-z0-9+/=]+$/i.test(trimmed)
+  const mimeType = imageMimeTypeFromDataUrl(trimmed)
+  return mimeType &&
+    normalizeCatPetGiftImageMimeType(mimeType) &&
+    /^[^,]+,[a-z0-9+/=]+$/i.test(trimmed)
     ? trimmed
     : undefined
 }

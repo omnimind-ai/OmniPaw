@@ -1,6 +1,10 @@
 <script setup lang="ts">
 import type { CatPetGiftConfig, CatPetGiftImage } from '@shared/types/cat-pet'
-import { CAT_PET_AFFECTION_MAX, CAT_PET_GIFT_IMAGE_MAX_BYTES } from '@shared/types/cat-pet'
+import {
+  CAT_PET_GIFT_IMAGE_ACCEPT,
+  CAT_PET_GIFT_IMAGE_MAX_BYTES,
+  normalizeCatPetGiftImageMimeType,
+} from '@shared/types/cat-pet'
 import { GiftIcon, ImagePlusIcon, XIcon } from 'lucide-vue-next'
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
@@ -15,7 +19,6 @@ import {
 } from '@/components/ui/dialog'
 import { Field, FieldDescription, FieldGroup, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
-import { Switch } from '@/components/ui/switch'
 import { Textarea } from '@/components/ui/textarea'
 import { errorToText, useToast } from '@/utils/toast'
 
@@ -32,15 +35,13 @@ const emit = defineEmits<{
 const { t } = useI18n()
 const toast = useToast()
 
-const enabled = ref(true)
 const name = ref('')
-const affectionText = ref('100')
 const description = ref('')
 const image = ref<CatPetGiftImage | undefined>()
 const storyText = ref('')
 
-const editing = computed(() => Boolean(props.gift))
 const canSubmit = computed(() => Boolean(props.gift?.id && name.value.trim()))
+const fallbackGiftName = computed(() => props.gift?.name ?? '')
 
 watch(
   [open, () => props.gift],
@@ -55,18 +56,14 @@ watch(
 )
 
 function loadDraft(gift: CatPetGiftConfig | undefined): void {
-  enabled.value = gift?.enabled !== false
   name.value = gift?.name ?? ''
-  affectionText.value = String(gift?.unlockAffection ?? 100)
   description.value = gift?.description ?? ''
   image.value = gift?.image ? { ...gift.image } : undefined
   storyText.value = gift?.storyLines.join('\n') ?? ''
 }
 
 function resetDraft(): void {
-  enabled.value = true
   name.value = ''
-  affectionText.value = '100'
   description.value = ''
   image.value = undefined
   storyText.value = ''
@@ -81,13 +78,8 @@ function submit(): void {
   const storyLines = splitMultiline(storyText.value)
   emit('submit', {
     id: props.gift.id,
-    enabled: enabled.value,
-    unlockAffection: normalizeIntegerInput(
-      affectionText.value,
-      props.gift.unlockAffection,
-      0,
-      CAT_PET_AFFECTION_MAX
-    ),
+    enabled: true,
+    unlockAffection: props.gift.unlockAffection,
     name: trimmedName,
     ...(trimmedDescription ? { description: trimmedDescription } : {}),
     ...(image.value ? { image: { ...image.value } } : {}),
@@ -101,7 +93,8 @@ async function updateImage(event: Event): Promise<void> {
   const input = event.target as HTMLInputElement | null
   const file = input?.files?.[0]
   if (!file) return
-  if (!file.type.startsWith('image/')) {
+  const mimeType = normalizeCatPetGiftImageMimeType(file.type, file.name)
+  if (!mimeType) {
     toast.error(t('settings.catAppearance.role.gifts.errors.imageType'))
     if (input) input.value = ''
     return
@@ -116,10 +109,10 @@ async function updateImage(event: Event): Promise<void> {
     return
   }
   try {
-    const dataUrl = await readFileAsDataUrl(file)
+    const dataUrl = withImageMimeType(await readFileAsDataUrl(file), mimeType)
     image.value = {
       dataUrl,
-      mimeType: file.type,
+      mimeType,
       fileName: file.name,
     }
   } catch (error) {
@@ -140,12 +133,6 @@ function splitMultiline(value: string): string[] {
     .filter(Boolean)
 }
 
-function normalizeIntegerInput(value: string, fallback: number, min: number, max: number): number {
-  const numeric = Number(value)
-  if (!Number.isFinite(numeric)) return fallback
-  return Math.max(min, Math.min(Math.round(numeric), max))
-}
-
 function readFileAsDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader()
@@ -154,6 +141,14 @@ function readFileAsDataUrl(file: File): Promise<string> {
     reader.readAsDataURL(file)
   })
 }
+
+function withImageMimeType(dataUrl: string, mimeType: string): string {
+  const commaIndex = dataUrl.indexOf(',')
+  if (commaIndex < 0) {
+    return dataUrl
+  }
+  return `data:${mimeType};base64,${dataUrl.slice(commaIndex + 1)}`
+}
 </script>
 
 <template>
@@ -161,11 +156,7 @@ function readFileAsDataUrl(file: File): Promise<string> {
     <DialogContent class="max-h-[calc(100vh-2rem)] overflow-y-auto sm:max-w-2xl">
       <DialogHeader>
         <DialogTitle>
-          {{
-            editing
-              ? t('settings.catAppearance.role.gifts.dialog.editTitle')
-              : t('settings.catAppearance.role.gifts.dialog.createTitle')
-          }}
+          {{ t('settings.catAppearance.role.gifts.dialog.editTitle') }}
         </DialogTitle>
         <DialogDescription>
           {{ t('settings.catAppearance.role.gifts.dialog.description') }}
@@ -173,16 +164,6 @@ function readFileAsDataUrl(file: File): Promise<string> {
       </DialogHeader>
 
       <FieldGroup>
-        <Field orientation="horizontal">
-          <Switch
-            id="settings-companion-role-gift-dialog-enabled"
-            v-model="enabled"
-          />
-          <FieldLabel for="settings-companion-role-gift-dialog-enabled">
-            {{ t('settings.catAppearance.role.gifts.fields.enabled') }}
-          </FieldLabel>
-        </Field>
-
         <div class="grid grid-cols-1 gap-3 md:grid-cols-[minmax(0,1fr)_9rem]">
           <Field>
             <FieldLabel for="settings-companion-role-gift-dialog-name">
@@ -192,7 +173,7 @@ function readFileAsDataUrl(file: File): Promise<string> {
               id="settings-companion-role-gift-dialog-name"
               v-model="name"
               maxlength="40"
-              :placeholder="t('settings.catAppearance.role.gifts.newGiftName')"
+              :placeholder="fallbackGiftName"
             />
           </Field>
 
@@ -202,10 +183,9 @@ function readFileAsDataUrl(file: File): Promise<string> {
             </FieldLabel>
             <Input
               id="settings-companion-role-gift-dialog-affection"
-              v-model="affectionText"
+              :model-value="gift?.unlockAffection ?? ''"
               type="number"
-              min="0"
-              :max="CAT_PET_AFFECTION_MAX"
+              disabled
             />
           </Field>
         </div>
@@ -231,7 +211,7 @@ function readFileAsDataUrl(file: File): Promise<string> {
               <img
                 v-if="image?.dataUrl"
                 :src="image.dataUrl"
-                :alt="t('settings.catAppearance.role.gifts.imageAlt', { name: name || t('settings.catAppearance.role.gifts.newGiftName') })"
+                :alt="t('settings.catAppearance.role.gifts.imageAlt', { name: name || fallbackGiftName })"
                 class="size-full object-cover"
               />
               <GiftIcon
@@ -245,7 +225,7 @@ function readFileAsDataUrl(file: File): Promise<string> {
               <Input
                 id="settings-companion-role-gift-dialog-image"
                 type="file"
-                accept="image/png,image/jpeg,image/webp,image/gif"
+                :accept="CAT_PET_GIFT_IMAGE_ACCEPT"
                 @change="updateImage"
               />
               <div class="flex flex-wrap items-center gap-2">
