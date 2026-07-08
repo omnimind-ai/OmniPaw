@@ -235,7 +235,7 @@ function giftImageAlt(gift: CatPetGiftDefinition): string {
 
 function giftSlotClass(gift: CatPetGiftDefinition): string {
   return cn(
-    'group relative aspect-square min-w-0 overflow-hidden rounded-full border border-border/70 bg-background/60 outline-none transition hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring/60',
+    'group relative size-16 shrink-0 overflow-hidden rounded-full border border-border/70 bg-background/60 outline-none transition hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring/60',
     gift.unlocked ? 'shadow-sm' : 'border-dashed'
   )
 }
@@ -484,7 +484,7 @@ function formatAwayLabel(ms: number): string {
           </Badge>
         </div>
 
-        <div class="grid grid-cols-3 gap-2">
+        <div class="grid grid-cols-3 justify-items-center gap-2">
           <button
             v-for="gift in giftSlots"
             :key="gift.id"
@@ -506,7 +506,7 @@ function formatAwayLabel(ms: number): string {
               :class="giftSlotPlaceholderClass(gift)"
             >
               <GiftIcon
-                class="size-6"
+                class="size-5"
                 aria-hidden="true"
               />
             </span>
@@ -516,7 +516,7 @@ function formatAwayLabel(ms: number): string {
               class="absolute inset-0 grid place-items-center bg-background/15"
               aria-hidden="true"
             >
-              <LockIcon class="size-5 text-foreground/75 drop-shadow-sm" />
+              <LockIcon class="size-4 text-foreground/75 drop-shadow-sm" />
             </span>
           </button>
         </div>
