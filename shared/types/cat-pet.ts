@@ -297,13 +297,20 @@ export function normalizeCatPetInteractionConfigs(input: unknown): CatPetInterac
 }
 
 export function normalizeCatPetGiftConfigs(input: unknown): CatPetGiftConfig[] {
+  if (!Array.isArray(input)) {
+    return defaultCatPetGiftConfigs()
+  }
+
   const byId = new Map<ID, CatPetGiftConfig>()
-  const items = Array.isArray(input) ? input : []
-  for (const item of items) {
+  const orderedIds: ID[] = []
+  for (const item of input) {
     const record = asRecord(item)
     const id = normalizeGiftId(record?.id)
     if (!record || !id) {
       continue
+    }
+    if (!byId.has(id)) {
+      orderedIds.push(id)
     }
     const fallback = CAT_PET_DEFAULT_GIFTS.find((gift) => gift.id === id)
     const fallbackStoryLines = fallback?.storyLines ?? []
@@ -327,11 +334,9 @@ export function normalizeCatPetGiftConfigs(input: unknown): CatPetGiftConfig[] {
     })
   }
 
-  return defaultCatPetGiftConfigs().map((fallback) => ({
-    ...fallback,
-    ...(byId.get(fallback.id) ?? {}),
-    storyLines: byId.get(fallback.id)?.storyLines ?? [...fallback.storyLines],
-  }))
+  return orderedIds
+    .map((id) => byId.get(id))
+    .filter((gift): gift is CatPetGiftConfig => Boolean(gift))
 }
 
 export function isCatPetAction(value: unknown): value is CatPetAction {
@@ -381,7 +386,7 @@ function normalizeGiftId(value: unknown): ID | undefined {
   if (!trimmed) {
     return undefined
   }
-  return CAT_PET_DEFAULT_GIFTS.some((gift) => gift.id === trimmed) ? trimmed : undefined
+  return trimmed
 }
 
 function normalizeGiftAffection(value: unknown, fallback = 100): number {

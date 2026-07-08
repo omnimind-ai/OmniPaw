@@ -9,7 +9,6 @@ import type { CatPetGiftConfig, CatPetInteractionConfig } from '@shared/types/ca
 import {
   CAT_PET_ACTIONS,
   CAT_PET_DAILY_LIMITS,
-  CAT_PET_GIFT_IMAGE_MAX_BYTES,
   CAT_PET_UNLOCK_AFFECTION,
   defaultCatPetGiftConfigs,
   defaultCatPetInteractionConfigs,
@@ -26,14 +25,13 @@ import {
   GiftIcon,
   HandIcon,
   ImageIcon,
-  ImagePlusIcon,
   MessageCircleIcon,
   PackagePlusIcon,
+  PencilIcon,
   PlusIcon,
   SlidersHorizontalIcon,
   Trash2Icon,
   UserRoundIcon,
-  XIcon,
 } from 'lucide-vue-next'
 import { storeToRefs } from 'pinia'
 import type { AcceptableValue } from 'reka-ui'
@@ -47,8 +45,10 @@ import {
   isFallbackBridge,
 } from '@/bridge/app'
 import SettingEntry from '@/components/settings/common/SettingEntry.vue'
+import SettingsPanelItem from '@/components/settings/common/SettingsPanelItem.vue'
 import SettingsSection from '@/components/settings/common/SettingsSection.vue'
 import CompanionRoleAppearanceDetailPreview from '@/components/settings/companion-role-settings/CompanionRoleAppearanceDetailPreview.vue'
+import CompanionRoleGiftModal from '@/components/settings/companion-role-settings/CompanionRoleGiftModal.vue'
 import CompanionRoleKnowledgeCreateDialog, {
   type CreateCompanionRoleKnowledgeEntryPayload,
 } from '@/components/settings/companion-role-settings/CompanionRoleKnowledgeCreateDialog.vue'
@@ -80,9 +80,6 @@ const defaultPetGiftById = new Map(defaultCatPetGiftConfigs().map((item) => [ite
 
 type BadgeVariant = NonNullable<BadgeVariants['variant']>
 type CompanionRole = BridgeDesktopSettingsConfig['app']['companionRoles'][number]
-type PetGiftPatch = Partial<Omit<CatPetGiftConfig, 'id' | 'image'>> & {
-  image?: CatPetGiftConfig['image'] | undefined
-}
 
 const props = defineProps<{
   role: CompanionRole
@@ -104,6 +101,9 @@ const activeTab = ref('basic')
 const previewOpen = ref(false)
 const previewInput = ref('')
 const knowledgeCreateDialogOpen = ref(false)
+const giftDialogOpen = ref(false)
+const giftDialogDraft = ref<CatPetGiftConfig>()
+const confirmDeleteGiftId = ref<string>()
 const response = shallowRef<CatAppearanceListResponse>()
 const loading = ref(false)
 const importing = ref(false)
@@ -188,6 +188,7 @@ const previewSections = computed(() =>
 const previewTokenTotal = computed(() =>
   previewSections.value.reduce((sum, section) => sum + section.estimatedTokens, 0)
 )
+const petGiftItems = computed(() => ensurePetGifts())
 
 onMounted(async () => {
   unsubscribe = appBridge.catAppearance.onChanged((event) => {
@@ -383,87 +384,86 @@ function petGiftTitle(item: CatPetGiftConfig, index: number): string {
   )
 }
 
-function petGiftStoryText(item: CatPetGiftConfig): string {
-  return item.storyLines.join('\n')
+function petGiftDescription(item: CatPetGiftConfig): string {
+  return item.description?.trim() || petGiftFallback(item).description || ''
 }
 
-function updatePetGift(index: number, patch: PetGiftPatch): void {
+function petGiftStoryCount(item: CatPetGiftConfig): number {
+  return item.storyLines.map((line) => line.trim()).filter(Boolean).length
+}
+
+function openGiftCreateDialog(): void {
   const items = ensurePetGifts()
-  const current = items[index]
-  if (!current) return
-  const next = [...items]
-  const normalized = normalizeCatPetGiftConfigs([
-    {
-      ...current,
-      ...patch,
-    },
-  ]).find((gift) => gift.id === current.id)
-  if (!normalized) return
-  next[index] = normalized
+  giftDialogDraft.value = createPetGiftDraft(items)
+  confirmDeleteGiftId.value = undefined
+  giftDialogOpen.value = true
+}
+
+function openGiftEditDialog(item: CatPetGiftConfig): void {
+  giftDialogDraft.value = clonePetGift(item)
+  confirmDeleteGiftId.value = undefined
+  giftDialogOpen.value = true
+}
+
+function savePetGift(gift: CatPetGiftConfig): void {
+  const items = ensurePetGifts()
+  const index = items.findIndex((item) => item.id === gift.id)
+  const next =
+    index >= 0 ? [...items.slice(0, index), gift, ...items.slice(index + 1)] : [...items, gift]
   editableRole.value.petGifts = normalizeCatPetGiftConfigs(next)
+  giftDialogOpen.value = false
+  giftDialogDraft.value = undefined
+  confirmDeleteGiftId.value = undefined
 }
 
-function updatePetGiftAffection(index: number, value: string): void {
-  const current = ensurePetGifts()[index]
-  const fallback = current ? petGiftFallback(current).unlockAffection : 100
-  updatePetGift(index, {
-    unlockAffection: normalizeIntegerInput(value, fallback, 0, 300),
-  })
-}
-
-function updatePetGiftStory(index: number, value: string): void {
-  updatePetGift(index, {
-    storyLines: splitMultiline(value),
-  })
-}
-
-function clearPetGiftImage(index: number): void {
-  updatePetGift(index, {
-    image: undefined,
-  })
-}
-
-async function updatePetGiftImage(index: number, event: Event): Promise<void> {
-  const input = event.target as HTMLInputElement | null
-  const file = input?.files?.[0]
-  if (!file) return
-  if (!file.type.startsWith('image/')) {
-    toast.error(t('settings.catAppearance.role.gifts.errors.imageType'))
-    if (input) input.value = ''
+function deletePetGift(targetId: string): void {
+  if (confirmDeleteGiftId.value !== targetId) {
+    confirmDeleteGiftId.value = targetId
     return
   }
-  if (file.size > CAT_PET_GIFT_IMAGE_MAX_BYTES) {
-    toast.error(
-      t('settings.catAppearance.role.gifts.errors.imageSize', {
-        size: Math.round(CAT_PET_GIFT_IMAGE_MAX_BYTES / 1024 / 1024),
-      })
-    )
-    if (input) input.value = ''
-    return
-  }
-  try {
-    const dataUrl = await readFileAsDataUrl(file)
-    updatePetGift(index, {
-      image: {
-        dataUrl,
-        mimeType: file.type,
-        fileName: file.name,
-      },
-    })
-  } catch (error) {
-    toast.error(errorToText(error, t('settings.catAppearance.role.gifts.errors.imageRead')))
-  } finally {
-    if (input) input.value = ''
+  editableRole.value.petGifts = ensurePetGifts().filter((item) => item.id !== targetId)
+  confirmDeleteGiftId.value = undefined
+}
+
+function createPetGiftDraft(items: readonly CatPetGiftConfig[]): CatPetGiftConfig {
+  const threshold = nextPetGiftThreshold(items)
+  return {
+    id: createPetGiftId(items),
+    enabled: true,
+    unlockAffection: threshold,
+    name: t('settings.catAppearance.role.gifts.newGiftName'),
+    description: '',
+    storyLines: [
+      t('settings.catAppearance.role.gifts.defaultStoryLine', {
+        name: t('settings.catAppearance.role.gifts.newGiftName'),
+      }),
+    ],
   }
 }
 
-function readFileAsDataUrl(file: File): Promise<string> {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader()
-    reader.onload = () => resolve(typeof reader.result === 'string' ? reader.result : '')
-    reader.onerror = () => reject(reader.error ?? new Error('Failed to read image file.'))
-    reader.readAsDataURL(file)
-  })
+function createPetGiftId(items: readonly CatPetGiftConfig[]): string {
+  const existing = new Set(items.map((item) => item.id))
+  const base = `gift_${Date.now().toString(36)}`
+  let id = base
+  let suffix = 2
+  while (existing.has(id)) {
+    id = `${base}_${suffix}`
+    suffix += 1
+  }
+  return id
+}
+
+function nextPetGiftThreshold(items: readonly CatPetGiftConfig[]): number {
+  const maxThreshold = items.reduce((max, item) => Math.max(max, item.unlockAffection), 50)
+  return Math.min(300, Math.max(100, maxThreshold + 50))
+}
+
+function clonePetGift(item: CatPetGiftConfig): CatPetGiftConfig {
+  return {
+    ...item,
+    ...(item.image ? { image: { ...item.image } } : {}),
+    storyLines: [...item.storyLines],
+  }
 }
 
 async function loadPacks(): Promise<void> {
@@ -1348,116 +1348,6 @@ function createRoleKnowledgeId(index: number): string {
             </FieldGroup>
           </SettingsSection>
 
-          <SettingsSection
-            :title="t('settings.catAppearance.role.gifts.title')"
-            :description="t('settings.catAppearance.role.gifts.description')"
-            :icon="GiftIcon"
-          >
-            <FieldGroup class="gap-0">
-              <SettingEntry
-                v-for="(item, index) in editableRole.petGifts"
-                :key="item.id"
-                :control-id="`settings-companion-role-gift-name-${item.id}`"
-                :title="petGiftTitle(item, index)"
-                :description="item.description || petGiftFallback(item).description"
-                control-class="@md/field-group:w-[min(42rem,62vw)]"
-              >
-                <template #meta>
-                  <div class="flex flex-wrap gap-1.5">
-                    <Badge variant="secondary">
-                      {{ t('catPet.config.unlockAt', { count: item.unlockAffection }) }}
-                    </Badge>
-                  </div>
-                </template>
-
-                <div class="flex w-full min-w-0 flex-col gap-3">
-                  <div class="flex items-center justify-between gap-3 rounded-md border bg-background/60 px-3 py-2">
-                    <span class="text-sm text-muted-foreground">
-                      {{ t('settings.catAppearance.role.gifts.fields.enabled') }}
-                    </span>
-                    <Switch
-                      :id="`settings-companion-role-gift-enabled-${item.id}`"
-                      :model-value="item.enabled !== false"
-                      :aria-label="t('settings.catAppearance.role.gifts.fields.enabled')"
-                      @update:model-value="updatePetGift(index, { enabled: Boolean($event) })"
-                    />
-                  </div>
-
-                  <div class="grid gap-2 md:grid-cols-[minmax(0,1fr)_8rem]">
-                    <Input
-                      :id="`settings-companion-role-gift-name-${item.id}`"
-                      :model-value="item.name"
-                      maxlength="40"
-                      :aria-label="t('settings.catAppearance.role.gifts.fields.name')"
-                      :placeholder="petGiftFallback(item).name"
-                      @update:model-value="updatePetGift(index, { name: String($event) })"
-                    />
-                    <Input
-                      :model-value="item.unlockAffection"
-                      type="number"
-                      min="0"
-                      max="300"
-                      :aria-label="t('settings.catAppearance.role.gifts.fields.affection')"
-                      @input="updatePetGiftAffection(index, eventInputValue($event))"
-                    />
-                  </div>
-
-                  <Input
-                    :model-value="item.description"
-                    maxlength="160"
-                    :aria-label="t('settings.catAppearance.role.gifts.fields.description')"
-                    :placeholder="petGiftFallback(item).description"
-                    @update:model-value="updatePetGift(index, { description: String($event) })"
-                  />
-
-                  <div class="flex min-w-0 items-center gap-3 rounded-md border bg-background/60 p-3">
-                    <div class="grid size-16 shrink-0 place-items-center overflow-hidden rounded-md border bg-muted">
-                      <img
-                        v-if="item.image?.dataUrl"
-                        :src="item.image.dataUrl"
-                        :alt="t('settings.catAppearance.role.gifts.imageAlt', { name: petGiftTitle(item, index) })"
-                        class="size-full object-cover"
-                      />
-                      <ImagePlusIcon
-                        v-else
-                        class="size-6 text-muted-foreground"
-                        aria-hidden="true"
-                      />
-                    </div>
-
-                    <div class="flex min-w-0 flex-1 flex-col gap-2">
-                      <Input
-                        type="file"
-                        accept="image/png,image/jpeg,image/webp,image/gif"
-                        :aria-label="t('settings.catAppearance.role.gifts.fields.image')"
-                        @change="updatePetGiftImage(index, $event)"
-                      />
-                      <Button
-                        v-if="item.image?.dataUrl"
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        class="w-fit"
-                        @click="clearPetGiftImage(index)"
-                      >
-                        <XIcon data-icon="inline-start" />
-                        {{ t('settings.catAppearance.role.gifts.clearImage') }}
-                      </Button>
-                    </div>
-                  </div>
-
-                  <Textarea
-                    :model-value="petGiftStoryText(item)"
-                    class="min-h-28"
-                    :aria-label="t('settings.catAppearance.role.gifts.fields.story')"
-                    :placeholder="t('settings.catAppearance.role.gifts.storyPlaceholder')"
-                    @input="updatePetGiftStory(index, eventInputValue($event))"
-                  />
-                </div>
-              </SettingEntry>
-            </FieldGroup>
-          </SettingsSection>
-
           <p class="text-sm text-muted-foreground">
             {{
               t('settings.catAppearance.role.interactions.summary', {
@@ -1466,6 +1356,131 @@ function createRoleKnowledgeId(index: number): string {
               })
             }}
           </p>
+
+          <SettingsSection
+            :title="t('settings.catAppearance.role.gifts.title')"
+            :description="t('settings.catAppearance.role.gifts.description')"
+            :icon="GiftIcon"
+            content-class="p-4 sm:p-5"
+          >
+            <template #actions>
+              <Button
+                type="button"
+                size="sm"
+                @click="openGiftCreateDialog"
+              >
+                <PlusIcon data-icon="inline-start" />
+                {{ t('settings.catAppearance.role.gifts.add') }}
+              </Button>
+            </template>
+
+            <div class="flex flex-col gap-3">
+              <div
+                v-if="!petGiftItems.length"
+                class="flex flex-col items-center justify-center gap-3 rounded-md border border-dashed bg-background/40 px-4 py-8 text-center"
+              >
+                <div class="grid size-10 place-items-center rounded-md bg-muted text-muted-foreground">
+                  <GiftIcon aria-hidden="true" />
+                </div>
+                <div class="flex flex-col gap-1">
+                  <p class="text-sm font-medium text-foreground">
+                    {{ t('settings.catAppearance.role.gifts.emptyTitle') }}
+                  </p>
+                  <p class="max-w-md text-sm text-muted-foreground">
+                    {{ t('settings.catAppearance.role.gifts.emptyHint') }}
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  @click="openGiftCreateDialog"
+                >
+                  <PlusIcon data-icon="inline-start" />
+                  {{ t('settings.catAppearance.role.gifts.add') }}
+                </Button>
+              </div>
+
+              <SettingsPanelItem
+                v-for="(item, index) in petGiftItems"
+                :key="item.id"
+                :title="petGiftTitle(item, index)"
+                :description="petGiftDescription(item)"
+                :icon="GiftIcon"
+              >
+                <template #avatar>
+                  <div class="grid size-10 shrink-0 place-items-center overflow-hidden rounded-md border bg-muted text-muted-foreground">
+                    <img
+                      v-if="item.image?.dataUrl"
+                      :src="item.image.dataUrl"
+                      :alt="t('settings.catAppearance.role.gifts.imageAlt', { name: petGiftTitle(item, index) })"
+                      class="size-full object-cover"
+                    />
+                    <GiftIcon
+                      v-else
+                      aria-hidden="true"
+                    />
+                  </div>
+                </template>
+
+                <template #badges>
+                  <Badge :variant="item.enabled !== false ? 'secondary' : 'outline'">
+                    {{
+                      item.enabled !== false
+                        ? t('settings.catAppearance.role.gifts.enabled')
+                        : t('settings.catAppearance.role.gifts.disabled')
+                    }}
+                  </Badge>
+                  <Badge variant="outline">
+                    {{ t('catPet.config.unlockAt', { count: item.unlockAffection }) }}
+                  </Badge>
+                  <Badge variant="outline">
+                    {{ t('settings.catAppearance.role.gifts.storyCount', { count: petGiftStoryCount(item) }) }}
+                  </Badge>
+                </template>
+
+                <template #meta>
+                  <p class="truncate text-xs text-muted-foreground">
+                    {{ item.id }}
+                  </p>
+                </template>
+
+                <template #actions>
+                  <Switch
+                    :id="`settings-companion-role-gift-enabled-${item.id}`"
+                    size="sm"
+                    :model-value="item.enabled !== false"
+                    :aria-label="t('settings.catAppearance.role.gifts.fields.enabled')"
+                    @update:model-value="savePetGift({ ...clonePetGift(item), enabled: Boolean($event) })"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-sm"
+                    :aria-label="t('settings.catAppearance.role.gifts.edit')"
+                    @click="openGiftEditDialog(item)"
+                  >
+                    <PencilIcon />
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    :variant="confirmDeleteGiftId === item.id ? 'destructive' : 'outline'"
+                    @click="deletePetGift(item.id)"
+                  >
+                    <Trash2Icon data-icon="inline-start" />
+                    {{
+                      confirmDeleteGiftId === item.id
+                        ? t('settings.catAppearance.role.gifts.confirmDelete')
+                        : t('settings.catAppearance.role.gifts.delete')
+                    }}
+                  </Button>
+                </template>
+              </SettingsPanelItem>
+
+              <p class="text-sm text-muted-foreground">
+                {{ t('settings.catAppearance.role.gifts.summary', { count: petGiftItems.length }) }}
+              </p>
+            </div>
+          </SettingsSection>
         </div>
       </TabsContent>
 
@@ -1563,5 +1578,11 @@ function createRoleKnowledgeId(index: number): string {
   <CompanionRoleKnowledgeCreateDialog
     v-model:open="knowledgeCreateDialogOpen"
     @submit="createKnowledgeEntry"
+  />
+
+  <CompanionRoleGiftModal
+    v-model:open="giftDialogOpen"
+    :gift="giftDialogDraft"
+    @submit="savePetGift"
   />
 </template>

@@ -360,10 +360,33 @@ export default {
           description:
             'Configure stories and gifts triggered when affection reaches a threshold while the pet is happy.',
           slot: 'Gift {index}',
+          add: 'Add gift',
+          edit: 'Edit gift',
+          delete: 'Delete',
+          confirmDelete: 'Confirm delete',
+          enabled: 'Enabled',
+          disabled: 'Disabled',
+          emptyTitle: 'No affection gifts yet',
+          emptyHint: 'Add a gift to configure its threshold, story, and item image.',
+          summary: '{count} affection gifts configured. Lower thresholds unlock first.',
+          storyCount: '{count} story lines',
+          newGiftName: 'New gift',
+          defaultStoryLine: 'This is the {name} I wanted to give you.',
           clearImage: 'Remove image',
           imageAlt: '{name} preview image',
+          imageHint: 'PNG, JPG, WebP, and GIF are supported. Images are included in role packages.',
+          descriptionPlaceholder: 'Short description shown after the gift is received',
           storyPlaceholder:
             'I have wanted to give this to you.\nI hope it stays with you for a while.\nPlease take it. This one is only for you.',
+          storyHint: 'One story sentence per line. The bubble window plays them click by click.',
+          dialog: {
+            createTitle: 'Add affection gift',
+            editTitle: 'Edit affection gift',
+            description:
+              'The gift can trigger when affection reaches its threshold and the pet is happy.',
+            cancel: 'Cancel',
+            save: 'Save gift',
+          },
           fields: {
             enabled: 'Enable gift',
             affection: 'Affection threshold',
