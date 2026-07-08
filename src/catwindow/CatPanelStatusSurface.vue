@@ -348,7 +348,7 @@ function formatAwayLabel(ms: number): string {
 
         <div class="grid grid-cols-2 gap-2 text-sm">
           <div
-            v-for="action in interactions"
+            v-for="action in visibleInteractions"
             :key="`usage-${action.id}`"
             class="flex min-w-0 flex-col gap-1"
           >
