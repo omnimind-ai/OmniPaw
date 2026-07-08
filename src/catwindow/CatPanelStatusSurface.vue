@@ -1,10 +1,17 @@
 <script setup lang="ts">
-import type { CatPetAction, CatPetInteractionDefinition } from '@shared/types/cat-pet'
+import type {
+  CatPetAction,
+  CatPetGiftDefinition,
+  CatPetInteractionDefinition,
+} from '@shared/types/cat-pet'
+import { defaultCatPetGiftConfigs } from '@shared/types/cat-pet'
 import {
   ArrowLeftIcon,
+  GiftIcon,
   HandIcon,
   HeartIcon,
   Loader2Icon,
+  LockIcon,
   RefreshCwIcon,
   SmileIcon,
   SparklesIcon,
@@ -20,6 +27,7 @@ import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { useCatPetStore } from '@/stores/cat-pet'
 import { errorToText, useToast } from '@/utils/toast'
+import CatPanelGiftInventoryModal from './CatPanelGiftInventoryModal.vue'
 
 defineProps<{
   sideLabel: string
@@ -48,6 +56,8 @@ const {
 } = storeToRefs(store)
 
 const idleImage = ref<string>(fallbackIdleImage)
+const giftDialogOpen = ref(false)
+const selectedGift = ref<CatPetGiftDefinition>()
 let appearanceUnsubscribe: BridgeUnsubscribe | undefined
 
 const actionIcons: Record<CatPetAction, Component> = {
@@ -156,6 +166,23 @@ const catImageClass = computed(() =>
 )
 
 const visibleInteractions = computed(() => interactions.value.filter((item) => item.enabled))
+const giftSlots = computed<CatPetGiftDefinition[]>(() => {
+  if (state.value.gifts.length) {
+    return state.value.gifts.slice(0, 3)
+  }
+
+  const unlockedIds = new Set(state.value.unlockedGifts.map((gift) => gift.id))
+  const configs = state.value.giftConfigs.length
+    ? state.value.giftConfigs
+    : defaultCatPetGiftConfigs()
+  return configs.slice(0, 3).map((gift) => ({
+    ...gift,
+    enabled: gift.enabled !== false,
+    unlocked: unlockedIds.has(gift.id),
+    storyLines: [...gift.storyLines],
+  }))
+})
+const unlockedGiftCount = computed(() => giftSlots.value.filter((gift) => gift.unlocked).length)
 
 function actionIcon(action: CatPetAction): Component {
   return actionIcons[action]
@@ -188,6 +215,48 @@ function actionStatus(action: CatPetInteractionDefinition): string {
     return t('catPet.action.unlockShort', { count: action.unlockAffection })
   }
   return t('catPet.action.remaining', { count: remainingByAction.value[action.id] })
+}
+
+function giftImageSrc(gift: CatPetGiftDefinition): string {
+  return gift.image?.dataUrl?.trim() ?? ''
+}
+
+function giftSlotAria(gift: CatPetGiftDefinition): string {
+  return gift.unlocked
+    ? t('catPet.inventory.slotAria', { name: gift.name })
+    : t('catPet.inventory.lockedSlotAria', { count: gift.unlockAffection })
+}
+
+function giftImageAlt(gift: CatPetGiftDefinition): string {
+  return gift.unlocked
+    ? t('catPet.inventory.imageAlt', { name: gift.name })
+    : t('catPet.inventory.lockedImageAlt')
+}
+
+function giftSlotClass(gift: CatPetGiftDefinition): string {
+  return cn(
+    'group relative aspect-square min-w-0 overflow-hidden rounded-full border border-border/70 bg-background/60 outline-none transition hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring/60',
+    gift.unlocked ? 'shadow-sm' : 'border-dashed'
+  )
+}
+
+function giftSlotImageClass(gift: CatPetGiftDefinition): string {
+  return cn(
+    'size-full object-cover transition',
+    gift.unlocked ? 'group-hover:scale-105' : 'blur-sm opacity-45 saturate-0'
+  )
+}
+
+function giftSlotPlaceholderClass(gift: CatPetGiftDefinition): string {
+  return cn(
+    'grid size-full place-items-center text-muted-foreground transition',
+    gift.unlocked ? 'bg-muted/40' : 'bg-muted/20 opacity-45'
+  )
+}
+
+function openGift(gift: CatPetGiftDefinition): void {
+  selectedGift.value = gift
+  giftDialogOpen.value = true
 }
 
 async function handleAction(action: CatPetInteractionDefinition): Promise<void> {
@@ -406,7 +475,58 @@ function formatAwayLabel(ms: number): string {
           </span>
         </div>
       </div>
+
+      <div class="flex flex-col gap-2 rounded-lg border border-border/70 bg-muted/20 px-3 py-3">
+        <div class="flex items-center justify-between gap-2">
+          <p class="text-xs font-medium text-muted-foreground">{{ t('catPet.inventory.title') }}</p>
+          <Badge variant="outline">
+            {{ t('catPet.inventory.count', { count: unlockedGiftCount, total: giftSlots.length }) }}
+          </Badge>
+        </div>
+
+        <div class="grid grid-cols-3 gap-2">
+          <button
+            v-for="gift in giftSlots"
+            :key="gift.id"
+            type="button"
+            :class="giftSlotClass(gift)"
+            :aria-label="giftSlotAria(gift)"
+            :title="giftSlotAria(gift)"
+            @click="openGift(gift)"
+          >
+            <img
+              v-if="giftImageSrc(gift)"
+              :src="giftImageSrc(gift)"
+              :alt="giftImageAlt(gift)"
+              :class="giftSlotImageClass(gift)"
+              draggable="false"
+            >
+            <span
+              v-else
+              :class="giftSlotPlaceholderClass(gift)"
+            >
+              <GiftIcon
+                class="size-6"
+                aria-hidden="true"
+              />
+            </span>
+
+            <span
+              v-if="!gift.unlocked"
+              class="absolute inset-0 grid place-items-center bg-background/15"
+              aria-hidden="true"
+            >
+              <LockIcon class="size-5 text-foreground/75 drop-shadow-sm" />
+            </span>
+          </button>
+        </div>
+      </div>
     </div>
+
+    <CatPanelGiftInventoryModal
+      v-model:open="giftDialogOpen"
+      :gift="selectedGift"
+    />
   </section>
 </template>
 
