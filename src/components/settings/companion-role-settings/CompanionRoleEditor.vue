@@ -1057,84 +1057,91 @@ function createRoleKnowledgeId(index: number): string {
                 />
               </SettingEntry>
 
-              <SettingEntry
-                control-id="settings-companion-role-knowledge"
-                :title="t('settings.catAppearance.role.knowledge.count', { count: editableRole.knowledgeEntries.length })"
-                :description="t('settings.catAppearance.role.knowledge.description')"
-                control-class="@md/field-group:w-[min(44rem,60vw)]"
-              >
-                <div class="flex w-full flex-col gap-3">
-                  <p
-                    v-if="!editableRole.knowledgeEntries.length"
-                    class="rounded-md border border-dashed px-3 py-6 text-center text-sm text-muted-foreground"
-                  >
-                    {{ t('settings.catAppearance.role.knowledge.empty') }}
-                  </p>
-
-                  <div
-                    v-for="(entry, index) in editableRole.knowledgeEntries"
-                    :key="entry.id"
-                    class="flex flex-col gap-3 rounded-md border bg-background/60 p-3"
-                  >
-                    <div class="flex flex-wrap items-center gap-2">
-                      <Switch v-model="entry.enabled" />
-                      <Input
-                        v-model="entry.title"
-                        class="min-w-0 flex-1"
-                        :placeholder="t('settings.catAppearance.role.knowledge.fields.title')"
-                      />
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="icon-sm"
-                        :aria-label="t('settings.catAppearance.role.knowledge.delete')"
-                        @click="deleteKnowledgeEntry(entry.id)"
-                      >
-                        <Trash2Icon />
-                      </Button>
-                    </div>
-
-                    <Textarea
-                      v-model="entry.content"
-                      class="min-h-28"
-                      :placeholder="t('settings.catAppearance.role.knowledge.fields.content')"
-                    />
-
-                    <div class="grid gap-3 md:grid-cols-[minmax(0,1fr)_8rem_9rem]">
-                      <Input
-                        :model-value="entry.keys.join(', ')"
-                        :placeholder="t('settings.catAppearance.role.knowledge.fields.keys')"
-                        @input="updateKnowledgeKeys(entry.id, eventInputValue($event))"
-                      />
-                      <Input
-                        v-model.number="entry.priority"
-                        type="number"
-                        :placeholder="t('settings.catAppearance.role.knowledge.fields.priority')"
-                      />
-                      <Input
-                        :model-value="entry.tokenBudget ?? ''"
-                        type="number"
-                        min="50"
-                        :placeholder="t('settings.catAppearance.role.knowledge.fields.tokenBudget')"
-                        @input="updateKnowledgeTokenBudget(entry.id, eventInputValue($event))"
-                      />
-                    </div>
-
-                    <div class="flex flex-wrap items-center justify-between gap-3 text-sm text-muted-foreground">
-                      <Field orientation="horizontal">
-                        <Switch v-model="entry.constant" />
-                        <FieldLabel>
-                          {{ t('settings.catAppearance.role.knowledge.fields.constant') }}
-                        </FieldLabel>
-                      </Field>
-                      <span>
-                        {{ t('settings.catAppearance.role.knowledge.order', { index: index + 1 }) }}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </SettingEntry>
             </FieldGroup>
+
+            <div class="flex flex-col gap-3 border-t p-4 sm:p-5">
+              <div class="flex min-w-0 flex-col gap-1">
+                <p class="text-sm font-semibold leading-5 text-foreground">
+                  {{
+                    t('settings.catAppearance.role.knowledge.count', {
+                      count: editableRole.knowledgeEntries.length,
+                    })
+                  }}
+                </p>
+                <p class="max-w-4xl text-xs leading-5 text-muted-foreground">
+                  {{ t('settings.catAppearance.role.knowledge.description') }}
+                </p>
+              </div>
+
+              <p
+                v-if="!editableRole.knowledgeEntries.length"
+                class="rounded-md border border-dashed px-3 py-6 text-center text-sm text-muted-foreground"
+              >
+                {{ t('settings.catAppearance.role.knowledge.empty') }}
+              </p>
+
+              <div
+                v-for="(entry, index) in editableRole.knowledgeEntries"
+                :key="entry.id"
+                class="flex flex-col gap-3 rounded-md border bg-background/60 p-3"
+              >
+                <div class="flex flex-wrap items-center gap-2">
+                  <Switch v-model="entry.enabled" />
+                  <Input
+                    v-model="entry.title"
+                    class="min-w-0 flex-1"
+                    :placeholder="t('settings.catAppearance.role.knowledge.fields.title')"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon-sm"
+                    :aria-label="t('settings.catAppearance.role.knowledge.delete')"
+                    @click="deleteKnowledgeEntry(entry.id)"
+                  >
+                    <Trash2Icon />
+                  </Button>
+                </div>
+
+                <Textarea
+                  v-model="entry.content"
+                  class="min-h-32"
+                  :placeholder="t('settings.catAppearance.role.knowledge.fields.content')"
+                />
+
+                <div class="grid gap-3 @3xl/field-group:grid-cols-[minmax(12rem,1fr)_8rem_9rem_auto_auto]">
+                  <Input
+                    :model-value="entry.keys.join(', ')"
+                    :placeholder="t('settings.catAppearance.role.knowledge.fields.keys')"
+                    @input="updateKnowledgeKeys(entry.id, eventInputValue($event))"
+                  />
+                  <Input
+                    v-model.number="entry.priority"
+                    type="number"
+                    :placeholder="t('settings.catAppearance.role.knowledge.fields.priority')"
+                  />
+                  <Input
+                    :model-value="entry.tokenBudget ?? ''"
+                    type="number"
+                    min="50"
+                    :placeholder="t('settings.catAppearance.role.knowledge.fields.tokenBudget')"
+                    @input="updateKnowledgeTokenBudget(entry.id, eventInputValue($event))"
+                  />
+                  <Field
+                    orientation="horizontal"
+                    class="min-w-max justify-start @3xl/field-group:justify-center"
+                  >
+                    <Switch v-model="entry.constant" />
+                    <FieldLabel>
+                      {{ t('settings.catAppearance.role.knowledge.fields.constant') }}
+                    </FieldLabel>
+                  </Field>
+                  <span class="self-center text-sm text-muted-foreground">
+                    {{ t('settings.catAppearance.role.knowledge.order', { index: index + 1 }) }}
+                  </span>
+                </div>
+              </div>
+            </div>
           </SettingsSection>
         </div>
       </TabsContent>
