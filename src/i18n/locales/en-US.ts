@@ -438,7 +438,7 @@ export default {
         advanced: {
           title: 'Character advanced settings',
           description:
-            'These settings belong only to the active character. When enabled, they are appended to new session context for fine control over companionship, roleplay, and work collaboration.',
+            'These settings belong only to the active character. Filled fields are appended to new session context; leaving every field empty injects nothing.',
           fields: {
             systemPrompt: {
               title: 'Advanced role instructions',

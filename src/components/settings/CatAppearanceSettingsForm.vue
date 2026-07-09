@@ -455,7 +455,7 @@ function createRoleFromImportedDraft(
     petInteractions: normalizeCatPetInteractionConfigs(draft.petInteractions),
     petGifts: normalizeCatPetGiftConfigs(draft.petGifts),
     advanced: {
-      enabled: Boolean(draft.advanced?.enabled),
+      enabled: hasAdvancedRoleContent(draft.advanced),
       systemPrompt: draft.advanced?.systemPrompt ?? '',
       knowledge: draft.advanced?.knowledge ?? '',
       exampleDialogue: draft.advanced?.exampleDialogue ?? '',
@@ -487,7 +487,7 @@ function createExportRoleDraft(role: CompanionRole): ImportedCompanionRoleDraft 
     petInteractions: normalizeCatPetInteractionConfigs(role.petInteractions),
     petGifts: normalizeCatPetGiftConfigs(role.petGifts),
     advanced: {
-      enabled: role.advanced.enabled,
+      enabled: hasAdvancedRoleContent(role.advanced),
       systemPrompt: role.advanced.systemPrompt,
       knowledge: role.advanced.knowledge,
       exampleDialogue: role.advanced.exampleDialogue,
@@ -548,6 +548,17 @@ function normalizeImportedKnowledgeEntries(
 
 function normalizeStringList(value: string[] | undefined): string[] {
   return (value ?? []).map((item) => item.trim()).filter(Boolean)
+}
+
+function hasAdvancedRoleContent(
+  advanced: ImportedCompanionRoleDraft['advanced'] | undefined
+): boolean {
+  return Boolean(
+    advanced?.systemPrompt?.trim() ||
+      advanced?.knowledge?.trim() ||
+      advanced?.exampleDialogue?.trim() ||
+      advanced?.finalInstructions?.trim()
+  )
 }
 
 function createRoleId(): string {

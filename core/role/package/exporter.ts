@@ -87,7 +87,7 @@ function normalizeExportedRoleDraft(role: ImportedCompanionRoleDraft): ImportedC
     petGifts: normalizePetGiftConfigs(role.petGifts),
     advanced: role.advanced
       ? {
-          enabled: Boolean(role.advanced.enabled),
+          enabled: hasAdvancedRoleContent(role.advanced),
           systemPrompt: normalizeText(role.advanced.systemPrompt),
           knowledge: normalizeText(role.advanced.knowledge),
           exampleDialogue: normalizeText(role.advanced.exampleDialogue),
@@ -97,6 +97,15 @@ function normalizeExportedRoleDraft(role: ImportedCompanionRoleDraft): ImportedC
     knowledgeEntries: normalizeExportedKnowledgeEntries(role.knowledgeEntries),
     source: role.source,
   }
+}
+
+function hasAdvancedRoleContent(advanced: ImportedCompanionRoleDraft['advanced']): boolean {
+  return Boolean(
+    advanced?.systemPrompt?.trim() ||
+      advanced?.knowledge?.trim() ||
+      advanced?.exampleDialogue?.trim() ||
+      advanced?.finalInstructions?.trim()
+  )
 }
 
 function packageGiftImages(role: ImportedCompanionRoleDraft): {

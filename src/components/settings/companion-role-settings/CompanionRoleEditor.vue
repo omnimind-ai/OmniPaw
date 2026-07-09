@@ -562,25 +562,21 @@ function buildCompanionRolePreviewSections(
     knowledgeText ? [knowledgeText] : []
   )
 
-  if (role.advanced.enabled) {
-    pushPreviewSection(
-      sections,
-      'advanced',
-      t('settings.catAppearance.role.preview.sections.advanced'),
-      [
-        role.advanced.systemPrompt.trim()
-          ? `高级角色指令：${role.advanced.systemPrompt.trim()}`
-          : '',
-        role.advanced.knowledge.trim() ? `角色专属知识：${role.advanced.knowledge.trim()}` : '',
-        role.advanced.exampleDialogue.trim()
-          ? `角色示例对话：\n${role.advanced.exampleDialogue.trim()}`
-          : '',
-        role.advanced.finalInstructions.trim()
-          ? `最终回应约束：${role.advanced.finalInstructions.trim()}`
-          : '',
-      ]
-    )
-  }
+  pushPreviewSection(
+    sections,
+    'advanced',
+    t('settings.catAppearance.role.preview.sections.advanced'),
+    [
+      role.advanced.systemPrompt.trim() ? `高级角色指令：${role.advanced.systemPrompt.trim()}` : '',
+      role.advanced.knowledge.trim() ? `角色专属知识：${role.advanced.knowledge.trim()}` : '',
+      role.advanced.exampleDialogue.trim()
+        ? `角色示例对话：\n${role.advanced.exampleDialogue.trim()}`
+        : '',
+      role.advanced.finalInstructions.trim()
+        ? `最终回应约束：${role.advanced.finalInstructions.trim()}`
+        : '',
+    ]
+  )
 
   return sections
 }
@@ -1369,17 +1365,6 @@ function createRoleKnowledgeId(index: number): string {
             :icon="SlidersHorizontalIcon"
           >
             <FieldGroup class="gap-0">
-              <SettingEntry
-                control-id="settings-companion-role-advanced-enabled"
-                :title="t('settings.catAppearance.role.advanced.title')"
-                :description="t('settings.catAppearance.role.advanced.description')"
-              >
-                <Switch
-                  id="settings-companion-role-advanced-enabled"
-                  v-model="editableRole.advanced.enabled"
-                />
-              </SettingEntry>
-
               <SettingEntry
                 control-id="settings-companion-role-advanced-system"
                 :title="t('settings.catAppearance.role.advanced.fields.systemPrompt.title')"

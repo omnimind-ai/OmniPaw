@@ -305,7 +305,7 @@ function normalizeCompanionRoleInteger(
 function advancedCompanionRoleSections(
   advanced: DesktopCompanionRoleSettings['advanced'] | undefined
 ): string[] {
-  if (!advanced?.enabled) {
+  if (!advanced) {
     return []
   }
 

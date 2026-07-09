@@ -379,7 +379,14 @@ function normalizeOmniPawExportedRole(
     petGifts: normalizePetGiftConfigs(role.petGifts ?? role.gifts),
     advanced: advanced
       ? {
-          enabled: advanced.enabled === true,
+          enabled:
+            advanced.enabled === true ||
+            Boolean(
+              pickString(advanced, ['systemPrompt'])?.trim() ||
+                pickString(advanced, ['knowledge'])?.trim() ||
+                pickString(advanced, ['exampleDialogue'])?.trim() ||
+                pickString(advanced, ['finalInstructions'])?.trim()
+            ),
           systemPrompt: pickString(advanced, ['systemPrompt']) ?? '',
           knowledge: pickString(advanced, ['knowledge']) ?? '',
           exampleDialogue: pickString(advanced, ['exampleDialogue']) ?? '',
