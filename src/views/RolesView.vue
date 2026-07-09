@@ -2,7 +2,7 @@
 import { storeToRefs } from 'pinia'
 import { computed, onBeforeUnmount, onMounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import CatAppearanceSettingsForm from '@/components/settings/CatAppearanceSettingsForm.vue'
+import CompanionRoleSettingsForm from '@/components/settings/CompanionRoleSettingsForm.vue'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useDelayedFlag } from '@/composables/useDelayedFlag'
 import { useProviderStore } from '@/stores/provider'
@@ -140,7 +140,7 @@ async function autosave(): Promise<void> {
       {{ t('roles.notLoaded') }}
     </div>
 
-    <CatAppearanceSettingsForm
+    <CompanionRoleSettingsForm
       v-else
       :draft="draft"
       class="h-full min-h-0 flex-1"

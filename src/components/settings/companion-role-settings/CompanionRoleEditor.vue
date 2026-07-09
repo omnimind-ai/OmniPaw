@@ -1,65 +1,30 @@
 <script setup lang="ts">
-import type {
-  CatAppearanceListResponse,
-  CatAppearancePackSource,
-  CatAppearancePackSummary,
-  CatAppearanceResolvedPack,
-} from '@shared/types/cat-appearance'
-import type { CatPetGiftConfig, CatPetInteractionConfig } from '@shared/types/cat-pet'
 import {
-  CAT_PET_ACTIONS,
-  CAT_PET_DAILY_LIMITS,
-  CAT_PET_UNLOCK_AFFECTION,
-  defaultCatPetGiftConfigs,
-  defaultCatPetInteractionConfigs,
-  normalizeCatPetGiftConfigs,
-  normalizeCatPetInteractionConfigs,
-} from '@shared/types/cat-pet'
-import {
-  BookOpenIcon,
   BotIcon,
   BrainIcon,
-  CheckIcon,
   CopyIcon,
   DownloadIcon,
   EyeIcon,
-  GiftIcon,
-  HandIcon,
-  ImageIcon,
   MessageCircleIcon,
-  PackagePlusIcon,
-  PencilIcon,
-  PlusIcon,
   SlidersHorizontalIcon,
   Trash2Icon,
   UserRoundIcon,
 } from 'lucide-vue-next'
 import { storeToRefs } from 'pinia'
 import type { AcceptableValue } from 'reka-ui'
-import { computed, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
+import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import {
-  appBridge,
-  type BridgeDesktopSettingsConfig,
-  type BridgeUnsubscribe,
-  ensureElectronBridge,
-  isFallbackBridge,
-} from '@/bridge/app'
 import SettingEntry from '@/components/settings/common/SettingEntry.vue'
-import SettingsPanelItem from '@/components/settings/common/SettingsPanelItem.vue'
-import SettingsSearchBar from '@/components/settings/common/SettingsSearchBar.vue'
 import SettingsSection from '@/components/settings/common/SettingsSection.vue'
-import CompanionRoleAppearanceDetailPreview from '@/components/settings/companion-role-settings/CompanionRoleAppearanceDetailPreview.vue'
-import CompanionRoleGiftModal from '@/components/settings/companion-role-settings/CompanionRoleGiftModal.vue'
-import CompanionRoleKnowledgeCreateDialog, {
-  type CreateCompanionRoleKnowledgeEntryPayload,
-} from '@/components/settings/companion-role-settings/CompanionRoleKnowledgeCreateDialog.vue'
-import CompanionRoleKnowledgeDeleteModal from '@/components/settings/companion-role-settings/CompanionRoleKnowledgeDeleteModal.vue'
+import CompanionRoleAppearanceSection from '@/components/settings/companion-role-settings/CompanionRoleAppearanceSection.vue'
+import CompanionRoleGiftsSection from '@/components/settings/companion-role-settings/CompanionRoleGiftsSection.vue'
+import CompanionRoleInteractionsSection from '@/components/settings/companion-role-settings/CompanionRoleInteractionsSection.vue'
+import CompanionRoleKnowledgeSection from '@/components/settings/companion-role-settings/CompanionRoleKnowledgeSection.vue'
 import CompanionRoleMemoryPanel from '@/components/settings/companion-role-settings/CompanionRoleMemoryPanel.vue'
 import CompanionRolePreviewDialog from '@/components/settings/companion-role-settings/CompanionRolePreviewDialog.vue'
-import { Badge, type BadgeVariants } from '@/components/ui/badge'
+import type { CompanionRole } from '@/components/settings/companion-role-settings/types'
 import { Button } from '@/components/ui/button'
-import { Field, FieldGroup, FieldLabel } from '@/components/ui/field'
+import { FieldGroup } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import {
   Select,
@@ -69,37 +34,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Switch } from '@/components/ui/switch'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Textarea } from '@/components/ui/textarea'
 import { type ProviderModelOption, useProviderStore } from '@/stores/provider'
-import { catPetGiftImageSrc } from '@/utils/cat-pet-gift-images'
-import { errorToText, useToast } from '@/utils/toast'
 
 const NONE_VALUE = '__none__'
-const defaultPetInteractionById = new Map(
-  defaultCatPetInteractionConfigs().map((item) => [item.id, item])
-)
-const defaultPetGiftById = new Map(defaultCatPetGiftConfigs().map((item) => [item.id, item]))
-const giftSpoilerContentClass = [
-  '[&_h3]:select-none',
-  '[&_h3]:blur-[3px]',
-  '[&_h3]:transition-[filter,color]',
-  '[&_h3]:duration-200',
-  '[&_p]:select-none',
-  '[&_p]:blur-[3px]',
-  '[&_p]:transition-[filter,color]',
-  '[&_p]:duration-200',
-  'group-hover/gift-spoiler:[&_h3]:blur-0',
-  'group-hover/gift-spoiler:[&_p]:blur-0',
-  'group-focus-within/gift-spoiler:[&_h3]:blur-0',
-  'group-focus-within/gift-spoiler:[&_p]:blur-0',
-].join(' ')
-const giftSpoilerImageClass =
-  'size-full scale-110 select-none object-cover blur-[3px] saturate-75 transition-[filter,transform] duration-200 group-hover/gift-spoiler:scale-100 group-hover/gift-spoiler:blur-0 group-hover/gift-spoiler:saturate-100 group-focus-within/gift-spoiler:scale-100 group-focus-within/gift-spoiler:blur-0 group-focus-within/gift-spoiler:saturate-100'
-
-type BadgeVariant = NonNullable<BadgeVariants['variant']>
-type CompanionRole = BridgeDesktopSettingsConfig['app']['companionRoles'][number]
 
 const props = defineProps<{
   role: CompanionRole
@@ -114,58 +53,17 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
-const toast = useToast()
 const providerStore = useProviderStore()
 const { modelOptions, saving, persistenceAvailable } = storeToRefs(providerStore)
 const activeTab = ref('basic')
 const previewOpen = ref(false)
 const previewInput = ref('')
-const knowledgeSearchQuery = ref('')
-const editingKnowledgeEntryIds = ref<string[]>([])
-const knowledgeCreateDialogOpen = ref(false)
-const knowledgeDeleteTargetId = ref<string>()
-const giftDialogOpen = ref(false)
-const giftDialogDraft = ref<CatPetGiftConfig>()
-const response = shallowRef<CatAppearanceListResponse>()
-const loading = ref(false)
-const importing = ref(false)
-const currentDetailLoading = ref(false)
-const currentDetailError = ref<string>()
-const currentDetail = shallowRef<CatAppearanceResolvedPack>()
-let unsubscribe: BridgeUnsubscribe | undefined
-let detailRequestId = 0
 
 const editableRole = computed(() => props.role)
 const alternateGreetingsText = computed({
   get: () => editableRole.value.alternateGreetings.join('\n'),
   set: (value: string) => {
     editableRole.value.alternateGreetings = splitMultiline(value)
-  },
-})
-const knowledgeSettings = computed(() => {
-  if (!editableRole.value.knowledgeSettings) {
-    editableRole.value.knowledgeSettings = {
-      scanDepth: 8,
-      maxTokens: 900,
-    }
-  }
-  return editableRole.value.knowledgeSettings
-})
-const filteredKnowledgeEntries = computed(() => {
-  const query = normalizeKnowledgeSearchText(knowledgeSearchQuery.value)
-  return editableRole.value.knowledgeEntries
-    .map((entry, index) => ({ entry, index }))
-    .filter(({ entry }) => !query || knowledgeEntryMatchesSearch(entry, query))
-})
-const knowledgeDeleteTarget = computed(() =>
-  editableRole.value.knowledgeEntries.find((entry) => entry.id === knowledgeDeleteTargetId.value)
-)
-const knowledgeDeleteDialogOpen = computed({
-  get: () => Boolean(knowledgeDeleteTarget.value),
-  set: (open) => {
-    if (!open) {
-      knowledgeDeleteTargetId.value = undefined
-    }
   },
 })
 const enabledModelOptions = computed(() => modelOptions.value.filter((option) => option.enabled))
@@ -182,77 +80,11 @@ const selectedModelKey = computed(() => {
 const modelSelectDisabled = computed(
   () => saving.value || !persistenceAvailable.value || !enabledModelOptions.value.length
 )
-const packs = computed(() => response.value?.packs ?? [])
-const importDisabled = computed(() => importing.value || loading.value || isFallbackBridge)
-const importButtonLabel = computed(() =>
-  importing.value ? t('settings.catAppearance.importing') : t('settings.catAppearance.importButton')
-)
-const activeRoleAppearancePackId = computed(() => editableRole.value.appearancePackId || 'builtin')
-const currentPack = computed<CatAppearancePackSummary | undefined>(() => {
-  const packId = activeRoleAppearancePackId.value
-  const summary = packs.value.find((pack) => pack.id === packId)
-  if (summary) return summary
-  if (currentDetail.value?.id === packId) return currentDetail.value
-  if (packId === 'builtin') {
-    return {
-      id: 'builtin',
-      name: 'OmniPaw Cat',
-      source: 'builtin',
-      status: 'available',
-      active: true,
-      updatedAt: response.value?.updatedAt,
-    }
-  }
-  return {
-    id: packId,
-    name: packId,
-    source: 'local',
-    status: 'missing',
-    active: false,
-    error: t('settings.catAppearance.detail.unavailable'),
-  }
-})
-const currentSourceLabel = computed(() => sourceLabel(currentPack.value?.source ?? 'builtin'))
-const currentStatusLabel = computed(() =>
-  t(`settings.catAppearance.status.${currentPack.value?.status ?? 'available'}`)
-)
-const currentUpdatedLabel = computed(() =>
-  t('settings.catAppearance.meta.updatedAt', {
-    time: formatUpdatedAt(currentPack.value?.updatedAt ?? currentDetail.value?.updatedAt),
-  })
-)
 const previewSections = computed(() =>
   buildCompanionRolePreviewSections(editableRole.value, previewInput.value)
 )
 const previewTokenTotal = computed(() =>
   previewSections.value.reduce((sum, section) => sum + section.estimatedTokens, 0)
-)
-const petGiftItems = computed(() => ensurePetGifts())
-
-onMounted(async () => {
-  unsubscribe = appBridge.catAppearance.onChanged((event) => {
-    response.value = event
-    void loadCurrentDetail()
-  })
-  await loadPacks()
-})
-
-onBeforeUnmount(() => {
-  unsubscribe?.()
-  unsubscribe = undefined
-})
-
-watch(activeRoleAppearancePackId, () => {
-  void loadCurrentDetail()
-})
-
-watch(
-  () => editableRole.value.id,
-  () => {
-    ensurePetInteractions()
-    ensurePetGifts()
-  },
-  { immediate: true }
 )
 
 function modelLabel(option: ProviderModelOption): string {
@@ -279,285 +111,24 @@ function updateDefaultModel(value: AcceptableValue): void {
   editableRole.value.defaultModelId = selected?.modelId
 }
 
-function openKnowledgeCreateDialog(): void {
-  knowledgeCreateDialogOpen.value = true
+function updateKnowledgeEntries(entries: CompanionRole['knowledgeEntries']): void {
+  editableRole.value.knowledgeEntries = entries
 }
 
-function createKnowledgeEntry(payload: CreateCompanionRoleKnowledgeEntryPayload): void {
-  const entries = ensureKnowledgeEntries()
-  const now = Date.now()
-  entries.push({
-    id: createRoleKnowledgeId(entries.length),
-    enabled: true,
-    title: payload.title || t('settings.catAppearance.role.knowledge.newTitle'),
-    content: payload.content,
-    keys: payload.keys,
-    constant: payload.constant,
-    priority: payload.priority,
-    order: entries.length,
-    tokenBudget: payload.tokenBudget,
-    createdAt: now,
-    updatedAt: now,
-  })
-  activeTab.value = 'knowledge'
-  knowledgeCreateDialogOpen.value = false
+function updateKnowledgeSettings(settings: CompanionRole['knowledgeSettings']): void {
+  editableRole.value.knowledgeSettings = settings
 }
 
-function deleteKnowledgeEntry(targetId: string): void {
-  const entries = ensureKnowledgeEntries()
-  const index = entries.findIndex((entry) => entry.id === targetId)
-  if (index >= 0) {
-    entries.splice(index, 1)
-    editingKnowledgeEntryIds.value = editingKnowledgeEntryIds.value.filter((id) => id !== targetId)
-  }
+function updateAppearancePackId(appearancePackId: string): void {
+  editableRole.value.appearancePackId = appearancePackId
 }
 
-function requestDeleteKnowledgeEntry(targetId: string): void {
-  knowledgeDeleteTargetId.value = targetId
+function updatePetInteractions(interactions: CompanionRole['petInteractions']): void {
+  editableRole.value.petInteractions = interactions
 }
 
-function confirmDeleteKnowledgeEntry(): void {
-  if (!knowledgeDeleteTargetId.value) return
-  deleteKnowledgeEntry(knowledgeDeleteTargetId.value)
-  knowledgeDeleteTargetId.value = undefined
-}
-
-function isKnowledgeEntryEditing(targetId: string): boolean {
-  return editingKnowledgeEntryIds.value.includes(targetId)
-}
-
-function toggleKnowledgeEntryEditing(targetId: string): void {
-  editingKnowledgeEntryIds.value = isKnowledgeEntryEditing(targetId)
-    ? editingKnowledgeEntryIds.value.filter((id) => id !== targetId)
-    : [...editingKnowledgeEntryIds.value, targetId]
-}
-
-function updateKnowledgeKeys(targetId: string, value: string): void {
-  const entry = ensureKnowledgeEntries().find((item) => item.id === targetId)
-  if (!entry) return
-  entry.keys = splitInlineList(value)
-  entry.updatedAt = Date.now()
-}
-
-function updateKnowledgeTokenBudget(targetId: string, value: string): void {
-  const entry = ensureKnowledgeEntries().find((item) => item.id === targetId)
-  if (!entry) return
-  const trimmed = value.trim()
-  if (!trimmed) {
-    entry.tokenBudget = undefined
-    entry.updatedAt = Date.now()
-    return
-  }
-  const numeric = Number(trimmed)
-  if (Number.isFinite(numeric)) {
-    entry.tokenBudget = Math.max(50, Math.round(numeric))
-    entry.updatedAt = Date.now()
-  }
-}
-
-function updateKnowledgeScanDepth(value: string): void {
-  knowledgeSettings.value.scanDepth = normalizeIntegerInput(value, 8, 1, 40)
-}
-
-function updateKnowledgeMaxTokens(value: string): void {
-  knowledgeSettings.value.maxTokens = normalizeIntegerInput(value, 900, 200, 8000)
-}
-
-function eventInputValue(event: Event): string {
-  return (event.target as HTMLInputElement | null)?.value ?? ''
-}
-
-function ensureKnowledgeEntries(): CompanionRole['knowledgeEntries'] {
-  if (!Array.isArray(editableRole.value.knowledgeEntries)) {
-    editableRole.value.knowledgeEntries = []
-  }
-  return editableRole.value.knowledgeEntries
-}
-
-function ensurePetInteractions(): CompanionRole['petInteractions'] {
-  const normalized = normalizeCatPetInteractionConfigs(editableRole.value.petInteractions)
-  if (JSON.stringify(editableRole.value.petInteractions) !== JSON.stringify(normalized)) {
-    editableRole.value.petInteractions = normalized
-  }
-  return editableRole.value.petInteractions
-}
-
-function ensurePetGifts(): CompanionRole['petGifts'] {
-  const normalized = normalizeCatPetGiftConfigs(editableRole.value.petGifts)
-  if (JSON.stringify(editableRole.value.petGifts) !== JSON.stringify(normalized)) {
-    editableRole.value.petGifts = normalized
-  }
-  return editableRole.value.petGifts
-}
-
-function petInteractionFallback(item: CatPetInteractionConfig): CatPetInteractionConfig {
-  return defaultPetInteractionById.get(item.id) ?? item
-}
-
-function petInteractionTitle(item: CatPetInteractionConfig, index: number): string {
-  return (
-    item.label?.trim() ||
-    petInteractionFallback(item).label ||
-    t('settings.catAppearance.role.interactions.slot', { index: index + 1 })
-  )
-}
-
-function petInteractionDescription(item: CatPetInteractionConfig): string {
-  return item.description?.trim() || petInteractionFallback(item).description || ''
-}
-
-function petInteractionAvailability(item: CatPetInteractionConfig): string {
-  const unlockAffection = CAT_PET_UNLOCK_AFFECTION[item.id]
-  if (unlockAffection > 0) {
-    return t('catPet.config.unlockAt', { count: unlockAffection })
-  }
-  return t('catPet.config.availableNow')
-}
-
-function petInteractionDailyLimit(item: CatPetInteractionConfig): string {
-  return t('settings.catAppearance.role.interactions.dailyLimit', {
-    count: CAT_PET_DAILY_LIMITS[item.id],
-  })
-}
-
-function updatePetInteraction(
-  index: number,
-  patch: Partial<Omit<CatPetInteractionConfig, 'id'>>
-): void {
-  const items = ensurePetInteractions()
-  const current = items[index]
-  if (!current) return
-  const next = [...items]
-  next[index] = { ...current, ...patch }
-  editableRole.value.petInteractions = next
-}
-
-function petGiftFallback(item: CatPetGiftConfig): CatPetGiftConfig {
-  return defaultPetGiftById.get(item.id) ?? item
-}
-
-function petGiftTitle(item: CatPetGiftConfig, index: number): string {
-  return (
-    item.name?.trim() ||
-    petGiftFallback(item).name ||
-    t('settings.catAppearance.role.gifts.slot', { index: index + 1 })
-  )
-}
-
-function petGiftDescription(item: CatPetGiftConfig): string {
-  return item.description?.trim() || petGiftFallback(item).description || ''
-}
-
-function petGiftImageSrc(item: CatPetGiftConfig): string {
-  return catPetGiftImageSrc(item.image, item.id)
-}
-
-function openGiftEditDialog(item: CatPetGiftConfig): void {
-  giftDialogDraft.value = clonePetGift(item)
-  giftDialogOpen.value = true
-}
-
-function savePetGift(gift: CatPetGiftConfig): void {
-  const items = ensurePetGifts()
-  const index = items.findIndex((item) => item.id === gift.id)
-  if (index < 0) return
-  const next = [...items.slice(0, index), gift, ...items.slice(index + 1)]
-  editableRole.value.petGifts = normalizeCatPetGiftConfigs(next)
-  giftDialogOpen.value = false
-  giftDialogDraft.value = undefined
-}
-
-function clonePetGift(item: CatPetGiftConfig): CatPetGiftConfig {
-  return {
-    ...item,
-    ...(item.image ? { image: { ...item.image } } : {}),
-    storyLines: [...item.storyLines],
-  }
-}
-
-async function loadPacks(): Promise<void> {
-  loading.value = true
-  try {
-    response.value = await appBridge.catAppearance.list()
-    await loadCurrentDetail()
-  } catch (error) {
-    toast.error(errorToText(error, t('settings.catAppearance.toasts.loadFailed')))
-  } finally {
-    loading.value = false
-  }
-}
-
-async function importPack(): Promise<void> {
-  if (importing.value) return
-
-  try {
-    ensureElectronBridge(t('settings.catAppearance.importButton'))
-  } catch (error) {
-    toast.error(errorToText(error, t('settings.catAppearance.bridgeNotReady')))
-    return
-  }
-
-  importing.value = true
-  try {
-    const result = await appBridge.catAppearance.importPack()
-    response.value = result
-    if (result.canceled) {
-      return
-    }
-
-    if (result.importedPackId) {
-      editableRole.value.appearancePackId = result.importedPackId
-    }
-    await loadCurrentDetail()
-    const importedPack = result.packs.find((pack) => pack.id === result.importedPackId)
-    toast.success(t('settings.catAppearance.toasts.imported'), {
-      description: importedPack?.name,
-    })
-  } catch (error) {
-    toast.error(errorToText(error, t('settings.catAppearance.toasts.importFailed')))
-  } finally {
-    importing.value = false
-  }
-}
-
-async function loadCurrentDetail(): Promise<void> {
-  const requestId = detailRequestId + 1
-  detailRequestId = requestId
-  currentDetailLoading.value = true
-  currentDetailError.value = undefined
-  try {
-    const resolvedPack = await appBridge.catAppearance.getPack({
-      packId: activeRoleAppearancePackId.value,
-    })
-    if (detailRequestId !== requestId) return
-    currentDetail.value = resolvedPack
-  } catch (error) {
-    if (detailRequestId !== requestId) return
-    currentDetail.value = undefined
-    currentDetailError.value = errorToText(error, t('settings.catAppearance.detail.loadFailed'))
-  } finally {
-    if (detailRequestId === requestId) {
-      currentDetailLoading.value = false
-    }
-  }
-}
-
-function statusVariant(pack: CatAppearancePackSummary): BadgeVariant {
-  if (pack.status === 'invalid' || pack.status === 'missing') return 'destructive'
-  return 'secondary'
-}
-
-function sourceLabel(source: CatAppearancePackSource): string {
-  return t(`settings.catAppearance.source.${source}`)
-}
-
-function sourceVariant(source: CatAppearancePackSource): BadgeVariant {
-  return source === 'builtin' ? 'secondary' : 'outline'
-}
-
-function formatUpdatedAt(value?: number): string {
-  if (!value) return t('settings.catAppearance.neverUpdated')
-  return new Date(value).toLocaleString()
+function updatePetGifts(gifts: CompanionRole['petGifts']): void {
+  editableRole.value.petGifts = gifts
 }
 
 function splitMultiline(value: string): string[] {
@@ -566,40 +137,6 @@ function splitMultiline(value: string): string[] {
     .map((item) => item.trim())
     .filter(Boolean)
 }
-
-function splitInlineList(value: string): string[] {
-  return value
-    .split(/[,，\n]/)
-    .map((item) => item.trim())
-    .filter(Boolean)
-}
-
-function normalizeKnowledgeSearchText(value: string): string {
-  return value.toLocaleLowerCase().replace(/\s+/g, ' ').trim()
-}
-
-function knowledgeEntryMatchesSearch(
-  entry: CompanionRole['knowledgeEntries'][number],
-  query: string
-): boolean {
-  const text = normalizeKnowledgeSearchText(
-    [
-      entry.title,
-      entry.content,
-      entry.keys.join(' '),
-      String(entry.priority),
-      entry.tokenBudget === undefined ? '' : String(entry.tokenBudget),
-    ].join(' ')
-  )
-  return text.includes(query)
-}
-
-function normalizeIntegerInput(value: string, fallback: number, min: number, max: number): number {
-  const numeric = Number(value)
-  if (!Number.isFinite(numeric)) return fallback
-  return Math.max(min, Math.min(Math.round(numeric), max))
-}
-
 interface CompanionRolePreviewSection {
   id: string
   title: string
@@ -747,6 +284,12 @@ function normalizePreviewTriggerText(text: string): string {
   return text.toLocaleLowerCase().replace(/\s+/g, ' ').trim()
 }
 
+function normalizeIntegerInput(value: string, fallback: number, min: number, max: number): number {
+  const numeric = Number(value)
+  if (!Number.isFinite(numeric)) return fallback
+  return Math.max(min, Math.min(Math.round(numeric), max))
+}
+
 function trimPreviewTextToBudget(text: string, maxTokens: number): string {
   if (maxTokens <= 0) return ''
   if (estimatePreviewTokens(text) <= maxTokens) return text
@@ -773,10 +316,6 @@ function previewCharTokenWeight(char: string): number {
   if (/\s/.test(char)) return 0.05
   if (/[\u3400-\u9fff]/.test(char)) return 1
   return 0.35
-}
-
-function createRoleKnowledgeId(index: number): string {
-  return `role-knowledge-${Date.now().toString(36)}-${index}-${Math.random().toString(36).slice(2, 8)}`
 }
 </script>
 
@@ -1088,196 +627,12 @@ function createRoleKnowledgeId(index: number): string {
         class="min-h-0 overflow-y-auto"
       >
         <div class="flex flex-col gap-4 p-4 sm:p-5">
-          <SettingsSection
-            :title="t('settings.catAppearance.role.sections.knowledge.title')"
-            :description="t('settings.catAppearance.role.sections.knowledge.description')"
-            :icon="BookOpenIcon"
-          >
-            <template #actions>
-              <Button
-                type="button"
-                size="sm"
-                @click="openKnowledgeCreateDialog"
-              >
-                <PlusIcon data-icon="inline-start" />
-                {{ t('settings.catAppearance.role.knowledge.add') }}
-              </Button>
-            </template>
-
-            <FieldGroup class="gap-0">
-              <SettingEntry
-                control-id="settings-companion-role-knowledge-scan-depth"
-                :title="t('settings.catAppearance.role.knowledge.settings.scanDepth')"
-                :description="t('settings.catAppearance.role.knowledge.settings.scanDepthDescription')"
-              >
-                <Input
-                  id="settings-companion-role-knowledge-scan-depth"
-                  :model-value="knowledgeSettings.scanDepth"
-                  class="w-full md:w-32"
-                  type="number"
-                  min="1"
-                  max="40"
-                  @input="updateKnowledgeScanDepth(eventInputValue($event))"
-                />
-              </SettingEntry>
-
-              <SettingEntry
-                control-id="settings-companion-role-knowledge-max-tokens"
-                :title="t('settings.catAppearance.role.knowledge.settings.maxTokens')"
-                :description="t('settings.catAppearance.role.knowledge.settings.maxTokensDescription')"
-              >
-                <Input
-                  id="settings-companion-role-knowledge-max-tokens"
-                  :model-value="knowledgeSettings.maxTokens"
-                  class="w-full md:w-32"
-                  type="number"
-                  min="200"
-                  max="8000"
-                  @input="updateKnowledgeMaxTokens(eventInputValue($event))"
-                />
-              </SettingEntry>
-
-            </FieldGroup>
-
-            <div class="flex flex-col gap-3 border-t p-4 sm:p-5">
-              <div class="flex min-w-0 flex-col gap-1">
-                <p class="text-sm font-semibold leading-5 text-foreground">
-                  {{
-                    t('settings.catAppearance.role.knowledge.count', {
-                      count: editableRole.knowledgeEntries.length,
-                    })
-                  }}
-                </p>
-                <p class="max-w-4xl text-xs leading-5 text-muted-foreground">
-                  {{ t('settings.catAppearance.role.knowledge.description') }}
-                </p>
-              </div>
-
-              <SettingsSearchBar
-                v-model="knowledgeSearchQuery"
-                :placeholder="t('settings.catAppearance.role.knowledge.searchPlaceholder')"
-                :label="t('settings.catAppearance.role.knowledge.search')"
-                :disabled="!editableRole.knowledgeEntries.length"
-                class="rounded-md border px-3 py-2 sm:px-3"
-              >
-                <template #summary>
-                  <Badge variant="secondary">
-                    {{
-                      knowledgeSearchQuery.trim()
-                        ? `${filteredKnowledgeEntries.length}/${editableRole.knowledgeEntries.length}`
-                        : editableRole.knowledgeEntries.length
-                    }}
-                  </Badge>
-                </template>
-              </SettingsSearchBar>
-
-              <p
-                v-if="!editableRole.knowledgeEntries.length"
-                class="rounded-md border border-dashed px-3 py-6 text-center text-sm text-muted-foreground"
-              >
-                {{ t('settings.catAppearance.role.knowledge.empty') }}
-              </p>
-
-              <p
-                v-else-if="!filteredKnowledgeEntries.length"
-                class="rounded-md border border-dashed px-3 py-6 text-center text-sm text-muted-foreground"
-              >
-                {{
-                  t('settings.catAppearance.role.knowledge.noSearchMatch', {
-                    query: knowledgeSearchQuery,
-                  })
-                }}
-              </p>
-
-              <div
-                v-for="item in filteredKnowledgeEntries"
-                :key="item.entry.id"
-                class="flex flex-col gap-3 rounded-md border bg-background/60 p-3"
-              >
-                <div class="flex flex-wrap items-center gap-2">
-                  <Switch
-                    v-model="item.entry.enabled"
-                    :disabled="!isKnowledgeEntryEditing(item.entry.id)"
-                  />
-                  <Input
-                    v-model="item.entry.title"
-                    class="min-w-0 flex-1"
-                    :disabled="!isKnowledgeEntryEditing(item.entry.id)"
-                    :placeholder="t('settings.catAppearance.role.knowledge.fields.title')"
-                  />
-                  <Button
-                    type="button"
-                    :variant="isKnowledgeEntryEditing(item.entry.id) ? 'secondary' : 'ghost'"
-                    size="icon-sm"
-                    :aria-label="
-                      isKnowledgeEntryEditing(item.entry.id)
-                        ? t('settings.catAppearance.role.knowledge.finishEdit')
-                        : t('settings.catAppearance.role.knowledge.edit')
-                    "
-                    @click="toggleKnowledgeEntryEditing(item.entry.id)"
-                  >
-                    <component :is="isKnowledgeEntryEditing(item.entry.id) ? CheckIcon : PencilIcon" />
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon-sm"
-                    :aria-label="t('settings.catAppearance.role.knowledge.delete')"
-                    @click="requestDeleteKnowledgeEntry(item.entry.id)"
-                  >
-                    <Trash2Icon />
-                  </Button>
-                </div>
-
-                <Textarea
-                  v-model="item.entry.content"
-                  class="min-h-32"
-                  :disabled="!isKnowledgeEntryEditing(item.entry.id)"
-                  :placeholder="t('settings.catAppearance.role.knowledge.fields.content')"
-                />
-
-                <div class="grid gap-3 @3xl/field-group:grid-cols-[minmax(12rem,1fr)_8rem_9rem_auto_auto]">
-                  <Input
-                    :model-value="item.entry.keys.join(', ')"
-                    :disabled="!isKnowledgeEntryEditing(item.entry.id)"
-                    :placeholder="t('settings.catAppearance.role.knowledge.fields.keys')"
-                    @input="updateKnowledgeKeys(item.entry.id, eventInputValue($event))"
-                  />
-                  <Input
-                    v-model.number="item.entry.priority"
-                    type="number"
-                    :disabled="!isKnowledgeEntryEditing(item.entry.id)"
-                    :placeholder="t('settings.catAppearance.role.knowledge.fields.priority')"
-                  />
-                  <Input
-                    :model-value="item.entry.tokenBudget ?? ''"
-                    type="number"
-                    min="50"
-                    :disabled="!isKnowledgeEntryEditing(item.entry.id)"
-                    :placeholder="t('settings.catAppearance.role.knowledge.fields.tokenBudget')"
-                    @input="updateKnowledgeTokenBudget(item.entry.id, eventInputValue($event))"
-                  />
-                  <Field
-                    orientation="horizontal"
-                    class="min-w-max justify-start @3xl/field-group:justify-center"
-                  >
-                    <Switch
-                      v-model="item.entry.constant"
-                      :disabled="!isKnowledgeEntryEditing(item.entry.id)"
-                    />
-                    <FieldLabel>
-                      {{ t('settings.catAppearance.role.knowledge.fields.constant') }}
-                    </FieldLabel>
-                  </Field>
-                  <span class="self-center text-sm text-muted-foreground">
-                    {{
-                      t('settings.catAppearance.role.knowledge.order', { index: item.index + 1 })
-                    }}
-                  </span>
-                </div>
-              </div>
-            </div>
-          </SettingsSection>
+          <CompanionRoleKnowledgeSection
+            :entries="editableRole.knowledgeEntries"
+            :settings="editableRole.knowledgeSettings"
+            @update:entries="updateKnowledgeEntries"
+            @update:settings="updateKnowledgeSettings"
+          />
         </div>
       </TabsContent>
 
@@ -1286,71 +641,9 @@ function createRoleKnowledgeId(index: number): string {
         class="min-h-0 overflow-y-auto"
       >
         <div class="flex flex-col gap-4 p-4 sm:p-5">
-          <SettingsSection
-            :title="t('settings.catAppearance.role.sections.appearance.title')"
-            :description="t('settings.catAppearance.role.sections.appearance.description')"
-            :icon="ImageIcon"
-          >
-            <FieldGroup class="gap-0">
-              <SettingEntry
-                control-id="settings-companion-role-appearance-current"
-                :title="t('settings.catAppearance.role.fields.appearance.title')"
-                :description="t('settings.catAppearance.role.fields.appearance.description')"
-              >
-                <div class="flex w-full min-w-0 flex-col gap-3 md:w-[32rem]">
-                  <div class="flex min-w-0 items-start gap-3 rounded-md border bg-background/60 p-3">
-                    <div class="flex size-10 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
-                      <ImageIcon />
-                    </div>
-                    <div class="flex min-w-0 flex-1 flex-col gap-1">
-                      <div class="flex min-w-0 flex-wrap items-center gap-2">
-                        <p class="truncate text-sm font-medium">
-                          {{ currentPack?.name || activeRoleAppearancePackId }}
-                        </p>
-                        <Badge
-                          v-if="currentPack"
-                          :variant="statusVariant(currentPack)"
-                        >
-                          {{ currentStatusLabel }}
-                        </Badge>
-                        <Badge
-                          v-if="currentPack"
-                          :variant="sourceVariant(currentPack.source)"
-                        >
-                          {{ currentSourceLabel }}
-                        </Badge>
-                      </div>
-                      <p class="text-sm text-muted-foreground">
-                        {{ currentUpdatedLabel }}
-                      </p>
-                      <p
-                        v-if="currentPack?.error || currentDetailError"
-                        class="line-clamp-2 text-sm text-destructive"
-                      >
-                        {{ currentPack?.error || currentDetailError }}
-                      </p>
-                    </div>
-                  </div>
-
-                  <Button
-                    type="button"
-                    class="w-fit"
-                    :disabled="importDisabled"
-                    @click="importPack"
-                  >
-                    <PackagePlusIcon data-icon="inline-start" />
-                    {{ importButtonLabel }}
-                  </Button>
-                </div>
-              </SettingEntry>
-            </FieldGroup>
-          </SettingsSection>
-
-          <CompanionRoleAppearanceDetailPreview
-            :pack="currentPack"
-            :detail="currentDetail"
-            :loading="loading || currentDetailLoading"
-            :error="currentDetailError"
+          <CompanionRoleAppearanceSection
+            :appearance-pack-id="editableRole.appearancePackId"
+            @update:appearance-pack-id="updateAppearancePackId"
           />
         </div>
       </TabsContent>
@@ -1360,140 +653,14 @@ function createRoleKnowledgeId(index: number): string {
         class="min-h-0 overflow-y-auto"
       >
         <div class="flex flex-col gap-4 p-4 sm:p-5">
-          <SettingsSection
-            :title="t('settings.catAppearance.role.sections.interactions.title')"
-            :description="t('settings.catAppearance.role.sections.interactions.description')"
-            :icon="HandIcon"
-          >
-            <FieldGroup class="gap-0">
-              <SettingEntry
-                v-for="(item, index) in editableRole.petInteractions"
-                :key="item.id"
-                :control-id="`settings-companion-role-interaction-label-${item.id}`"
-                :title="petInteractionTitle(item, index)"
-                :description="petInteractionDescription(item)"
-                control-class="@md/field-group:w-[min(38rem,58vw)]"
-              >
-                <template #meta>
-                  <div class="flex flex-wrap gap-1.5">
-                    <Badge variant="secondary">
-                      {{ petInteractionAvailability(item) }}
-                    </Badge>
-                    <Badge variant="outline">
-                      {{ petInteractionDailyLimit(item) }}
-                    </Badge>
-                  </div>
-                </template>
-
-                <div class="flex w-full min-w-0 flex-col gap-3">
-                  <div class="flex items-center justify-between gap-3 rounded-md border bg-background/60 px-3 py-2">
-                    <span class="text-sm text-muted-foreground">
-                      {{ t('settings.catAppearance.role.interactions.fields.enabled') }}
-                    </span>
-                    <Switch
-                      :id="`settings-companion-role-interaction-enabled-${item.id}`"
-                      :model-value="item.enabled !== false"
-                      :aria-label="t('catPet.config.enabledAria', { name: petInteractionTitle(item, index) })"
-                      @update:model-value="updatePetInteraction(index, { enabled: Boolean($event) })"
-                    />
-                  </div>
-
-                  <div class="grid gap-2 md:grid-cols-2">
-                    <Input
-                      :id="`settings-companion-role-interaction-label-${item.id}`"
-                      :model-value="item.label"
-                      maxlength="18"
-                      :aria-label="t('settings.catAppearance.role.interactions.fields.label')"
-                      :placeholder="petInteractionFallback(item).label"
-                      @update:model-value="updatePetInteraction(index, { label: String($event) })"
-                    />
-                    <Input
-                      :model-value="item.description"
-                      maxlength="80"
-                      :aria-label="t('settings.catAppearance.role.interactions.fields.description')"
-                      :placeholder="t('catPet.config.hintPlaceholder')"
-                      @update:model-value="updatePetInteraction(index, { description: String($event) })"
-                    />
-                    <Input
-                      :model-value="item.positiveFeedback"
-                      maxlength="120"
-                      :aria-label="t('settings.catAppearance.role.interactions.fields.positiveFeedback')"
-                      :placeholder="t('catPet.config.positivePlaceholder')"
-                      @update:model-value="updatePetInteraction(index, { positiveFeedback: String($event) })"
-                    />
-                    <Input
-                      :model-value="item.negativeFeedback"
-                      maxlength="120"
-                      :aria-label="t('settings.catAppearance.role.interactions.fields.negativeFeedback')"
-                      :placeholder="t('catPet.config.negativePlaceholder')"
-                      @update:model-value="updatePetInteraction(index, { negativeFeedback: String($event) })"
-                    />
-                  </div>
-                </div>
-              </SettingEntry>
-            </FieldGroup>
-          </SettingsSection>
-
-          <p class="text-sm text-muted-foreground">
-            {{
-              t('settings.catAppearance.role.interactions.summary', {
-                count: editableRole.petInteractions.length,
-                total: CAT_PET_ACTIONS.length,
-              })
-            }}
-          </p>
-
-          <SettingsSection
-            :title="t('settings.catAppearance.role.gifts.title')"
-            :description="t('settings.catAppearance.role.gifts.description')"
-            :icon="GiftIcon"
-            content-class="p-4 sm:p-5"
-          >
-            <div class="flex flex-col gap-3">
-              <SettingsPanelItem
-                v-for="(item, index) in petGiftItems"
-                :key="item.id"
-                :title="petGiftTitle(item, index)"
-                :description="petGiftDescription(item)"
-                :icon="GiftIcon"
-                class="group/gift-spoiler"
-                :content-class="giftSpoilerContentClass"
-              >
-                <template #avatar>
-                  <div class="grid size-10 shrink-0 place-items-center overflow-hidden rounded-md border bg-muted text-muted-foreground">
-                    <img
-                      v-if="petGiftImageSrc(item)"
-                      :src="petGiftImageSrc(item)"
-                      :alt="t('settings.catAppearance.role.gifts.imageAlt', { name: petGiftTitle(item, index) })"
-                      :class="giftSpoilerImageClass"
-                    />
-                    <GiftIcon
-                      v-else
-                      aria-hidden="true"
-                    />
-                  </div>
-                </template>
-
-                <template #badges>
-                  <Badge variant="outline">
-                    {{ t('catPet.config.unlockAt', { count: item.unlockAffection }) }}
-                  </Badge>
-                </template>
-
-                <template #actions>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon-sm"
-                    :aria-label="t('settings.catAppearance.role.gifts.edit')"
-                    @click="openGiftEditDialog(item)"
-                  >
-                    <PencilIcon />
-                  </Button>
-                </template>
-              </SettingsPanelItem>
-            </div>
-          </SettingsSection>
+          <CompanionRoleInteractionsSection
+            :interactions="editableRole.petInteractions"
+            @update:interactions="updatePetInteractions"
+          />
+          <CompanionRoleGiftsSection
+            :gifts="editableRole.petGifts"
+            @update:gifts="updatePetGifts"
+          />
         </div>
       </TabsContent>
 
@@ -1561,23 +728,5 @@ function createRoleKnowledgeId(index: number): string {
     v-model:input="previewInput"
     :sections="previewSections"
     :token-total="previewTokenTotal"
-  />
-
-  <CompanionRoleKnowledgeCreateDialog
-    v-model:open="knowledgeCreateDialogOpen"
-    @submit="createKnowledgeEntry"
-  />
-
-  <CompanionRoleKnowledgeDeleteModal
-    v-if="knowledgeDeleteTarget"
-    v-model:open="knowledgeDeleteDialogOpen"
-    :title="knowledgeDeleteTarget.title || t('settings.catAppearance.role.knowledge.untitled')"
-    @confirm="confirmDeleteKnowledgeEntry"
-  />
-
-  <CompanionRoleGiftModal
-    v-model:open="giftDialogOpen"
-    :gift="giftDialogDraft"
-    @submit="savePetGift"
   />
 </template>
