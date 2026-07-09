@@ -55,7 +55,6 @@ export interface DesktopCompanionRoleKnowledgeSettings {
 export interface DesktopCompanionRoleAdvancedSettings {
   enabled: boolean
   systemPrompt: string
-  knowledge: string
   exampleDialogue: string
   finalInstructions: string
 }

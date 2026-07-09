@@ -23,7 +23,6 @@ export function createXiaowanCompanionRolePreset(): DesktopCompanionRoleSettings
     advanced: {
       enabled: false,
       systemPrompt: '',
-      knowledge: '',
       exampleDialogue: '',
       finalInstructions: '',
     },

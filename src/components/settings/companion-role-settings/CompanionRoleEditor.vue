@@ -568,7 +568,6 @@ function buildCompanionRolePreviewSections(
     t('settings.catAppearance.role.preview.sections.advanced'),
     [
       role.advanced.systemPrompt.trim() ? `高级角色指令：${role.advanced.systemPrompt.trim()}` : '',
-      role.advanced.knowledge.trim() ? `角色专属知识：${role.advanced.knowledge.trim()}` : '',
       role.advanced.exampleDialogue.trim()
         ? `角色示例对话：\n${role.advanced.exampleDialogue.trim()}`
         : '',
@@ -1376,20 +1375,6 @@ function createRoleKnowledgeId(index: number): string {
                   v-model="editableRole.advanced.systemPrompt"
                   class="min-h-28"
                   :placeholder="t('settings.catAppearance.role.advanced.fields.systemPrompt.placeholder')"
-                />
-              </SettingEntry>
-
-              <SettingEntry
-                control-id="settings-companion-role-advanced-knowledge"
-                :title="t('settings.catAppearance.role.advanced.fields.knowledge.title')"
-                :description="t('settings.catAppearance.role.advanced.fields.knowledge.description')"
-                control-class="@md/field-group:w-[min(32rem,50vw)]"
-              >
-                <Textarea
-                  id="settings-companion-role-advanced-knowledge"
-                  v-model="editableRole.advanced.knowledge"
-                  class="min-h-28"
-                  :placeholder="t('settings.catAppearance.role.advanced.fields.knowledge.placeholder')"
                 />
               </SettingEntry>
 

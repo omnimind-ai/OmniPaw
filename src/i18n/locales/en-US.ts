@@ -242,7 +242,7 @@ export default {
           advanced: {
             title: 'Advanced Settings',
             description:
-              'Append finer role instructions, character knowledge, and output constraints.',
+              'Append finer role instructions, example dialogues, and output constraints.',
           },
         },
         listTitle: 'Characters',
@@ -446,13 +446,6 @@ export default {
                 'Fine-grained behavior rules, collaboration boundaries, output habits, and long-running role guidance.',
               placeholder:
                 'For example: Start with the goal, then give actionable steps. For code, call out risks and verification. Avoid long explanations unless asked.',
-            },
-            knowledge: {
-              title: 'Character knowledge',
-              description:
-                'Extra background, world facts, user preferences, project facts, or persistent collaboration notes.',
-              placeholder:
-                'For example: The character lives on the user desktop and understands the user’s work rhythm, common tools, project naming, and usual phrasing.',
             },
             exampleDialogue: {
               title: 'Example dialogue',

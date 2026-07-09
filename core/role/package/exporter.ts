@@ -89,7 +89,6 @@ function normalizeExportedRoleDraft(role: ImportedCompanionRoleDraft): ImportedC
       ? {
           enabled: hasAdvancedRoleContent(role.advanced),
           systemPrompt: normalizeText(role.advanced.systemPrompt),
-          knowledge: normalizeText(role.advanced.knowledge),
           exampleDialogue: normalizeText(role.advanced.exampleDialogue),
           finalInstructions: normalizeText(role.advanced.finalInstructions),
         }
@@ -102,7 +101,6 @@ function normalizeExportedRoleDraft(role: ImportedCompanionRoleDraft): ImportedC
 function hasAdvancedRoleContent(advanced: ImportedCompanionRoleDraft['advanced']): boolean {
   return Boolean(
     advanced?.systemPrompt?.trim() ||
-      advanced?.knowledge?.trim() ||
       advanced?.exampleDialogue?.trim() ||
       advanced?.finalInstructions?.trim()
   )

@@ -262,7 +262,6 @@ export interface BridgeDesktopSettingsConfig {
       advanced: {
         enabled: boolean
         systemPrompt: string
-        knowledge: string
         exampleDialogue: string
         finalInstructions: string
       }
@@ -2106,7 +2105,6 @@ function fallbackCompanionRole(): BridgeDesktopSettingsConfig['app']['companionR
     advanced: {
       enabled: false,
       systemPrompt: '',
-      knowledge: '',
       exampleDialogue: '',
       finalInstructions: '',
     },

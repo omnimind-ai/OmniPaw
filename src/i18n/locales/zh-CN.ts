@@ -233,7 +233,7 @@ export default {
           },
           advanced: {
             title: '高级设置',
-            description: '追加更细的角色指令、专属知识和输出约束。',
+            description: '追加更细的角色指令、示例对话和输出约束。',
           },
         },
         listTitle: '角色列表',
@@ -417,12 +417,6 @@ export default {
               description: '覆盖更细的行为准则、协作边界、输出习惯和长期扮演要求。',
               placeholder:
                 '例如：回复时先总结目标，再给可执行步骤；涉及代码时标出风险和验证方式；除非用户要求，不主动展开长篇解释。',
-            },
-            knowledge: {
-              title: '角色专属知识',
-              description: '补充当前角色知道的背景、世界观、用户偏好、项目事实或长期协作设定。',
-              placeholder:
-                '例如：角色住在用户桌面里，熟悉用户的工作节奏、常用工具、项目命名和常用表达。',
             },
             exampleDialogue: {
               title: '示例对话',

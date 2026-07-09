@@ -1186,7 +1186,6 @@ function validateCompanionRoleAdvancedSettings(
 
   const textFields: Array<keyof DesktopCompanionRoleSettings['advanced']> = [
     'systemPrompt',
-    'knowledge',
     'exampleDialogue',
     'finalInstructions',
   ]
@@ -2620,7 +2619,6 @@ function normalizeCompanionRoleAdvancedSettings(
     enabled: typeof rawValue.enabled === 'boolean' ? rawValue.enabled : defaults.enabled,
     systemPrompt:
       typeof rawValue.systemPrompt === 'string' ? rawValue.systemPrompt : defaults.systemPrompt,
-    knowledge: typeof rawValue.knowledge === 'string' ? rawValue.knowledge : defaults.knowledge,
     exampleDialogue:
       typeof rawValue.exampleDialogue === 'string'
         ? rawValue.exampleDialogue

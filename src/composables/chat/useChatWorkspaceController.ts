@@ -939,7 +939,6 @@ function advancedCompanionRoleSections(
 
   return [
     advanced.systemPrompt.trim() ? `高级角色指令：${advanced.systemPrompt.trim()}` : '',
-    advanced.knowledge.trim() ? `角色专属知识：${advanced.knowledge.trim()}` : '',
     advanced.exampleDialogue.trim() ? `角色示例对话：\n${advanced.exampleDialogue.trim()}` : '',
     advanced.finalInstructions.trim() ? `最终回应约束：${advanced.finalInstructions.trim()}` : '',
   ].filter((section) => section.trim())

@@ -207,13 +207,9 @@ function mapParsedCardToRole(parsed: ParsedCharacterCard): ImportedCompanionRole
   )
   const advanced = {
     enabled: Boolean(
-      parsed.systemPrompt ||
-        parsed.postHistoryInstructions ||
-        parsed.messageExamples.length ||
-        parsed.description
+      parsed.systemPrompt || parsed.postHistoryInstructions || parsed.messageExamples.length
     ),
     systemPrompt: parsed.systemPrompt ?? '',
-    knowledge: parsed.description ?? '',
     exampleDialogue: parsed.messageExamples.join('\n\n'),
     finalInstructions: parsed.postHistoryInstructions ?? '',
   }
@@ -383,12 +379,10 @@ function normalizeOmniPawExportedRole(
             advanced.enabled === true ||
             Boolean(
               pickString(advanced, ['systemPrompt'])?.trim() ||
-                pickString(advanced, ['knowledge'])?.trim() ||
                 pickString(advanced, ['exampleDialogue'])?.trim() ||
                 pickString(advanced, ['finalInstructions'])?.trim()
             ),
           systemPrompt: pickString(advanced, ['systemPrompt']) ?? '',
-          knowledge: pickString(advanced, ['knowledge']) ?? '',
           exampleDialogue: pickString(advanced, ['exampleDialogue']) ?? '',
           finalInstructions: pickString(advanced, ['finalInstructions']) ?? '',
         }

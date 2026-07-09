@@ -457,7 +457,6 @@ function createRoleFromImportedDraft(
     advanced: {
       enabled: hasAdvancedRoleContent(draft.advanced),
       systemPrompt: draft.advanced?.systemPrompt ?? '',
-      knowledge: draft.advanced?.knowledge ?? '',
       exampleDialogue: draft.advanced?.exampleDialogue ?? '',
       finalInstructions: draft.advanced?.finalInstructions ?? '',
     },
@@ -489,7 +488,6 @@ function createExportRoleDraft(role: CompanionRole): ImportedCompanionRoleDraft 
     advanced: {
       enabled: hasAdvancedRoleContent(role.advanced),
       systemPrompt: role.advanced.systemPrompt,
-      knowledge: role.advanced.knowledge,
       exampleDialogue: role.advanced.exampleDialogue,
       finalInstructions: role.advanced.finalInstructions,
     },
@@ -555,7 +553,6 @@ function hasAdvancedRoleContent(
 ): boolean {
   return Boolean(
     advanced?.systemPrompt?.trim() ||
-      advanced?.knowledge?.trim() ||
       advanced?.exampleDialogue?.trim() ||
       advanced?.finalInstructions?.trim()
   )

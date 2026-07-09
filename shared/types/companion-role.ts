@@ -55,7 +55,6 @@ export interface ImportedCompanionRoleDraft {
   advanced?: {
     enabled?: boolean
     systemPrompt?: string
-    knowledge?: string
     exampleDialogue?: string
     finalInstructions?: string
   }
