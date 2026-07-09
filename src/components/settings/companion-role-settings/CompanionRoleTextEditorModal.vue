@@ -34,9 +34,19 @@ const emit = defineEmits<{
 
 const { t } = useI18n()
 const draft = ref(props.modelValue)
-const textareaStyle = computed(() => ({
-  minHeight: `${Math.max(props.rows, 12) * 1.5}rem`,
+const textareaScrollTop = ref(0)
+const editorStyle = computed(() => ({
+  height: `${Math.max(props.rows, 16) * 1.5}rem`,
 }))
+const lineNumberStyle = computed(() => ({
+  transform: `translateY(-${textareaScrollTop.value}px)`,
+}))
+const lineNumbers = computed(() =>
+  Array.from({ length: Math.max(1, draft.value.split(/\r\n|\r|\n/).length) }, (_, index) =>
+    String(index + 1)
+  ).join('\n')
+)
+const characterCount = computed(() => draft.value.length)
 
 watch(
   () => props.open,
@@ -55,6 +65,10 @@ function save(): void {
   emit('save', draft.value)
   close()
 }
+
+function syncLineNumberScroll(event: Event): void {
+  textareaScrollTop.value = (event.target as HTMLTextAreaElement | null)?.scrollTop ?? 0
+}
 </script>
 
 <template>
@@ -62,7 +76,7 @@ function save(): void {
     :open="open"
     @update:open="emit('update:open', $event)"
   >
-    <DialogContent class="max-h-[calc(100vh-2rem)] overflow-y-auto sm:max-w-5xl">
+    <DialogContent class="grid max-h-[calc(100vh-2rem)] grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden sm:max-w-5xl">
       <DialogHeader>
         <DialogTitle>{{ title }}</DialogTitle>
         <DialogDescription v-if="description">
@@ -70,34 +84,52 @@ function save(): void {
         </DialogDescription>
       </DialogHeader>
 
-      <FieldGroup>
-        <Field>
+      <FieldGroup class="min-h-0">
+        <Field class="min-h-0">
           <FieldLabel class="sr-only">
             {{ title }}
           </FieldLabel>
-          <Textarea
-            v-model="draft"
-            class="w-full resize-y font-mono text-sm leading-relaxed"
-            :placeholder="placeholder"
-            :style="textareaStyle"
-          />
+          <div
+            class="grid min-h-0 overflow-hidden rounded-lg border bg-background focus-within:border-ring focus-within:ring-3 focus-within:ring-ring/50"
+            :style="editorStyle"
+          >
+            <div class="grid min-h-0 grid-cols-[3.25rem_minmax(0,1fr)]">
+              <div class="overflow-hidden border-r bg-muted/35 px-2 py-2 text-right font-mono text-xs leading-6 text-muted-foreground select-none">
+                <pre
+                  aria-hidden="true"
+                  :style="lineNumberStyle"
+                >{{ lineNumbers }}</pre>
+              </div>
+              <Textarea
+                v-model="draft"
+                class="h-full min-h-0 resize-none overflow-y-auto rounded-none border-0 bg-transparent px-3 py-2 font-mono text-sm leading-6 [field-sizing:fixed] focus-visible:ring-0"
+                :placeholder="placeholder"
+                @scroll="syncLineNumberScroll"
+              />
+            </div>
+          </div>
         </Field>
       </FieldGroup>
 
-      <DialogFooter>
-        <Button
-          type="button"
-          variant="outline"
-          @click="close"
-        >
-          {{ t('settings.catAppearance.role.editor.cancel') }}
-        </Button>
-        <Button
-          type="button"
-          @click="save"
-        >
-          {{ t('settings.catAppearance.role.editor.save') }}
-        </Button>
+      <DialogFooter class="items-center sm:justify-between">
+        <p class="text-xs text-muted-foreground">
+          {{ t('settings.catAppearance.role.editor.characterCount', { count: characterCount }) }}
+        </p>
+        <div class="flex items-center gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            @click="close"
+          >
+            {{ t('settings.catAppearance.role.editor.cancel') }}
+          </Button>
+          <Button
+            type="button"
+            @click="save"
+          >
+            {{ t('settings.catAppearance.role.editor.save') }}
+          </Button>
+        </div>
       </DialogFooter>
     </DialogContent>
   </Dialog>

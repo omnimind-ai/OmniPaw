@@ -18,7 +18,7 @@ const props = withDefaults(
   }>(),
   {
     rows: 18,
-    previewLines: 5,
+    previewLines: 3,
   }
 )
 
@@ -31,11 +31,18 @@ const previewText = computed(() => normalizedValue.value || props.placeholder ||
 const isEmpty = computed(() => !normalizedValue.value)
 const previewStyle = computed(() => ({
   display: '-webkit-box',
+  height: `${props.previewLines * 1.5}rem`,
   overflow: 'hidden',
   WebkitBoxOrient: 'vertical',
   WebkitLineClamp: props.previewLines,
 }))
-const characterCount = computed(() => model.value.length)
+const hasMorePreviewContent = computed(() => {
+  if (!normalizedValue.value) return false
+  return (
+    normalizedValue.value.split(/\r\n|\r|\n/).length > props.previewLines ||
+    normalizedValue.value.length > props.previewLines * 42
+  )
+})
 
 function saveEditor(value: string): void {
   model.value = value
@@ -71,29 +78,48 @@ function saveEditor(value: string): void {
       </Button>
     </div>
 
-    <button
+    <div
       :id="controlId"
-      type="button"
       :class="cn(
-        'group mt-3 w-full rounded-md border bg-background/60 px-3 py-3 text-left transition-colors hover:bg-muted/30 focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none',
+        'group mt-3 w-full rounded-md border bg-background/60 transition-colors hover:bg-muted/30',
         isEmpty && 'border-dashed',
       )"
-      @click="editorOpen = true"
     >
-      <pre
-        :class="cn(
-          'whitespace-pre-wrap break-words text-sm leading-6',
-          isEmpty ? 'text-muted-foreground' : 'text-foreground',
-        )"
-        :style="previewStyle"
-      >{{ previewText || t('settings.catAppearance.role.editor.empty') }}</pre>
-      <div class="mt-3 flex items-center justify-between gap-3 border-t pt-2 text-xs text-muted-foreground">
-        <span>{{ t('settings.catAppearance.role.editor.characterCount', { count: characterCount }) }}</span>
-        <span class="transition-colors group-hover:text-foreground">
+      <button
+        type="button"
+        class="relative block w-full overflow-hidden px-3 py-3 text-left focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+        @click="editorOpen = true"
+      >
+        <pre
+          :class="cn(
+            'whitespace-pre-wrap break-words text-sm leading-6',
+            isEmpty ? 'text-muted-foreground' : 'text-foreground',
+          )"
+          :style="previewStyle"
+        >{{ previewText || t('settings.catAppearance.role.editor.empty') }}</pre>
+        <div
+          v-if="hasMorePreviewContent"
+          aria-hidden="true"
+          class="pointer-events-none absolute inset-x-0 bottom-0 h-12 bg-gradient-to-b from-transparent via-background/85 to-background"
+        />
+        <div
+          v-if="hasMorePreviewContent"
+          aria-hidden="true"
+          class="pointer-events-none absolute bottom-0 left-1/2 h-px w-2/3 -translate-x-1/2 bg-gradient-to-r from-transparent via-primary/50 to-transparent"
+        />
+      </button>
+      <div class="flex items-center justify-center border-t px-3 py-2">
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          class="text-muted-foreground hover:text-foreground"
+          @click="editorOpen = true"
+        >
           {{ t('settings.catAppearance.role.editor.openEditor') }}
-        </span>
+        </Button>
       </div>
-    </button>
+    </div>
 
     <CompanionRoleTextEditorModal
       v-model:open="editorOpen"
