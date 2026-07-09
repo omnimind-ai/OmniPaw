@@ -46,6 +46,7 @@ import {
 } from '@/bridge/app'
 import SettingEntry from '@/components/settings/common/SettingEntry.vue'
 import SettingsPanelItem from '@/components/settings/common/SettingsPanelItem.vue'
+import SettingsSearchBar from '@/components/settings/common/SettingsSearchBar.vue'
 import SettingsSection from '@/components/settings/common/SettingsSection.vue'
 import CompanionRoleAppearanceDetailPreview from '@/components/settings/companion-role-settings/CompanionRoleAppearanceDetailPreview.vue'
 import CompanionRoleGiftModal from '@/components/settings/companion-role-settings/CompanionRoleGiftModal.vue'
@@ -101,6 +102,7 @@ const { modelOptions, saving, persistenceAvailable } = storeToRefs(providerStore
 const activeTab = ref('basic')
 const previewOpen = ref(false)
 const previewInput = ref('')
+const knowledgeSearchQuery = ref('')
 const knowledgeCreateDialogOpen = ref(false)
 const giftDialogOpen = ref(false)
 const giftDialogDraft = ref<CatPetGiftConfig>()
@@ -128,6 +130,12 @@ const knowledgeSettings = computed(() => {
     }
   }
   return editableRole.value.knowledgeSettings
+})
+const filteredKnowledgeEntries = computed(() => {
+  const query = normalizeKnowledgeSearchText(knowledgeSearchQuery.value)
+  return editableRole.value.knowledgeEntries
+    .map((entry, index) => ({ entry, index }))
+    .filter(({ entry }) => !query || knowledgeEntryMatchesSearch(entry, query))
 })
 const enabledModelOptions = computed(() => modelOptions.value.filter((option) => option.enabled))
 const selectedModelKey = computed(() => {
@@ -512,6 +520,26 @@ function splitInlineList(value: string): string[] {
     .split(/[,，\n]/)
     .map((item) => item.trim())
     .filter(Boolean)
+}
+
+function normalizeKnowledgeSearchText(value: string): string {
+  return value.toLocaleLowerCase().replace(/\s+/g, ' ').trim()
+}
+
+function knowledgeEntryMatchesSearch(
+  entry: CompanionRole['knowledgeEntries'][number],
+  query: string
+): boolean {
+  const text = normalizeKnowledgeSearchText(
+    [
+      entry.title,
+      entry.content,
+      entry.keys.join(' '),
+      String(entry.priority),
+      entry.tokenBudget === undefined ? '' : String(entry.tokenBudget),
+    ].join(' ')
+  )
+  return text.includes(query)
 }
 
 function normalizeIntegerInput(value: string, fallback: number, min: number, max: number): number {
@@ -1073,6 +1101,24 @@ function createRoleKnowledgeId(index: number): string {
                 </p>
               </div>
 
+              <SettingsSearchBar
+                v-model="knowledgeSearchQuery"
+                :placeholder="t('settings.catAppearance.role.knowledge.searchPlaceholder')"
+                :label="t('settings.catAppearance.role.knowledge.search')"
+                :disabled="!editableRole.knowledgeEntries.length"
+                class="rounded-md border px-3 py-2 sm:px-3"
+              >
+                <template #summary>
+                  <Badge variant="secondary">
+                    {{
+                      knowledgeSearchQuery.trim()
+                        ? `${filteredKnowledgeEntries.length}/${editableRole.knowledgeEntries.length}`
+                        : editableRole.knowledgeEntries.length
+                    }}
+                  </Badge>
+                </template>
+              </SettingsSearchBar>
+
               <p
                 v-if="!editableRole.knowledgeEntries.length"
                 class="rounded-md border border-dashed px-3 py-6 text-center text-sm text-muted-foreground"
@@ -1080,15 +1126,26 @@ function createRoleKnowledgeId(index: number): string {
                 {{ t('settings.catAppearance.role.knowledge.empty') }}
               </p>
 
+              <p
+                v-else-if="!filteredKnowledgeEntries.length"
+                class="rounded-md border border-dashed px-3 py-6 text-center text-sm text-muted-foreground"
+              >
+                {{
+                  t('settings.catAppearance.role.knowledge.noSearchMatch', {
+                    query: knowledgeSearchQuery,
+                  })
+                }}
+              </p>
+
               <div
-                v-for="(entry, index) in editableRole.knowledgeEntries"
-                :key="entry.id"
+                v-for="item in filteredKnowledgeEntries"
+                :key="item.entry.id"
                 class="flex flex-col gap-3 rounded-md border bg-background/60 p-3"
               >
                 <div class="flex flex-wrap items-center gap-2">
-                  <Switch v-model="entry.enabled" />
+                  <Switch v-model="item.entry.enabled" />
                   <Input
-                    v-model="entry.title"
+                    v-model="item.entry.title"
                     class="min-w-0 flex-1"
                     :placeholder="t('settings.catAppearance.role.knowledge.fields.title')"
                   />
@@ -1097,47 +1154,49 @@ function createRoleKnowledgeId(index: number): string {
                     variant="ghost"
                     size="icon-sm"
                     :aria-label="t('settings.catAppearance.role.knowledge.delete')"
-                    @click="deleteKnowledgeEntry(entry.id)"
+                    @click="deleteKnowledgeEntry(item.entry.id)"
                   >
                     <Trash2Icon />
                   </Button>
                 </div>
 
                 <Textarea
-                  v-model="entry.content"
+                  v-model="item.entry.content"
                   class="min-h-32"
                   :placeholder="t('settings.catAppearance.role.knowledge.fields.content')"
                 />
 
                 <div class="grid gap-3 @3xl/field-group:grid-cols-[minmax(12rem,1fr)_8rem_9rem_auto_auto]">
                   <Input
-                    :model-value="entry.keys.join(', ')"
+                    :model-value="item.entry.keys.join(', ')"
                     :placeholder="t('settings.catAppearance.role.knowledge.fields.keys')"
-                    @input="updateKnowledgeKeys(entry.id, eventInputValue($event))"
+                    @input="updateKnowledgeKeys(item.entry.id, eventInputValue($event))"
                   />
                   <Input
-                    v-model.number="entry.priority"
+                    v-model.number="item.entry.priority"
                     type="number"
                     :placeholder="t('settings.catAppearance.role.knowledge.fields.priority')"
                   />
                   <Input
-                    :model-value="entry.tokenBudget ?? ''"
+                    :model-value="item.entry.tokenBudget ?? ''"
                     type="number"
                     min="50"
                     :placeholder="t('settings.catAppearance.role.knowledge.fields.tokenBudget')"
-                    @input="updateKnowledgeTokenBudget(entry.id, eventInputValue($event))"
+                    @input="updateKnowledgeTokenBudget(item.entry.id, eventInputValue($event))"
                   />
                   <Field
                     orientation="horizontal"
                     class="min-w-max justify-start @3xl/field-group:justify-center"
                   >
-                    <Switch v-model="entry.constant" />
+                    <Switch v-model="item.entry.constant" />
                     <FieldLabel>
                       {{ t('settings.catAppearance.role.knowledge.fields.constant') }}
                     </FieldLabel>
                   </Field>
                   <span class="self-center text-sm text-muted-foreground">
-                    {{ t('settings.catAppearance.role.knowledge.order', { index: index + 1 }) }}
+                    {{
+                      t('settings.catAppearance.role.knowledge.order', { index: item.index + 1 })
+                    }}
                   </span>
                 </div>
               </div>
