@@ -1,9 +1,7 @@
 <script setup lang="ts">
-import { PencilLineIcon } from 'lucide-vue-next'
 import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import CompanionRoleTextEditorModal from '@/components/settings/companion-role-settings/CompanionRoleTextEditorModal.vue'
-import { Button } from '@/components/ui/button'
 import { Field, FieldContent, FieldDescription, FieldLabel } from '@/components/ui/field'
 import { cn } from '@/lib/utils'
 
@@ -51,32 +49,20 @@ function saveEditor(value: string): void {
 
 <template>
   <Field class="border-b px-4 py-4 transition-colors last:border-b-0 hover:bg-muted/25">
-    <div class="flex min-w-0 flex-wrap items-start justify-between gap-3">
-      <FieldContent class="min-w-0 gap-1">
-        <FieldLabel
-          :for="controlId"
-          class="text-sm font-semibold leading-5 text-foreground"
-        >
-          {{ title }}
-        </FieldLabel>
-        <FieldDescription
-          v-if="description"
-          class="max-w-3xl text-xs leading-5 text-muted-foreground"
-        >
-          {{ description }}
-        </FieldDescription>
-      </FieldContent>
-
-      <Button
-        type="button"
-        variant="outline"
-        size="sm"
-        @click="editorOpen = true"
+    <FieldContent class="min-w-0 gap-1">
+      <FieldLabel
+        :for="controlId"
+        class="text-sm font-semibold leading-5 text-foreground"
       >
-        <PencilLineIcon data-icon="inline-start" />
-        {{ t('settings.catAppearance.role.editor.edit') }}
-      </Button>
-    </div>
+        {{ title }}
+      </FieldLabel>
+      <FieldDescription
+        v-if="description"
+        class="max-w-3xl text-xs leading-5 text-muted-foreground"
+      >
+        {{ description }}
+      </FieldDescription>
+    </FieldContent>
 
     <div
       :id="controlId"
@@ -92,7 +78,7 @@ function saveEditor(value: string): void {
       >
         <pre
           :class="cn(
-            'whitespace-pre-wrap break-words text-sm leading-6',
+            'm-0 whitespace-pre-wrap break-words text-sm leading-6',
             isEmpty ? 'text-muted-foreground' : 'text-foreground',
           )"
           :style="previewStyle"
@@ -108,17 +94,13 @@ function saveEditor(value: string): void {
           class="pointer-events-none absolute bottom-0 left-1/2 h-px w-2/3 -translate-x-1/2 bg-gradient-to-r from-transparent via-primary/50 to-transparent"
         />
       </button>
-      <div class="flex items-center justify-center border-t px-3 py-2">
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
-          class="text-muted-foreground hover:text-foreground"
-          @click="editorOpen = true"
-        >
-          {{ t('settings.catAppearance.role.editor.openEditor') }}
-        </Button>
-      </div>
+      <button
+        type="button"
+        class="flex w-full items-center justify-center border-t px-3 py-3 text-sm text-muted-foreground transition-colors hover:bg-muted/30 hover:text-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 focus-visible:outline-none"
+        @click="editorOpen = true"
+      >
+        {{ t('settings.catAppearance.role.editor.openEditor') }}
+      </button>
     </div>
 
     <CompanionRoleTextEditorModal

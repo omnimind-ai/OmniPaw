@@ -35,16 +35,40 @@ const emit = defineEmits<{
 const { t } = useI18n()
 const draft = ref(props.modelValue)
 const textareaScrollTop = ref(0)
+const editorTextStyle = {
+  '--role-editor-font-size': '14px',
+  '--role-editor-line-height': '24px',
+  '--role-editor-padding-block': '8px',
+  '--role-editor-line-number-offset': '-2px',
+}
 const editorStyle = computed(() => ({
+  ...editorTextStyle,
   height: `${Math.max(props.rows, 16) * 1.5}rem`,
 }))
 const lineNumberStyle = computed(() => ({
-  transform: `translateY(-${textareaScrollTop.value}px)`,
+  transform: `translateY(calc(-${textareaScrollTop.value}px + var(--role-editor-line-number-offset)))`,
 }))
+const lineNumberRailStyle = {
+  paddingBottom: 'var(--role-editor-padding-block)',
+  paddingTop: 'var(--role-editor-padding-block)',
+}
+const lineNumberItemStyle = {
+  fontSize: 'var(--role-editor-font-size)',
+  height: 'var(--role-editor-line-height)',
+  lineHeight: 'var(--role-editor-line-height)',
+}
+const textareaStyle = {
+  display: 'block',
+  fontSize: 'var(--role-editor-font-size)',
+  lineHeight: 'var(--role-editor-line-height)',
+  paddingBottom: 'var(--role-editor-padding-block)',
+  paddingTop: 'var(--role-editor-padding-block)',
+}
 const lineNumbers = computed(() =>
-  Array.from({ length: Math.max(1, draft.value.split(/\r\n|\r|\n/).length) }, (_, index) =>
-    String(index + 1)
-  ).join('\n')
+  Array.from(
+    { length: Math.max(1, draft.value.split(/\r\n|\r|\n/).length) },
+    (_, index) => index + 1
+  )
 )
 const characterCount = computed(() => draft.value.length)
 
@@ -94,16 +118,29 @@ function syncLineNumberScroll(event: Event): void {
             :style="editorStyle"
           >
             <div class="grid min-h-0 grid-cols-[3.25rem_minmax(0,1fr)]">
-              <div class="overflow-hidden border-r bg-muted/35 px-2 py-2 text-right font-mono text-xs leading-6 text-muted-foreground select-none">
-                <pre
+              <div
+                class="overflow-hidden border-r bg-muted/35 px-2 text-right font-mono text-muted-foreground tabular-nums select-none"
+                :style="lineNumberRailStyle"
+              >
+                <div
                   aria-hidden="true"
+                  class="m-0"
                   :style="lineNumberStyle"
-                >{{ lineNumbers }}</pre>
+                >
+                  <div
+                    v-for="lineNumber in lineNumbers"
+                    :key="lineNumber"
+                    :style="lineNumberItemStyle"
+                  >
+                    {{ lineNumber }}
+                  </div>
+                </div>
               </div>
               <Textarea
                 v-model="draft"
-                class="h-full min-h-0 resize-none overflow-y-auto rounded-none border-0 bg-transparent px-3 py-2 font-mono text-sm leading-6 [field-sizing:fixed] focus-visible:ring-0"
+                class="h-full min-h-0 resize-none overflow-y-auto rounded-none border-0 bg-transparent px-3 font-mono [field-sizing:fixed] focus-visible:ring-0"
                 :placeholder="placeholder"
+                :style="textareaStyle"
                 @scroll="syncLineNumberScroll"
               />
             </div>
