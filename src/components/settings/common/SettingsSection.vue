@@ -48,7 +48,14 @@ const props = defineProps<{
       </template>
     </SettingsPanelHeader>
 
-    <CardContent :class="cn('p-0', props.contentClass)">
+    <CardContent
+      :class="
+        cn(
+          'p-0 [&>[data-slot=field-group]]:gap-1.5 [&>[data-slot=field-group]]:p-2 sm:[&>[data-slot=field-group]]:p-2.5',
+          props.contentClass,
+        )
+      "
+    >
       <slot />
     </CardContent>
   </Card>

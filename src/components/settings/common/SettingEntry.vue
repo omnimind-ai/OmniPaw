@@ -27,12 +27,12 @@ const props = withDefaults(
     orientation="responsive"
     :data-disabled="disabled || undefined"
     :class="cn(
-      'border-b px-4 py-3.5 transition-colors last:border-b-0 hover:bg-muted/25',
+      'rounded-md px-3 py-2.5 transition-colors hover:bg-muted/25 focus-within:bg-muted/20',
       'data-[disabled=true]:opacity-60',
       props.class,
     )"
   >
-    <FieldContent :class="cn('min-w-0 gap-1 @md/field-group:pr-6', contentClass)">
+    <FieldContent :class="cn('min-w-0 gap-0.5 @md/field-group:pr-6', contentClass)">
       <FieldLabel
         v-if="title || $slots.title"
         :for="controlId"
@@ -45,7 +45,7 @@ const props = withDefaults(
 
       <FieldDescription
         v-if="description || $slots.description"
-        :class="cn('max-w-2xl text-xs leading-5 text-muted-foreground', descriptionClass)"
+        :class="cn('max-w-2xl text-xs leading-4 text-muted-foreground/80', descriptionClass)"
       >
         <slot name="description">
           {{ description }}
