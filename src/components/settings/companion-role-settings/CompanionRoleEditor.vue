@@ -81,6 +81,22 @@ const defaultPetInteractionById = new Map(
   defaultCatPetInteractionConfigs().map((item) => [item.id, item])
 )
 const defaultPetGiftById = new Map(defaultCatPetGiftConfigs().map((item) => [item.id, item]))
+const giftSpoilerContentClass = [
+  '[&_h3]:select-none',
+  '[&_h3]:blur-[3px]',
+  '[&_h3]:transition-[filter,color]',
+  '[&_h3]:duration-200',
+  '[&_p]:select-none',
+  '[&_p]:blur-[3px]',
+  '[&_p]:transition-[filter,color]',
+  '[&_p]:duration-200',
+  'group-hover/gift-spoiler:[&_h3]:blur-0',
+  'group-hover/gift-spoiler:[&_p]:blur-0',
+  'group-focus-within/gift-spoiler:[&_h3]:blur-0',
+  'group-focus-within/gift-spoiler:[&_p]:blur-0',
+].join(' ')
+const giftSpoilerImageClass =
+  'size-full scale-110 select-none object-cover blur-[3px] saturate-75 transition-[filter,transform] duration-200 group-hover/gift-spoiler:scale-100 group-hover/gift-spoiler:blur-0 group-hover/gift-spoiler:saturate-100 group-focus-within/gift-spoiler:scale-100 group-focus-within/gift-spoiler:blur-0 group-focus-within/gift-spoiler:saturate-100'
 
 type BadgeVariant = NonNullable<BadgeVariants['variant']>
 type CompanionRole = BridgeDesktopSettingsConfig['app']['companionRoles'][number]
@@ -1440,6 +1456,8 @@ function createRoleKnowledgeId(index: number): string {
                 :title="petGiftTitle(item, index)"
                 :description="petGiftDescription(item)"
                 :icon="GiftIcon"
+                class="group/gift-spoiler"
+                :content-class="giftSpoilerContentClass"
               >
                 <template #avatar>
                   <div class="grid size-10 shrink-0 place-items-center overflow-hidden rounded-md border bg-muted text-muted-foreground">
@@ -1447,7 +1465,7 @@ function createRoleKnowledgeId(index: number): string {
                       v-if="petGiftImageSrc(item)"
                       :src="petGiftImageSrc(item)"
                       :alt="t('settings.catAppearance.role.gifts.imageAlt', { name: petGiftTitle(item, index) })"
-                      class="size-full object-cover"
+                      :class="giftSpoilerImageClass"
                     />
                     <GiftIcon
                       v-else
