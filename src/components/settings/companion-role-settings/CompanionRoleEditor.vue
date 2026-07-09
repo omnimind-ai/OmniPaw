@@ -19,6 +19,7 @@ import {
   BookOpenIcon,
   BotIcon,
   BrainIcon,
+  CheckIcon,
   CopyIcon,
   DownloadIcon,
   EyeIcon,
@@ -103,6 +104,7 @@ const activeTab = ref('basic')
 const previewOpen = ref(false)
 const previewInput = ref('')
 const knowledgeSearchQuery = ref('')
+const editingKnowledgeEntryIds = ref<string[]>([])
 const knowledgeCreateDialogOpen = ref(false)
 const giftDialogOpen = ref(false)
 const giftDialogDraft = ref<CatPetGiftConfig>()
@@ -277,7 +279,18 @@ function deleteKnowledgeEntry(targetId: string): void {
   const index = entries.findIndex((entry) => entry.id === targetId)
   if (index >= 0) {
     entries.splice(index, 1)
+    editingKnowledgeEntryIds.value = editingKnowledgeEntryIds.value.filter((id) => id !== targetId)
   }
+}
+
+function isKnowledgeEntryEditing(targetId: string): boolean {
+  return editingKnowledgeEntryIds.value.includes(targetId)
+}
+
+function toggleKnowledgeEntryEditing(targetId: string): void {
+  editingKnowledgeEntryIds.value = isKnowledgeEntryEditing(targetId)
+    ? editingKnowledgeEntryIds.value.filter((id) => id !== targetId)
+    : [...editingKnowledgeEntryIds.value, targetId]
 }
 
 function updateKnowledgeKeys(targetId: string, value: string): void {
@@ -1143,12 +1156,29 @@ function createRoleKnowledgeId(index: number): string {
                 class="flex flex-col gap-3 rounded-md border bg-background/60 p-3"
               >
                 <div class="flex flex-wrap items-center gap-2">
-                  <Switch v-model="item.entry.enabled" />
+                  <Switch
+                    v-model="item.entry.enabled"
+                    :disabled="!isKnowledgeEntryEditing(item.entry.id)"
+                  />
                   <Input
                     v-model="item.entry.title"
                     class="min-w-0 flex-1"
+                    :disabled="!isKnowledgeEntryEditing(item.entry.id)"
                     :placeholder="t('settings.catAppearance.role.knowledge.fields.title')"
                   />
+                  <Button
+                    type="button"
+                    :variant="isKnowledgeEntryEditing(item.entry.id) ? 'secondary' : 'ghost'"
+                    size="icon-sm"
+                    :aria-label="
+                      isKnowledgeEntryEditing(item.entry.id)
+                        ? t('settings.catAppearance.role.knowledge.finishEdit')
+                        : t('settings.catAppearance.role.knowledge.edit')
+                    "
+                    @click="toggleKnowledgeEntryEditing(item.entry.id)"
+                  >
+                    <component :is="isKnowledgeEntryEditing(item.entry.id) ? CheckIcon : PencilIcon" />
+                  </Button>
                   <Button
                     type="button"
                     variant="ghost"
@@ -1163,24 +1193,28 @@ function createRoleKnowledgeId(index: number): string {
                 <Textarea
                   v-model="item.entry.content"
                   class="min-h-32"
+                  :disabled="!isKnowledgeEntryEditing(item.entry.id)"
                   :placeholder="t('settings.catAppearance.role.knowledge.fields.content')"
                 />
 
                 <div class="grid gap-3 @3xl/field-group:grid-cols-[minmax(12rem,1fr)_8rem_9rem_auto_auto]">
                   <Input
                     :model-value="item.entry.keys.join(', ')"
+                    :disabled="!isKnowledgeEntryEditing(item.entry.id)"
                     :placeholder="t('settings.catAppearance.role.knowledge.fields.keys')"
                     @input="updateKnowledgeKeys(item.entry.id, eventInputValue($event))"
                   />
                   <Input
                     v-model.number="item.entry.priority"
                     type="number"
+                    :disabled="!isKnowledgeEntryEditing(item.entry.id)"
                     :placeholder="t('settings.catAppearance.role.knowledge.fields.priority')"
                   />
                   <Input
                     :model-value="item.entry.tokenBudget ?? ''"
                     type="number"
                     min="50"
+                    :disabled="!isKnowledgeEntryEditing(item.entry.id)"
                     :placeholder="t('settings.catAppearance.role.knowledge.fields.tokenBudget')"
                     @input="updateKnowledgeTokenBudget(item.entry.id, eventInputValue($event))"
                   />
@@ -1188,7 +1222,10 @@ function createRoleKnowledgeId(index: number): string {
                     orientation="horizontal"
                     class="min-w-max justify-start @3xl/field-group:justify-center"
                   >
-                    <Switch v-model="item.entry.constant" />
+                    <Switch
+                      v-model="item.entry.constant"
+                      :disabled="!isKnowledgeEntryEditing(item.entry.id)"
+                    />
                     <FieldLabel>
                       {{ t('settings.catAppearance.role.knowledge.fields.constant') }}
                     </FieldLabel>

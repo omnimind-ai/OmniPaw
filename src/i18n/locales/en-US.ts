@@ -402,6 +402,8 @@ export default {
             'World book entries, character settings, project context, work rules, and output templates are saved here and injected with this character into new sessions.',
           count: '{count} knowledge entries',
           add: 'Add knowledge',
+          edit: 'Edit knowledge',
+          finishEdit: 'Finish editing',
           delete: 'Delete knowledge',
           search: 'Search character knowledge',
           searchPlaceholder: 'Search titles, content, or keywords',

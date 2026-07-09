@@ -377,6 +377,8 @@ export default {
             '角色卡里的世界书、设定条目、项目背景、工作规范和输出模板会保存在这里，并随当前角色一起注入新建会话。',
           count: '{count} 条知识',
           add: '新增知识',
+          edit: '编辑知识',
+          finishEdit: '完成编辑',
           delete: '删除知识',
           search: '搜索角色知识',
           searchPlaceholder: '搜索标题、内容或关键词',
