@@ -430,6 +430,12 @@ export default {
             cancel: 'Cancel',
             create: 'Add',
           },
+          deleteDialog: {
+            title: 'Delete character knowledge',
+            description: 'Delete “{title}”? This action cannot be undone.',
+            cancel: 'Cancel',
+            confirm: 'Delete',
+          },
           fields: {
             title: 'Knowledge title',
             content:

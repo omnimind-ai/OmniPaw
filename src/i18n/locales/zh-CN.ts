@@ -403,6 +403,12 @@ export default {
             cancel: '取消',
             create: '新增',
           },
+          deleteDialog: {
+            title: '删除角色知识',
+            description: '确定要删除“{title}”吗？这个操作不可撤销。',
+            cancel: '取消',
+            confirm: '删除',
+          },
           fields: {
             title: '知识标题',
             content: '写入角色会话上下文的知识内容，可包含设定、项目背景、流程或输出模板',

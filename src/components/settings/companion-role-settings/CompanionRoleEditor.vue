@@ -54,6 +54,7 @@ import CompanionRoleGiftModal from '@/components/settings/companion-role-setting
 import CompanionRoleKnowledgeCreateDialog, {
   type CreateCompanionRoleKnowledgeEntryPayload,
 } from '@/components/settings/companion-role-settings/CompanionRoleKnowledgeCreateDialog.vue'
+import CompanionRoleKnowledgeDeleteModal from '@/components/settings/companion-role-settings/CompanionRoleKnowledgeDeleteModal.vue'
 import CompanionRoleMemoryPanel from '@/components/settings/companion-role-settings/CompanionRoleMemoryPanel.vue'
 import CompanionRolePreviewDialog from '@/components/settings/companion-role-settings/CompanionRolePreviewDialog.vue'
 import { Badge, type BadgeVariants } from '@/components/ui/badge'
@@ -106,6 +107,7 @@ const previewInput = ref('')
 const knowledgeSearchQuery = ref('')
 const editingKnowledgeEntryIds = ref<string[]>([])
 const knowledgeCreateDialogOpen = ref(false)
+const knowledgeDeleteTargetId = ref<string>()
 const giftDialogOpen = ref(false)
 const giftDialogDraft = ref<CatPetGiftConfig>()
 const response = shallowRef<CatAppearanceListResponse>()
@@ -138,6 +140,17 @@ const filteredKnowledgeEntries = computed(() => {
   return editableRole.value.knowledgeEntries
     .map((entry, index) => ({ entry, index }))
     .filter(({ entry }) => !query || knowledgeEntryMatchesSearch(entry, query))
+})
+const knowledgeDeleteTarget = computed(() =>
+  editableRole.value.knowledgeEntries.find((entry) => entry.id === knowledgeDeleteTargetId.value)
+)
+const knowledgeDeleteDialogOpen = computed({
+  get: () => Boolean(knowledgeDeleteTarget.value),
+  set: (open) => {
+    if (!open) {
+      knowledgeDeleteTargetId.value = undefined
+    }
+  },
 })
 const enabledModelOptions = computed(() => modelOptions.value.filter((option) => option.enabled))
 const selectedModelKey = computed(() => {
@@ -281,6 +294,16 @@ function deleteKnowledgeEntry(targetId: string): void {
     entries.splice(index, 1)
     editingKnowledgeEntryIds.value = editingKnowledgeEntryIds.value.filter((id) => id !== targetId)
   }
+}
+
+function requestDeleteKnowledgeEntry(targetId: string): void {
+  knowledgeDeleteTargetId.value = targetId
+}
+
+function confirmDeleteKnowledgeEntry(): void {
+  if (!knowledgeDeleteTargetId.value) return
+  deleteKnowledgeEntry(knowledgeDeleteTargetId.value)
+  knowledgeDeleteTargetId.value = undefined
 }
 
 function isKnowledgeEntryEditing(targetId: string): boolean {
@@ -1184,7 +1207,7 @@ function createRoleKnowledgeId(index: number): string {
                     variant="ghost"
                     size="icon-sm"
                     :aria-label="t('settings.catAppearance.role.knowledge.delete')"
-                    @click="deleteKnowledgeEntry(item.entry.id)"
+                    @click="requestDeleteKnowledgeEntry(item.entry.id)"
                   >
                     <Trash2Icon />
                   </Button>
@@ -1525,6 +1548,13 @@ function createRoleKnowledgeId(index: number): string {
   <CompanionRoleKnowledgeCreateDialog
     v-model:open="knowledgeCreateDialogOpen"
     @submit="createKnowledgeEntry"
+  />
+
+  <CompanionRoleKnowledgeDeleteModal
+    v-if="knowledgeDeleteTarget"
+    v-model:open="knowledgeDeleteDialogOpen"
+    :title="knowledgeDeleteTarget.title || t('settings.catAppearance.role.knowledge.untitled')"
+    @confirm="confirmDeleteKnowledgeEntry"
   />
 
   <CompanionRoleGiftModal
