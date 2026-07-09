@@ -472,6 +472,14 @@ export default {
             },
           },
         },
+        editor: {
+          edit: 'Edit',
+          openEditor: 'Open editor',
+          cancel: 'Cancel',
+          save: 'Save',
+          empty: 'No content yet. Click to edit.',
+          characterCount: '{count} chars',
+        },
         hints: {
           newSessions:
             'Character settings are injected only into newly created sessions; existing sessions are not rewritten. Appearance is saved on each character and configured independently in that character.',

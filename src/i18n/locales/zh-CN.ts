@@ -443,6 +443,14 @@ export default {
             },
           },
         },
+        editor: {
+          edit: '编辑',
+          openEditor: '打开编辑器',
+          cancel: '取消',
+          save: '保存',
+          empty: '暂无内容，点击编辑。',
+          characterCount: '{count} 字',
+        },
         hints: {
           newSessions:
             '角色设定只注入新建会话，已有会话不会被自动改写；外观形象保存在角色里，并在每个角色的外观设置中独立配置。',

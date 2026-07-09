@@ -22,6 +22,7 @@ import CompanionRoleInteractionsSection from '@/components/settings/companion-ro
 import CompanionRoleKnowledgeSection from '@/components/settings/companion-role-settings/CompanionRoleKnowledgeSection.vue'
 import CompanionRoleMemoryPanel from '@/components/settings/companion-role-settings/CompanionRoleMemoryPanel.vue'
 import CompanionRolePreviewDialog from '@/components/settings/companion-role-settings/CompanionRolePreviewDialog.vue'
+import CompanionRoleTextEditorField from '@/components/settings/companion-role-settings/CompanionRoleTextEditorField.vue'
 import type { CompanionRole } from '@/components/settings/companion-role-settings/types'
 import { Button } from '@/components/ui/button'
 import { FieldGroup } from '@/components/ui/field'
@@ -35,7 +36,6 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Textarea } from '@/components/ui/textarea'
 import { type ProviderModelOption, useProviderStore } from '@/stores/provider'
 
 const NONE_VALUE = '__none__'
@@ -483,33 +483,23 @@ function previewCharTokenWeight(char: string): number {
             :icon="MessageCircleIcon"
           >
             <FieldGroup class="gap-0">
-              <SettingEntry
+              <CompanionRoleTextEditorField
                 control-id="settings-companion-role-background"
+                v-model="editableRole.background"
                 :title="t('settings.catAppearance.role.fields.background.title')"
                 :description="t('settings.catAppearance.role.fields.background.description')"
-                control-class="@md/field-group:w-[min(32rem,50vw)]"
-              >
-                <Textarea
-                  id="settings-companion-role-background"
-                  v-model="editableRole.background"
-                  class="min-h-24"
-                  :placeholder="t('settings.catAppearance.role.fields.background.placeholder')"
-                />
-              </SettingEntry>
+                :placeholder="t('settings.catAppearance.role.fields.background.placeholder')"
+                :rows="18"
+              />
 
-              <SettingEntry
+              <CompanionRoleTextEditorField
                 control-id="settings-companion-role-greeting"
+                v-model="editableRole.greeting"
                 :title="t('settings.catAppearance.role.fields.greeting.title')"
                 :description="t('settings.catAppearance.role.fields.greeting.description')"
-                control-class="@md/field-group:w-[min(32rem,50vw)]"
-              >
-                <Textarea
-                  id="settings-companion-role-greeting"
-                  v-model="editableRole.greeting"
-                  class="min-h-24"
-                  :placeholder="t('settings.catAppearance.role.fields.greeting.placeholder')"
-                />
-              </SettingEntry>
+                :placeholder="t('settings.catAppearance.role.fields.greeting.placeholder')"
+                :rows="14"
+              />
 
               <SettingEntry
                 control-id="settings-companion-role-greeting-mode"
@@ -539,19 +529,14 @@ function previewCharTokenWeight(char: string): number {
                 </Select>
               </SettingEntry>
 
-              <SettingEntry
+              <CompanionRoleTextEditorField
                 control-id="settings-companion-role-alternate-greetings"
+                v-model="alternateGreetingsText"
                 :title="t('settings.catAppearance.role.fields.alternateGreetings.title')"
                 :description="t('settings.catAppearance.role.fields.alternateGreetings.description')"
-                control-class="@md/field-group:w-[min(32rem,50vw)]"
-              >
-                <Textarea
-                  id="settings-companion-role-alternate-greetings"
-                  v-model="alternateGreetingsText"
-                  class="min-h-24"
-                  :placeholder="t('settings.catAppearance.role.fields.alternateGreetings.placeholder')"
-                />
-              </SettingEntry>
+                :placeholder="t('settings.catAppearance.role.fields.alternateGreetings.placeholder')"
+                :rows="14"
+              />
             </FieldGroup>
           </SettingsSection>
 
@@ -594,19 +579,14 @@ function previewCharTokenWeight(char: string): number {
                 </Select>
               </SettingEntry>
 
-              <SettingEntry
+              <CompanionRoleTextEditorField
                 control-id="settings-companion-role-proactive"
+                v-model="editableRole.proactiveStyle"
                 :title="t('settings.catAppearance.role.fields.proactiveStyle.title')"
                 :description="t('settings.catAppearance.role.fields.proactiveStyle.description')"
-                control-class="@md/field-group:w-[min(32rem,50vw)]"
-              >
-                <Textarea
-                  id="settings-companion-role-proactive"
-                  v-model="editableRole.proactiveStyle"
-                  class="min-h-24"
-                  :placeholder="t('settings.catAppearance.role.fields.proactiveStyle.placeholder')"
-                />
-              </SettingEntry>
+                :placeholder="t('settings.catAppearance.role.fields.proactiveStyle.placeholder')"
+                :rows="16"
+              />
             </FieldGroup>
           </SettingsSection>
         </div>
@@ -675,47 +655,32 @@ function previewCharTokenWeight(char: string): number {
             :icon="SlidersHorizontalIcon"
           >
             <FieldGroup class="gap-0">
-              <SettingEntry
+              <CompanionRoleTextEditorField
                 control-id="settings-companion-role-advanced-system"
+                v-model="editableRole.advanced.systemPrompt"
                 :title="t('settings.catAppearance.role.advanced.fields.systemPrompt.title')"
                 :description="t('settings.catAppearance.role.advanced.fields.systemPrompt.description')"
-                control-class="@md/field-group:w-[min(32rem,50vw)]"
-              >
-                <Textarea
-                  id="settings-companion-role-advanced-system"
-                  v-model="editableRole.advanced.systemPrompt"
-                  class="min-h-28"
-                  :placeholder="t('settings.catAppearance.role.advanced.fields.systemPrompt.placeholder')"
-                />
-              </SettingEntry>
+                :placeholder="t('settings.catAppearance.role.advanced.fields.systemPrompt.placeholder')"
+                :rows="20"
+              />
 
-              <SettingEntry
+              <CompanionRoleTextEditorField
                 control-id="settings-companion-role-advanced-examples"
+                v-model="editableRole.advanced.exampleDialogue"
                 :title="t('settings.catAppearance.role.advanced.fields.exampleDialogue.title')"
                 :description="t('settings.catAppearance.role.advanced.fields.exampleDialogue.description')"
-                control-class="@md/field-group:w-[min(32rem,50vw)]"
-              >
-                <Textarea
-                  id="settings-companion-role-advanced-examples"
-                  v-model="editableRole.advanced.exampleDialogue"
-                  class="min-h-32"
-                  :placeholder="t('settings.catAppearance.role.advanced.fields.exampleDialogue.placeholder')"
-                />
-              </SettingEntry>
+                :placeholder="t('settings.catAppearance.role.advanced.fields.exampleDialogue.placeholder')"
+                :rows="22"
+              />
 
-              <SettingEntry
+              <CompanionRoleTextEditorField
                 control-id="settings-companion-role-advanced-final"
+                v-model="editableRole.advanced.finalInstructions"
                 :title="t('settings.catAppearance.role.advanced.fields.finalInstructions.title')"
                 :description="t('settings.catAppearance.role.advanced.fields.finalInstructions.description')"
-                control-class="@md/field-group:w-[min(32rem,50vw)]"
-              >
-                <Textarea
-                  id="settings-companion-role-advanced-final"
-                  v-model="editableRole.advanced.finalInstructions"
-                  class="min-h-28"
-                  :placeholder="t('settings.catAppearance.role.advanced.fields.finalInstructions.placeholder')"
-                />
-              </SettingEntry>
+                :placeholder="t('settings.catAppearance.role.advanced.fields.finalInstructions.placeholder')"
+                :rows="18"
+              />
             </FieldGroup>
           </SettingsSection>
         </div>
