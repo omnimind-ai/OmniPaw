@@ -41,12 +41,6 @@ const props = defineProps<{
         #action
       >
         <div class="flex items-center gap-3">
-          <component
-            :is="icon"
-            v-if="icon"
-            :class="cn('size-12 text-primary', iconClass)"
-            aria-hidden="true"
-          />
           <slot name="action">
             <slot name="actions" />
           </slot>
