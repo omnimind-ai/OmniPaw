@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import type {
   CatAppearanceListResponse,
-  CatAppearancePackSource,
   CatAppearancePackSummary,
   CatAppearanceResolvedPack,
 } from '@shared/types/cat-appearance'
@@ -14,15 +13,10 @@ import {
   ensureElectronBridge,
   isFallbackBridge,
 } from '@/bridge/app'
-import SettingEntry from '@/components/settings/common/SettingEntry.vue'
 import SettingsSection from '@/components/settings/common/SettingsSection.vue'
 import CompanionRoleAppearanceDetailPreview from '@/components/settings/companion-role-settings/CompanionRoleAppearanceDetailPreview.vue'
-import { Badge, type BadgeVariants } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { FieldGroup } from '@/components/ui/field'
 import { errorToText, useToast } from '@/utils/toast'
-
-type BadgeVariant = NonNullable<BadgeVariants['variant']>
 
 const props = defineProps<{
   appearancePackId?: string
@@ -73,16 +67,6 @@ const currentPack = computed<CatAppearancePackSummary | undefined>(() => {
     error: t('settings.catAppearance.detail.unavailable'),
   }
 })
-const currentSourceLabel = computed(() => sourceLabel(currentPack.value?.source ?? 'builtin'))
-const currentStatusLabel = computed(() =>
-  t(`settings.catAppearance.status.${currentPack.value?.status ?? 'available'}`)
-)
-const currentUpdatedLabel = computed(() =>
-  t('settings.catAppearance.meta.updatedAt', {
-    time: formatUpdatedAt(currentPack.value?.updatedAt ?? currentDetail.value?.updatedAt),
-  })
-)
-
 onMounted(async () => {
   unsubscribe = appBridge.catAppearance.onChanged((event) => {
     response.value = event
@@ -133,7 +117,7 @@ async function importPack(): Promise<void> {
     if (result.importedPackId) {
       emit('update:appearance-pack-id', result.importedPackId)
     }
-    await loadCurrentDetail()
+    await loadCurrentDetail(result.importedPackId)
     const importedPack = result.packs.find((pack) => pack.id === result.importedPackId)
     toast.success(t('settings.catAppearance.toasts.imported'), {
       description: importedPack?.name,
@@ -145,14 +129,14 @@ async function importPack(): Promise<void> {
   }
 }
 
-async function loadCurrentDetail(): Promise<void> {
+async function loadCurrentDetail(packId = activeRoleAppearancePackId.value): Promise<void> {
   const requestId = detailRequestId + 1
   detailRequestId = requestId
   currentDetailLoading.value = true
   currentDetailError.value = undefined
   try {
     const resolvedPack = await appBridge.catAppearance.getPack({
-      packId: activeRoleAppearancePackId.value,
+      packId,
     })
     if (detailRequestId !== requestId) return
     currentDetail.value = resolvedPack
@@ -166,24 +150,6 @@ async function loadCurrentDetail(): Promise<void> {
     }
   }
 }
-
-function statusVariant(pack: CatAppearancePackSummary): BadgeVariant {
-  if (pack.status === 'invalid' || pack.status === 'missing') return 'destructive'
-  return 'secondary'
-}
-
-function sourceLabel(source: CatAppearancePackSource): string {
-  return t(`settings.catAppearance.source.${source}`)
-}
-
-function sourceVariant(source: CatAppearancePackSource): BadgeVariant {
-  return source === 'builtin' ? 'secondary' : 'outline'
-}
-
-function formatUpdatedAt(value?: number): string {
-  if (!value) return t('settings.catAppearance.neverUpdated')
-  return new Date(value).toLocaleString()
-}
 </script>
 
 <template>
@@ -191,66 +157,41 @@ function formatUpdatedAt(value?: number): string {
     :title="t('settings.catAppearance.role.sections.appearance.title')"
     :description="t('settings.catAppearance.role.sections.appearance.description')"
     :icon="ImageIcon"
+    content-class="p-4 sm:p-5"
   >
-    <FieldGroup class="gap-0">
-      <SettingEntry
-        control-id="settings-companion-role-appearance-current"
-        :title="t('settings.catAppearance.role.fields.appearance.title')"
-        :description="t('settings.catAppearance.role.fields.appearance.description')"
-      >
-        <div class="flex w-full min-w-0 flex-col gap-3 md:w-[32rem]">
-          <div class="flex min-w-0 items-start gap-3 rounded-md border bg-background/60 p-3">
-            <div class="flex size-10 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
-              <ImageIcon />
-            </div>
-            <div class="flex min-w-0 flex-1 flex-col gap-1">
-              <div class="flex min-w-0 flex-wrap items-center gap-2">
-                <p class="truncate text-sm font-medium">
-                  {{ currentPack?.name || activeRoleAppearancePackId }}
-                </p>
-                <Badge
-                  v-if="currentPack"
-                  :variant="statusVariant(currentPack)"
-                >
-                  {{ currentStatusLabel }}
-                </Badge>
-                <Badge
-                  v-if="currentPack"
-                  :variant="sourceVariant(currentPack.source)"
-                >
-                  {{ currentSourceLabel }}
-                </Badge>
-              </div>
-              <p class="text-sm text-muted-foreground">
-                {{ currentUpdatedLabel }}
-              </p>
-              <p
-                v-if="currentPack?.error || currentDetailError"
-                class="line-clamp-2 text-sm text-destructive"
-              >
-                {{ currentPack?.error || currentDetailError }}
-              </p>
-            </div>
+    <div class="flex flex-col gap-4">
+      <div class="flex min-w-0 flex-col gap-3 border-b pb-4 md:flex-row md:items-start md:justify-between">
+        <div class="flex min-w-0 flex-col gap-1">
+          <div class="flex min-w-0 flex-wrap items-center gap-2">
+            <h3 class="truncate text-lg font-semibold leading-7">
+              {{ currentPack?.name || activeRoleAppearancePackId }}
+            </h3>
           </div>
-
-          <Button
-            type="button"
-            class="w-fit"
-            :disabled="importDisabled"
-            @click="importPack"
+          <p
+            v-if="currentPack?.error || currentDetailError"
+            class="line-clamp-2 text-sm text-destructive"
           >
-            <PackagePlusIcon data-icon="inline-start" />
-            {{ importButtonLabel }}
-          </Button>
+            {{ currentPack?.error || currentDetailError }}
+          </p>
         </div>
-      </SettingEntry>
-    </FieldGroup>
-  </SettingsSection>
 
-  <CompanionRoleAppearanceDetailPreview
-    :pack="currentPack"
-    :detail="currentDetail"
-    :loading="loading || currentDetailLoading"
-    :error="currentDetailError"
-  />
+        <Button
+          type="button"
+          class="w-fit shrink-0"
+          :disabled="importDisabled"
+          @click="importPack"
+        >
+          <PackagePlusIcon data-icon="inline-start" />
+          {{ importButtonLabel }}
+        </Button>
+      </div>
+
+      <CompanionRoleAppearanceDetailPreview
+        :pack="currentPack"
+        :detail="currentDetail"
+        :loading="loading || currentDetailLoading"
+        :error="currentDetailError"
+      />
+    </div>
+  </SettingsSection>
 </template>

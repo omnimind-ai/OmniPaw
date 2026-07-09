@@ -72,16 +72,7 @@ const assetItems = computed(() =>
 </script>
 
 <template>
-  <div class="flex flex-col gap-4 rounded-md border bg-card p-4 sm:p-5">
-    <div class="flex min-w-0 flex-col gap-1">
-      <h2 class="text-base font-medium">
-        {{ t('settings.catAppearance.detail.title') }}
-      </h2>
-      <p class="text-sm text-muted-foreground">
-        {{ pack?.description || t('settings.catAppearance.detail.description') }}
-      </p>
-    </div>
-
+  <div class="flex flex-col gap-3">
     <div
       v-if="loading"
       class="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3"
