@@ -266,6 +266,8 @@ const bridge: OmniPawBridge = {
     dragStart: () => ipcRenderer.invoke(IPC_CHANNELS.cat.dragStart),
     dragMove: (payload) => ipcRenderer.invoke(IPC_CHANNELS.cat.dragMove, payload),
     dragEnd: () => ipcRenderer.invoke(IPC_CHANNELS.cat.dragEnd),
+    setHitArea: (area) => ipcRenderer.invoke(IPC_CHANNELS.cat.setHitArea, area),
+    setInteractionState: (state) => ipcRenderer.invoke(IPC_CHANNELS.cat.setInteractionState, state),
     onObservationReaction: (callback) =>
       createUnsubscriber(IPC_CHANNELS.cat.observationReaction, callback),
     openObservationSource: (event) =>

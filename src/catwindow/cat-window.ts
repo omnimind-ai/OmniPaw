@@ -1,4 +1,4 @@
-import type { CatCommandEvent, CatDraftAttachment, CatWindowState } from '@shared/types/cat'
+import type { CatCommandEvent, CatWindowState } from '@shared/types/cat'
 import type {
   CatAppearanceAssetKey,
   CatAppearanceDurations,
@@ -16,10 +16,8 @@ import firstShowFallbackImage from '@/asserts/cat/ic_cat_first_show.png'
 import idleImage from '@/asserts/cat/ic_cat_normal.png'
 import draggedFallbackImage from '@/asserts/cat/ic_cat_normal_dragging.png'
 import { appBridge } from '@/bridge/app'
-import { i18n } from '@/i18n'
 
 const surface = document.querySelector<HTMLElement>('.cat-surface')
-const stage = document.querySelector<HTMLButtonElement>('#cat-stage')
 const imageFrame = document.querySelector<HTMLElement>('#cat-image-frame')
 const image = document.querySelector<HTMLImageElement>('#cat-image')
 
@@ -32,13 +30,6 @@ const states = Object.freeze({
   RUNNING: 'running',
   COMPLETED: 'completed',
 } satisfies Record<string, CatWindowState>)
-
-const stableStates = new Set<CatWindowState>([
-  states.IDLE,
-  states.PREPARING,
-  states.RUNNING,
-  states.COMPLETED,
-])
 
 type RequiredCatWindowAssetKey = Exclude<CatAppearanceAssetKey, 'dragTransition'>
 type CatWindowAssets = Record<RequiredCatWindowAssetKey, string> &
@@ -89,27 +80,10 @@ let appearanceLayout: CatAppearanceLayout = {
   ...defaultBuiltinLayout,
 }
 
-const dropAttachmentLimits = Object.freeze({
-  maxFileBytes: 25 * 1024 * 1024,
-  maxFilesPerMessage: 12,
-})
-
 let currentState: CatWindowState = states.HIDDEN
-let currentStableState: CatWindowState = states.IDLE
-let previousStableState: CatWindowState = states.IDLE
 let firstShow = true
-let fileDragDepth = 0
 let stateTimer: ReturnType<typeof window.setTimeout> | null = null
 let suppressNextImageError = false
-let dragSession:
-  | {
-      pointerId: number
-      startScreenX: number
-      startScreenY: number
-      startBounds: { x: number; y: number; width: number; height: number }
-      active: boolean
-    }
-  | undefined
 
 function clearStateTimer() {
   if (stateTimer) {
@@ -147,6 +121,20 @@ function applyCatLayout(layout: CatAppearanceLayout) {
   imageFrame.style.setProperty('--cat-image-scale', String(layout.scale))
   imageFrame.style.setProperty('--cat-image-offset-x', `${layout.offsetX}px`)
   imageFrame.style.setProperty('--cat-image-offset-y', `${layout.offsetY}px`)
+  reportHitArea()
+}
+
+function reportHitArea() {
+  if (!imageFrame) return
+  window.requestAnimationFrame(() => {
+    const rect = imageFrame.getBoundingClientRect()
+    void appBridge.cat.setHitArea({
+      x: rect.left,
+      y: rect.top,
+      width: rect.width,
+      height: rect.height,
+    })
+  })
 }
 
 function reportState(state: CatWindowState) {
@@ -178,10 +166,6 @@ function enterState(state: CatWindowState) {
 
   clearStateTimer()
   currentState = state
-
-  if (stableStates.has(state)) {
-    currentStableState = state
-  }
 
   setSurfaceState(state)
   reportState(state)
@@ -292,142 +276,6 @@ function handleCommand(payload: CatCommandEvent) {
   enterState(nextState)
 }
 
-function hasDraggedFiles(event: DragEvent) {
-  return Array.from(event.dataTransfer?.types || []).includes('Files')
-}
-
-function handleFileDragEnter(event: DragEvent) {
-  if (!hasDraggedFiles(event)) return
-  event.preventDefault()
-  fileDragDepth += 1
-  if (fileDragDepth === 1) {
-    previousStableState = currentStableState
-    enterState(states.DRAGGING)
-  }
-}
-
-function handleFileDragOver(event: DragEvent) {
-  if (!hasDraggedFiles(event)) return
-  event.preventDefault()
-  if (event.dataTransfer) {
-    event.dataTransfer.dropEffect = 'copy'
-  }
-}
-
-function handleFileDragLeave(event: DragEvent) {
-  if (!hasDraggedFiles(event)) return
-  event.preventDefault()
-  fileDragDepth = Math.max(0, fileDragDepth - 1)
-  if (fileDragDepth === 0 && currentState === states.DRAGGING && !dragSession?.active) {
-    enterState(previousStableState)
-  }
-}
-
-async function handleFileDrop(event: DragEvent) {
-  if (!hasDraggedFiles(event)) return
-  event.preventDefault()
-  fileDragDepth = 0
-
-  const files = Array.from(event.dataTransfer?.files || [])
-  if (!files.length) {
-    enterState(previousStableState)
-    return
-  }
-
-  previousStableState = currentStableState
-  enterState(states.PREPARING)
-
-  try {
-    const sessionId = await ensureCatDropSessionId()
-    const staged = await uploadDroppedFiles(sessionId, files)
-
-    if (staged.attachments.length) {
-      await appBridge.catPanel.stageDraftAttachments?.({
-        sessionId,
-        attachments: staged.attachments,
-      })
-      await appBridge.catPanel.open?.({ sessionId })
-    }
-    enterState(states.IDLE)
-  } catch {
-    enterState(states.IDLE)
-  }
-}
-
-async function ensureCatDropSessionId(): Promise<string> {
-  const active = await appBridge.catPanel.getActiveSession?.().catch(() => undefined)
-  if (active?.sessionId) {
-    return active.sessionId
-  }
-
-  const sessions = await appBridge.chat.listSessions({ kind: 'cat' }).catch(() => [])
-  const existing = sessions.find((session) => session.kind === 'cat' && session.status === 'active')
-  const sessionId =
-    existing?.id ||
-    (
-      await appBridge.chat.createSession({
-        kind: 'cat',
-        title: i18n.global.t('catWindow.chat.defaultSessionTitle'),
-      })
-    ).id
-
-  await appBridge.catPanel.setActiveSession?.({ sessionId }).catch(() => undefined)
-  return sessionId
-}
-
-async function uploadDroppedFiles(sessionId: string, files: File[]) {
-  const existingDraft = await appBridge.catPanel.getDraft?.({ sessionId }).catch(() => null)
-  const existingCount = existingDraft?.attachments.length || 0
-  const availableCount = Math.max(0, dropAttachmentLimits.maxFilesPerMessage - existingCount)
-  const acceptedFiles = files.slice(0, availableCount)
-  let failedCount = Math.max(0, files.length - acceptedFiles.length)
-  const attachments: CatDraftAttachment[] = []
-
-  for (const file of acceptedFiles) {
-    if (file.size > dropAttachmentLimits.maxFileBytes) {
-      failedCount += 1
-      continue
-    }
-
-    try {
-      const uploaded = await appBridge.attachment?.upload({
-        name: file.name,
-        type: file.type || 'application/octet-stream',
-        size: file.size,
-        bytes: await file.arrayBuffer(),
-      })
-      if (!uploaded?.id) {
-        failedCount += 1
-        continue
-      }
-      attachments.push({
-        attachmentId: uploaded.id,
-        attachment_id: uploaded.id,
-        filename: uploaded.originalName || uploaded.filename || file.name || 'attachment',
-        originalName: uploaded.originalName || file.name || 'attachment',
-        mimeType: uploaded.mimeType || file.type || 'application/octet-stream',
-        sizeBytes: uploaded.sizeBytes || file.size,
-        kind: normalizeAttachmentKind(uploaded.kind),
-        previewUrl: uploaded.previewUrl,
-      })
-    } catch {
-      failedCount += 1
-    }
-  }
-
-  return { attachments, failedCount }
-}
-
-function normalizeAttachmentKind(kind: string | undefined): CatDraftAttachment['kind'] | undefined {
-  return kind === 'image' ||
-    kind === 'audio' ||
-    kind === 'video' ||
-    kind === 'file' ||
-    kind === 'text'
-    ? kind
-    : undefined
-}
-
 image?.addEventListener('error', () => {
   if (suppressNextImageError || !image) {
     return
@@ -437,96 +285,6 @@ image?.addEventListener('error', () => {
   suppressNextImageError = true
   image.src = fallback
 })
-
-stage?.addEventListener('pointerdown', async (event) => {
-  if (!stage) {
-    return
-  }
-
-  stage.setPointerCapture(event.pointerId)
-
-  const bounds = await appBridge.cat.dragStart()
-  if (!bounds) {
-    stage.releasePointerCapture(event.pointerId)
-    return
-  }
-
-  dragSession = {
-    pointerId: event.pointerId,
-    startScreenX: event.screenX,
-    startScreenY: event.screenY,
-    startBounds: bounds,
-    active: false,
-  }
-})
-
-stage?.addEventListener('pointermove', (event) => {
-  if (!dragSession || dragSession.pointerId !== event.pointerId) {
-    return
-  }
-
-  const dx = Math.abs(event.screenX - dragSession.startScreenX)
-  const dy = Math.abs(event.screenY - dragSession.startScreenY)
-
-  if (!dragSession.active && Math.max(dx, dy) > 4) {
-    previousStableState = currentStableState
-    dragSession.active = true
-    enterState(states.DRAGGING)
-  }
-
-  if (!dragSession.active) {
-    return
-  }
-
-  void appBridge.cat.dragMove({
-    startBounds: dragSession.startBounds,
-    deltaX: event.screenX - dragSession.startScreenX,
-    deltaY: event.screenY - dragSession.startScreenY,
-  })
-})
-
-stage?.addEventListener('pointerup', async (event) => {
-  if (!dragSession || dragSession.pointerId !== event.pointerId) {
-    return
-  }
-
-  const wasDragging = dragSession.active
-  dragSession = undefined
-  stage.releasePointerCapture(event.pointerId)
-
-  if (!wasDragging) {
-    return
-  }
-
-  await appBridge.cat.dragEnd()
-  enterState(previousStableState)
-})
-
-stage?.addEventListener('pointercancel', async (event) => {
-  if (!dragSession || dragSession.pointerId !== event.pointerId) {
-    return
-  }
-
-  const wasDragging = dragSession.active
-  dragSession = undefined
-
-  if (wasDragging) {
-    await appBridge.cat.dragEnd()
-    enterState(previousStableState)
-  }
-})
-
-stage?.addEventListener('contextmenu', async (event) => {
-  event.preventDefault()
-  await appBridge.cat.togglePanel()
-})
-
-for (const target of [surface, stage]) {
-  target?.addEventListener('dragenter', handleFileDragEnter)
-  target?.addEventListener('dragover', handleFileDragOver)
-  target?.addEventListener('dragleave', handleFileDragLeave)
-  target?.addEventListener('drop', handleFileDrop)
-}
 
 appBridge.cat.onCommand(handleCommand)
 appBridge.catAppearance.onChanged((event) => {

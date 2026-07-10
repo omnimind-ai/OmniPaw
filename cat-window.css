@@ -27,11 +27,6 @@ body {
   place-items: center;
 }
 
-button {
-  border: 0;
-  font: inherit;
-}
-
 .cat-surface {
   position: relative;
   display: grid;
@@ -49,17 +44,7 @@ button {
   padding: 0;
   place-items: end center;
   background: transparent;
-  cursor: grab;
-  -webkit-app-region: no-drag;
-}
-
-.cat-stage:active {
-  cursor: grabbing;
-}
-
-.cat-stage:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 3px;
+  pointer-events: none;
 }
 
 .cat-image-frame {

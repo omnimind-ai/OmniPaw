@@ -15,6 +15,8 @@ import type {
   CatDraftStageRequest,
   CatDraftState,
   CatDragPayload,
+  CatHitArea,
+  CatInteractionState,
   CatPanelActiveSessionState,
   CatPanelOpenRequest,
   CatPanelPlacement,
@@ -96,13 +98,36 @@ const catStageVisualBounds = {
   height: 116,
 }
 
+const defaultCatHitArea: CatHitArea = {
+  x: 15,
+  y: 30,
+  width: 86,
+  height: 86,
+}
+
 const isDarwin = process.platform === 'darwin'
+const isWindows = process.platform === 'win32'
 const shouldSkipFloatingWindowTaskbar = true
+const catTopmostLevel: Parameters<BrowserWindow['setAlwaysOnTop']>[1] = isWindows
+  ? 'pop-up-menu'
+  : isDarwin
+    ? 'screen-saver'
+    : 'floating'
+const catTopmostWatchdogMs = 5_000
 
 let catWindow: BrowserWindow | null = null
+let catHitWindow: BrowserWindow | null = null
 let catPanelWindow: BrowserWindow | null = null
 let catBubbleWindow: BrowserWindow | null = null
 let catSnapTimer: ReturnType<typeof setInterval> | null = null
+let catTopmostWatchdog: ReturnType<typeof setInterval> | null = null
+let catHitArea: CatHitArea = { ...defaultCatHitArea }
+let catHitLocked = false
+let catDragSnapshot: {
+  cursor: Electron.Point
+  bounds: CatBounds
+  moved: boolean
+} | null = null
 let catState: CatWindowState = 'hidden'
 let catVisible = false
 let lastKnownCatTaskState: CatTaskState | null = null
@@ -266,6 +291,44 @@ function loadRendererEntry(window: BrowserWindow, entryName: string): void {
   void window.loadFile(entry)
 }
 
+function applyCatFloatingWindowBehavior(window: BrowserWindow): void {
+  window.setAlwaysOnTop(true, catTopmostLevel)
+  window.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
+}
+
+function guardCatAlwaysOnTop(window: BrowserWindow): void {
+  if (!isWindows) {
+    return
+  }
+
+  window.on('always-on-top-changed', (_event, isAlwaysOnTop) => {
+    if (!isAlwaysOnTop && !window.isDestroyed()) {
+      window.setAlwaysOnTop(true, catTopmostLevel)
+    }
+  })
+}
+
+function startCatTopmostWatchdog(): void {
+  if (!isWindows || catTopmostWatchdog) {
+    return
+  }
+
+  catTopmostWatchdog = setInterval(() => {
+    for (const window of [catWindow, catHitWindow, catPanelWindow, catBubbleWindow]) {
+      if (window && !window.isDestroyed() && window.isVisible()) {
+        window.setAlwaysOnTop(true, catTopmostLevel)
+      }
+    }
+  }, catTopmostWatchdogMs)
+}
+
+function stopCatTopmostWatchdog(): void {
+  if (catTopmostWatchdog) {
+    clearInterval(catTopmostWatchdog)
+    catTopmostWatchdog = null
+  }
+}
+
 function sendToCatPanel(channel: string, payload: unknown): void {
   if (!catPanelWindow || catPanelWindow.isDestroyed()) {
     return
@@ -297,6 +360,24 @@ function sendToCatWindow(channel: string, payload: unknown): void {
 
   if (catWindow.webContents.isLoading()) {
     catWindow.webContents.once('did-finish-load', send)
+  } else {
+    send()
+  }
+}
+
+function sendToCatHitWindow(channel: string, payload: unknown): void {
+  if (!catHitWindow || catHitWindow.isDestroyed()) {
+    return
+  }
+
+  const send = () => {
+    if (catHitWindow && !catHitWindow.isDestroyed()) {
+      catHitWindow.webContents.send(channel, payload)
+    }
+  }
+
+  if (catHitWindow.webContents.isLoading()) {
+    catHitWindow.webContents.once('did-finish-load', send)
   } else {
     send()
   }
@@ -613,13 +694,15 @@ function sendCatCommand(state: CatWindowState, source = 'main'): void {
 
   catState = state
 
+  const payload: CatCommandEvent = {
+    state,
+    source,
+  }
   if (catWindow && !catWindow.isDestroyed()) {
-    const payload: CatCommandEvent = {
-      state,
-      source,
-    }
-
     sendToCatWindow(IPC_CHANNELS.cat.commandState, payload)
+  }
+  if (catHitWindow && !catHitWindow.isDestroyed()) {
+    sendToCatHitWindow(IPC_CHANNELS.cat.commandState, payload)
   }
 }
 
@@ -672,16 +755,22 @@ function createCatWindow(): BrowserWindow {
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
+      backgroundThrottling: false,
     },
   })
 
   attachCatDiagnostics(catWindow, 'window')
-  catWindow.setAlwaysOnTop(true, 'floating')
-  catWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
+  catWindow.setFocusable(false)
+  catWindow.setIgnoreMouseEvents(true)
+  applyCatFloatingWindowBehavior(catWindow)
+  guardCatAlwaysOnTop(catWindow)
   loadRendererEntry(catWindow, 'cat-window.html')
+  createCatHitWindow()
+  startCatTopmostWatchdog()
 
   catWindow.on('closed', () => {
     cancelCatSnapAnimation()
+    closeCatHitWindow()
     catWindow = null
     catVisible = false
     catState = 'hidden'
@@ -704,8 +793,105 @@ function createCatWindow(): BrowserWindow {
       applyMacDockIcon(app)
     }
   })
+  catWindow.on('move', () => {
+    syncCatHitWindowBounds()
+  })
 
   return catWindow
+}
+
+function createCatHitWindow(): BrowserWindow | null {
+  if (catHitWindow && !catHitWindow.isDestroyed()) {
+    return catHitWindow
+  }
+  if (!catWindow || catWindow.isDestroyed()) {
+    return null
+  }
+
+  const bounds = resolveCatHitWindowBounds()
+  catHitWindow = new BrowserWindow({
+    ...bounds,
+    title: 'OmniPaw Cat Input',
+    icon: createAppIconImage(app),
+    ...getCatBaseFloatingExtras(),
+    frame: false,
+    transparent: true,
+    resizable: false,
+    maximizable: false,
+    minimizable: false,
+    fullscreenable: false,
+    skipTaskbar: shouldSkipFloatingWindowTaskbar,
+    alwaysOnTop: true,
+    hasShadow: false,
+    show: false,
+    focusable: isWindows,
+    backgroundColor: '#00000000',
+    webPreferences: {
+      preload: join(__dirname, '../preload/preload.cjs'),
+      contextIsolation: true,
+      nodeIntegration: false,
+      sandbox: true,
+      backgroundThrottling: false,
+    },
+  })
+
+  attachCatDiagnostics(catHitWindow, 'hit-window')
+  catHitWindow.setIgnoreMouseEvents(false)
+  applyCatFloatingWindowBehavior(catHitWindow)
+  guardCatAlwaysOnTop(catHitWindow)
+  applyCatHitWindowShape(catHitWindow, bounds)
+  loadRendererEntry(catHitWindow, 'cat-hit-window.html')
+
+  catHitWindow.on('closed', () => {
+    catHitWindow = null
+    catHitLocked = false
+    catDragSnapshot = null
+  })
+
+  return catHitWindow
+}
+
+function resolveCatHitWindowBounds(): CatBounds {
+  const catBounds =
+    catWindow && !catWindow.isDestroyed() ? catWindow.getBounds() : getInitialCatBounds()
+  return {
+    x: Math.round(catBounds.x + catHitArea.x),
+    y: Math.round(catBounds.y + catHitArea.y),
+    width: Math.max(8, Math.round(catHitArea.width)),
+    height: Math.max(8, Math.round(catHitArea.height)),
+  }
+}
+
+function applyCatHitWindowShape(window: BrowserWindow, bounds: CatBounds): void {
+  if (isDarwin) {
+    return
+  }
+  try {
+    window.setShape([{ x: 0, y: 0, width: bounds.width, height: bounds.height }])
+  } catch (error) {
+    catLogger?.debug('Unable to apply native cat hit window shape.', { error })
+  }
+}
+
+function syncCatHitWindowBounds(force = false): void {
+  if (catHitLocked && !force) {
+    return
+  }
+  if (!catHitWindow || catHitWindow.isDestroyed() || !catWindow || catWindow.isDestroyed()) {
+    return
+  }
+
+  const bounds = resolveCatHitWindowBounds()
+  catHitWindow.setBounds(bounds)
+  applyCatHitWindowShape(catHitWindow, bounds)
+}
+
+function closeCatHitWindow(): void {
+  catHitLocked = false
+  catDragSnapshot = null
+  if (catHitWindow && !catHitWindow.isDestroyed()) {
+    catHitWindow.close()
+  }
 }
 
 function createCatPanelWindow(placement: CatPanelPlacement): BrowserWindow {
@@ -738,10 +924,8 @@ function createCatPanelWindow(placement: CatPanelPlacement): BrowserWindow {
   })
 
   attachCatDiagnostics(catPanelWindow, 'panel')
-  catPanelWindow.setAlwaysOnTop(true, 'floating')
-  if (!isDarwin) {
-    catPanelWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
-  }
+  applyCatFloatingWindowBehavior(catPanelWindow)
+  guardCatAlwaysOnTop(catPanelWindow)
   loadRendererEntry(catPanelWindow, 'cat-panel.html')
 
   catPanelWindow.on('closed', () => {
@@ -797,10 +981,8 @@ function createCatBubbleWindow(placement: CatPanelPlacement): BrowserWindow {
   })
 
   attachCatDiagnostics(catBubbleWindow, 'bubble')
-  catBubbleWindow.setAlwaysOnTop(true, 'floating')
-  if (!isDarwin) {
-    catBubbleWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true })
-  }
+  applyCatFloatingWindowBehavior(catBubbleWindow)
+  guardCatAlwaysOnTop(catBubbleWindow)
   loadRendererEntry(catBubbleWindow, 'cat-bubble.html')
 
   catBubbleWindow.on('closed', () => {
@@ -883,6 +1065,8 @@ function closeCatBubbleWindow(): void {
 
 function closeCatWindow(): void {
   cancelCatSnapAnimation()
+  stopCatTopmostWatchdog()
+  closeCatHitWindow()
   closeCatPanelWindow()
   closeCatBubbleWindow()
 
@@ -1173,6 +1357,12 @@ function showCatWindow(): CatStatus {
   if (!window.isVisible()) {
     window.showInactive()
   }
+  const hitWindow = createCatHitWindow()
+  syncCatHitWindowBounds(true)
+  if (hitWindow && !hitWindow.isVisible()) {
+    hitWindow.showInactive()
+  }
+  startCatTopmostWatchdog()
 
   if (catState === 'hidden') {
     sendCatCommand('idle', 'show')
@@ -1187,6 +1377,9 @@ function hideCatWindow(): CatStatus {
   if (catWindow && !catWindow.isDestroyed()) {
     sendCatCommand('hidden', 'hide')
     catWindow.hide()
+  }
+  if (catHitWindow && !catHitWindow.isDestroyed()) {
+    catHitWindow.hide()
   }
 
   closeCatPanelWindow()
@@ -1304,30 +1497,48 @@ function dragStart(): CatBounds | null {
     return null
   }
 
-  return catWindow.getBounds()
+  const bounds = catWindow.getBounds()
+  catHitLocked = true
+  catDragSnapshot = {
+    cursor: screen.getCursorScreenPoint(),
+    bounds,
+    moved: false,
+  }
+  return bounds
 }
 
-function dragMove(payload: CatDragPayload): CatBounds | null {
-  if (
-    !catWindow ||
-    catWindow.isDestroyed() ||
-    !payload.startBounds ||
-    !isFiniteNumber(payload.startBounds.x) ||
-    !isFiniteNumber(payload.startBounds.y) ||
-    !isFiniteNumber(payload.startBounds.width) ||
-    !isFiniteNumber(payload.startBounds.height) ||
-    !isFiniteNumber(payload.deltaX) ||
-    !isFiniteNumber(payload.deltaY)
-  ) {
+function dragMove(payload?: CatDragPayload): CatBounds | null {
+  if (!catWindow || catWindow.isDestroyed()) {
     return null
   }
 
-  const nextBounds = constrainCatBounds({
-    width: Math.round(payload.startBounds.width),
-    height: Math.round(payload.startBounds.height),
-    x: Math.round(payload.startBounds.x + payload.deltaX),
-    y: Math.round(payload.startBounds.y + payload.deltaY),
-  })
+  let nextBounds: CatBounds
+  if (catDragSnapshot) {
+    const cursor = screen.getCursorScreenPoint()
+    catDragSnapshot.moved = true
+    nextBounds = constrainCatBounds({
+      ...catDragSnapshot.bounds,
+      x: Math.round(catDragSnapshot.bounds.x + cursor.x - catDragSnapshot.cursor.x),
+      y: Math.round(catDragSnapshot.bounds.y + cursor.y - catDragSnapshot.cursor.y),
+    })
+  } else if (
+    payload?.startBounds &&
+    isFiniteNumber(payload.startBounds.x) &&
+    isFiniteNumber(payload.startBounds.y) &&
+    isFiniteNumber(payload.startBounds.width) &&
+    isFiniteNumber(payload.startBounds.height) &&
+    isFiniteNumber(payload.deltaX) &&
+    isFiniteNumber(payload.deltaY)
+  ) {
+    nextBounds = constrainCatBounds({
+      width: Math.round(payload.startBounds.width),
+      height: Math.round(payload.startBounds.height),
+      x: Math.round(payload.startBounds.x + payload.deltaX),
+      y: Math.round(payload.startBounds.y + payload.deltaY),
+    })
+  } else {
+    return null
+  }
 
   catWindow.setBounds(nextBounds)
   repositionCatBubbleWindow()
@@ -1335,12 +1546,48 @@ function dragMove(payload: CatDragPayload): CatBounds | null {
 }
 
 async function dragEnd(): Promise<CatBounds | null> {
+  const moved = catDragSnapshot?.moved ?? false
+  catDragSnapshot = null
+  catHitLocked = false
+  syncCatHitWindowBounds(true)
+
+  if (!moved) {
+    return catWindow && !catWindow.isDestroyed() ? catWindow.getBounds() : null
+  }
+
   const targetBounds = getSnapTargetBounds()
   if (!targetBounds) {
     return null
   }
 
   return animateCatBounds(targetBounds)
+}
+
+function setCatHitArea(area: CatHitArea): void {
+  if (
+    !area ||
+    !isFiniteNumber(area.x) ||
+    !isFiniteNumber(area.y) ||
+    !isFiniteNumber(area.width) ||
+    !isFiniteNumber(area.height)
+  ) {
+    return
+  }
+
+  catHitArea = {
+    x: clamp(Math.round(area.x), -catWindowSize.width, catWindowSize.width),
+    y: clamp(Math.round(area.y), -catWindowSize.height, catWindowSize.height),
+    width: clamp(Math.round(area.width), 8, catWindowSize.width * 2),
+    height: clamp(Math.round(area.height), 8, catWindowSize.height * 2),
+  }
+  syncCatHitWindowBounds()
+}
+
+function setCatInteractionState(state: CatInteractionState): void {
+  if (state !== 'dragging' && !allowedTaskStates.has(state)) {
+    return
+  }
+  sendCatCommand(state, 'hit-window')
 }
 
 function registerCatWindowIpcHandlers(): void {
@@ -1350,8 +1597,22 @@ function registerCatWindowIpcHandlers(): void {
   ipcMain.handle(IPC_CHANNELS.cat.setState, (_event, state: CatTaskState) => setCatState(state))
   ipcMain.handle(IPC_CHANNELS.cat.togglePanel, () => toggleCatPanelWindow())
   ipcMain.handle(IPC_CHANNELS.cat.dragStart, () => dragStart())
-  ipcMain.handle(IPC_CHANNELS.cat.dragMove, (_event, payload: CatDragPayload) => dragMove(payload))
+  ipcMain.handle(IPC_CHANNELS.cat.dragMove, (_event, payload?: CatDragPayload) => dragMove(payload))
   ipcMain.handle(IPC_CHANNELS.cat.dragEnd, () => dragEnd())
+  ipcMain.handle(IPC_CHANNELS.cat.setHitArea, (event, area: CatHitArea) => {
+    if (catWindow && !catWindow.isDestroyed() && event.sender.id === catWindow.webContents.id) {
+      setCatHitArea(area)
+    }
+  })
+  ipcMain.handle(IPC_CHANNELS.cat.setInteractionState, (event, state: CatInteractionState) => {
+    if (
+      catHitWindow &&
+      !catHitWindow.isDestroyed() &&
+      event.sender.id === catHitWindow.webContents.id
+    ) {
+      setCatInteractionState(state)
+    }
+  })
   ipcMain.handle(
     IPC_CHANNELS.cat.openObservationSource,
     (_event, event: ObservationReactionEvent) => openObservationSource(event)

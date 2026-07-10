@@ -85,6 +85,7 @@ export default defineConfig({
         input: {
           index: resolve(__dirname, 'index.html'),
           'cat-window': resolve(__dirname, 'cat-window.html'),
+          'cat-hit-window': resolve(__dirname, 'cat-hit-window.html'),
           'cat-panel': resolve(__dirname, 'cat-panel.html'),
           'cat-bubble': resolve(__dirname, 'cat-bubble.html'),
         },

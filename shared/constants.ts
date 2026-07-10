@@ -36,6 +36,8 @@ export const IPC_CHANNELS = {
     dragStart: 'cat:drag-start',
     dragMove: 'cat:drag-move',
     dragEnd: 'cat:drag-end',
+    setHitArea: 'cat:set-hit-area',
+    setInteractionState: 'cat:set-interaction-state',
     reportState: 'cat:renderer-state',
     commandState: 'cat:state-changed',
     observationReaction: 'cat:observation-reaction',

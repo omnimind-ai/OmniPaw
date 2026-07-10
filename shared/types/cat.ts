@@ -6,6 +6,8 @@ export type CatTaskState = 'idle' | 'preparing' | 'running' | 'completed'
 
 export type CatWindowState = CatTaskState | 'hidden' | 'appearing' | 'dragging'
 
+export type CatInteractionState = CatTaskState | 'dragging'
+
 export type CatPanelSide = 'left' | 'right'
 
 export interface CatBounds {
@@ -83,6 +85,13 @@ export interface CatDragPayload {
   startBounds: CatBounds
   deltaX: number
   deltaY: number
+}
+
+export interface CatHitArea {
+  x: number
+  y: number
+  width: number
+  height: number
 }
 
 export interface CatPanelActiveSessionState {
