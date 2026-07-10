@@ -78,7 +78,7 @@
       }
     },
     {
-      "includes": ["electron/**/*.ts"],
+      "includes": ["electron/**/*.ts", "packages/desktop-pet/electron/**/*.ts"],
       "linter": {
         "rules": {
           "correctness": {

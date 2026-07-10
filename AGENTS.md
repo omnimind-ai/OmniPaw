@@ -10,6 +10,7 @@ Electron 桌面客户端。
 - 业务核心：`core/`
 - 跨进程契约：`shared/`
 - Vue renderer：`src/`
+- 跨进程功能包：`packages/`（当前包含 `desktop-pet/`）
 - 构建：electron-vite + Vue 3 + TypeScript + Pinia + shadcn-vue + Tailwind v4
 - 数据：better-sqlite3 + 本地 JSON 配置
 
@@ -62,6 +63,7 @@ Electron 桌面客户端。
 | Provider 状态 | `src/stores/provider.ts` |
 | 聊天页面 | `src/views/ChatHomeView.vue` |
 | 设置页面 | `src/views/SettingsView.vue` |
+| 桌宠窗口、入口与 UI | `packages/desktop-pet/` |
 | core 初始化 | `electron/core-runtime.ts` |
 | 数据库迁移 | `core/db/migrations.ts` |
 | 配置 schema | `core/config/schema.ts` |

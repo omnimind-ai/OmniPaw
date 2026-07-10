@@ -8,25 +8,14 @@
     />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>OmniPaw Cat</title>
-    <link rel="stylesheet" href="./cat-window.css" />
-    <script type="module" src="/src/catwindow/cat-window.ts"></script>
+    <link rel="stylesheet" href="../renderer/visual/styles.css" />
+    <script type="module" src="../renderer/visual/index.ts"></script>
   </head>
   <body>
     <main class="cat-surface" aria-label="OmniPaw 小猫悬浮窗">
-      <div
-        class="cat-stage"
-        id="cat-stage"
-        aria-hidden="true"
-      >
-        <span
-          class="cat-image-frame"
-          id="cat-image-frame"
-        >
-          <img
-            id="cat-image"
-            alt=""
-            draggable="false"
-          />
+      <div class="cat-stage" id="cat-stage" aria-hidden="true">
+        <span class="cat-image-frame" id="cat-image-frame">
+          <img id="cat-image" alt="" draggable="false" />
         </span>
       </div>
     </main>

@@ -33,7 +33,7 @@ import {
 } from '@shared/types/cat-pet'
 import type { ObservationReactionEvent } from '@shared/types/observation'
 import { app, BrowserWindow, ipcMain, screen } from 'electron'
-import { applyMacDockIcon, createAppIconImage } from './app-icon'
+import { applyMacDockIcon, createAppIconImage } from '../../../electron/app-icon'
 
 type CatSessionIdResolver = (
   preferredSessionId?: string | null
@@ -764,7 +764,7 @@ function createCatWindow(): BrowserWindow {
   catWindow.setIgnoreMouseEvents(true)
   applyCatFloatingWindowBehavior(catWindow)
   guardCatAlwaysOnTop(catWindow)
-  loadRendererEntry(catWindow, 'cat-window.html')
+  loadRendererEntry(catWindow, 'packages/desktop-pet/entries/cat-window.html')
   createCatHitWindow()
   startCatTopmostWatchdog()
 
@@ -840,7 +840,7 @@ function createCatHitWindow(): BrowserWindow | null {
   applyCatFloatingWindowBehavior(catHitWindow)
   guardCatAlwaysOnTop(catHitWindow)
   applyCatHitWindowShape(catHitWindow, bounds)
-  loadRendererEntry(catHitWindow, 'cat-hit-window.html')
+  loadRendererEntry(catHitWindow, 'packages/desktop-pet/entries/cat-hit-window.html')
 
   catHitWindow.on('closed', () => {
     catHitWindow = null
@@ -926,7 +926,7 @@ function createCatPanelWindow(placement: CatPanelPlacement): BrowserWindow {
   attachCatDiagnostics(catPanelWindow, 'panel')
   applyCatFloatingWindowBehavior(catPanelWindow)
   guardCatAlwaysOnTop(catPanelWindow)
-  loadRendererEntry(catPanelWindow, 'cat-panel.html')
+  loadRendererEntry(catPanelWindow, 'packages/desktop-pet/entries/cat-panel.html')
 
   catPanelWindow.on('closed', () => {
     catPanelWindow = null
@@ -983,7 +983,7 @@ function createCatBubbleWindow(placement: CatPanelPlacement): BrowserWindow {
   attachCatDiagnostics(catBubbleWindow, 'bubble')
   applyCatFloatingWindowBehavior(catBubbleWindow)
   guardCatAlwaysOnTop(catBubbleWindow)
-  loadRendererEntry(catBubbleWindow, 'cat-bubble.html')
+  loadRendererEntry(catBubbleWindow, 'packages/desktop-pet/entries/cat-bubble.html')
 
   catBubbleWindow.on('closed', () => {
     catBubbleWindow = null

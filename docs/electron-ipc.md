@@ -29,7 +29,7 @@
 - MUST：logging IPC 只接收已规范化的 level、scope、message、context、error、timestamp，不允许透传原始 request body、Provider payload、附件 bytes 或凭据。
 - MUST：通用 IPC handler 的完成 / 失败日志只记录 channel、duration、错误 code、recoverable 等结构化信息，不记录入参与返回值正文。
 - MUST：`electron/ipc/types.ts` 只放 IPC 注册依赖类型，不放业务类型、channel 常量或 handler 实现。
-- MUST：与窗口状态强耦合的窗口专属 IPC 可以留在对应窗口模块，例如猫窗口 IPC 留在 `electron/cat-window.ts`。
+- MUST：与窗口状态强耦合的窗口专属 IPC 可以留在对应窗口模块，例如桌宠 IPC 留在 `packages/desktop-pet/electron/controller.ts`。
 - MUST：Workspace IPC 只暴露当前 session 的 managed workspace 操作，路径和敏感规则由 core 校验，不在 preload/renderer 自行拼路径。
 - MUST：Terminal process IPC 只暴露已登记进程的 list/get/kill，不新增 renderer 可传任意 command 的 invoke；命令执行必须走 Agent tool + policy/approval。
 - MUST：terminal/process IPC payload 不包含 env 和凭据；进程输出只返回受配置截断的结果或 tail，不进入 IPC 日志。
@@ -91,7 +91,7 @@
 | IPC domain handler | `electron/ipc/<domain>.ts` |
 | Workspace IPC | `electron/ipc/workspace.ts` |
 | Terminal process IPC | `electron/ipc/terminal-process.ts` |
-| 窗口专属 IPC | 对应窗口模块，例如 `electron/cat-window.ts` |
+| 窗口专属 IPC | 对应窗口模块，例如 `packages/desktop-pet/electron/controller.ts` |
 | main 启动编排 | `electron/main.ts` |
 | renderer bridge/fallback | `src/bridge/app.ts` |
 | window 类型 | `src/types/window.d.ts` |

@@ -18,7 +18,8 @@
 | OmniInfer 二进制定位 | `electron/omniinfer/binary-locator.ts` |
 | OmniInfer 子进程监管 | `electron/omniinfer/process.ts` |
 | OmniInfer Windows 残留清理 | `electron/omniinfer/windows-cleanup.ts` |
-| 猫窗口和窗口专属 IPC | `electron/cat-window.ts` |
+| 桌宠功能包（窗口、renderer 入口与 UI） | `packages/desktop-pet/` |
+| 桌宠窗口和窗口专属 IPC | `packages/desktop-pet/electron/controller.ts` |
 | contextBridge 暴露、ipcRenderer 调用、事件订阅包装 | `electron/preload.ts` |
 | IPC channel 常量 | `shared/constants.ts` |
 | bridge 契约类型 | `shared/types/bridge.ts` |

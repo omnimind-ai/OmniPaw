@@ -17,6 +17,7 @@
   },
   "include": [
     "electron/**/*.ts",
+    "packages/desktop-pet/electron/**/*.ts",
     "core/**/*.ts",
     "shared/**/*.ts",
     "electron.vite.config.ts",

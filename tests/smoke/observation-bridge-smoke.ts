@@ -7,7 +7,7 @@ const preload = readFileSync('electron/preload.ts', 'utf8')
 const bridgeTypes = readFileSync('shared/types/bridge.ts', 'utf8')
 const rendererBridge = readFileSync('src/bridge/app.ts', 'utf8')
 const observationCore = readFileSync('core/observation/manager.ts', 'utf8')
-const catWindow = readFileSync('electron/cat-window.ts', 'utf8')
+const catWindow = readFileSync('packages/desktop-pet/electron/controller.ts', 'utf8')
 const viteConfig = readFileSync('vite.config.ts', 'utf8')
 
 assert.equal(IPC_CHANNELS.observation.permissionStatus, 'observation:permission-status')

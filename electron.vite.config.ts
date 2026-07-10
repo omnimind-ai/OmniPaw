@@ -84,10 +84,10 @@ export default defineConfig({
       rollupOptions: {
         input: {
           index: resolve(__dirname, 'index.html'),
-          'cat-window': resolve(__dirname, 'cat-window.html'),
-          'cat-hit-window': resolve(__dirname, 'cat-hit-window.html'),
-          'cat-panel': resolve(__dirname, 'cat-panel.html'),
-          'cat-bubble': resolve(__dirname, 'cat-bubble.html'),
+          'cat-window': resolve(__dirname, 'packages/desktop-pet/entries/cat-window.html'),
+          'cat-hit-window': resolve(__dirname, 'packages/desktop-pet/entries/cat-hit-window.html'),
+          'cat-panel': resolve(__dirname, 'packages/desktop-pet/entries/cat-panel.html'),
+          'cat-bubble': resolve(__dirname, 'packages/desktop-pet/entries/cat-bubble.html'),
         },
       },
     },

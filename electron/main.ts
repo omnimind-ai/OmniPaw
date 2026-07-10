@@ -24,11 +24,6 @@ import type {
 } from '@shared/types/settings'
 import type { ShortcutAction, ShortcutStatusChangedEvent } from '@shared/types/shortcuts'
 import { app, BrowserWindow, Menu, type MenuItemConstructorOptions, protocol } from 'electron'
-import { createAppIconImage, resolveAppIconPath } from './app-icon'
-import {
-  type CatNotificationController,
-  createCatNotificationController,
-} from './cat-notification-controller'
 import {
   closeCatWindow,
   getActiveCatSessionId,
@@ -43,7 +38,12 @@ import {
   showCatWindowBubble,
   toggleCatPanelWindow,
   toggleCatVisibility,
-} from './cat-window'
+} from '../packages/desktop-pet/electron/controller'
+import { createAppIconImage, resolveAppIconPath } from './app-icon'
+import {
+  type CatNotificationController,
+  createCatNotificationController,
+} from './cat-notification-controller'
 import {
   type CoreRuntime,
   createCoreRuntime,

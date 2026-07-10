@@ -20,6 +20,13 @@
       "@shared/*": ["shared/*"]
     }
   },
-  "include": ["src/**/*.ts", "src/**/*.vue", "shared/**/*.ts", "env.d.ts"],
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.vue",
+    "packages/desktop-pet/renderer/**/*.ts",
+    "packages/desktop-pet/renderer/**/*.vue",
+    "shared/**/*.ts",
+    "env.d.ts"
+  ],
   "exclude": ["src/api/omnipawMock.ts"]
 }
