@@ -246,6 +246,7 @@ export default {
           title: '角色管理',
           description: '管理可用角色并选择当前角色；编辑设定会在独立窗口中展开。',
           count: '{count} 个角色',
+          selected: '正在使用',
           select: '设为当前角色',
           edit: '编辑',
           import: '导入',

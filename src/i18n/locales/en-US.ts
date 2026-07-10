@@ -258,6 +258,7 @@ export default {
           description:
             'Manage available characters and choose the active one. Character settings open in a separate dialog.',
           count: '{count} characters',
+          selected: 'In use',
           select: 'Use this character',
           edit: 'Edit',
           import: 'Import',

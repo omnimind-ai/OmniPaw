@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import {
+  CheckIcon,
   FileJsonIcon,
   PencilIcon,
   PlusIcon,
@@ -76,7 +77,6 @@ const roleItems = computed<RoleListItem[]>(() => {
         role,
       }
     })
-    .sort((left, right) => Number(right.active) - Number(left.active))
 })
 
 function clearSearch(): void {
@@ -211,6 +211,16 @@ function clearSearch(): void {
             </template>
 
             <template #actions>
+              <Button
+                v-if="item.active"
+                type="button"
+                variant="secondary"
+                size="sm"
+                disabled
+              >
+                <CheckIcon data-icon="inline-start" />
+                {{ t('settings.catAppearance.role.overview.selected') }}
+              </Button>
               <Button
                 v-if="!item.active"
                 type="button"
