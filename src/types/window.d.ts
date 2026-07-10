@@ -1,4 +1,4 @@
-import type { RendererOmniPawBridge } from '@/bridge/app'
+import type { OmniPawBridge } from '@shared/types/bridge'
 
 export interface OmniPawDebugApi {
   showFirstLaunchGuide(): void
@@ -8,7 +8,7 @@ export interface OmniPawDebugApi {
 
 declare global {
   interface Window {
-    omniPaw?: RendererOmniPawBridge
+    omniPaw?: OmniPawBridge
     omniPawDebug?: OmniPawDebugApi
   }
 }

@@ -1,5 +1,6 @@
 import { mkdirSync } from 'node:fs'
 import { join } from 'node:path'
+import type { LogSink } from '@core/logging'
 import { serializeLogError } from '@shared/logging/sanitize'
 import type {
   LoggerHealthStatus,
@@ -7,7 +8,6 @@ import type {
   SerializedLogRecord,
 } from '@shared/types/logging'
 import electronLog from 'electron-log/main'
-import type { LogSink } from './logger'
 
 export interface ElectronLogSinkOptions {
   logDir: string
@@ -113,9 +113,7 @@ class ElectronLogSink implements LogSink {
   }
 
   private attachFileFailureListener(): void {
-    if (!this.native) {
-      return
-    }
+    if (!this.native) return
 
     const file = this.native.transports.file.getFile({
       data: [''],

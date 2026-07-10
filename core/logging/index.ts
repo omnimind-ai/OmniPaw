@@ -1,4 +1,3 @@
-export { createElectronLogSink, type ElectronLogSinkOptions } from './electron-log-adapter'
 export type { LogContext, Logger, LoggerChildContext, LogSink } from './logger'
 export {
   createNoopLogger,

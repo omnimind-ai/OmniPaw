@@ -22,6 +22,7 @@
 
 - MUST：IPC channel 名称集中放在 `shared/constants.ts`。
 - MUST：跨进程 API 契约集中放在 `shared/types/bridge.ts` 和对应 `shared/types/*`。
+- MUST：preload、renderer 全局声明和 renderer `appBridge` 直接使用 `OmniPawBridge`；不得在 renderer 再定义一套完整 bridge interface。
 - MUST：通用 IPC handler 按业务域放在 `electron/ipc/*.ts`，由 `electron/ipc/index.ts` 统一注册；`electron/main.ts` 只负责启动编排和调用注册入口。
 - MUST：IPC handler 通过 `CoreRuntime` 依赖调用 core service/manager，不把业务规则写进 preload。
 - MUST：新增通用 IPC 域时复用 `electron/ipc/common.ts` 的 `registerLoggedIpcHandler`，保持统一日志、耗时和失败记录。

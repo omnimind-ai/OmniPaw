@@ -1,38 +1,10 @@
-import type { AppInfo, OpenChatSessionRequest, OpenDirectoryResponse } from '@shared/types/app'
+import type { OmniPawBridge } from '@shared/types/bridge'
+import type { CatDraftState, CatPanelPlacement, CatStatus, CatWindowState } from '@shared/types/cat'
 import type {
-  CatBounds,
-  CatBubbleDismissRequest,
-  CatBubbleEvent,
-  CatBubbleShowRequest,
-  CatCommandEvent,
-  CatDraftChangedEvent,
-  CatDraftClearRequest,
-  CatDraftRequest,
-  CatDraftStageRequest,
-  CatDraftState,
-  CatDragPayload,
-  CatHitArea,
-  CatInteractionState,
-  CatNotificationActionRequest,
-  CatNotificationEvent,
-  CatPanelActiveSessionState,
-  CatPanelOpenRequest,
-  CatPanelPlacement,
-  CatPanelSetActiveSessionRequest,
-  CatPanelToggleResult,
-  CatStatus,
-  CatTaskState,
-  CatWindowState,
-} from '@shared/types/cat'
-import type {
-  CatAppearanceChangedEvent,
-  CatAppearanceDeletePackRequest,
   CatAppearanceDeleteResponse,
-  CatAppearanceGetPackRequest,
   CatAppearanceImportResponse,
   CatAppearanceListResponse,
   CatAppearanceResolvedPack,
-  CatAppearanceSetActiveRequest,
 } from '@shared/types/cat-appearance'
 import {
   CAT_PET_ACTIONS,
@@ -43,15 +15,10 @@ import {
   CAT_PET_MOOD_DEFAULT,
   CAT_PET_MOOD_MAX,
   CAT_PET_MOOD_MIN,
-  type CatPetChangedEvent,
-  type CatPetDebugUnlockGiftResponse,
   type CatPetGiftConfig,
   type CatPetInteractionConfig,
   type CatPetInteractionDefinition,
-  type CatPetPerformRequest,
-  type CatPetPerformResponse,
   type CatPetState,
-  type CatPetUpdateInteractionsRequest,
   type CatPetUpdateInteractionsResponse,
   defaultCatPetGiftConfigs,
   defaultCatPetInteractionConfigs,
@@ -61,91 +28,37 @@ import {
 import type {
   CompanionRoleKnowledgeEntry,
   CompanionRoleSourceMetadata,
-  ExportCompanionRoleCardRequest,
   ExportCompanionRoleCardResponse,
-  ImportCompanionRoleCardRequest,
   ImportCompanionRoleCardResponse,
 } from '@shared/types/companion-role'
 import type {
-  CreateCronTaskRequest,
   CreateCronTaskResponse,
-  CronTaskChangedEvent,
-  DeleteCronTaskRequest,
   DeleteCronTaskResponse,
-  ListCronRunsRequest,
-  ListCronRunsResponse,
-  ListCronTasksRequest,
-  ListCronTasksResponse,
-  RunCronTaskNowRequest,
   RunCronTaskNowResponse,
-  UpdateCronTaskRequest,
   UpdateCronTaskResponse,
 } from '@shared/types/cron'
 import type {
   AgentWorkspaceStatus,
-  AgentWorkspaceStatusRequest,
-  CleanupWorkspaceRequest,
   CleanupWorkspaceResponse,
-  DeleteWorkspaceFileRequest,
   DeleteWorkspaceFileResponse,
-  ExportWorkspaceFileRequest,
   ExportWorkspaceFileResponse,
-  GetLocalProcessRequest,
-  KillLocalProcessRequest,
   KillLocalProcessResponse,
-  ListLocalProcessesRequest,
-  ListWorkspaceFilesRequest,
   ListWorkspaceFilesResponse,
   LocalAgentTerminalSettings,
   LocalAgentWorkspaceSettings,
-  LocalProcessSummary,
-  ReadWorkspaceFileRequest,
   ReadWorkspaceFileResponse,
-  RevealWorkspaceFileRequest,
   RevealWorkspaceFileResponse,
 } from '@shared/types/local-agent'
 import type {
-  ExportLogResponse,
-  LoggerHealthStatus,
-  LoggerWriteResponse,
-  OpenLogLocationResponse,
-  RendererLogRequest,
-} from '@shared/types/logging'
-import type {
-  CompanionMemoryDeleteRequest,
-  CompanionMemoryFilters,
-  CompanionMemoryImportanceRequest,
-  CompanionMemoryInspectResponse,
   CompanionMemoryItem,
-  CompanionMemoryListResponse,
   CompanionMemoryMaintenanceProposal,
-  CompanionMemoryProposalListRequest,
-  CompanionMemorySettingsRequest,
-  CreateCompanionMemoryRequest,
   DesktopMemorySettings,
-  UpdateCompanionMemoryProposalRequest,
-  UpdateCompanionMemoryRequest,
 } from '@shared/types/memory'
+import type { ObservationState } from '@shared/types/observation'
 import type {
-  ObservationChangedEvent,
-  ObservationPermissionStatus,
-  ObservationReactionEvent,
-  ObservationState,
-  ObservationStatusRequest,
-  StartObservationRequest,
-  StopObservationRequest,
-  TriggerObservationRequest,
-} from '@shared/types/observation'
-import type {
-  GetOmniInferLogsPathResponse,
-  InstalledModelRecord,
-  OmniInferLogEntry,
   OmniInferRuntimeSnapshot,
   PickLocalGgufResponse,
   PickOmniInferInstallDirResponse,
-  RescanInstalledModelsResponse,
-  SelectModelRequest,
-  SetThinkingRequest,
 } from '@shared/types/omniinfer'
 import type { DesktopShortcutSettings, ShortcutStatusChangedEvent } from '@shared/types/shortcuts'
 import { SHORTCUT_ACTIONS } from '@shared/types/shortcuts'
@@ -973,319 +886,6 @@ export interface BridgeSkillChangedEvent {
   status: BridgeSkillStateStatus
 }
 
-export interface RendererOmniPawBridge {
-  app: {
-    getInfo: () => Promise<AppInfo>
-    openSettingsDirectory: () => Promise<OpenDirectoryResponse>
-    openChatSession?: (request: OpenChatSessionRequest | string) => Promise<void>
-    onOpenChatSession?: (callback: (request: OpenChatSessionRequest) => void) => BridgeUnsubscribe
-  }
-  window: {
-    getState: () => Promise<BridgeDesktopWindowState>
-    minimize: () => Promise<BridgeDesktopWindowState>
-    toggleMaximize: () => Promise<BridgeDesktopWindowState>
-    close: () => Promise<void>
-    onStateChanged: (
-      callback: (event: BridgeDesktopWindowStateChangedEvent) => void
-    ) => BridgeUnsubscribe
-  }
-  logging: {
-    write: (request: RendererLogRequest) => Promise<LoggerWriteResponse>
-    status: () => Promise<LoggerHealthStatus>
-    openLocation?: () => Promise<OpenLogLocationResponse>
-    export?: () => Promise<ExportLogResponse>
-  }
-  cat: {
-    show: () => Promise<CatStatus>
-    hide: () => Promise<CatStatus>
-    toggleVisibility: () => Promise<CatStatus>
-    setState: (state: CatTaskState) => Promise<CatStatus>
-    reportState: (state: CatWindowState) => void
-    onCommand: (callback: (event: CatCommandEvent) => void) => BridgeUnsubscribe
-    togglePanel: () => Promise<CatPanelToggleResult>
-    dragStart: () => Promise<CatBounds | null>
-    dragMove: (payload?: CatDragPayload) => Promise<CatBounds | null>
-    dragEnd: () => Promise<CatBounds | null>
-    setHitArea: (area: CatHitArea) => Promise<void>
-    setInteractionState: (state: CatInteractionState) => Promise<void>
-    onObservationReaction?: (
-      callback: (event: ObservationReactionEvent) => void
-    ) => BridgeUnsubscribe
-    openObservationSource?: (event: ObservationReactionEvent) => Promise<void>
-    showBubble?: (request: CatBubbleShowRequest | string) => Promise<CatBubbleEvent | null>
-    dismissBubble?: (request?: CatBubbleDismissRequest | string) => Promise<void>
-    reportBubbleReady?: () => void
-    onBubbleEvent?: (callback: (event: CatBubbleEvent) => void) => BridgeUnsubscribe
-    onBubblePlacement?: (callback: (event: CatPanelPlacement) => void) => BridgeUnsubscribe
-  }
-  catAppearance: {
-    current: () => Promise<CatAppearanceResolvedPack>
-    getPack: (request: CatAppearanceGetPackRequest | string) => Promise<CatAppearanceResolvedPack>
-    list: () => Promise<CatAppearanceListResponse>
-    refresh: () => Promise<CatAppearanceListResponse>
-    importPack: () => Promise<CatAppearanceImportResponse>
-    deletePack: (
-      request: CatAppearanceDeletePackRequest | string
-    ) => Promise<CatAppearanceDeleteResponse>
-    setActive: (
-      request: CatAppearanceSetActiveRequest | string
-    ) => Promise<CatAppearanceResolvedPack>
-    onChanged: (callback: (event: CatAppearanceChangedEvent) => void) => BridgeUnsubscribe
-  }
-  catPanel: {
-    onPlacement: (callback: (event: CatPanelPlacement) => void) => BridgeUnsubscribe
-    open?: (request?: CatPanelOpenRequest) => Promise<CatPanelToggleResult>
-    getActiveSession?: () => Promise<CatPanelActiveSessionState>
-    setActiveSession?: (
-      request: CatPanelSetActiveSessionRequest | string
-    ) => Promise<CatPanelActiveSessionState>
-    onActiveSessionChanged?: (
-      callback: (event: CatPanelActiveSessionState) => void
-    ) => BridgeUnsubscribe
-    getDraft?: (request?: CatDraftRequest | string) => Promise<CatDraftState | null>
-    stageDraftAttachments?: (request: CatDraftStageRequest) => Promise<CatDraftState>
-    clearDraft?: (request: CatDraftClearRequest | string) => Promise<CatDraftState | null>
-    onDraftChanged?: (callback: (event: CatDraftChangedEvent) => void) => BridgeUnsubscribe
-  }
-  catNotification?: {
-    onEvent?: (callback: (event: CatNotificationEvent) => void) => BridgeUnsubscribe
-    close?: (request?: CatNotificationActionRequest | string) => Promise<void>
-    viewResult?: (request: CatNotificationActionRequest | string) => Promise<void>
-  }
-  catPet?: {
-    getState: () => Promise<CatPetState>
-    perform: (request: CatPetPerformRequest) => Promise<CatPetPerformResponse>
-    updateInteractions?: (
-      request: CatPetUpdateInteractionsRequest
-    ) => Promise<CatPetUpdateInteractionsResponse>
-    debugUnlockNextGift?: () => Promise<CatPetDebugUnlockGiftResponse>
-    onChanged: (callback: (event: CatPetChangedEvent) => void) => BridgeUnsubscribe
-  }
-  settings?: {
-    load: () => Promise<BridgeDesktopSettingsConfig>
-    save: (
-      request: { config: BridgeDesktopSettingsConfig } | BridgeDesktopSettingsConfig
-    ) => Promise<BridgeDesktopSettingsConfig>
-    reset: () => Promise<BridgeDesktopSettingsConfig>
-    status: () => Promise<BridgeDesktopSettingsStatus>
-    pickBackgroundImage: () => Promise<BridgePickDesktopBackgroundImageResponse>
-    onChanged: (callback: (event: BridgeDesktopSettingsChangedEvent) => void) => BridgeUnsubscribe
-  }
-  shortcuts?: {
-    status: () => Promise<BridgeShortcutStatusChangedEvent>
-    setCaptureMode: (enabled: boolean) => Promise<BridgeShortcutStatusChangedEvent>
-    onChanged: (callback: (event: BridgeShortcutStatusChangedEvent) => void) => BridgeUnsubscribe
-  }
-  memory?: {
-    list: (filters?: CompanionMemoryFilters) => Promise<CompanionMemoryListResponse>
-    search: (filters?: CompanionMemoryFilters) => Promise<CompanionMemoryListResponse>
-    inspect: (memoryId: string) => Promise<CompanionMemoryInspectResponse | null>
-    create: (request: CreateCompanionMemoryRequest) => Promise<CompanionMemoryItem>
-    update: (request: UpdateCompanionMemoryRequest) => Promise<CompanionMemoryItem | null>
-    archive: (memoryId: string) => Promise<CompanionMemoryItem | null>
-    delete: (request: CompanionMemoryDeleteRequest | string) => Promise<{ deleted: boolean }>
-    setImportance: (
-      request: CompanionMemoryImportanceRequest
-    ) => Promise<CompanionMemoryItem | null>
-    listProposals: (
-      request?: CompanionMemoryProposalListRequest
-    ) => Promise<{ items: CompanionMemoryMaintenanceProposal[]; total: number }>
-    updateProposal: (
-      request: UpdateCompanionMemoryProposalRequest
-    ) => Promise<CompanionMemoryMaintenanceProposal | null>
-    getSettings: () => Promise<DesktopMemorySettings>
-    updateSettings: (
-      request: CompanionMemorySettingsRequest | DesktopMemorySettings
-    ) => Promise<DesktopMemorySettings>
-  }
-  companionRole?: {
-    importCard: (
-      request: ImportCompanionRoleCardRequest
-    ) => Promise<ImportCompanionRoleCardResponse>
-    exportCard?: (
-      request: ExportCompanionRoleCardRequest
-    ) => Promise<ExportCompanionRoleCardResponse>
-  }
-  observation?: {
-    permissionStatus: () => Promise<ObservationPermissionStatus>
-    status: (request?: ObservationStatusRequest) => Promise<ObservationState>
-    start: (request: StartObservationRequest) => Promise<ObservationState>
-    stop: (request?: StopObservationRequest) => Promise<ObservationState>
-    trigger: (request?: TriggerObservationRequest) => Promise<ObservationState>
-    onChanged: (callback: (event: ObservationChangedEvent) => void) => BridgeUnsubscribe
-    onNotification?: (callback: (event: ObservationReactionEvent) => void) => BridgeUnsubscribe
-  }
-  chat: {
-    listSessions: (request?: BridgeListSessionsRequest) => Promise<BridgeChatSession[]>
-    createSession: (request?: BridgeCreateSessionRequest) => Promise<BridgeChatSession>
-    getSession?: (sessionId: string) => Promise<BridgeChatSession | null>
-    updateSession?: (
-      sessionId: string,
-      patch: Partial<BridgeChatSession>
-    ) => Promise<BridgeChatSession>
-    updateSessionTitle?: (sessionId: string, title: string) => Promise<BridgeChatSession>
-    deleteSession?: (sessionId: string) => Promise<{ deleted: boolean }>
-    listMessages?: (sessionId: string) => Promise<BridgeChatMessage[]>
-    sendMessage: (request: BridgeSendMessageRequest) => Promise<BridgeSendMessageResponse>
-    abortRun?: (runId: string, reason?: string) => Promise<void>
-    approveToolCall?: (request: BridgeToolApprovalRequest) => Promise<BridgeToolApprovalResponse>
-    editMessage?: (
-      sessionId: string,
-      messageId: string,
-      parts: BridgeChatMessagePart[]
-    ) => Promise<{
-      message?: BridgeChatMessage
-      needsRegenerate?: boolean
-      truncatedAfterMessage?: boolean
-    }>
-    regenerateMessage?: (
-      ...args:
-        | [request: BridgeRegenerateMessageRequest]
-        | [sessionId: string, messageId: string, providerId?: string, modelId?: string]
-    ) => Promise<BridgeSendMessageResponse>
-    onSessionChanged?: (
-      callback: (event: BridgeChatSessionChangedEvent) => void
-    ) => BridgeUnsubscribe
-    onStreamEvent?: (callback: (event: BridgeStreamEvent) => void) => BridgeUnsubscribe
-    onToken?: (callback: (token: string) => void) => BridgeUnsubscribe
-    onDone?: (callback: () => void) => BridgeUnsubscribe
-  }
-  attachment?: {
-    upload: (request: {
-      name: string
-      type: string
-      size: number
-      bytes: ArrayBuffer
-    }) => Promise<BridgeAttachment>
-    getPreviewUrl: (attachmentId: string) => Promise<string | { url: string; mimeType?: string }>
-  }
-  provider: {
-    load: () => Promise<BridgeProviderRegistryLoadResponse>
-    status: () => Promise<BridgeProviderRegistryStatus>
-    list: () => Promise<BridgeProviderConfig[]>
-    listPresets?: () => Promise<BridgeProviderPreset[]>
-    createFromPreset?: (request: string | { presetId: string }) => Promise<BridgeProviderConfig>
-    upsertSource?: (
-      request: BridgeUpsertProviderSourceRequest
-    ) => Promise<BridgeProviderRegistryMutationResult>
-    upsertModel?: (
-      request: BridgeUpsertProviderModelRequest
-    ) => Promise<BridgeProviderRegistryMutationResult>
-    upsert?: (request: unknown) => Promise<BridgeProviderConfig>
-    deleteSource?: (
-      request: string | BridgeDeleteProviderSourceRequest
-    ) => Promise<BridgeProviderRegistryMutationResult>
-    deleteModel?: (
-      request: BridgeDeleteProviderModelRequest
-    ) => Promise<BridgeProviderRegistryMutationResult>
-    delete?: (
-      request: string | { providerId: string }
-    ) => Promise<{ ok?: boolean; error?: unknown }>
-    setDefaultModel?: (
-      request: BridgeSetDefaultProviderModelRequest
-    ) => Promise<BridgeProviderRegistryMutationResult>
-    setFallbackModels?: (
-      request: BridgeSetFallbackProviderModelsRequest
-    ) => Promise<BridgeProviderRegistryMutationResult>
-    setTitleModel?: (
-      request: BridgeSetTitleProviderModelRequest
-    ) => Promise<BridgeProviderRegistryMutationResult>
-    setEmbeddingModel?: (
-      request: BridgeSetEmbeddingProviderModelRequest
-    ) => Promise<BridgeProviderRegistryMutationResult>
-    setObservationModels?: (
-      request: BridgeSetObservationProviderModelsRequest
-    ) => Promise<BridgeProviderRegistryMutationResult>
-    listModels?: (providerId: string) => Promise<BridgeProviderModel[]>
-    refreshModels?: (providerId: string) => Promise<BridgeProviderModel[]>
-    test?: (providerId: string, modelId?: string) => Promise<{ ok: boolean; error?: unknown }>
-    setSessionModel?: (request: {
-      sessionId: string
-      providerId: string
-      modelId: string
-    }) => Promise<BridgeChatSession>
-    openAICodexOAuthStatus?: (
-      request: string | { providerId: string }
-    ) => Promise<BridgeOpenAICodexOAuthStatus>
-    openAICodexOAuthLogin?: (
-      request: string | { providerId: string }
-    ) => Promise<BridgeOpenAICodexOAuthStatus>
-    openAICodexOAuthLogout?: (
-      request: string | { providerId: string }
-    ) => Promise<BridgeOpenAICodexOAuthStatus>
-    onChanged: (callback: (event: BridgeProviderRegistryChangedEvent) => void) => BridgeUnsubscribe
-  }
-  skill: {
-    list: () => Promise<BridgeSkillListResponse>
-    refresh?: () => Promise<BridgeSkillListResponse>
-    setEnabled?: (request: {
-      skillId: string
-      enabled: boolean
-    }) => Promise<BridgeLocalSkillSummary>
-    importSkill?: (request: BridgeImportSkillRequest) => Promise<BridgeImportSkillResponse>
-    onChanged?: (callback: (event: BridgeSkillChangedEvent) => void) => BridgeUnsubscribe
-  }
-  cron: {
-    list: (request?: ListCronTasksRequest) => Promise<ListCronTasksResponse>
-    create?: (request: CreateCronTaskRequest) => Promise<CreateCronTaskResponse>
-    update?: (request: UpdateCronTaskRequest) => Promise<UpdateCronTaskResponse>
-    delete?: (request: DeleteCronTaskRequest | string) => Promise<DeleteCronTaskResponse>
-    runNow?: (request: RunCronTaskNowRequest | string) => Promise<RunCronTaskNowResponse>
-    listRuns?: (request?: ListCronRunsRequest) => Promise<ListCronRunsResponse>
-    onChanged?: (callback: (event: CronTaskChangedEvent) => void) => BridgeUnsubscribe
-  }
-  tools?: {
-    list: () => Promise<BridgeManagedToolInfo[]>
-    setEnabled: (request: {
-      name: string
-      enabled: boolean
-    }) => Promise<{ tool: BridgeManagedToolInfo; tools: BridgeManagedToolInfo[] }>
-  }
-  workspace?: {
-    status: (request: AgentWorkspaceStatusRequest | string) => Promise<AgentWorkspaceStatus>
-    listFiles: (request: ListWorkspaceFilesRequest) => Promise<ListWorkspaceFilesResponse>
-    readFile: (request: ReadWorkspaceFileRequest) => Promise<ReadWorkspaceFileResponse>
-    exportFile: (request: ExportWorkspaceFileRequest) => Promise<ExportWorkspaceFileResponse>
-    revealFile: (request: RevealWorkspaceFileRequest) => Promise<RevealWorkspaceFileResponse>
-    deleteFile: (request: DeleteWorkspaceFileRequest) => Promise<DeleteWorkspaceFileResponse>
-    cleanup: (request: CleanupWorkspaceRequest | string) => Promise<CleanupWorkspaceResponse>
-  }
-  terminalProcess?: {
-    list: (request?: ListLocalProcessesRequest) => Promise<LocalProcessSummary[]>
-    get: (request: GetLocalProcessRequest | string) => Promise<LocalProcessSummary | null>
-    kill: (request: KillLocalProcessRequest | string) => Promise<KillLocalProcessResponse>
-  }
-  omniinfer?: {
-    getStatus: () => Promise<OmniInferRuntimeSnapshot>
-    start: () => Promise<OmniInferRuntimeSnapshot>
-    stop: () => Promise<OmniInferRuntimeSnapshot>
-    selectModel: (request: SelectModelRequest) => Promise<OmniInferRuntimeSnapshot>
-    unloadModel: () => Promise<OmniInferRuntimeSnapshot>
-    setThinking: (request: SetThinkingRequest) => Promise<OmniInferRuntimeSnapshot>
-    getLogsPath: () => Promise<GetOmniInferLogsPathResponse>
-    pickLocalGguf: () => Promise<PickLocalGgufResponse>
-    pickInstallDir: () => Promise<PickOmniInferInstallDirResponse>
-    rescanModels: () => Promise<RescanInstalledModelsResponse>
-    listInstalledModels: () => Promise<InstalledModelRecord[]>
-    onStatusChanged: (callback: (event: OmniInferRuntimeSnapshot) => void) => BridgeUnsubscribe
-    onLog: (callback: (event: OmniInferLogEntry) => void) => BridgeUnsubscribe
-  }
-  mcp?: {
-    listServers: () => Promise<BridgeMcpServerListResponse>
-    saveServer: (request: BridgeSaveMcpServerRequest) => Promise<BridgeMcpServerSummary>
-    deleteServer: (request: string | { serverId: string }) => Promise<BridgeMcpServerListResponse>
-    setServerEnabled: (request: {
-      serverId: string
-      enabled: boolean
-    }) => Promise<BridgeMcpServerSummary>
-    refreshServer: (
-      request?: string | { serverId?: string }
-    ) => Promise<BridgeMcpServerListResponse>
-    listTools: () => Promise<BridgeMcpToolInventoryResponse>
-    onChanged: (callback: (event: BridgeMcpChangedEvent) => void) => BridgeUnsubscribe
-  }
-}
-
 export type BridgeRuntime = 'electron' | 'fallback'
 
 export const fallbackBridgePersistenceMessage =
@@ -1438,7 +1038,7 @@ function stripProviderRegistryFromSettingsRequest(
     : (rest as BridgeDesktopSettingsConfig)
 }
 
-const fallbackBridge: RendererOmniPawBridge = {
+const fallbackBridge: OmniPawBridge = {
   app: {
     getInfo: async () => ({
       name: 'OmniPaw',
@@ -2289,15 +1889,12 @@ function fallbackSettingsConfig(): BridgeDesktopSettingsConfig {
   }
 }
 
-const exposedBridge =
-  typeof window === 'undefined' ? undefined : (window.omniPaw as RendererOmniPawBridge | undefined)
+const exposedBridge = typeof window === 'undefined' ? undefined : window.omniPaw
 
 export const bridgeRuntime: BridgeRuntime = exposedBridge ? 'electron' : 'fallback'
 export const isFallbackBridge = bridgeRuntime === 'fallback'
 
-function createAppBridge(
-  bridge: RendererOmniPawBridge['app'] | undefined
-): RendererOmniPawBridge['app'] {
+function createAppBridge(bridge: OmniPawBridge['app'] | undefined): OmniPawBridge['app'] {
   if (!bridge) {
     return fallbackBridge.app
   }
@@ -2308,9 +1905,7 @@ function createAppBridge(
   }
 }
 
-function createWindowBridge(
-  bridge: RendererOmniPawBridge['window'] | undefined
-): RendererOmniPawBridge['window'] {
+function createWindowBridge(bridge: OmniPawBridge['window'] | undefined): OmniPawBridge['window'] {
   if (!bridge) {
     return fallbackBridge.window
   }
@@ -2321,9 +1916,7 @@ function createWindowBridge(
   }
 }
 
-function createCatBridge(
-  bridge: RendererOmniPawBridge['cat'] | undefined
-): RendererOmniPawBridge['cat'] {
+function createCatBridge(bridge: OmniPawBridge['cat'] | undefined): OmniPawBridge['cat'] {
   if (!bridge) {
     return fallbackBridge.cat
   }
@@ -2335,8 +1928,8 @@ function createCatBridge(
 }
 
 function createCatAppearanceBridge(
-  bridge: RendererOmniPawBridge['catAppearance'] | undefined
-): RendererOmniPawBridge['catAppearance'] {
+  bridge: OmniPawBridge['catAppearance'] | undefined
+): OmniPawBridge['catAppearance'] {
   if (!bridge) {
     return fallbackBridge.catAppearance
   }
@@ -2347,9 +1940,7 @@ function createCatAppearanceBridge(
   }
 }
 
-function createCatPetBridge(
-  bridge: RendererOmniPawBridge['catPet'] | undefined
-): RendererOmniPawBridge['catPet'] {
+function createCatPetBridge(bridge: OmniPawBridge['catPet'] | undefined): OmniPawBridge['catPet'] {
   const fallbackCatPetBridge = fallbackBridge.catPet
   if (!bridge || !fallbackCatPetBridge) {
     return bridge ?? fallbackCatPetBridge
@@ -2362,8 +1953,8 @@ function createCatPetBridge(
 }
 
 function createSettingsBridge(
-  bridge: RendererOmniPawBridge['settings'] | undefined
-): RendererOmniPawBridge['settings'] {
+  bridge: OmniPawBridge['settings'] | undefined
+): OmniPawBridge['settings'] {
   if (!bridge) {
     return fallbackBridge.settings
   }
@@ -2376,8 +1967,8 @@ function createSettingsBridge(
 }
 
 function createShortcutsBridge(
-  bridge: RendererOmniPawBridge['shortcuts'] | undefined
-): RendererOmniPawBridge['shortcuts'] {
+  bridge: OmniPawBridge['shortcuts'] | undefined
+): OmniPawBridge['shortcuts'] {
   if (!bridge) {
     return fallbackBridge.shortcuts
   }
@@ -2388,9 +1979,7 @@ function createShortcutsBridge(
   }
 }
 
-function createMemoryBridge(
-  bridge: RendererOmniPawBridge['memory'] | undefined
-): RendererOmniPawBridge['memory'] {
+function createMemoryBridge(bridge: OmniPawBridge['memory'] | undefined): OmniPawBridge['memory'] {
   if (!bridge) {
     return fallbackBridge.memory
   }
@@ -2402,8 +1991,8 @@ function createMemoryBridge(
 }
 
 function createCompanionRoleBridge(
-  bridge: RendererOmniPawBridge['companionRole'] | undefined
-): RendererOmniPawBridge['companionRole'] {
+  bridge: OmniPawBridge['companionRole'] | undefined
+): OmniPawBridge['companionRole'] {
   if (!bridge) {
     return fallbackBridge.companionRole
   }
@@ -2415,8 +2004,8 @@ function createCompanionRoleBridge(
 }
 
 function createProviderBridge(
-  bridge: RendererOmniPawBridge['provider'] | undefined
-): RendererOmniPawBridge['provider'] {
+  bridge: OmniPawBridge['provider'] | undefined
+): OmniPawBridge['provider'] {
   if (!bridge) {
     return fallbackBridge.provider
   }
@@ -2431,8 +2020,8 @@ function createProviderBridge(
 }
 
 function createObservationBridge(
-  bridge: RendererOmniPawBridge['observation'] | undefined
-): RendererOmniPawBridge['observation'] {
+  bridge: OmniPawBridge['observation'] | undefined
+): OmniPawBridge['observation'] {
   if (!bridge) {
     return fallbackBridge.observation
   }
@@ -2444,8 +2033,8 @@ function createObservationBridge(
 }
 
 function createLoggingBridge(
-  bridge: RendererOmniPawBridge['logging'] | undefined
-): RendererOmniPawBridge['logging'] {
+  bridge: OmniPawBridge['logging'] | undefined
+): OmniPawBridge['logging'] {
   if (!bridge) {
     return fallbackBridge.logging
   }
@@ -2456,9 +2045,7 @@ function createLoggingBridge(
   }
 }
 
-function createCronBridge(
-  bridge: RendererOmniPawBridge['cron'] | undefined
-): RendererOmniPawBridge['cron'] {
+function createCronBridge(bridge: OmniPawBridge['cron'] | undefined): OmniPawBridge['cron'] {
   if (!bridge) {
     return fallbackBridge.cron
   }
@@ -2473,8 +2060,8 @@ function createCronBridge(
 }
 
 function createOmniInferBridge(
-  bridge: RendererOmniPawBridge['omniinfer'] | undefined
-): RendererOmniPawBridge['omniinfer'] {
+  bridge: OmniPawBridge['omniinfer'] | undefined
+): OmniPawBridge['omniinfer'] {
   if (!bridge) {
     return fallbackBridge.omniinfer
   }
@@ -2485,7 +2072,7 @@ function createOmniInferBridge(
   }
 }
 
-export const appBridge: RendererOmniPawBridge = exposedBridge
+export const appBridge: OmniPawBridge = exposedBridge
   ? {
       ...fallbackBridge,
       ...exposedBridge,

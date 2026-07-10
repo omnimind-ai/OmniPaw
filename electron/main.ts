@@ -1,7 +1,7 @@
 import { readFile } from 'node:fs/promises'
 import { basename, extname, isAbsolute, join, relative, resolve } from 'node:path'
 import type { ChatRunEventTarget } from '@core/chat/run-manager'
-import { createElectronLogSink, createProjectLogger } from '@core/logging'
+import { createProjectLogger } from '@core/logging'
 import { OmniInferRuntimeClient, resolveModelsDir } from '@core/omniinfer'
 import { resolveOmniPawDataPaths } from '@core/utils/data-paths'
 import {
@@ -51,6 +51,7 @@ import {
   type SkillChangedEvent,
 } from './core-runtime'
 import { registerIpcHandlers } from './ipc'
+import { createElectronLogSink } from './logging/electron-log-adapter'
 import { createMainWindowController, type MainWindowController } from './main-window'
 import { locateOmniInferInstall } from './omniinfer/binary-locator'
 import { defaultOmniInferLogsDir, OmniInferProcess } from './omniinfer/process'

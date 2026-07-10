@@ -15,6 +15,7 @@
 ## Core 边界
 
 - MUST：`core/` 是主进程业务核心，只能由 Electron main 侧 runtime、smoke script 等 Node 环境调用。
+- MUST NOT：`core/` 直接导入 `electron` 或 `electron-log`；窗口、WebContents 和 Electron transport 由 `electron/` 适配后通过接口注入。
 - MUST NOT：renderer 或 preload 直接导入 `@core/*`。
 - MUST：跨层类型来自 `shared/types/*`，不要在 core 内定义另一套对外契约。
 - MUST：DB、文件、Provider 网络请求、附件读写只在 main/core 侧发生。
@@ -42,6 +43,7 @@
 ## 日志与可观测性
 
 - MUST：core / main 统一通过项目 logger 输出结构化日志，不直接使用 `console.*` 作为业务日志通道；`electron-log` 只允许出现在日志适配层。
+- MUST：Electron 专属日志 sink 位于 `electron/logging/`，`core/logging/` 只保留平台无关的 logger 和 sink 接口。
 - MUST：logger 通过构造函数注入到 service / manager / repo 边界，子域通过 `child()` 派生 scope，不在业务方法里临时 new 另一个 logger。
 - MUST：日志只保留 id、status、duration、error code/message、retryable/recoverable、fallback reason 等结构化字段，不记录 prompt、system prompt、role prompt、mask text、附件正文、Provider 响应体、API key、凭据、terminal env 或 MCP 原始 env/header。
 - MUST：日志写入前必须经过现有脱敏和截断流程，sink 失败不得影响主流程，只能降级为丢弃或失败计数。

@@ -40,7 +40,6 @@ import type {
   DesktopSystemContextSettings,
   DesktopToolSettings,
 } from '@shared/types/settings'
-import type { WebContents } from 'electron'
 import {
   buildCompanionRoleKnowledgeInstruction,
   companionRoleKnowledgeScanDepth,
@@ -370,9 +369,9 @@ export class ChatService {
 
   async sendMessage(
     request: SendMessageRequest,
-    webContents: WebContents
+    target: ChatRunEventTarget
   ): Promise<SendMessageResponse> {
-    return this.runOrchestrator.sendMessage(this.withRuntimeInstructions(request), webContents)
+    return this.runOrchestrator.sendMessage(this.withRuntimeInstructions(request), target)
   }
 
   async sendInternalMessage(
@@ -404,9 +403,9 @@ export class ChatService {
 
   async regenerateMessage(
     request: RegenerateMessageRequest,
-    webContents: WebContents
+    target: ChatRunEventTarget
   ): Promise<SendMessageResponse> {
-    return this.runOrchestrator.regenerateMessage(request, webContents)
+    return this.runOrchestrator.regenerateMessage(request, target)
   }
 
   private requireSession(sessionId: string): ChatSession {

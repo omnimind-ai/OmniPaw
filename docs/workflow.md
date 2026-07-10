@@ -28,6 +28,7 @@
 - SHOULD Agent/tool 改动运行 `node scripts/run-electron-node.mjs tests/smoke/chat-core-smoke.ts`、`node scripts/run-electron-node.mjs tests/smoke/tool-management-smoke.ts` 或相关 agent smoke。
 - SHOULD 本地 workspace/terminal 改动运行 `node scripts/run-electron-node.mjs tests/smoke/local-agent-smoke.ts`。
 - SHOULD logger / 日志系统改动运行 `node scripts/run-electron-node.mjs tests/smoke/logging-smoke.ts`；如果同时影响 main、preload 或打包链路，再补 `pnpm build`。
+- SHOULD bridge、preload 或 main/core 边界调整运行 `node scripts/run-electron-node.mjs tests/smoke/architecture-boundaries-smoke.ts`。
 - SHOULD UI 行为改动在需要时运行 Playwright；运行前先核对现有测试是否与当前 UI 同步。
 
 ## MAY
@@ -50,6 +51,7 @@
 | Tool management | `node scripts/run-electron-node.mjs tests/smoke/tool-management-smoke.ts` |
 | 本地 workspace/terminal | `node scripts/run-electron-node.mjs tests/smoke/local-agent-smoke.ts` |
 | 日志系统 | `node scripts/run-electron-node.mjs tests/smoke/logging-smoke.ts` |
+| 架构边界 | `node scripts/run-electron-node.mjs tests/smoke/architecture-boundaries-smoke.ts` |
 | 本地开发 | `pnpm dev` |
 | 打包目录 | `pnpm pack` |
 | 分发包 | `pnpm dist` |
