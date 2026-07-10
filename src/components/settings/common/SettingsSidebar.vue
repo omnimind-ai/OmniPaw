@@ -12,6 +12,7 @@ import {
   SearchIcon,
   ServerIcon,
   SlidersHorizontalIcon,
+  SparklesIcon,
   TerminalIcon,
   WrenchIcon,
 } from 'lucide-vue-next'
@@ -37,6 +38,7 @@ export type SettingsTab =
   | 'providers'
   | 'defaults'
   | 'general'
+  | 'roles'
   | 'shortcuts'
   | 'agent'
   | 'display'
@@ -72,6 +74,7 @@ const primaryItems: SettingsNavItem[] = [
 
 const settingsItems: SettingsNavItem[] = [
   { value: 'general', labelKey: 'settings.sidebar.nav.general', icon: SlidersHorizontalIcon },
+  { value: 'roles', labelKey: 'settings.sidebar.nav.catAppearance', icon: SparklesIcon },
   { value: 'shortcuts', labelKey: 'settings.sidebar.nav.shortcuts', icon: KeyboardIcon },
   { value: 'agent', labelKey: 'settings.sidebar.nav.agent', icon: TerminalIcon },
 ]

@@ -251,6 +251,27 @@ export default {
         noSearchMatch: 'No matching characters.',
         activeHint:
           'The active character applies to new sessions and shapes companionship, collaboration style, and output preferences.',
+        editorHint:
+          'Changes save automatically. These settings apply to new sessions only after this character is selected.',
+        overview: {
+          title: 'Character management',
+          description:
+            'Manage available characters and choose the active one. Character settings open in a separate dialog.',
+          count: '{count} characters',
+          select: 'Use this character',
+          edit: 'Edit',
+          import: 'Import',
+          introFallback:
+            'This character does not have an introduction yet. Open the editor to add personality, relationship, and collaboration details.',
+          avatarAlt: '{name} idle appearance',
+          searchHint: 'Try another keyword, or clear the search to see every character.',
+          clearSearch: 'Clear search',
+          emptyTitle: 'No characters yet',
+          emptyHint: 'Create a character to select and manage it here.',
+          modalDescription:
+            'Edit the character’s basics, memory, knowledge, appearance, interactions, and advanced settings.',
+          close: 'Close character editor',
+        },
         newRoleName: 'New character',
         copyName: '{name} copy',
         unnamed: 'Unnamed character',

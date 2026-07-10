@@ -9,10 +9,11 @@ import {
   SlidersHorizontalIcon,
   Trash2Icon,
   UserRoundIcon,
+  XIcon,
 } from 'lucide-vue-next'
 import { storeToRefs } from 'pinia'
 import type { AcceptableValue } from 'reka-ui'
-import { computed, ref } from 'vue'
+import { computed, type HTMLAttributes, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import SettingEntry from '@/components/settings/common/SettingEntry.vue'
 import SettingsSection from '@/components/settings/common/SettingsSection.vue'
@@ -36,17 +37,22 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { cn } from '@/lib/utils'
 import { type ProviderModelOption, useProviderStore } from '@/stores/provider'
 
 const NONE_VALUE = '__none__'
 
 const props = defineProps<{
   role: CompanionRole
+  isActiveRole: boolean
   canDeleteRole: boolean
   confirmDeleteRoleId?: string
+  showCloseAction?: boolean
+  class?: HTMLAttributes['class']
 }>()
 
 const emit = defineEmits<{
+  close: []
   duplicateRole: []
   exportRole: []
   deleteRole: [role: CompanionRole]
@@ -322,14 +328,25 @@ function previewCharTokenWeight(char: string): number {
 <template>
   <div
     data-slot="card"
-    class="grid h-full min-h-0 flex-1 grid-rows-[auto_minmax(0,1fr)] overflow-hidden rounded-lg border bg-card shadow-sm"
+    :class="cn(
+      'grid h-full min-h-0 flex-1 grid-rows-[auto_minmax(0,1fr)] overflow-hidden rounded-lg border bg-card shadow-sm',
+      props.class,
+    )"
   >
     <div class="flex flex-wrap items-center justify-between gap-3 border-b px-4 py-4 sm:px-5">
       <div class="min-w-0">
         <h1 class="truncate text-xl font-semibold">
           {{ editableRole.name || t('settings.catAppearance.role.unnamed') }}
         </h1>
-        <p class="text-sm text-muted-foreground">{{ t('settings.catAppearance.role.activeHint') }}</p>
+        <p class="text-sm text-muted-foreground">
+          {{
+            t(
+              isActiveRole
+                ? 'settings.catAppearance.role.activeHint'
+                : 'settings.catAppearance.role.editorHint'
+            )
+          }}
+        </p>
       </div>
       <div class="flex min-w-0 flex-wrap items-center justify-end gap-2">
         <Button
@@ -339,6 +356,14 @@ function previewCharTokenWeight(char: string): number {
         >
           <EyeIcon data-icon="inline-start" />
           {{ t('settings.catAppearance.role.preview.action') }}
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          @click="emit('duplicateRole')"
+        >
+          <CopyIcon data-icon="inline-start" />
+          {{ t('settings.catAppearance.role.actions.duplicate') }}
         </Button>
         <Button
           variant="outline"
@@ -360,6 +385,15 @@ function previewCharTokenWeight(char: string): number {
               ? t('settings.catAppearance.role.actions.confirmDelete')
               : t('settings.catAppearance.role.actions.delete')
           }}
+        </Button>
+        <Button
+          v-if="showCloseAction"
+          variant="ghost"
+          size="icon-sm"
+          :aria-label="t('settings.catAppearance.role.overview.close')"
+          @click="emit('close')"
+        >
+          <XIcon />
         </Button>
       </div>
     </div>

@@ -9,7 +9,6 @@ import {
   PlusIcon,
   SearchIcon,
   SettingsIcon,
-  SparklesIcon,
   Trash2Icon,
   XIcon,
 } from 'lucide-vue-next'
@@ -87,7 +86,6 @@ const emit = defineEmits<{
   updateSessionMode: [mode: SessionMode]
   updateSessionKindFilter: [kind: SessionKindFilter]
   openSettings: []
-  openRoles: []
   toggleCat: []
   renameSession: [sessionId: string, title: string]
   deleteSession: [sessionId: string]
@@ -450,16 +448,6 @@ function updateSessionKindFilter(value: unknown) {
             @click="emit('toggleCat')"
           >
             <CatIcon />
-          </SidebarMenuButton>
-
-          <SidebarMenuButton
-            class="w-auto"
-            size="default"
-            :tooltip="t('chat.sidebar.footer.roles')"
-            :aria-label="t('chat.sidebar.footer.roles')"
-            @click="emit('openRoles')"
-          >
-            <SparklesIcon />
           </SidebarMenuButton>
 
           <SidebarMenuButton

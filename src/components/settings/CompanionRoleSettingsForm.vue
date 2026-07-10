@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { CatAppearanceResolvedPack } from '@shared/types/cat-appearance'
 import {
   defaultCatPetGiftConfigs,
   defaultCatPetInteractionConfigs,
@@ -12,49 +13,19 @@ import type {
   CompanionRoleSourceMetadata,
   ImportedCompanionRoleDraft,
 } from '@shared/types/companion-role'
-import {
-  ArrowLeftIcon,
-  CheckIcon,
-  FileJsonIcon,
-  MoreHorizontalIcon,
-  PlusIcon,
-  SearchIcon,
-  SparklesIcon,
-} from 'lucide-vue-next'
-import { computed, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useRouter } from 'vue-router'
+import builtinIdleImage from '@/asserts/cat/ic_cat_normal.png'
 import {
   appBridge,
   type BridgeDesktopSettingsConfig,
+  type BridgeUnsubscribe,
   ensureElectronBridge,
   isFallbackBridge,
 } from '@/bridge/app'
-import CompanionRoleEditor from '@/components/settings/companion-role-settings/CompanionRoleEditor.vue'
+import CompanionRoleEditorModal from '@/components/settings/companion-role-settings/CompanionRoleEditorModal.vue'
+import CompanionRoleSelection from '@/components/settings/companion-role-settings/CompanionRoleSelection.vue'
 import RoleCardImportDialog from '@/components/settings/companion-role-settings/RoleCardImportDialog.vue'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuGroup,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
-import {
-  Sidebar,
-  SidebarContent,
-  SidebarGroup,
-  SidebarGroupContent,
-  SidebarHeader,
-  SidebarInput,
-  SidebarInset,
-  SidebarMenu,
-  SidebarMenuButton,
-  SidebarMenuItem,
-  SidebarProvider,
-  SidebarSeparator,
-} from '@/components/ui/sidebar'
 import { errorToText, useToast } from '@/utils/toast'
 
 type CompanionRole = BridgeDesktopSettingsConfig['app']['companionRoles'][number]
@@ -64,80 +35,124 @@ const props = defineProps<{
 }>()
 
 const { t } = useI18n()
-const router = useRouter()
 const toast = useToast()
 
 const roleImportInput = ref<HTMLInputElement>()
 const roleCardInput = ref<HTMLInputElement>()
 const roleCardImportDialogOpen = ref(false)
+const editorModalOpen = ref(false)
+const editingRoleId = ref('')
 const roleCardJsonContent = ref('')
-const roleSearchQuery = ref('')
 const importingRole = ref(false)
 const importingRoleCard = ref(false)
 const exportingRoleCard = ref(false)
 const confirmDeleteRoleId = ref<string>()
+const idleImageByPackId = shallowRef<Record<string, string>>({ builtin: builtinIdleImage })
+let appearanceUnsubscribe: BridgeUnsubscribe | undefined
+let idleImageRequestId = 0
 
 const roles = computed(() => props.draft.app.companionRoles)
-const normalizedRoleSearchQuery = computed(() => roleSearchQuery.value.trim().toLocaleLowerCase())
-const filteredRoles = computed(() => {
-  const query = normalizedRoleSearchQuery.value
-  if (!query) return roles.value
-  return roles.value.filter((role) =>
-    (role.name || t('settings.catAppearance.role.unnamed')).toLocaleLowerCase().includes(query)
-  )
-})
 const activeRoleId = computed(() => props.draft.app.activeCompanionRoleId)
-const activeRole = computed(
-  () => roles.value.find((role) => role.id === activeRoleId.value) ?? roles.value[0]
-)
+const editingRole = computed(() => roles.value.find((role) => role.id === editingRoleId.value))
 const canDeleteRole = computed(() => roles.value.length > 1)
 const importRoleDisabled = computed(() => importingRole.value || isFallbackBridge)
 const importRoleCardDisabled = computed(() => importingRoleCard.value || isFallbackBridge)
 const canImportRoleCardJson = computed(
   () => !importRoleCardDisabled.value && roleCardJsonContent.value.trim().length > 0
 )
+const roleAppearancePackIds = computed(() =>
+  [...new Set(roles.value.map((role) => role.appearancePackId || 'builtin'))].sort()
+)
+
+onMounted(() => {
+  appearanceUnsubscribe = appBridge.catAppearance.onChanged(() => {
+    void loadIdleImages()
+  })
+})
+
+onBeforeUnmount(() => {
+  appearanceUnsubscribe?.()
+  appearanceUnsubscribe = undefined
+})
+
+watch(roleAppearancePackIds, () => void loadIdleImages(), { immediate: true })
+
+watch(editorModalOpen, (isOpen) => {
+  if (!isOpen) {
+    editingRoleId.value = ''
+    confirmDeleteRoleId.value = undefined
+  }
+})
+
+async function loadIdleImages(): Promise<void> {
+  const requestId = idleImageRequestId + 1
+  idleImageRequestId = requestId
+  const entries = await Promise.all(
+    roleAppearancePackIds.value.map(async (packId) => {
+      try {
+        const pack = await appBridge.catAppearance.getPack({ packId })
+        return [packId, resolveIdleImage(pack)] as const
+      } catch {
+        return [packId, builtinIdleImage] as const
+      }
+    })
+  )
+  if (idleImageRequestId !== requestId) return
+  idleImageByPackId.value = Object.fromEntries(entries)
+}
+
+function resolveIdleImage(pack: CatAppearanceResolvedPack): string {
+  if (pack.source === 'builtin') return builtinIdleImage
+  return pack.assets.idle || builtinIdleImage
+}
 
 function selectRole(target: CompanionRole): void {
   confirmDeleteRoleId.value = undefined
   props.draft.app.activeCompanionRoleId = target.id
 }
 
+function editRole(target: CompanionRole): void {
+  confirmDeleteRoleId.value = undefined
+  editingRoleId.value = target.id
+  editorModalOpen.value = true
+}
+
 function createRole(): void {
   confirmDeleteRoleId.value = undefined
   const nextRole = createCompanionRole()
   roles.value.push(nextRole)
-  props.draft.app.activeCompanionRoleId = nextRole.id
+  editRole(nextRole)
 }
 
-function duplicateActiveRole(): void {
-  if (!activeRole.value) return
+function duplicateEditingRole(): void {
+  if (!editingRole.value) return
   confirmDeleteRoleId.value = undefined
   const nextRole: CompanionRole = {
-    ...activeRole.value,
+    ...editingRole.value,
     id: createRoleId(),
     name: t('settings.catAppearance.role.copyName', {
-      name: activeRole.value.name || defaultRoleName(),
+      name: editingRole.value.name || defaultRoleName(),
     }),
-    advanced: { ...activeRole.value.advanced },
-    alternateGreetings: [...activeRole.value.alternateGreetings],
-    petInteractions: activeRole.value.petInteractions.map((item) => ({ ...item })),
-    petGifts: activeRole.value.petGifts.map((item) => ({
+    advanced: { ...editingRole.value.advanced },
+    alternateGreetings: [...editingRole.value.alternateGreetings],
+    petInteractions: editingRole.value.petInteractions.map((item) => ({ ...item })),
+    petGifts: editingRole.value.petGifts.map((item) => ({
       ...item,
       ...(item.image ? { image: { ...item.image } } : {}),
       storyLines: [...item.storyLines],
     })),
-    knowledgeEntries: activeRole.value.knowledgeEntries.map((entry, index) => ({
+    knowledgeEntries: editingRole.value.knowledgeEntries.map((entry, index) => ({
       ...entry,
       id: createRoleKnowledgeId(index),
       keys: [...entry.keys],
       createdAt: Date.now(),
       updatedAt: Date.now(),
     })),
-    knowledgeSettings: { ...activeRole.value.knowledgeSettings },
-    source: activeRole.value.source ? { ...activeRole.value.source } : undefined,
+    knowledgeSettings: { ...editingRole.value.knowledgeSettings },
+    source: editingRole.value.source ? { ...editingRole.value.source } : undefined,
   }
   roles.value.push(nextRole)
-  props.draft.app.activeCompanionRoleId = nextRole.id
+  editRole(nextRole)
 }
 
 function deleteRole(target: CompanionRole): void {
@@ -153,6 +168,9 @@ function deleteRole(target: CompanionRole): void {
   if (props.draft.app.activeCompanionRoleId === target.id) {
     props.draft.app.activeCompanionRoleId =
       roles.value[Math.max(0, index - 1)]?.id ?? roles.value[0]?.id ?? ''
+  }
+  if (editingRoleId.value === target.id) {
+    editorModalOpen.value = false
   }
 }
 
@@ -212,8 +230,8 @@ function openRoleCardImport(): void {
   roleCardImportDialogOpen.value = true
 }
 
-async function exportActiveRoleCard(): Promise<void> {
-  if (!activeRole.value || exportingRoleCard.value) return
+async function exportEditingRoleCard(): Promise<void> {
+  if (!editingRole.value || exportingRoleCard.value) return
   confirmDeleteRoleId.value = undefined
 
   try {
@@ -226,7 +244,7 @@ async function exportActiveRoleCard(): Promise<void> {
   exportingRoleCard.value = true
   try {
     const result = await appBridge.companionRole.exportCard({
-      role: createExportRoleDraft(activeRole.value),
+      role: createExportRoleDraft(editingRole.value),
     })
     if (!result.exported) return
     toast.success(t('settings.catAppearance.role.toasts.exportCardSuccess'), {
@@ -407,7 +425,6 @@ function applyImportedRole(
   confirmDeleteRoleId.value = undefined
   const nextRole = createRoleFromImportedDraft(result.role, result.source)
   roles.value.push(nextRole)
-  props.draft.app.activeCompanionRoleId = nextRole.id
   roleCardImportDialogOpen.value = false
   toast.success(options.successMessage, {
     description: t(options.summaryKey, {
@@ -572,152 +589,46 @@ function defaultRoleName(): string {
 </script>
 
 <template>
-  <SidebarProvider
-    class="h-full min-h-0 w-full bg-muted/40"
-    :default-open="true"
-  >
-    <Sidebar
-      data-sidebar="sidebar"
-      collapsible="none"
-      class="[--sidebar-width:clamp(16rem,18vw,19rem)] border-r bg-sidebar/95"
+  <div class="flex h-full min-h-0 flex-1 flex-col overflow-hidden">
+    <input
+      ref="roleImportInput"
+      class="sr-only"
+      type="file"
+      accept=".omnipaw-role,.json,application/json"
+      @change="importRole"
     >
-      <SidebarHeader>
-        <div class="flex items-center gap-2">
-          <Button
-            variant="ghost"
-            size="icon-sm"
-            :aria-label="t('settings.sidebar.backToChat')"
-            @click="router.push('/')"
-          >
-            <ArrowLeftIcon />
-          </Button>
-          <span class="truncate text-sm font-medium">{{ t('settings.catAppearance.title') }}</span>
-          <input
-            ref="roleImportInput"
-            class="sr-only"
-            type="file"
-            accept=".omnipaw-role,.json,application/json"
-            @change="importRole"
-          >
-          <input
-            ref="roleCardInput"
-            class="sr-only"
-            type="file"
-            accept=".json,.png,.webp,application/json,image/png,image/webp"
-            @change="importRoleCard"
-          >
-        </div>
-      </SidebarHeader>
+    <input
+      ref="roleCardInput"
+      class="sr-only"
+      type="file"
+      accept=".json,.png,.webp,application/json,image/png,image/webp"
+      @change="importRoleCard"
+    >
 
-      <SidebarSeparator />
+    <CompanionRoleSelection
+      class="min-h-0 flex-1"
+      :roles="roles"
+      :active-role-id="activeRoleId"
+      :import-role-disabled="importRoleDisabled"
+      :import-role-card-disabled="importRoleCardDisabled"
+      :idle-image-by-pack-id="idleImageByPackId"
+      @create-role="createRole"
+      @edit-role="editRole"
+      @import-role="chooseRoleFile"
+      @import-role-card="openRoleCardImport"
+      @select-role="selectRole"
+    />
 
-      <SidebarContent>
-        <SidebarGroup class="gap-3 px-3 py-3">
-          <div class="flex min-w-0 items-center gap-2">
-            <div class="relative min-w-0 flex-1">
-              <SearchIcon class="pointer-events-none absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground" />
-              <SidebarInput
-                v-model="roleSearchQuery"
-                class="min-w-0 pl-8"
-                :aria-label="t('settings.catAppearance.role.searchLabel')"
-                :placeholder="t('settings.catAppearance.role.searchPlaceholder')"
-              />
-            </div>
-            <Badge
-              variant="outline"
-              class="shrink-0"
-            >
-              {{ filteredRoles.length }}
-            </Badge>
-            <DropdownMenu>
-              <DropdownMenuTrigger as-child>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon-sm"
-                  class="shrink-0"
-                  :aria-label="t('settings.catAppearance.role.actions.more')"
-                >
-                  <MoreHorizontalIcon />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuGroup>
-                  <DropdownMenuItem @select="createRole">
-                    <PlusIcon data-icon="inline-start" />
-                    {{ t('settings.catAppearance.role.actions.add') }}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    :disabled="importRoleDisabled"
-                    @select="chooseRoleFile"
-                  >
-                    <FileJsonIcon data-icon="inline-start" />
-                    {{ t('settings.catAppearance.role.actions.importRole') }}
-                  </DropdownMenuItem>
-                  <DropdownMenuItem
-                    :disabled="importRoleCardDisabled"
-                    @select="openRoleCardImport"
-                  >
-                    <FileJsonIcon data-icon="inline-start" />
-                    {{ t('settings.catAppearance.role.actions.importCard') }}
-                  </DropdownMenuItem>
-                </DropdownMenuGroup>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-
-          <SidebarGroupContent class="min-w-0">
-            <SidebarMenu>
-              <SidebarMenuItem
-                v-for="item in filteredRoles"
-                :key="item.id"
-                class="after:pointer-events-none after:absolute after:inset-x-4 after:bottom-0 after:h-px after:bg-gradient-to-r after:from-transparent after:via-sidebar-border after:to-transparent last:after:hidden"
-              >
-                <SidebarMenuButton
-                  size="lg"
-                  class="h-14 px-3"
-                  :is-active="item.id === activeRoleId"
-                  :tooltip="item.name || t('settings.catAppearance.role.unnamed')"
-                  :aria-current="item.id === activeRoleId ? 'true' : undefined"
-                  @click="selectRole(item)"
-                >
-                  <SparklesIcon />
-                  <span>
-                    {{ item.name || t('settings.catAppearance.role.unnamed') }}
-                  </span>
-                  <CheckIcon
-                    v-if="item.id === activeRoleId"
-                    class="ml-auto text-primary"
-                  />
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            </SidebarMenu>
-            <p
-              v-if="!filteredRoles.length"
-              class="px-3 py-6 text-center text-sm text-muted-foreground"
-            >
-              {{ t('settings.catAppearance.role.noSearchMatch') }}
-            </p>
-          </SidebarGroupContent>
-        </SidebarGroup>
-      </SidebarContent>
-    </Sidebar>
-
-    <SidebarInset class="h-full overflow-hidden">
-      <main class="relative flex h-full min-h-0 flex-1 flex-col bg-transparent">
-        <div class="mx-auto flex h-full min-h-0 w-full max-w-6xl flex-1 flex-col overflow-hidden px-4 py-4 md:px-6 md:py-6">
-          <CompanionRoleEditor
-            v-if="activeRole"
-            :role="activeRole"
-            :can-delete-role="canDeleteRole"
-            :confirm-delete-role-id="confirmDeleteRoleId"
-            @duplicate-role="duplicateActiveRole"
-            @export-role="exportActiveRoleCard"
-            @delete-role="deleteRole"
-          />
-        </div>
-      </main>
-    </SidebarInset>
+    <CompanionRoleEditorModal
+      v-model:open="editorModalOpen"
+      :role="editingRole"
+      :is-active-role="editingRole?.id === activeRoleId"
+      :can-delete-role="canDeleteRole"
+      :confirm-delete-role-id="confirmDeleteRoleId"
+      @duplicate-role="duplicateEditingRole"
+      @export-role="exportEditingRoleCard"
+      @delete-role="deleteRole"
+    />
 
     <RoleCardImportDialog
       v-model:open="roleCardImportDialogOpen"
@@ -727,5 +638,5 @@ function defaultRoleName(): string {
       @choose-file="chooseRoleCardFile"
       @import-json="importPastedRoleCard"
     />
-  </SidebarProvider>
+  </div>
 </template>

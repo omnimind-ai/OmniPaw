@@ -3,7 +3,6 @@ import { createRouter, createWebHashHistory } from 'vue-router'
 import ChatWorkspace from '@/components/chat/ChatWorkspace.vue'
 import ChatContentView from '@/views/ChatContentView.vue'
 import ChatHomeView from '@/views/ChatHomeView.vue'
-import RolesView from '@/views/RolesView.vue'
 import SettingsView from '@/views/SettingsView.vue'
 import VisionHistoryView from '@/views/VisionHistoryView.vue'
 
@@ -38,7 +37,7 @@ export const router = createRouter({
     {
       path: '/roles',
       name: 'roles',
-      component: RolesView,
+      redirect: { name: 'settings', query: { tab: 'roles' } },
     },
     {
       path: '/vision',

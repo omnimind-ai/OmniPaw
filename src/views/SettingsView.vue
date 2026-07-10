@@ -3,6 +3,7 @@ import { storeToRefs } from 'pinia'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import AboutSettingsForm from '@/components/settings/AboutSettingsForm.vue'
+import CompanionRoleSettingsForm from '@/components/settings/CompanionRoleSettingsForm.vue'
 import type { SettingsTab } from '@/components/settings/common/SettingsSidebar.vue'
 import DefaultModelSettingsForm from '@/components/settings/DefaultModelSettingsForm.vue'
 import GeneralSettingsForm from '@/components/settings/GeneralSettingsForm.vue'
@@ -37,7 +38,7 @@ let saveQueued = false
 
 const hasChanges = computed(() => JSON.stringify(draft.value) !== JSON.stringify(config.value))
 const showInitialSkeleton = useDelayedFlag(() => loading.value && !draft.value)
-const fullHeightPanelTabs = new Set<SettingsTab>(['memory', 'skills', 'tools', 'schedule'])
+const fullHeightPanelTabs = new Set<SettingsTab>(['memory', 'roles', 'skills', 'tools', 'schedule'])
 const isFullHeightPanelTab = computed(() => fullHeightPanelTabs.has(activeTab.value))
 const contentClass = computed(() => {
   if (activeTab.value === 'providers') {
@@ -162,6 +163,7 @@ function normalizeSettingsTab(value: unknown): SettingsTab | undefined {
     tab === 'providers' ||
     tab === 'defaults' ||
     tab === 'general' ||
+    tab === 'roles' ||
     tab === 'shortcuts' ||
     tab === 'agent' ||
     tab === 'display' ||
@@ -214,6 +216,12 @@ function normalizeSettingsTab(value: unknown): SettingsTab | undefined {
 
       <MemorySettingsForm
         v-else-if="activeTab === 'memory'"
+        :draft="draft"
+        class="h-full min-h-0 flex-1"
+      />
+
+      <CompanionRoleSettingsForm
+        v-else-if="activeTab === 'roles'"
         :draft="draft"
         class="h-full min-h-0 flex-1"
       />
