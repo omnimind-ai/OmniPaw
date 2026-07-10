@@ -1,125 +1,93 @@
 # 关键文件落点
 
-## Electron 与 IPC
+> 本页只声明责任归属。文件内部结构和调用步骤以代码与对应专题约束为准。
 
-| 职责 | 路径 |
-|------|------|
-| Electron 应用启动编排 | `electron/main.ts` |
-| core 初始化和依赖装配 | `electron/core-runtime.ts` |
-| 主窗口 controller | `electron/main-window.ts` |
-| 托盘 controller | `electron/tray.ts` |
-| IPC 注册入口 | `electron/ipc/index.ts` |
-| IPC 共享注册工具 | `electron/ipc/common.ts` |
-| IPC 注册依赖类型 | `electron/ipc/types.ts` |
+## Electron 与跨进程边界
+
+| 职责 | 权威落点 |
+|------|----------|
+| 应用启动编排 | `electron/main.ts` |
+| core 初始化与依赖装配 | `electron/core-runtime.ts` |
+| 主窗口 | `electron/main-window.ts` |
+| 托盘 | `electron/tray.ts` |
+| 快捷键 | `electron/shortcut-controller.ts` |
+| IPC 总入口 | `electron/ipc/index.ts` |
 | IPC domain handler | `electron/ipc/<domain>.ts` |
-| Workspace IPC | `electron/ipc/workspace.ts` |
-| Terminal process IPC | `electron/ipc/terminal-process.ts` |
-| OmniInfer IPC | `electron/ipc/omniinfer.ts` |
-| OmniInfer 二进制定位 | `electron/omniinfer/binary-locator.ts` |
-| OmniInfer 子进程监管 | `electron/omniinfer/process.ts` |
-| OmniInfer Windows 残留清理 | `electron/omniinfer/windows-cleanup.ts` |
-| Electron 日志 sink | `electron/logging/electron-log-adapter.ts` |
-| 桌宠功能包（窗口、renderer 入口与 UI） | `packages/desktop-pet/` |
-| 桌宠窗口和窗口专属 IPC | `packages/desktop-pet/electron/controller.ts` |
-| contextBridge 暴露、ipcRenderer 调用、事件订阅包装 | `electron/preload.ts` |
-| IPC channel 常量 | `shared/constants.ts` |
-| bridge 契约类型 | `shared/types/bridge.ts` |
-| renderer bridge 与 fallback bridge | `src/bridge/app.ts` |
-| window 类型声明 | `src/types/window.d.ts` |
-| electron-vite 配置 | `electron.vite.config.ts` |
+| IPC 注册公共边界 | `electron/ipc/common.ts`、`electron/ipc/types.ts` |
+| preload bridge | `electron/preload.ts` |
+| Electron 日志适配 | `electron/logging/electron-log-adapter.ts` |
+| OmniInfer 平台适配 | `electron/omniinfer/` |
+| 桌宠 Electron controller | `packages/desktop-pet/electron/controller.ts` |
+| Electron 构建入口 | `electron.vite.config.ts` |
+
+## Shared 契约
+
+| 职责 | 权威落点 |
+|------|----------|
+| IPC channel | `shared/constants.ts` |
+| 完整 bridge 契约 | `shared/types/bridge.ts` |
+| 业务 payload | `shared/types/` |
+| 跨层日志清洗 | `shared/logging/` |
 
 ## Renderer
 
-| 职责 | 路径 |
-|------|------|
-| Vue 入口、Pinia、Router、全局错误提示 | `src/main.ts` |
-| 根组件与全局 Toaster | `src/App.vue` |
-| 路由注册 | `src/router/index.ts` |
-| 聊天页面编排 | `src/views/ChatHomeView.vue` |
-| 设置页面编排与自动保存 | `src/views/SettingsView.vue` |
-| 占位重写页面 | `src/views/RewritePlaceholderView.vue` |
-| 聊天侧栏 | `src/components/ChatSidebar.vue` |
-| 聊天输入区 | `src/components/ChatComposer.vue` |
-| 设置页组件 | `src/components/settings/` |
-| Provider 设置子组件 | `src/components/settings/provider-settings/` |
-| Provider 删除确认弹窗 | `src/components/settings/provider-settings/ProviderDeleteModal.vue` |
-| 本地 Agent 设置 | `src/components/settings/LocalAgentSettingsForm.vue` |
-| OmniInfer Provider 基础配置 Tab | `src/components/settings/provider-settings/ProviderOmniInferBasicTab.vue` |
-| OmniInfer renderer store | `src/stores/omniinfer.ts` |
-| shadcn-vue 组件 | `src/components/ui/` |
-| 聊天 composables | `src/composables/useSessions.ts`、`src/composables/useMessages.ts`、`src/composables/useMediaHandling.ts` |
+| 职责 | 权威落点 |
+|------|----------|
+| 应用入口 | `src/main.ts` |
+| 根组件 | `src/App.vue` |
+| 路由 | `src/router/index.ts` |
+| 聊天工作区壳层 | `src/components/chat/ChatWorkspace.vue` |
+| 聊天首页 | `src/views/ChatHomeView.vue` |
+| 聊天内容页 | `src/views/ChatContentView.vue` |
+| 聊天组件 | `src/components/chat/` |
+| 聊天编排 composables | `src/composables/chat/` |
+| 设置页 | `src/views/SettingsView.vue` |
+| 设置组件 | `src/components/settings/` |
 | Pinia stores | `src/stores/` |
-| Provider 设置草稿与自动保存 | `src/composables/useProviderDraft.ts`、`src/composables/useProviderAutosave.ts` |
-| 全局样式与 Tailwind v4 tokens | `src/styles/main.css` |
-| class 合并工具 | `src/lib/utils.ts` |
-| toast 封装 | `src/utils/toast.ts` |
+| renderer bridge 与降级边界 | `src/bridge/app.ts` |
+| renderer 全局 bridge 声明 | `src/types/window.d.ts` |
+| 国际化 | `src/i18n/` |
+| 全局样式与 tokens | `src/styles/main.css` |
+| 基础 UI | `src/components/ui/` |
+
+## Desktop pet 包
+
+| 职责 | 权威落点 |
+|------|----------|
+| 窗口生命周期与专属 IPC | `packages/desktop-pet/electron/` |
+| Vite HTML 入口 | `packages/desktop-pet/entries/` |
+| 透明视觉层与状态展示 | `packages/desktop-pet/renderer/visual/` |
+| 命中层、拖动与文件投递 | `packages/desktop-pet/renderer/input/` |
+| 桌宠面板 | `packages/desktop-pet/renderer/panel/` |
+| 桌宠气泡 | `packages/desktop-pet/renderer/bubble/` |
+| 桌宠共享契约 | `shared/types/cat.ts`、`shared/types/cat-pet.ts`、`shared/types/cat-appearance.ts` |
+| 桌宠业务状态 | `core/db/repos/cat-pet-repo.ts`、`core/role/` |
 
 ## Core
 
-| 职责 | 路径 |
-|------|------|
-| 聊天服务入口 | `core/chat/chat-service.ts` |
-| 上下文构建 | `core/chat/context-manager.ts` |
-| 运行状态与 stream event | `core/chat/run-manager.ts` |
-| 附件上传、预览、文本提取 | `core/chat/attachment-service.ts` |
-| Agent 运行入口 | `core/agent/agent-runner.ts` |
-| Agent step engine | `core/agent/step-engine.ts` |
-| Agent run 支撑模块 | `core/agent/run/` |
-| 工具调用循环 | `core/agent/tool-loop.ts` |
-| 工具注册 | `core/agent/tools/registry.ts` |
-| 内置工具定义 | `core/agent/tools/builtin-tools.ts` |
-| 工具执行与超时 | `core/agent/tools/executor.ts` |
-| 工具策略 | `core/agent/tools/policy.ts` |
-| Agent workspace | `core/agent/workspace/service.ts` |
-| Terminal service | `core/agent/terminal/terminal-service.ts` |
-| Process supervisor | `core/agent/terminal/process-supervisor.ts` |
-| Provider 管理 | `core/provider/manager.ts` |
-| Provider registry schema | `core/provider/registry-schema.ts` |
-| Provider registry store | `core/provider/registry-store.ts` |
-| Provider 抽象 | `core/provider/base-provider.ts` |
-| OpenAI 兼容 Provider | `core/provider/providers/openai.ts` |
-| OmniInfer Provider | `core/provider/providers/omniinfer.ts` |
-| OmniInfer 控制面 HTTP 客户端 | `core/omniinfer/runtime-client.ts` |
-| OmniInfer 运行时状态服务 | `core/omniinfer/runtime-service.ts` |
-| OmniInfer 已安装模型索引 | `core/omniinfer/installed-models.ts` |
-| OmniInfer 同步 ProviderManager 模型 | `core/omniinfer/sync-provider-models.ts` |
-| OmniInfer 进程 controller 抽象 | `core/omniinfer/process-controller.ts` |
-| Provider 凭据解析 | `core/provider/credentials.ts` |
-| Provider 错误归一化 | `core/provider/errors.ts` |
-| Skill 管理 | `core/skill/skill-manager.ts` |
-| Cron 管理 | `core/cron/cron-manager.ts` |
+| 职责 | 权威落点 |
+|------|----------|
+| 聊天 | `core/chat/` |
+| Agent 与工具 | `core/agent/` |
+| Provider | `core/provider/` |
+| OmniInfer 业务服务 | `core/omniinfer/` |
+| 配置 | `core/config/` |
+| 数据库与 repo | `core/db/` |
+| MCP | `core/mcp/` |
+| Skill | `core/skill/` |
+| Cron | `core/cron/` |
+| Memory | `core/memory/` |
+| Observation | `core/observation/` |
+| Companion role 与形象 | `core/role/` |
+| 平台无关日志 | `core/logging/` |
+| 数据路径 | `core/utils/data-paths.ts` |
 
-## 配置与数据
+## 验证
 
-| 职责 | 路径 |
-|------|------|
-| 配置默认值、迁移、校验、序列化 | `core/config/schema.ts` |
-| 配置文件读写、备份、原子写入 | `core/config/store.ts` |
-| 统一数据根与路径解析 | `core/utils/data-paths.ts` |
-| 工具开关配置适配 | `core/config/tool-settings-store.ts` |
-| 设置共享类型 | `shared/types/settings.ts` |
-| Provider 共享类型 | `shared/types/provider.ts` |
-| Chat 共享类型 | `shared/types/chat.ts` |
-| 本地 Agent 共享类型 | `shared/types/local-agent.ts` |
-| 数据库连接和 migration 执行 | `core/db/client.ts` |
-| migration 列表 | `core/db/migrations.ts` |
-| repo 目录 | `core/db/repos/` |
-| JSON 编解码 | `core/db/json.ts` |
-| 初始数据种子 | `core/db/seed.ts` |
-
-## 脚本与验证
-
-| 职责 | 路径 |
-|------|------|
-| npm 脚本 | `package.json` |
-| Electron native rebuild | `scripts/rebuild-electron-native.mjs` |
-| Electron Node 脚本运行器 | `scripts/run-electron-node.mjs` |
-| 配置 smoke | `tests/smoke/settings-config-smoke.ts` |
-| Provider registry smoke | `tests/smoke/provider-registry-smoke.ts` |
-| 数据库 smoke | `tests/smoke/db-smoke.ts` |
-| 聊天 core smoke | `tests/smoke/chat-core-smoke.ts` |
-| Agent runtime smoke | `tests/smoke/agent-runtime-smoke.ts` |
-| Tool management smoke | `tests/smoke/tool-management-smoke.ts` |
-| Local agent smoke | `tests/smoke/local-agent-smoke.ts` |
-| 架构边界 smoke | `tests/smoke/architecture-boundaries-smoke.ts` |
-| Playwright 配置 | `playwright.config.js` |
+| 职责 | 权威落点 |
+|------|----------|
+| npm scripts | `package.json` |
+| smoke 总入口 | `scripts/run-smoke-tests.mjs` |
+| Electron Node 运行器 | `scripts/run-electron-node.mjs` |
+| smoke 用例 | `tests/smoke/` |
+| 浏览器行为验证 | `tests/`、`playwright.config.js` |

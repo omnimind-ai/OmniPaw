@@ -1,100 +1,86 @@
-# 变更流程与自检
+# 变更验证与交付约束
 
-## 推荐顺序
+## 通用约束
 
-1. 定位任务域，先读 `AGENTS.md` 和对应专题文档。
-2. 用 `rg` 搜现有实现和调用点。
-3. 复用已有边界和同目录写法。
-4. 做最小改动。
-5. 运行与风险匹配的验证命令。
-6. 交付时说明改了什么、验证了什么、未验证什么。
+- MUST：只修改任务范围内的文件，并保留用户已有改动。
+- MUST：跨层契约变更覆盖全部生产者、适配层、消费者和测试。
+- MUST：验证范围与变更风险匹配；高风险变更不得仅以静态检查替代运行时验证。
+- MUST：失败的验证不得被描述为通过；已知无关失败必须与本次变更结果分开报告。
+- MUST：未运行、无法运行或无法人工确认的关键验证在交付中明确说明。
+- MUST：验证命令不得修改、格式化或删除无关用户文件。
 
-## MUST
+## 基础验证
 
-- MUST 不修改无关文件，不格式化无关代码。
-- MUST 不还原用户已有改动。
-- MUST 新增跨层能力时同步所有契约文件。
-- MUST 对数据库、配置、IPC、Provider、Agent 工具等高风险变更运行对应验证，无法运行时说明原因。
-- MUST 在最终说明中报告未运行的关键验证。
+- SHOULD：TypeScript、Vue、shared 契约或 core 变更通过 `pnpm typecheck`。
+- MUST：main、preload、Electron adapter、Vite 入口、桌宠入口或打包边界变更通过 `pnpm build`。
+- MUST：架构边界变更通过 `tests/smoke/architecture-boundaries-smoke.ts`。
+- MAY：纯文档变更只执行 Markdown、链接、路径和 diff 检查。
 
-## SHOULD
+## 领域验证矩阵
 
-- SHOULD 常规 TS/Vue 改动运行 `pnpm typecheck`。
-- SHOULD main/preload/build 配置改动运行 `pnpm build`。
-- SHOULD 配置改动运行 `node scripts/run-electron-node.mjs tests/smoke/settings-config-smoke.ts`。
-- SHOULD Provider registry 改动运行 `node scripts/run-electron-node.mjs tests/smoke/provider-registry-smoke.ts`。
-- SHOULD 数据库改动运行 `node scripts/run-electron-node.mjs tests/smoke/db-smoke.ts`。
-- SHOULD 聊天 core 改动运行 `node scripts/run-electron-node.mjs tests/smoke/chat-core-smoke.ts`。
-- SHOULD Agent/tool 改动运行 `node scripts/run-electron-node.mjs tests/smoke/chat-core-smoke.ts`、`node scripts/run-electron-node.mjs tests/smoke/tool-management-smoke.ts` 或相关 agent smoke。
-- SHOULD 本地 workspace/terminal 改动运行 `node scripts/run-electron-node.mjs tests/smoke/local-agent-smoke.ts`。
-- SHOULD logger / 日志系统改动运行 `node scripts/run-electron-node.mjs tests/smoke/logging-smoke.ts`；如果同时影响 main、preload 或打包链路，再补 `pnpm build`。
-- SHOULD bridge、preload 或 main/core 边界调整运行 `node scripts/run-electron-node.mjs tests/smoke/architecture-boundaries-smoke.ts`。
-- SHOULD UI 行为改动在需要时运行 Playwright；运行前先核对现有测试是否与当前 UI 同步。
+| 变更范围 | 必须覆盖的 smoke 边界 |
+|----------|----------------------|
+| 桌面设置与 schema | `settings-config-smoke.ts` |
+| Provider registry | `provider-registry-smoke.ts` |
+| Provider 流与协议 | `provider-stream-smoke.ts` |
+| 数据库、migration、repo | `db-smoke.ts` |
+| 聊天服务与消息运行 | `chat-core-smoke.ts` |
+| 上下文预算与 Agent 上下文 | `agent-context-smoke.ts` |
+| Agent 执行 | `agent-runtime-smoke.ts` |
+| 工具 catalog、开关与 policy | `tool-management-smoke.ts` |
+| Workspace 与 terminal | `local-agent-smoke.ts` |
+| MCP | `mcp-management-smoke.ts` |
+| Skill | `skill-management-smoke.ts` |
+| Observation manager | `observation-manager-smoke.ts` |
+| Observation bridge | `observation-bridge-smoke.ts` |
+| 日志 | `logging-smoke.ts` |
+| 桌宠命中、拖动与文件投递 | `cat-window-input-smoke.ts` |
+| 桌宠形象包 | `cat-appearance-smoke.ts` |
 
-## MAY
+- MUST：一个变更跨越多个领域时覆盖矩阵中的所有相关边界。
+- SHOULD：难以可靠映射到单个领域的系统性变更运行完整 `pnpm test`。
+- SHOULD：UI 行为变更使用现有 Playwright 或真实 Electron 验证；测试与当前 UI 不一致时不得用过期断言判定产品行为。
 
-- MAY 对纯文档改动只做格式和链接检查。
-- MAY 对局部低风险改动只运行 typecheck，但需判断风险范围。
+## 验证入口
 
-## 验证命令索引
-
-| 场景 | 命令 |
+| 目的 | 入口 |
 |------|------|
 | 全部 smoke | `pnpm test` |
-| TypeScript / Vue 类型 | `pnpm typecheck` |
+| 类型检查 | `pnpm typecheck` |
 | 完整构建 | `pnpm build` |
-| 配置 | `node scripts/run-electron-node.mjs tests/smoke/settings-config-smoke.ts` |
-| Provider registry | `node scripts/run-electron-node.mjs tests/smoke/provider-registry-smoke.ts` |
-| 数据库 | `node scripts/run-electron-node.mjs tests/smoke/db-smoke.ts` |
-| 聊天 core | `node scripts/run-electron-node.mjs tests/smoke/chat-core-smoke.ts` |
-| Agent runtime | `node scripts/run-electron-node.mjs tests/smoke/agent-runtime-smoke.ts` |
-| Tool management | `node scripts/run-electron-node.mjs tests/smoke/tool-management-smoke.ts` |
-| 本地 workspace/terminal | `node scripts/run-electron-node.mjs tests/smoke/local-agent-smoke.ts` |
-| 日志系统 | `node scripts/run-electron-node.mjs tests/smoke/logging-smoke.ts` |
-| 架构边界 | `node scripts/run-electron-node.mjs tests/smoke/architecture-boundaries-smoke.ts` |
+| 单个 smoke | `node scripts/run-electron-node.mjs tests/smoke/<name>.ts` |
 | 本地开发 | `pnpm dev` |
 | 打包目录 | `pnpm pack` |
 | 分发包 | `pnpm dist` |
 
-## 自检清单
+## 领域自检
 
-### 通用
+### IPC 与架构
 
-- [ ] 任务落点正确，没有改参考项目目录。
-- [ ] 没有还原或覆盖用户已有改动。
-- [ ] 新增逻辑复用了现有边界。
-- [ ] 运行了匹配风险的验证。
+- [ ] channel、shared payload、bridge、handler、preload 和 renderer 消费方一致。
+- [ ] renderer 没有 Node/Electron/core 依赖，core 没有 Electron 依赖。
+- [ ] 订阅、窗口和长任务具备清理语义。
 
-### IPC
+### 配置与数据库
 
-- [ ] constants、shared bridge type、domain handler、preload、renderer bridge 已同步。
-- [ ] 新增通用 handler 已接入 `electron/ipc/index.ts` 并复用统一注册包装。
-- [ ] renderer 没有直接访问 Node/Electron/数据库。
-- [ ] 事件订阅有 unsubscribe。
-
-### 配置
-
-- [ ] shared type、默认值、normalize、validate、UI/store 已同步。
-- [ ] Provider registry 没有混入桌面配置或数据库表。
-- [ ] autosave 和 fallback bridge 行为已核对。
-- [ ] 秘密信息没有回显。
-
-### 数据库
-
-- [ ] schema 变更有 migration，符合 [core.md](core.md) 的数据库专题。
-- [ ] repo 映射和 shared 类型已同步。
-- [ ] migration 幂等，空库可运行。
+- [ ] 配置权威来源没有混合，秘密字段没有回显。
+- [ ] schema 变更有新 migration，repo 和 shared 类型一致。
+- [ ] migration、备份和失败恢复语义得到验证。
 
 ### 前端
 
-- [ ] 复用了 shadcn-vue 组件和语义 token。
-- [ ] 设置页和 Provider 页 draft/autosave 未破坏。
-- [ ] loading、disabled、error 状态合理。
+- [ ] store、draft、持久化对象和异步状态保持分离。
+- [ ] UI 使用现有组件、tokens、反馈和国际化边界。
+- [ ] 生命周期资源已释放。
 
 ### Chat / Agent
 
-- [ ] run、message、stream event 状态一致。
-- [ ] abort 路径可结束。
-- [ ] Provider 错误归一化。
-- [ ] 工具风险和权限边界已核对。
-- [ ] workspace/terminal profile、approval、full access 边界已核对。
+- [ ] session、message、run、stream event 和 abort 终态一致。
+- [ ] Provider 错误、fallback、凭据和模型选择边界一致。
+- [ ] 工具、MCP、workspace 和 terminal 权限边界没有扩大。
+
+### Desktop pet
+
+- [ ] 视觉窗与命中窗的位置、缩放、显示状态和命中区域同步。
+- [ ] 透明、置顶、点击穿透、拖动和文件投递语义未退化。
+- [ ] 动画、订阅、计时器和窗口销毁路径完成清理。

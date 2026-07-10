@@ -1,174 +1,82 @@
-# Core 规范
-
-## 建议阅读顺序
-
-按需展开，不要把本页当成必须逐字读完的手册：
-
-1. 只改 main/core 依赖关系：先读 `Core 边界`、`依赖注入与初始化`
-2. 涉及配置文件、Provider 配置、工具开关：再读 `配置`
-3. 涉及本地 workspace、terminal：再读 `配置`
-4. 涉及 SQLite、repo、migration：再读 `数据库`
-5. 涉及聊天、Provider、Agent、工具：再读 [chat-provider-agent.md](chat-provider-agent.md)
-
----
+# Core 约束
 
 ## Core 边界
 
-- MUST：`core/` 是主进程业务核心，只能由 Electron main 侧 runtime、smoke script 等 Node 环境调用。
-- MUST NOT：`core/` 直接导入 `electron` 或 `electron-log`；窗口、WebContents 和 Electron transport 由 `electron/` 适配后通过接口注入。
-- MUST NOT：renderer 或 preload 直接导入 `@core/*`。
-- MUST：跨层类型来自 `shared/types/*`，不要在 core 内定义另一套对外契约。
-- MUST：DB、文件、Provider 网络请求、附件读写只在 main/core 侧发生。
-- MUST：本地 workspace、terminal、进程管理只在 main/core 侧发生，renderer 只能通过 bridge 请求受限能力。
-- MUST：对用户数据路径使用 `core/utils/data-paths.ts` 的统一 resolver，不散落硬编码路径。
-- SHOULD：让 core 代码可被 smoke script 在 Electron Node 环境中运行。
+- MUST：`core/` 只承载平台无关的业务、持久化和 Node 侧服务。
+- MUST NOT：`core/` 导入 `electron`、`electron-log`、BrowserWindow、WebContents 或其他 Electron transport 类型。
+- MUST NOT：renderer 或 preload 导入 `@core/*`。
+- MUST：Electron 平台能力通过 `electron/` 中的 adapter/controller 以接口形式注入 core。
+- MUST：跨层公开类型来自 `shared/types/*`，不得在 core 中复制 renderer/main 契约。
+- MUST：数据库、文件、Provider 网络、附件、workspace、terminal 和进程管理仅在 main/core 侧发生。
+- MUST：用户数据路径通过统一数据路径边界解析，不得在业务域散落硬编码路径。
 
-## 依赖注入与初始化
+## 初始化与依赖
 
-- MUST：在 `electron/core-runtime.ts` 统一初始化 core 依赖，`electron/main.ts` 只负责启动编排。
-- MUST：core 能力通过 `CoreRuntime` 注入 `electron/ipc/<domain>.ts` 的 IPC handler 暴露。
-- MUST：保持 service / manager / repo 分层；service/manager 承担业务流程，repo 只处理持久化映射。
-- MUST：通过构造函数注入依赖，不在业务方法中临时 new 另一个跨域 service。
-- SHOULD：保持 `electron/ipc/<domain>.ts` 的 handler 薄，参数归一化后交给 core。
-- SHOULD：让 manager 负责跨配置和运行时状态协调，repo 不处理业务决策。
-- SHOULD：避免循环依赖；需要共享能力时抽出更小 service 或纯函数。
+- MUST：core 依赖由 `electron/core-runtime.ts` 统一装配，`electron/main.ts` 只持有启动和平台生命周期编排。
+- MUST：IPC 通过 `CoreRuntime` 暴露 core 能力，窗口专属平台能力通过对应 controller 暴露。
+- MUST：service/manager 承担业务流程，repo 承担持久化映射；repo 不作跨域业务决策。
+- MUST：跨域依赖通过构造或显式工厂注入，不得在业务方法中隐式创建全局 service。
+- SHOULD：依赖方向保持单向，公共能力优先下沉为平台无关接口或纯函数。
 
-## 错误与秘密信息
+## 错误、日志与秘密
 
-- MUST：Provider 错误使用 `normalizeProviderError` 归一化。
-- MUST：配置错误返回结构化 `SettingsOperationError`。
-- MUST：对秘密信息做脱敏处理，不在错误、日志、IPC payload 中泄露 API key。
-- SHOULD：对可恢复错误保留 retryable 或 recoverable 信息。
-
-## 日志与可观测性
-
-- MUST：core / main 统一通过项目 logger 输出结构化日志，不直接使用 `console.*` 作为业务日志通道；`electron-log` 只允许出现在日志适配层。
-- MUST：Electron 专属日志 sink 位于 `electron/logging/`，`core/logging/` 只保留平台无关的 logger 和 sink 接口。
-- MUST：logger 通过构造函数注入到 service / manager / repo 边界，子域通过 `child()` 派生 scope，不在业务方法里临时 new 另一个 logger。
-- MUST：日志只保留 id、status、duration、error code/message、retryable/recoverable、fallback reason 等结构化字段，不记录 prompt、system prompt、role prompt、mask text、附件正文、Provider 响应体、API key、凭据、terminal env 或 MCP 原始 env/header。
-- MUST：日志写入前必须经过现有脱敏和截断流程，sink 失败不得影响主流程，只能降级为丢弃或失败计数。
-- SHOULD：诊断信息优先写入 scope 和 context，避免把长文本 stack 或自由文本拼成不可检索字段。
-
----
+- MUST：Provider、配置和其他可恢复错误保留稳定的结构化 code 与恢复语义。
+- MUST：日志使用项目 logger；`electron-log` 仅允许出现在 `electron/logging/` 的平台适配层。
+- MUST：core logger 和 sink 接口保持平台无关，并通过依赖注入进入业务边界。
+- MUST：日志在写入前完成脱敏和截断；sink 失败不得改变业务结果。
+- MUST NOT：日志、错误或快照记录 prompt、角色文本、消息正文、附件正文、工具参数/结果、Provider 回包、凭据、terminal env 或 MCP 原始 env/header。
+- SHOULD：日志只保留追踪 id、状态、耗时、错误 code 和恢复/fallback 信息。
 
 ## 配置
 
-配置主落点是 `core/config/`，renderer 侧草稿与表单约束见 [frontend.md](frontend.md)。
+- MUST：桌面设置、Provider registry、MCP registry 和工具开关保持各自权威存储，不得重新混合为一个隐式配置源。
+- MUST：`DesktopSettingsConfig` 是桌面设置的完整契约；Provider 运行态不从已废弃的桌面 settings provider 字段或数据库表恢复。
+- MUST：配置读写保持校验、规范化、版本拒绝、备份、原子替换和 clone 语义。
+- MUST：新增或修改配置字段时，shared 类型、schema 默认与兼容语义、持久化、store、UI 和测试必须同步。
+- MUST：Provider registry 的 source、model、默认/fallback 引用和 credential 处理由 Provider 边界统一维护。
+- MUST：删除 Provider source/model 时清理所有失效引用，不得留下悬空默认模型、fallback 或 session override。
+- MUST：凭据不得进入 registry 的 renderer 可见结果或日志。
+- MUST：配置中存在 Provider preset 不代表 Provider 已具备执行能力。
+- MUST：工具开关的配置、管理服务、工具可见性和 renderer 状态保持一致。
 
-### 数据根
+## 数据路径
 
-- MUST：Electron 业务数据统一从 `<appData>/omnipaw/` 派生，路径解析集中在 `core/utils/data-paths.ts`。
-- MUST：配置、Provider registry 和 MCP registry 位于统一数据根的 `config/` 子目录；SQLite、skill state、skills、附件、agent workspace 和业务日志位于同一数据根下的各自子路径。
-- SHOULD：内部开发阶段以当前统一数据根为唯一真实来源，不做旧路径隐式迁移。
-
-### 配置对象
-
-- MUST：以 `DesktopSettingsConfig` 作为桌面配置的唯一完整对象。
-- MUST：保存完整配置对象，不写散落的局部配置文件。
-- MUST：通过 `ConfigStore` 读写配置，保持备份、原子写入、错误状态和 clone 语义。
-- MUST：配置版本由 `CURRENT_SETTINGS_VERSION` 管理；不允许静默接受未来版本。
-- SHOULD：新增字段提供向后兼容 normalize 行为，让旧配置自动补齐默认值。
-
-### 配置字段变更
-
-新增或修改配置字段时：
-
-- MUST：同步更新 `shared/types/settings.ts`。
-- MUST：同步更新 `core/config/schema.ts` 的默认值、normalize、validate、serialize 兼容逻辑。
-- MUST：同步更新 `src/bridge/app.ts` 的 bridge 配置类型。
-- MUST：同步更新 `src/stores/settings.ts` 和相关设置 UI。
-
-### Provider 配置
-
-- MUST：Provider 配置来源于独立 Provider registry 文件（默认 `providers.json`），不从桌面配置 `DesktopSettingsConfig.providers` 读取运行时 Provider 状态，也不重新引入数据库 Provider 表。
-- MUST：通过 `core/provider/registry-store.ts` 读写 Provider registry，保持备份、原子写入、错误状态和 clone 语义。
-- MUST：Provider registry 默认是空 sources、空 models、无默认模型；不要在配置默认值里创建空占位 Provider。
-- MUST：默认模型和 fallback 模型只能通过 Provider registry 的显式设置操作写入，保存 source/model 或刷新模型不能隐式写默认模型。
-- MUST：删除 Provider source/model 时在 core 侧集中清理 registry default、fallback refs 和 chat session overrides，并向 renderer 返回建议的 next selection。
-- MUST：保存 Provider 时处理 credential，不把 API key 回显到 renderer 的 provider registry、provider 列表或日志中。
-- MUST：认清 Provider 配置与 Provider 执行实现不是一回事；新增 preset 不代表该 Provider 已可执行。
-- SHOULD：Provider 模型、能力、compat 字段保持 registry、shared type、UI 三侧命名一致。
-
-### 工具开关配置
-
-- MUST：工具开关通过 `tools.enabledByName` 管理。
-- MUST：保持 `ToolManagementService` 与 `ConfigToolSettingsStore` 的同步。
-- SHOULD：工具开关保存后广播 settings changed 事件，保证 renderer 状态可刷新。
-
----
+- MUST：Electron 业务数据从统一 OmniPaw 数据根派生。
+- MUST：配置、数据库、日志、skills、附件、形象包和 agent workspace 使用统一 resolver 提供的子路径。
+- MUST：路径迁移必须显式、可验证且保护现有数据；不得静默读取多个来源后产生不确定优先级。
 
 ## 数据库
 
-数据库主落点是 `core/db/`。当前使用 SQLite + better-sqlite3。
+- MUST：数据库连接、初始化和 migration 由 `core/db/` 统一管理。
+- MUST：保持外键完整性、并发读写和失败恢复语义。
+- MUST：任何 schema 变更都追加新的、单调递增且可重复安全检查的 migration；不得改写已发布 migration 的语义。
+- MUST：schema、repo 映射和 shared/domain 类型同步变化。
+- MUST：repo 返回 domain/shared 类型，不向 service 或 renderer 泄露裸数据库 row。
+- MUST：SQL 不得散落在 renderer、IPC handler 或业务 service。
+- MUST：JSON 和时间字段沿用统一编码语义，多步写操作保持事务一致性。
+- MUST：已有软删除、级联和引用清理语义不得被无关变更改变。
+- SHOULD：查询和索引变更必须以真实访问模式和 migration 可验证性为依据。
 
-### 连接
-
-- MUST：使用 `DatabaseClient` 统一连接数据库。
-- MUST：保持 `foreign_keys = ON`、`journal_mode = WAL`、`busy_timeout = 5000` 初始化行为。
-- MUST：Electron 环境数据库路径保持在统一数据根下的 `omnipaw.sqlite3`。
-
-### Schema 与 Migration
-
-任何 schema 变更都必须通过 migration 管理。
-
-变更 Playbook：
-
-1. 在 `core/db/migrations.ts` 追加 migration。
-2. migration id 单调递增，不复用旧 id。
-3. migration SQL 必须幂等，空库和已有库都能跑通。
-4. 新表、新列、新索引同步 repo 映射和 shared 类型。
-5. 运行 `node scripts/run-electron-node.mjs tests/smoke/db-smoke.ts` 和 typecheck。
-
-约束：
-
-- MUST：migration 由 `runMigrations` 在事务中应用。
-- MUST NOT：修改已发布 migration 的语义。
-- MUST NOT：重新引入已迁出到配置文件的 Provider/app settings 数据库表。
-- SHOULD：对高频查询补索引，并在 migration 中创建。
-- SHOULD：对回填 migration 明确重复执行时的行为。
-
-### Repo
-
-- MUST：repo 负责表字段和 domain 类型之间的映射，不把 SQL 散落到 service 或 renderer。
-- MUST：repo 返回 shared/domain 类型，不返回裸 row。
-- MUST：JSON 字段通过 `core/db/json.ts` 的 encode/decode 语义处理。
-- MUST：时间字段继续使用 Unix ms number，保持 shared 类型一致。
-- MUST：用户删除会话时遵守当前软删除语义，除非用户明确要求物理删除。
-- SHOULD：repo 方法使用 prepared statement 和命名参数。
-- SHOULD：多步写操作使用 better-sqlite3 transaction。
-- SHOULD：保持 DB 类型由 `core/db/types.ts` 转发 shared 类型，避免 core/db 独立分叉。
-
----
-
-## 常见落点
+## 权威落点
 
 | 职责 | 路径 |
 |------|------|
-| 初始化和依赖装配 | `electron/core-runtime.ts` |
-| main 启动编排 | `electron/main.ts` |
-| IPC handler | `electron/ipc/<domain>.ts` |
-| 聊天业务 | `core/chat/` |
-| Agent 和工具 | `core/agent/` |
+| core 装配 | `electron/core-runtime.ts` |
+| 聊天 | `core/chat/` |
+| Agent 与工具 | `core/agent/` |
 | Provider | `core/provider/` |
-| 配置 schema | `core/config/schema.ts` |
-| 配置读写 | `core/config/store.ts` |
-| 工具配置适配 | `core/config/tool-settings-store.ts` |
-| 本地 workspace | `core/agent/workspace/service.ts` |
-| terminal service | `core/agent/terminal/terminal-service.ts` |
-| process supervisor | `core/agent/terminal/process-supervisor.ts` |
-| 本地 Agent 共享类型 | `shared/types/local-agent.ts` |
-| 数据库连接 | `core/db/client.ts` |
-| Migration | `core/db/migrations.ts` |
-| Repo | `core/db/repos/` |
+| 配置 | `core/config/` |
+| 数据库 | `core/db/` |
+| 平台无关日志 | `core/logging/` |
+| Electron 日志适配 | `electron/logging/` |
+| 数据路径 | `core/utils/data-paths.ts` |
 | 共享类型 | `shared/types/` |
 
-## 自检清单
+## 自检约束
 
-- [ ] renderer 没有导入 core。
-- [ ] 业务逻辑没有堆进 preload。
-- [ ] 新能力通过 shared 类型跨层。
-- [ ] 依赖从 `electron/core-runtime.ts` 初始化链路进入。
-- [ ] 配置字段变更同步了 shared type、默认值、normalize、validate、UI/store。
-- [ ] workspace/terminal 变更保持 main/core 边界和 profile/approval 语义。
-- [ ] schema 变更有新 migration，repo 映射和 shared 类型已同步。
-- [ ] smoke script 可覆盖的路径已运行或说明未运行原因。
+- [ ] core 没有 Electron 依赖，renderer/preload 没有 core 依赖。
+- [ ] 新能力沿 runtime 注入链路进入，没有隐藏全局依赖。
+- [ ] 配置或 Provider 变更同步了全部权威存储和消费者。
+- [ ] schema 变更有新 migration，repo 与 shared 类型一致。
+- [ ] 错误和日志未扩大秘密信息暴露面。
+- [ ] 相关架构、配置、数据库或领域 smoke 已通过。

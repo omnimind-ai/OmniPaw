@@ -1,109 +1,72 @@
-# Electron / IPC 规范
-
-## 建议阅读顺序
-
-按需展开：
-
-1. renderer/main 通信：读 `安全边界`、`Bridge 与 IPC`
-2. 新增 IPC：读 `IPC 变更 Playbook`
-3. 新增跨进程事件：读 `事件`
-4. 修改窗口行为：读 `窗口与外链`
-
----
+# Electron / IPC 约束
 
 ## 安全边界
 
-- MUST：保持 renderer 安全边界：`contextIsolation: true`、`nodeIntegration: false`。
-- MUST：通过 preload 的 `contextBridge.exposeInMainWorld('omniPaw', bridge)` 暴露能力。
-- MUST NOT：renderer 导入或使用 `electron`、`ipcRenderer`、`fs`、`path`、`better-sqlite3`、`@core/*`。
-- MUST：敏感字段不能通过 renderer 可见对象回传；Provider API key 等秘密只能在 main/core 边界处理。
+- MUST：所有 renderer 保持 `contextIsolation: true` 和 `nodeIntegration: false`。
+- MUST：renderer 只能通过 preload 暴露的 `omniPaw` bridge 使用主进程能力。
+- MUST NOT：renderer 导入或使用 Electron、Node、数据库、文件系统、`@core/*` 或 `ipcRenderer`。
+- MUST：秘密信息只能在 main/core 边界解析；不得通过 bridge 返回凭据、原始 Provider payload、附件正文或进程环境。
 
-## Bridge 与 IPC
+## 契约边界
 
-- MUST：IPC channel 名称集中放在 `shared/constants.ts`。
-- MUST：跨进程 API 契约集中放在 `shared/types/bridge.ts` 和对应 `shared/types/*`。
-- MUST：preload、renderer 全局声明和 renderer `appBridge` 直接使用 `OmniPawBridge`；不得在 renderer 再定义一套完整 bridge interface。
-- MUST：通用 IPC handler 按业务域放在 `electron/ipc/*.ts`，由 `electron/ipc/index.ts` 统一注册；`electron/main.ts` 只负责启动编排和调用注册入口。
-- MUST：IPC handler 通过 `CoreRuntime` 依赖调用 core service/manager，不把业务规则写进 preload。
-- MUST：新增通用 IPC 域时复用 `electron/ipc/common.ts` 的 `registerLoggedIpcHandler`，保持统一日志、耗时和失败记录。
-- MUST：renderer 通过 `appBridge.logging` 上报日志，preload 只做参数归一化和转发，不直接负责持久化或把日志写到 `console.*`。
-- MUST：logging IPC 只接收已规范化的 level、scope、message、context、error、timestamp，不允许透传原始 request body、Provider payload、附件 bytes 或凭据。
-- MUST：通用 IPC handler 的完成 / 失败日志只记录 channel、duration、错误 code、recoverable 等结构化信息，不记录入参与返回值正文。
-- MUST：`electron/ipc/types.ts` 只放 IPC 注册依赖类型，不放业务类型、channel 常量或 handler 实现。
-- MUST：与窗口状态强耦合的窗口专属 IPC 可以留在对应窗口模块，例如桌宠 IPC 留在 `packages/desktop-pet/electron/controller.ts`。
-- MUST：Workspace IPC 只暴露当前 session 的 managed workspace 操作，路径和敏感规则由 core 校验，不在 preload/renderer 自行拼路径。
-- MUST：Terminal process IPC 只暴露已登记进程的 list/get/kill，不新增 renderer 可传任意 command 的 invoke；命令执行必须走 Agent tool + policy/approval。
-- MUST：terminal/process IPC payload 不包含 env 和凭据；进程输出只返回受配置截断的结果或 tail，不进入 IPC 日志。
-- MUST：preload 只做参数兼容、错误解包、订阅/退订包装，不做业务持久化。
-- MUST：settings 类错误保持结构化结果，preload 再转换为可抛出的 `SettingsOperationError`。
-- MUST：fallback bridge 只用于 UI 空态和开发预览；保存、删除、刷新远程、测试 Provider 等持久化或外部副作用不能假成功。
-- MUST：fallback bridge 的 logging 只返回降级状态，不得假装已落盘或可用。
-- SHOULD：IPC handler 尽量薄，参数归一化后交给 core 服务。
-- SHOULD：兼容旧调用签名的归一化逻辑集中在对应 `electron/ipc/<domain>.ts` 或 preload 的现有 normalize 函数附近。
-- SHOULD：按 `IPC_CHANNELS` 的业务域拆分 IPC 文件，避免把无关 handler 混入同一个模块。
-- SHOULD：主进程、preload、renderer 的异常诊断统一走 logger，不把 `console` 作为正式观测通道。
-- MAY：为过渡期保留 legacy bridge 方法，但新增功能应优先走结构化 request。
+- MUST：IPC channel 的唯一来源是 `shared/constants.ts`。
+- MUST：完整 bridge 契约的唯一来源是 `shared/types/bridge.ts`；业务 payload 来自对应的 `shared/types/*`。
+- MUST：preload、renderer 全局声明和 `appBridge` 直接依赖 `OmniPawBridge`，不得再定义第二套完整 bridge interface。
+- MUST：新增或修改跨进程能力时，channel、shared payload、bridge、handler、preload、renderer 消费方和相关测试必须保持一致。
+- SHOULD：新接口使用结构化 request/response；兼容签名只能保留在明确的边界适配层，不得扩散到业务实现。
 
-## IPC 变更 Playbook
+## Main 与 IPC
 
-新增 IPC 方法时：
+- MUST：通用 IPC handler 按业务域归属 `electron/ipc/`，由统一入口注册；`electron/main.ts` 只承担应用启动和平台编排。
+- MUST：handler 通过 `CoreRuntime` 或明确的平台 controller 调用能力，不得在 preload 中实现业务规则或持久化。
+- MUST：通用 invoke handler 复用统一的注册、日志和错误边界；窗口专属 IPC 可以归属对应功能包。
+- MUST：preload 只承担参数边界、错误解包和订阅封装，不持有业务状态。
+- MUST：fallback bridge 只提供无副作用的降级体验；保存、删除、执行、刷新远端和其他副作用不得假成功。
+- SHOULD：handler 保持薄边界，业务决策归属 core service/manager，平台行为归属 Electron controller/adapter。
 
-1. 在 `shared/constants.ts` 增加 channel。
-2. 在 `shared/types/*` 定义 request/response 类型。
-3. 在 `shared/types/bridge.ts` 增加 bridge 方法签名。
-4. 在对应 `electron/ipc/<domain>.ts` 注册 handler 并调用 core；没有对应域时新增 domain 文件并接入 `electron/ipc/index.ts`。
-5. 在 `electron/preload.ts` 暴露方法。
-6. 在 `src/bridge/app.ts` 更新类型导出和 fallback 行为。
-7. 更新 renderer 调用方。
+## 事件与生命周期
 
-约束：
+- MUST：事件 channel 和 payload 由 `shared/` 定义。
+- MUST：每个订阅 API 返回可重复安全调用的退订函数。
+- MUST：renderer 在组件、composable 或窗口生命周期结束时取消订阅。
+- MUST：流式、耗时或可取消任务通过平台无关的事件目标和取消契约与 core 交互，不得把 `WebContents` 注入 core。
+- MUST：窗口销毁、应用退出和任务中止时停止向失效目标发送事件。
 
-- MUST：以上文件同步完成后才算新增 IPC 完整。
-- MUST：renderer 调用方使用 `appBridge`，不绕过 preload。
-- MUST：新增 handler 使用 `registerLoggedIpcHandler`，除非是明确不走 invoke 的事件订阅或窗口专属 IPC。
-- MUST：新增 IPC 不把新的 core/service 单例挂到 `electron/main.ts`，依赖应通过 `CoreRuntime` 或对应窗口模块边界传入。
+## 高风险能力
 
-## 事件
-
-- MUST：事件 channel 放在 `shared/constants.ts`。
-- MUST：事件 payload 放在 `shared/types/*`。
-- MUST：preload 中用统一 unsubscribe 包装。
-- MUST：renderer 组件或 composable 卸载时取消订阅。
-- SHOULD：跨窗口广播使用 `BrowserWindow.getAllWindows()`，并使用统一 IPC channel。
-- SHOULD：耗时、可取消、流式任务传入 `webContents` 或 AbortSignal，避免全局单例事件混乱。
+- MUST：Workspace IPC 仅暴露当前 session 的受管工作区能力；路径校验由 core 完成。
+- MUST：Terminal process IPC 仅允许查询和终止已登记进程；renderer 不得通过 IPC 直接执行任意命令。
+- MUST：进程输出必须受截断限制，进程环境和凭据不得进入 payload 或日志。
+- MUST：设置和 Provider 操作保留结构化错误，renderer 不得依赖解析自由文本判断恢复策略。
+- MUST：日志 IPC 只接收已规范化、脱敏的结构化字段，不记录 handler 入参和返回正文。
 
 ## 窗口与外链
 
-- MUST：主动阻止新窗口在 WebContents 中打开。
-- MUST：外链交给 `shell.openExternal`。
-- SHOULD：保持 main 初始化顺序清晰：初始化 core、注册 IPC、创建窗口。
-- SHOULD：保持 main/preload 输出 CJS 的构建配置不被无关改动影响。
+- MUST：应用阻止未经处理的新 WebContents 窗口。
+- MUST：外部链接交由系统浏览器，并在打开前执行协议和目标校验。
+- MUST：窗口创建、恢复、关闭和退出语义由对应 Electron controller 统一拥有。
+- MUST：桌宠窗口遵守 [desktop-pet.md](desktop-pet.md) 的透明、置顶、点击穿透和多窗口同步约束。
+- SHOULD：main/preload 的输出格式和安全选项不得被无关 renderer 变更影响。
 
-## 常见落点
+## 权威落点
 
 | 职责 | 路径 |
 |------|------|
 | IPC channel | `shared/constants.ts` |
-| bridge 类型 | `shared/types/bridge.ts` |
-| preload 暴露 | `electron/preload.ts` |
+| bridge 契约 | `shared/types/bridge.ts` |
+| preload | `electron/preload.ts` |
 | IPC 总入口 | `electron/ipc/index.ts` |
-| IPC 共享注册工具 | `electron/ipc/common.ts` |
-| IPC 注册依赖类型 | `electron/ipc/types.ts` |
-| IPC domain handler | `electron/ipc/<domain>.ts` |
-| Workspace IPC | `electron/ipc/workspace.ts` |
-| Terminal process IPC | `electron/ipc/terminal-process.ts` |
-| 窗口专属 IPC | 对应窗口模块，例如 `packages/desktop-pet/electron/controller.ts` |
-| main 启动编排 | `electron/main.ts` |
-| renderer bridge/fallback | `src/bridge/app.ts` |
-| window 类型 | `src/types/window.d.ts` |
+| IPC domain | `electron/ipc/<domain>.ts` |
+| main 编排 | `electron/main.ts` |
+| core 装配 | `electron/core-runtime.ts` |
+| renderer bridge | `src/bridge/app.ts` |
+| 桌宠窗口 | `packages/desktop-pet/electron/controller.ts` |
 
-## 自检清单
+## 自检约束
 
-- [ ] IPC 新能力完成 constants、shared types、domain handler、preload、renderer bridge 同步。
-- [ ] 新增通用 handler 已接入 `electron/ipc/index.ts` 并使用统一注册包装。
-- [ ] renderer 没有绕过 `appBridge`。
-- [ ] 事件订阅有 unsubscribe。
-- [ ] 敏感字段没有暴露给 renderer。
-- [ ] terminal 没有新增可直接执行任意命令的 renderer IPC。
-- [ ] role prompt、terminal env、Provider key 没有进入 IPC 日志。
-- [ ] main/preload 构建 alias 和输出格式未被无关修改。
+- [ ] 完整 bridge 契约没有重复定义。
+- [ ] 所有跨层生产者和消费者使用同一 shared payload。
+- [ ] renderer 没有绕过 preload/appBridge。
+- [ ] 订阅、流式任务和窗口销毁路径有清理语义。
+- [ ] 敏感信息、命令执行和文件访问边界没有扩大。
+- [ ] main/preload/功能包变更通过架构边界验证和完整构建。

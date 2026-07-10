@@ -1,103 +1,83 @@
 # OmniPaw Electron Agent 地图
 
-> 这是一份定位地图，不是手册。先读这里，再按任务类型跳到专题文档。
+> 这是一份定位地图，只描述长期边界、变更约束和文档入口，不记录具体实现步骤。
 
-## 项目概况
+## 项目边界
 
-Electron 桌面客户端。
-
-- 主进程：`electron/`
-- 业务核心：`core/`
+- Electron 主进程与平台适配：`electron/`
+- 平台无关业务核心：`core/`
 - 跨进程契约：`shared/`
 - Vue renderer：`src/`
-- 跨进程功能包：`packages/`（当前包含 `desktop-pet/`）
+- 跨进程功能包：`packages/`，当前包含桌宠包 `packages/desktop-pet/`
 - 构建：electron-vite + Vue 3 + TypeScript + Pinia + shadcn-vue + Tailwind v4
 - 数据：better-sqlite3 + 本地 JSON 配置
 
-`AstrBot/`、`OmniPaw/` 是参考资料或外部项目快照，不是当前项目的默认修改落点。
+被标记为参考项目、外部快照或本地素材工作区的目录不属于默认修改范围。
 
-## 关键词优先级
+## 关键词
 
-- **MUST**：必须遵守，违反即视为实现不合格
-- **SHOULD**：默认做法，有明确原因可偏离，交付时说明
-- **MAY**：允许选项
+- **MUST**：必须满足的边界或不变量
+- **SHOULD**：默认约束；偏离时必须有明确理由
+- **MAY**：允许但不要求
 
-当本文档与用户明确需求冲突时，以用户需求为准。
-
----
+用户明确需求高于本文档；安全边界和数据保护要求除非被用户明确、合法地重新授权，否则不得放宽。
 
 ## 核心约束
 
-1. **先定位再改动**：新增路由、IPC、配置字段、DB 字段、工具或 Provider 前，先搜现有落点。
-2. **复用现有边界**：renderer 通过 `appBridge` 访问能力；main 通过 `core/` 服务和 manager 执行业务；跨层类型放 `shared/types/`。
-3. **同步跨文件契约**：IPC、配置、数据库 schema、聊天消息结构、Provider 能力变更都必须同步相关类型、实现和调用点。
-4. **不改参考项目**：除非用户点名，不能把变更写进 `AstrBot/`、`OmniPaw/`、`example/`。
-5. **最小可行改动**：优先沿用当前目录的写法，不顺手重构、格式化或迁移无关代码。
-6. **保护安全边界**：renderer 不直接访问 Node、Electron 主进程对象、数据库或文件系统。
+1. **先定位再改动**：新增路由、IPC、配置、数据库字段、工具、Provider 或窗口能力前，MUST 先确认现有责任边界和调用方。
+2. **保持分层**：renderer MUST 通过 `appBridge` 请求主进程能力；Electron 层 MUST 通过 runtime 调用 core；跨层类型 MUST 由 `shared/` 提供。
+3. **保持单一契约**：IPC、配置、数据库、聊天消息、Provider 和桌宠状态发生变化时，MUST 同步所有生产者、消费者和验证边界，不得复制第二套完整契约。
+4. **保护平台边界**：`core/` MUST NOT 依赖 Electron；renderer MUST NOT 直接依赖 Node、Electron、数据库或文件系统。
+5. **保护功能包边界**：桌宠的窗口、入口和专属 renderer MUST 留在 `packages/desktop-pet/`；通用业务能力仍归属 `core/`，跨进程契约仍归属 `shared/`。
+6. **限制变更范围**：MUST 保留用户已有改动，不修改无关文件，不把变更写入参考项目或外部快照。
 
-## 何时必须问用户
+## 必须向用户确认的情况
 
-仅以下情况追问，否则按最简单解释执行：
+仅在下列情况中止并确认；其他情况按最小、可逆且符合现有边界的解释执行：
 
-- 需要破坏性数据迁移、删除用户数据或改变配置兼容策略
-- 需要新增依赖、替换 UI 基础库、调整构建链路或大改目录结构
-- UI 入口位置、默认行为或自动保存策略存在多种合理方案且会影响长期使用习惯
-- 需要修改参考项目目录或引入参考项目代码
-- 需要保存、展示或传递新的敏感信息
+- 破坏性迁移、删除用户数据或改变兼容策略
+- 新增依赖、替换基础 UI、调整构建链路或大改目录边界
+- 多种长期行为都合理，且选择会改变用户习惯或产品语义
+- 必须修改参考项目、外部快照或引入其中代码
+- 新增敏感信息的保存、展示或传递
 
 ## 快速落点
 
 详见 [docs/anchors.md](docs/anchors.md)。
 
-| 类型 | 文件 |
-|------|------|
-| Electron main 启动编排 | `electron/main.ts` |
-| IPC 注册入口 | `electron/ipc/index.ts` |
-| IPC domain handler | `electron/ipc/<domain>.ts` |
+| 职责 | 权威落点 |
+|------|----------|
+| Electron 启动编排 | `electron/main.ts` |
+| core 依赖装配 | `electron/core-runtime.ts` |
+| IPC 注册 | `electron/ipc/` |
 | preload bridge | `electron/preload.ts` |
-| renderer bridge 包装 | `src/bridge/app.ts` |
+| renderer bridge | `src/bridge/app.ts` |
 | IPC channel | `shared/constants.ts` |
-| bridge 类型 | `shared/types/bridge.ts` |
+| bridge 契约 | `shared/types/bridge.ts` |
 | Vue 路由 | `src/router/index.ts` |
-| 设置状态 | `src/stores/settings.ts` |
-| Provider 状态 | `src/stores/provider.ts` |
-| 聊天页面 | `src/views/ChatHomeView.vue` |
+| 聊天工作区 | `src/components/chat/ChatWorkspace.vue` |
 | 设置页面 | `src/views/SettingsView.vue` |
-| 桌宠窗口、入口与 UI | `packages/desktop-pet/` |
-| core 初始化 | `electron/core-runtime.ts` |
+| 桌宠功能包 | `packages/desktop-pet/` |
 | 数据库迁移 | `core/db/migrations.ts` |
 | 配置 schema | `core/config/schema.ts` |
-| OmniInfer 进程监管 | `electron/omniinfer/process.ts` |
-| OmniInfer 控制面服务 | `core/omniinfer/runtime-service.ts` |
-| OmniInfer provider | `core/provider/providers/omniinfer.ts` |
-| OmniInfer 设置 UI（"模型服务"→ omniinfer-local provider 的"基础配置" tab） | `src/components/settings/provider-settings/ProviderOmniInferBasicTab.vue` |
+| Provider | `core/provider/` |
+| OmniInfer 进程适配 | `electron/omniinfer/` |
+| OmniInfer 业务服务 | `core/omniinfer/` |
 
-## 渐进式披露阅读顺序
+## 文档路由
 
-1. 先读本文件，确定任务域和默认落点。
-2. 不确定文件位置：读 [docs/anchors.md](docs/anchors.md)。
-3. 涉及 Vue、Pinia、shadcn-vue、页面或样式：读 [docs/frontend.md](docs/frontend.md)。
-4. 涉及 IPC、preload、Electron 窗口或跨进程 API：读 [docs/electron-ipc.md](docs/electron-ipc.md)。
-5. 涉及 core service、manager、repo 依赖关系：读 [docs/core.md](docs/core.md)。
-6. 涉及设置页草稿、Provider 设置 UI：读 [docs/frontend.md](docs/frontend.md) 的设置专题。
-7. 涉及配置文件、Provider 配置持久化、工具开关、SQLite、repo、schema 或 migration：读 [docs/core.md](docs/core.md) 的配置/数据库专题。
-8. 涉及聊天、Provider 执行、agent、tool、skill、cron、附件或流式事件：读 [docs/chat-provider-agent.md](docs/chat-provider-agent.md)。
-9. 交付前：读 [docs/workflow.md](docs/workflow.md)。
+- 文件落点不明确：读 [docs/anchors.md](docs/anchors.md)
+- Vue、Pinia、页面或样式：读 [docs/frontend.md](docs/frontend.md)
+- Electron、IPC、preload 或窗口：读 [docs/electron-ipc.md](docs/electron-ipc.md)
+- core、配置、数据库或 repo：读 [docs/core.md](docs/core.md)
+- 聊天、Provider、Agent、工具、Skill、Cron 或附件：读 [docs/chat-provider-agent.md](docs/chat-provider-agent.md)
+- 桌宠窗口、输入、动效或面板：读 [docs/desktop-pet.md](docs/desktop-pet.md)
+- 形象资源包契约：读 [docs/cat-appearance-packs.md](docs/cat-appearance-packs.md)
+- 验证与交付：读 [docs/workflow.md](docs/workflow.md)
 
-## 专题文档索引
+## 交付约束
 
-| 任务类型 | 读取文档 |
-|----------|----------|
-| 文件落点不清楚 | [docs/anchors.md](docs/anchors.md) |
-| 前端页面、组件、样式、Pinia | [docs/frontend.md](docs/frontend.md) |
-| Electron main / preload / IPC | [docs/electron-ipc.md](docs/electron-ipc.md) |
-| core 层服务、配置、数据库、repo、migration | [docs/core.md](docs/core.md) |
-| 设置页、Provider 设置 UI、autosave | [docs/frontend.md](docs/frontend.md) |
-| 聊天、Provider、Agent、工具、附件 | [docs/chat-provider-agent.md](docs/chat-provider-agent.md) |
-| 验证与交付自检 | [docs/workflow.md](docs/workflow.md) |
-
-## 交付要求
-
-- 常规 TypeScript / Vue 变更：优先运行 `pnpm typecheck`。
-- 影响 main/preload/打包链路：运行 `pnpm build`。
-- 影响数据库、配置、聊天 core、agent/tool：按 [docs/workflow.md](docs/workflow.md) 选择对应 smoke script。
+- 常规 TypeScript / Vue 变更 SHOULD 通过类型检查。
+- main、preload、构建入口或跨进程功能包变更 MUST 通过完整构建。
+- 配置、数据库、聊天、Provider、Agent、工具、桌宠和架构边界变更 MUST 运行与风险匹配的 smoke 验证。
+- 未运行或无法完成的关键验证 MUST 在交付中明确说明。

@@ -1,31 +1,23 @@
-# OmniPaw electron重写
+# OmniPaw 产品约束
 
-我们对于 OmniPaw 的产品期望是：
+## 产品定位
 
-1. 桌面端助手
-2. 主要开源用于宣传 OmniInfer 这个项目（本地部署 7b - 20b 大小的模型，且对端侧模型运行进行优化）
-3. 开箱即用，配置用户友好
-4. 对 7b - 20b 左右的小模型的小模型进行优化
-5. 足够日常使用即可，场景偏向办公/桌面互动/玩具
+- MUST：OmniPaw 是开箱即用的 Electron 桌面助手，而不是通用 Agent 平台或网关管理器。
+- MUST：产品优先支持日常办公、桌面互动和轻量陪伴场景。
+- MUST：OmniInfer 是核心本地模型运行能力，产品体验应突出本地部署与端侧模型优化价值。
+- SHOULD：默认体验面向约 7B–20B 级别的端侧模型，避免以超大模型能力作为基本可用前提。
+- SHOULD：配置项保持用户可理解，复杂能力不得无条件暴露为首屏负担。
 
-之前的 OmniPaw 使用的是 OpenClaw 二开 + tauri 套壳的方案，经过几次迭代出现以下问题：
+## 技术与架构
 
-1. 代码仓库难以维护，openclaw的仓库大且耦合度高
-2. openclaw 依赖多，打包体积逼近500mb左右
-3. tauri 悬浮窗实现不成熟
-4. openclaw 的高级功能太复杂，配置太多，用户难上手，且因为1的原因难以进行优化
+- MUST：桌面运行时使用 Electron，renderer 使用 Vue 3 + TypeScript。
+- MUST：UI、Electron 平台适配、业务 core 和跨进程 shared 契约保持分层。
+- MUST：renderer 不能直接访问数据库、文件系统、模型进程或 Provider 凭据。
+- MUST：本地模型、OpenAI 兼容 Provider、上下文、Skill、工具和定时任务共享统一的聊天与 Agent 运行边界。
+- MUST：桌宠作为独立跨进程功能包维护，不得重新散落到根目录、通用 renderer 或 main 启动文件。
 
-现在希望通过 electron 重写，脱离之前 gateway 借助 tauri sidecar 模型部署的模式，让OmniPaw更加类似桌面应用
+## 范围控制
 
-打算基于 Astrbot 的逻辑进行重写，因为Astrbot 的基础更好，且代码更加可维护，可借鉴
-
-基础先实现类似功能：
-
-1. 基础的openai兼容端口的llm对话，预留多rovider 接口
-2. 上下文管理
-3. skill 能力
-4. 定时任务能力（或许可参考openclaw）
-
-大致思路是 ui层 + core（类似backend）层，然后ui 调 core 的相关 api
-
-技术栈暂定 vue + ts
+- MUST：新增高级能力前证明其符合桌面助手定位，并能在默认配置下保持可发现、可理解和可关闭。
+- MUST：不得为了兼容旧架构重新引入 gateway/sidecar 式 UI-core 耦合或庞大的外部项目依赖面。
+- SHOULD：优先完善现有聊天、桌宠、本地模型、上下文、Skill、工具和定时任务体验，再扩展新的平台级能力。
