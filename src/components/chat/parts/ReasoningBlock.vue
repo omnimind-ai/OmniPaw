@@ -2,8 +2,8 @@
 import { BrainIcon, ChevronDownIcon } from '@lucide/vue'
 import { computed, ref, watch } from 'vue'
 
-import { Button } from '@/components/ui/button'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
+import { Marker, MarkerContent, MarkerIcon } from '@/components/ui/marker'
 import type { MessagePart } from '@/composables/useMessages'
 import { cn } from '@/lib/utils'
 import MarkdownMessagePart from './MarkdownMessagePart.vue'
@@ -45,31 +45,31 @@ watch(
   <Collapsible
     v-if="text"
     v-model:open="open"
-    class="w-full border-l pl-2.5"
+    class="w-full"
   >
     <div class="flex min-w-0 flex-col gap-1.5">
       <CollapsibleTrigger as-child>
-        <Button
+        <Marker
+          as="button"
           type="button"
-          variant="ghost"
-          size="xs"
-          class="h-6 w-full justify-between px-0 text-xs font-normal text-muted-foreground hover:bg-transparent hover:text-foreground"
+          class="min-h-6 cursor-pointer rounded-md px-1 py-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50"
         >
-          <span class="flex min-w-0 items-center gap-2">
-            <BrainIcon data-icon="inline-start" />
-            <span class="truncate">{{ streaming ? '正在推理' : '推理过程' }}</span>
-          </span>
-          <span class="flex shrink-0 items-center">
+          <MarkerIcon>
+            <BrainIcon />
+          </MarkerIcon>
+          <MarkerContent :class="cn('min-w-0 flex-1 truncate', streaming && 'shimmer')">
+            {{ streaming ? '正在推理' : '推理过程' }}
+          </MarkerContent>
+          <MarkerIcon class="ml-auto">
             <ChevronDownIcon
-              data-icon="inline-end"
               :class="cn('transition-transform', open && 'rotate-180')"
             />
-          </span>
-        </Button>
+          </MarkerIcon>
+        </Marker>
       </CollapsibleTrigger>
 
       <CollapsibleContent>
-        <div class="pt-1">
+        <div class="pt-1 pl-6">
           <MarkdownMessagePart
             :content="text"
             class="text-[0.72rem] leading-4"

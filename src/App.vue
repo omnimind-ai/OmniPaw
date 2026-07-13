@@ -264,7 +264,7 @@ onBeforeUnmount(() => {
   <div
     data-app-shell
     :data-custom-background="hasCustomBackground ? 'true' : undefined"
-    class="relative isolate flex h-svh min-h-0 flex-col overflow-hidden bg-background text-foreground"
+    class="relative flex h-svh min-h-0 flex-col overflow-hidden bg-background text-foreground"
   >
     <div
       v-if="hasCustomBackground"

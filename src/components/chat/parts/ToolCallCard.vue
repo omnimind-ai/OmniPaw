@@ -26,6 +26,7 @@ import { useI18n } from 'vue-i18n'
 import { appBridge } from '@/bridge/app'
 import { Button } from '@/components/ui/button'
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible'
+import { Marker, MarkerContent, MarkerIcon } from '@/components/ui/marker'
 import type { ToolCall } from '@/composables/useMessages'
 import { cn } from '@/lib/utils'
 import { errorToText, useToast } from '@/utils/toast'
@@ -105,6 +106,12 @@ const statusLabel = computed(() => {
   return t('chat.toolCall.status.running')
 })
 
+const progressing = computed(
+  () => status.value === 'running' || (status.value === 'pending' && !approvalPending.value)
+)
+
+const statusLabelClass = computed(() => cn('shrink-0 text-xs', progressing.value && 'shimmer'))
+
 const statusIcon = computed(() => {
   if (status.value === 'error') return XCircleIcon
   if (status.value === 'denied') return ShieldOffIcon
@@ -173,51 +180,51 @@ async function decideToolApproval(action: 'approve' | 'reject') {
 <template>
   <Collapsible
     v-model:open="open"
-    class="w-full border-l pl-2.5"
+    class="w-full"
   >
     <div class="flex min-w-0 flex-col gap-1.5">
       <CollapsibleTrigger as-child>
-        <Button
+        <Marker
+          as="button"
           type="button"
-          variant="ghost"
-          size="xs"
           :disabled="!detailRows.length"
-          class="h-6 w-full justify-between px-0 text-xs font-normal text-muted-foreground hover:bg-transparent hover:text-foreground disabled:opacity-100"
+          class="min-h-6 cursor-pointer rounded-md px-1 py-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 disabled:cursor-default"
           :aria-label="t('chat.toolCall.expandDetails')"
         >
-          <span class="flex min-w-0 items-center gap-2">
+          <MarkerIcon>
             <component
               :is="statusIcon"
-              data-icon="inline-start"
-              :class="cn(status === 'running' && 'animate-spin')"
-              aria-hidden="true"
+              :class="cn(progressing && 'animate-spin')"
             />
+          </MarkerIcon>
+          <MarkerContent class="flex min-w-0 flex-1 items-center gap-2">
             <span class="min-w-0 truncate font-medium">
               {{ label }}
             </span>
-            <span class="shrink-0 text-muted-foreground/70">
+            <span :class="statusLabelClass">
               {{ statusLabel }}
             </span>
             <span
               v-if="toolCall.durationMs"
-              class="shrink-0 text-muted-foreground/70"
+              class="shrink-0 text-xs text-muted-foreground/70"
             >
               {{ Math.round(Number(toolCall.durationMs)) }} ms
             </span>
-          </span>
-          <span class="flex shrink-0 items-center">
+          </MarkerContent>
+          <MarkerIcon
+            v-if="detailRows.length"
+            class="ml-auto"
+          >
             <ChevronDownIcon
-              v-if="detailRows.length"
-              data-icon="inline-end"
               :class="cn('transition-transform', open && 'rotate-180')"
             />
-          </span>
-        </Button>
+          </MarkerIcon>
+        </Marker>
       </CollapsibleTrigger>
 
       <div
         v-if="approvalPending"
-        class="flex flex-wrap items-center gap-1.5"
+        class="flex flex-wrap items-center gap-1.5 pl-6"
       >
         <Button
           type="button"
@@ -240,7 +247,7 @@ async function decideToolApproval(action: 'approve' | 'reject') {
       </div>
 
       <CollapsibleContent v-if="detailRows.length">
-        <div class="flex max-w-full flex-col gap-2 pt-1">
+        <div class="flex max-w-full flex-col gap-2 pt-1 pl-6">
           <div
             v-for="[title, value] in detailRows"
             :key="title"

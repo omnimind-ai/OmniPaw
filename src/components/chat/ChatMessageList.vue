@@ -2,6 +2,7 @@
 import { computed, ref } from 'vue'
 
 import { Button } from '@/components/ui/button'
+import { Marker, MarkerContent } from '@/components/ui/marker'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Textarea } from '@/components/ui/textarea'
 import type {
@@ -201,10 +202,6 @@ function messageErrorStatusClass(record: ChatRecord) {
   return cn(messageStatusClass(record), 'text-destructive')
 }
 
-function messageThinkingStatusClass(record: ChatRecord) {
-  return cn(messageStatusClass(record), 'text-muted-foreground')
-}
-
 function isLocalGreeting(record: ChatRecord) {
   const companionRole = record.metadata?.companionRole
   return Boolean(
@@ -317,12 +314,15 @@ function fileChangesFor(record: ChatRecord) {
             </p>
           </div>
 
-          <span
+          <Marker
             v-else-if="showThinkingFallback(record, recordIndex)"
-            :class="messageThinkingStatusClass(record)"
+            role="status"
+            class="px-1 py-1"
           >
-            正在思考...
-          </span>
+            <MarkerContent class="shimmer">
+              正在思考...
+            </MarkerContent>
+          </Marker>
 
           <MessageFilesChangedCard
             v-if="!isUserMessage(record) && sessionId && fileChangesFor(record).length"
