@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { DownloadIcon, FolderOpenIcon, GithubIcon, RotateCwIcon } from 'lucide-vue-next'
+import { CodeIcon, DownloadIcon, FolderOpenIcon, RotateCwIcon } from '@lucide/vue'
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 
@@ -153,7 +153,7 @@ function openGithub() {
           class="h-11 w-full"
           @click="openGithub"
         >
-          <GithubIcon data-icon="inline-start" />
+          <CodeIcon data-icon="inline-start" />
           {{ $t('settings.about.buttons.openGithub') }}
         </Button>
       </div>

@@ -1,6 +1,6 @@
 <script setup lang="ts">
+import { BookOpenIcon, CheckIcon, PencilIcon, PlusIcon, Trash2Icon } from '@lucide/vue'
 import type { CompanionRoleKnowledgeEntry } from '@shared/types/companion-role'
-import { BookOpenIcon, CheckIcon, PencilIcon, PlusIcon, Trash2Icon } from 'lucide-vue-next'
 import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import SettingEntry from '@/components/settings/common/SettingEntry.vue'

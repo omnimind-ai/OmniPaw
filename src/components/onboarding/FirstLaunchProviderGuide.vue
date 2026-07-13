@@ -1,10 +1,4 @@
 <script setup lang="ts">
-import type {
-  ProviderCapabilities,
-  ProviderCompat,
-  ProviderModel,
-  SaveProviderRequest,
-} from '@shared/types/provider'
 import {
   CloudIcon,
   KeyRoundIcon,
@@ -12,7 +6,13 @@ import {
   LaptopIcon,
   Loader2Icon,
   SparklesIcon,
-} from 'lucide-vue-next'
+} from '@lucide/vue'
+import type {
+  ProviderCapabilities,
+  ProviderCompat,
+  ProviderModel,
+  SaveProviderRequest,
+} from '@shared/types/provider'
 import { storeToRefs } from 'pinia'
 import { type Component, computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'

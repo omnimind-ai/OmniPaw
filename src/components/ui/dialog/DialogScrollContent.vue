@@ -1,6 +1,6 @@
 <script setup lang="ts">
+import { XIcon } from '@lucide/vue'
 import { reactiveOmit } from '@vueuse/core'
-import { XIcon } from 'lucide-vue-next'
 import type { DialogContentEmits, DialogContentProps } from 'reka-ui'
 import {
   DialogClose,

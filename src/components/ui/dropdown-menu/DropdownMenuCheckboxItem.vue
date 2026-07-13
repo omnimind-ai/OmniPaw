@@ -1,6 +1,6 @@
 <script setup lang="ts">
+import { CheckIcon } from '@lucide/vue'
 import { reactiveOmit } from '@vueuse/core'
-import { CheckIcon } from 'lucide-vue-next'
 import type { DropdownMenuCheckboxItemEmits, DropdownMenuCheckboxItemProps } from 'reka-ui'
 import { DropdownMenuCheckboxItem, DropdownMenuItemIndicator, useForwardPropsEmits } from 'reka-ui'
 import type { HTMLAttributes } from 'vue'

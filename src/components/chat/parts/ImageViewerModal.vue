@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { DownloadIcon, RotateCcwIcon, XIcon, ZoomInIcon, ZoomOutIcon } from 'lucide-vue-next'
+import { DownloadIcon, RotateCcwIcon, XIcon, ZoomInIcon, ZoomOutIcon } from '@lucide/vue'
 import { DialogClose, DialogContent, DialogOverlay, DialogPortal, DialogTitle } from 'reka-ui'
 import { computed, ref, watch } from 'vue'
 

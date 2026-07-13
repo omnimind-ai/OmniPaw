@@ -1,11 +1,11 @@
 <script setup lang="ts">
+import { Settings2Icon } from '@lucide/vue'
 import type { CatPetInteractionConfig, CatPetInteractionDefinition } from '@shared/types/cat-pet'
 import {
   CAT_PET_ACTIONS,
   defaultCatPetInteractionConfigs,
   normalizeCatPetInteractionConfigs,
 } from '@shared/types/cat-pet'
-import { Settings2Icon } from 'lucide-vue-next'
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { Button } from '@/components/ui/button'

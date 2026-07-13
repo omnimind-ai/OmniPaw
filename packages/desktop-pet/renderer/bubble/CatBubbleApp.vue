@@ -1,7 +1,7 @@
 <script setup lang="ts">
+import { ChevronDownIcon, GiftIcon, XIcon } from '@lucide/vue'
 import type { CatBubbleDismissReason, CatBubbleEvent, CatPanelPlacement } from '@shared/types/cat'
 import type { CatPetGiftUnlock } from '@shared/types/cat-pet'
-import { ChevronDownIcon, GiftIcon, XIcon } from 'lucide-vue-next'
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { appBridge } from '@/bridge/app'

@@ -1,10 +1,10 @@
 <script setup lang="ts">
+import { ImageIcon, PackagePlusIcon } from '@lucide/vue'
 import type {
   CatAppearanceListResponse,
   CatAppearancePackSummary,
   CatAppearanceResolvedPack,
 } from '@shared/types/cat-appearance'
-import { ImageIcon, PackagePlusIcon } from 'lucide-vue-next'
 import { computed, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import {

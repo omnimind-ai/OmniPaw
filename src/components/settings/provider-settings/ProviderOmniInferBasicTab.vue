@@ -1,6 +1,6 @@
 <script setup lang="ts">
+import { CloudIcon, FolderOpenIcon } from '@lucide/vue'
 import type { OmniInferProcessState } from '@shared/types/omniinfer'
-import { CloudIcon, FolderOpenIcon } from 'lucide-vue-next'
 import { storeToRefs } from 'pinia'
 import { computed, onBeforeUnmount, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'

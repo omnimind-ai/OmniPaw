@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { BrainIcon, ChevronDownIcon } from 'lucide-vue-next'
+import { BrainIcon, ChevronDownIcon } from '@lucide/vue'
 import { computed, ref, watch } from 'vue'
 
 import { Button } from '@/components/ui/button'

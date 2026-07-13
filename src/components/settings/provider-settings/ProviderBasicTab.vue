@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { CloudIcon, LogInIcon, LogOutIcon, RefreshCwIcon } from 'lucide-vue-next'
+import { CloudIcon, LogInIcon, LogOutIcon, RefreshCwIcon } from '@lucide/vue'
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { BridgeOpenAICodexOAuthStatus } from '@/bridge/app'

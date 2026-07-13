@@ -12,7 +12,7 @@ import {
   Trash2Icon,
   UsersRoundIcon,
   XIcon,
-} from 'lucide-vue-next'
+} from '@lucide/vue'
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { ChatCompanionRoleOption } from '@/components/chat/chat-workspace-context'
@@ -175,9 +175,6 @@ const activeCompanionRole = computed(
 )
 const activeCompanionRoleName = computed(
   () => activeCompanionRole.value?.name || t('chat.sidebar.footer.role.fallbackName')
-)
-const activeCompanionRoleDescription = computed(
-  () => activeCompanionRole.value?.description || t('chat.sidebar.footer.role.descriptionFallback')
 )
 const companionRoleMenuWidth = computed(() =>
   isMobile.value ? SIDEBAR_WIDTH_MOBILE : SIDEBAR_WIDTH
@@ -519,9 +516,6 @@ function updateCompanionRole(value: unknown): void {
                 </Avatar>
                 <div class="grid min-w-0 flex-1 text-left leading-tight group-data-[collapsible=icon]:hidden">
                   <span class="truncate text-sm font-medium">{{ activeCompanionRoleName }}</span>
-                  <span class="truncate text-xs text-muted-foreground">
-                    {{ activeCompanionRoleDescription }}
-                  </span>
                 </div>
               </SidebarMenuButton>
             </DropdownMenuTrigger>

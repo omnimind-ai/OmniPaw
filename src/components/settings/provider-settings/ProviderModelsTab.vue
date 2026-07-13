@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { PlusIcon, RefreshCwIcon } from 'lucide-vue-next'
+import { PlusIcon, RefreshCwIcon } from '@lucide/vue'
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 

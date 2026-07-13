@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import type { CronTask } from '@shared/types/cron'
 import {
   ClipboardListIcon,
   HistoryIcon,
@@ -11,7 +10,8 @@ import {
   SlidersHorizontalIcon,
   Trash2Icon,
   XIcon,
-} from 'lucide-vue-next'
+} from '@lucide/vue'
+import type { CronTask } from '@shared/types/cron'
 import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import SettingsPanelHeader from '@/components/settings/common/SettingsPanelHeader.vue'

@@ -1,10 +1,4 @@
 <script setup lang="ts">
-import type {
-  CatPetAction,
-  CatPetGiftDefinition,
-  CatPetInteractionDefinition,
-} from '@shared/types/cat-pet'
-import { defaultCatPetGiftConfigs } from '@shared/types/cat-pet'
 import {
   ArrowLeftIcon,
   GiftIcon,
@@ -15,7 +9,13 @@ import {
   RefreshCwIcon,
   SmileIcon,
   SparklesIcon,
-} from 'lucide-vue-next'
+} from '@lucide/vue'
+import type {
+  CatPetAction,
+  CatPetGiftDefinition,
+  CatPetInteractionDefinition,
+} from '@shared/types/cat-pet'
+import { defaultCatPetGiftConfigs } from '@shared/types/cat-pet'
 import { storeToRefs } from 'pinia'
 import type { Component } from 'vue'
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'

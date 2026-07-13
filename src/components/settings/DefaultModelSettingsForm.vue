@@ -8,7 +8,7 @@ import {
   ListChecksIcon,
   PlusIcon,
   Trash2Icon,
-} from 'lucide-vue-next'
+} from '@lucide/vue'
 import { storeToRefs } from 'pinia'
 import type { AcceptableValue } from 'reka-ui'
 import { computed, ref } from 'vue'

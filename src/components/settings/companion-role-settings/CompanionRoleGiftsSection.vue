@@ -1,7 +1,7 @@
 <script setup lang="ts">
+import { GiftIcon, PencilIcon } from '@lucide/vue'
 import type { CatPetGiftConfig } from '@shared/types/cat-pet'
 import { defaultCatPetGiftConfigs, normalizeCatPetGiftConfigs } from '@shared/types/cat-pet'
-import { GiftIcon, PencilIcon } from 'lucide-vue-next'
 import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import SettingsPanelItem from '@/components/settings/common/SettingsPanelItem.vue'

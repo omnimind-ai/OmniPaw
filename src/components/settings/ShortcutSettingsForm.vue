@@ -1,10 +1,10 @@
 <script setup lang="ts">
+import { KeyboardIcon, RotateCcwIcon } from '@lucide/vue'
 import type {
   ShortcutAction,
   ShortcutRegistrationStatus,
   ShortcutStatusChangedEvent,
 } from '@shared/types/shortcuts'
-import { KeyboardIcon, RotateCcwIcon } from 'lucide-vue-next'
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { BridgeDesktopSettingsConfig } from '@/bridge/app'

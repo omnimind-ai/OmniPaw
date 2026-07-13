@@ -1,10 +1,10 @@
 <script setup lang="ts">
+import { EyeIcon, EyeOffIcon, Loader2Icon, RefreshCwIcon } from '@lucide/vue'
 import type {
   ObservationChangedEvent,
   ObservationErrorInfo,
   ObservationRun,
 } from '@shared/types/observation'
-import { EyeIcon, EyeOffIcon, Loader2Icon, RefreshCwIcon } from 'lucide-vue-next'
 import { storeToRefs } from 'pinia'
 import { computed, onMounted, watch } from 'vue'
 import { Badge } from '@/components/ui/badge'

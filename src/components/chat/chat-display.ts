@@ -1,4 +1,4 @@
-import { CameraIcon, FileIcon, ImageIcon, MicIcon, VideoIcon } from 'lucide-vue-next'
+import { CameraIcon, FileIcon, ImageIcon, MicIcon, VideoIcon } from '@lucide/vue'
 import type { Component } from 'vue'
 
 import type { ChatContent, ChatRecord, MessagePart, ToolCall } from '@/composables/useMessages'

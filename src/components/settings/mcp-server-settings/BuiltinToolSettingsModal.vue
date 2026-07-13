@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { SlidersHorizontalIcon, WrenchIcon } from 'lucide-vue-next'
+import { SlidersHorizontalIcon, WrenchIcon } from '@lucide/vue'
 import { useI18n } from 'vue-i18n'
 import type { BridgeManagedToolInfo } from '@/bridge/app'
 import { Badge, type BadgeVariants } from '@/components/ui/badge'

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { SearchIcon, XIcon } from 'lucide-vue-next'
+import { SearchIcon, XIcon } from '@lucide/vue'
 import type { HTMLAttributes } from 'vue'
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'

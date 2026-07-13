@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ArrowDownIcon } from 'lucide-vue-next'
+import { ArrowDownIcon } from '@lucide/vue'
 import { useI18n } from 'vue-i18n'
 
 import { appBridge } from '@/bridge/app'

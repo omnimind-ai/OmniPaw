@@ -1,10 +1,10 @@
 <script setup lang="ts">
+import { ImageIcon } from '@lucide/vue'
 import type {
   CatAppearanceAssetKey,
   CatAppearancePackSummary,
   CatAppearanceResolvedPack,
 } from '@shared/types/cat-appearance'
-import { ImageIcon } from 'lucide-vue-next'
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import doTaskImage from '@/asserts/cat/anim_cat_doing_task.webp'

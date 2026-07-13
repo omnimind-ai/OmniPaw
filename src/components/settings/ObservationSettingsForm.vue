@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { PlayCircleIcon, ShieldIcon, TimerIcon } from 'lucide-vue-next'
+import { PlayCircleIcon, ShieldIcon, TimerIcon } from '@lucide/vue'
 import { computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { BridgeDesktopSettingsConfig } from '@/bridge/app'

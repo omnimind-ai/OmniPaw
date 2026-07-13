@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { CloudIcon, PlusIcon, SearchIcon, Trash2Icon } from 'lucide-vue-next'
+import { CloudIcon, PlusIcon, SearchIcon, Trash2Icon } from '@lucide/vue'
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { BridgeProviderPreset } from '@/bridge/app'

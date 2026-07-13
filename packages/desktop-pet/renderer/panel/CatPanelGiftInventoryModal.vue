@@ -1,6 +1,6 @@
 <script setup lang="ts">
+import { GiftIcon, LockIcon, XIcon } from '@lucide/vue'
 import type { CatPetGiftDefinition } from '@shared/types/cat-pet'
-import { GiftIcon, LockIcon, XIcon } from 'lucide-vue-next'
 import {
   DialogClose as RekaDialogClose,
   DialogContent as RekaDialogContent,

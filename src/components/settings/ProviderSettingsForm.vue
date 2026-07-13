@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { PlugIcon } from 'lucide-vue-next'
+import { PlugIcon } from '@lucide/vue'
 import { storeToRefs } from 'pinia'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'

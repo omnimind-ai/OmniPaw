@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import type { AgentWorkspaceFileEntry, AgentWorkspaceStatus } from '@shared/types/local-agent'
 import {
   ChevronDownIcon,
   DownloadIcon,
@@ -7,7 +6,8 @@ import {
   FolderOpenIcon,
   RefreshCwIcon,
   Trash2Icon,
-} from 'lucide-vue-next'
+} from '@lucide/vue'
+import type { AgentWorkspaceFileEntry, AgentWorkspaceStatus } from '@shared/types/local-agent'
 import { computed, type HTMLAttributes, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { appBridge } from '@/bridge/app'

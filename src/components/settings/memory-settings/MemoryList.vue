@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import type { CompanionMemoryItem } from '@shared/types/memory'
 import {
   ArchiveIcon,
   BrainIcon,
@@ -12,7 +11,8 @@ import {
   SlidersHorizontalIcon,
   Trash2Icon,
   XIcon,
-} from 'lucide-vue-next'
+} from '@lucide/vue'
+import type { CompanionMemoryItem } from '@shared/types/memory'
 import type { HTMLAttributes } from 'vue'
 import { useI18n } from 'vue-i18n'
 import SettingsPanelHeader from '@/components/settings/common/SettingsPanelHeader.vue'

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ExternalLinkIcon, XIcon } from 'lucide-vue-next'
+import { ExternalLinkIcon, XIcon } from '@lucide/vue'
 
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'

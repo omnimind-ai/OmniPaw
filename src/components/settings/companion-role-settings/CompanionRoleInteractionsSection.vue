@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { HandIcon } from '@lucide/vue'
 import type { CatPetInteractionConfig } from '@shared/types/cat-pet'
 import {
   CAT_PET_ACTIONS,
@@ -7,7 +8,6 @@ import {
   defaultCatPetInteractionConfigs,
   normalizeCatPetInteractionConfigs,
 } from '@shared/types/cat-pet'
-import { HandIcon } from 'lucide-vue-next'
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import SettingEntry from '@/components/settings/common/SettingEntry.vue'

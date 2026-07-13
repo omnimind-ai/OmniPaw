@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ExternalLinkIcon, FileDownIcon, ReplyIcon } from 'lucide-vue-next'
+import { ExternalLinkIcon, FileDownIcon, ReplyIcon } from '@lucide/vue'
 import { computed, ref } from 'vue'
 
 import { Badge } from '@/components/ui/badge'

@@ -6,7 +6,7 @@ import {
   GitBranchIcon,
   RefreshCwIcon,
   TextQuoteIcon,
-} from 'lucide-vue-next'
+} from '@lucide/vue'
 import { computed } from 'vue'
 
 import { Badge } from '@/components/ui/badge'

@@ -7,7 +7,7 @@ import {
   MicIcon,
   VideoIcon,
   XIcon,
-} from 'lucide-vue-next'
+} from '@lucide/vue'
 import { computed, reactive, watch } from 'vue'
 import { appBridge } from '@/bridge/app'
 import {

@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import type { ToolProfile } from '@shared/types/chat'
 import {
   ArrowUpIcon,
   CpuIcon,
@@ -9,7 +8,8 @@ import {
   SparklesIcon,
   SquareIcon,
   XIcon,
-} from 'lucide-vue-next'
+} from '@lucide/vue'
+import type { ToolProfile } from '@shared/types/chat'
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import ChatContextUsageIndicator from '@/components/chat/ChatContextUsageIndicator.vue'

@@ -1,6 +1,6 @@
 <script setup lang="ts">
+import { PlusIcon, SaveIcon, XIcon } from '@lucide/vue'
 import type { CreateCronTaskRequest, CronTask, UpdateCronTaskRequest } from '@shared/types/cron'
-import { PlusIcon, SaveIcon, XIcon } from 'lucide-vue-next'
 import { computed, reactive, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { Button } from '@/components/ui/button'

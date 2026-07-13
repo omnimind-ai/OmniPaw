@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ImageIcon, MessagesSquareIcon, SlidersHorizontalIcon, Trash2Icon } from 'lucide-vue-next'
+import { ImageIcon, MessagesSquareIcon, SlidersHorizontalIcon, Trash2Icon } from '@lucide/vue'
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type {

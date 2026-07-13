@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { CopyIcon, MinusIcon, SquareIcon, XIcon } from 'lucide-vue-next'
+import { CopyIcon, MinusIcon, SquareIcon, XIcon } from '@lucide/vue'
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 
 import brandLogoUrl from '@/asserts/brand-logo.png'

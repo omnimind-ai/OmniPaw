@@ -10,7 +10,7 @@ import {
   Trash2Icon,
   UserRoundIcon,
   XIcon,
-} from 'lucide-vue-next'
+} from '@lucide/vue'
 import { storeToRefs } from 'pinia'
 import type { AcceptableValue } from 'reka-ui'
 import { computed, type HTMLAttributes, ref } from 'vue'

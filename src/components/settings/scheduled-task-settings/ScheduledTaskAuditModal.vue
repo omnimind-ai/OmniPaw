@@ -1,6 +1,6 @@
 <script setup lang="ts">
+import { RefreshCwIcon } from '@lucide/vue'
 import type { CronRun, CronTask } from '@shared/types/cron'
-import { RefreshCwIcon } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'

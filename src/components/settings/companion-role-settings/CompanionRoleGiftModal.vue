@@ -1,11 +1,11 @@
 <script setup lang="ts">
+import { GiftIcon, ImagePlusIcon, XIcon } from '@lucide/vue'
 import type { CatPetGiftConfig, CatPetGiftImage } from '@shared/types/cat-pet'
 import {
   CAT_PET_GIFT_IMAGE_ACCEPT,
   CAT_PET_GIFT_IMAGE_MAX_BYTES,
   normalizeCatPetGiftImageMimeType,
 } from '@shared/types/cat-pet'
-import { GiftIcon, ImagePlusIcon, XIcon } from 'lucide-vue-next'
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { Button } from '@/components/ui/button'
