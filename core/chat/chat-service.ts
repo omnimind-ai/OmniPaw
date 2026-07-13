@@ -44,7 +44,6 @@ import {
   buildCompanionRoleKnowledgeInstruction,
   companionRoleKnowledgeScanDepth,
   compileCompanionRoleInstruction,
-  renderCompanionRoleTemplate,
 } from '../prompts'
 import type { AttachmentService } from './attachment-service'
 import type { ContextCompactionService } from './context-compaction'
@@ -208,10 +207,6 @@ export class ChatService {
       metadata: request.metadata,
     })
     this.options.sessions.save(session)
-    const greetingSeeded =
-      kind === 'cat'
-        ? this.seedCompanionRoleGreeting(session, this.options.companionRoleDefaults?.())
-        : false
     this.logger?.info('Chat session created.', {
       sessionId: session.id,
       kind: session.kind,
@@ -219,7 +214,7 @@ export class ChatService {
       modelId: session.defaultModelId,
       roleRefId: session.systemContext?.role?.refId,
     })
-    return greetingSeeded ? (this.options.sessions.get(session.id) ?? session) : session
+    return session
   }
 
   async getOrCreateSession(request: GetOrCreateSessionRequest): Promise<ChatSession> {
@@ -267,12 +262,8 @@ export class ChatService {
             includeDefaultSystemContext: true,
           })
     this.options.sessions.save(session)
-    const greetingSeeded =
-      request.kind === 'cat'
-        ? this.seedCompanionRoleGreeting(session, this.options.companionRoleDefaults?.())
-        : false
     this.logger?.info('Chat session ensured.', { sessionId: session.id, kind: session.kind })
-    return greetingSeeded ? (this.options.sessions.get(session.id) ?? session) : session
+    return session
   }
 
   buildDefaultSystemContext(
@@ -414,49 +405,6 @@ export class ChatService {
       throw new Error(`Session not found: ${sessionId}`)
     }
     return session
-  }
-
-  private seedCompanionRoleGreeting(
-    session: ChatSession,
-    role: DesktopCompanionRoleSettings | undefined
-  ): boolean {
-    if (!role) {
-      return false
-    }
-
-    const text = companionRoleGreetingText(role)
-    if (!text) {
-      return false
-    }
-
-    const now = Date.now()
-    const message: ChatMessage = {
-      id: crypto.randomUUID(),
-      sessionId: session.id,
-      role: 'assistant',
-      status: 'complete',
-      parts: [{ type: 'plain', text }],
-      metadata: {
-        companionRole: {
-          greeting: true,
-          local: true,
-          roleId: role.id,
-        },
-      },
-      createdAt: now,
-      updatedAt: now,
-    }
-    this.options.messages.save(message)
-    this.options.sessions.updateMessageSummary(
-      session.id,
-      {
-        messageCount: 1,
-        lastMessagePreview: text.slice(0, 240),
-        lastMessageAt: now,
-      },
-      now
-    )
-    return true
   }
 
   private async resolveInitialModelRef(
@@ -648,16 +596,4 @@ function chatMessagePartsText(parts: readonly ChatMessagePart[]): string {
     })
     .filter(Boolean)
     .join('\n')
-}
-
-function companionRoleGreetingText(role: DesktopCompanionRoleSettings): string | undefined {
-  const greetings = [role.greeting, ...role.alternateGreetings]
-    .filter((item): item is string => typeof item === 'string' && item.trim().length > 0)
-    .map((item) => item.trim())
-  const raw =
-    role.greetingMode === 'random' && greetings.length > 1
-      ? greetings[Math.floor(Math.random() * greetings.length)]
-      : greetings[0]
-  const rendered = raw ? renderCompanionRoleTemplate(raw, role).trim() : ''
-  return rendered || undefined
 }

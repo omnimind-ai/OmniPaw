@@ -66,12 +66,6 @@ const previewOpen = ref(false)
 const previewInput = ref('')
 
 const editableRole = computed(() => props.role)
-const alternateGreetingsText = computed({
-  get: () => editableRole.value.alternateGreetings.join('\n'),
-  set: (value: string) => {
-    editableRole.value.alternateGreetings = splitMultiline(value)
-  },
-})
 const enabledModelOptions = computed(() => modelOptions.value.filter((option) => option.enabled))
 const selectedModelKey = computed(() => {
   const providerId = editableRole.value.defaultProviderId
@@ -95,13 +89,6 @@ const previewTokenTotal = computed(() =>
 
 function modelLabel(option: ProviderModelOption): string {
   return `${option.providerName} / ${option.modelName}`
-}
-
-function updateGreetingMode(value: AcceptableValue): void {
-  const next = typeof value === 'string' ? value : ''
-  if (next === 'default' || next === 'random') {
-    editableRole.value.greetingMode = next
-  }
 }
 
 function updateDefaultModel(value: AcceptableValue): void {
@@ -137,12 +124,6 @@ function updatePetGifts(gifts: CompanionRole['petGifts']): void {
   editableRole.value.petGifts = gifts
 }
 
-function splitMultiline(value: string): string[] {
-  return value
-    .split(/\n+/)
-    .map((item) => item.trim())
-    .filter(Boolean)
-}
 interface CompanionRolePreviewSection {
   id: string
   title: string
@@ -163,13 +144,6 @@ function buildCompanionRolePreviewSections(
     role.personality.trim() ? `性格设定：${role.personality.trim()}` : '',
     role.speechStyle.trim() ? `说话风格：${role.speechStyle.trim()}` : '',
     role.background.trim() ? `背景资料：${role.background.trim()}` : '',
-    role.greeting.trim()
-      ? `默认打招呼方式：${renderCompanionRoleTemplate(role.greeting, role)}`
-      : '',
-    ...role.alternateGreetings
-      .map((item) => item.trim())
-      .filter(Boolean)
-      .map((item, index) => `备用开场白 ${index + 1}：${renderCompanionRoleTemplate(item, role)}`),
     role.proactiveStyle.trim() ? `主动互动风格：${role.proactiveStyle.trim()}` : '',
     role.knowledgeEntries.some((entry) => entry.enabled && entry.content.trim())
       ? '角色知识会按当前对话相关性动态提供；只使用本轮注入的角色知识，避免机械复述无关设定。'
@@ -274,16 +248,6 @@ function previewKnowledgeText(role: CompanionRole, triggerText: string): string 
         ...selected,
       ].join('\n')
     : ''
-}
-
-function renderCompanionRoleTemplate(text: string, role: CompanionRole): string {
-  const charName = role.name.trim() || '小万'
-  const userName = role.userNickname.trim() || '用户'
-  return text
-    .replace(/\{\{\s*char\s*\}\}/gi, charName)
-    .replace(/\{\{\s*user\s*\}\}/gi, userName)
-    .replace(/<char>/gi, charName)
-    .replace(/<user>/gi, userName)
 }
 
 function normalizePreviewTriggerText(text: string): string {
@@ -512,8 +476,8 @@ function previewCharTokenWeight(char: string): number {
           </SettingsSection>
 
           <SettingsSection
-            :title="t('settings.catAppearance.role.sections.opening.title')"
-            :description="t('settings.catAppearance.role.sections.opening.description')"
+            :title="t('settings.catAppearance.role.sections.background.title')"
+            :description="t('settings.catAppearance.role.sections.background.description')"
             :icon="MessageCircleIcon"
           >
             <FieldGroup class="gap-0">
@@ -524,52 +488,6 @@ function previewCharTokenWeight(char: string): number {
                 :description="t('settings.catAppearance.role.fields.background.description')"
                 :placeholder="t('settings.catAppearance.role.fields.background.placeholder')"
                 :rows="18"
-              />
-
-              <CompanionRoleTextEditorField
-                control-id="settings-companion-role-greeting"
-                v-model="editableRole.greeting"
-                :title="t('settings.catAppearance.role.fields.greeting.title')"
-                :description="t('settings.catAppearance.role.fields.greeting.description')"
-                :placeholder="t('settings.catAppearance.role.fields.greeting.placeholder')"
-                :rows="14"
-              />
-
-              <SettingEntry
-                control-id="settings-companion-role-greeting-mode"
-                :title="t('settings.catAppearance.role.fields.greetingMode.title')"
-                :description="t('settings.catAppearance.role.fields.greetingMode.description')"
-              >
-                <Select
-                  :model-value="editableRole.greetingMode"
-                  @update:model-value="updateGreetingMode"
-                >
-                  <SelectTrigger
-                    id="settings-companion-role-greeting-mode"
-                    class="w-full md:w-56"
-                  >
-                    <SelectValue :placeholder="t('settings.catAppearance.role.fields.greetingMode.placeholder')" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectGroup>
-                      <SelectItem value="default">
-                        {{ t('settings.catAppearance.role.fields.greetingMode.default') }}
-                      </SelectItem>
-                      <SelectItem value="random">
-                        {{ t('settings.catAppearance.role.fields.greetingMode.random') }}
-                      </SelectItem>
-                    </SelectGroup>
-                  </SelectContent>
-                </Select>
-              </SettingEntry>
-
-              <CompanionRoleTextEditorField
-                control-id="settings-companion-role-alternate-greetings"
-                v-model="alternateGreetingsText"
-                :title="t('settings.catAppearance.role.fields.alternateGreetings.title')"
-                :description="t('settings.catAppearance.role.fields.alternateGreetings.description')"
-                :placeholder="t('settings.catAppearance.role.fields.alternateGreetings.placeholder')"
-                :rows="14"
               />
             </FieldGroup>
           </SettingsSection>

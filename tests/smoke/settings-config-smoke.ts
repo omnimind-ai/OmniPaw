@@ -119,6 +119,7 @@ try {
         {
           ...cloneDefaultConfig().app.companionRoles[0],
           enabled: false,
+          greeting: '旧开场白',
           greetingMode: 'random',
           alternateGreetings: ['早呀'],
           knowledgeSettings: {
@@ -169,8 +170,9 @@ try {
     },
   }).config
   assert.equal('enabled' in roleConfig.app.companionRoles[0]!, false)
-  assert.equal(roleConfig.app.companionRoles[0]?.greetingMode, 'random')
-  assert.equal(roleConfig.app.companionRoles[0]?.alternateGreetings[0], '早呀')
+  assert.equal('greeting' in roleConfig.app.companionRoles[0]!, false)
+  assert.equal('greetingMode' in roleConfig.app.companionRoles[0]!, false)
+  assert.equal('alternateGreetings' in roleConfig.app.companionRoles[0]!, false)
   assert.equal(roleConfig.app.companionRoles[0]?.knowledgeSettings.scanDepth, 5)
   assert.equal(roleConfig.app.companionRoles[0]?.knowledgeSettings.maxTokens, 1200)
   assert.equal(roleConfig.app.companionRoles[0]?.knowledgeEntries[0]?.title, '桌面设定')
@@ -212,7 +214,8 @@ try {
     }),
   })
   assert.equal(importedRole.role.name, 'Mika')
-  assert.equal(importedRole.role.alternateGreetings?.[0], 'Ready when you are.')
+  assert.equal('greeting' in importedRole.role, false)
+  assert.equal('alternateGreetings' in importedRole.role, false)
   assert.equal(importedRole.knowledgeEntryCount, 1)
   assert.equal(importedRole.role.knowledgeEntries?.[0]?.title, 'Moon lore')
   assert.equal(importedRole.source.kind, 'sillytavern-json')

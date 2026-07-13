@@ -217,9 +217,9 @@ export default {
             description:
               'Use short phrases to stabilize personality, speech style, and relationship.',
           },
-          opening: {
-            title: 'Background and Opening',
-            description: 'Add light background notes and configure new-session openings.',
+          background: {
+            title: 'Background',
+            description: 'Add a short identity, world, professional, or project background.',
           },
           knowledge: {
             title: 'Character Knowledge',
@@ -335,26 +335,6 @@ export default {
               'A short identity, world, professional background, project context, or work habit note.',
             placeholder:
               'For example: a tiny desktop assistant who understands the user’s project rhythm and helps organize ideas and tasks.',
-          },
-          greeting: {
-            title: 'Greeting',
-            description:
-              'The opening feeling when the character appears, starts companionship, or enters work collaboration.',
-            placeholder:
-              'I am here. What should we handle first today, or should I help you sort it out?',
-          },
-          greetingMode: {
-            title: 'Opening strategy',
-            description: 'Choose how new sessions pick from the main and alternate greetings.',
-            placeholder: 'Select opening strategy',
-            default: 'Use default greeting',
-            random: 'Random greeting',
-          },
-          alternateGreetings: {
-            title: 'Alternate greetings',
-            description: 'One optional greeting per line, available for randomized openings.',
-            placeholder:
-              'Morning, I am ready.\nWhat should we move forward first today?\nWant me to break the task into steps?',
           },
           proactiveStyle: {
             title: 'Proactive style',

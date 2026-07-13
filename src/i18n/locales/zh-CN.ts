@@ -211,9 +211,9 @@ export default {
             title: '性格与关系',
             description: '用短语稳定角色性格、说话风格和与用户的关系。',
           },
-          opening: {
-            title: '背景与开场',
-            description: '补充少量背景资料，并设置新会话开场方式。',
+          background: {
+            title: '背景资料',
+            description: '补充少量身份、世界观、专业或项目背景。',
           },
           knowledge: {
             title: '角色知识',
@@ -316,23 +316,6 @@ export default {
             title: '背景资料',
             description: '少量身份设定、世界观、专业背景、项目背景或工作习惯。',
             placeholder: '例如：住在桌面里的小助手，熟悉用户的项目节奏，擅长整理想法和推进任务。',
-          },
-          greeting: {
-            title: '打招呼方式',
-            description: '角色首次出现、开始陪伴或进入工作协作时的开场感觉。',
-            placeholder: '我在这里。今天想先处理哪件事，还是需要我陪你梳理一下？',
-          },
-          greetingMode: {
-            title: '开场白策略',
-            description: '决定新建会话时如何从主开场和备用开场里选择。',
-            placeholder: '选择开场白策略',
-            default: '固定使用默认开场',
-            random: '随机选择开场白',
-          },
-          alternateGreetings: {
-            title: '备用开场白',
-            description: '每行一个可选开场白，可配合随机开场使用。',
-            placeholder: '早呀，我已经待命啦。\n今天想先推进哪件事？\n要不要先把任务拆成几步？',
           },
           proactiveStyle: {
             title: '主动互动风格',

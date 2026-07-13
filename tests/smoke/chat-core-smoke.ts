@@ -383,7 +383,6 @@ try {
     ...baseCompanionRole,
     id: 'role-knowledge-smoke',
     name: 'Mika',
-    greetingMode: 'default',
     knowledgeSettings: {
       scanDepth: 4,
       maxTokens: 500,
@@ -411,6 +410,12 @@ try {
       },
     ],
   })
+  const catSessionWithoutGreeting = await sessionModelService.createSession({
+    kind: 'cat',
+    providerId: kimiProvider.id,
+    modelId: 'kimi',
+  })
+  assert.equal(messageRepo.listBySession(catSessionWithoutGreeting.id).length, 0)
   const roleKnowledgeSession = await sessionModelService.createSession({
     providerId: kimiProvider.id,
     modelId: 'kimi',

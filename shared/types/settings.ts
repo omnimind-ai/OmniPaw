@@ -45,8 +45,6 @@ export interface DesktopAppBackgroundSettings {
   image?: DesktopAppBackgroundImage
 }
 
-export type CompanionRoleGreetingMode = 'default' | 'random'
-
 export interface DesktopCompanionRoleKnowledgeSettings {
   scanDepth: number
   maxTokens: number
@@ -68,9 +66,6 @@ export interface DesktopCompanionRoleSettings {
   speechStyle: string
   relationship: string
   background: string
-  greeting: string
-  greetingMode: CompanionRoleGreetingMode
-  alternateGreetings: string[]
   proactiveStyle: string
   advanced: DesktopCompanionRoleAdvancedSettings
   petInteractions: CatPetInteractionConfig[]

@@ -47,8 +47,6 @@ export interface ImportedCompanionRoleDraft {
   speechStyle?: string
   relationship?: string
   background?: string
-  greeting?: string
-  alternateGreetings?: string[]
   proactiveStyle?: string
   petInteractions?: CatPetInteractionConfig[]
   petGifts?: CatPetGiftConfig[]

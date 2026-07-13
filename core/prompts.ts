@@ -169,8 +169,6 @@ export function compileCompanionRoleInstruction(
     role.personality.trim() ? `性格设定：${role.personality.trim()}` : '',
     role.speechStyle.trim() ? `说话风格：${role.speechStyle.trim()}` : '',
     role.background.trim() ? `背景资料：${role.background.trim()}` : '',
-    role.greeting.trim() ? `默认打招呼方式：${role.greeting.trim()}` : '',
-    ...alternateCompanionRoleGreetingSections(role),
     role.proactiveStyle.trim() ? `主动互动风格：${role.proactiveStyle.trim()}` : '',
     companionRoleKnowledgePolicySection(role),
     ...advancedCompanionRoleSections(role.advanced),
@@ -263,14 +261,6 @@ export function companionRoleKnowledgeScanDepth(
   return normalizeCompanionRoleInteger(role?.knowledgeSettings?.scanDepth, 8, 1, 40)
 }
 
-function alternateCompanionRoleGreetingSections(role: DesktopCompanionRoleSettings): string[] {
-  const greetings = role.alternateGreetings
-    .map((item) => item.trim())
-    .filter(Boolean)
-    .map((item) => `- ${renderCompanionRoleTemplate(item, role)}`)
-  return greetings.length ? [`备用打招呼方式：\n${greetings.join('\n')}`] : []
-}
-
 function companionRoleKnowledgePolicySection(role: DesktopCompanionRoleSettings): string {
   return role.knowledgeEntries.some((entry) => entry.enabled && entry.content.trim())
     ? '角色知识会按当前对话相关性动态提供；只使用本轮注入的角色知识，避免机械复述无关设定。'
@@ -348,19 +338,6 @@ function companionRoleCharTokenWeight(char: string): number {
   if (/\s/.test(char)) return 0.05
   if (/[\u3400-\u9fff]/.test(char)) return 1
   return 0.35
-}
-
-export function renderCompanionRoleTemplate(
-  text: string,
-  role: DesktopCompanionRoleSettings
-): string {
-  const charName = role.name.trim() || '小万'
-  const userName = role.userNickname.trim() || '用户'
-  return text
-    .replace(/\{\{\s*char\s*\}\}/gi, charName)
-    .replace(/\{\{\s*user\s*\}\}/gi, userName)
-    .replace(/<char>/gi, charName)
-    .replace(/<user>/gi, userName)
 }
 
 export const ATTACHMENT_PROMPTS = {

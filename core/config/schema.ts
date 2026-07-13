@@ -743,13 +743,6 @@ function validateCompanionRole(
         code: 'invalid_type',
       })
     }
-    if (!['default', 'random'].includes(settings.greetingMode)) {
-      issues.push({
-        path: `${basePath}.greetingMode`,
-        message: 'Companion role greeting mode must be default or random.',
-        code: 'invalid_enum',
-      })
-    }
     if (!isPlainObject(settings.knowledgeSettings)) {
       issues.push({
         path: `${basePath}.knowledgeSettings`,
@@ -780,7 +773,6 @@ function validateCompanionRole(
       'speechStyle',
       'relationship',
       'background',
-      'greeting',
       'proactiveStyle',
     ]
     for (const field of textFields) {
@@ -792,7 +784,6 @@ function validateCompanionRole(
         })
       }
     }
-    validateStringArray(settings.alternateGreetings, `${basePath}.alternateGreetings`, issues)
     validateCompanionRoleKnowledgeEntries(
       settings.knowledgeEntries,
       `${basePath}.knowledgeEntries`,
@@ -2473,12 +2464,6 @@ function normalizeCompanionRoleSettings(
     relationship:
       typeof rawValue.relationship === 'string' ? rawValue.relationship : defaults.relationship,
     background: typeof rawValue.background === 'string' ? rawValue.background : defaults.background,
-    greeting: typeof rawValue.greeting === 'string' ? rawValue.greeting : defaults.greeting,
-    greetingMode: rawValue.greetingMode === 'random' ? 'random' : defaults.greetingMode,
-    alternateGreetings: normalizeStringArray(
-      rawValue.alternateGreetings,
-      defaults.alternateGreetings
-    ),
     proactiveStyle:
       typeof rawValue.proactiveStyle === 'string'
         ? rawValue.proactiveStyle

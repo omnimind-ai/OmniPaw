@@ -202,16 +202,6 @@ function messageErrorStatusClass(record: ChatRecord) {
   return cn(messageStatusClass(record), 'text-destructive')
 }
 
-function isLocalGreeting(record: ChatRecord) {
-  const companionRole = record.metadata?.companionRole
-  return Boolean(
-    companionRole &&
-      typeof companionRole === 'object' &&
-      'greeting' in companionRole &&
-      (companionRole as { greeting?: unknown }).greeting === true
-  )
-}
-
 function fileChangesFor(record: ChatRecord) {
   if (props.isUserMessage(record)) return []
   return extractWorkspaceFileChanges(record)
@@ -339,7 +329,6 @@ function fileChangesFor(record: ChatRecord) {
           :checkpoint-id="record.checkpointId"
           :user="isUserMessage(record)"
           :copied="copiedRecordId === recordId(record)"
-          :disable-regenerate="isLocalGreeting(record)"
           @copy="copyRecord(record)"
           @quote="quoteRecord(record)"
           @edit="beginEdit(record)"

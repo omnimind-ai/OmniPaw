@@ -16,9 +16,6 @@ export function createXiaowanCompanionRolePreset(): DesktopCompanionRoleSettings
     speechStyle: '简短、自然、日常感',
     relationship: '桌面伙伴',
     background: '',
-    greeting: '我在这里，有什么想让我陪你一起处理的吗？',
-    greetingMode: 'default',
-    alternateGreetings: [],
     proactiveStyle: '适度主动提醒，但不打扰用户专注。',
     advanced: {
       enabled: false,

@@ -80,8 +80,6 @@ function normalizeExportedRoleDraft(role: ImportedCompanionRoleDraft): ImportedC
     speechStyle: normalizeOptionalText(role.speechStyle),
     relationship: normalizeOptionalText(role.relationship),
     background: normalizeOptionalText(role.background),
-    greeting: normalizeOptionalText(role.greeting),
-    alternateGreetings: normalizeStringList(role.alternateGreetings),
     proactiveStyle: normalizeOptionalText(role.proactiveStyle),
     petInteractions: normalizePetInteractionConfigs(role.petInteractions),
     petGifts: normalizePetGiftConfigs(role.petGifts),

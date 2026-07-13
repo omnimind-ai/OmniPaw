@@ -71,7 +71,6 @@ const roleItems = computed<RoleListItem[]>(() => {
         intro:
           role.personality.trim() ||
           role.background.trim() ||
-          role.greeting.trim() ||
           t('settings.catAppearance.role.overview.introFallback'),
         name,
         role,

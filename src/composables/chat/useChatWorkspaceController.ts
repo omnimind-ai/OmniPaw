@@ -911,8 +911,6 @@ function compileCompanionRoleInstruction(
     role.personality.trim() ? `性格设定：${role.personality.trim()}` : '',
     role.speechStyle.trim() ? `说话风格：${role.speechStyle.trim()}` : '',
     role.background.trim() ? `背景资料：${role.background.trim()}` : '',
-    role.greeting.trim() ? `默认打招呼方式：${role.greeting.trim()}` : '',
-    ...alternateCompanionRoleGreetingSections(role),
     role.proactiveStyle.trim() ? `主动互动风格：${role.proactiveStyle.trim()}` : '',
     companionRoleKnowledgePolicySection(role),
     ...advancedCompanionRoleSections(role.advanced),
@@ -924,14 +922,6 @@ function compileCompanionRoleInstruction(
     label: name,
     text: sections.join('\n'),
   }
-}
-
-function alternateCompanionRoleGreetingSections(role: DesktopCompanionRoleSettings): string[] {
-  const greetings = role.alternateGreetings
-    .map((item) => item.trim())
-    .filter(Boolean)
-    .map((item) => `- ${renderCompanionRoleTemplate(item, role)}`)
-  return greetings.length ? [`备用打招呼方式：\n${greetings.join('\n')}`] : []
 }
 
 function companionRoleKnowledgePolicySection(role: DesktopCompanionRoleSettings): string {
@@ -952,14 +942,4 @@ function advancedCompanionRoleSections(
     advanced.exampleDialogue.trim() ? `角色示例对话：\n${advanced.exampleDialogue.trim()}` : '',
     advanced.finalInstructions.trim() ? `最终回应约束：${advanced.finalInstructions.trim()}` : '',
   ].filter((section) => section.trim())
-}
-
-function renderCompanionRoleTemplate(text: string, role: DesktopCompanionRoleSettings): string {
-  const charName = role.name.trim() || '小万'
-  const userName = role.userNickname.trim() || '用户'
-  return text
-    .replace(/\{\{\s*char\s*\}\}/gi, charName)
-    .replace(/\{\{\s*user\s*\}\}/gi, userName)
-    .replace(/<char>/gi, charName)
-    .replace(/<user>/gi, userName)
 }

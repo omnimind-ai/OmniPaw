@@ -28,8 +28,6 @@ interface ParsedCharacterCard {
   scenario?: string
   systemPrompt?: string
   postHistoryInstructions?: string
-  firstMessage?: string
-  alternateGreetings: string[]
   messageExamples: string[]
   tags: string[]
   lorebooks: ParsedLorebook[]
@@ -121,7 +119,6 @@ function parseCharacterJson(
   if (exportedRole) {
     return {
       name: exportedRole.role.name,
-      alternateGreetings: [],
       messageExamples: [],
       tags: [],
       lorebooks: [],
@@ -140,7 +137,6 @@ function parseCharacterJson(
   const description = pickString(data, ['description', 'desc'])
   const personality = pickString(data, ['personality', 'personality_summary'])
   const scenario = pickString(data, ['scenario'])
-  const firstMessage = pickString(data, ['first_mes', 'firstMessage', 'greeting'])
   const messageExamples = normalizeExamples(
     pickString(data, ['mes_example', 'message_example', 'messageExamples'])
   )
@@ -150,10 +146,9 @@ function parseCharacterJson(
     'postHistoryInstructions',
     'post_history',
   ])
-  const alternateGreetings = stringArray(data.alternate_greetings ?? data.alternateGreetings)
   const tags = stringArray(data.tags)
 
-  if (!name && !description && !personality && !scenario && !firstMessage) {
+  if (!name && !description && !personality && !scenario) {
     throwUnsupportedImport()
   }
 
@@ -165,8 +160,6 @@ function parseCharacterJson(
     scenario,
     systemPrompt,
     postHistoryInstructions,
-    firstMessage,
-    alternateGreetings,
     messageExamples,
     tags,
     lorebooks: extractLorebooks(data, resolvedName),
@@ -220,8 +213,6 @@ function mapParsedCardToRole(parsed: ParsedCharacterCard): ImportedCompanionRole
     speechStyle: '',
     relationship: '',
     background,
-    greeting: parsed.firstMessage ?? '',
-    alternateGreetings: parsed.alternateGreetings,
     proactiveStyle: '',
     petInteractions: createDefaultPetInteractionConfigs(),
     petGifts: normalizePetGiftConfigs(undefined),
@@ -287,7 +278,6 @@ function parseOmniPawRolePackage(
 
   return {
     name: resolvedRole.name,
-    alternateGreetings: [],
     messageExamples: [],
     tags: [],
     lorebooks: [],
@@ -368,8 +358,6 @@ function normalizeOmniPawExportedRole(
     speechStyle: pickString(role, ['speechStyle']),
     relationship: pickString(role, ['relationship']),
     background: pickString(role, ['background']),
-    greeting: pickString(role, ['greeting']),
-    alternateGreetings: stringArray(role.alternateGreetings),
     proactiveStyle: pickString(role, ['proactiveStyle']),
     petInteractions: normalizePetInteractionConfigs(role.petInteractions),
     petGifts: normalizePetGiftConfigs(role.petGifts ?? role.gifts),
