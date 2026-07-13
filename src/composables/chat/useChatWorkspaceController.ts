@@ -502,6 +502,10 @@ export function useChatWorkspaceController() {
     await router.push('/settings')
   }
 
+  async function openRoleSettings() {
+    await router.push({ name: 'roles' })
+  }
+
   async function toggleCatVisibility() {
     try {
       await appBridge.cat.toggleVisibility()
@@ -885,6 +889,7 @@ export function useChatWorkspaceController() {
     handleSessionKindFilterChange,
     handleCompanionRoleChange,
     openSettings,
+    openRoleSettings,
     toggleCatVisibility,
     handleRenameSession,
     handleDeleteSession,

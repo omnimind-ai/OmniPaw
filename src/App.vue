@@ -47,6 +47,7 @@ const {
   handleSessionKindFilterChange,
   handleCompanionRoleChange,
   openSettings,
+  openRoleSettings,
   toggleCatVisibility,
   handleRenameSession,
   handleDeleteSession,
@@ -303,6 +304,7 @@ onBeforeUnmount(() => {
           @update-session-mode="handleSessionModeChange"
           @update-session-kind-filter="handleSessionKindFilterChange"
           @select-companion-role="handleCompanionRoleChange"
+          @open-role-settings="openRoleSettings"
           @open-settings="openSettings"
           @toggle-cat="toggleCatVisibility"
           @rename-session="handleRenameSession"

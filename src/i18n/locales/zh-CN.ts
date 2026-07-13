@@ -1596,7 +1596,7 @@ export default {
         searchHint: '调整搜索关键词，或直接新建对话。',
       },
       footer: {
-        cat: '小猫悬浮球',
+        cat: '显示/隐藏角色',
         roles: '角色',
         settings: '设置',
         role: {
@@ -1605,6 +1605,7 @@ export default {
           triggerAriaLabel: '当前角色：{role}，点击切换角色',
           avatarAlt: '{name}的角色头像',
           menuLabel: '切换角色',
+          showMore: '显示更多',
         },
       },
       renameDialog: {

@@ -10,6 +10,7 @@ import {
   SearchIcon,
   SettingsIcon,
   Trash2Icon,
+  UsersRoundIcon,
   XIcon,
 } from 'lucide-vue-next'
 import { computed, ref, watch } from 'vue'
@@ -33,6 +34,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { Field, FieldGroup, FieldLabel } from '@/components/ui/field'
@@ -57,12 +59,14 @@ import {
   SidebarSeparator,
   SidebarTrigger,
 } from '@/components/ui/sidebar'
+import { SIDEBAR_WIDTH, SIDEBAR_WIDTH_MOBILE, useSidebar } from '@/components/ui/sidebar/utils'
 import { useCompanionRoleIdleImages } from '@/composables/useCompanionRoleIdleImages'
 import type { Session } from '@/composables/useSessions'
 import { cn } from '@/lib/utils'
 
 type SessionKindFilter = 'chat' | 'cat' | 'cron' | 'vision'
 type SessionMode = Extract<SessionKindFilter, 'chat'>
+const maxVisibleCompanionRoles = 5
 
 const props = withDefaults(
   defineProps<{
@@ -90,6 +94,7 @@ const emit = defineEmits<{
   updateSessionMode: [mode: SessionMode]
   updateSessionKindFilter: [kind: SessionKindFilter]
   selectCompanionRole: [roleId: string]
+  openRoleSettings: []
   openSettings: []
   toggleCat: []
   renameSession: [sessionId: string, title: string]
@@ -97,6 +102,7 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
+const { isMobile } = useSidebar()
 
 const searchQuery = ref('')
 const renameDialogOpen = ref(false)
@@ -173,6 +179,21 @@ const activeCompanionRoleName = computed(
 const activeCompanionRoleDescription = computed(
   () => activeCompanionRole.value?.description || t('chat.sidebar.footer.role.descriptionFallback')
 )
+const companionRoleMenuWidth = computed(() =>
+  isMobile.value ? SIDEBAR_WIDTH_MOBILE : SIDEBAR_WIDTH
+)
+const visibleCompanionRoleOptions = computed(() => {
+  const roles = props.companionRoleOptions
+  if (roles.length <= maxVisibleCompanionRoles) return roles
+
+  const visibleRoles = roles.slice(0, maxVisibleCompanionRoles)
+  const activeRole = activeCompanionRole.value
+  if (!activeRole || visibleRoles.some((role) => role.id === activeRole.id)) {
+    return visibleRoles
+  }
+
+  return [...visibleRoles.slice(0, maxVisibleCompanionRoles - 1), activeRole]
+})
 const filteredSessions = computed(() => {
   const query = normalizedSearchQuery.value
   if (!query) return props.sessions
@@ -508,7 +529,8 @@ function updateCompanionRole(value: unknown): void {
               side="top"
               align="start"
               :side-offset="8"
-              class="w-64"
+              :align-offset="-8"
+              :style="{ width: companionRoleMenuWidth }"
             >
               <DropdownMenuLabel>{{ t('chat.sidebar.footer.role.menuLabel') }}</DropdownMenuLabel>
               <DropdownMenuRadioGroup
@@ -516,7 +538,7 @@ function updateCompanionRole(value: unknown): void {
                 @update:model-value="updateCompanionRole"
               >
                 <DropdownMenuRadioItem
-                  v-for="role in companionRoleOptions"
+                  v-for="role in visibleCompanionRoleOptions"
                   :key="role.id"
                   :value="role.id"
                   :disabled="companionRoleSaving"
@@ -535,6 +557,13 @@ function updateCompanionRole(value: unknown): void {
                   </div>
                 </DropdownMenuRadioItem>
               </DropdownMenuRadioGroup>
+              <DropdownMenuSeparator />
+              <DropdownMenuGroup>
+                <DropdownMenuItem @select="emit('openRoleSettings')">
+                  <UsersRoundIcon />
+                  {{ t('chat.sidebar.footer.role.showMore') }}
+                </DropdownMenuItem>
+              </DropdownMenuGroup>
             </DropdownMenuContent>
           </DropdownMenu>
 

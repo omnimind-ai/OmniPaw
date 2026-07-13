@@ -1685,7 +1685,7 @@ export default {
         searchHint: 'Adjust search keywords or create a new conversation directly.',
       },
       footer: {
-        cat: 'Cat floating bubble',
+        cat: 'Show/hide character',
         roles: 'Characters',
         settings: 'Settings',
         role: {
@@ -1694,6 +1694,7 @@ export default {
           triggerAriaLabel: 'Current character: {role}. Click to switch characters',
           avatarAlt: '{name} character avatar',
           menuLabel: 'Switch character',
+          showMore: 'Show more',
         },
       },
       renameDialog: {
