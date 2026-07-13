@@ -113,6 +113,8 @@ export function useChatWorkspaceController() {
     (settingsConfig.value?.app.companionRoles ?? []).map((role) => ({
       id: role.id,
       name: role.name.trim(),
+      description: role.relationship.trim() || role.personality.trim() || role.speechStyle.trim(),
+      appearancePackId: role.appearancePackId?.trim() || 'builtin',
     }))
   )
   const activeCompanionRoleId = computed(() => {
@@ -871,6 +873,8 @@ export function useChatWorkspaceController() {
     sessionMode,
     sessionKindFilter,
     companionRoleOptions,
+    activeCompanionRoleId,
+    companionRoleSaving,
     creatingSession,
     runningSessionIds: messages.runningSessionIds,
     sidebarOpen,
@@ -879,6 +883,7 @@ export function useChatWorkspaceController() {
     handleSelectSession,
     handleSessionModeChange,
     handleSessionKindFilterChange,
+    handleCompanionRoleChange,
     openSettings,
     toggleCatVisibility,
     handleRenameSession,

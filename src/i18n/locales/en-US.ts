@@ -1688,6 +1688,13 @@ export default {
         cat: 'Cat floating bubble',
         roles: 'Characters',
         settings: 'Settings',
+        role: {
+          fallbackName: 'No character selected',
+          descriptionFallback: 'Desktop companion',
+          triggerAriaLabel: 'Current character: {role}. Click to switch characters',
+          avatarAlt: '{name} character avatar',
+          menuLabel: 'Switch character',
+        },
       },
       renameDialog: {
         title: 'Rename conversation',

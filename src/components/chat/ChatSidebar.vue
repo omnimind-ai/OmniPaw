@@ -15,6 +15,7 @@ import {
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { ChatCompanionRoleOption } from '@/components/chat/chat-workspace-context'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -56,6 +57,7 @@ import {
   SidebarSeparator,
   SidebarTrigger,
 } from '@/components/ui/sidebar'
+import { useCompanionRoleIdleImages } from '@/composables/useCompanionRoleIdleImages'
 import type { Session } from '@/composables/useSessions'
 import { cn } from '@/lib/utils'
 
@@ -69,6 +71,8 @@ const props = withDefaults(
     sessionMode?: SessionMode
     sessionKindFilter?: SessionKindFilter
     companionRoleOptions?: ChatCompanionRoleOption[]
+    activeCompanionRoleId?: string
+    companionRoleSaving?: boolean
     creating?: boolean
     runningSessionIds?: string[]
   }>(),
@@ -85,6 +89,7 @@ const emit = defineEmits<{
   selectSession: [sessionId: string]
   updateSessionMode: [mode: SessionMode]
   updateSessionKindFilter: [kind: SessionKindFilter]
+  selectCompanionRole: [roleId: string]
   openSettings: []
   toggleCat: []
   renameSession: [sessionId: string, title: string]
@@ -153,6 +158,21 @@ const activeSessionKindOption = computed(
 )
 const sessionListLabel = computed(() => activeSessionKindOption.value.title)
 const newChatLabel = computed(() => activeSessionModeOption.value.newLabel)
+const companionRoleAppearancePackIds = computed(() =>
+  props.companionRoleOptions.map((role) => role.appearancePackId)
+)
+const { idleImageByPackId } = useCompanionRoleIdleImages(companionRoleAppearancePackIds)
+const activeCompanionRole = computed(
+  () =>
+    props.companionRoleOptions.find((role) => role.id === props.activeCompanionRoleId) ??
+    props.companionRoleOptions[0]
+)
+const activeCompanionRoleName = computed(
+  () => activeCompanionRole.value?.name || t('chat.sidebar.footer.role.fallbackName')
+)
+const activeCompanionRoleDescription = computed(
+  () => activeCompanionRole.value?.description || t('chat.sidebar.footer.role.descriptionFallback')
+)
 const filteredSessions = computed(() => {
   const query = normalizedSearchQuery.value
   if (!query) return props.sessions
@@ -274,6 +294,25 @@ function updateSessionKindFilter(value: unknown) {
     return
   }
   emit('updateSessionKindFilter', value)
+}
+
+function roleAvatarUrl(role: ChatCompanionRoleOption | undefined): string {
+  if (!role) return idleImageByPackId.value.builtin
+  return idleImageByPackId.value[role.appearancePackId] || idleImageByPackId.value.builtin
+}
+
+function roleInitial(role: ChatCompanionRoleOption | undefined): string {
+  return roleDisplayName(role).slice(0, 1)
+}
+
+function roleDisplayName(role: ChatCompanionRoleOption | undefined): string {
+  return role?.name.trim() || t('chat.sidebar.footer.role.fallbackName')
+}
+
+function updateCompanionRole(value: unknown): void {
+  if (typeof value !== 'string' || !value || props.companionRoleSaving) return
+  if (value === props.activeCompanionRoleId) return
+  emit('selectCompanionRole', value)
 }
 </script>
 
@@ -435,30 +474,91 @@ function updateSessionKindFilter(value: unknown) {
 
     <SidebarSeparator class="group-data-[collapsible=icon]:hidden" />
 
-    <SidebarFooter class="items-end group-data-[collapsible=icon]:items-center">
+    <SidebarFooter class="group-data-[collapsible=icon]:items-center">
       <SidebarMenu>
         <SidebarMenuItem
-          class="flex justify-end gap-2 group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:gap-2"
+          class="flex items-center gap-1 group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:gap-2"
         >
-          <SidebarMenuButton
-            class="w-auto"
-            size="default"
-            :tooltip="t('chat.sidebar.footer.cat')"
-            :aria-label="t('chat.sidebar.footer.cat')"
-            @click="emit('toggleCat')"
-          >
-            <CatIcon />
-          </SidebarMenuButton>
+          <DropdownMenu>
+            <DropdownMenuTrigger as-child>
+              <SidebarMenuButton
+                size="lg"
+                class="min-w-0 flex-1 px-1.5 group-data-[collapsible=icon]:size-8! group-data-[collapsible=icon]:p-0!"
+                :disabled="!activeCompanionRole"
+                :tooltip="activeCompanionRoleName"
+                :aria-label="t('chat.sidebar.footer.role.triggerAriaLabel', { role: activeCompanionRoleName })"
+              >
+                <Avatar>
+                  <AvatarImage
+                    :src="roleAvatarUrl(activeCompanionRole)"
+                    :alt="t('chat.sidebar.footer.role.avatarAlt', { name: activeCompanionRoleName })"
+                    class="object-contain p-0.5"
+                  />
+                  <AvatarFallback>{{ roleInitial(activeCompanionRole) }}</AvatarFallback>
+                </Avatar>
+                <div class="grid min-w-0 flex-1 text-left leading-tight group-data-[collapsible=icon]:hidden">
+                  <span class="truncate text-sm font-medium">{{ activeCompanionRoleName }}</span>
+                  <span class="truncate text-xs text-muted-foreground">
+                    {{ activeCompanionRoleDescription }}
+                  </span>
+                </div>
+              </SidebarMenuButton>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent
+              side="top"
+              align="start"
+              :side-offset="8"
+              class="w-64"
+            >
+              <DropdownMenuLabel>{{ t('chat.sidebar.footer.role.menuLabel') }}</DropdownMenuLabel>
+              <DropdownMenuRadioGroup
+                :model-value="activeCompanionRoleId"
+                @update:model-value="updateCompanionRole"
+              >
+                <DropdownMenuRadioItem
+                  v-for="role in companionRoleOptions"
+                  :key="role.id"
+                  :value="role.id"
+                  :disabled="companionRoleSaving"
+                  class="py-1.5"
+                >
+                  <Avatar class="size-9">
+                    <AvatarImage
+                      :src="roleAvatarUrl(role)"
+                      :alt="t('chat.sidebar.footer.role.avatarAlt', { name: roleDisplayName(role) })"
+                      class="object-contain p-0.5"
+                    />
+                    <AvatarFallback>{{ roleInitial(role) }}</AvatarFallback>
+                  </Avatar>
+                  <div class="grid min-w-0 flex-1 leading-tight">
+                    <span class="truncate font-medium">{{ roleDisplayName(role) }}</span>
+                  </div>
+                </DropdownMenuRadioItem>
+              </DropdownMenuRadioGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
 
-          <SidebarMenuButton
-            class="w-auto"
-            size="default"
-            :tooltip="t('chat.sidebar.footer.settings')"
-            :aria-label="t('chat.sidebar.footer.settings')"
-            @click="emit('openSettings')"
-          >
-            <SettingsIcon />
-          </SidebarMenuButton>
+          <div class="flex shrink-0 items-center gap-1 group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:gap-2">
+            <SidebarMenuButton
+              class="w-auto"
+              size="default"
+              :tooltip="t('chat.sidebar.footer.cat')"
+              :aria-label="t('chat.sidebar.footer.cat')"
+              @click="emit('toggleCat')"
+            >
+              <CatIcon />
+            </SidebarMenuButton>
+
+            <SidebarMenuButton
+              class="w-auto"
+              size="default"
+              :tooltip="t('chat.sidebar.footer.settings')"
+              :aria-label="t('chat.sidebar.footer.settings')"
+              @click="emit('openSettings')"
+            >
+              <SettingsIcon />
+            </SidebarMenuButton>
+          </div>
         </SidebarMenuItem>
       </SidebarMenu>
     </SidebarFooter>

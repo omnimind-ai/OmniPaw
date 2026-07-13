@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import type { CatAppearanceResolvedPack } from '@shared/types/cat-appearance'
 import {
   defaultCatPetGiftConfigs,
   defaultCatPetInteractionConfigs,
@@ -13,19 +12,18 @@ import type {
   CompanionRoleSourceMetadata,
   ImportedCompanionRoleDraft,
 } from '@shared/types/companion-role'
-import { computed, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import builtinIdleImage from '@/asserts/cat/ic_cat_normal.png'
 import {
   appBridge,
   type BridgeDesktopSettingsConfig,
-  type BridgeUnsubscribe,
   ensureElectronBridge,
   isFallbackBridge,
 } from '@/bridge/app'
 import CompanionRoleEditorModal from '@/components/settings/companion-role-settings/CompanionRoleEditorModal.vue'
 import CompanionRoleSelection from '@/components/settings/companion-role-settings/CompanionRoleSelection.vue'
 import RoleCardImportDialog from '@/components/settings/companion-role-settings/RoleCardImportDialog.vue'
+import { useCompanionRoleIdleImages } from '@/composables/useCompanionRoleIdleImages'
 import { errorToText, useToast } from '@/utils/toast'
 
 type CompanionRole = BridgeDesktopSettingsConfig['app']['companionRoles'][number]
@@ -47,9 +45,6 @@ const importingRole = ref(false)
 const importingRoleCard = ref(false)
 const exportingRoleCard = ref(false)
 const confirmDeleteRoleId = ref<string>()
-const idleImageByPackId = shallowRef<Record<string, string>>({ builtin: builtinIdleImage })
-let appearanceUnsubscribe: BridgeUnsubscribe | undefined
-let idleImageRequestId = 0
 
 const roles = computed(() => props.draft.app.companionRoles)
 const activeRoleId = computed(() => props.draft.app.activeCompanionRoleId)
@@ -63,19 +58,7 @@ const canImportRoleCardJson = computed(
 const roleAppearancePackIds = computed(() =>
   [...new Set(roles.value.map((role) => role.appearancePackId || 'builtin'))].sort()
 )
-
-onMounted(() => {
-  appearanceUnsubscribe = appBridge.catAppearance.onChanged(() => {
-    void loadIdleImages()
-  })
-})
-
-onBeforeUnmount(() => {
-  appearanceUnsubscribe?.()
-  appearanceUnsubscribe = undefined
-})
-
-watch(roleAppearancePackIds, () => void loadIdleImages(), { immediate: true })
+const { idleImageByPackId } = useCompanionRoleIdleImages(roleAppearancePackIds)
 
 watch(editorModalOpen, (isOpen) => {
   if (!isOpen) {
@@ -83,28 +66,6 @@ watch(editorModalOpen, (isOpen) => {
     confirmDeleteRoleId.value = undefined
   }
 })
-
-async function loadIdleImages(): Promise<void> {
-  const requestId = idleImageRequestId + 1
-  idleImageRequestId = requestId
-  const entries = await Promise.all(
-    roleAppearancePackIds.value.map(async (packId) => {
-      try {
-        const pack = await appBridge.catAppearance.getPack({ packId })
-        return [packId, resolveIdleImage(pack)] as const
-      } catch {
-        return [packId, builtinIdleImage] as const
-      }
-    })
-  )
-  if (idleImageRequestId !== requestId) return
-  idleImageByPackId.value = Object.fromEntries(entries)
-}
-
-function resolveIdleImage(pack: CatAppearanceResolvedPack): string {
-  if (pack.source === 'builtin') return builtinIdleImage
-  return pack.assets.idle || builtinIdleImage
-}
 
 function selectRole(target: CompanionRole): void {
   confirmDeleteRoleId.value = undefined

@@ -1599,6 +1599,13 @@ export default {
         cat: '小猫悬浮球',
         roles: '角色',
         settings: '设置',
+        role: {
+          fallbackName: '未选择角色',
+          descriptionFallback: '桌面伙伴',
+          triggerAriaLabel: '当前角色：{role}，点击切换角色',
+          avatarAlt: '{name}的角色头像',
+          menuLabel: '切换角色',
+        },
       },
       renameDialog: {
         title: '重命名会话',

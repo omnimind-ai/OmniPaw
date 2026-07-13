@@ -9,6 +9,8 @@ import type { ProviderModelOption } from '@/stores/provider'
 export interface ChatCompanionRoleOption {
   id: string
   name: string
+  description: string
+  appearancePackId: string
 }
 
 export interface ChatWorkspaceContext {

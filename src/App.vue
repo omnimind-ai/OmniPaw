@@ -35,6 +35,8 @@ const {
   sessionMode: chatSessionMode,
   sessionKindFilter: chatSessionKindFilter,
   companionRoleOptions: chatCompanionRoleOptions,
+  activeCompanionRoleId: chatActiveCompanionRoleId,
+  companionRoleSaving: chatCompanionRoleSaving,
   creatingSession: chatCreatingSession,
   runningSessionIds: chatRunningSessionIds,
   sidebarOpen: chatSidebarOpen,
@@ -43,6 +45,7 @@ const {
   handleSelectSession,
   handleSessionModeChange,
   handleSessionKindFilterChange,
+  handleCompanionRoleChange,
   openSettings,
   toggleCatVisibility,
   handleRenameSession,
@@ -291,12 +294,15 @@ onBeforeUnmount(() => {
           :session-mode="chatSessionMode"
           :session-kind-filter="chatSessionKindFilter"
           :companion-role-options="chatCompanionRoleOptions"
+          :active-companion-role-id="chatActiveCompanionRoleId"
+          :companion-role-saving="chatCompanionRoleSaving"
           :creating="chatCreatingSession"
           :running-session-ids="chatRunningSessionIds"
           @new-chat="handleNewChat"
           @select-session="handleSelectSession"
           @update-session-mode="handleSessionModeChange"
           @update-session-kind-filter="handleSessionKindFilterChange"
+          @select-companion-role="handleCompanionRoleChange"
           @open-settings="openSettings"
           @toggle-cat="toggleCatVisibility"
           @rename-session="handleRenameSession"
