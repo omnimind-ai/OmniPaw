@@ -556,16 +556,14 @@ function previewCharTokenWeight(char: string): number {
 
       <TabsContent
         value="knowledge"
-        class="min-h-0 overflow-y-auto"
+        class="min-h-0 overflow-hidden"
       >
-        <div class="flex flex-col gap-4 p-4 sm:p-5">
-          <CompanionRoleKnowledgeSection
-            :entries="editableRole.knowledgeEntries"
-            :settings="editableRole.knowledgeSettings"
-            @update:entries="updateKnowledgeEntries"
-            @update:settings="updateKnowledgeSettings"
-          />
-        </div>
+        <CompanionRoleKnowledgeSection
+          :entries="editableRole.knowledgeEntries"
+          :settings="editableRole.knowledgeSettings"
+          @update:entries="updateKnowledgeEntries"
+          @update:settings="updateKnowledgeSettings"
+        />
       </TabsContent>
 
       <TabsContent

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import type { CompanionRoleKnowledgeEntry } from '@shared/types/companion-role'
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { Button } from '@/components/ui/button'
@@ -26,6 +27,10 @@ export interface CreateCompanionRoleKnowledgeEntryPayload {
 
 const open = defineModel<boolean>('open', { required: true })
 
+const props = defineProps<{
+  entry?: CompanionRoleKnowledgeEntry
+}>()
+
 const emit = defineEmits<{
   submit: [payload: CreateCompanionRoleKnowledgeEntryPayload]
 }>()
@@ -39,12 +44,19 @@ const constant = ref(true)
 const priority = ref(0)
 const tokenBudgetText = ref('')
 const canSubmit = computed(() => content.value.trim().length > 0)
+const editing = computed(() => Boolean(props.entry))
 
-watch(open, (isOpen) => {
-  if (!isOpen) {
-    resetDraft()
-  }
-})
+watch(
+  [open, () => props.entry],
+  ([isOpen]) => {
+    if (isOpen) {
+      resetDraft(props.entry)
+    } else {
+      resetDraft()
+    }
+  },
+  { immediate: true }
+)
 
 function submit(): void {
   const trimmedContent = content.value.trim()
@@ -60,13 +72,13 @@ function submit(): void {
   })
 }
 
-function resetDraft(): void {
-  title.value = ''
-  content.value = ''
-  keysText.value = ''
-  constant.value = true
-  priority.value = 0
-  tokenBudgetText.value = ''
+function resetDraft(entry?: CompanionRoleKnowledgeEntry): void {
+  title.value = entry?.title ?? ''
+  content.value = entry?.content ?? ''
+  keysText.value = entry?.keys.join(', ') ?? ''
+  constant.value = entry?.constant ?? true
+  priority.value = entry?.priority ?? 0
+  tokenBudgetText.value = entry?.tokenBudget === undefined ? '' : String(entry.tokenBudget)
 }
 
 function splitInlineList(value: string): string[] {
@@ -95,9 +107,23 @@ function normalizeOptionalInteger(value: string, min: number): number | undefine
   <Dialog v-model:open="open">
     <DialogContent class="sm:max-w-2xl">
       <DialogHeader>
-        <DialogTitle>{{ t('settings.catAppearance.role.knowledge.createDialog.title') }}</DialogTitle>
+        <DialogTitle>
+          {{
+            t(
+              editing
+                ? 'settings.catAppearance.role.knowledge.editDialog.title'
+                : 'settings.catAppearance.role.knowledge.createDialog.title'
+            )
+          }}
+        </DialogTitle>
         <DialogDescription>
-          {{ t('settings.catAppearance.role.knowledge.createDialog.description') }}
+          {{
+            t(
+              editing
+                ? 'settings.catAppearance.role.knowledge.editDialog.description'
+                : 'settings.catAppearance.role.knowledge.createDialog.description'
+            )
+          }}
         </DialogDescription>
       </DialogHeader>
 
@@ -190,7 +216,13 @@ function normalizeOptionalInteger(value: string, min: number): number | undefine
           :disabled="!canSubmit"
           @click="submit"
         >
-          {{ t('settings.catAppearance.role.knowledge.createDialog.create') }}
+          {{
+            t(
+              editing
+                ? 'settings.catAppearance.role.knowledge.editDialog.save'
+                : 'settings.catAppearance.role.knowledge.createDialog.create'
+            )
+          }}
         </Button>
       </DialogFooter>
     </DialogContent>

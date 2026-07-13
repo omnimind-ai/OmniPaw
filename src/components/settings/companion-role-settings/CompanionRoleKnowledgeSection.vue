@@ -1,22 +1,29 @@
 <script setup lang="ts">
-import { BookOpenIcon, CheckIcon, PencilIcon, PlusIcon, Trash2Icon } from '@lucide/vue'
+import {
+  BookOpenIcon,
+  PencilIcon,
+  PlusIcon,
+  SearchIcon,
+  SlidersHorizontalIcon,
+  Trash2Icon,
+  XIcon,
+} from '@lucide/vue'
 import type { CompanionRoleKnowledgeEntry } from '@shared/types/companion-role'
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import SettingEntry from '@/components/settings/common/SettingEntry.vue'
+import SettingsPanelHeader from '@/components/settings/common/SettingsPanelHeader.vue'
+import SettingsPanelItem from '@/components/settings/common/SettingsPanelItem.vue'
 import SettingsSearchBar from '@/components/settings/common/SettingsSearchBar.vue'
-import SettingsSection from '@/components/settings/common/SettingsSection.vue'
 import CompanionRoleKnowledgeCreateDialog, {
   type CreateCompanionRoleKnowledgeEntryPayload,
 } from '@/components/settings/companion-role-settings/CompanionRoleKnowledgeCreateDialog.vue'
 import CompanionRoleKnowledgeDeleteModal from '@/components/settings/companion-role-settings/CompanionRoleKnowledgeDeleteModal.vue'
+import CompanionRoleKnowledgeSettingsModal from '@/components/settings/companion-role-settings/CompanionRoleKnowledgeSettingsModal.vue'
 import type { CompanionRole } from '@/components/settings/companion-role-settings/types'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Field, FieldGroup, FieldLabel } from '@/components/ui/field'
-import { Input } from '@/components/ui/input'
+import { Card, CardContent } from '@/components/ui/card'
 import { Switch } from '@/components/ui/switch'
-import { Textarea } from '@/components/ui/textarea'
 
 const props = defineProps<{
   entries: CompanionRole['knowledgeEntries']
@@ -30,19 +37,23 @@ const emit = defineEmits<{
 
 const { t } = useI18n()
 const knowledgeSearchQuery = ref('')
-const editingKnowledgeEntryIds = ref<string[]>([])
-const knowledgeCreateDialogOpen = ref(false)
+const knowledgeEntryDialogOpen = ref(false)
+const knowledgeSettingsModalOpen = ref(false)
+const editingKnowledgeEntryId = ref<string>()
 const knowledgeDeleteTargetId = ref<string>()
-const normalizedSettings = computed(() => ({
-  scanDepth: props.settings?.scanDepth ?? 8,
-  maxTokens: props.settings?.maxTokens ?? 900,
-}))
+
 const filteredKnowledgeEntries = computed(() => {
   const query = normalizeKnowledgeSearchText(knowledgeSearchQuery.value)
   return props.entries
     .map((entry, index) => ({ entry, index }))
     .filter(({ entry }) => !query || knowledgeEntryMatchesSearch(entry, query))
 })
+const searchEmpty = computed(
+  () => props.entries.length > 0 && filteredKnowledgeEntries.value.length === 0
+)
+const editingKnowledgeEntry = computed(() =>
+  props.entries.find((entry) => entry.id === editingKnowledgeEntryId.value)
+)
 const knowledgeDeleteTarget = computed(() =>
   props.entries.find((entry) => entry.id === knowledgeDeleteTargetId.value)
 )
@@ -55,58 +66,72 @@ const knowledgeDeleteDialogOpen = computed({
   },
 })
 
+watch(knowledgeEntryDialogOpen, (isOpen) => {
+  if (!isOpen) {
+    editingKnowledgeEntryId.value = undefined
+  }
+})
+
 function openKnowledgeCreateDialog(): void {
-  knowledgeCreateDialogOpen.value = true
+  editingKnowledgeEntryId.value = undefined
+  knowledgeEntryDialogOpen.value = true
 }
 
-function createKnowledgeEntry(payload: CreateCompanionRoleKnowledgeEntryPayload): void {
+function openKnowledgeEditDialog(entry: CompanionRoleKnowledgeEntry): void {
+  editingKnowledgeEntryId.value = entry.id
+  knowledgeEntryDialogOpen.value = true
+}
+
+function openKnowledgeSettings(): void {
+  knowledgeSettingsModalOpen.value = true
+}
+
+function submitKnowledgeEntry(payload: CreateCompanionRoleKnowledgeEntryPayload): void {
   const entries = ensureKnowledgeEntries()
   const now = Date.now()
-  emit('update:entries', [
-    ...entries,
-    {
-      id: createRoleKnowledgeId(entries.length),
-      enabled: true,
-      title: payload.title || t('settings.catAppearance.role.knowledge.newTitle'),
-      content: payload.content,
-      keys: payload.keys,
-      constant: payload.constant,
-      priority: payload.priority,
-      order: entries.length,
-      tokenBudget: payload.tokenBudget,
-      createdAt: now,
-      updatedAt: now,
-    },
-  ])
-  knowledgeCreateDialogOpen.value = false
+
+  if (editingKnowledgeEntryId.value) {
+    emit(
+      'update:entries',
+      entries.map((entry) =>
+        entry.id === editingKnowledgeEntryId.value
+          ? {
+              ...entry,
+              title: payload.title || t('settings.catAppearance.role.knowledge.untitled'),
+              content: payload.content,
+              keys: payload.keys,
+              constant: payload.constant,
+              priority: payload.priority,
+              tokenBudget: payload.tokenBudget,
+              updatedAt: now,
+            }
+          : entry
+      )
+    )
+  } else {
+    emit('update:entries', [
+      ...entries,
+      {
+        id: createRoleKnowledgeId(entries.length),
+        enabled: true,
+        title: payload.title || t('settings.catAppearance.role.knowledge.newTitle'),
+        content: payload.content,
+        keys: payload.keys,
+        constant: payload.constant,
+        priority: payload.priority,
+        order: entries.length,
+        tokenBudget: payload.tokenBudget,
+        createdAt: now,
+        updatedAt: now,
+      },
+    ])
+  }
+
+  knowledgeEntryDialogOpen.value = false
 }
 
-function deleteKnowledgeEntry(targetId: string): void {
-  emit(
-    'update:entries',
-    ensureKnowledgeEntries().filter((entry) => entry.id !== targetId)
-  )
-  editingKnowledgeEntryIds.value = editingKnowledgeEntryIds.value.filter((id) => id !== targetId)
-}
-
-function requestDeleteKnowledgeEntry(targetId: string): void {
-  knowledgeDeleteTargetId.value = targetId
-}
-
-function confirmDeleteKnowledgeEntry(): void {
-  if (!knowledgeDeleteTargetId.value) return
-  deleteKnowledgeEntry(knowledgeDeleteTargetId.value)
-  knowledgeDeleteTargetId.value = undefined
-}
-
-function isKnowledgeEntryEditing(targetId: string): boolean {
-  return editingKnowledgeEntryIds.value.includes(targetId)
-}
-
-function toggleKnowledgeEntryEditing(targetId: string): void {
-  editingKnowledgeEntryIds.value = isKnowledgeEntryEditing(targetId)
-    ? editingKnowledgeEntryIds.value.filter((id) => id !== targetId)
-    : [...editingKnowledgeEntryIds.value, targetId]
+function updateKnowledgeSettings(settings: CompanionRole['knowledgeSettings']): void {
+  emit('update:settings', settings)
 }
 
 function updateKnowledgeEntry(
@@ -121,49 +146,25 @@ function updateKnowledgeEntry(
   )
 }
 
-function updateKnowledgeKeys(targetId: string, value: string): void {
-  updateKnowledgeEntry(targetId, { keys: splitInlineList(value) })
+function requestDeleteKnowledgeEntry(targetId: string): void {
+  knowledgeDeleteTargetId.value = targetId
 }
 
-function updateKnowledgeTokenBudget(targetId: string, value: string): void {
-  const trimmed = value.trim()
-  if (!trimmed) {
-    updateKnowledgeEntry(targetId, { tokenBudget: undefined })
-    return
-  }
-  const numeric = Number(trimmed)
-  if (Number.isFinite(numeric)) {
-    updateKnowledgeEntry(targetId, { tokenBudget: Math.max(50, Math.round(numeric)) })
-  }
+function confirmDeleteKnowledgeEntry(): void {
+  if (!knowledgeDeleteTargetId.value) return
+  emit(
+    'update:entries',
+    ensureKnowledgeEntries().filter((entry) => entry.id !== knowledgeDeleteTargetId.value)
+  )
+  knowledgeDeleteTargetId.value = undefined
 }
 
-function updateKnowledgeScanDepth(value: string): void {
-  emit('update:settings', {
-    ...normalizedSettings.value,
-    scanDepth: normalizeIntegerInput(value, 8, 1, 40),
-  })
-}
-
-function updateKnowledgeMaxTokens(value: string): void {
-  emit('update:settings', {
-    ...normalizedSettings.value,
-    maxTokens: normalizeIntegerInput(value, 900, 200, 8000),
-  })
-}
-
-function eventInputValue(event: Event): string {
-  return (event.target as HTMLInputElement | null)?.value ?? ''
+function clearSearch(): void {
+  knowledgeSearchQuery.value = ''
 }
 
 function ensureKnowledgeEntries(): CompanionRole['knowledgeEntries'] {
   return Array.isArray(props.entries) ? props.entries : []
-}
-
-function splitInlineList(value: string): string[] {
-  return value
-    .split(/[,，\n]/)
-    .map((item) => item.trim())
-    .filter(Boolean)
 }
 
 function normalizeKnowledgeSearchText(value: string): string {
@@ -182,214 +183,207 @@ function knowledgeEntryMatchesSearch(entry: CompanionRoleKnowledgeEntry, query: 
     .includes(query)
 }
 
-function normalizeIntegerInput(value: string, fallback: number, min: number, max: number): number {
-  const numeric = Number(value)
-  if (!Number.isFinite(numeric)) return fallback
-  return Math.min(max, Math.max(min, Math.round(numeric)))
-}
-
 function createRoleKnowledgeId(index: number): string {
   return `role-knowledge-${Date.now().toString(36)}-${index}-${Math.random().toString(36).slice(2, 8)}`
 }
 </script>
 
 <template>
-  <SettingsSection
-    :title="t('settings.catAppearance.role.sections.knowledge.title')"
-    :description="t('settings.catAppearance.role.sections.knowledge.description')"
-    :icon="BookOpenIcon"
-  >
-    <template #actions>
-      <Button
-        type="button"
-        size="sm"
-        @click="openKnowledgeCreateDialog"
-      >
-        <PlusIcon data-icon="inline-start" />
-        {{ t('settings.catAppearance.role.knowledge.add') }}
-      </Button>
-    </template>
-
-    <FieldGroup class="gap-0">
-      <SettingEntry
-        control-id="settings-companion-role-knowledge-scan-depth"
-        :title="t('settings.catAppearance.role.knowledge.settings.scanDepth')"
-        :description="t('settings.catAppearance.role.knowledge.settings.scanDepthDescription')"
-      >
-        <Input
-          id="settings-companion-role-knowledge-scan-depth"
-          :model-value="normalizedSettings.scanDepth"
-          class="w-full md:w-32"
-          type="number"
-          min="1"
-          max="40"
-          @input="updateKnowledgeScanDepth(eventInputValue($event))"
-        />
-      </SettingEntry>
-
-      <SettingEntry
-        control-id="settings-companion-role-knowledge-max-tokens"
-        :title="t('settings.catAppearance.role.knowledge.settings.maxTokens')"
-        :description="t('settings.catAppearance.role.knowledge.settings.maxTokensDescription')"
-      >
-        <Input
-          id="settings-companion-role-knowledge-max-tokens"
-          :model-value="normalizedSettings.maxTokens"
-          class="w-full md:w-32"
-          type="number"
-          min="200"
-          max="8000"
-          @input="updateKnowledgeMaxTokens(eventInputValue($event))"
-        />
-      </SettingEntry>
-    </FieldGroup>
-
-    <div class="flex flex-col gap-3 border-t p-4 sm:p-5">
-      <div class="flex min-w-0 flex-col gap-1">
-        <p class="text-sm font-semibold leading-5 text-foreground">
-          {{
-            t('settings.catAppearance.role.knowledge.count', {
-              count: entries.length,
-            })
-          }}
-        </p>
-        <p class="max-w-4xl text-xs leading-5 text-muted-foreground">
-          {{ t('settings.catAppearance.role.knowledge.description') }}
-        </p>
-      </div>
+  <div class="flex h-full min-h-0 flex-1 flex-col overflow-hidden p-4 sm:p-5">
+    <Card class="grid h-full min-h-0 flex-1 grid-rows-[auto_auto_minmax(0,1fr)] gap-0 rounded-md border border-border py-0 ring-0">
+      <SettingsPanelHeader
+        :title="t('settings.catAppearance.role.knowledge.title')"
+        :description="t('settings.catAppearance.role.knowledge.description')"
+        :icon="BookOpenIcon"
+      />
 
       <SettingsSearchBar
         v-model="knowledgeSearchQuery"
+        class="border-b-0"
         :placeholder="t('settings.catAppearance.role.knowledge.searchPlaceholder')"
         :label="t('settings.catAppearance.role.knowledge.search')"
+        :clear-label="t('settings.catAppearance.role.knowledge.clearSearch')"
         :disabled="!entries.length"
-        class="rounded-md border px-3 py-2 sm:px-3"
+        @clear="clearSearch"
       >
         <template #summary>
           <Badge variant="secondary">
-            {{
-              knowledgeSearchQuery.trim()
-                ? `${filteredKnowledgeEntries.length}/${entries.length}`
-                : entries.length
-            }}
+            {{ t('settings.catAppearance.role.knowledge.count', { count: entries.length }) }}
           </Badge>
+        </template>
+
+        <template #actions>
+          <Button
+            type="button"
+            variant="outline"
+            @click="openKnowledgeSettings"
+          >
+            <SlidersHorizontalIcon data-icon="inline-start" />
+            {{ t('settings.catAppearance.role.knowledge.settingsAction') }}
+          </Button>
+          <Button
+            type="button"
+            @click="openKnowledgeCreateDialog"
+          >
+            <PlusIcon data-icon="inline-start" />
+            {{ t('settings.catAppearance.role.knowledge.add') }}
+          </Button>
         </template>
       </SettingsSearchBar>
 
-      <p
-        v-if="!entries.length"
-        class="rounded-md border border-dashed px-3 py-6 text-center text-sm text-muted-foreground"
-      >
-        {{ t('settings.catAppearance.role.knowledge.empty') }}
-      </p>
-
-      <p
-        v-else-if="!filteredKnowledgeEntries.length"
-        class="rounded-md border border-dashed px-3 py-6 text-center text-sm text-muted-foreground"
-      >
-        {{
-          t('settings.catAppearance.role.knowledge.noSearchMatch', {
-            query: knowledgeSearchQuery,
-          })
-        }}
-      </p>
-
-      <div
-        v-for="item in filteredKnowledgeEntries"
-        :key="item.entry.id"
-        class="flex flex-col gap-3 rounded-md border bg-background/60 p-3"
-      >
-        <div class="flex flex-wrap items-center gap-2">
-          <Switch
-            :model-value="item.entry.enabled"
-            :disabled="!isKnowledgeEntryEditing(item.entry.id)"
-            @update:model-value="updateKnowledgeEntry(item.entry.id, { enabled: Boolean($event) })"
-          />
-          <Input
-            :model-value="item.entry.title"
-            class="min-w-0 flex-1"
-            :disabled="!isKnowledgeEntryEditing(item.entry.id)"
-            :placeholder="t('settings.catAppearance.role.knowledge.fields.title')"
-            @update:model-value="updateKnowledgeEntry(item.entry.id, { title: String($event) })"
-          />
-          <Button
-            type="button"
-            :variant="isKnowledgeEntryEditing(item.entry.id) ? 'secondary' : 'ghost'"
-            size="icon-sm"
-            :aria-label="
-              isKnowledgeEntryEditing(item.entry.id)
-                ? t('settings.catAppearance.role.knowledge.finishEdit')
-                : t('settings.catAppearance.role.knowledge.edit')
-            "
-            @click="toggleKnowledgeEntryEditing(item.entry.id)"
+      <CardContent class="flex min-h-0 flex-1 flex-col overflow-y-auto p-0">
+        <div class="flex min-h-full flex-1 flex-col">
+          <div
+            v-if="!entries.length"
+            class="flex flex-1 flex-col items-center justify-center gap-3 px-4 py-10 text-center text-sm text-muted-foreground sm:px-5"
           >
-            <component :is="isKnowledgeEntryEditing(item.entry.id) ? CheckIcon : PencilIcon" />
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon-sm"
-            :aria-label="t('settings.catAppearance.role.knowledge.delete')"
-            @click="requestDeleteKnowledgeEntry(item.entry.id)"
+            <BookOpenIcon class="size-8 opacity-50" />
+            <div class="flex max-w-lg flex-col gap-1">
+              <p class="font-medium text-foreground">
+                {{ t('settings.catAppearance.role.knowledge.empty') }}
+              </p>
+              <p>{{ t('settings.catAppearance.role.knowledge.emptyHint') }}</p>
+            </div>
+            <Button
+              type="button"
+              @click="openKnowledgeCreateDialog"
+            >
+              <PlusIcon data-icon="inline-start" />
+              {{ t('settings.catAppearance.role.knowledge.add') }}
+            </Button>
+          </div>
+
+          <div
+            v-else-if="searchEmpty"
+            class="flex flex-1 flex-col items-center justify-center gap-3 px-4 py-10 text-center text-sm text-muted-foreground sm:px-5"
           >
-            <Trash2Icon />
-          </Button>
+            <SearchIcon class="size-8 opacity-50" />
+            <div class="flex max-w-lg flex-col gap-1">
+              <p class="font-medium text-foreground">
+                {{ t('settings.catAppearance.role.knowledge.noSearchMatch', { query: knowledgeSearchQuery }) }}
+              </p>
+              <p>{{ t('settings.catAppearance.role.knowledge.noSearchMatchHint') }}</p>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              @click="clearSearch"
+            >
+              <XIcon data-icon="inline-start" />
+              {{ t('settings.catAppearance.role.knowledge.clearSearch') }}
+            </Button>
+          </div>
+
+          <div
+            v-else
+            class="flex flex-col gap-3 px-4 py-4 sm:px-5"
+          >
+            <SettingsPanelItem
+              v-for="item in filteredKnowledgeEntries"
+              :key="item.entry.id"
+              :title="item.entry.title || t('settings.catAppearance.role.knowledge.untitled')"
+              :icon="BookOpenIcon"
+            >
+              <template #badges>
+                <Badge :variant="item.entry.enabled ? 'secondary' : 'outline'">
+                  {{
+                    t(
+                      item.entry.enabled
+                        ? 'settings.catAppearance.role.knowledge.enabled'
+                        : 'settings.catAppearance.role.knowledge.disabled'
+                    )
+                  }}
+                </Badge>
+                <Badge
+                  v-if="item.entry.constant"
+                  variant="outline"
+                >
+                  {{ t('settings.catAppearance.role.knowledge.fields.constant') }}
+                </Badge>
+                <Badge variant="outline">
+                  {{ t('settings.catAppearance.role.knowledge.prioritySummary', { value: item.entry.priority }) }}
+                </Badge>
+                <Badge
+                  v-if="item.entry.tokenBudget"
+                  variant="outline"
+                >
+                  {{ t('settings.catAppearance.role.knowledge.tokenBudgetSummary', { value: item.entry.tokenBudget }) }}
+                </Badge>
+              </template>
+
+              <template #meta>
+                <p class="line-clamp-2 text-sm text-muted-foreground">
+                  {{ item.entry.content }}
+                </p>
+                <p
+                  v-if="item.entry.keys.length"
+                  class="truncate text-xs text-muted-foreground"
+                >
+                  {{
+                    t('settings.catAppearance.role.knowledge.keywordSummary', {
+                      keywords: item.entry.keys.join('、'),
+                    })
+                  }}
+                </p>
+                <p
+                  v-else-if="!item.entry.constant"
+                  class="text-xs text-muted-foreground"
+                >
+                  {{ t('settings.catAppearance.role.knowledge.noTrigger') }}
+                </p>
+              </template>
+
+              <template #actions>
+                <Switch
+                  :id="`role-knowledge-enabled-${item.entry.id}`"
+                  size="sm"
+                  :model-value="item.entry.enabled"
+                  :aria-label="
+                    t(
+                      item.entry.enabled
+                        ? 'settings.catAppearance.role.knowledge.disable'
+                        : 'settings.catAppearance.role.knowledge.enable',
+                      { title: item.entry.title || t('settings.catAppearance.role.knowledge.untitled') }
+                    )
+                  "
+                  @update:model-value="updateKnowledgeEntry(item.entry.id, { enabled: Boolean($event) })"
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  :aria-label="t('settings.catAppearance.role.knowledge.edit')"
+                  @click="openKnowledgeEditDialog(item.entry)"
+                >
+                  <PencilIcon />
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  :aria-label="t('settings.catAppearance.role.knowledge.delete')"
+                  @click="requestDeleteKnowledgeEntry(item.entry.id)"
+                >
+                  <Trash2Icon />
+                </Button>
+              </template>
+            </SettingsPanelItem>
+          </div>
         </div>
-
-        <Textarea
-          :model-value="item.entry.content"
-          class="min-h-32"
-          :disabled="!isKnowledgeEntryEditing(item.entry.id)"
-          :placeholder="t('settings.catAppearance.role.knowledge.fields.content')"
-          @update:model-value="updateKnowledgeEntry(item.entry.id, { content: String($event) })"
-        />
-
-        <div class="grid gap-3 @3xl/field-group:grid-cols-[minmax(12rem,1fr)_8rem_9rem_auto_auto]">
-          <Input
-            :model-value="item.entry.keys.join(', ')"
-            :disabled="!isKnowledgeEntryEditing(item.entry.id)"
-            :placeholder="t('settings.catAppearance.role.knowledge.fields.keys')"
-            @input="updateKnowledgeKeys(item.entry.id, eventInputValue($event))"
-          />
-          <Input
-            :model-value="item.entry.priority"
-            type="number"
-            :disabled="!isKnowledgeEntryEditing(item.entry.id)"
-            :placeholder="t('settings.catAppearance.role.knowledge.fields.priority')"
-            @update:model-value="updateKnowledgeEntry(item.entry.id, { priority: Number($event) })"
-          />
-          <Input
-            :model-value="item.entry.tokenBudget ?? ''"
-            type="number"
-            min="50"
-            :disabled="!isKnowledgeEntryEditing(item.entry.id)"
-            :placeholder="t('settings.catAppearance.role.knowledge.fields.tokenBudget')"
-            @input="updateKnowledgeTokenBudget(item.entry.id, eventInputValue($event))"
-          />
-          <Field
-            orientation="horizontal"
-            class="min-w-max justify-start @3xl/field-group:justify-center"
-          >
-            <Switch
-              :model-value="item.entry.constant"
-              :disabled="!isKnowledgeEntryEditing(item.entry.id)"
-              @update:model-value="updateKnowledgeEntry(item.entry.id, { constant: Boolean($event) })"
-            />
-            <FieldLabel>
-              {{ t('settings.catAppearance.role.knowledge.fields.constant') }}
-            </FieldLabel>
-          </Field>
-          <span class="self-center text-sm text-muted-foreground">
-            {{ t('settings.catAppearance.role.knowledge.order', { index: item.index + 1 }) }}
-          </span>
-        </div>
-      </div>
-    </div>
-  </SettingsSection>
+      </CardContent>
+    </Card>
+  </div>
 
   <CompanionRoleKnowledgeCreateDialog
-    v-model:open="knowledgeCreateDialogOpen"
-    @submit="createKnowledgeEntry"
+    v-model:open="knowledgeEntryDialogOpen"
+    :entry="editingKnowledgeEntry"
+    @submit="submitKnowledgeEntry"
+  />
+
+  <CompanionRoleKnowledgeSettingsModal
+    v-model:open="knowledgeSettingsModalOpen"
+    :settings="settings"
+    @submit="updateKnowledgeSettings"
   />
 
   <CompanionRoleKnowledgeDeleteModal
