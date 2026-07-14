@@ -209,23 +209,23 @@ export default {
           },
           persona: {
             title: '性格与关系',
-            description: '用短语稳定角色性格、说话风格和与用户的关系。',
+            description: '塑造角色性格、说话风格',
           },
           background: {
             title: '背景资料',
-            description: '补充少量身份、世界观、专业或项目背景。',
+            description: '角色的世界观与背景',
           },
           knowledge: {
             title: '角色知识',
-            description: '管理当前角色会按对话触发的轻量知识条目。',
+            description: '你的角色有哪些知识？',
           },
           appearance: {
             title: '外观形象',
-            description: '选择这个角色在桌面悬浮窗中使用的外观包。',
+            description: '角色在桌面悬浮窗中使用的外观。',
           },
           interactions: {
             title: '互动配置',
-            description: '配置桌宠状态面板里的互动按钮、启用状态和反馈文案。',
+            description: '和你的角色互动，增进好感，培养感情',
           },
           behavior: {
             title: '协作设置',
@@ -240,11 +240,10 @@ export default {
         searchLabel: '搜索角色',
         searchPlaceholder: '搜索角色',
         noSearchMatch: '没有匹配的角色。',
-        activeHint: '当前角色会应用到新建会话，影响陪伴风格、协作方式和输出偏好。',
-        editorHint: '修改会自动保存；只有选择为当前角色后，设定才会应用到新建会话。',
+        activeHint: '当前角色会应用到新建会话',
         overview: {
           title: '角色管理',
-          description: '管理可用角色并选择当前角色；编辑设定会在独立窗口中展开。',
+          description: '管理可用角色',
           count: '{count} 个角色',
           selected: '正在使用',
           select: '设为当前角色',

@@ -99,7 +99,6 @@ function clearSearch(): void {
   <Card class="grid h-full min-h-0 flex-1 grid-rows-[auto_auto_minmax(0,1fr)] gap-0 rounded-md border border-border py-0 ring-0">
     <SettingsPanelHeader
       :title="t('settings.catAppearance.role.overview.title')"
-      :description="t('settings.catAppearance.role.overview.description')"
       :icon="SparklesIcon"
     />
 

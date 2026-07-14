@@ -16,7 +16,13 @@ const props = defineProps<{
 </script>
 
 <template>
-  <CardHeader :class="cn('relative isolate flex min-h-24 overflow-hidden border-b px-4 pt-5 pb-3 sm:px-5', props.class)">
+  <CardHeader
+    :class="cn(
+      'relative isolate flex min-h-24 overflow-hidden border-b px-4 pt-5 pb-3 sm:px-5',
+      !description && !$slots.description && 'items-center',
+      props.class,
+    )"
+  >
     <component
       :is="icon"
       v-if="icon"

@@ -281,15 +281,6 @@ function confirmDeleteRole(): void {
         <h1 class="truncate text-xl font-semibold">
           {{ editableRole.name || t('settings.catAppearance.role.unnamed') }}
         </h1>
-        <p class="text-sm text-muted-foreground">
-          {{
-            t(
-              isActiveRole
-                ? 'settings.catAppearance.role.activeHint'
-                : 'settings.catAppearance.role.editorHint'
-            )
-          }}
-        </p>
       </div>
       <div class="flex min-w-0 flex-wrap items-center justify-end gap-2">
         <Button
