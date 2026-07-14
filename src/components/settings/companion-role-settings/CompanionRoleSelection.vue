@@ -14,6 +14,7 @@ import SettingsPanelHeader from '@/components/settings/common/SettingsPanelHeade
 import SettingsPanelItem from '@/components/settings/common/SettingsPanelItem.vue'
 import SettingsSearchBar from '@/components/settings/common/SettingsSearchBar.vue'
 import type { CompanionRole } from '@/components/settings/companion-role-settings/types'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
@@ -24,6 +25,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { cn } from '@/lib/utils'
 
 const props = defineProps<{
   roles: CompanionRole[]
@@ -43,8 +45,10 @@ const emit = defineEmits<{
 
 interface RoleListItem {
   active: boolean
-  idleImage: string
+  avatarSrc: string
+  customAvatar: boolean
   intro: string
+  initial: string
   name: string
   role: CompanionRole
 }
@@ -57,21 +61,29 @@ const roleItems = computed<RoleListItem[]>(() => {
   return props.roles
     .filter((role) => {
       if (!query) return true
-      return [role.name, role.personality, role.relationship, role.speechStyle, role.background]
+      return [
+        role.name,
+        role.introduction,
+        role.personality,
+        role.relationship,
+        role.speechStyle,
+        role.background,
+      ]
         .filter(Boolean)
         .some((value) => value.toLocaleLowerCase().includes(query))
     })
     .map((role) => {
       const name = role.name.trim() || t('settings.catAppearance.role.unnamed')
+      const customAvatar = role.avatar?.source === 'custom' && Boolean(role.avatar.dataUrl)
+      const idleImage =
+        props.idleImageByPackId[role.appearancePackId || 'builtin'] ||
+        props.idleImageByPackId.builtin
       return {
         active: role.id === props.activeRoleId,
-        idleImage:
-          props.idleImageByPackId[role.appearancePackId || 'builtin'] ||
-          props.idleImageByPackId.builtin,
-        intro:
-          role.personality.trim() ||
-          role.background.trim() ||
-          t('settings.catAppearance.role.overview.introFallback'),
+        avatarSrc: customAvatar ? (role.avatar?.dataUrl ?? idleImage) : idleImage,
+        customAvatar,
+        intro: role.introduction.trim() || t('settings.catAppearance.role.overview.introFallback'),
+        initial: name.slice(0, 1),
         name,
         role,
       }
@@ -199,14 +211,14 @@ function clearSearch(): void {
             :description="item.intro"
           >
             <template #avatar>
-              <div class="flex size-12 shrink-0 items-center justify-center overflow-hidden rounded-md bg-muted/50 p-1">
-                <img
-                  :src="item.idleImage"
+              <Avatar class="size-12 shrink-0">
+                <AvatarImage
+                  :src="item.avatarSrc"
                   :alt="t('settings.catAppearance.role.overview.avatarAlt', { name: item.name })"
-                  class="max-h-full max-w-full object-contain"
-                  draggable="false"
-                >
-              </div>
+                  :class="cn(item.customAvatar ? 'object-cover' : 'object-contain p-1')"
+                />
+                <AvatarFallback>{{ item.initial }}</AvatarFallback>
+              </Avatar>
             </template>
 
             <template #actions>

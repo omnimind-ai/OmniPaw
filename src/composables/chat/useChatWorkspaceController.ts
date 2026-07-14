@@ -107,7 +107,8 @@ export function useChatWorkspaceController() {
     (settingsConfig.value?.app.companionRoles ?? []).map((role) => ({
       id: role.id,
       name: role.name.trim(),
-      description: role.relationship.trim() || role.personality.trim() || role.speechStyle.trim(),
+      description: role.introduction.trim(),
+      avatar: role.avatar ? { ...role.avatar } : undefined,
       appearancePackId: role.appearancePackId?.trim() || 'builtin',
     }))
   )

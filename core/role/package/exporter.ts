@@ -1,9 +1,11 @@
 import { normalizePetGiftConfigs, normalizePetInteractionConfigs } from '@core/role/presets'
 import { writeZipEntries, type ZipArchiveEntry } from '@core/utils/zip'
-import type {
-  CompanionRoleKnowledgeEntryDraft,
-  ExportCompanionRoleCardRequest,
-  ImportedCompanionRoleDraft,
+import {
+  type CompanionRoleAvatar,
+  type CompanionRoleKnowledgeEntryDraft,
+  type ExportCompanionRoleCardRequest,
+  type ImportedCompanionRoleDraft,
+  normalizeCompanionRoleAvatar,
 } from '@shared/types/companion-role'
 
 export interface ExportedCompanionRoleCard {
@@ -16,6 +18,7 @@ interface OmniPawRolePackageManifest {
   specVersion: 1
   exportedAt: number
   rolePath: 'role.json'
+  avatarPath?: 'avatar/'
   appearancePath?: 'appearance/'
   giftsPath?: 'gifts/'
 }
@@ -24,18 +27,21 @@ export function exportCompanionRoleCard(
   request: ExportCompanionRoleCardRequest
 ): ExportedCompanionRoleCard {
   const role = normalizeExportedRoleDraft(request.role)
-  const giftPackage = packageGiftImages(role)
+  const avatarPackage = packageRoleAvatarImage(role)
+  const giftPackage = packageGiftImages(avatarPackage.role)
   const manifest: OmniPawRolePackageManifest = {
     spec: 'omnipaw_role_package',
     specVersion: 1,
     exportedAt: Date.now(),
     rolePath: 'role.json',
+    avatarPath: avatarPackage.entries.length ? 'avatar/' : undefined,
     appearancePath: request.appearancePack ? 'appearance/' : undefined,
     giftsPath: giftPackage.entries.length ? 'gifts/' : undefined,
   }
   const entries: ZipArchiveEntry[] = [
     jsonEntry('manifest.json', manifest),
     jsonEntry('role.json', giftPackage.role),
+    ...avatarPackage.entries,
     ...appearancePackEntries(request.appearancePack),
     ...giftPackage.entries,
   ]
@@ -74,6 +80,8 @@ function appearancePackEntries(
 function normalizeExportedRoleDraft(role: ImportedCompanionRoleDraft): ImportedCompanionRoleDraft {
   return {
     name: normalizeText(role.name) || 'Imported role',
+    introduction: normalizeOptionalText(role.introduction),
+    avatar: normalizeCompanionRoleAvatar(role.avatar),
     appearancePackId: normalizeOptionalText(role.appearancePackId),
     userNickname: normalizeOptionalText(role.userNickname),
     personality: normalizeOptionalText(role.personality),
@@ -93,6 +101,45 @@ function normalizeExportedRoleDraft(role: ImportedCompanionRoleDraft): ImportedC
       : undefined,
     knowledgeEntries: normalizeExportedKnowledgeEntries(role.knowledgeEntries),
     source: role.source,
+  }
+}
+
+function packageRoleAvatarImage(role: ImportedCompanionRoleDraft): {
+  role: ImportedCompanionRoleDraft
+  entries: ZipArchiveEntry[]
+} {
+  const avatar = normalizeCompanionRoleAvatar(role.avatar)
+  if (avatar?.source !== 'custom') {
+    return {
+      role: {
+        ...role,
+        avatar,
+      },
+      entries: [],
+    }
+  }
+
+  const parsed = parseDataImageUrl(avatar.dataUrl)
+  if (!parsed) {
+    return { role, entries: [] }
+  }
+
+  const baseName = safeFileBaseName(avatar.fileName || `${role.name}-avatar`)
+    .replace(/\.[a-z0-9]+$/i, '')
+    .slice(0, 60)
+  const path = `avatar/${baseName || 'role-avatar'}.${imageExtension(parsed.mimeType)}`
+  const packagedAvatar: CompanionRoleAvatar = {
+    source: 'custom',
+    mimeType: parsed.mimeType as CompanionRoleAvatar['mimeType'],
+    ...(avatar.fileName ? { fileName: avatar.fileName } : {}),
+    packagePath: path,
+  }
+  return {
+    role: {
+      ...role,
+      avatar: packagedAvatar,
+    },
+    entries: [{ name: path, data: parsed.data }],
   }
 }
 

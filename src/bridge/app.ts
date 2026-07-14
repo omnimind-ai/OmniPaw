@@ -1695,6 +1695,10 @@ function fallbackCompanionRole(): BridgeDesktopSettingsConfig['app']['companionR
   return {
     id: FALLBACK_COMPANION_ROLE_ID,
     name: '小万',
+    introduction: '你最好的桌面伙伴',
+    avatar: {
+      source: 'appearance-idle',
+    },
     appearancePackId: 'builtin',
     userNickname: '',
     personality: '温柔、可靠、带一点轻松感',

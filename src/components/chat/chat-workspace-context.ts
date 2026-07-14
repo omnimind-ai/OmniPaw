@@ -1,4 +1,5 @@
 import type { ChatSession, ToolProfile } from '@shared/types/chat'
+import type { CompanionRoleAvatar } from '@shared/types/companion-role'
 import { type ComputedRef, type InjectionKey, inject, type Ref } from 'vue'
 import type { MessageScrollAreaRef } from '@/composables/chat/useChatWorkspaceScroll'
 import type { StagedFileInfo, StagedUploadItem } from '@/composables/useMediaHandling'
@@ -10,6 +11,7 @@ export interface ChatCompanionRoleOption {
   id: string
   name: string
   description: string
+  avatar?: CompanionRoleAvatar
   appearancePackId: string
 }
 

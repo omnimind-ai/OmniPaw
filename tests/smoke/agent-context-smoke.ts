@@ -4,12 +4,26 @@ import { createBuiltinTools } from '../../core/agent/tools/builtin-tools'
 import type { AttachmentService } from '../../core/chat/attachment-service'
 import { ContextBuilder } from '../../core/chat/context-manager'
 import type { ChatMessageRepo } from '../../core/db/repos'
+import { compileCompanionRoleInstruction } from '../../core/prompts'
+import { createXiaowanCompanionRolePreset } from '../../core/role/presets'
 import type {
   ChatMessage,
   InternalAttachmentRecord,
   MessageAttachment,
 } from '../../shared/types/chat'
 import type { ProviderConfig, ProviderModel } from '../../shared/types/provider'
+
+const displayOnlyRole = createXiaowanCompanionRolePreset()
+displayOnlyRole.introduction = 'DISPLAY_ONLY_INTRODUCTION'
+displayOnlyRole.avatar = {
+  source: 'custom',
+  dataUrl: 'data:image/png;base64,RElTUExBWV9PTkxZX0FWQVRBUg==',
+  mimeType: 'image/png',
+}
+const displayOnlyRoleInstruction = compileCompanionRoleInstruction(displayOnlyRole)
+assert.ok(displayOnlyRoleInstruction)
+assert.doesNotMatch(displayOnlyRoleInstruction.text, /DISPLAY_ONLY_INTRODUCTION/)
+assert.doesNotMatch(displayOnlyRoleInstruction.text, /RElTUExBWV9PTkxZX0FWQVRBUg/)
 
 const attachment: InternalAttachmentRecord = {
   id: 'att-1',

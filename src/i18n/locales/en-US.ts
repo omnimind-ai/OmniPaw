@@ -263,8 +263,8 @@ export default {
           edit: 'Edit',
           import: 'Import',
           introFallback:
-            'This character does not have an introduction yet. Open the editor to add personality, relationship, and collaboration details.',
-          avatarAlt: '{name} idle appearance',
+            'This character does not have an introduction yet. Open the editor to add one.',
+          avatarAlt: '{name} character avatar',
           searchHint: 'Try another keyword, or clear the search to see every character.',
           clearSearch: 'Clear search',
           emptyTitle: 'No characters yet',
@@ -293,6 +293,25 @@ export default {
             description:
               'The name used by the character in conversations, desktop companionship, and work collaboration.',
             placeholder: 'OmniPaw',
+          },
+          avatar: {
+            title: 'Character avatar',
+            description:
+              'Used only for display in character lists and selectors. It is never injected into conversation context.',
+            hint: 'PNG, JPG, WebP, and GIF are supported up to {size} MB. The image is included in role packages.',
+            reset: 'Restore idle avatar',
+            alt: '{name} character avatar',
+            errors: {
+              imageType: 'Choose a PNG, JPG, WebP, or GIF image.',
+              imageSize: 'Avatar image must be under {size} MB.',
+              imageRead: 'Failed to read the character avatar.',
+            },
+          },
+          introduction: {
+            title: 'Character introduction',
+            description:
+              'Used only for interface display and role package information. It is never injected into conversation context.',
+            placeholder: 'Introduce this character in one sentence',
           },
           appearance: {
             title: 'Appearance',

@@ -111,6 +111,10 @@ try {
   assert.equal(normalized.observation.consecutiveFailureLimit, 4)
   assert.equal(normalized.observation.notificationCooldownMs, 45_000)
 
+  const xiaowanRole = cloneDefaultConfig().app.companionRoles[0]
+  assert.equal(xiaowanRole?.introduction, '你最好的桌面伙伴')
+  assert.equal(xiaowanRole?.avatar?.source, 'appearance-idle')
+
   const roleConfig = normalizeConfig({
     ...cloneDefaultConfig(),
     app: {
@@ -118,6 +122,13 @@ try {
       companionRoles: [
         {
           ...cloneDefaultConfig().app.companionRoles[0],
+          introduction: 'A display-only smoke introduction.',
+          avatar: {
+            source: 'custom',
+            dataUrl: 'data:image/png;base64,YXZhdGFyLXNtb2tl',
+            mimeType: 'image/png',
+            fileName: 'avatar-smoke.png',
+          },
           enabled: false,
           greeting: '旧开场白',
           greetingMode: 'random',
@@ -173,6 +184,12 @@ try {
   assert.equal('greeting' in roleConfig.app.companionRoles[0]!, false)
   assert.equal('greetingMode' in roleConfig.app.companionRoles[0]!, false)
   assert.equal('alternateGreetings' in roleConfig.app.companionRoles[0]!, false)
+  assert.equal(roleConfig.app.companionRoles[0]?.introduction, 'A display-only smoke introduction.')
+  assert.equal(roleConfig.app.companionRoles[0]?.avatar?.source, 'custom')
+  assert.equal(
+    roleConfig.app.companionRoles[0]?.avatar?.dataUrl,
+    'data:image/png;base64,YXZhdGFyLXNtb2tl'
+  )
   assert.equal(roleConfig.app.companionRoles[0]?.knowledgeSettings.scanDepth, 5)
   assert.equal(roleConfig.app.companionRoles[0]?.knowledgeSettings.maxTokens, 1200)
   assert.equal(roleConfig.app.companionRoles[0]?.knowledgeEntries[0]?.title, '桌面设定')
@@ -194,6 +211,7 @@ try {
       spec: 'chara_card_v2',
       data: {
         name: 'Mika',
+        creator_notes: 'A bright role card introduction.',
         description: 'A cheerful desktop partner.',
         personality: 'bright and concise',
         first_mes: 'Hi {{user}}, Mika is here.',
@@ -214,6 +232,7 @@ try {
     }),
   })
   assert.equal(importedRole.role.name, 'Mika')
+  assert.equal(importedRole.role.introduction, 'A bright role card introduction.')
   assert.equal('greeting' in importedRole.role, false)
   assert.equal('alternateGreetings' in importedRole.role, false)
   assert.equal(importedRole.knowledgeEntryCount, 1)
@@ -223,6 +242,13 @@ try {
   const exportedGiftPackage = companionRoleService.exportCard({
     role: {
       name: 'Gift Role',
+      introduction: 'A role package introduction.',
+      avatar: {
+        source: 'custom',
+        dataUrl: 'data:image/png;base64,YXZhdGFyLXBhY2thZ2U=',
+        mimeType: 'image/png',
+        fileName: 'role-avatar.png',
+      },
       petGifts: [
         {
           id: 'gift_100',
@@ -245,6 +271,12 @@ try {
     sourceName: 'gift-role.omnipaw-role',
     dataBase64: exportedGiftPackage.data.toString('base64'),
   })
+  assert.equal(importedGiftPackage.role.introduction, 'A role package introduction.')
+  assert.equal(importedGiftPackage.role.avatar?.source, 'custom')
+  assert.equal(
+    importedGiftPackage.role.avatar?.dataUrl,
+    'data:image/png;base64,YXZhdGFyLXBhY2thZ2U='
+  )
   assert.equal(importedGiftPackage.role.petGifts?.[0]?.name, 'Gift Package Smoke')
   assert.equal(
     importedGiftPackage.role.petGifts?.[0]?.image?.dataUrl,

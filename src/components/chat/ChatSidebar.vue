@@ -316,7 +316,12 @@ function updateSessionKindFilter(value: unknown) {
 
 function roleAvatarUrl(role: ChatCompanionRoleOption | undefined): string {
   if (!role) return idleImageByPackId.value.builtin
+  if (role.avatar?.source === 'custom' && role.avatar.dataUrl) return role.avatar.dataUrl
   return idleImageByPackId.value[role.appearancePackId] || idleImageByPackId.value.builtin
+}
+
+function roleHasCustomAvatar(role: ChatCompanionRoleOption | undefined): boolean {
+  return role?.avatar?.source === 'custom' && Boolean(role.avatar.dataUrl)
 }
 
 function roleInitial(role: ChatCompanionRoleOption | undefined): string {
@@ -510,7 +515,7 @@ function updateCompanionRole(value: unknown): void {
                   <AvatarImage
                     :src="roleAvatarUrl(activeCompanionRole)"
                     :alt="t('chat.sidebar.footer.role.avatarAlt', { name: activeCompanionRoleName })"
-                    class="object-contain p-0.5"
+                    :class="cn(roleHasCustomAvatar(activeCompanionRole) ? 'object-cover' : 'object-contain p-0.5')"
                   />
                   <AvatarFallback>{{ roleInitial(activeCompanionRole) }}</AvatarFallback>
                 </Avatar>
@@ -542,12 +547,18 @@ function updateCompanionRole(value: unknown): void {
                     <AvatarImage
                       :src="roleAvatarUrl(role)"
                       :alt="t('chat.sidebar.footer.role.avatarAlt', { name: roleDisplayName(role) })"
-                      class="object-contain p-0.5"
+                      :class="cn(roleHasCustomAvatar(role) ? 'object-cover' : 'object-contain p-0.5')"
                     />
                     <AvatarFallback>{{ roleInitial(role) }}</AvatarFallback>
                   </Avatar>
                   <div class="grid min-w-0 flex-1 leading-tight">
                     <span class="truncate font-medium">{{ roleDisplayName(role) }}</span>
+                    <span
+                      v-if="role.description"
+                      class="truncate text-xs text-muted-foreground"
+                    >
+                      {{ role.description }}
+                    </span>
                   </div>
                 </DropdownMenuRadioItem>
               </DropdownMenuRadioGroup>

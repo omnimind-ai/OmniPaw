@@ -7,12 +7,14 @@ import {
 } from '@core/role/presets'
 import { normalizeArchivePath, readZipEntries, validateArchivePaths } from '@core/utils/zip'
 import type { CatAppearanceEmbeddedPack } from '@shared/types/cat-appearance'
-import type {
-  CompanionRoleKnowledgeEntryDraft,
-  CompanionRoleSourceMetadata,
-  ImportCompanionRoleCardRequest,
-  ImportCompanionRoleCardResponse,
-  ImportedCompanionRoleDraft,
+import {
+  type CompanionRoleAvatar,
+  type CompanionRoleKnowledgeEntryDraft,
+  type CompanionRoleSourceMetadata,
+  type ImportCompanionRoleCardRequest,
+  type ImportCompanionRoleCardResponse,
+  type ImportedCompanionRoleDraft,
+  normalizeCompanionRoleAvatar,
 } from '@shared/types/companion-role'
 
 type ImportErrorCode =
@@ -23,6 +25,8 @@ type ImportErrorCode =
 
 interface ParsedCharacterCard {
   name?: string
+  introduction?: string
+  avatar?: CompanionRoleAvatar
   description?: string
   personality?: string
   scenario?: string
@@ -79,6 +83,7 @@ function parseCompanionRoleCard(request: ImportCompanionRoleCardRequest): Parsed
   }
 
   const data = decodeImportBytes(request)
+  const imageMimeType = sourceKind === 'png' ? 'image/png' : 'image/webp'
   const payload =
     sourceKind === 'png' ? extractPngCharacterPayload(data) : extractWebpCharacterPayload(data)
   const parsed = parseCharacterJson(payload, request.sourceName, {
@@ -88,6 +93,12 @@ function parseCompanionRoleCard(request: ImportCompanionRoleCardRequest): Parsed
   })
   return {
     ...parsed,
+    avatar: {
+      source: 'custom',
+      dataUrl: `data:${imageMimeType};base64,${data.toString('base64')}`,
+      mimeType: imageMimeType,
+      ...(request.sourceName ? { fileName: request.sourceName } : {}),
+    },
     source: {
       ...parsed.source,
       kind: sourceKind === 'png' ? 'sillytavern-png' : 'sillytavern-webp',
@@ -134,6 +145,7 @@ function parseCharacterJson(
   }
 
   const name = pickString(data, ['name', 'char_name'])
+  const introduction = pickString(data, ['creator_notes', 'creatorNotes'])
   const description = pickString(data, ['description', 'desc'])
   const personality = pickString(data, ['personality', 'personality_summary'])
   const scenario = pickString(data, ['scenario'])
@@ -155,6 +167,7 @@ function parseCharacterJson(
   const resolvedName = name || sourceName?.replace(/\.(json|png|webp)$/i, '') || 'Imported role'
   return {
     name: resolvedName,
+    introduction,
     description,
     personality,
     scenario,
@@ -209,6 +222,8 @@ function mapParsedCardToRole(parsed: ParsedCharacterCard): ImportedCompanionRole
 
   return {
     name: parsed.name ?? 'Imported role',
+    introduction: parsed.introduction ?? '',
+    avatar: parsed.avatar,
     personality: parsed.personality ?? '',
     speechStyle: '',
     relationship: '',
@@ -274,7 +289,7 @@ function parseOmniPawRolePackage(
   if (!role) {
     throwUnsupportedImport()
   }
-  const resolvedRole = resolvePackageGiftImages(role, byName)
+  const resolvedRole = resolvePackageGiftImages(resolvePackageRoleAvatar(role, byName), byName)
 
   return {
     name: resolvedRole.name,
@@ -352,6 +367,8 @@ function normalizeOmniPawExportedRole(
   const advanced = asRecord(role.advanced)
   return {
     name,
+    introduction: pickString(role, ['introduction']),
+    avatar: normalizeCompanionRoleAvatar(role.avatar),
     appearancePackId: pickString(role, ['appearancePackId']),
     userNickname: pickString(role, ['userNickname']),
     personality: pickString(role, ['personality']),
@@ -376,6 +393,36 @@ function normalizeOmniPawExportedRole(
         }
       : undefined,
     knowledgeEntries: normalizeOmniPawExportedKnowledgeEntries(role.knowledgeEntries),
+  }
+}
+
+function resolvePackageRoleAvatar(
+  role: ImportedCompanionRoleDraft,
+  entries: Map<string, Buffer>
+): ImportedCompanionRoleDraft {
+  const avatar = normalizeCompanionRoleAvatar(role.avatar)
+  if (avatar?.source !== 'custom') {
+    return {
+      ...role,
+      avatar,
+    }
+  }
+
+  const packagePath = normalizeArchivePath(avatar.packagePath ?? '')
+  const data = packagePath ? entries.get(packagePath) : undefined
+  if (!data) return role
+
+  const mimeType =
+    avatar.mimeType ??
+    (mimeTypeFromPath(packagePath) as NonNullable<CompanionRoleAvatar['mimeType']>)
+  return {
+    ...role,
+    avatar: {
+      ...avatar,
+      mimeType,
+      dataUrl: `data:${mimeType};base64,${data.toString('base64')}`,
+      packagePath,
+    },
   }
 }
 

@@ -1,6 +1,10 @@
 import type { CatPetGiftConfig, CatPetInteractionConfig } from './cat-pet'
 import type { ContextAttachmentPolicy, ToolProfile } from './chat'
-import type { CompanionRoleKnowledgeEntry, CompanionRoleSourceMetadata } from './companion-role'
+import type {
+  CompanionRoleAvatar,
+  CompanionRoleKnowledgeEntry,
+  CompanionRoleSourceMetadata,
+} from './companion-role'
 import type { LocalAgentTerminalSettings, LocalAgentWorkspaceSettings } from './local-agent'
 import type { DesktopMemorySettings } from './memory'
 import type { ObservationScope, ObservationScreenshotRetention } from './observation'
@@ -60,6 +64,8 @@ export interface DesktopCompanionRoleAdvancedSettings {
 export interface DesktopCompanionRoleSettings {
   id: string
   name: string
+  introduction: string
+  avatar?: CompanionRoleAvatar
   appearancePackId?: string
   userNickname: string
   personality: string

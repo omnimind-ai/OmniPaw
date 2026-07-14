@@ -23,6 +23,7 @@ import CompanionRoleInteractionsSection from '@/components/settings/companion-ro
 import CompanionRoleKnowledgeSection from '@/components/settings/companion-role-settings/CompanionRoleKnowledgeSection.vue'
 import CompanionRoleMemoryPanel from '@/components/settings/companion-role-settings/CompanionRoleMemoryPanel.vue'
 import CompanionRolePreviewDialog from '@/components/settings/companion-role-settings/CompanionRolePreviewDialog.vue'
+import CompanionRoleProfileFields from '@/components/settings/companion-role-settings/CompanionRoleProfileFields.vue'
 import CompanionRoleTextEditorField from '@/components/settings/companion-role-settings/CompanionRoleTextEditorField.vue'
 import type { CompanionRole } from '@/components/settings/companion-role-settings/types'
 import { Button } from '@/components/ui/button'
@@ -37,6 +38,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { useCompanionRoleIdleImages } from '@/composables/useCompanionRoleIdleImages'
 import { cn } from '@/lib/utils'
 import { type ProviderModelOption, useProviderStore } from '@/stores/provider'
 
@@ -66,6 +68,13 @@ const previewOpen = ref(false)
 const previewInput = ref('')
 
 const editableRole = computed(() => props.role)
+const roleAppearancePackIds = computed(() => [editableRole.value.appearancePackId || 'builtin'])
+const { idleImageByPackId } = useCompanionRoleIdleImages(roleAppearancePackIds)
+const avatarFallbackSrc = computed(
+  () =>
+    idleImageByPackId.value[editableRole.value.appearancePackId || 'builtin'] ||
+    idleImageByPackId.value.builtin
+)
 const enabledModelOptions = computed(() => modelOptions.value.filter((option) => option.enabled))
 const selectedModelKey = computed(() => {
   const providerId = editableRole.value.defaultProviderId
@@ -412,6 +421,13 @@ function previewCharTokenWeight(char: string): number {
                   :placeholder="t('settings.catAppearance.role.fields.name.placeholder')"
                 />
               </SettingEntry>
+
+              <CompanionRoleProfileFields
+                v-model:introduction="editableRole.introduction"
+                v-model:avatar="editableRole.avatar"
+                :role-name="editableRole.name"
+                :avatar-fallback-src="avatarFallbackSrc"
+              />
 
               <SettingEntry
                 control-id="settings-companion-role-user"

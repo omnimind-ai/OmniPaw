@@ -7,9 +7,11 @@ import {
   normalizePetInteractionConfigs as normalizeCatPetInteractionConfigs,
 } from '@core/role/presets'
 import type { ContextAttachmentPolicy, ToolProfile } from '@shared/types/chat'
-import type {
-  CompanionRoleKnowledgeEntry,
-  CompanionRoleSourceMetadata,
+import {
+  type CompanionRoleAvatar,
+  type CompanionRoleKnowledgeEntry,
+  type CompanionRoleSourceMetadata,
+  normalizeCompanionRoleAvatar,
 } from '@shared/types/companion-role'
 import type {
   ExternalRootGrant,
@@ -743,6 +745,7 @@ function validateCompanionRole(
         code: 'invalid_type',
       })
     }
+    validateCompanionRoleAvatar(settings.avatar, `${basePath}.avatar`, issues)
     if (!isPlainObject(settings.knowledgeSettings)) {
       issues.push({
         path: `${basePath}.knowledgeSettings`,
@@ -768,6 +771,7 @@ function validateCompanionRole(
 
     const textFields: Array<keyof DesktopCompanionRoleSettings> = [
       'name',
+      'introduction',
       'userNickname',
       'personality',
       'speechStyle',
@@ -828,6 +832,38 @@ function validateCompanionRole(
       message: 'Active companion role ID must reference an existing role.',
       code: 'invalid_reference',
     })
+  }
+}
+
+function validateCompanionRoleAvatar(
+  avatar: CompanionRoleAvatar | undefined,
+  basePath: string,
+  issues: SettingsValidationIssue[]
+): void {
+  if (avatar === undefined) return
+  if (!isPlainObject(avatar)) {
+    issues.push({
+      path: basePath,
+      message: 'Companion role avatar must be an object.',
+      code: 'invalid_type',
+    })
+    return
+  }
+  if (avatar.source !== 'appearance-idle' && avatar.source !== 'custom') {
+    issues.push({
+      path: `${basePath}.source`,
+      message: 'Companion role avatar source is invalid.',
+      code: 'invalid_value',
+    })
+  }
+  for (const field of ['dataUrl', 'mimeType', 'fileName', 'packagePath'] as const) {
+    if (avatar[field] !== undefined && typeof avatar[field] !== 'string') {
+      issues.push({
+        path: `${basePath}.${field}`,
+        message: 'Companion role avatar image fields must be strings.',
+        code: 'invalid_type',
+      })
+    }
   }
 }
 
@@ -2443,6 +2479,8 @@ function normalizeCompanionRoleSettings(
     }
   }
 
+  const isDefaultRole = typeof rawValue.id === 'string' ? rawValue.id === defaults.id : index === 0
+
   return {
     id:
       typeof rawValue.id === 'string' && rawValue.id.trim()
@@ -2451,6 +2489,15 @@ function normalizeCompanionRoleSettings(
           ? defaults.id
           : `role-${index + 1}`,
     name: typeof rawValue.name === 'string' ? rawValue.name : defaults.name,
+    introduction:
+      typeof rawValue.introduction === 'string'
+        ? rawValue.introduction
+        : isDefaultRole
+          ? defaults.introduction
+          : '',
+    avatar:
+      normalizeCompanionRoleAvatar(rawValue.avatar) ??
+      (defaults.avatar ? { ...defaults.avatar } : undefined),
     appearancePackId:
       typeof rawValue.appearancePackId === 'string' && rawValue.appearancePackId.trim()
         ? rawValue.appearancePackId

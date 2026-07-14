@@ -6,6 +6,7 @@ import {
   normalizeCatPetInteractionConfigs,
 } from '@shared/types/cat-pet'
 import type {
+  CompanionRoleAvatar,
   CompanionRoleCardImportSourceKind,
   CompanionRoleKnowledgeEntry,
   CompanionRoleKnowledgeEntryDraft,
@@ -94,6 +95,7 @@ function duplicateEditingRole(): void {
     name: t('settings.catAppearance.role.copyName', {
       name: editingRole.value.name || defaultRoleName(),
     }),
+    avatar: cloneRoleAvatar(editingRole.value.avatar),
     advanced: { ...editingRole.value.advanced },
     petInteractions: editingRole.value.petInteractions.map((item) => ({ ...item })),
     petGifts: editingRole.value.petGifts.map((item) => ({
@@ -138,6 +140,10 @@ function createCompanionRole(): CompanionRole {
   return {
     id: createRoleId(),
     name: defaultRoleName(),
+    introduction: '',
+    avatar: {
+      source: 'appearance-idle',
+    },
     appearancePackId: 'builtin',
     userNickname: '',
     personality: '',
@@ -416,6 +422,8 @@ function createRoleFromImportedDraft(
   return {
     id: createRoleId(),
     name: draft.name?.trim() || defaultRoleName(),
+    introduction: draft.introduction ?? '',
+    avatar: cloneRoleAvatar(draft.avatar) ?? { source: 'appearance-idle' },
     appearancePackId: draft.appearancePackId || 'builtin',
     userNickname: draft.userNickname ?? '',
     personality: draft.personality ?? '',
@@ -445,6 +453,8 @@ function createRoleFromImportedDraft(
 function createExportRoleDraft(role: CompanionRole): ImportedCompanionRoleDraft {
   return {
     name: role.name,
+    introduction: role.introduction,
+    avatar: cloneRoleAvatar(role.avatar),
     appearancePackId: role.appearancePackId,
     userNickname: role.userNickname,
     personality: role.personality,
@@ -472,6 +482,10 @@ function createExportRoleDraft(role: CompanionRole): ImportedCompanionRoleDraft 
     })),
     source: cloneRoleSourceMetadata(role.source),
   }
+}
+
+function cloneRoleAvatar(avatar: CompanionRoleAvatar | undefined): CompanionRoleAvatar | undefined {
+  return avatar ? { ...avatar } : undefined
 }
 
 function cloneRoleSourceMetadata(
