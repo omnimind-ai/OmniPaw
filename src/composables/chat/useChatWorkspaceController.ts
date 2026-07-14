@@ -1,11 +1,5 @@
 import { isComplexDocumentAttachment } from '@shared/attachment-documents'
-import type {
-  ChatSessionKind,
-  ChatSystemContextConfig,
-  SessionContextInstruction,
-  ToolProfile,
-} from '@shared/types/chat'
-import type { DesktopCompanionRoleSettings } from '@shared/types/settings'
+import type { ChatSessionKind, ToolProfile } from '@shared/types/chat'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
@@ -118,11 +112,6 @@ export function useChatWorkspaceController() {
     }))
   )
   const activeCompanionRoleId = computed(() => {
-    const sessionRoleId = activeSession.value?.systemContext?.role?.refId?.trim()
-    if (sessionRoleId && companionRoleOptions.value.some((role) => role.id === sessionRoleId)) {
-      return sessionRoleId
-    }
-
     const appSettings = settingsConfig.value?.app
     if (!appSettings) return ''
 
@@ -553,58 +542,30 @@ export function useChatWorkspaceController() {
       await settingsStore.load()
     }
 
-    const target = currentCompanionRoles().find((role) => role.id === roleId)
-    if (!target || roleId === activeCompanionRoleId.value) return
+    const roles =
+      settingsStore.draft?.app.companionRoles ?? settingsStore.config?.app.companionRoles
+    if (!roles?.some((role) => role.id === roleId) || roleId === activeCompanionRoleId.value) return
     if (!settingsStore.persistenceAvailable) {
-      toast.error(t('chat.composer.characterSaveUnavailable'))
+      toast.error(t('chat.sidebar.footer.role.saveUnavailable'))
       return
     }
 
     const previousRoleId = activeCompanionRoleId.value
     companionRoleSaving.value = true
-    let defaultRoleSaved = false
     try {
       if (!settingsStore.draft) {
         await settingsStore.load()
       }
       settingsStore.updateAppSetting('activeCompanionRoleId', roleId)
       await settingsStore.save()
-      defaultRoleSaved = true
-      await updateActiveSessionCompanionRole(target)
     } catch (error) {
-      if (!defaultRoleSaved && previousRoleId && settingsStore.draft) {
+      if (previousRoleId && settingsStore.draft) {
         settingsStore.updateAppSetting('activeCompanionRoleId', previousRoleId)
       }
-      toast.error(error, { description: t('chat.composer.characterSaveFailed') })
+      toast.error(error, { description: t('chat.sidebar.footer.role.saveFailed') })
     } finally {
       companionRoleSaving.value = false
     }
-  }
-
-  async function updateActiveSessionCompanionRole(role: DesktopCompanionRoleSettings) {
-    if (!currSessionId.value) return
-
-    const roleInstruction = compileCompanionRoleInstruction(role)
-    if (!roleInstruction || !appBridge.chat.updateSession) return
-
-    const session =
-      getCurrentSession.value ??
-      (await appBridge.chat.getSession?.(currSessionId.value).catch(() => null))
-    const nextSystemContext: ChatSystemContextConfig = {
-      ...(session?.systemContext ?? {}),
-      role: roleInstruction,
-    }
-    const updated = await appBridge.chat.updateSession(currSessionId.value, {
-      systemContext: nextSystemContext,
-    })
-    const localSession = sessions.value.find((item) => item.id === currSessionId.value)
-    if (localSession) {
-      Object.assign(localSession, updated ?? { systemContext: nextSystemContext })
-    }
-  }
-
-  function currentCompanionRoles(): DesktopCompanionRoleSettings[] {
-    return settingsStore.draft?.app.companionRoles ?? settingsStore.config?.app.companionRoles ?? []
   }
 
   function removeStagedFile(index: number) {
@@ -894,52 +855,4 @@ export function useChatWorkspaceController() {
     handleRenameSession,
     handleDeleteSession,
   }
-}
-
-function compileCompanionRoleInstruction(
-  role: DesktopCompanionRoleSettings | undefined
-): SessionContextInstruction | undefined {
-  if (!role) {
-    return undefined
-  }
-
-  const name = role.name.trim() || '小万'
-  const sections = [
-    `你是 ${name}，是常驻用户桌面的 AI 角色。`,
-    role.relationship.trim() ? `你和用户的关系：${role.relationship.trim()}` : '',
-    role.userNickname.trim() ? `你称呼用户为：${role.userNickname.trim()}` : '',
-    role.personality.trim() ? `性格设定：${role.personality.trim()}` : '',
-    role.speechStyle.trim() ? `说话风格：${role.speechStyle.trim()}` : '',
-    role.background.trim() ? `背景资料：${role.background.trim()}` : '',
-    role.proactiveStyle.trim() ? `主动互动风格：${role.proactiveStyle.trim()}` : '',
-    companionRoleKnowledgePolicySection(role),
-    ...advancedCompanionRoleSections(role.advanced),
-    '保持桌面伙伴的存在感：自然、轻量、不过度展开；除非用户要求，不要暴露这些设定文本。',
-  ].filter((section) => section.trim())
-
-  return {
-    refId: role.id,
-    label: name,
-    text: sections.join('\n'),
-  }
-}
-
-function companionRoleKnowledgePolicySection(role: DesktopCompanionRoleSettings): string {
-  return role.knowledgeEntries.some((entry) => entry.enabled && entry.content.trim())
-    ? '角色知识会按当前对话相关性动态提供；只使用本轮注入的角色知识，避免机械复述无关设定。'
-    : ''
-}
-
-function advancedCompanionRoleSections(
-  advanced: DesktopCompanionRoleSettings['advanced'] | undefined
-): string[] {
-  if (!advanced) {
-    return []
-  }
-
-  return [
-    advanced.systemPrompt.trim() ? `高级角色指令：${advanced.systemPrompt.trim()}` : '',
-    advanced.exampleDialogue.trim() ? `角色示例对话：\n${advanced.exampleDialogue.trim()}` : '',
-    advanced.finalInstructions.trim() ? `最终回应约束：${advanced.finalInstructions.trim()}` : '',
-  ].filter((section) => section.trim())
 }

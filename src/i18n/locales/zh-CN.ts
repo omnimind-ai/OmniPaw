@@ -1611,6 +1611,8 @@ export default {
           avatarAlt: '{name}的角色头像',
           menuLabel: '切换角色',
           showMore: '显示更多',
+          saveFailed: '角色保存失败',
+          saveUnavailable: '当前运行无法保存角色选择。',
         },
       },
       renameDialog: {
@@ -1651,11 +1653,6 @@ export default {
       addAttachmentAria: '添加附件',
       switchModelAria: '切换模型：{model}',
       switchModel: '切换模型',
-      switchCharacterAria: '切换角色：{character}',
-      switchCharacter: '角色',
-      characterFallbackLabel: '角色',
-      characterSaveFailed: '角色保存失败',
-      characterSaveUnavailable: '当前运行无法保存角色选择。',
       agentPermissionAria: 'Agent 权限：{description}',
       agentPermission: 'Agent 权限',
       attachmentPresets: {

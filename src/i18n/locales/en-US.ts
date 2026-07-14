@@ -1699,6 +1699,8 @@ export default {
           avatarAlt: '{name} character avatar',
           menuLabel: 'Switch character',
           showMore: 'Show more',
+          saveFailed: 'Failed to save character.',
+          saveUnavailable: 'This runtime cannot save character selection.',
         },
       },
       renameDialog: {
@@ -1741,11 +1743,6 @@ export default {
       addAttachmentAria: 'Add attachment',
       switchModelAria: 'Switch model: {model}',
       switchModel: 'Switch model',
-      switchCharacterAria: 'Switch character: {character}',
-      switchCharacter: 'Character',
-      characterFallbackLabel: 'Character',
-      characterSaveFailed: 'Failed to save character.',
-      characterSaveUnavailable: 'This runtime cannot save character selection.',
       agentPermissionAria: 'Agent permission: {description}',
       agentPermission: 'Agent permission',
       attachmentPresets: {
