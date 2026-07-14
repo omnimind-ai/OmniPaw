@@ -29,6 +29,9 @@ import {
 } from '@shared/types/cat-pet'
 
 const HOUR_MS = 60 * 60 * 1000
+const AWAY_GRACE_HOURS = 24
+const LONG_AWAY_START_HOURS = 7 * 24
+const MAX_AWAY_MOOD_PENALTY = 32
 
 export interface PetVitals {
   affection: number
@@ -221,7 +224,7 @@ export function resolveLaunchEffect(input: {
   const awayMs = Math.max(0, input.lastSeenAt ? input.now - input.lastSeenAt : 0)
   const awayHours = awayMs / HOUR_MS
 
-  if (awayHours < 6) {
+  if (awayHours <= AWAY_GRACE_HOURS) {
     return {
       awayMs,
       moodDelta: 0,
@@ -233,10 +236,17 @@ export function resolveLaunchEffect(input: {
   }
 
   const affectionProtection = clamp((affection - 45) / 155, 0, 1)
-  const absenceWeight = Math.log2(awayHours / 6 + 1)
-  const longAwayWeight = awayHours >= 72 ? Math.min(16, Math.floor((awayHours - 72) / 24) * 2) : 0
+  const penalizedAwayHours = awayHours - AWAY_GRACE_HOURS
+  const absenceWeight = Math.log2(penalizedAwayHours / 24 + 1)
+  const longAwayWeight =
+    awayHours >= LONG_AWAY_START_HOURS
+      ? Math.min(10, Math.floor((awayHours - LONG_AWAY_START_HOURS) / 48) * 2)
+      : 0
   const penalty = Math.round(
-    Math.min(46, absenceWeight * 9 * (1 - affectionProtection * 0.58) + longAwayWeight)
+    Math.min(
+      MAX_AWAY_MOOD_PENALTY,
+      absenceWeight * 7 * (1 - affectionProtection * 0.65) + longAwayWeight
+    )
   )
   const moodScoreAfter = clampMoodScore(moodScoreBefore - penalty)
 

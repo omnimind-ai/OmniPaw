@@ -45,7 +45,6 @@ const roleCardJsonContent = ref('')
 const importingRole = ref(false)
 const importingRoleCard = ref(false)
 const exportingRoleCard = ref(false)
-const confirmDeleteRoleId = ref<string>()
 
 const roles = computed(() => props.draft.app.companionRoles)
 const activeRoleId = computed(() => props.draft.app.activeCompanionRoleId)
@@ -64,68 +63,28 @@ const { idleImageByPackId } = useCompanionRoleIdleImages(roleAppearancePackIds)
 watch(editorModalOpen, (isOpen) => {
   if (!isOpen) {
     editingRoleId.value = ''
-    confirmDeleteRoleId.value = undefined
   }
 })
 
 function selectRole(target: CompanionRole): void {
-  confirmDeleteRoleId.value = undefined
   props.draft.app.activeCompanionRoleId = target.id
 }
 
 function editRole(target: CompanionRole): void {
-  confirmDeleteRoleId.value = undefined
   editingRoleId.value = target.id
   editorModalOpen.value = true
 }
 
 function createRole(): void {
-  confirmDeleteRoleId.value = undefined
   const nextRole = createCompanionRole()
-  roles.value.push(nextRole)
-  editRole(nextRole)
-}
-
-function duplicateEditingRole(): void {
-  if (!editingRole.value) return
-  confirmDeleteRoleId.value = undefined
-  const nextRole: CompanionRole = {
-    ...editingRole.value,
-    id: createRoleId(),
-    name: t('settings.catAppearance.role.copyName', {
-      name: editingRole.value.name || defaultRoleName(),
-    }),
-    avatar: cloneRoleAvatar(editingRole.value.avatar),
-    advanced: { ...editingRole.value.advanced },
-    petInteractions: editingRole.value.petInteractions.map((item) => ({ ...item })),
-    petGifts: editingRole.value.petGifts.map((item) => ({
-      ...item,
-      ...(item.image ? { image: { ...item.image } } : {}),
-      storyLines: [...item.storyLines],
-    })),
-    knowledgeEntries: editingRole.value.knowledgeEntries.map((entry, index) => ({
-      ...entry,
-      id: createRoleKnowledgeId(index),
-      keys: [...entry.keys],
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-    })),
-    knowledgeSettings: { ...editingRole.value.knowledgeSettings },
-    source: editingRole.value.source ? { ...editingRole.value.source } : undefined,
-  }
   roles.value.push(nextRole)
   editRole(nextRole)
 }
 
 function deleteRole(target: CompanionRole): void {
   if (!canDeleteRole.value) return
-  if (confirmDeleteRoleId.value !== target.id) {
-    confirmDeleteRoleId.value = target.id
-    return
-  }
   const index = roles.value.findIndex((item) => item.id === target.id)
   if (index < 0) return
-  confirmDeleteRoleId.value = undefined
   roles.value.splice(index, 1)
   if (props.draft.app.activeCompanionRoleId === target.id) {
     props.draft.app.activeCompanionRoleId =
@@ -172,7 +131,6 @@ function createCompanionRole(): CompanionRole {
 }
 
 function chooseRoleFile(): void {
-  confirmDeleteRoleId.value = undefined
   try {
     ensureElectronBridge(t('settings.catAppearance.role.actions.importRole'))
   } catch (error) {
@@ -183,7 +141,6 @@ function chooseRoleFile(): void {
 }
 
 function openRoleCardImport(): void {
-  confirmDeleteRoleId.value = undefined
   try {
     ensureElectronBridge(t('settings.catAppearance.role.actions.importCard'))
   } catch (error) {
@@ -195,7 +152,6 @@ function openRoleCardImport(): void {
 
 async function exportEditingRoleCard(): Promise<void> {
   if (!editingRole.value || exportingRoleCard.value) return
-  confirmDeleteRoleId.value = undefined
 
   try {
     ensureElectronBridge(t('settings.catAppearance.role.actions.exportCard'))
@@ -221,7 +177,6 @@ async function exportEditingRoleCard(): Promise<void> {
 }
 
 function chooseRoleCardFile(): void {
-  confirmDeleteRoleId.value = undefined
   roleCardInput.value?.click()
 }
 
@@ -385,7 +340,6 @@ function applyImportedRole(
     summaryKey: string
   }
 ): void {
-  confirmDeleteRoleId.value = undefined
   const nextRole = createRoleFromImportedDraft(result.role, result.source)
   roles.value.push(nextRole)
   roleCardImportDialogOpen.value = false
@@ -590,8 +544,6 @@ function defaultRoleName(): string {
       :role="editingRole"
       :is-active-role="editingRole?.id === activeRoleId"
       :can-delete-role="canDeleteRole"
-      :confirm-delete-role-id="confirmDeleteRoleId"
-      @duplicate-role="duplicateEditingRole"
       @export-role="exportEditingRoleCard"
       @delete-role="deleteRole"
     />

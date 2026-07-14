@@ -16,12 +16,10 @@ defineProps<{
   role?: CompanionRole
   isActiveRole: boolean
   canDeleteRole: boolean
-  confirmDeleteRoleId?: string
 }>()
 
 const emit = defineEmits<{
   deleteRole: [role: CompanionRole]
-  duplicateRole: []
   exportRole: []
 }>()
 
@@ -48,11 +46,9 @@ const { t } = useI18n()
         :role="role"
         :is-active-role="isActiveRole"
         :can-delete-role="canDeleteRole"
-        :confirm-delete-role-id="confirmDeleteRoleId"
         :show-close-action="true"
         class="rounded-none border-0 shadow-none"
         @close="open = false"
-        @duplicate-role="emit('duplicateRole')"
         @export-role="emit('exportRole')"
         @delete-role="emit('deleteRole', $event)"
       />

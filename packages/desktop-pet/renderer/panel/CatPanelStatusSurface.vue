@@ -130,32 +130,6 @@ const recentDeltaText = computed(() => {
   return value.delta > 0 ? `+${value.delta}` : `${value.delta}`
 })
 
-const moodBadgeVariant = computed<'default' | 'secondary' | 'outline' | 'destructive'>(() => {
-  switch (mood.value) {
-    case 'attached':
-    case 'happy':
-      return 'default'
-    case 'angry':
-    case 'sad':
-      return 'destructive'
-    case 'down':
-      return 'outline'
-    default:
-      return 'secondary'
-  }
-})
-
-const moodVisualClass = computed(() =>
-  cn(
-    'cat-pet-visual relative flex h-36 w-36 items-center justify-center rounded-full',
-    mood.value === 'happy' || mood.value === 'attached'
-      ? 'bg-primary/10'
-      : mood.value === 'angry' || mood.value === 'sad'
-        ? 'bg-destructive/10'
-        : 'bg-muted/40'
-  )
-)
-
 const catImageClass = computed(() =>
   cn(
     'cat-pet-avatar h-32 w-32 select-none object-contain drop-shadow-sm',
@@ -361,7 +335,7 @@ function formatAwayLabel(ms: number): string {
     <div class="flex min-h-0 flex-1 flex-col gap-3 overflow-y-auto px-4 py-3">
       <div class="flex flex-col items-center gap-2">
         <div
-          :class="moodVisualClass"
+          class="cat-pet-visual relative flex h-36 w-36 items-center justify-center rounded-full bg-muted/40"
           :data-mood="mood"
         >
           <span
@@ -381,7 +355,7 @@ function formatAwayLabel(ms: number): string {
           >
             {{ roleIntroduction }}
           </p>
-          <Badge :variant="moodBadgeVariant">
+          <Badge variant="secondary">
             <span aria-hidden="true">{{ moodEmoji }}</span>
             {{ moodLabel }}
           </Badge>

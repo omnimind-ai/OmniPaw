@@ -2,7 +2,6 @@
 import {
   BotIcon,
   BrainIcon,
-  CopyIcon,
   DownloadIcon,
   EyeIcon,
   MessageCircleIcon,
@@ -19,6 +18,7 @@ import SettingEntry from '@/components/settings/common/SettingEntry.vue'
 import SettingsSection from '@/components/settings/common/SettingsSection.vue'
 import CompanionRoleAppearanceSection from '@/components/settings/companion-role-settings/CompanionRoleAppearanceSection.vue'
 import CompanionRoleAvatarField from '@/components/settings/companion-role-settings/CompanionRoleAvatarField.vue'
+import CompanionRoleDeleteModal from '@/components/settings/companion-role-settings/CompanionRoleDeleteModal.vue'
 import CompanionRoleGiftsSection from '@/components/settings/companion-role-settings/CompanionRoleGiftsSection.vue'
 import CompanionRoleInteractionsSection from '@/components/settings/companion-role-settings/CompanionRoleInteractionsSection.vue'
 import CompanionRoleKnowledgeSection from '@/components/settings/companion-role-settings/CompanionRoleKnowledgeSection.vue'
@@ -52,14 +52,12 @@ const props = defineProps<{
   role: CompanionRole
   isActiveRole: boolean
   canDeleteRole: boolean
-  confirmDeleteRoleId?: string
   showCloseAction?: boolean
   class?: HTMLAttributes['class']
 }>()
 
 const emit = defineEmits<{
   close: []
-  duplicateRole: []
   exportRole: []
   deleteRole: [role: CompanionRole]
 }>()
@@ -69,6 +67,7 @@ const providerStore = useProviderStore()
 const { modelOptions, saving, persistenceAvailable } = storeToRefs(providerStore)
 const activeTab = ref('basic')
 const previewOpen = ref(false)
+const deleteDialogOpen = ref(false)
 
 const editableRole = computed(() => props.role)
 const roleAppearancePackIds = computed(() => [editableRole.value.appearancePackId || 'builtin'])
@@ -262,6 +261,11 @@ function previewCharTokenWeight(char: string): number {
   if (/[\u3400-\u9fff]/.test(char)) return 1
   return 0.35
 }
+
+function confirmDeleteRole(): void {
+  deleteDialogOpen.value = false
+  emit('deleteRole', editableRole.value)
+}
 </script>
 
 <template>
@@ -299,31 +303,19 @@ function previewCharTokenWeight(char: string): number {
         <Button
           variant="outline"
           size="sm"
-          @click="emit('duplicateRole')"
-        >
-          <CopyIcon data-icon="inline-start" />
-          {{ t('settings.catAppearance.role.actions.duplicate') }}
-        </Button>
-        <Button
-          variant="outline"
-          size="sm"
           @click="emit('exportRole')"
         >
           <DownloadIcon data-icon="inline-start" />
           {{ t('settings.catAppearance.role.actions.exportCard') }}
         </Button>
         <Button
-          :variant="confirmDeleteRoleId === editableRole.id ? 'destructive' : 'outline'"
+          variant="outline"
           size="sm"
           :disabled="!canDeleteRole"
-          @click="emit('deleteRole', editableRole)"
+          @click="deleteDialogOpen = true"
         >
           <Trash2Icon data-icon="inline-start" />
-          {{
-            confirmDeleteRoleId === editableRole.id
-              ? t('settings.catAppearance.role.actions.confirmDelete')
-              : t('settings.catAppearance.role.actions.delete')
-          }}
+          {{ t('settings.catAppearance.role.actions.delete') }}
         </Button>
         <Button
           v-if="showCloseAction"
@@ -634,5 +626,11 @@ function previewCharTokenWeight(char: string): number {
     v-model:open="previewOpen"
     :segments="previewSegments"
     :token-total="previewTokenTotal"
+  />
+
+  <CompanionRoleDeleteModal
+    v-model:open="deleteDialogOpen"
+    :role-name="editableRole.name || t('settings.catAppearance.role.unnamed')"
+    @confirm="confirmDeleteRole"
   />
 </template>

@@ -274,7 +274,6 @@ export default {
           close: 'Close character editor',
         },
         newRoleName: 'New character',
-        copyName: '{name} copy',
         unnamed: 'Unnamed character',
         noRelationship: 'No relationship set',
         actions: {
@@ -283,9 +282,13 @@ export default {
           importRole: 'Import Character',
           importCard: 'Import Character Card',
           exportCard: 'Export Character',
-          duplicate: 'Duplicate',
           delete: 'Delete',
-          confirmDelete: 'Confirm delete',
+        },
+        deleteDialog: {
+          title: 'Delete character?',
+          description: 'Delete “{name}”? This action cannot be undone.',
+          cancel: 'Cancel',
+          confirm: 'Delete character',
         },
         fields: {
           name: {

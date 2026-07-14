@@ -260,7 +260,6 @@ export default {
           close: '关闭角色编辑',
         },
         newRoleName: '新角色',
-        copyName: '{name} 副本',
         unnamed: '未命名角色',
         noRelationship: '未设置关系',
         actions: {
@@ -269,9 +268,13 @@ export default {
           importRole: '导入角色',
           importCard: '导入角色卡',
           exportCard: '导出角色',
-          duplicate: '复制',
           delete: '删除',
-          confirmDelete: '确认删除',
+        },
+        deleteDialog: {
+          title: '删除角色？',
+          description: '确定要删除“{name}”吗？删除后将无法恢复。',
+          cancel: '取消',
+          confirm: '删除角色',
         },
         fields: {
           name: {
