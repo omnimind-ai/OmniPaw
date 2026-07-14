@@ -60,6 +60,7 @@ import {
   SidebarTrigger,
 } from '@/components/ui/sidebar'
 import { SIDEBAR_WIDTH, SIDEBAR_WIDTH_MOBILE, useSidebar } from '@/components/ui/sidebar/utils'
+import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { useCompanionRoleIdleImages } from '@/composables/useCompanionRoleIdleImages'
 import type { Session } from '@/composables/useSessions'
 import { cn } from '@/lib/utils'
@@ -497,18 +498,17 @@ function updateCompanionRole(value: unknown): void {
 
     <SidebarSeparator class="group-data-[collapsible=icon]:hidden" />
 
-    <SidebarFooter class="group-data-[collapsible=icon]:items-center">
+    <SidebarFooter
+      class="group/footer group-data-[collapsible=icon]:w-(--sidebar-width-icon) group-data-[collapsible=icon]:overflow-hidden group-data-[collapsible=icon]:bg-sidebar group-data-[collapsible=icon]:transition-[width,box-shadow] group-data-[collapsible=icon]:duration-200 group-data-[collapsible=icon]:ease-out group-data-[collapsible=icon]:hover:w-(--sidebar-width) group-data-[collapsible=icon]:hover:rounded-r-lg group-data-[collapsible=icon]:hover:shadow-lg group-data-[collapsible=icon]:hover:ring-1 group-data-[collapsible=icon]:hover:ring-sidebar-border group-data-[collapsible=icon]:focus-within:w-(--sidebar-width) group-data-[collapsible=icon]:focus-within:rounded-r-lg group-data-[collapsible=icon]:focus-within:shadow-lg group-data-[collapsible=icon]:focus-within:ring-1 group-data-[collapsible=icon]:focus-within:ring-sidebar-border group-data-[collapsible=icon]:has-data-[state=open]:w-(--sidebar-width) group-data-[collapsible=icon]:has-data-[state=open]:rounded-r-lg group-data-[collapsible=icon]:has-data-[state=open]:shadow-lg group-data-[collapsible=icon]:has-data-[state=open]:ring-1 group-data-[collapsible=icon]:has-data-[state=open]:ring-sidebar-border"
+    >
       <SidebarMenu>
-        <SidebarMenuItem
-          class="flex items-center gap-1 group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:gap-2"
-        >
+        <SidebarMenuItem class="flex items-center gap-1">
           <DropdownMenu>
             <DropdownMenuTrigger as-child>
               <SidebarMenuButton
-                size="lg"
-                class="min-w-0 flex-1 px-1.5 group-data-[collapsible=icon]:size-8! group-data-[collapsible=icon]:p-0!"
+                size="default"
+                class="min-w-0 flex-1 p-0 group-data-[collapsible=icon]:size-8! group-data-[collapsible=icon]:p-0! group-data-[collapsible=icon]:group-hover/footer:w-full! group-data-[collapsible=icon]:group-hover/footer:pr-20! group-data-[collapsible=icon]:group-focus-within/footer:w-full! group-data-[collapsible=icon]:group-focus-within/footer:pr-20! group-data-[collapsible=icon]:data-[state=open]:w-full! group-data-[collapsible=icon]:data-[state=open]:pr-20!"
                 :disabled="!activeCompanionRole"
-                :tooltip="activeCompanionRoleName"
                 :aria-label="t('chat.sidebar.footer.role.triggerAriaLabel', { role: activeCompanionRoleName })"
               >
                 <Avatar>
@@ -519,7 +519,9 @@ function updateCompanionRole(value: unknown): void {
                   />
                   <AvatarFallback>{{ roleInitial(activeCompanionRole) }}</AvatarFallback>
                 </Avatar>
-                <div class="grid min-w-0 flex-1 text-left leading-tight group-data-[collapsible=icon]:hidden">
+                <div
+                  class="grid min-w-0 flex-1 text-left leading-tight transition-opacity duration-150 group-data-[collapsible=icon]:opacity-0 group-hover/footer:opacity-100! group-focus-within/footer:opacity-100! group-has-data-[state=open]/footer:opacity-100!"
+                >
                   <span class="truncate text-sm font-medium">{{ activeCompanionRoleName }}</span>
                 </div>
               </SidebarMenuButton>
@@ -572,26 +574,50 @@ function updateCompanionRole(value: unknown): void {
             </DropdownMenuContent>
           </DropdownMenu>
 
-          <div class="flex shrink-0 items-center gap-1 group-data-[collapsible=icon]:flex-col group-data-[collapsible=icon]:gap-2">
-            <SidebarMenuButton
-              class="w-auto"
-              size="default"
-              :tooltip="t('chat.sidebar.footer.cat')"
-              :aria-label="t('chat.sidebar.footer.cat')"
-              @click="emit('toggleCat')"
-            >
-              <CatIcon />
-            </SidebarMenuButton>
+          <div
+            class="flex shrink-0 items-center gap-1 transition-opacity duration-150 group-data-[collapsible=icon]:pointer-events-none group-data-[collapsible=icon]:invisible group-data-[collapsible=icon]:absolute group-data-[collapsible=icon]:top-1/2 group-data-[collapsible=icon]:right-1 group-data-[collapsible=icon]:-translate-y-1/2 group-data-[collapsible=icon]:opacity-0 group-hover/footer:pointer-events-auto! group-hover/footer:visible! group-hover/footer:opacity-100! group-focus-within/footer:pointer-events-auto! group-focus-within/footer:visible! group-focus-within/footer:opacity-100! group-has-data-[state=open]/footer:pointer-events-auto! group-has-data-[state=open]/footer:visible! group-has-data-[state=open]/footer:opacity-100!"
+          >
+            <Tooltip>
+              <TooltipTrigger as-child>
+                <SidebarMenuButton
+                  class="w-auto"
+                  size="default"
+                  :aria-label="t('chat.sidebar.footer.cat')"
+                  @click="emit('toggleCat')"
+                >
+                  <CatIcon />
+                </SidebarMenuButton>
+              </TooltipTrigger>
+              <TooltipContent
+                side="top"
+                align="center"
+                :side-offset="6"
+                class="pointer-events-none"
+              >
+                {{ t('chat.sidebar.footer.cat') }}
+              </TooltipContent>
+            </Tooltip>
 
-            <SidebarMenuButton
-              class="w-auto"
-              size="default"
-              :tooltip="t('chat.sidebar.footer.settings')"
-              :aria-label="t('chat.sidebar.footer.settings')"
-              @click="emit('openSettings')"
-            >
-              <SettingsIcon />
-            </SidebarMenuButton>
+            <Tooltip>
+              <TooltipTrigger as-child>
+                <SidebarMenuButton
+                  class="w-auto"
+                  size="default"
+                  :aria-label="t('chat.sidebar.footer.settings')"
+                  @click="emit('openSettings')"
+                >
+                  <SettingsIcon />
+                </SidebarMenuButton>
+              </TooltipTrigger>
+              <TooltipContent
+                side="top"
+                align="center"
+                :side-offset="6"
+                class="pointer-events-none"
+              >
+                {{ t('chat.sidebar.footer.settings') }}
+              </TooltipContent>
+            </Tooltip>
           </div>
         </SidebarMenuItem>
       </SidebarMenu>
