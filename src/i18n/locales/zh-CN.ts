@@ -519,22 +519,13 @@ export default {
         preview: {
           action: '预览',
           title: '角色 Prompt 预览',
-          description:
-            '查看当前角色会写入会话的陪伴、扮演和工作协作设定，以及模拟消息会触发的角色知识。',
-          inputLabel: '模拟当前消息',
-          inputPlaceholder: '输入一段用户消息，用来预览哪些角色知识会被触发。',
+          description: '查看当前角色用于新建会话的 Prompt；将鼠标移到高亮片段上可查看它的来源。',
           tokenSummary: '预计合计 {count} tokens',
           tokens: '{count} tokens',
           empty: '暂无可预览内容。',
-          kinds: {
-            base: '基础',
-            knowledge: '知识',
-            advanced: '高级',
-          },
-          sections: {
-            base: '基础角色与协作设定',
-            knowledge: '本轮角色与工作知识',
-            advanced: '高级角色与输出约束',
+          owners: {
+            identity: '角色身份',
+            desktopPresence: '桌面伙伴规范',
           },
         },
       },

@@ -22,6 +22,11 @@
   --color-chart-3: var(--chart-3);
   --color-chart-2: var(--chart-2);
   --color-chart-1: var(--chart-1);
+  --color-prompt-amber: var(--prompt-amber);
+  --color-prompt-teal: var(--prompt-teal);
+  --color-prompt-slate: var(--prompt-slate);
+  --color-prompt-violet: var(--prompt-violet);
+  --color-prompt-blue: var(--prompt-blue);
   --color-ring: var(--ring);
   --color-input: var(--input);
   --color-border: var(--border);
@@ -70,6 +75,11 @@
   --chart-3: oklch(0.439 0 0);
   --chart-4: oklch(0.371 0 0);
   --chart-5: oklch(0.269 0 0);
+  --prompt-blue: oklch(0.62 0.16 255);
+  --prompt-violet: oklch(0.6 0.17 300);
+  --prompt-slate: oklch(0.57 0.06 250);
+  --prompt-teal: oklch(0.66 0.12 190);
+  --prompt-amber: oklch(0.72 0.14 75);
   --radius: 0.625rem;
   --sidebar: oklch(0.985 0 0);
   --sidebar-foreground: oklch(0.145 0 0);

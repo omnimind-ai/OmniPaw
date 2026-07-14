@@ -555,22 +555,13 @@ export default {
           action: 'Preview',
           title: 'Character Prompt Preview',
           description:
-            'Review the companionship, roleplay, and work collaboration settings injected into sessions, plus character knowledge triggered by a sample message.',
-          inputLabel: 'Sample current message',
-          inputPlaceholder:
-            'Type a user message to preview which character knowledge entries would trigger.',
+            'Review the prompt this character uses for new sessions. Hover a highlighted segment to see its source.',
           tokenSummary: '{count} estimated tokens total',
           tokens: '{count} tokens',
           empty: 'Nothing to preview yet.',
-          kinds: {
-            base: 'Base',
-            knowledge: 'Knowledge',
-            advanced: 'Advanced',
-          },
-          sections: {
-            base: 'Base Character and Collaboration Settings',
-            knowledge: 'Per-turn Character and Work Knowledge',
-            advanced: 'Advanced Role and Output Constraints',
+          owners: {
+            identity: 'Character identity',
+            desktopPresence: 'Desktop companion guidelines',
           },
         },
       },

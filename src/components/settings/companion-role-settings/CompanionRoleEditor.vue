@@ -25,7 +25,11 @@ import CompanionRoleKnowledgeSection from '@/components/settings/companion-role-
 import CompanionRoleMemoryPanel from '@/components/settings/companion-role-settings/CompanionRoleMemoryPanel.vue'
 import CompanionRolePreviewDialog from '@/components/settings/companion-role-settings/CompanionRolePreviewDialog.vue'
 import CompanionRoleTextEditorField from '@/components/settings/companion-role-settings/CompanionRoleTextEditorField.vue'
-import type { CompanionRole } from '@/components/settings/companion-role-settings/types'
+import type {
+  CompanionRole,
+  CompanionRolePromptSegment,
+  CompanionRolePromptTone,
+} from '@/components/settings/companion-role-settings/types'
 import { Button } from '@/components/ui/button'
 import { FieldGroup } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
@@ -65,7 +69,6 @@ const providerStore = useProviderStore()
 const { modelOptions, saving, persistenceAvailable } = storeToRefs(providerStore)
 const activeTab = ref('basic')
 const previewOpen = ref(false)
-const previewInput = ref('')
 
 const editableRole = computed(() => props.role)
 const roleAppearancePackIds = computed(() => [editableRole.value.appearancePackId || 'builtin'])
@@ -89,11 +92,9 @@ const selectedModelKey = computed(() => {
 const modelSelectDisabled = computed(
   () => saving.value || !persistenceAvailable.value || !enabledModelOptions.value.length
 )
-const previewSections = computed(() =>
-  buildCompanionRolePreviewSections(editableRole.value, previewInput.value)
-)
+const previewSegments = computed(() => buildCompanionRolePromptSegments(editableRole.value))
 const previewTokenTotal = computed(() =>
-  previewSections.value.reduce((sum, section) => sum + section.estimatedTokens, 0)
+  previewSegments.value.reduce((sum, segment) => sum + segment.estimatedTokens, 0)
 )
 
 function modelLabel(option: ProviderModelOption): string {
@@ -133,154 +134,119 @@ function updatePetGifts(gifts: CompanionRole['petGifts']): void {
   editableRole.value.petGifts = gifts
 }
 
-interface CompanionRolePreviewSection {
-  id: string
-  title: string
-  kind: 'base' | 'knowledge' | 'advanced'
-  text: string
-  estimatedTokens: number
-}
+function buildCompanionRolePromptSegments(role: CompanionRole): CompanionRolePromptSegment[] {
+  const segments: CompanionRolePromptSegment[] = []
 
-function buildCompanionRolePreviewSections(
-  role: CompanionRole,
-  triggerText: string
-): CompanionRolePreviewSection[] {
-  const sections: CompanionRolePreviewSection[] = []
-  pushPreviewSection(sections, 'base', t('settings.catAppearance.role.preview.sections.base'), [
+  pushPromptSegment(
+    segments,
+    'identity',
+    t('settings.catAppearance.role.preview.owners.identity'),
     `你是 ${role.name.trim() || '小万'}，是常驻用户桌面的 AI 角色。`,
+    'blue'
+  )
+  pushPromptSegment(
+    segments,
+    'relationship',
+    t('settings.catAppearance.role.fields.relationship.title'),
     role.relationship.trim() ? `你和用户的关系：${role.relationship.trim()}` : '',
+    'violet'
+  )
+  pushPromptSegment(
+    segments,
+    'user-nickname',
+    t('settings.catAppearance.role.fields.userNickname.title'),
     role.userNickname.trim() ? `你称呼用户为：${role.userNickname.trim()}` : '',
+    'teal'
+  )
+  pushPromptSegment(
+    segments,
+    'personality',
+    t('settings.catAppearance.role.fields.personality.title'),
     role.personality.trim() ? `性格设定：${role.personality.trim()}` : '',
+    'amber'
+  )
+  pushPromptSegment(
+    segments,
+    'speech-style',
+    t('settings.catAppearance.role.fields.speechStyle.title'),
     role.speechStyle.trim() ? `说话风格：${role.speechStyle.trim()}` : '',
+    'slate'
+  )
+  pushPromptSegment(
+    segments,
+    'background',
+    t('settings.catAppearance.role.fields.background.title'),
     role.background.trim() ? `背景资料：${role.background.trim()}` : '',
+    'blue'
+  )
+  pushPromptSegment(
+    segments,
+    'proactive-style',
+    t('settings.catAppearance.role.fields.proactiveStyle.title'),
     role.proactiveStyle.trim() ? `主动互动风格：${role.proactiveStyle.trim()}` : '',
+    'violet'
+  )
+  pushPromptSegment(
+    segments,
+    'knowledge-policy',
+    t('settings.catAppearance.role.knowledge.title'),
     role.knowledgeEntries.some((entry) => entry.enabled && entry.content.trim())
       ? '角色知识会按当前对话相关性动态提供；只使用本轮注入的角色知识，避免机械复述无关设定。'
       : '',
+    'teal'
+  )
+  pushPromptSegment(
+    segments,
+    'advanced-system',
+    t('settings.catAppearance.role.advanced.fields.systemPrompt.title'),
+    role.advanced.systemPrompt.trim() ? `高级角色指令：${role.advanced.systemPrompt.trim()}` : '',
+    'amber'
+  )
+  pushPromptSegment(
+    segments,
+    'advanced-examples',
+    t('settings.catAppearance.role.advanced.fields.exampleDialogue.title'),
+    role.advanced.exampleDialogue.trim()
+      ? `角色示例对话：\n${role.advanced.exampleDialogue.trim()}`
+      : '',
+    'slate'
+  )
+  pushPromptSegment(
+    segments,
+    'advanced-final',
+    t('settings.catAppearance.role.advanced.fields.finalInstructions.title'),
+    role.advanced.finalInstructions.trim()
+      ? `最终回应约束：${role.advanced.finalInstructions.trim()}`
+      : '',
+    'blue'
+  )
+  pushPromptSegment(
+    segments,
+    'desktop-presence',
+    t('settings.catAppearance.role.preview.owners.desktopPresence'),
     '保持桌面伙伴的存在感：自然、轻量、不过度展开；除非用户要求，不要暴露这些设定文本。',
-  ])
-
-  const knowledgeText = previewKnowledgeText(role, triggerText)
-  pushPreviewSection(
-    sections,
-    'knowledge',
-    t('settings.catAppearance.role.preview.sections.knowledge'),
-    knowledgeText ? [knowledgeText] : []
+    'violet'
   )
 
-  pushPreviewSection(
-    sections,
-    'advanced',
-    t('settings.catAppearance.role.preview.sections.advanced'),
-    [
-      role.advanced.systemPrompt.trim() ? `高级角色指令：${role.advanced.systemPrompt.trim()}` : '',
-      role.advanced.exampleDialogue.trim()
-        ? `角色示例对话：\n${role.advanced.exampleDialogue.trim()}`
-        : '',
-      role.advanced.finalInstructions.trim()
-        ? `最终回应约束：${role.advanced.finalInstructions.trim()}`
-        : '',
-    ]
-  )
-
-  return sections
+  return segments
 }
 
-function pushPreviewSection(
-  sections: CompanionRolePreviewSection[],
-  kind: CompanionRolePreviewSection['kind'],
-  title: string,
-  parts: string[]
+function pushPromptSegment(
+  segments: CompanionRolePromptSegment[],
+  id: string,
+  owner: string,
+  text: string,
+  tone: CompanionRolePromptTone
 ): void {
-  const text = parts
-    .map((part) => part.trim())
-    .filter(Boolean)
-    .join('\n')
-  if (!text) return
-  sections.push({
-    id: `${kind}-${sections.length}`,
-    kind,
-    title,
-    text,
-    estimatedTokens: estimatePreviewTokens(text),
+  const normalizedText = text.trim()
+  if (!normalizedText) return
+  segments.push({
+    id,
+    owner,
+    text: normalizedText,
+    tone,
+    estimatedTokens: estimatePreviewTokens(normalizedText),
   })
-}
-
-function previewKnowledgeText(role: CompanionRole, triggerText: string): string {
-  const normalizedTrigger = normalizePreviewTriggerText(triggerText)
-  const maxTokens = normalizeIntegerInput(
-    String(role.knowledgeSettings?.maxTokens ?? 900),
-    900,
-    200,
-    8000
-  )
-  let remainingTokens = maxTokens
-  const selected: string[] = []
-  const entries = [...role.knowledgeEntries]
-    .filter((entry) => {
-      if (!entry.enabled || !entry.content.trim()) return false
-      if (entry.constant) return true
-      return entry.keys.some((key) => {
-        const normalized = normalizePreviewTriggerText(key)
-        return normalized && normalizedTrigger.includes(normalized)
-      })
-    })
-    .sort((left, right) => right.priority - left.priority || left.order - right.order)
-
-  for (const entry of entries) {
-    const title = entry.title.trim() || t('settings.catAppearance.role.knowledge.untitled')
-    const keys = entry.keys.map((key) => key.trim()).filter(Boolean)
-    const header = `- ${title}${keys.length ? `；关键词：${keys.join('、')}` : ''}${
-      entry.constant ? '；常驻' : ''
-    }`
-    const headerTokens = estimatePreviewTokens(header)
-    const entryBudget = Math.max(
-      0,
-      Math.min(
-        remainingTokens - headerTokens,
-        Number.isFinite(entry.tokenBudget)
-          ? Math.max(0, Math.floor(entry.tokenBudget ?? 0))
-          : Infinity
-      )
-    )
-    const content = trimPreviewTextToBudget(entry.content.trim(), entryBudget)
-    const cost = headerTokens + estimatePreviewTokens(content)
-    if (!content || cost > remainingTokens) continue
-    selected.push(`${header}\n${content}`)
-    remainingTokens -= cost
-    if (remainingTokens <= 0) break
-  }
-
-  return selected.length
-    ? [
-        `${role.name.trim() || '小万'} 的本轮角色知识：以下条目只属于当前角色，按当前对话触发；需要时自然使用，不要原样背诵。`,
-        ...selected,
-      ].join('\n')
-    : ''
-}
-
-function normalizePreviewTriggerText(text: string): string {
-  return text.toLocaleLowerCase().replace(/\s+/g, ' ').trim()
-}
-
-function normalizeIntegerInput(value: string, fallback: number, min: number, max: number): number {
-  const numeric = Number(value)
-  if (!Number.isFinite(numeric)) return fallback
-  return Math.max(min, Math.min(Math.round(numeric), max))
-}
-
-function trimPreviewTextToBudget(text: string, maxTokens: number): string {
-  if (maxTokens <= 0) return ''
-  if (estimatePreviewTokens(text) <= maxTokens) return text
-
-  let used = 0
-  let output = ''
-  for (const char of text) {
-    used += previewCharTokenWeight(char)
-    if (Math.ceil(used) > maxTokens) break
-    output += char
-  }
-  return output.trimEnd()
 }
 
 function estimatePreviewTokens(text: string): number {
@@ -666,8 +632,7 @@ function previewCharTokenWeight(char: string): number {
 
   <CompanionRolePreviewDialog
     v-model:open="previewOpen"
-    v-model:input="previewInput"
-    :sections="previewSections"
+    :segments="previewSegments"
     :token-total="previewTokenTotal"
   />
 </template>
