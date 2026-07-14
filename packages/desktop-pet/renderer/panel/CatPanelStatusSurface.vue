@@ -32,6 +32,7 @@ import CatPanelGiftInventoryModal from './CatPanelGiftInventoryModal.vue'
 
 defineProps<{
   sideLabel: string
+  roleIntroduction: string
 }>()
 
 const emit = defineEmits<{
@@ -375,7 +376,11 @@ function formatAwayLabel(ms: number): string {
           >
         </div>
         <div class="flex flex-col items-center gap-1 text-center">
-          <p class="text-xs text-muted-foreground/80">{{ t('catPet.tagline') }}</p>
+          <p
+            class="max-w-md whitespace-pre-wrap break-words text-sm leading-relaxed text-muted-foreground"
+          >
+            {{ roleIntroduction }}
+          </p>
           <Badge :variant="moodBadgeVariant">
             <span aria-hidden="true">{{ moodEmoji }}</span>
             {{ moodLabel }}

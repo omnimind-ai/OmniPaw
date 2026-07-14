@@ -281,9 +281,8 @@ export default {
           },
           avatar: {
             title: '角色头像',
-            description: '仅用于角色列表和角色选择等界面展示，不会注入对话上下文。',
-            hint: '支持 PNG、JPG、WebP、GIF，最大 {size} MB；图片会随角色包导入导出。',
-            reset: '恢复 idle 头像',
+            description: '选择一张容易辨认的头像，方便在角色列表中找到它。',
+            upload: '上传角色头像',
             alt: '{name} 的角色头像',
             errors: {
               imageType: '请选择 PNG、JPG、WebP 或 GIF 图片。',
@@ -293,8 +292,8 @@ export default {
           },
           introduction: {
             title: '角色简介',
-            description: '仅用于界面展示和角色包信息，不会注入对话上下文。',
-            placeholder: '用一句话介绍这个角色',
+            description: '用一两句话介绍这个角色，方便快速了解它。',
+            placeholder: '例如：你最好的桌面伙伴',
           },
           appearance: {
             title: '外观形象',

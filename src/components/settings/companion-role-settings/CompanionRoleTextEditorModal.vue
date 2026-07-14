@@ -21,6 +21,7 @@ const props = withDefaults(
     description?: string
     placeholder?: string
     rows?: number
+    maxlength?: number
   }>(),
   {
     rows: 18,
@@ -140,6 +141,7 @@ function syncLineNumberScroll(event: Event): void {
                 v-model="draft"
                 class="h-full min-h-0 resize-none overflow-y-auto rounded-none border-0 bg-transparent px-3 font-mono [field-sizing:fixed] focus-visible:ring-0"
                 :placeholder="placeholder"
+                :maxlength="maxlength"
                 :style="textareaStyle"
                 @scroll="syncLineNumberScroll"
               />

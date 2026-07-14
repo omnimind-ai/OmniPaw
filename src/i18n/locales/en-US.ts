@@ -296,10 +296,8 @@ export default {
           },
           avatar: {
             title: 'Character avatar',
-            description:
-              'Used only for display in character lists and selectors. It is never injected into conversation context.',
-            hint: 'PNG, JPG, WebP, and GIF are supported up to {size} MB. The image is included in role packages.',
-            reset: 'Restore idle avatar',
+            description: 'Choose a recognizable image so this character is easy to find in lists.',
+            upload: 'Upload character avatar',
             alt: '{name} character avatar',
             errors: {
               imageType: 'Choose a PNG, JPG, WebP, or GIF image.',
@@ -310,8 +308,8 @@ export default {
           introduction: {
             title: 'Character introduction',
             description:
-              'Used only for interface display and role package information. It is never injected into conversation context.',
-            placeholder: 'Introduce this character in one sentence',
+              'Introduce this character in a sentence or two so it is easy to recognize.',
+            placeholder: 'For example: Your best desktop companion',
           },
           appearance: {
             title: 'Appearance',

@@ -15,8 +15,6 @@ import {
   CAT_PET_MOOD_DEFAULT,
   CAT_PET_MOOD_MAX,
   CAT_PET_MOOD_MIN,
-  type CatPetGiftConfig,
-  type CatPetInteractionConfig,
   type CatPetInteractionDefinition,
   type CatPetState,
   type CatPetUpdateInteractionsResponse,
@@ -26,8 +24,6 @@ import {
   moodFromScore,
 } from '@shared/types/cat-pet'
 import type {
-  CompanionRoleKnowledgeEntry,
-  CompanionRoleSourceMetadata,
   ExportCompanionRoleCardResponse,
   ImportCompanionRoleCardResponse,
 } from '@shared/types/companion-role'
@@ -60,6 +56,7 @@ import type {
   PickLocalGgufResponse,
   PickOmniInferInstallDirResponse,
 } from '@shared/types/omniinfer'
+import type { DesktopCompanionRoleSettings } from '@shared/types/settings'
 import type { DesktopShortcutSettings, ShortcutStatusChangedEvent } from '@shared/types/shortcuts'
 import { SHORTCUT_ACTIONS } from '@shared/types/shortcuts'
 import type { DesktopWindowState, DesktopWindowStateChangedEvent } from '@shared/types/window'
@@ -159,33 +156,7 @@ export interface BridgeDesktopSettingsConfig {
     maxRecentMessages: number
     chatContext: BridgeChatContextSettings
     systemContext: BridgeSystemContextSettings
-    companionRoles: Array<{
-      id: string
-      name: string
-      appearancePackId?: string
-      userNickname: string
-      personality: string
-      speechStyle: string
-      relationship: string
-      background: string
-      proactiveStyle: string
-      petInteractions: CatPetInteractionConfig[]
-      petGifts: CatPetGiftConfig[]
-      advanced: {
-        enabled: boolean
-        systemPrompt: string
-        exampleDialogue: string
-        finalInstructions: string
-      }
-      knowledgeSettings: {
-        scanDepth: number
-        maxTokens: number
-      }
-      knowledgeEntries: CompanionRoleKnowledgeEntry[]
-      source?: CompanionRoleSourceMetadata
-      defaultProviderId?: string
-      defaultModelId?: string
-    }>
+    companionRoles: DesktopCompanionRoleSettings[]
     activeCompanionRoleId: string
     background: BridgeDesktopBackgroundSettings
     compactSkillDescriptions: boolean

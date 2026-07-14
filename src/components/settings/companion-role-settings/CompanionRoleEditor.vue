@@ -18,12 +18,12 @@ import { useI18n } from 'vue-i18n'
 import SettingEntry from '@/components/settings/common/SettingEntry.vue'
 import SettingsSection from '@/components/settings/common/SettingsSection.vue'
 import CompanionRoleAppearanceSection from '@/components/settings/companion-role-settings/CompanionRoleAppearanceSection.vue'
+import CompanionRoleAvatarField from '@/components/settings/companion-role-settings/CompanionRoleAvatarField.vue'
 import CompanionRoleGiftsSection from '@/components/settings/companion-role-settings/CompanionRoleGiftsSection.vue'
 import CompanionRoleInteractionsSection from '@/components/settings/companion-role-settings/CompanionRoleInteractionsSection.vue'
 import CompanionRoleKnowledgeSection from '@/components/settings/companion-role-settings/CompanionRoleKnowledgeSection.vue'
 import CompanionRoleMemoryPanel from '@/components/settings/companion-role-settings/CompanionRoleMemoryPanel.vue'
 import CompanionRolePreviewDialog from '@/components/settings/companion-role-settings/CompanionRolePreviewDialog.vue'
-import CompanionRoleProfileFields from '@/components/settings/companion-role-settings/CompanionRoleProfileFields.vue'
 import CompanionRoleTextEditorField from '@/components/settings/companion-role-settings/CompanionRoleTextEditorField.vue'
 import type { CompanionRole } from '@/components/settings/companion-role-settings/types'
 import { Button } from '@/components/ui/button'
@@ -422,11 +422,21 @@ function previewCharTokenWeight(char: string): number {
                 />
               </SettingEntry>
 
-              <CompanionRoleProfileFields
-                v-model:introduction="editableRole.introduction"
-                v-model:avatar="editableRole.avatar"
+              <CompanionRoleAvatarField
+                v-model="editableRole.avatar"
                 :role-name="editableRole.name"
                 :avatar-fallback-src="avatarFallbackSrc"
+              />
+
+              <CompanionRoleTextEditorField
+                v-model="editableRole.introduction"
+                control-id="settings-companion-role-introduction"
+                :title="t('settings.catAppearance.role.fields.introduction.title')"
+                :description="t('settings.catAppearance.role.fields.introduction.description')"
+                :placeholder="t('settings.catAppearance.role.fields.introduction.placeholder')"
+                :rows="16"
+                :preview-lines="2"
+                :maxlength="240"
               />
 
               <SettingEntry

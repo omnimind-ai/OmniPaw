@@ -13,6 +13,7 @@ const props = withDefaults(
     placeholder?: string
     rows?: number
     previewLines?: number
+    maxlength?: number
   }>(),
   {
     rows: 18,
@@ -110,6 +111,7 @@ function saveEditor(value: string): void {
       :description="description"
       :placeholder="placeholder"
       :rows="rows"
+      :maxlength="maxlength"
       @save="saveEditor"
     />
   </Field>

@@ -32,6 +32,14 @@ const sideLabels: Record<PanelSide, string> = {
 }
 
 const sideLabel = computed(() => sideLabels[side.value])
+const activeRoleIntroduction = computed(() => {
+  const appConfig = settingsStore.config?.app
+  const activeRole =
+    appConfig?.companionRoles.find((role) => role.id === appConfig.activeCompanionRoleId) ??
+    appConfig?.companionRoles[0]
+
+  return activeRole?.introduction.trim() || t('catPet.tagline')
+})
 
 const pointerClass = computed(() =>
   side.value === 'right'
@@ -83,6 +91,7 @@ function showChat(): void {
     <CatPanelStatusSurface
       v-else
       :side-label="sideLabel"
+      :role-introduction="activeRoleIntroduction"
       @show-chat="showChat"
     />
 
