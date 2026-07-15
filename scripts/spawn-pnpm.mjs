@@ -1,8 +1,8 @@
-import { spawnSync } from 'node:child_process'
+import { spawn, spawnSync } from 'node:child_process'
 import { existsSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 
-export function spawnPnpmSync(args, options = {}) {
+function resolvePnpmInvocation(args) {
   if (process.platform === 'win32') {
     const corepackPnpm = join(
       dirname(process.execPath),
@@ -13,11 +13,31 @@ export function spawnPnpmSync(args, options = {}) {
     )
 
     if (existsSync(corepackPnpm)) {
-      return spawnSync(process.execPath, [corepackPnpm, ...args], options)
+      return {
+        command: process.execPath,
+        args: [corepackPnpm, ...args],
+        shell: false,
+      }
     }
 
-    return spawnSync('pnpm', args, { ...options, shell: true })
+    return { command: 'pnpm', args, shell: true }
   }
 
-  return spawnSync('pnpm', args, options)
+  return { command: 'pnpm', args, shell: false }
+}
+
+export function spawnPnpm(args, options = {}) {
+  const invocation = resolvePnpmInvocation(args)
+  return spawn(invocation.command, invocation.args, {
+    ...options,
+    shell: invocation.shell,
+  })
+}
+
+export function spawnPnpmSync(args, options = {}) {
+  const invocation = resolvePnpmInvocation(args)
+  return spawnSync(invocation.command, invocation.args, {
+    ...options,
+    shell: invocation.shell,
+  })
 }
