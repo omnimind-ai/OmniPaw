@@ -1,5 +1,9 @@
 import { IPC_CHANNELS } from '@shared/constants'
-import type { CatPetPerformRequest, CatPetUpdateInteractionsRequest } from '@shared/types/cat-pet'
+import type {
+  CatPetInventoryRequest,
+  CatPetPerformRequest,
+  CatPetUpdateInteractionsRequest,
+} from '@shared/types/cat-pet'
 import { CAT_PET_DEBUG_UNLOCK_NEXT_GIFT_ACTION, isCatPetAction } from '@shared/types/cat-pet'
 import { registerLoggedIpcHandler } from './common'
 import type { IpcHandlerOptions } from './types'
@@ -7,6 +11,17 @@ import type { IpcHandlerOptions } from './types'
 export function registerCatPetIpcHandlers(options: IpcHandlerOptions): void {
   registerLoggedIpcHandler(options, IPC_CHANNELS.catPet.getState, () =>
     options.runtime.catPetManager.getState()
+  )
+  registerLoggedIpcHandler(
+    options,
+    IPC_CHANNELS.catPet.getInventory,
+    (_event, request: CatPetInventoryRequest) => {
+      const roleId = request?.roleId?.trim()
+      if (!roleId) {
+        throw new Error('Invalid cat pet inventory request.')
+      }
+      return options.runtime.catPetManager.getInventory(roleId)
+    }
   )
   registerLoggedIpcHandler(
     options,

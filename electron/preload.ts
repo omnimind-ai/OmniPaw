@@ -18,7 +18,11 @@ import type {
   UpsertProviderModelRequest,
   UpsertProviderSourceRequest,
 } from '@shared/types/bridge'
-import type { CatPetPerformRequest, CatPetUpdateInteractionsRequest } from '@shared/types/cat-pet'
+import type {
+  CatPetInventoryRequest,
+  CatPetPerformRequest,
+  CatPetUpdateInteractionsRequest,
+} from '@shared/types/cat-pet'
 import type {
   ExportCompanionRoleCardRequest,
   ImportCompanionRoleCardRequest,
@@ -309,6 +313,8 @@ const bridge: OmniPawBridge = {
   },
   catPet: {
     getState: () => ipcRenderer.invoke(IPC_CHANNELS.catPet.getState),
+    getInventory: (request: CatPetInventoryRequest) =>
+      ipcRenderer.invoke(IPC_CHANNELS.catPet.getInventory, request),
     perform: (request: CatPetPerformRequest) =>
       ipcRenderer.invoke(IPC_CHANNELS.catPet.performAction, request),
     updateInteractions: (request: CatPetUpdateInteractionsRequest) =>

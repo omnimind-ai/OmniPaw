@@ -16,6 +16,7 @@ import {
   CAT_PET_MOOD_MAX,
   CAT_PET_MOOD_MIN,
   type CatPetInteractionDefinition,
+  type CatPetInventoryResponse,
   type CatPetState,
   type CatPetUpdateInteractionsResponse,
   defaultCatPetGiftConfigs,
@@ -1248,6 +1249,10 @@ const fallbackBridge: OmniPawBridge = {
   },
   catPet: {
     getState: async () => fallbackCatPetState(),
+    getInventory: async (request): Promise<CatPetInventoryResponse> => ({
+      roleId: request.roleId,
+      unlockedGifts: [],
+    }),
     perform: async () => ({ ok: false, reason: 'daily_limit', state: fallbackCatPetState() }),
     updateInteractions: () =>
       rejectFallbackPersistence<CatPetUpdateInteractionsResponse>('catPet.updateInteractions'),

@@ -24,6 +24,7 @@ import type {
   ChatSession,
   InternalAttachmentRecord,
 } from '../../core/db/types'
+import { CatPetManager } from '../../core/role/growth/manager'
 import { SYSTEM_SESSION_IDS } from '../../shared/constants'
 
 const tempDir = mkdtempSync(join(tmpdir(), 'omnipaw-db-smoke-'))
@@ -146,6 +147,16 @@ try {
   })
   assert.equal(catPet.listGiftUnlocks('role-smoke-a').length, 1)
   assert.equal(catPet.listGiftUnlocks('role-smoke-a')[0]?.id, 'gift_100')
+  const catPetManager = new CatPetManager({ repo: catPet })
+  assert.deepEqual(catPetManager.getInventory('role-smoke-a'), {
+    roleId: 'role-smoke-a',
+    unlockedGifts: [{ id: 'gift_100', roleId: 'role-smoke-a', unlockedAt: 2002 }],
+  })
+  assert.deepEqual(catPetManager.getInventory('role-smoke-b'), {
+    roleId: 'role-smoke-b',
+    unlockedGifts: [],
+  })
+  assert.throws(() => catPetManager.getInventory('  '), /requires a role id/)
 
   const userMessage: ChatMessage = {
     id: 'message-user',

@@ -275,15 +275,10 @@ export default {
         },
         details: {
           title: 'Character details',
-          description: 'A quick look at “{name}”',
           view: 'View details for “{name}”',
           close: 'Close character details',
-          active: 'Active character',
-          available: 'Available character',
           notSet: 'Not set yet',
           profileTitle: 'Character profile',
-          profileDescription:
-            'These traits shape how the character behaves in conversations and desktop companionship.',
         },
         newRoleName: 'New character',
         unnamed: 'Unnamed character',

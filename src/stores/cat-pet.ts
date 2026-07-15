@@ -4,6 +4,7 @@ import type {
   CatPetChangedEvent,
   CatPetInteractionConfig,
   CatPetInteractionDefinition,
+  CatPetInventoryResponse,
   CatPetMood,
   CatPetPerformResponse,
   CatPetRecentInteraction,
@@ -156,6 +157,21 @@ export const useCatPetStore = defineStore('catPet', () => {
     }
   }
 
+  async function loadInventory(roleId: string): Promise<CatPetInventoryResponse> {
+    const normalizedRoleId = roleId.trim()
+    if (!normalizedRoleId) {
+      throw new Error('Cat pet inventory requires a role id.')
+    }
+
+    error.value = null
+    try {
+      return await appBridge.catPet.getInventory({ roleId: normalizedRoleId })
+    } catch (err) {
+      error.value = err
+      throw err
+    }
+  }
+
   async function updateInteractions(
     interactionsInput: CatPetInteractionConfig[]
   ): Promise<CatPetUpdateInteractionsResponse> {
@@ -221,6 +237,7 @@ export const useCatPetStore = defineStore('catPet', () => {
     canTease,
     canPerform,
     load,
+    loadInventory,
     perform,
     updateInteractions,
     dispose,

@@ -37,6 +37,8 @@ import type {
 import type {
   CatPetChangedEvent,
   CatPetDebugUnlockGiftResponse,
+  CatPetInventoryRequest,
+  CatPetInventoryResponse,
   CatPetPerformRequest,
   CatPetPerformResponse,
   CatPetState,
@@ -439,6 +441,7 @@ export interface OmniPawBridge {
   }
   catPet: {
     getState: () => Promise<CatPetState>
+    getInventory: (request: CatPetInventoryRequest) => Promise<CatPetInventoryResponse>
     perform: (request: CatPetPerformRequest) => Promise<CatPetPerformResponse>
     updateInteractions: (
       request: CatPetUpdateInteractionsRequest

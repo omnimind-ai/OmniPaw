@@ -15,6 +15,7 @@ import {
   type CatPetGiftUnlock,
   type CatPetInteractionConfig,
   type CatPetInteractionDefinition,
+  type CatPetInventoryResponse,
   type CatPetPerformResponse,
   type CatPetRecentInteraction,
   type CatPetState,
@@ -118,6 +119,18 @@ export class CatPetManager {
 
   getState(): CatPetState {
     return this.buildState({ touchSeen: true })
+  }
+
+  getInventory(roleIdInput: string): CatPetInventoryResponse {
+    const roleId = roleIdInput.trim()
+    if (!roleId) {
+      throw new Error('Cat pet inventory requires a role id.')
+    }
+
+    return {
+      roleId,
+      unlockedGifts: this.repo.listGiftUnlocks(roleId),
+    }
   }
 
   getChatRuntimeInstruction(): string {

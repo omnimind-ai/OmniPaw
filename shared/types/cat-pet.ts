@@ -67,6 +67,15 @@ export interface CatPetUnlockedGiftRecord {
   unlockedAt: UnixMs
 }
 
+export interface CatPetInventoryRequest {
+  roleId: ID
+}
+
+export interface CatPetInventoryResponse {
+  roleId: ID
+  unlockedGifts: CatPetUnlockedGiftRecord[]
+}
+
 export interface CatPetGiftUnlock {
   roleId: ID
   gift: CatPetGiftConfig
