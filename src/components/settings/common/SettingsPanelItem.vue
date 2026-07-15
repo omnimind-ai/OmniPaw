@@ -8,10 +8,16 @@ const props = defineProps<{
   description?: string
   icon?: Component
   pending?: boolean
+  interactive?: boolean
+  activationLabel?: string
   class?: HTMLAttributes['class']
   avatarClass?: HTMLAttributes['class']
   contentClass?: HTMLAttributes['class']
   actionsClass?: HTMLAttributes['class']
+}>()
+
+const emit = defineEmits<{
+  activate: []
 }>()
 </script>
 
@@ -25,7 +31,16 @@ const props = defineProps<{
     )"
   >
     <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-      <div class="flex min-w-0 flex-1 items-start gap-3">
+      <component
+        :is="interactive ? 'button' : 'div'"
+        :type="interactive ? 'button' : undefined"
+        :aria-label="interactive ? activationLabel : undefined"
+        :class="cn(
+          'flex min-w-0 flex-1 items-start gap-3',
+          interactive && 'self-stretch rounded-sm text-left outline-none focus-visible:ring-2 focus-visible:ring-ring/50',
+        )"
+        @click="interactive && emit('activate')"
+      >
         <slot name="avatar">
           <div :class="cn('flex size-9 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground', avatarClass)">
             <component
@@ -55,7 +70,7 @@ const props = defineProps<{
 
           <slot name="meta" />
         </div>
-      </div>
+      </component>
 
       <div
         v-if="$slots.actions"

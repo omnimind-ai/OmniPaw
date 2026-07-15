@@ -21,6 +21,7 @@ import {
   ensureElectronBridge,
   isFallbackBridge,
 } from '@/bridge/app'
+import CompanionRoleDetailsDrawer from '@/components/settings/companion-role-settings/CompanionRoleDetailsDrawer.vue'
 import CompanionRoleEditorModal from '@/components/settings/companion-role-settings/CompanionRoleEditorModal.vue'
 import CompanionRoleSelection from '@/components/settings/companion-role-settings/CompanionRoleSelection.vue'
 import RoleCardImportDialog from '@/components/settings/companion-role-settings/RoleCardImportDialog.vue'
@@ -40,7 +41,9 @@ const roleImportInput = ref<HTMLInputElement>()
 const roleCardInput = ref<HTMLInputElement>()
 const roleCardImportDialogOpen = ref(false)
 const editorModalOpen = ref(false)
+const detailsDrawerOpen = ref(false)
 const editingRoleId = ref('')
+const detailRoleId = ref('')
 const roleCardJsonContent = ref('')
 const importingRole = ref(false)
 const importingRoleCard = ref(false)
@@ -49,6 +52,7 @@ const exportingRoleCard = ref(false)
 const roles = computed(() => props.draft.app.companionRoles)
 const activeRoleId = computed(() => props.draft.app.activeCompanionRoleId)
 const editingRole = computed(() => roles.value.find((role) => role.id === editingRoleId.value))
+const detailRole = computed(() => roles.value.find((role) => role.id === detailRoleId.value))
 const canDeleteRole = computed(() => roles.value.length > 1)
 const importRoleDisabled = computed(() => importingRole.value || isFallbackBridge)
 const importRoleCardDisabled = computed(() => importingRoleCard.value || isFallbackBridge)
@@ -73,6 +77,11 @@ function selectRole(target: CompanionRole): void {
 function editRole(target: CompanionRole): void {
   editingRoleId.value = target.id
   editorModalOpen.value = true
+}
+
+function viewRole(target: CompanionRole): void {
+  detailRoleId.value = target.id
+  detailsDrawerOpen.value = true
 }
 
 function createRole(): void {
@@ -536,6 +545,16 @@ function defaultRoleName(): string {
       @edit-role="editRole"
       @import-role="chooseRoleFile"
       @import-role-card="openRoleCardImport"
+      @select-role="selectRole"
+      @view-role="viewRole"
+    />
+
+    <CompanionRoleDetailsDrawer
+      v-model:open="detailsDrawerOpen"
+      :role="detailRole"
+      :active-role-id="activeRoleId"
+      :idle-image-by-pack-id="idleImageByPackId"
+      @edit-role="editRole"
       @select-role="selectRole"
     />
 

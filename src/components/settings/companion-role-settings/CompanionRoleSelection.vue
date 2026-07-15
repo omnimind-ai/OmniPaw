@@ -41,6 +41,7 @@ const emit = defineEmits<{
   importRole: []
   importRoleCard: []
   selectRole: [role: CompanionRole]
+  viewRole: [role: CompanionRole]
 }>()
 
 interface RoleListItem {
@@ -208,6 +209,10 @@ function clearSearch(): void {
             :key="item.role.id"
             :title="item.name"
             :description="item.intro"
+            interactive
+            :activation-label="t('settings.catAppearance.role.details.view', { name: item.name })"
+            class="cursor-pointer"
+            @activate="emit('viewRole', item.role)"
           >
             <template #avatar>
               <Avatar class="size-12 shrink-0">
@@ -236,14 +241,14 @@ function clearSearch(): void {
                 type="button"
                 variant="outline"
                 size="sm"
-                @click="emit('selectRole', item.role)"
+                @click.stop="emit('selectRole', item.role)"
               >
                 {{ t('settings.catAppearance.role.overview.select') }}
               </Button>
               <Button
                 type="button"
                 size="sm"
-                @click="emit('editRole', item.role)"
+                @click.stop="emit('editRole', item.role)"
               >
                 <PencilIcon data-icon="inline-start" />
                 {{ t('settings.catAppearance.role.overview.edit') }}
