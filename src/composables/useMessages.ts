@@ -1,4 +1,4 @@
-import { computed, onBeforeUnmount, type Ref, reactive, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, type Ref, reactive, ref } from 'vue'
 import {
   appBridge,
   type BridgeChatMessage,
@@ -113,6 +113,13 @@ export interface ChatRecord {
   error?: unknown
   usage?: Record<string, unknown>
   runId?: string
+  runProgress?: {
+    type: 'retry' | 'resumed'
+    attempt?: number
+    maxAttempts?: number
+    delayMs?: number
+    reason?: string
+  }
   metadata?: Record<string, unknown>
 }
 
@@ -122,6 +129,9 @@ interface ActiveConnection {
   transport: TransportMode
   runId?: string
   catLifecycleState?: 'preparing' | 'running'
+  lastSeq: number
+  replaying?: boolean
+  bufferedEvents?: BridgeStreamEvent[]
   unsubscribe?: () => void
 }
 
@@ -186,6 +196,9 @@ export function useMessages(options: UseMessagesOptions) {
       promise.then((url) => URL.revokeObjectURL(url)).catch(() => {})
     }
     attachmentBlobCache.clear()
+  })
+  onMounted(() => {
+    void restoreActiveRuns()
   })
 
   function isSessionRunning(sessionId: string) {
@@ -259,6 +272,7 @@ export function useMessages(options: UseMessagesOptions) {
       messagesBySession[sessionId] = records
       loadedSessions[sessionId] = true
       options.onMessagesLoaded?.(sessionId, history || [])
+      void restoreSessionConnections(sessionId, records)
     } catch (error) {
       messagesLogger.error('Failed to load session messages.', { sessionId, error })
       toast.error(error, { description: '会话消息加载失败' })
@@ -415,6 +429,147 @@ export function useMessages(options: UseMessagesOptions) {
     )
   }
 
+  async function restoreActiveRuns() {
+    try {
+      const runs = await appBridge.chat.listRuns?.({
+        statuses: ['queued', 'running'],
+        limit: 500,
+      })
+      for (const run of runs ?? []) {
+        if (activeConnections[run.sessionId]) continue
+        const connection = ensureRunConnection(run.sessionId, run.id, run.assistantMessageId)
+        void resubscribeConnection(connection)
+      }
+    } catch (error) {
+      messagesLogger.warn('Failed to restore active chat runs.', { error })
+    }
+  }
+
+  async function restoreSessionConnections(sessionId: string, records: ChatRecord[]) {
+    const record = [...records]
+      .reverse()
+      .find(
+        (candidate) =>
+          candidate.runId && (candidate.status === 'streaming' || candidate.status === 'pending')
+      )
+    if (!record?.runId) return
+    const connection = ensureRunConnection(sessionId, record.runId, String(record.id ?? ''))
+    connection.messageId = String(record.id ?? connection.messageId)
+    await resubscribeConnection(connection)
+  }
+
+  function ensureRunConnection(
+    sessionId: string,
+    runId: string,
+    messageId: string
+  ): ActiveConnection {
+    const existing = activeConnections[sessionId]
+    if (existing?.runId === runId) {
+      existing.messageId = messageId || existing.messageId
+      return existing
+    }
+    existing?.unsubscribe?.()
+
+    const connection: ActiveConnection = {
+      sessionId,
+      messageId,
+      runId,
+      transport: 'sse',
+      catLifecycleState: 'running',
+      lastSeq: 0,
+      bufferedEvents: [],
+    }
+    connection.unsubscribe = appBridge.chat.onStreamEvent?.((event) => {
+      if (event.runId !== runId) return
+      if (connection.replaying) {
+        connection.bufferedEvents?.push(event)
+        return
+      }
+      processConnectionEvent(connection, event)
+    })
+    activeConnections[sessionId] = connection
+    markCatLifecycleRunning(sessionId)
+    return connection
+  }
+
+  async function resubscribeConnection(connection: ActiveConnection) {
+    if (!connection.runId || connection.replaying) return
+    connection.replaying = true
+    try {
+      const response = await appBridge.chat.subscribeRun?.({
+        runId: connection.runId,
+        ...(connection.lastSeq > 0 ? { afterSeq: connection.lastSeq } : {}),
+      })
+      if (!response) return
+
+      const record = findConnectionRecord(connection)
+      if (response.reset) {
+        if (record && response.message) {
+          Object.assign(record, mapBridgeMessageToRecord(response.message))
+          await resolveRecordMedia([record])
+        }
+        connection.lastSeq = response.latestSeq
+        if (record && response.statusEvent) {
+          applyRunProgressEvent(record, response.statusEvent)
+        }
+      } else {
+        for (const event of [...response.events].sort((a, b) => a.seq - b.seq)) {
+          processConnectionEvent(connection, event)
+        }
+      }
+      if (record && response.statusEvent && response.statusEvent.seq >= connection.lastSeq) {
+        applyRunProgressEvent(record, response.statusEvent)
+      }
+
+      if (!response.active && activeConnections[connection.sessionId] === connection) {
+        settleCatLifecycle(
+          connection.sessionId,
+          response.run.status === 'complete' ? 'final' : 'error'
+        )
+      }
+    } catch (error) {
+      messagesLogger.warn('Failed to resubscribe to chat run.', {
+        runId: connection.runId,
+        sessionId: connection.sessionId,
+        error,
+      })
+    } finally {
+      connection.replaying = false
+      const buffered = connection.bufferedEvents?.splice(0) ?? []
+      for (const event of buffered.sort((a, b) => a.seq - b.seq)) {
+        if (activeConnections[connection.sessionId] !== connection) break
+        processConnectionEvent(connection, event)
+      }
+    }
+  }
+
+  function processConnectionEvent(connection: ActiveConnection, event: BridgeStreamEvent) {
+    if (event.seq <= connection.lastSeq) return
+    connection.lastSeq = event.seq
+    if (event.assistantMessageId) {
+      connection.messageId = event.assistantMessageId
+    }
+    const record = findConnectionRecord(connection)
+    if (record) {
+      processBridgeStreamEvent(record, event)
+    }
+    options.onContextUsageUpdate?.(event)
+    options.onStreamUpdate?.(connection.sessionId)
+    if (isTerminalStreamEvent(event)) {
+      settleCatLifecycle(connection.sessionId, event.type)
+      void options.onSessionsChanged?.()
+    }
+  }
+
+  function findConnectionRecord(connection: ActiveConnection): ChatRecord | undefined {
+    const records = messagesBySession[connection.sessionId]
+    if (!records?.length) return undefined
+    return (
+      records.find((record) => record.runId === connection.runId) ??
+      records.find((record) => String(record.id ?? '') === connection.messageId)
+    )
+  }
+
   async function regenerateMessage(
     sessionId: string,
     botRecord: ChatRecord,
@@ -447,26 +602,9 @@ export function useMessages(options: UseMessagesOptions) {
       const response = await appBridge.chat.regenerateMessage?.(request)
       if (!response) throw new Error('Regenerate is not available.')
       botRecord.id = response.assistantMessageId || response.messageId || botRecord.id
-      const unsubscribe = appBridge.chat.onStreamEvent?.((event) => {
-        if (event.sessionId !== sessionId || event.runId !== response.runId) return
-        markCatLifecycleRunning(sessionId)
-        processBridgeStreamEvent(botRecord, event)
-        options.onContextUsageUpdate?.(event)
-        options.onStreamUpdate?.(sessionId)
-        if (isTerminalStreamEvent(event)) {
-          settleCatLifecycle(sessionId, event.type)
-          options.onSessionsChanged?.()
-        }
-      })
-      activeConnections[sessionId] = {
-        sessionId,
-        messageId: String(botRecord.id),
-        runId: response.runId,
-        transport: 'sse',
-        catLifecycleState: 'preparing',
-        unsubscribe,
-      }
-      markCatLifecycleRunning(sessionId)
+      botRecord.runId = response.runId
+      const connection = ensureRunConnection(sessionId, response.runId, String(botRecord.id))
+      await resubscribeConnection(connection)
     } catch (error) {
       delete activeConnections[sessionId]
       markRecordErrored(botRecord, error)
@@ -512,31 +650,30 @@ export function useMessages(options: UseMessagesOptions) {
     llmCheckpointId: string | null = null
   ) {
     let runId: string | undefined
+    const pendingEvents: BridgeStreamEvent[] = []
     await setCatLifecyclePreparing()
-    const unsubscribe = appBridge.chat.onStreamEvent?.((event) => {
-      if (event.sessionId !== sessionId) return
-      if (runId && event.runId !== runId) return
-      if (event.assistantMessageId !== String(botRecord.id) && event.runId !== runId) return
-      markCatLifecycleRunning(sessionId)
-      processBridgeStreamEvent(botRecord, event)
-      options.onContextUsageUpdate?.(event)
-      options.onStreamUpdate?.(sessionId)
-      if (isTerminalStreamEvent(event)) {
-        const active = activeConnections[sessionId]
-        if (active?.runId === event.runId) {
-          settleCatLifecycle(sessionId, event.type)
-          options.onSessionsChanged?.()
-        }
-      }
-    })
-
-    activeConnections[sessionId] = {
+    const connection: ActiveConnection = {
       sessionId,
       messageId,
       transport: 'sse',
       catLifecycleState: 'preparing',
-      unsubscribe,
+      lastSeq: 0,
+      bufferedEvents: [],
     }
+    connection.unsubscribe = appBridge.chat.onStreamEvent?.((event) => {
+      if (event.sessionId !== sessionId) return
+      if (!runId) {
+        pendingEvents.push(event)
+        return
+      }
+      if (event.runId !== runId) return
+      if (connection.replaying) {
+        connection.bufferedEvents?.push(event)
+        return
+      }
+      processConnectionEvent(connection, event)
+    })
+    activeConnections[sessionId] = connection
 
     try {
       const response = await appBridge.chat.sendMessage({
@@ -554,9 +691,11 @@ export function useMessages(options: UseMessagesOptions) {
       })
 
       runId = response.runId
-      activeConnections[sessionId].runId = runId
+      connection.runId = runId
       markCatLifecycleRunning(sessionId)
       botRecord.id = response.assistantMessageId || response.messageId || botRecord.id
+      botRecord.runId = runId
+      connection.messageId = String(botRecord.id)
       if (userRecord && response.userMessageId) {
         userRecord.id = response.userMessageId
       }
@@ -568,8 +707,16 @@ export function useMessages(options: UseMessagesOptions) {
         Object.assign(botRecord, mapBridgeMessageToRecord(response.assistantMessage))
         await resolveRecordMedia([botRecord])
       }
+      for (const event of pendingEvents
+        .filter((event) => event.runId === runId)
+        .sort((a, b) => a.seq - b.seq)) {
+        processConnectionEvent(connection, event)
+      }
+      if (activeConnections[sessionId] === connection) {
+        await resubscribeConnection(connection)
+      }
     } catch (error) {
-      unsubscribe?.()
+      connection.unsubscribe?.()
       delete activeConnections[sessionId]
       markRecordErrored(botRecord, error)
       messagesLogger.error('Bridge chat failed.', {
@@ -612,7 +759,12 @@ export function useMessages(options: UseMessagesOptions) {
   }
 
   function processBridgeStreamEvent(botRecord: ChatRecord, event: BridgeStreamEvent) {
+    if (event.type === 'retry' || event.type === 'resumed') {
+      applyRunProgressEvent(botRecord, event)
+      return
+    }
     if (event.type === 'started') {
+      clearRunProgress(botRecord)
       markMessageStarted(botRecord)
       botRecord.id = event.assistantMessageId || botRecord.id
       botRecord.status = 'streaming'
@@ -620,6 +772,7 @@ export function useMessages(options: UseMessagesOptions) {
       return
     }
     if (event.type === 'delta') {
+      clearRunProgress(botRecord)
       if (event.channel === 'tool_call') {
         mergeToolEvent(botRecord, event)
         return
@@ -634,19 +787,40 @@ export function useMessages(options: UseMessagesOptions) {
       return
     }
     if (mergeToolEvent(botRecord, event)) {
+      clearRunProgress(botRecord)
       return
     }
     if (event.type === 'final' && event.message) {
+      clearRunProgress(botRecord)
       Object.assign(botRecord, mapBridgeMessageToRecord(event.message))
       markMessageStarted(botRecord)
       return
     }
     if (event.type === 'error' || event.type === 'aborted') {
+      clearRunProgress(botRecord)
       markMessageStarted(botRecord)
       botRecord.status = event.type
       botRecord.updated_at = new Date().toISOString()
       botRecord.error = event.error
     }
+  }
+
+  function applyRunProgressEvent(record: ChatRecord, event: BridgeStreamEvent) {
+    if (event.type !== 'retry' && event.type !== 'resumed') return
+    record.runProgress = {
+      type: event.type,
+      attempt: event.attempt,
+      maxAttempts: event.maxAttempts,
+      delayMs: event.delayMs,
+      reason: event.reason,
+    }
+    record.runId = event.runId
+    record.status = 'streaming'
+    record.updated_at = new Date().toISOString()
+  }
+
+  function clearRunProgress(record: ChatRecord) {
+    delete record.runProgress
   }
 
   return {

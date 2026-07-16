@@ -184,6 +184,7 @@ export interface ChatError {
     | 'provider_rate_limit'
     | 'provider_context_length'
     | 'provider_bad_request'
+    | 'provider_stream_incomplete'
     | 'network'
     | 'aborted'
     | 'validation'
@@ -517,6 +518,16 @@ export interface ProviderRequestSnapshot {
   selectedCounts?: Partial<Record<ContextUnitKind, number>>
   droppedCounts?: Partial<Record<ContextUnitKind, number>>
   summaryId?: ID
+  transport?: {
+    retryCount?: number
+    lastRetryAt?: UnixMs
+    streamCompleted?: boolean
+    recovery?: {
+      disposition: 'resumed' | 'interrupted'
+      reason: string
+      at: UnixMs
+    }
+  }
 }
 
 export interface ChatRun {
@@ -637,6 +648,17 @@ export interface AbortRunRequest {
 export interface AbortRunResponse {
   runId: ID
   aborted: boolean
+}
+
+export interface ListRunsRequest {
+  sessionId?: ID
+  statuses?: ChatRunStatus[]
+  limit?: number
+}
+
+export interface SubscribeRunRequest {
+  runId: ID
+  afterSeq?: number
 }
 
 export interface EditMessageRequest {
@@ -760,6 +782,27 @@ export interface ChatRunErrorEvent {
   error: ChatError
 }
 
+export interface ChatRunRetryEvent {
+  type: 'retry'
+  runId: ID
+  sessionId: ID
+  assistantMessageId: ID
+  seq: number
+  attempt: number
+  maxAttempts: number
+  delayMs: number
+  reason: 'network' | 'stream_incomplete'
+}
+
+export interface ChatRunResumedEvent {
+  type: 'resumed'
+  runId: ID
+  sessionId: ID
+  assistantMessageId: ID
+  seq: number
+  reason: 'startup_recovery'
+}
+
 export type ChatStreamEvent =
   | ChatRunStartedEvent
   | ChatRunDeltaEvent
@@ -769,6 +812,19 @@ export type ChatStreamEvent =
   | ChatRunToolResultEvent
   | ChatRunFinalEvent
   | ChatRunErrorEvent
+  | ChatRunRetryEvent
+  | ChatRunResumedEvent
+
+export interface SubscribeRunResponse {
+  run: ChatRun
+  message?: ChatMessage
+  active: boolean
+  latestSeq: number
+  replayFromSeq?: number
+  reset: boolean
+  events: ChatStreamEvent[]
+  statusEvent?: ChatRunRetryEvent | ChatRunResumedEvent
+}
 
 export type Session = ChatSession
 export type Message = ChatMessage

@@ -24,11 +24,14 @@ import type {
   EditMessageRequest,
   EditMessageResponse,
   ListMessagesRequest,
+  ListRunsRequest,
   ListSessionsRequest,
   RegenerateMessageRequest,
   SendMessageRequest,
   SendMessageResponse,
   SessionContextInstruction,
+  SubscribeRunRequest,
+  SubscribeRunResponse,
   ToolApprovalRequest,
   ToolApprovalResponse,
   ToolProfile,
@@ -356,6 +359,18 @@ export class ChatService {
     return this.options.messages
       .listBySession(sessionId, { limit })
       .map((message) => this.sessionSummary.attachRunContextUsage(message))
+  }
+
+  listRuns(request: ListRunsRequest = {}) {
+    return this.runOrchestrator.listRuns(request)
+  }
+
+  subscribeRun(request: SubscribeRunRequest, target: ChatRunEventTarget): SubscribeRunResponse {
+    return this.runOrchestrator.subscribeRun(request, target)
+  }
+
+  recoverResidualRuns(target: ChatRunEventTarget) {
+    return this.runOrchestrator.recoverResidualRuns(target)
   }
 
   async sendMessage(

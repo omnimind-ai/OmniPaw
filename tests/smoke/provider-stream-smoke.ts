@@ -17,6 +17,9 @@ await testToolCallArgumentIndexDrift()
 await testTextDeltaAndUsageFinal()
 await testJsonChatCompletionFallback()
 await testEmptySseFails()
+await testOpenAIIncompleteStreamFails()
+await testAnthropicIncompleteStreamFails()
+await testOpenAICodexIncompleteStreamFails()
 await testMalformedStreamJson()
 await testListModelsUsesConfiguredAuthHeader()
 await testListModelsParsesSsePayload()
@@ -705,6 +708,91 @@ async function testEmptySseFails(): Promise<void> {
       return true
     }
   )
+}
+
+async function testOpenAIIncompleteStreamFails(): Promise<void> {
+  const provider = new OpenAICompatibleProvider({
+    id: 'openai-incomplete',
+    baseUrl: 'https://example.test/v1',
+    apiKey: 'test-key',
+    fetch: (async () =>
+      new Response(
+        sseStream([
+          {
+            choices: [{ delta: { content: 'partial' } }],
+          },
+        ]),
+        { status: 200 }
+      )) as typeof fetch,
+  })
+
+  await assertIncompleteStream(() =>
+    collect(
+      provider.streamChat({
+        modelId: 'model-a',
+        messages: [{ role: 'user', content: 'hello' }],
+      })
+    )
+  )
+}
+
+async function testAnthropicIncompleteStreamFails(): Promise<void> {
+  const provider = new AnthropicCompatibleProvider({
+    id: 'anthropic-incomplete',
+    baseUrl: 'https://anthropic.example',
+    apiKey: 'test-key',
+    fetch: (async () =>
+      new Response(
+        sseStream([
+          {
+            type: 'content_block_delta',
+            index: 0,
+            delta: { type: 'text_delta', text: 'partial' },
+          },
+        ]),
+        { status: 200 }
+      )) as typeof fetch,
+  })
+
+  await assertIncompleteStream(() =>
+    collect(
+      provider.streamChat({
+        modelId: 'claude-test',
+        messages: [{ role: 'user', content: 'hello' }],
+      })
+    )
+  )
+}
+
+async function testOpenAICodexIncompleteStreamFails(): Promise<void> {
+  const provider = new OpenAICodexProvider({
+    id: 'codex-incomplete',
+    baseUrl: 'https://chatgpt.com/backend-api',
+    apiKey: 'test-key',
+    fetch: (async () =>
+      new Response(
+        sseStream([{ type: 'response.output_text.delta', delta: 'partial' }, '[DONE]']),
+        { status: 200 }
+      )) as typeof fetch,
+  })
+
+  await assertIncompleteStream(() =>
+    collect(
+      provider.streamChat({
+        modelId: 'gpt-5.4',
+        messages: [{ role: 'user', content: 'hello' }],
+      })
+    )
+  )
+}
+
+async function assertIncompleteStream(run: () => Promise<unknown>): Promise<void> {
+  await assert.rejects(run, (error) => {
+    assert.equal(error instanceof ProviderError, true)
+    assert.equal((error as ProviderError).chatError.code, 'provider_stream_incomplete')
+    assert.equal((error as ProviderError).chatError.retryable, true)
+    return true
+  })
 }
 
 async function testTextDeltaAndUsageFinal(): Promise<void> {

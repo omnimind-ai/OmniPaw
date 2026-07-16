@@ -9,7 +9,12 @@ import type {
   ProviderToolCall,
   TokenUsage,
 } from '../base-provider'
-import { errorFromResponse, normalizeProviderError, throwProviderError } from '../errors'
+import {
+  errorFromResponse,
+  normalizeProviderError,
+  throwIncompleteProviderStream,
+  throwProviderError,
+} from '../errors'
 import { extractOpenAICodexAccountId, type OpenAICodexOAuthCredential } from '../openai-codex-oauth'
 import { parseSseStream } from './openai'
 
@@ -91,6 +96,7 @@ export class OpenAICodexProvider implements BaseProvider {
       let finishReason: string | undefined
       const pendingToolCalls = new Map<string, PendingFunctionCall>()
       let nextToolIndex = 0
+      let sawTerminalEvent = false
 
       for await (const eventText of parseSseStream(response.body)) {
         if (eventText === '[DONE]') {
@@ -222,6 +228,7 @@ export class OpenAICodexProvider implements BaseProvider {
         }
 
         if (eventType === 'response.completed' || eventType === 'response.done') {
+          sawTerminalEvent = true
           const responsePayload = isRecord(event.response) ? event.response : undefined
           finalUsage = parseResponsesUsage(responsePayload?.usage) ?? finalUsage
           finishReason = mapStopReason(stringValue(responsePayload?.status))
@@ -229,6 +236,10 @@ export class OpenAICodexProvider implements BaseProvider {
             finishReason = 'tool_calls'
           }
         }
+      }
+
+      if (!sawTerminalEvent) {
+        throwIncompleteProviderStream('OpenAI Codex')
       }
 
       yield {

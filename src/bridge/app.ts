@@ -25,6 +25,12 @@ import {
   moodFromScore,
 } from '@shared/types/cat-pet'
 import type {
+  ChatRun,
+  ListRunsRequest,
+  SubscribeRunRequest,
+  SubscribeRunResponse,
+} from '@shared/types/chat'
+import type {
   ExportCompanionRoleCardResponse,
   ImportCompanionRoleCardResponse,
 } from '@shared/types/companion-role'
@@ -65,6 +71,10 @@ import type { DesktopWindowState, DesktopWindowStateChangedEvent } from '@shared
 const FALLBACK_COMPANION_ROLE_ID = 'default'
 
 export type BridgeUnsubscribe = () => void
+export type BridgeChatRun = ChatRun
+export type BridgeListRunsRequest = ListRunsRequest
+export type BridgeSubscribeRunRequest = SubscribeRunRequest
+export type BridgeSubscribeRunResponse = SubscribeRunResponse
 export type BridgeDesktopWindowState = DesktopWindowState
 export type BridgeDesktopWindowStateChangedEvent = DesktopWindowStateChangedEvent
 
@@ -417,7 +427,7 @@ export interface BridgeToolApprovalResponse {
 }
 
 export interface BridgeStreamEvent {
-  type: 'started' | 'delta' | 'final' | 'error' | 'aborted' | string
+  type: 'started' | 'delta' | 'final' | 'error' | 'aborted' | 'retry' | 'resumed' | string
   runId: string
   sessionId: string
   assistantMessageId: string
@@ -451,6 +461,10 @@ export interface BridgeStreamEvent {
   usage?: Record<string, unknown>
   contextUsage?: BridgeContextUsageMetadata
   requestSnapshot?: Record<string, unknown>
+  attempt?: number
+  maxAttempts?: number
+  delayMs?: number
+  reason?: string
   [key: string]: unknown
 }
 
@@ -1409,6 +1423,8 @@ const fallbackBridge: OmniPawBridge = {
     }),
     deleteSession: async () => ({ deleted: true }),
     listMessages: async () => [],
+    listRuns: async () => [],
+    subscribeRun: () => rejectFallbackPersistence<SubscribeRunResponse>('chat.subscribeRun'),
     sendMessage: async () => ({
       runId: crypto.randomUUID(),
       userMessageId: crypto.randomUUID(),

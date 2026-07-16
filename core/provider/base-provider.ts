@@ -4,6 +4,7 @@ export interface ChatError {
     | 'provider_rate_limit'
     | 'provider_context_length'
     | 'provider_bad_request'
+    | 'provider_stream_incomplete'
     | 'network'
     | 'aborted'
     | 'unknown'

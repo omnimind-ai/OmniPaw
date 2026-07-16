@@ -1,6 +1,6 @@
 import type { Logger } from '@core/logging'
 import type { BaseProvider, ProviderToolCall } from '@core/provider/base-provider'
-import { normalizeProviderError } from '@core/provider/errors'
+import { normalizeProviderError, throwIncompleteProviderStream } from '@core/provider/errors'
 import type { ChatMessagePart } from '@shared/types/chat'
 import { createAgentStepEvent } from './run/events'
 import type { AgentRunFinalizer } from './run/finalize'
@@ -10,6 +10,9 @@ import type { AgentToolLoopOptions } from './tool-loop'
 import { executeAgentToolLoop } from './tool-loop'
 
 export interface AgentStepEngineOptions extends AgentToolLoopOptions {}
+
+const MAX_TRANSIENT_NETWORK_RETRIES = 5
+const NETWORK_RETRY_BASE_DELAY_MS = 500
 
 export class AgentStepEngine {
   constructor(
@@ -29,8 +32,11 @@ export class AgentStepEngine {
       const stepToolCalls: ProviderToolCall[] = []
       let sawFinal = false
       let retryWithoutTools = false
+      let networkRetryCount = 0
       do {
         retryWithoutTools = false
+        const attemptStepPartCount = stepParts.length
+        const attemptToolCallCount = stepToolCalls.length
         try {
           for await (const chunk of this.client.streamChat({
             modelId: input.model.remoteId || input.model.id,
@@ -87,6 +93,7 @@ export class AgentStepEngine {
 
             if (chunk.type === 'final') {
               sawFinal = true
+              state.markStreamCompleted()
               if (!stepToolCalls.length) {
                 this.finalizer.completeRun(state, chunk.usage)
                 this.logger?.info('Agent run completed.', {
@@ -97,6 +104,9 @@ export class AgentStepEngine {
                 return
               }
             }
+          }
+          if (!sawFinal) {
+            throwIncompleteProviderStream('Provider')
           }
         } catch (error) {
           const chatError = normalizeProviderError(error)
@@ -119,6 +129,46 @@ export class AgentStepEngine {
               providerStatus: chatError.providerStatus,
               fallbackReason: toolFallbackReason,
             })
+            continue
+          }
+          if (
+            isRetryableTransportError(chatError) &&
+            !sawFinal &&
+            stepParts.length === attemptStepPartCount &&
+            stepToolCalls.length === attemptToolCallCount &&
+            networkRetryCount < MAX_TRANSIENT_NETWORK_RETRIES
+          ) {
+            networkRetryCount += 1
+            const delayMs = NETWORK_RETRY_BASE_DELAY_MS * 2 ** (networkRetryCount - 1)
+            state.recordTransportRetry()
+            const currentRun = this.options.runs.get(input.run.id) ?? input.run
+            this.options.runs.save({
+              ...currentRun,
+              requestSnapshot: state.snapshot,
+              updatedAt: Date.now(),
+            })
+            this.options.runManager.emit({
+              type: 'retry',
+              runId: input.run.id,
+              sessionId: input.run.sessionId,
+              assistantMessageId: input.run.assistantMessageId,
+              seq: this.options.runManager.nextSeq(input.run.id),
+              attempt: networkRetryCount,
+              maxAttempts: MAX_TRANSIENT_NETWORK_RETRIES,
+              delayMs,
+              reason:
+                chatError.code === 'provider_stream_incomplete' ? 'stream_incomplete' : 'network',
+            })
+            this.logger?.info('Transient provider transport failure; retrying stream.', {
+              providerId: input.provider.id,
+              modelId: input.model.id,
+              errorCode: chatError.code,
+              retryAttempt: networkRetryCount,
+              maxRetryAttempts: MAX_TRANSIENT_NETWORK_RETRIES,
+              delayMs,
+            })
+            await abortableDelay(delayMs, input.signal)
+            retryWithoutTools = true
             continue
           }
           if (
@@ -186,4 +236,30 @@ export class AgentStepEngine {
       })
     )
   }
+}
+
+function isRetryableTransportError(error: ReturnType<typeof normalizeProviderError>): boolean {
+  return (
+    error.retryable === true &&
+    (error.code === 'network' || error.code === 'provider_stream_incomplete')
+  )
+}
+
+function abortableDelay(delayMs: number, signal: AbortSignal): Promise<void> {
+  if (signal.aborted) {
+    return Promise.reject(new DOMException('Run aborted.', 'AbortError'))
+  }
+
+  return new Promise<void>((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      signal.removeEventListener('abort', abort)
+      resolve()
+    }, delayMs)
+    const abort = () => {
+      clearTimeout(timeout)
+      signal.removeEventListener('abort', abort)
+      reject(new DOMException('Run aborted.', 'AbortError'))
+    }
+    signal.addEventListener('abort', abort, { once: true })
+  })
 }

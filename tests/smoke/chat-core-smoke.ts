@@ -38,7 +38,7 @@ import {
 } from '../../core/memory'
 import { errorFromResponse, normalizeProviderError } from '../../core/provider/errors'
 import { parseSseStream } from '../../core/provider/providers/openai'
-import type { ChatMessage } from '../../shared/types/chat'
+import type { ChatMessage, ChatStreamEvent } from '../../shared/types/chat'
 import type { ProviderConfig, ProviderModel } from '../../shared/types/provider'
 import type { DesktopCompanionRoleSettings } from '../../shared/types/settings'
 
@@ -148,6 +148,7 @@ try {
   })
   const companionRoles: DesktopCompanionRoleSettings[] = []
   const runManager = new RunManager(runRepo)
+  testRunManagerReplay(runManager)
   const providerRequests: Array<{ providerId: string; messages: unknown[] }> = []
   const sessionModelService = new ChatService({
     sessions: sessionRepo,
@@ -208,8 +209,109 @@ try {
     providerId: kimiProvider.id,
     modelId: 'kimi',
   })
+  const interruptedSession = await sessionModelService.createSession({
+    providerId: kimiProvider.id,
+    modelId: 'kimi',
+  })
   assert.equal(selectedSession.defaultProviderId, kimiProvider.id)
   assert.equal(selectedSession.defaultModelId, 'kimi')
+  const recoveryUser: ChatMessage = {
+    id: 'recovery-user',
+    sessionId: selectedSession.id,
+    role: 'user',
+    status: 'complete',
+    parts: [{ type: 'plain', text: 'resume safely' }],
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+  }
+  const recoveryAssistant: ChatMessage = {
+    id: 'recovery-assistant',
+    sessionId: selectedSession.id,
+    role: 'assistant',
+    status: 'streaming',
+    parts: [],
+    runId: 'recovery-run',
+    providerId: kimiProvider.id,
+    modelId: 'kimi',
+    createdAt: Date.now() + 1,
+    updatedAt: Date.now() + 1,
+  }
+  messageRepo.save(recoveryUser)
+  messageRepo.save(recoveryAssistant)
+  runRepo.save({
+    id: 'recovery-run',
+    sessionId: selectedSession.id,
+    userMessageId: recoveryUser.id,
+    assistantMessageId: recoveryAssistant.id,
+    providerId: kimiProvider.id,
+    modelId: 'kimi',
+    status: 'running',
+    requestSnapshot: {
+      api: 'openai-chat-completions',
+      model: 'kimi',
+      mode: 'fast_chat',
+      toolProfile: 'minimal',
+      maxSteps: 1,
+      messageCount: 1,
+      attachmentCount: 0,
+    },
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+  })
+  const interruptedUser: ChatMessage = {
+    ...recoveryUser,
+    id: 'interrupted-user',
+    sessionId: interruptedSession.id,
+    parts: [{ type: 'plain', text: 'do not repeat side effects' }],
+  }
+  const interruptedAssistant: ChatMessage = {
+    ...recoveryAssistant,
+    id: 'interrupted-assistant',
+    sessionId: interruptedSession.id,
+    runId: 'interrupted-run',
+    parts: [{ type: 'plain', text: 'partial output' }],
+  }
+  messageRepo.save(interruptedUser)
+  messageRepo.save(interruptedAssistant)
+  runRepo.save({
+    id: 'interrupted-run',
+    sessionId: interruptedSession.id,
+    userMessageId: interruptedUser.id,
+    assistantMessageId: interruptedAssistant.id,
+    providerId: kimiProvider.id,
+    modelId: 'kimi',
+    status: 'running',
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+  })
+  const recoveryEvents: ChatStreamEvent[] = []
+  const recoveryResult = await sessionModelService.recoverResidualRuns({
+    id: 'recovery-smoke-target',
+    send(_channel, event) {
+      recoveryEvents.push(event as ChatStreamEvent)
+    },
+  })
+  assert.deepEqual(recoveryResult, { resumed: 1, interrupted: 1 })
+  await waitFor(() => runRepo.get('recovery-run')?.status === 'complete', 2_000)
+  assert.equal(
+    runRepo.get('recovery-run')?.requestSnapshot?.transport?.recovery?.disposition,
+    'resumed'
+  )
+  assert.equal(runRepo.get('recovery-run')?.requestSnapshot?.transport?.streamCompleted, true)
+  assert.equal(runRepo.get('interrupted-run')?.status, 'aborted')
+  assert.equal(messageRepo.get('interrupted-assistant')?.status, 'aborted')
+  assert.equal(
+    runRepo.get('interrupted-run')?.abortReason,
+    'startup_interrupted:partial_output_or_tool_activity'
+  )
+  assert.equal(
+    recoveryEvents.some((event) => event.type === 'resumed'),
+    true
+  )
+  assert.equal(
+    recoveryEvents.some((event) => event.type === 'final'),
+    true
+  )
   const defaultStepsSend = await sessionModelService.sendInternalMessage(
     {
       sessionId: selectedSession.id,
@@ -1080,6 +1182,71 @@ function testSemanticMemoryCandidateValidation(): void {
     invalid.rejections.some((item) => item.reason === 'out_of_window_source_messages'),
     true
   )
+}
+
+function testRunManagerReplay(runManager: RunManager): void {
+  const firstTargetEvents: ChatStreamEvent[] = []
+  const secondTargetEvents: ChatStreamEvent[] = []
+  runManager.start('run-replay-smoke', {
+    id: 'first-target',
+    send(_channel, event) {
+      firstTargetEvents.push(event as ChatStreamEvent)
+    },
+  })
+  runManager.emit({
+    type: 'started',
+    runId: 'run-replay-smoke',
+    sessionId: 'session-replay-smoke',
+    assistantMessageId: 'assistant-replay-smoke',
+    seq: runManager.nextSeq('run-replay-smoke'),
+  })
+  runManager.emit({
+    type: 'delta',
+    runId: 'run-replay-smoke',
+    sessionId: 'session-replay-smoke',
+    assistantMessageId: 'assistant-replay-smoke',
+    seq: runManager.nextSeq('run-replay-smoke'),
+    text: 'hello',
+    channel: 'content',
+  })
+
+  const replay = runManager.subscribe(
+    'run-replay-smoke',
+    {
+      id: 'second-target',
+      send(_channel, event) {
+        secondTargetEvents.push(event as ChatStreamEvent)
+      },
+    },
+    1
+  )
+  assert.equal(replay.reset, false)
+  assert.deepEqual(
+    replay.events.map((event) => event.seq),
+    [2]
+  )
+
+  runManager.emit({
+    type: 'retry',
+    runId: 'run-replay-smoke',
+    sessionId: 'session-replay-smoke',
+    assistantMessageId: 'assistant-replay-smoke',
+    seq: runManager.nextSeq('run-replay-smoke'),
+    attempt: 1,
+    maxAttempts: 5,
+    delayMs: 500,
+    reason: 'network',
+  })
+  const snapshotReplay = runManager.subscribe('run-replay-smoke', {
+    id: 'snapshot-target',
+    send() {},
+  })
+  assert.equal(snapshotReplay.reset, true)
+  assert.equal(snapshotReplay.latestSeq, 3)
+  assert.equal(snapshotReplay.statusEvent?.type, 'retry')
+  assert.equal(firstTargetEvents.length, 3)
+  assert.equal(secondTargetEvents.at(-1)?.type, 'retry')
+  runManager.finish('run-replay-smoke')
 }
 
 function fakeAgentTool(name: 'workspace_file' | 'terminal_exec'): AgentTool {

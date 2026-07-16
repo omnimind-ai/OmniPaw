@@ -455,6 +455,14 @@ export function createCoreRuntime(options: CoreRuntimeOptions): CoreRuntime {
     observationManager: () => observationManager,
     logger: coreLogger.child({ scope: 'chat' }),
   })
+  void chatService
+    .recoverResidualRuns({
+      id: 'startup-recovery',
+      send() {},
+    })
+    .catch((error) => {
+      coreLogger.warn('Residual chat run recovery failed.', { error })
+    })
 
   cronManager.setExecutor(
     new ScheduledTaskAgentExecutor({

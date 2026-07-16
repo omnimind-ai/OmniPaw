@@ -1,8 +1,10 @@
 <script setup lang="ts">
+import { RefreshCwIcon } from '@lucide/vue'
 import { computed, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 
 import { Button } from '@/components/ui/button'
-import { Marker, MarkerContent } from '@/components/ui/marker'
+import { Marker, MarkerContent, MarkerIcon } from '@/components/ui/marker'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Textarea } from '@/components/ui/textarea'
 import type {
@@ -49,6 +51,7 @@ const props = withDefaults(
     sessionId: '',
   }
 )
+const { t } = useI18n()
 
 const emit = defineEmits<{
   copyMessage: [record: ChatRecord]
@@ -117,6 +120,22 @@ function showThinkingFallback(record: ChatRecord, index: number) {
   return (
     !hasDisplayBlocks(record) && !isRecordErrored(record) && props.isMessageStreaming(record, index)
   )
+}
+
+function runProgressText(record: ChatRecord): string {
+  const progress = record.runProgress
+  if (!progress) return ''
+  if (progress.type === 'resumed') {
+    return t('chat.runProgress.resumed')
+  }
+  const key =
+    progress.reason === 'stream_incomplete'
+      ? 'chat.runProgress.retryIncomplete'
+      : 'chat.runProgress.retryNetwork'
+  return t(key, {
+    attempt: progress.attempt ?? 1,
+    max: progress.maxAttempts ?? 1,
+  })
 }
 
 function messageDisplayTime(record: ChatRecord) {
@@ -305,12 +324,25 @@ function fileChangesFor(record: ChatRecord) {
           </div>
 
           <Marker
+            v-if="!isUserMessage(record) && record.runProgress"
+            role="status"
+            class="px-1 py-1"
+          >
+            <MarkerIcon>
+              <RefreshCwIcon class="animate-spin" />
+            </MarkerIcon>
+            <MarkerContent class="shimmer">
+              {{ runProgressText(record) }}
+            </MarkerContent>
+          </Marker>
+
+          <Marker
             v-else-if="showThinkingFallback(record, recordIndex)"
             role="status"
             class="px-1 py-1"
           >
             <MarkerContent class="shimmer">
-              正在思考...
+              {{ t('chat.runProgress.thinking') }}
             </MarkerContent>
           </Marker>
 

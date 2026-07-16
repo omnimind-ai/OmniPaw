@@ -47,6 +47,28 @@ export class ChatRunRepo {
     return row ? mapRun(row) : undefined
   }
 
+  list(filters: { sessionId?: string; statuses?: RunStatus[]; limit?: number } = {}): ChatRun[] {
+    const conditions: string[] = []
+    const params: unknown[] = []
+
+    if (filters.sessionId) {
+      conditions.push('session_id = ?')
+      params.push(filters.sessionId)
+    }
+    if (filters.statuses?.length) {
+      conditions.push(`status IN (${filters.statuses.map(() => '?').join(', ')})`)
+      params.push(...filters.statuses)
+    }
+
+    const limit = Math.max(1, Math.min(Math.floor(filters.limit ?? 100), 500))
+    params.push(limit)
+    const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : ''
+    const rows = this.db
+      .prepare(`SELECT * FROM chat_runs ${where} ORDER BY created_at DESC LIMIT ?`)
+      .all(...params) as RunRow[]
+    return rows.map(mapRun)
+  }
+
   save(run: ChatRun): ChatRun {
     if (run.idempotencyKey) {
       const existing = this.getByIdempotencyKey(run.idempotencyKey)

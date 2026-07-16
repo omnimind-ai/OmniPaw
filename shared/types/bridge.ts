@@ -52,6 +52,7 @@ import type {
   AttachmentPreviewResponse,
   ChatMessage,
   ChatMessagePart,
+  ChatRun,
   ChatSession,
   ChatSessionChangedEvent,
   ChatStreamEvent,
@@ -60,10 +61,13 @@ import type {
   EditMessageRequest,
   EditMessageResponse,
   ListMessagesRequest,
+  ListRunsRequest,
   ListSessionsRequest,
   RegenerateMessageRequest,
   SendMessageRequest,
   SendMessageResponse,
+  SubscribeRunRequest,
+  SubscribeRunResponse,
   ToolApprovalRequest,
   ToolApprovalResponse,
   UpdateSessionRequest,
@@ -512,6 +516,8 @@ export interface OmniPawBridge {
     ) => Promise<ChatSession>
     deleteSession: (request: DeleteSessionRequest | string) => Promise<{ deleted: boolean }>
     listMessages: (request: ListMessagesRequest | string) => Promise<ChatMessage[]>
+    listRuns: (request?: ListRunsRequest) => Promise<ChatRun[]>
+    subscribeRun: (request: SubscribeRunRequest) => Promise<SubscribeRunResponse>
     sendMessage: (request: SendMessageRequest) => Promise<SendMessageResponse>
     abortRun: (
       ...args: [request: AbortRunRequest | string] | [runId: string, reason?: string]

@@ -1475,6 +1475,12 @@ export default {
     errors: {
       openFileFailed: '无法在文件夹中显示文件。',
     },
+    runProgress: {
+      thinking: '正在思考...',
+      retryNetwork: '网络出现短暂波动，正在重试（{attempt}/{max}）...',
+      retryIncomplete: '响应流提前中断，正在重新连接（{attempt}/{max}）...',
+      resumed: '已恢复上次未完成的回复...',
+    },
     toolCall: {
       expandDetails: '展开工具调用详情',
       status: {

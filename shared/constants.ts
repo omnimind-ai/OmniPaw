@@ -129,6 +129,8 @@ export const IPC_CHANNELS = {
     updateSession: 'chat:update-session',
     deleteSession: 'chat:delete-session',
     listMessages: 'chat:list-messages',
+    listRuns: 'chat:list-runs',
+    subscribeRun: 'chat:subscribe-run',
     sendMessage: 'chat:send-message',
     abortRun: 'chat:abort-run',
     approveToolCall: 'chat:approve-tool-call',

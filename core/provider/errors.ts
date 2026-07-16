@@ -61,6 +61,14 @@ export function throwProviderError(chatError: ChatError, cause?: unknown): never
   throw new ProviderError(chatError, cause)
 }
 
+export function throwIncompleteProviderStream(providerName = 'Provider'): never {
+  throwProviderError({
+    code: 'provider_stream_incomplete',
+    message: `${providerName} stream ended before a valid completion event.`,
+    retryable: true,
+  })
+}
+
 function codeFromStatus(status: number, bodyPreview?: string): ChatError['code'] {
   const lowerBody = bodyPreview?.toLowerCase() ?? ''
 

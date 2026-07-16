@@ -228,6 +228,11 @@ try {
     true
   )
   assert.equal(runs.get(run.id)?.usage?.total, 10)
+  assert.equal(runs.list({ sessionId: session.id, statuses: ['complete'] })[0]?.id, run.id)
+  assert.equal(
+    runs.list({ statuses: ['running'] }).some((item) => item.id === run.id),
+    false
+  )
 
   const contextSummary = contextSummaries.create({
     id: 'summary-smoke',

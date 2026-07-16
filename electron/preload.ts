@@ -394,6 +394,8 @@ const bridge: OmniPawBridge = {
     },
     deleteSession: (request) => ipcRenderer.invoke(IPC_CHANNELS.chat.deleteSession, request),
     listMessages: (request) => ipcRenderer.invoke(IPC_CHANNELS.chat.listMessages, request),
+    listRuns: (request) => ipcRenderer.invoke(IPC_CHANNELS.chat.listRuns, request),
+    subscribeRun: (request) => ipcRenderer.invoke(IPC_CHANNELS.chat.subscribeRun, request),
     sendMessage: (request) => ipcRenderer.invoke(IPC_CHANNELS.chat.sendMessage, request),
     abortRun: (...args) => {
       const request =

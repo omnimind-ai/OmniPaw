@@ -8,9 +8,11 @@ import type {
   DeleteSessionRequest,
   EditMessageRequest,
   ListMessagesRequest,
+  ListRunsRequest,
   ListSessionsRequest,
   RegenerateMessageRequest,
   SendMessageRequest,
+  SubscribeRunRequest,
   ToolApprovalRequest,
   UploadAttachmentRequest,
 } from '@shared/types/chat'
@@ -44,6 +46,15 @@ export function registerChatIpcHandlers(options: IpcHandlerOptions): void {
     options,
     IPC_CHANNELS.chat.listMessages,
     (_event, request: ListMessagesRequest | string) => runtime.chatService.listMessages(request)
+  )
+  registerLoggedIpcHandler(options, IPC_CHANNELS.chat.listRuns, (_event, request?: unknown) =>
+    runtime.chatService.listRuns(normalizeListRunsRequest(request))
+  )
+  registerLoggedIpcHandler(
+    options,
+    IPC_CHANNELS.chat.subscribeRun,
+    (event, request: SubscribeRunRequest) =>
+      runtime.chatService.subscribeRun(normalizeSubscribeRunRequest(request), event.sender)
   )
   registerLoggedIpcHandler(
     options,
@@ -105,6 +116,41 @@ function normalizeListSessionsRequest(request: unknown): ListSessionsRequest {
   return {
     ...(kind ? { kind } : {}),
     ...(request.includeDeleted === true ? { includeDeleted: true } : {}),
+  }
+}
+
+function normalizeListRunsRequest(request: unknown): ListRunsRequest {
+  if (!isRecord(request)) {
+    return {}
+  }
+  const statuses = Array.isArray(request.statuses)
+    ? request.statuses.filter(
+        (status): status is NonNullable<ListRunsRequest['statuses']>[number] =>
+          status === 'queued' ||
+          status === 'running' ||
+          status === 'complete' ||
+          status === 'error' ||
+          status === 'aborted'
+      )
+    : undefined
+  return {
+    ...(typeof request.sessionId === 'string' ? { sessionId: request.sessionId } : {}),
+    ...(statuses?.length ? { statuses } : {}),
+    ...(typeof request.limit === 'number' && Number.isFinite(request.limit)
+      ? { limit: request.limit }
+      : {}),
+  }
+}
+
+function normalizeSubscribeRunRequest(request: unknown): SubscribeRunRequest {
+  if (!isRecord(request) || typeof request.runId !== 'string') {
+    throw new Error('runId is required.')
+  }
+  return {
+    runId: request.runId,
+    ...(typeof request.afterSeq === 'number' && Number.isFinite(request.afterSeq)
+      ? { afterSeq: request.afterSeq }
+      : {}),
   }
 }
 

@@ -11,7 +11,13 @@ import {
   ProviderError,
   type ProviderToolCall,
 } from '../../core/provider/base-provider'
-import type { ChatMessage, ChatMessagePart, ChatRun, ChatSession } from '../../shared/types/chat'
+import type {
+  ChatMessage,
+  ChatMessagePart,
+  ChatRun,
+  ChatSession,
+  ChatStreamEvent,
+} from '../../shared/types/chat'
 import type { ProviderConfig, ProviderModel } from '../../shared/types/provider'
 
 type ScriptedProviderResponse =
@@ -21,6 +27,9 @@ type ScriptedProviderResponse =
 
 async function runSmoke(): Promise<void> {
   await testAgentRunnerPlainReply()
+  await testAgentRunnerRetriesTransientNetwork()
+  await testAgentRunnerRetriesIncompleteEmptyStream()
+  await testAgentRunnerRejectsIncompletePartialStream()
   await testAgentRunnerToolLoop()
   await testAgentRunnerToolLoopPreservesReasoningContent()
   await testAgentRunnerTreatsModelToolFalseAsUnknown()
@@ -59,6 +68,90 @@ async function testAgentRunnerPlainReply(): Promise<void> {
   assert.equal((assistant?.parts[0] as { text?: string } | undefined)?.text, 'plain answer')
   assert.equal(harness.runRepo.get('run-1')?.status, 'complete')
   assert.equal(harness.finishedRuns.includes('run-1'), true)
+}
+
+async function testAgentRunnerRetriesTransientNetwork(): Promise<void> {
+  const harness = createRunnerHarness([
+    new ProviderError({
+      code: 'network',
+      message: 'Connection reset.',
+      retryable: true,
+    }),
+    new ProviderError({
+      code: 'network',
+      message: 'Connection reset again.',
+      retryable: true,
+    }),
+    [
+      { type: 'delta', content: 'recovered answer', done: false },
+      { type: 'final', done: true, finishReason: 'stop' },
+    ],
+  ])
+
+  await harness.runner.run(harness.input())
+
+  assert.equal(harness.providerRequests.length, 3)
+  assert.equal(harness.messageRepo.get('assistant-1')?.status, 'complete')
+  assert.equal(harness.runRepo.get('run-1')?.requestSnapshot?.transport?.retryCount, 2)
+  assert.deepEqual(
+    harness.runEvents
+      .filter((event) => event.type === 'retry' && event.reason === 'network')
+      .map((event) => ({
+        attempt: event.type === 'retry' ? event.attempt : 0,
+        maxAttempts: event.type === 'retry' ? event.maxAttempts : 0,
+        delayMs: event.type === 'retry' ? event.delayMs : 0,
+      })),
+    [
+      { attempt: 1, maxAttempts: 5, delayMs: 500 },
+      { attempt: 2, maxAttempts: 5, delayMs: 1_000 },
+    ]
+  )
+}
+
+async function testAgentRunnerRetriesIncompleteEmptyStream(): Promise<void> {
+  const harness = createRunnerHarness([
+    [],
+    [
+      { type: 'delta', content: 'completed after reconnect', done: false },
+      { type: 'final', done: true, finishReason: 'stop' },
+    ],
+  ])
+
+  await harness.runner.run(harness.input())
+
+  assert.equal(harness.providerRequests.length, 2)
+  assert.equal(harness.messageRepo.get('assistant-1')?.status, 'complete')
+  assert.equal(
+    harness.runEvents.some(
+      (event) =>
+        event.type === 'retry' &&
+        event.reason === 'stream_incomplete' &&
+        event.attempt === 1 &&
+        event.maxAttempts === 5 &&
+        event.delayMs === 500
+    ),
+    true
+  )
+}
+
+async function testAgentRunnerRejectsIncompletePartialStream(): Promise<void> {
+  const harness = createRunnerHarness([
+    [{ type: 'delta', content: 'partial answer', done: false }],
+    [
+      { type: 'delta', content: 'should not retry', done: false },
+      { type: 'final', done: true, finishReason: 'stop' },
+    ],
+  ])
+
+  await harness.runner.run(harness.input())
+
+  assert.equal(harness.providerRequests.length, 1)
+  assert.equal(harness.messageRepo.get('assistant-1')?.status, 'error')
+  assert.equal(harness.messageRepo.get('assistant-1')?.error?.code, 'provider_stream_incomplete')
+  assert.equal(
+    (harness.messageRepo.get('assistant-1')?.parts[0] as { text?: string } | undefined)?.text,
+    'partial answer'
+  )
 }
 
 async function testAgentRunnerToolLoop(): Promise<void> {
@@ -748,6 +841,10 @@ async function testMemoryWriteTools(): Promise<void> {
       created.push(request)
       return { id: 'memory-created', status: 'active', kind: 'fact' }
     },
+    createForSession: (_sessionId: string, request: unknown) => {
+      created.push(request)
+      return { id: 'memory-created', status: 'active', kind: 'fact' }
+    },
     createProposal: (request: { kind: string }) => {
       proposals.push(request)
       return { id: `proposal-${proposals.length}`, status: 'pending', kind: request.kind }
@@ -1053,6 +1150,7 @@ function createRunnerHarness(
     messageRepo,
     runRepo,
     providerRequests,
+    runEvents: runManager.events,
     finishedRuns: runManager.finishedRuns,
     input: (overrides: Partial<Parameters<AgentRunner['run']>[0]> = {}) => ({
       run,
@@ -1146,6 +1244,7 @@ class MemoryRunRepo {
 }
 
 class MemoryRunManager {
+  readonly events: ChatStreamEvent[] = []
   readonly finishedRuns: string[] = []
   private seq = 0
 
@@ -1154,7 +1253,9 @@ class MemoryRunManager {
     return this.seq
   }
 
-  emit(): void {}
+  emit(event: ChatStreamEvent): void {
+    this.events.push(structuredClone(event))
+  }
 
   finish(runId: string): void {
     this.finishedRuns.push(runId)

@@ -1565,6 +1565,12 @@ export default {
     errors: {
       openFileFailed: 'Unable to reveal file in folder.',
     },
+    runProgress: {
+      thinking: 'Thinking...',
+      retryNetwork: 'The network briefly dropped. Retrying ({attempt}/{max})...',
+      retryIncomplete: 'The response stream ended early. Reconnecting ({attempt}/{max})...',
+      resumed: 'Resumed the unfinished response from the previous launch...',
+    },
     toolCall: {
       expandDetails: 'Expand tool call details',
       status: {

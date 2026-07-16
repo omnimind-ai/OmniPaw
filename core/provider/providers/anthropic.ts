@@ -9,7 +9,12 @@ import type {
   ProviderToolCall,
   TokenUsage,
 } from '../base-provider'
-import { errorFromResponse, normalizeProviderError, throwProviderError } from '../errors'
+import {
+  errorFromResponse,
+  normalizeProviderError,
+  throwIncompleteProviderStream,
+  throwProviderError,
+} from '../errors'
 import {
   loadModelsDevMetadata,
   lookupModelMetadata,
@@ -308,22 +313,11 @@ export class AnthropicCompatibleProvider implements BaseProvider {
         }
       }
 
-      const remainingTools = finalizePendingTools(pendingTools, finalizedToolIndexes)
-      if (remainingTools.length) {
-        sawUsableOutput = true
-        yield {
-          type: 'tool_call_final',
-          toolCalls: remainingTools,
-          done: false,
-          finishReason: finishReason ?? 'tool_calls',
-          usage,
-        }
-      }
       if (!sawEvent) {
         ensureUsableOutput(false)
       }
       ensureUsableOutput(sawUsableOutput)
-      yield { type: 'final', done: true, finishReason, usage }
+      throwIncompleteProviderStream('Anthropic-compatible provider')
     } catch (error) {
       throwProviderError(normalizeProviderError(error), error)
     }

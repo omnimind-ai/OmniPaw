@@ -76,6 +76,9 @@ export async function prepareAgentRun(
       messageCount: 0,
       attachmentCount: documentAttachments.diagnostic?.complexCount ?? 0,
       complexDocumentAttachments: documentAttachments.diagnostic,
+      ...(input.run.requestSnapshot?.transport
+        ? { transport: input.run.requestSnapshot.transport }
+        : {}),
     }
     options.runs.save({ ...input.run, requestSnapshot: snapshot, updatedAt: Date.now() })
     throwProviderError({
@@ -121,6 +124,9 @@ export async function prepareAgentRun(
     maxSteps,
     complexDocumentAttachments: documentAttachments.diagnostic,
     fallbackReason,
+    ...(input.run.requestSnapshot?.transport
+      ? { transport: input.run.requestSnapshot.transport }
+      : {}),
   }
   options.runs.save({ ...input.run, requestSnapshot: snapshot, updatedAt: Date.now() })
 

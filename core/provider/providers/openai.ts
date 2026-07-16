@@ -10,7 +10,12 @@ import type {
   TextEmbeddingResponse,
   TokenUsage,
 } from '../base-provider'
-import { errorFromResponse, normalizeProviderError, throwProviderError } from '../errors'
+import {
+  errorFromResponse,
+  normalizeProviderError,
+  throwIncompleteProviderStream,
+  throwProviderError,
+} from '../errors'
 import {
   loadModelsDevMetadata,
   lookupModelMetadata,
@@ -202,6 +207,9 @@ export class OpenAICompatibleProvider implements BaseProvider {
 
       if (!sawEvent || (!sawOutput && !finalUsage && !finishReason)) {
         throwEmptyChatResponse()
+      }
+      if (!finishReason) {
+        throwIncompleteProviderStream('OpenAI-compatible provider')
       }
 
       yield {

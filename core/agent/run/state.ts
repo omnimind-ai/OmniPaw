@@ -161,6 +161,28 @@ export class AgentRunState {
     }
     return true
   }
+
+  recordTransportRetry(at = Date.now()): void {
+    this.snapshot = {
+      ...this.snapshot,
+      transport: {
+        ...this.snapshot.transport,
+        retryCount: (this.snapshot.transport?.retryCount ?? 0) + 1,
+        lastRetryAt: at,
+        streamCompleted: false,
+      },
+    }
+  }
+
+  markStreamCompleted(): void {
+    this.snapshot = {
+      ...this.snapshot,
+      transport: {
+        ...this.snapshot.transport,
+        streamCompleted: true,
+      },
+    }
+  }
 }
 
 function setLastReasoningSignature(parts: ChatMessagePart[], signature: string): void {

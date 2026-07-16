@@ -644,6 +644,7 @@ function broadcastShortcutChanged(event: ShortcutStatusChangedEvent): void {
 
 function createBroadcastChatEventTarget(): ChatRunEventTarget {
   return {
+    id: 'broadcast',
     send(channel, event) {
       for (const window of BrowserWindow.getAllWindows()) {
         window.webContents.send(channel, event)
