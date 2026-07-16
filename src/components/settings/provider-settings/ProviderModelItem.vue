@@ -61,7 +61,7 @@ function isModelInputChecked(input: ModelInput) {
           <span class="min-w-0 flex-1 overflow-hidden">
             <span class="flex min-w-0 flex-wrap items-center gap-2">
               <span class="truncate text-sm font-medium">
-                {{ model.name || model.id || t('settings.provider.models.item.unnamed') }}
+                {{ model.name || model.remoteId || t('settings.provider.models.item.unnamed') }}
               </span>
               <Badge
                 v-if="model.enabled === false"
@@ -70,8 +70,11 @@ function isModelInputChecked(input: ModelInput) {
                 {{ t('settings.provider.models.item.disabled') }}
               </Badge>
             </span>
-            <span class="mt-1 block min-w-0 truncate text-xs text-muted-foreground">
-              {{ model.remoteId || model.id }}
+            <span
+              v-if="model.remoteId"
+              class="mt-1 block min-w-0 truncate text-xs text-muted-foreground"
+            >
+              {{ model.remoteId }}
             </span>
             <div
               v-if="capabilityBadges.length"
@@ -118,14 +121,7 @@ function isModelInputChecked(input: ModelInput) {
 
     <CollapsibleContent>
       <div class="flex flex-col gap-4 border-t p-4">
-        <div class="grid grid-cols-1 gap-4 lg:grid-cols-3">
-          <Field>
-            <FieldLabel :for="`model-id-${index}`">{{ t('settings.provider.models.item.modelId') }}</FieldLabel>
-            <Input
-              :id="`model-id-${index}`"
-              v-model="model.id"
-            />
-          </Field>
+        <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
           <Field>
             <FieldLabel :for="`model-name-${index}`">{{ t('settings.provider.models.item.displayName') }}</FieldLabel>
             <Input

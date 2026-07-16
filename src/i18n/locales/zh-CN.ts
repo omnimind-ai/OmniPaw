@@ -1269,7 +1269,6 @@ export default {
       basic: {
         tab: '基础配置',
         name: '名称',
-        id: 'Provider ID',
         baseUrl: 'Base URL',
         enabled: '启用 Provider',
         enabledDescription: '禁用后该 Provider 下模型不会出现在可选列表中。',
@@ -1329,7 +1328,6 @@ export default {
           streaming: '流式',
           tools: '工具',
           reasoning: '推理',
-          modelId: '模型 ID',
           displayName: '显示名称',
           remoteId: 'Remote ID',
           contextWindow: '上下文窗口',

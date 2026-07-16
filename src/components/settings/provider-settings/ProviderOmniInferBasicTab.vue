@@ -148,24 +148,13 @@ onBeforeUnmount(() => {
 
 <template>
   <FieldGroup>
-    <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
-      <Field>
-        <FieldLabel for="provider-name">{{ t('settings.provider.basic.name') }}</FieldLabel>
-        <Input
-          id="provider-name"
-          v-model="draft.name"
-        />
-      </Field>
-
-      <Field>
-        <FieldLabel for="provider-id">{{ t('settings.provider.basic.id') }}</FieldLabel>
-        <Input
-          id="provider-id"
-          v-model="draft.id"
-          :disabled="true"
-        />
-      </Field>
-    </div>
+    <Field>
+      <FieldLabel for="provider-name">{{ t('settings.provider.basic.name') }}</FieldLabel>
+      <Input
+        id="provider-name"
+        v-model="draft.name"
+      />
+    </Field>
 
     <Field>
       <FieldLabel for="provider-base-url">{{ t('settings.provider.basic.baseUrl') }}</FieldLabel>

@@ -1352,7 +1352,6 @@ export default {
       basic: {
         tab: 'Basic Settings',
         name: 'Name',
-        id: 'Provider ID',
         baseUrl: 'Base URL',
         enabled: 'Enable Provider',
         enabledDescription:
@@ -1415,7 +1414,6 @@ export default {
           streaming: 'Streaming',
           tools: 'Tools',
           reasoning: 'Reasoning',
-          modelId: 'Model ID',
           displayName: 'Display Name',
           remoteId: 'Remote ID',
           contextWindow: 'Context Window',

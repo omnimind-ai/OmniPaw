@@ -42,9 +42,7 @@ const filteredModels = computed(() => {
   if (!query) return entries
   return entries.filter(({ model }) => {
     return (
-      model.name?.toLowerCase().includes(query) ||
-      model.id?.toLowerCase().includes(query) ||
-      model.remoteId?.toLowerCase().includes(query)
+      model.name?.toLowerCase().includes(query) || model.remoteId?.toLowerCase().includes(query)
     )
   })
 })
