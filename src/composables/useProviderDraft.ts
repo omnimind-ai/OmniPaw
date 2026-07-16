@@ -89,7 +89,8 @@ export function useProviderDraft(options: {
         enabled: providerDraft.value.enabled,
         credentialRef:
           providerDraft.value.credentialRef || `${providerDraft.value.id.trim()}:default`,
-        authHeader: providerDraft.value.authHeader.trim() || 'Authorization',
+        authHeader:
+          providerDraft.value.authHeader.trim() || defaultAuthHeader(providerDraft.value.type),
         headers: parsedHeaders.value,
         extraBody: parsedExtraBody.value,
         capabilities: { ...providerDraft.value.capabilities },
@@ -283,7 +284,8 @@ function draftFromProvider(provider: BridgeProviderConfig): ProviderDraft {
     baseUrl: provider.baseUrl || '',
     enabled: provider.enabled !== false,
     credentialRef: typeof provider.credentialRef === 'string' ? provider.credentialRef : undefined,
-    authHeader: typeof provider.authHeader === 'string' ? provider.authHeader : 'Authorization',
+    authHeader:
+      typeof provider.authHeader === 'string' ? provider.authHeader : defaultAuthHeader(type),
     headersText: formatJson(isRecord(provider.headers) ? provider.headers : {}),
     extraBodyText: formatJson(isRecord(provider.extraBody) ? provider.extraBody : {}),
     capabilities: normalizeCapabilities(provider.capabilities),
@@ -424,6 +426,8 @@ function normalizeInput(value: unknown): ModelInput[] {
 
 function providerType(value?: string): ProviderType {
   if (value === 'openai-codex' || value === 'openai-codex-responses') return 'openai-codex'
+  if (value === 'anthropic-compatible' || value === 'anthropic-messages')
+    return 'anthropic-compatible'
   if (value === 'ollama') return 'ollama'
   if (value === 'omniinfer') return 'omniinfer'
   return 'openai-compatible'
@@ -431,9 +435,14 @@ function providerType(value?: string): ProviderType {
 
 function apiFromType(type: ProviderType): ProviderApi {
   if (type === 'openai-codex') return 'openai-codex-responses'
+  if (type === 'anthropic-compatible') return 'anthropic-messages'
   if (type === 'ollama') return 'ollama'
   if (type === 'omniinfer') return 'omniinfer'
   return 'openai-chat-completions'
+}
+
+function defaultAuthHeader(type: ProviderType): string {
+  return type === 'anthropic-compatible' ? 'x-api-key' : 'Authorization'
 }
 
 let uniqueIdCounter = 0

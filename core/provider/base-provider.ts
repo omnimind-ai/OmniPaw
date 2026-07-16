@@ -41,6 +41,7 @@ export interface ProviderMessage {
   role: ProviderMessageRole
   content: string | ProviderContentPart[]
   reasoningContent?: string
+  reasoningSignature?: string
   toolCalls?: ProviderToolCall[]
   toolCallId?: string
 }
@@ -59,6 +60,7 @@ export type ChatCompletionChunk =
       type: 'delta'
       content?: string
       reasoning?: string
+      reasoningSignature?: string
       done: false
       finishReason?: string
       usage?: TokenUsage

@@ -4,7 +4,7 @@ import { hasProviderContent } from './serialize'
 
 export function compileToolCallMessages(
   parts: ChatMessagePart[],
-  assistantContext: Pick<ProviderMessage, 'content' | 'reasoningContent'>,
+  assistantContext: Pick<ProviderMessage, 'content' | 'reasoningContent' | 'reasoningSignature'>,
   options: { maxToolResultChars?: number } = {}
 ): ProviderMessage[] {
   const compiled = completedToolCalls(parts).flatMap((toolCall) => {
@@ -41,6 +41,7 @@ export function compileToolCallMessages(
       role: 'assistant',
       content: hasProviderContent(assistantContext.content) ? assistantContext.content : '',
       reasoningContent: assistantContext.reasoningContent,
+      reasoningSignature: assistantContext.reasoningSignature,
       toolCalls: compiled.map((item) => item.toolCall),
     },
     ...compiled.map((item) => ({

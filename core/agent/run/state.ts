@@ -10,7 +10,12 @@ import type { SkillPromptContext } from '@shared/types/skill'
 import type { AgentRunInput } from '../agent-runner'
 import type { ToolPolicy } from '../tools/policy'
 import type { AgentTool } from '../tools/types'
-import { appendTextPart, collectPlainContent, collectReasoningContent } from './helpers'
+import {
+  appendTextPart,
+  collectPlainContent,
+  collectReasoningContent,
+  collectReasoningSignature,
+} from './helpers'
 
 export interface AgentRunStateInit {
   startedAt: number
@@ -86,6 +91,13 @@ export class AgentRunState {
     stepParts?.push({ ...part })
   }
 
+  appendReasoningSignature(signature: string, stepParts?: ChatMessagePart[]): void {
+    setLastReasoningSignature(this.assistantParts, signature)
+    if (stepParts) {
+      setLastReasoningSignature(stepParts, signature)
+    }
+  }
+
   appendAssistantToolCallMessage(
     stepParts: ChatMessagePart[],
     toolCalls: ProviderMessage['toolCalls']
@@ -94,6 +106,7 @@ export class AgentRunState {
       role: 'assistant',
       content: collectPlainContent(stepParts) ?? '',
       reasoningContent: collectReasoningContent(stepParts),
+      reasoningSignature: collectReasoningSignature(stepParts),
       toolCalls,
     })
   }
@@ -147,5 +160,15 @@ export class AgentRunState {
       },
     }
     return true
+  }
+}
+
+function setLastReasoningSignature(parts: ChatMessagePart[], signature: string): void {
+  for (let index = parts.length - 1; index >= 0; index -= 1) {
+    const part = parts[index]
+    if (part?.type === 'think') {
+      part.signature = signature
+      return
+    }
   }
 }

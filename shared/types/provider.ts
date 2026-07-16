@@ -4,10 +4,16 @@ export type ProviderApi =
   | 'openai-chat-completions'
   | 'openai-responses'
   | 'openai-codex-responses'
+  | 'anthropic-messages'
   | 'ollama'
   | 'omniinfer'
 
-export type ProviderType = 'openai-compatible' | 'openai-codex' | 'ollama' | 'omniinfer'
+export type ProviderType =
+  | 'openai-compatible'
+  | 'openai-codex'
+  | 'anthropic-compatible'
+  | 'ollama'
+  | 'omniinfer'
 
 export interface ProviderCapabilities {
   listModels?: boolean
@@ -312,6 +318,7 @@ export interface ProviderMessage {
   role: 'system' | 'user' | 'assistant' | 'tool'
   content: string | ProviderContentPart[]
   reasoningContent?: string
+  reasoningSignature?: string
   toolCalls?: ProviderToolCall[]
   toolCallId?: string
 }
@@ -342,8 +349,9 @@ export interface ProviderToolCall {
 export type ProviderStreamChunk =
   | {
       type: 'delta'
-      content: string
+      content?: string
       channel?: 'content' | 'reasoning'
+      reasoningSignature?: string
     }
   | {
       type: 'tool_call_delta'

@@ -88,6 +88,16 @@ export function collectReasoningContent(parts: ChatMessagePart[]): string | unde
   return text || undefined
 }
 
+export function collectReasoningSignature(parts: ChatMessagePart[]): string | undefined {
+  for (let index = parts.length - 1; index >= 0; index -= 1) {
+    const part = parts[index]
+    if (part?.type === 'think' && typeof part.signature === 'string' && part.signature) {
+      return part.signature
+    }
+  }
+  return undefined
+}
+
 export function collectPlainContent(parts: ChatMessagePart[]): string | undefined {
   const text = parts
     .filter((part): part is Extract<ChatMessagePart, { type: 'plain' }> => part.type === 'plain')

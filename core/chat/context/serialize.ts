@@ -74,3 +74,13 @@ export function partsReasoningText(parts: ChatMessagePart[]): string | undefined
     .trim()
   return text || undefined
 }
+
+export function partsReasoningSignature(parts: ChatMessagePart[]): string | undefined {
+  for (let index = parts.length - 1; index >= 0; index -= 1) {
+    const part = parts[index]
+    if (part?.type === 'think' && typeof part.signature === 'string' && part.signature) {
+      return part.signature
+    }
+  }
+  return undefined
+}

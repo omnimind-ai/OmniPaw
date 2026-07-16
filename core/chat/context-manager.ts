@@ -4,7 +4,12 @@ import type { AttachmentService } from './attachment-service'
 import { countAttachmentParts, partsToProviderContent } from './context/attachments'
 import { buildContextUsage, contextBudget, estimateTokens } from './context/budget'
 import { eligibleMessages, filterMessagesAfterSummary, normalizePolicy } from './context/policy'
-import { hasProviderContent, partsReasoningText, serializeUnits } from './context/serialize'
+import {
+  hasProviderContent,
+  partsReasoningSignature,
+  partsReasoningText,
+  serializeUnits,
+} from './context/serialize'
 import { compileToolCallMessages } from './context/tool-calls'
 import type {
   BuildContextInput,
@@ -183,11 +188,15 @@ export class ContextBuilder {
         neverIncludeAttachments
       )
       const reasoningContent = options.includeReasoning ? partsReasoningText(message.parts) : ''
+      const reasoningSignature = options.includeReasoning
+        ? partsReasoningSignature(message.parts)
+        : undefined
       const compiledToolMessages = compileToolCallMessages(
         message.parts,
         {
           content: textContent,
           reasoningContent,
+          reasoningSignature,
         },
         { maxToolResultChars: options.maxToolResultChars }
       )
@@ -228,6 +237,10 @@ export class ContextBuilder {
         reasoningContent:
           message.role === 'assistant' && options.includeReasoning
             ? partsReasoningText(message.parts)
+            : undefined,
+        reasoningSignature:
+          message.role === 'assistant' && options.includeReasoning
+            ? partsReasoningSignature(message.parts)
             : undefined,
       },
     ]

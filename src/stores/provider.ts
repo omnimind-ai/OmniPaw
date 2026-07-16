@@ -748,6 +748,8 @@ function isProviderOperationResult(value: unknown): value is ProviderOperationRe
 
 function mapProviderType(type?: string): ProviderConfig['type'] {
   if (type === 'openai-codex' || type === 'openai-codex-responses') return 'openai-codex'
+  if (type === 'anthropic-compatible' || type === 'anthropic-messages')
+    return 'anthropic-compatible'
   if (type === 'ollama') return 'ollama'
   if (type === 'omniinfer') return 'omniinfer'
   return 'openai-compatible'

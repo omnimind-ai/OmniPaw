@@ -494,6 +494,7 @@ export interface BridgeProviderConfig {
     | 'openai-chat-completions'
     | 'openai-responses'
     | 'openai-codex-responses'
+    | 'anthropic-messages'
     | 'ollama'
     | 'omniinfer'
   baseUrl: string
@@ -509,11 +510,12 @@ export interface BridgeProviderConfig {
 export interface BridgeProviderPreset {
   id: string
   name: string
-  type: 'openai-compatible' | 'openai-codex' | 'ollama' | 'omniinfer'
+  type: 'openai-compatible' | 'openai-codex' | 'anthropic-compatible' | 'ollama' | 'omniinfer'
   api:
     | 'openai-chat-completions'
     | 'openai-responses'
     | 'openai-codex-responses'
+    | 'anthropic-messages'
     | 'ollama'
     | 'omniinfer'
   baseUrl: string
@@ -1462,6 +1464,15 @@ const fallbackBridge: OmniPawBridge = {
         api: 'openai-chat-completions',
         baseUrl: 'https://api.openai.com/v1',
         description: 'OpenAI API and compatible services.',
+      },
+      {
+        id: 'anthropic-compatible',
+        name: 'Anthropic Compatible',
+        type: 'anthropic-compatible',
+        api: 'anthropic-messages',
+        baseUrl: 'https://api.anthropic.com/v1',
+        authHeader: 'x-api-key',
+        description: 'Anthropic Messages API and compatible services.',
       },
       {
         id: 'openai-codex',

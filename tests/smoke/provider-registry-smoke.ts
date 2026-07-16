@@ -11,6 +11,7 @@ import {
   MODELS_DEV_METADATA_URL,
   OPENAI_COMPATIBLE_FALLBACK_CONTEXT_WINDOW,
 } from '../../core/provider/models-dev-metadata'
+import { AnthropicCompatibleProvider } from '../../core/provider/providers/anthropic'
 import { OpenAICompatibleProvider } from '../../core/provider/providers/openai'
 import { ProviderRegistryStore } from '../../core/provider/registry-store'
 
@@ -325,6 +326,18 @@ try {
   assert.equal(codexPreset.type, 'openai-codex')
   assert.equal(codexPreset.api, 'openai-codex-responses')
   assert.equal(codexPreset.models.length, 0)
+
+  const anthropicPreset = await providers.createFromPreset('anthropic-compatible')
+  assert.equal(anthropicPreset.id, 'anthropic-compatible')
+  assert.equal(anthropicPreset.type, 'anthropic-compatible')
+  assert.equal(anthropicPreset.api, 'anthropic-messages')
+  assert.equal(anthropicPreset.authHeader, 'x-api-key')
+  assert.equal(anthropicPreset.models.length, 0)
+  assert.equal(
+    (await providers.createProviderClient(anthropicPreset.id)) instanceof
+      AnthropicCompatibleProvider,
+    true
+  )
 
   console.log('Provider registry smoke check passed')
 } finally {

@@ -23,6 +23,7 @@ import type { ProviderCredentialRecord } from './credentials'
 import { resolveCredential } from './credentials'
 import { normalizeProviderError } from './errors'
 import type { OpenAICodexOAuthService } from './openai-codex-oauth'
+import { AnthropicCompatibleProvider } from './providers/anthropic'
 import { OmniInferProvider } from './providers/omniinfer'
 import { OpenAICompatibleProvider } from './providers/openai'
 import { OpenAICodexProvider } from './providers/openai-codex'
@@ -32,6 +33,7 @@ export type ProviderApi =
   | 'openai-chat-completions'
   | 'openai-responses'
   | 'openai-codex-responses'
+  | 'anthropic-messages'
   | 'ollama'
   | 'omniinfer'
 
@@ -178,6 +180,30 @@ const providerPresets: ProviderPreset[] = [
       maxTokensField: 'max_tokens',
       supportsSystemRole: true,
       supportsJsonMode: true,
+      reasoningFormat: 'none',
+    },
+    models: [],
+  },
+  {
+    id: 'anthropic-compatible',
+    name: 'Anthropic Compatible',
+    type: 'anthropic-compatible',
+    api: 'anthropic-messages',
+    baseUrl: 'https://api.anthropic.com/v1',
+    enabled: true,
+    credentialRef: 'anthropic-compatible:default',
+    authHeader: 'x-api-key',
+    description: 'Anthropic Messages API and compatible services.',
+    capabilities: {
+      listModels: true,
+      streaming: true,
+      tools: true,
+      vision: true,
+    },
+    compat: {
+      maxTokensField: 'max_tokens',
+      supportsSystemRole: true,
+      supportsJsonMode: false,
       reasoningFormat: 'none',
     },
     models: [],
@@ -1022,6 +1048,23 @@ export class ProviderManager {
       })
     }
 
+    if (provider.api === 'anthropic-messages' || provider.type === 'anthropic-compatible') {
+      this.logger?.debug('Creating provider client.', {
+        providerId: provider.id,
+        api: provider.api,
+        type: provider.type,
+        hasCredential: Boolean(credential?.value),
+      })
+      return new AnthropicCompatibleProvider({
+        id: provider.id,
+        baseUrl: provider.baseUrl,
+        apiKey: credential?.value,
+        authHeader: provider.authHeader,
+        headers: provider.headers,
+        extraBody: provider.extraBody,
+      })
+    }
+
     if (provider.api === 'openai-chat-completions' || provider.type === 'openai-compatible') {
       this.logger?.debug('Creating provider client.', {
         providerId: provider.id,
@@ -1665,6 +1708,9 @@ function legacyTypeFromApi(api?: ProviderApi): ProviderType {
   if (api === 'openai-codex-responses') {
     return 'openai-codex'
   }
+  if (api === 'anthropic-messages') {
+    return 'anthropic-compatible'
+  }
   if (api === 'omniinfer') {
     return 'omniinfer'
   }
@@ -1677,6 +1723,9 @@ function legacyTypeFromApi(api?: ProviderApi): ProviderType {
 function apiFromLegacyType(type?: ProviderType): ProviderApi {
   if (type === 'openai-codex') {
     return 'openai-codex-responses'
+  }
+  if (type === 'anthropic-compatible') {
+    return 'anthropic-messages'
   }
   if (type === 'omniinfer') {
     return 'omniinfer'

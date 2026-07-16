@@ -41,13 +41,19 @@ export class AgentStepEngine {
           })) {
             throwIfAborted(input.signal)
 
-            if (chunk.type === 'delta' && (chunk.content || chunk.reasoning)) {
+            if (
+              chunk.type === 'delta' &&
+              (chunk.content || chunk.reasoning || chunk.reasoningSignature)
+            ) {
               const text = chunk.content ?? chunk.reasoning ?? ''
               if (chunk.content) {
                 state.appendContentDelta(text, stepParts)
               }
               if (chunk.reasoning) {
                 state.appendReasoningDelta(text, stepParts)
+              }
+              if (chunk.reasoningSignature) {
+                state.appendReasoningSignature(chunk.reasoningSignature, stepParts)
               }
               this.options.messages.updateParts(
                 input.run.assistantMessageId,
@@ -56,15 +62,17 @@ export class AgentStepEngine {
                   status: 'streaming',
                 }
               )
-              this.options.runManager.emit({
-                type: 'delta',
-                runId: input.run.id,
-                sessionId: input.run.sessionId,
-                assistantMessageId: input.run.assistantMessageId,
-                seq: this.options.runManager.nextSeq(input.run.id),
-                text,
-                channel: chunk.reasoning ? 'reasoning' : 'content',
-              })
+              if (text) {
+                this.options.runManager.emit({
+                  type: 'delta',
+                  runId: input.run.id,
+                  sessionId: input.run.sessionId,
+                  assistantMessageId: input.run.assistantMessageId,
+                  seq: this.options.runManager.nextSeq(input.run.id),
+                  text,
+                  channel: chunk.reasoning ? 'reasoning' : 'content',
+                })
+              }
               continue
             }
 

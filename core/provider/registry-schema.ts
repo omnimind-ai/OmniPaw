@@ -790,6 +790,7 @@ function isKnownProviderType(value: string): value is ProviderType {
   return (
     value === 'openai-compatible' ||
     value === 'openai-codex' ||
+    value === 'anthropic-compatible' ||
     value === 'ollama' ||
     value === 'omniinfer'
   )
@@ -800,6 +801,7 @@ function isKnownProviderApi(value: string): value is ProviderApi {
     value === 'openai-chat-completions' ||
     value === 'openai-responses' ||
     value === 'openai-codex-responses' ||
+    value === 'anthropic-messages' ||
     value === 'ollama' ||
     value === 'omniinfer'
   )

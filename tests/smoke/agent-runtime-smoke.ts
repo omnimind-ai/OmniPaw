@@ -96,7 +96,12 @@ async function testAgentRunnerToolLoop(): Promise<void> {
 async function testAgentRunnerToolLoopPreservesReasoningContent(): Promise<void> {
   const harness = createRunnerHarness([
     [
-      { type: 'delta', reasoning: 'Need current time before answering.', done: false },
+      {
+        type: 'delta',
+        reasoning: 'Need current time before answering.',
+        reasoningSignature: 'reasoning-signature',
+        done: false,
+      },
       { type: 'delta', content: 'Checking the clock.', done: false },
       {
         type: 'tool_call_final',
@@ -118,6 +123,7 @@ async function testAgentRunnerToolLoopPreservesReasoningContent(): Promise<void>
     (message) => message.role === 'assistant' && message.toolCalls?.length
   )
   assert.equal(followupToolMessage?.reasoningContent, 'Need current time before answering.')
+  assert.equal(followupToolMessage?.reasoningSignature, 'reasoning-signature')
   assert.equal(followupToolMessage?.content, 'Checking the clock.')
   assert.equal(followupToolMessage?.toolCalls?.[0]?.id, 'call_time')
 }

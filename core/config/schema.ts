@@ -1641,7 +1641,15 @@ function validateProviders(config: DesktopSettingsConfig, issues: SettingsValida
         code: 'invalid_type',
       })
     }
-    if (!['openai-compatible', 'openai-codex', 'ollama', 'omniinfer'].includes(source.type)) {
+    if (
+      ![
+        'openai-compatible',
+        'openai-codex',
+        'anthropic-compatible',
+        'ollama',
+        'omniinfer',
+      ].includes(source.type)
+    ) {
       issues.push({
         path: `${basePath}.type`,
         message: 'Provider source type is invalid.',
@@ -1653,6 +1661,7 @@ function validateProviders(config: DesktopSettingsConfig, issues: SettingsValida
         'openai-chat-completions',
         'openai-responses',
         'openai-codex-responses',
+        'anthropic-messages',
         'ollama',
         'omniinfer',
       ].includes(source.api)

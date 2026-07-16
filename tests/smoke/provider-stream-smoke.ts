@@ -1,10 +1,17 @@
 import assert from 'node:assert/strict'
 import type { ChatCompletionChunk, ChatCompletionRequest } from '../../core/provider/base-provider'
 import { ProviderError } from '../../core/provider/base-provider'
-import { OPENAI_COMPATIBLE_FALLBACK_CONTEXT_WINDOW } from '../../core/provider/models-dev-metadata'
+import {
+  MODELS_DEV_METADATA_URL,
+  OPENAI_COMPATIBLE_FALLBACK_CONTEXT_WINDOW,
+} from '../../core/provider/models-dev-metadata'
+import { AnthropicCompatibleProvider } from '../../core/provider/providers/anthropic'
 import { OpenAICompatibleProvider } from '../../core/provider/providers/openai'
 import { OpenAICodexProvider } from '../../core/provider/providers/openai-codex'
 
+await testAnthropicPayloadAndStream()
+await testAnthropicJsonResponse()
+await testAnthropicListModelsAndBearerAuth()
 await testToolCallAggregation()
 await testToolCallArgumentIndexDrift()
 await testTextDeltaAndUsageFinal()
@@ -16,6 +23,365 @@ await testListModelsParsesSsePayload()
 await testOpenAICodexOAuthResponsesStream()
 
 console.log('Provider stream smoke check passed')
+
+async function testAnthropicPayloadAndStream(): Promise<void> {
+  let requestHeaders: Headers
+  let requestBody: Record<string, unknown>
+  const provider = new AnthropicCompatibleProvider({
+    id: 'anthropic-test',
+    baseUrl: 'https://anthropic.example/v1',
+    apiKey: 'anthropic-key',
+    authHeader: 'x-api-key',
+    headers: { 'User-Agent': 'claude-code/0.1.0' },
+    fetch: (async (input, init) => {
+      assert.equal(requestUrl(input), 'https://anthropic.example/v1/messages')
+      requestHeaders = new Headers(init?.headers)
+      requestBody = JSON.parse(String(init?.body)) as Record<string, unknown>
+      return new Response(
+        sseStream([
+          {
+            type: 'message_start',
+            message: {
+              id: 'msg_test',
+              usage: {
+                input_tokens: 10,
+                cache_creation_input_tokens: 3,
+                cache_read_input_tokens: 2,
+                output_tokens: 1,
+              },
+            },
+          },
+          {
+            type: 'content_block_start',
+            index: 0,
+            content_block: { type: 'thinking', thinking: '' },
+          },
+          {
+            type: 'content_block_delta',
+            index: 0,
+            delta: { type: 'thinking_delta', thinking: 'Need weather data.' },
+          },
+          {
+            type: 'content_block_delta',
+            index: 0,
+            delta: { type: 'signature_delta', signature: 'thinking-signature' },
+          },
+          { type: 'content_block_stop', index: 0 },
+          {
+            type: 'content_block_start',
+            index: 1,
+            content_block: { type: 'text', text: '' },
+          },
+          {
+            type: 'content_block_delta',
+            index: 1,
+            delta: { type: 'text_delta', text: 'Checking weather.' },
+          },
+          { type: 'content_block_stop', index: 1 },
+          {
+            type: 'content_block_start',
+            index: 2,
+            content_block: {
+              type: 'tool_use',
+              id: 'call_weather',
+              name: 'get_weather',
+              input: {},
+            },
+          },
+          {
+            type: 'content_block_delta',
+            index: 2,
+            delta: { type: 'input_json_delta', partial_json: '{"city":' },
+          },
+          {
+            type: 'content_block_delta',
+            index: 2,
+            delta: { type: 'input_json_delta', partial_json: '"Shanghai"}' },
+          },
+          { type: 'content_block_stop', index: 2 },
+          {
+            type: 'message_delta',
+            delta: { stop_reason: 'tool_use' },
+            usage: { output_tokens: 5 },
+          },
+          { type: 'message_stop' },
+        ]),
+        {
+          status: 200,
+          headers: { 'Content-Type': 'text/event-stream' },
+        }
+      )
+    }) as typeof fetch,
+  })
+
+  const chunks = await collect(
+    provider.streamChat({
+      modelId: 'claude-test',
+      messages: [
+        { role: 'system', content: 'system prompt' },
+        { role: 'tool', toolCallId: 'orphan_call', content: 'stale result' },
+        {
+          role: 'assistant',
+          content: 'I will inspect it.',
+          reasoningContent: 'Prior reasoning.',
+          reasoningSignature: 'prior-signature',
+          toolCalls: [
+            {
+              id: 'call_old',
+              type: 'function',
+              function: { name: 'read_weather_cache', arguments: '{"city":"Shanghai"}' },
+            },
+          ],
+        },
+        {
+          role: 'user',
+          content: [
+            { type: 'text', text: 'Continue.' },
+            {
+              type: 'image_url',
+              image_url: { url: 'data:image/jpeg;base64,iVBORw0KGgo=' },
+            },
+          ],
+        },
+        { role: 'tool', toolCallId: 'call_old', content: '{"cached":false}' },
+      ],
+      maxOutputTokens: 2048,
+      tools: [
+        {
+          type: 'function',
+          function: {
+            name: 'get_weather',
+            description: 'Get weather.',
+            parameters: {
+              type: 'object',
+              properties: { city: { type: 'string' } },
+              required: ['city'],
+            },
+          },
+        },
+      ],
+    })
+  )
+
+  assert.ok(requestHeaders)
+  assert.ok(requestBody)
+  assert.equal(requestHeaders.get('x-api-key'), 'anthropic-key')
+  assert.equal(requestHeaders.get('anthropic-version'), '2023-06-01')
+  assert.equal(requestHeaders.get('User-Agent'), 'claude-code/0.1.0')
+  assert.equal(requestHeaders.get('Accept'), 'text/event-stream')
+  assert.equal(requestBody.model, 'claude-test')
+  assert.equal(requestBody.max_tokens, 2048)
+  assert.deepEqual(requestBody.system, [{ type: 'text', text: 'system prompt' }])
+  assert.deepEqual(requestBody.tools, [
+    {
+      name: 'get_weather',
+      description: 'Get weather.',
+      input_schema: {
+        type: 'object',
+        properties: { city: { type: 'string' } },
+        required: ['city'],
+      },
+    },
+  ])
+  assert.deepEqual(requestBody.tool_choice, { type: 'auto' })
+
+  const anthropicMessages = requestBody.messages as Array<{
+    role: string
+    content: Array<Record<string, unknown>>
+  }>
+  assert.equal(anthropicMessages.length, 2)
+  assert.deepEqual(
+    anthropicMessages[0]?.content.map((block) => block.type),
+    ['thinking', 'text', 'tool_use']
+  )
+  assert.deepEqual(
+    anthropicMessages[1]?.content.map((block) => block.type),
+    ['tool_result', 'text', 'image']
+  )
+  assert.deepEqual(anthropicMessages[1]?.content[2], {
+    type: 'image',
+    source: {
+      type: 'base64',
+      media_type: 'image/png',
+      data: 'iVBORw0KGgo=',
+    },
+  })
+
+  assert.deepEqual(
+    chunks.map((chunk) => chunk.type),
+    [
+      'delta',
+      'delta',
+      'delta',
+      'tool_call_delta',
+      'tool_call_delta',
+      'tool_call_delta',
+      'tool_call_final',
+      'final',
+    ]
+  )
+  const reasoningChunk = chunks[0]
+  assert.ok(reasoningChunk)
+  assert.equal(reasoningChunk.type, 'delta')
+  assert.equal(
+    reasoningChunk.type === 'delta' ? reasoningChunk.reasoning : undefined,
+    'Need weather data.'
+  )
+  const signatureChunk = chunks[1]
+  assert.ok(signatureChunk)
+  assert.equal(signatureChunk.type, 'delta')
+  assert.equal(
+    signatureChunk.type === 'delta' ? signatureChunk.reasoningSignature : undefined,
+    'thinking-signature'
+  )
+  const contentChunk = chunks[2]
+  assert.ok(contentChunk)
+  assert.equal(contentChunk.type, 'delta')
+  assert.equal(
+    contentChunk.type === 'delta' ? contentChunk.content : undefined,
+    'Checking weather.'
+  )
+  const toolCallChunk = chunks[6]
+  assert.ok(toolCallChunk)
+  assert.equal(toolCallChunk.type, 'tool_call_final')
+  assert.deepEqual(toolCallChunk.type === 'tool_call_final' ? toolCallChunk.toolCalls : [], [
+    {
+      id: 'call_weather',
+      type: 'function',
+      function: {
+        name: 'get_weather',
+        arguments: '{"city":"Shanghai"}',
+      },
+    },
+  ])
+  const finalChunk = chunks[7]
+  assert.ok(finalChunk)
+  assert.equal(finalChunk.type, 'final')
+  assert.equal(finalChunk.finishReason, 'tool_calls')
+  assert.deepEqual(finalChunk.usage, {
+    input: 15,
+    output: 5,
+    cachedInput: 2,
+    reasoning: undefined,
+    total: 20,
+  })
+}
+
+async function testAnthropicJsonResponse(): Promise<void> {
+  const provider = new AnthropicCompatibleProvider({
+    id: 'anthropic-json',
+    baseUrl: 'https://anthropic.example/v1/messages',
+    headers: { Authorization: 'Bearer custom-token' },
+    fetch: (async () =>
+      Response.json({
+        id: 'msg_json',
+        content: [
+          { type: 'thinking', thinking: 'Reasoning.', signature: 'json-signature' },
+          { type: 'text', text: 'Answer.' },
+          {
+            type: 'tool_use',
+            id: 'call_json',
+            name: 'calculator',
+            input: { expression: '1+1' },
+          },
+        ],
+        stop_reason: 'tool_use',
+        usage: {
+          input_tokens: 4,
+          cache_read_input_tokens: 1,
+          output_tokens: 3,
+        },
+      })) as typeof fetch,
+  })
+
+  const chunks = await collect(
+    provider.streamChat({
+      modelId: 'claude-json',
+      messages: [{ role: 'user', content: 'Calculate.' }],
+    })
+  )
+
+  assert.deepEqual(
+    chunks.map((chunk) => chunk.type),
+    ['delta', 'delta', 'tool_call_final', 'final']
+  )
+  const reasoningChunk = chunks[0]
+  assert.ok(reasoningChunk)
+  assert.equal(reasoningChunk.type, 'delta')
+  assert.equal(reasoningChunk.type === 'delta' ? reasoningChunk.reasoning : undefined, 'Reasoning.')
+  assert.equal(
+    reasoningChunk.type === 'delta' ? reasoningChunk.reasoningSignature : undefined,
+    'json-signature'
+  )
+  const contentChunk = chunks[1]
+  assert.ok(contentChunk)
+  assert.equal(contentChunk.type, 'delta')
+  assert.equal(contentChunk.type === 'delta' ? contentChunk.content : undefined, 'Answer.')
+  const toolCallChunk = chunks[2]
+  assert.ok(toolCallChunk)
+  assert.equal(toolCallChunk.type, 'tool_call_final')
+  assert.deepEqual(toolCallChunk.type === 'tool_call_final' ? toolCallChunk.toolCalls : [], [
+    {
+      id: 'call_json',
+      type: 'function',
+      function: { name: 'calculator', arguments: '{"expression":"1+1"}' },
+    },
+  ])
+  assert.deepEqual(chunks[3]?.usage, {
+    input: 5,
+    output: 3,
+    cachedInput: 1,
+    reasoning: undefined,
+    total: 8,
+  })
+}
+
+async function testAnthropicListModelsAndBearerAuth(): Promise<void> {
+  let requestHeaders: Headers
+  const provider = new AnthropicCompatibleProvider({
+    id: 'anthropic-models',
+    baseUrl: 'https://anthropic.example/v1',
+    apiKey: 'bearer-token',
+    authHeader: 'Authorization',
+    fetch: (async (input, init) => {
+      const url = requestUrl(input)
+      if (url === 'https://anthropic.example/v1/models?limit=1000') {
+        requestHeaders = new Headers(init?.headers)
+        return Response.json({
+          data: [
+            {
+              id: 'claude-model',
+              display_name: 'Claude Model',
+              max_input_tokens: 200000,
+              max_tokens: 64000,
+              capabilities: {
+                image_input: { supported: true },
+                thinking: { supported: true },
+              },
+            },
+          ],
+        })
+      }
+      if (url === MODELS_DEV_METADATA_URL) {
+        return Response.json({})
+      }
+      throw new Error(`Unexpected fetch URL: ${url}`)
+    }) as typeof fetch,
+  })
+
+  const models = await provider.listModels()
+
+  assert.ok(requestHeaders)
+  assert.equal(requestHeaders.get('Authorization'), 'Bearer bearer-token')
+  assert.equal(requestHeaders.get('anthropic-version'), '2023-06-01')
+  assert.equal(models[0]?.id, 'claude-model')
+  assert.equal(models[0]?.name, 'Claude Model')
+  assert.deepEqual(models[0]?.input, ['text', 'image'])
+  assert.equal(models[0]?.supportsTools, true)
+  assert.equal(models[0]?.supportsReasoning, true)
+  assert.equal(models[0]?.contextWindow, 200000)
+  assert.equal(models[0]?.maxOutputTokens, 64000)
+}
 
 async function testToolCallAggregation(): Promise<void> {
   let requestBody: unknown

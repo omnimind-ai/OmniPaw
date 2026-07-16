@@ -56,7 +56,11 @@ const messages: ChatMessage[] = [
     role: 'assistant',
     status: 'complete',
     parts: [
-      { type: 'think', think: 'Need current time before answering.' },
+      {
+        type: 'think',
+        think: 'Need current time before answering.',
+        signature: 'reasoning-signature',
+      },
       {
         type: 'tool_call',
         tool_calls: [
@@ -126,6 +130,7 @@ async function testContextBuilderToolHistory(): Promise<void> {
     (message) => message.role === 'assistant' && message.toolCalls?.length
   )
   assert.equal(assistantToolMessage?.reasoningContent, 'Need current time before answering.')
+  assert.equal(assistantToolMessage?.reasoningSignature, 'reasoning-signature')
   assert.equal(assistantToolMessage?.toolCalls?.[0]?.id, 'call_time')
   assert.equal(assistantToolMessage?.toolCalls?.[0]?.function.name, 'system_time')
   assert.equal(assistantToolMessage?.toolCalls?.length, 1)
