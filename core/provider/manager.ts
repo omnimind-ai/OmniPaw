@@ -808,7 +808,9 @@ export class ProviderManager {
       !record.capabilities?.listModels &&
       record.api !== 'openai-chat-completions' &&
       record.api !== 'openai-codex-responses' &&
+      record.api !== 'anthropic-messages' &&
       record.type !== 'openai-codex' &&
+      record.type !== 'anthropic-compatible' &&
       record.type !== 'openai-compatible'
     ) {
       this.logger?.debug('Provider model refresh skipped.', { providerId, reason: 'unsupported' })

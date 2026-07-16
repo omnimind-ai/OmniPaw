@@ -191,12 +191,42 @@ try {
   assert.equal(JSON.stringify(await providers.list()).includes('sk-test-secret'), false)
   assert.equal(registryStore.get().settings.defaultModelId, undefined)
 
+  const savedAnthropic = await providers.upsert({
+    provider: {
+      id: 'custom-anthropic',
+      name: 'Custom Anthropic',
+      type: 'anthropic-compatible',
+      api: 'anthropic-messages',
+      baseUrl: 'https://anthropic.example',
+      enabled: true,
+      credentialRef: 'custom-anthropic:default',
+      authHeader: 'x-api-key',
+      headers: {},
+      extraBody: {},
+      capabilities: {},
+      models: [],
+    },
+    credential: {
+      type: 'api-key',
+      label: 'Anthropic Key',
+      value: 'anthropic-test-secret',
+    },
+  })
+  assert.equal(savedAnthropic?.capabilities?.listModels, undefined)
+
   const originalFetch = globalThis.fetch
-  const fakeRegistryFetch: typeof fetch = async (input) => {
+  let anthropicModelsRequestHeaders: Headers | undefined
+  const fakeRegistryFetch: typeof fetch = async (input, init) => {
     const url = requestUrl(input)
     if (url === 'https://example.test/v1/models') {
       return jsonResponse({
         data: [{ id: 'gpt-4o-mini' }, { id: 'gpt-4o-mini-pro' }],
+      })
+    }
+    if (url === 'https://anthropic.example/v1/models') {
+      anthropicModelsRequestHeaders = new Headers(init?.headers)
+      return jsonResponse({
+        data: [{ id: 'claude-z' }, { id: 'claude-a', display_name: 'Claude A' }],
       })
     }
     if (url === MODELS_DEV_METADATA_URL) {
@@ -227,6 +257,15 @@ try {
     assert.deepEqual(refreshedGpt?.input, ['text', 'image'])
     const refreshedFallback = refreshedOpenAi.find((model) => model.id === 'gpt-4o-mini-pro')
     assert.equal(refreshedFallback?.contextWindow, OPENAI_COMPATIBLE_FALLBACK_CONTEXT_WINDOW)
+
+    const refreshedAnthropic = await providers.refreshModels('custom-anthropic')
+    assert.deepEqual(
+      refreshedAnthropic.map((model) => model.id),
+      ['claude-a', 'claude-z']
+    )
+    assert.equal(refreshedAnthropic[0]?.name, 'Claude A')
+    assert.equal(anthropicModelsRequestHeaders?.get('x-api-key'), 'anthropic-test-secret')
+    assert.equal(anthropicModelsRequestHeaders?.get('anthropic-version'), '2023-06-01')
   } finally {
     globalThis.fetch = originalFetch
   }

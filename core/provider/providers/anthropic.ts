@@ -360,7 +360,7 @@ export class AnthropicCompatibleProvider implements BaseProvider {
   }
 
   async listModels(signal?: AbortSignal): Promise<ProviderModelCandidate[]> {
-    const response = await this.fetchImpl(withModelListLimit(this.endpoint('models')), {
+    const response = await this.fetchImpl(this.endpoint('models'), {
       method: 'GET',
       headers: this.buildHeaders('application/json', false),
       signal,
@@ -394,47 +394,50 @@ export class AnthropicCompatibleProvider implements BaseProvider {
       metadata = undefined
     }
 
-    return payload.data.filter(isRecord).flatMap((model) => {
-      const id = stringValue(model.id)
-      if (!id) {
-        return []
-      }
+    return payload.data
+      .filter(isRecord)
+      .flatMap((model) => {
+        const id = stringValue(model.id)
+        if (!id) {
+          return []
+        }
 
-      const inlineMetadata = parseProviderModelMetadata(model)
-      const catalogMetadata = metadata
-        ? (lookupModelMetadata(metadata, id) ??
-          lookupModelMetadata(metadata, stringValue(model.display_name)))
-        : undefined
-      const capabilities = isRecord(model.capabilities) ? model.capabilities : undefined
-      const imageInput =
-        capabilitySupported(capabilities?.image_input) ??
-        inlineMetadata.input?.includes('image') ??
-        catalogMetadata?.input?.includes('image')
-      const input: ProviderModelCandidate['input'] = imageInput ? ['text', 'image'] : ['text']
+        const inlineMetadata = parseProviderModelMetadata(model)
+        const catalogMetadata = metadata
+          ? (lookupModelMetadata(metadata, id) ??
+            lookupModelMetadata(metadata, stringValue(model.display_name)))
+          : undefined
+        const capabilities = isRecord(model.capabilities) ? model.capabilities : undefined
+        const imageInput =
+          capabilitySupported(capabilities?.image_input) ??
+          inlineMetadata.input?.includes('image') ??
+          catalogMetadata?.input?.includes('image')
+        const input: ProviderModelCandidate['input'] = imageInput ? ['text', 'image'] : ['text']
 
-      return [
-        {
-          id,
-          name: stringValue(model.display_name) || stringValue(model.name) || id,
-          input: mergeInput(input, inlineMetadata.input, catalogMetadata?.input),
-          supportsTools: inlineMetadata.supportsTools ?? catalogMetadata?.supportsTools ?? true,
-          supportsReasoning:
-            capabilitySupported(capabilities?.thinking) ??
-            inlineMetadata.supportsReasoning ??
-            catalogMetadata?.supportsReasoning ??
-            false,
-          contextWindow:
-            positiveInteger(model.max_input_tokens) ??
-            inlineMetadata.contextWindow ??
-            catalogMetadata?.contextWindow ??
-            ANTHROPIC_FALLBACK_CONTEXT_WINDOW,
-          maxOutputTokens:
-            positiveInteger(model.max_tokens) ??
-            inlineMetadata.maxOutputTokens ??
-            catalogMetadata?.maxOutputTokens,
-        },
-      ]
-    })
+        return [
+          {
+            id,
+            name: stringValue(model.display_name) || stringValue(model.name) || id,
+            input: mergeInput(input, inlineMetadata.input, catalogMetadata?.input),
+            supportsTools: inlineMetadata.supportsTools ?? catalogMetadata?.supportsTools ?? true,
+            supportsReasoning:
+              capabilitySupported(capabilities?.thinking) ??
+              inlineMetadata.supportsReasoning ??
+              catalogMetadata?.supportsReasoning ??
+              false,
+            contextWindow:
+              positiveInteger(model.max_input_tokens) ??
+              inlineMetadata.contextWindow ??
+              catalogMetadata?.contextWindow ??
+              ANTHROPIC_FALLBACK_CONTEXT_WINDOW,
+            maxOutputTokens:
+              positiveInteger(model.max_tokens) ??
+              inlineMetadata.maxOutputTokens ??
+              catalogMetadata?.maxOutputTokens,
+          },
+        ]
+      })
+      .sort((left, right) => left.id.localeCompare(right.id))
   }
 
   private buildChatBody(request: ChatCompletionRequest): Record<string, unknown> {
@@ -515,7 +518,10 @@ export class AnthropicCompatibleProvider implements BaseProvider {
     if (/\/(messages|models)$/i.test(this.baseUrl)) {
       return this.baseUrl.replace(/\/(messages|models)$/i, `/${resource}`)
     }
-    return `${this.baseUrl}/${resource}`
+    if (/\/v\d+(?:beta)?$/i.test(this.baseUrl)) {
+      return `${this.baseUrl}/${resource}`
+    }
+    return `${this.baseUrl}/v1/${resource}`
   }
 }
 
@@ -999,10 +1005,6 @@ function capabilitySupported(value: unknown): boolean | undefined {
     return value
   }
   return isRecord(value) && typeof value.supported === 'boolean' ? value.supported : undefined
-}
-
-function withModelListLimit(url: string): string {
-  return `${url}${url.includes('?') ? '&' : '?'}limit=1000`
 }
 
 function isJsonResponse(response: Response): boolean {

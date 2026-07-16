@@ -29,7 +29,7 @@ async function testAnthropicPayloadAndStream(): Promise<void> {
   let requestBody: Record<string, unknown>
   const provider = new AnthropicCompatibleProvider({
     id: 'anthropic-test',
-    baseUrl: 'https://anthropic.example/v1',
+    baseUrl: 'https://anthropic.example',
     apiKey: 'anthropic-key',
     authHeader: 'x-api-key',
     headers: { 'User-Agent': 'claude-code/0.1.0' },
@@ -340,15 +340,19 @@ async function testAnthropicListModelsAndBearerAuth(): Promise<void> {
   let requestHeaders: Headers
   const provider = new AnthropicCompatibleProvider({
     id: 'anthropic-models',
-    baseUrl: 'https://anthropic.example/v1',
+    baseUrl: 'https://anthropic.example',
     apiKey: 'bearer-token',
     authHeader: 'Authorization',
     fetch: (async (input, init) => {
       const url = requestUrl(input)
-      if (url === 'https://anthropic.example/v1/models?limit=1000') {
+      if (url === 'https://anthropic.example/v1/models') {
         requestHeaders = new Headers(init?.headers)
         return Response.json({
           data: [
+            {
+              id: 'z-claude-model',
+              display_name: 'Z Claude Model',
+            },
             {
               id: 'claude-model',
               display_name: 'Claude Model',
@@ -374,6 +378,10 @@ async function testAnthropicListModelsAndBearerAuth(): Promise<void> {
   assert.ok(requestHeaders)
   assert.equal(requestHeaders.get('Authorization'), 'Bearer bearer-token')
   assert.equal(requestHeaders.get('anthropic-version'), '2023-06-01')
+  assert.deepEqual(
+    models.map((model) => model.id),
+    ['claude-model', 'z-claude-model']
+  )
   assert.equal(models[0]?.id, 'claude-model')
   assert.equal(models[0]?.name, 'Claude Model')
   assert.deepEqual(models[0]?.input, ['text', 'image'])
