@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { CloudIcon, PlusIcon, SearchIcon, Trash2Icon } from '@lucide/vue'
+import { PlusIcon, SearchIcon, Trash2Icon } from '@lucide/vue'
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { BridgeProviderPreset } from '@/bridge/app'
@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group'
 import { cn } from '@/lib/utils'
+import ProviderBrandIcon from './ProviderBrandIcon.vue'
 import type { ProviderSidebarItem } from './types'
 
 const { t } = useI18n()
@@ -97,7 +98,10 @@ const hasSearchQuery = computed(() => Boolean(localSearchQuery.value.trim()))
                 class="items-start gap-2"
                 @select="emit('create-from-preset', preset)"
               >
-                <CloudIcon class="mt-0.5" />
+                <ProviderBrandIcon
+                  :provider="preset"
+                  class="mt-0.5"
+                />
                 <span class="min-w-0 flex-1">
                   <span class="block truncate font-medium">{{ preset.name }}</span>
                   <span class="block truncate text-xs text-muted-foreground">{{ preset.baseUrl }}</span>
@@ -143,7 +147,7 @@ const hasSearchQuery = computed(() => Boolean(localSearchQuery.value.trim()))
             class="flex min-w-0 flex-1 items-center gap-3 self-stretch rounded-l-lg px-3 text-left"
             @click="emit('select-provider', provider)"
           >
-            <CloudIcon />
+            <ProviderBrandIcon :provider="provider" />
             <span class="min-w-0 flex-1 truncate font-medium">
               {{ provider.name }}
             </span>
