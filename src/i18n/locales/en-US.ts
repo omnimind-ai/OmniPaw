@@ -599,6 +599,12 @@ export default {
         notConfigured: 'Not configured',
         noPreview: 'No preview',
         assetAlt: '{name} {action} asset',
+        previewControls: {
+          label: '{action} preview controls',
+          replay: 'Replay',
+          pause: 'Pause',
+          resume: 'Resume',
+        },
         assetActions: {
           idle: 'Idle',
           show: 'Show animation',

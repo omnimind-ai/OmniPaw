@@ -562,6 +562,12 @@ export default {
         notConfigured: '未配置',
         noPreview: '无预览',
         assetAlt: '{name} 的{action}资源',
+        previewControls: {
+          label: '{action}预览控制',
+          replay: '重播',
+          pause: '暂停',
+          resume: '继续',
+        },
         assetActions: {
           idle: '空闲',
           show: '出现动画',
