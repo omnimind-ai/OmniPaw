@@ -81,6 +81,11 @@ try {
   assert.match(read.content, /Use short sentences/)
   assert.deepEqual(manager.drainReadSkillIds(), ['writer'])
 
+  const inspected = manager.readSkillContent('writer')
+  assert.equal(inspected.skillId, 'writer')
+  assert.match(inspected.content, /Use short sentences/)
+  assert.doesNotMatch(inspected.content, /description: Draft concise text/)
+
   manager.setEnabled({ skillId: 'writer', enabled: false })
   assert.equal(
     manager.getActiveSkills().some((skill) => skill.id === 'writer'),
@@ -91,6 +96,7 @@ try {
     'no_enabled_skills'
   )
   assert.throws(() => manager.readEnabledSkillContent('writer'), /disabled/i)
+  assert.match(manager.readSkillContent('writer').content, /Use short sentences/)
 
   store.save({
     version: 1,

@@ -2,6 +2,7 @@ import { SkillValidationError, skillError } from '@core/skill'
 import { IPC_CHANNELS } from '@shared/constants'
 import type {
   ImportSkillRequest,
+  ReadSkillRequest,
   SetSkillEnabledRequest,
   SkillOperationError,
 } from '@shared/types/skill'
@@ -18,6 +19,9 @@ export function registerSkillIpcHandlers(options: IpcHandlerOptions): void {
   )
   registerLoggedIpcHandler(options, IPC_CHANNELS.skill.refresh, () =>
     skillResult(options, () => runtime.skillManager.refresh())
+  )
+  registerLoggedIpcHandler(options, IPC_CHANNELS.skill.read, (_event, request: ReadSkillRequest) =>
+    skillResult(options, () => runtime.skillManager.readSkillContent(request.skillId))
   )
   registerLoggedIpcHandler(
     options,

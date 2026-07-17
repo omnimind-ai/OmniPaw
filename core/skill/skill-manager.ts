@@ -14,7 +14,7 @@ import type {
   SkillReadResult,
 } from '@shared/types/skill'
 import { importSkillPackage } from './importer'
-import { type LoadedLocalSkill, SkillLoader, type SkillRoot } from './loader'
+import { type LoadedLocalSkill, parseSkillMarkdown, SkillLoader, type SkillRoot } from './loader'
 import {
   MAX_COMPACT_SKILL_DESCRIPTION_CHARS,
   MAX_SKILL_READ_CHARS,
@@ -234,6 +234,35 @@ export class SkillManager {
       skillId: id,
       name: summary.name,
       content: truncateText(content, MAX_SKILL_READ_CHARS),
+    }
+  }
+
+  readSkillContent(skillId: string): SkillReadResult {
+    const id = normalizeSkillId(skillId)
+    const skill = this.findDiscoveredSkill(id)
+    if (!skill) {
+      throw new SkillValidationError(
+        skillError('not_found', `Skill was not found: ${id}`, {
+          recoverable: false,
+        })
+      )
+    }
+    const summary = this.toSummary(skill)
+    if (summary.status !== 'available') {
+      throw new SkillValidationError(
+        skillError('read_failed', `Skill is not available: ${id}`, {
+          recoverable: true,
+        })
+      )
+    }
+
+    const { content } = this.loader.readSkillFile(skill)
+    const { body } = parseSkillMarkdown(content)
+    this.logger?.debug('Skill content read for settings.', { skillId: id })
+    return {
+      skillId: id,
+      name: summary.name,
+      content: truncateText(body, MAX_SKILL_READ_CHARS),
     }
   }
 

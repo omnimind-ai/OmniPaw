@@ -172,6 +172,7 @@ export const IPC_CHANNELS = {
   skill: {
     list: 'skill:list',
     refresh: 'skill:refresh',
+    read: 'skill:read',
     setEnabled: 'skill:set-enabled',
     importSkill: 'skill:import',
     changed: 'skill:changed',

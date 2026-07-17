@@ -109,3 +109,7 @@ export interface SkillReadResult {
   name: string
   content: string
 }
+
+export interface ReadSkillRequest {
+  skillId: string
+}

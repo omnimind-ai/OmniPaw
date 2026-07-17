@@ -1046,6 +1046,16 @@ export default {
         enable: 'Enable',
         disable: 'Disable',
       },
+      details: {
+        title: 'Skill details',
+        view: 'View details for {name}',
+        selectSkill: 'Select a skill to view details.',
+        close: 'Close',
+        description: 'Skill description',
+        content: 'Skill content',
+        emptyContent: 'This skill has no body content.',
+        loadFailed: 'Failed to load skill content.',
+      },
     },
     scheduledTask: {
       title: 'Scheduled tasks',
@@ -1303,6 +1313,13 @@ export default {
       },
       tools: {
         title: 'Tools',
+        viewDetails: 'View details for {name}',
+        close: 'Close',
+        connectionTimeout: 'Connection timeout',
+        toolTimeout: 'Tool timeout',
+        createdAt: 'Created at',
+        updatedAt: 'Updated at',
+        error: 'Connection error',
         noToolsTitle: 'No MCP tools available to display.',
         noToolsDesc:
           'After starting an MCP server or refreshing, discovered tools will appear here.',

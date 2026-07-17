@@ -11,9 +11,9 @@ import type {
 import { appBridge, isFallbackBridge } from '@/bridge/app'
 import BuiltinToolSettingsModal from '@/components/settings/mcp-server-settings/BuiltinToolSettingsModal.vue'
 import McpServerDeleteModal from '@/components/settings/mcp-server-settings/McpServerDeleteModal.vue'
+import McpServerDetailsDrawer from '@/components/settings/mcp-server-settings/McpServerDetailsDrawer.vue'
 import McpServerFormModal from '@/components/settings/mcp-server-settings/McpServerFormModal.vue'
 import McpServerList from '@/components/settings/mcp-server-settings/McpServerList.vue'
-import McpServerToolsModal from '@/components/settings/mcp-server-settings/McpServerToolsModal.vue'
 import type {
   McpKeyValueRow,
   McpSecretRowType,
@@ -37,7 +37,7 @@ const pendingKeys = ref<Set<string>>(new Set())
 const formOpen = ref(false)
 const builtinToolModalOpen = ref(false)
 const deleteDialogOpen = ref(false)
-const toolsModalOpen = ref(false)
+const detailsDrawerOpen = ref(false)
 const editingServer = ref<BridgeMcpServerSummary>()
 const deleteTarget = ref<BridgeMcpServerSummary>()
 const toolsTarget = ref<BridgeMcpServerSummary>()
@@ -195,7 +195,7 @@ function openDeleteDialog(server: BridgeMcpServerSummary) {
 
 function openServerTools(server: BridgeMcpServerSummary) {
   toolsTarget.value = server
-  toolsModalOpen.value = true
+  detailsDrawerOpen.value = true
 }
 
 async function saveServer() {
@@ -499,9 +499,10 @@ function redactDraftSecrets(message: string) {
       @delete="deleteServer"
     />
 
-    <McpServerToolsModal
-      v-model:open="toolsModalOpen"
+    <McpServerDetailsDrawer
+      v-model:open="detailsDrawerOpen"
       :server="toolsModalServer"
+      @edit="openEditForm"
     />
   </div>
 </template>

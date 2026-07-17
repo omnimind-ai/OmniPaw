@@ -502,6 +502,7 @@ const bridge: OmniPawBridge = {
   skill: {
     list: () => invokeSkill(IPC_CHANNELS.skill.list),
     refresh: () => invokeSkill(IPC_CHANNELS.skill.refresh),
+    read: (request) => invokeSkill(IPC_CHANNELS.skill.read, request),
     setEnabled: (request) => invokeSkill(IPC_CHANNELS.skill.setEnabled, request),
     importSkill: (request) => invokeSkill(IPC_CHANNELS.skill.importSkill, request),
     onChanged: (callback) => createUnsubscriber(IPC_CHANNELS.skill.changed, callback),

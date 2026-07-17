@@ -201,9 +201,11 @@ import type {
   ImportSkillRequest,
   ImportSkillResponse,
   LocalSkillSummary,
+  ReadSkillRequest,
   SetSkillEnabledRequest,
   SkillChangedEvent,
   SkillListResponse,
+  SkillReadResult,
 } from './skill'
 import type { ManagedToolInfo, SetToolEnabledRequest, SetToolEnabledResponse } from './tool'
 import type { DesktopWindowState, DesktopWindowStateChangedEvent } from './window'
@@ -601,6 +603,7 @@ export interface OmniPawBridge {
   skill: {
     list: () => Promise<SkillListResponse>
     refresh: () => Promise<SkillListResponse>
+    read: (request: ReadSkillRequest) => Promise<SkillReadResult>
     setEnabled: (request: SetSkillEnabledRequest) => Promise<LocalSkillSummary>
     importSkill: (request: ImportSkillRequest) => Promise<ImportSkillResponse>
     onChanged: (callback: (event: SkillChangedEvent) => void) => Unsubscribe

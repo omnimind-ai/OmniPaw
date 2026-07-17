@@ -10,7 +10,6 @@ import {
   SlidersHorizontalIcon,
   TerminalIcon,
   Trash2Icon,
-  WrenchIcon,
   XIcon,
 } from '@lucide/vue'
 import { computed, ref } from 'vue'
@@ -278,6 +277,10 @@ function clearSearch() {
                 :description="transportTarget(server.transport)"
                 :icon="transportIcon(server.transport)"
                 :pending="isServerPending(server.id)"
+                interactive
+                :activation-label="t('settings.mcpServer.tools.viewDetails', { name: server.name })"
+                class="cursor-pointer"
+                @activate="emit('details', server)"
               >
                 <template #actions>
                   <Switch
@@ -286,18 +289,9 @@ function clearSearch() {
                     :model-value="server.enabled"
                     :disabled="isServerPending(server.id) || mcpUnavailable"
                     :aria-label="`${server.enabled ? t('settings.mcpServer.enabledSwitch') : t('settings.mcpServer.disabledSwitch')} ${server.name}`"
+                    @click.stop
                     @update:model-value="emit('enable', server, $event)"
                   />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon-sm"
-                    :aria-label="`${t('settings.mcpServer.toolsCountLabel')} ${server.tools.length}`"
-                    :title="`${t('settings.mcpServer.toolsCountLabel')} ${server.tools.length}`"
-                    @click="emit('details', server)"
-                  >
-                    <WrenchIcon />
-                  </Button>
                   <Button
                     type="button"
                     variant="ghost"
@@ -305,7 +299,7 @@ function clearSearch() {
                     :aria-label="t('settings.mcpServer.refreshServerLabel')"
                     :title="t('settings.mcpServer.refreshServerLabel')"
                     :disabled="isServerPending(server.id) || mcpUnavailable"
-                    @click="emit('refresh', server.id)"
+                    @click.stop="emit('refresh', server.id)"
                   >
                     <RefreshCwIcon
                       :class="cn(isPending(`refresh:${server.id}`) && 'animate-spin')"
@@ -318,7 +312,7 @@ function clearSearch() {
                     :aria-label="t('settings.mcpServer.editServerLabel')"
                     :title="t('settings.mcpServer.editServerLabel')"
                     :disabled="isServerPending(server.id)"
-                    @click="emit('edit', server)"
+                    @click.stop="emit('edit', server)"
                   >
                     <PencilIcon />
                   </Button>
@@ -329,7 +323,7 @@ function clearSearch() {
                     :disabled="isServerPending(server.id) || mcpUnavailable"
                     :aria-label="t('settings.mcpServer.deleteAriaLabel')"
                     :title="t('settings.mcpServer.deleteAriaLabel')"
-                    @click="emit('delete', server)"
+                    @click.stop="emit('delete', server)"
                   >
                     <Trash2Icon />
                   </Button>

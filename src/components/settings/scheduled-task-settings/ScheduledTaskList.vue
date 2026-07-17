@@ -2,7 +2,6 @@
 import {
   ClipboardListIcon,
   HistoryIcon,
-  InfoIcon,
   PencilIcon,
   PlayIcon,
   PlusIcon,
@@ -175,6 +174,10 @@ function clearSearch() {
             :key="task.id"
             :title="task.name"
             :icon="ClipboardListIcon"
+            interactive
+            :activation-label="`${t('settings.scheduledTask.listItem.viewDetails')} ${task.name}`"
+            class="cursor-pointer"
+            @activate="emit('detail', task)"
           >
             <template #meta>
               <p class="text-sm text-muted-foreground">
@@ -196,6 +199,7 @@ function clearSearch() {
                 :model-value="task.enabled"
                 :disabled="saving"
                 :aria-label="`${task.enabled ? t('settings.scheduledTask.listItem.toggleAction.disable') : t('settings.scheduledTask.listItem.toggleAction.enable')} ${task.name}`"
+                @click.stop
                 @update:model-value="emit('enable', task, $event)"
               />
               <Button
@@ -203,20 +207,9 @@ function clearSearch() {
                 variant="ghost"
                 size="icon-sm"
                 :disabled="saving"
-                :aria-label="t('settings.scheduledTask.listItem.viewDetails')"
-                :title="t('settings.scheduledTask.listItem.viewDetails')"
-                @click="emit('detail', task)"
-              >
-                <InfoIcon />
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-sm"
-                :disabled="saving"
                 :aria-label="t('settings.scheduledTask.listItem.viewAudit')"
                 :title="t('settings.scheduledTask.listItem.viewAudit')"
-                @click="emit('audit', task)"
+                @click.stop="emit('audit', task)"
               >
                 <HistoryIcon />
               </Button>
@@ -227,7 +220,7 @@ function clearSearch() {
                 :disabled="saving"
                 :aria-label="t('settings.scheduledTask.listItem.runNow')"
                 :title="t('settings.scheduledTask.listItem.runNow')"
-                @click="emit('run', task)"
+                @click.stop="emit('run', task)"
               >
                 <PlayIcon />
               </Button>
@@ -238,7 +231,7 @@ function clearSearch() {
                 :disabled="saving"
                 :aria-label="t('settings.scheduledTask.listItem.editTask')"
                 :title="t('settings.scheduledTask.listItem.editTask')"
-                @click="emit('edit', task)"
+                @click.stop="emit('edit', task)"
               >
                 <PencilIcon />
               </Button>
@@ -249,7 +242,7 @@ function clearSearch() {
                 :aria-label="confirmDeleteTaskId === task.id ? t('settings.scheduledTask.listItem.confirmDelete') : t('settings.scheduledTask.listItem.deleteTask')"
                 :title="confirmDeleteTaskId === task.id ? t('settings.scheduledTask.listItem.confirmDelete') : t('settings.scheduledTask.listItem.deleteTask')"
                 :disabled="saving"
-                @click="emit('delete', task)"
+                @click.stop="emit('delete', task)"
               >
                 <Trash2Icon />
               </Button>

@@ -42,6 +42,7 @@ const emit = defineEmits<{
   'import-file': []
   refresh: []
   enable: [skill: BridgeLocalSkillSummary, enabled: boolean]
+  details: [skill: BridgeLocalSkillSummary]
 }>()
 
 const { t } = useI18n()
@@ -240,6 +241,10 @@ function clearSearch() {
               :icon="BookOpenIcon"
               :pending="isSkillPending(skill.id)"
               :avatar-class="isInvalidSkill(skill) ? 'bg-destructive/10 text-destructive' : undefined"
+              interactive
+              :activation-label="t('settings.skill.details.view', { name: skill.name })"
+              class="cursor-pointer"
+              @activate="emit('details', skill)"
             >
               <template #meta>
                 <p class="truncate text-xs text-muted-foreground">
@@ -272,6 +277,7 @@ function clearSearch() {
                   :model-value="skill.enabled"
                   :disabled="isSkillPending(skill.id) || persistenceUnavailable || isInvalidSkill(skill)"
                   :aria-label="`${skill.enabled ? t('settings.skill.toggleAction.disable') : t('settings.skill.toggleAction.enable')} ${skill.name}`"
+                  @click.stop
                   @update:model-value="emit('enable', skill, $event)"
                 />
               </template>

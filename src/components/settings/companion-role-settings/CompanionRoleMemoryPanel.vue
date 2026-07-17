@@ -10,7 +10,7 @@ import { storeToRefs } from 'pinia'
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import MemoryCreateModal from '@/components/settings/memory-settings/MemoryCreateModal.vue'
-import MemoryDetailModal from '@/components/settings/memory-settings/MemoryDetailModal.vue'
+import MemoryDetailDrawer from '@/components/settings/memory-settings/MemoryDetailDrawer.vue'
 import MemoryList from '@/components/settings/memory-settings/MemoryList.vue'
 import { useDelayedFlag } from '@/composables/useDelayedFlag'
 import { useMemoryStore } from '@/stores/memory'
@@ -30,7 +30,7 @@ const characterScopes: CompanionMemoryScope[] = ['character']
 const searchQuery = ref('')
 const includeInactive = ref(false)
 const createModalOpen = ref(false)
-const detailModalOpen = ref(false)
+const detailDrawerOpen = ref(false)
 const detailLoading = ref(false)
 const confirmDeleteMemoryId = ref<string | undefined>()
 
@@ -43,14 +43,14 @@ watch(
   () => props.roleId,
   () => {
     selected.value = null
-    detailModalOpen.value = false
+    detailDrawerOpen.value = false
     confirmDeleteMemoryId.value = undefined
     void reload()
   },
   { immediate: true }
 )
 
-watch(detailModalOpen, (isOpen) => {
+watch(detailDrawerOpen, (isOpen) => {
   if (!isOpen) {
     selected.value = null
   }
@@ -83,7 +83,7 @@ function openCreateMemory(): void {
 
 async function openMemoryDetail(memory: CompanionMemoryItem): Promise<void> {
   confirmDeleteMemoryId.value = undefined
-  detailModalOpen.value = true
+  detailDrawerOpen.value = true
   await inspectMemory(memory.id)
 }
 
@@ -96,7 +96,7 @@ async function submitCreateMemory(request: CreateCompanionMemoryRequest): Promis
     })
     createModalOpen.value = false
     await reload()
-    detailModalOpen.value = true
+    detailDrawerOpen.value = true
     await inspectMemory(memory.id)
     toast.success(t('settings.memory.toast.created'))
   } catch (error) {
@@ -169,7 +169,7 @@ async function deleteMemory(memory: CompanionMemoryItem): Promise<void> {
     await memoryStore.deleteMemory(memory.id)
     confirmDeleteMemoryId.value = undefined
     if (selectedMemory.value?.id === memory.id) {
-      detailModalOpen.value = false
+      detailDrawerOpen.value = false
       selected.value = null
     }
     await reload()
@@ -233,8 +233,8 @@ function toggleIncludeInactive(): void {
       @submit="submitCreateMemory"
     />
 
-    <MemoryDetailModal
-      v-model:open="detailModalOpen"
+    <MemoryDetailDrawer
+      v-model:open="detailDrawerOpen"
       :memory="selectedMemory"
       :links="selectedLinks"
       :proposals="selectedProposals"

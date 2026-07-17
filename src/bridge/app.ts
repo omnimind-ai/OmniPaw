@@ -66,6 +66,7 @@ import type {
 import type { DesktopCompanionRoleSettings } from '@shared/types/settings'
 import type { DesktopShortcutSettings, ShortcutStatusChangedEvent } from '@shared/types/shortcuts'
 import { SHORTCUT_ACTIONS } from '@shared/types/shortcuts'
+import type { SkillReadResult } from '@shared/types/skill'
 import type { DesktopWindowState, DesktopWindowStateChangedEvent } from '@shared/types/window'
 
 const FALLBACK_COMPANION_ROLE_ID = 'default'
@@ -1567,6 +1568,7 @@ const fallbackBridge: OmniPawBridge = {
       },
     }),
     refresh: () => rejectFallbackPersistence<BridgeSkillListResponse>('skill.refresh'),
+    read: () => rejectFallbackPersistence<SkillReadResult>('skill.read'),
     setEnabled: () => rejectFallbackPersistence<BridgeLocalSkillSummary>('skill.setEnabled'),
     importSkill: () => rejectFallbackPersistence<BridgeImportSkillResponse>('skill.importSkill'),
     onChanged: () => () => {},

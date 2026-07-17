@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import {
@@ -12,6 +12,7 @@ import {
   type BridgeUnsubscribe,
   isFallbackBridge,
 } from '@/bridge/app'
+import SkillDetailsDrawer from '@/components/settings/skill-settings/SkillDetailsDrawer.vue'
 import SkillList from '@/components/settings/skill-settings/SkillList.vue'
 import { useDelayedFlag } from '@/composables/useDelayedFlag'
 import { errorToText, useToast } from '@/utils/toast'
@@ -44,7 +45,13 @@ const operationError = ref('')
 const pendingKeys = ref<Set<string>>(new Set())
 const readOnly = ref(false)
 const fileInput = ref<HTMLInputElement>()
+const detailsDrawerOpen = ref(false)
+const detailSkillId = ref('')
+const detailContent = ref('')
+const detailLoading = ref(false)
+const detailError = ref('')
 let unsubscribeSkills: BridgeUnsubscribe | undefined
+let detailRequestId = 0
 
 const skillUnavailable = computed(() => !skillBridge)
 const anyPending = computed(() => pendingKeys.value.size > 0)
@@ -53,6 +60,44 @@ const persistenceUnavailable = computed(
 )
 const importUnavailable = computed(() => persistenceUnavailable.value || !skillBridge?.importSkill)
 const showListSkeleton = useDelayedFlag(() => loading.value)
+const detailSkill = computed(() => skills.value.find((skill) => skill.id === detailSkillId.value))
+
+function openSkillDetails(skill: BridgeLocalSkillSummary): void {
+  detailSkillId.value = skill.id
+  detailsDrawerOpen.value = true
+  void loadSkillContent(skill.id)
+}
+
+watch(detailsDrawerOpen, (isOpen) => {
+  if (isOpen) return
+  detailRequestId += 1
+  detailSkillId.value = ''
+  detailContent.value = ''
+  detailError.value = ''
+  detailLoading.value = false
+})
+
+async function loadSkillContent(skillId: string): Promise<void> {
+  const requestId = ++detailRequestId
+  detailContent.value = ''
+  detailError.value = ''
+  detailLoading.value = true
+  try {
+    const result = await skillBridge.read({ skillId })
+    if (requestId === detailRequestId && detailSkillId.value === skillId) {
+      detailContent.value = result.content
+    }
+  } catch (error) {
+    if (requestId !== detailRequestId) return
+    const message = errorToText(error, t('settings.skill.details.loadFailed'))
+    detailError.value = message
+    toast.error(message)
+  } finally {
+    if (requestId === detailRequestId) {
+      detailLoading.value = false
+    }
+  }
+}
 
 onMounted(async () => {
   unsubscribeSkills = skillBridge.onChanged?.((event: BridgeSkillChangedEvent) => {
@@ -272,6 +317,15 @@ function normalizeMetadata(value: unknown): Record<string, string | undefined> {
       @import-file="openImportPicker"
       @refresh="refreshSkills"
       @enable="setSkillEnabled"
+      @details="openSkillDetails"
+    />
+
+    <SkillDetailsDrawer
+      v-model:open="detailsDrawerOpen"
+      :skill="detailSkill"
+      :content="detailContent"
+      :loading="detailLoading"
+      :load-error="detailError"
     />
   </div>
 </template>

@@ -3,7 +3,6 @@ import {
   ArchiveIcon,
   BrainIcon,
   FileTextIcon,
-  InfoIcon,
   PlusIcon,
   RefreshCwIcon,
   SearchIcon,
@@ -173,6 +172,10 @@ const emit = defineEmits<{
             :description="memory.content"
             :icon="FileTextIcon"
             :pending="saving"
+            interactive
+            :activation-label="t('settings.memory.list.detailAriaLabel')"
+            class="cursor-pointer"
+            @activate="emit('detail', memory)"
           >
             <template #meta>
               <p class="text-sm text-muted-foreground">
@@ -187,19 +190,9 @@ const emit = defineEmits<{
                 :model-value="memory.status === 'active'"
                 :disabled="saving || memory.status === 'archived' || memory.status === 'deleted'"
                 :aria-label="t('settings.memory.list.toggleAriaLabel', { action: memory.status === 'active' ? t('settings.memory.list.disable') : t('settings.memory.list.enable') })"
+                @click.stop
                 @update:model-value="emit('enable', memory, $event)"
               />
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-sm"
-                :aria-label="t('settings.memory.list.detailAriaLabel')"
-                :title="t('settings.memory.list.detailAriaLabel')"
-                :disabled="saving"
-                @click="emit('detail', memory)"
-              >
-                <InfoIcon />
-              </Button>
               <Button
                 type="button"
                 variant="ghost"
@@ -207,7 +200,7 @@ const emit = defineEmits<{
                 :aria-label="t('settings.memory.list.archiveAriaLabel')"
                 :title="t('settings.memory.list.archiveAriaLabel')"
                 :disabled="saving || memory.status !== 'active'"
-                @click="emit('archive', memory)"
+                @click.stop="emit('archive', memory)"
               >
                 <ArchiveIcon />
               </Button>
@@ -218,7 +211,7 @@ const emit = defineEmits<{
                 :aria-label="confirmDeleteMemoryId === memory.id ? t('settings.memory.list.confirmDeleteButton') : t('settings.memory.list.deleteButton')"
                 :title="confirmDeleteMemoryId === memory.id ? t('settings.memory.list.confirmDeleteButton') : t('settings.memory.list.deleteButton')"
                 :disabled="saving"
-                @click="emit('delete', memory)"
+                @click.stop="emit('delete', memory)"
               >
                 <Trash2Icon />
               </Button>

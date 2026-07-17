@@ -4,8 +4,8 @@ import { storeToRefs } from 'pinia'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { BridgeDesktopSettingsConfig } from '@/bridge/app'
-import ScheduledTaskAuditModal from '@/components/settings/scheduled-task-settings/ScheduledTaskAuditModal.vue'
-import ScheduledTaskDetailModal from '@/components/settings/scheduled-task-settings/ScheduledTaskDetailModal.vue'
+import ScheduledTaskAuditDrawer from '@/components/settings/scheduled-task-settings/ScheduledTaskAuditDrawer.vue'
+import ScheduledTaskDetailsDrawer from '@/components/settings/scheduled-task-settings/ScheduledTaskDetailsDrawer.vue'
 import ScheduledTaskEditModal from '@/components/settings/scheduled-task-settings/ScheduledTaskEditModal.vue'
 import ScheduledTaskList from '@/components/settings/scheduled-task-settings/ScheduledTaskList.vue'
 import ScheduledTaskPolicyModal from '@/components/settings/scheduled-task-settings/ScheduledTaskPolicyModal.vue'
@@ -25,9 +25,9 @@ const { tasks, runsByTaskId, loading, saving, persistenceAvailable } = storeToRe
 
 const editModalOpen = ref(false)
 const editingTask = ref<CronTask | undefined>()
-const detailModalOpen = ref(false)
+const detailDrawerOpen = ref(false)
 const detailTaskId = ref<string | undefined>()
-const auditModalOpen = ref(false)
+const auditDrawerOpen = ref(false)
 const auditTaskId = ref<string | undefined>()
 const auditLoading = ref(false)
 const policyModalOpen = ref(false)
@@ -46,13 +46,13 @@ watch(editModalOpen, (isOpen) => {
   }
 })
 
-watch(detailModalOpen, (isOpen) => {
+watch(detailDrawerOpen, (isOpen) => {
   if (!isOpen) {
     detailTaskId.value = undefined
   }
 })
 
-watch(auditModalOpen, (isOpen) => {
+watch(auditDrawerOpen, (isOpen) => {
   if (!isOpen) {
     auditTaskId.value = undefined
   }
@@ -87,6 +87,8 @@ function openPolicySettings(): void {
 
 function openEditTask(task: CronTask): void {
   confirmDeleteTaskId.value = undefined
+  detailDrawerOpen.value = false
+  auditDrawerOpen.value = false
   editingTask.value = task
   editModalOpen.value = true
 }
@@ -111,13 +113,14 @@ function showFormError(message: string): void {
 function openTaskDetail(task: CronTask): void {
   confirmDeleteTaskId.value = undefined
   detailTaskId.value = task.id
-  detailModalOpen.value = true
+  detailDrawerOpen.value = true
 }
 
 async function openTaskAudit(task: CronTask): Promise<void> {
   confirmDeleteTaskId.value = undefined
+  detailDrawerOpen.value = false
   auditTaskId.value = task.id
-  auditModalOpen.value = true
+  auditDrawerOpen.value = true
   await loadAuditRuns(task.id)
 }
 
@@ -176,10 +179,10 @@ function closeTaskSurfaces(taskId: string): void {
     editModalOpen.value = false
   }
   if (detailTaskId.value === taskId) {
-    detailModalOpen.value = false
+    detailDrawerOpen.value = false
   }
   if (auditTaskId.value === taskId) {
-    auditModalOpen.value = false
+    auditDrawerOpen.value = false
   }
 }
 </script>
@@ -217,13 +220,15 @@ function closeTaskSurfaces(taskId: string): void {
       @invalid="showFormError"
     />
 
-    <ScheduledTaskDetailModal
-      v-model:open="detailModalOpen"
+    <ScheduledTaskDetailsDrawer
+      v-model:open="detailDrawerOpen"
       :task="detailTask"
+      @audit="openTaskAudit"
+      @edit="openEditTask"
     />
 
-    <ScheduledTaskAuditModal
-      v-model:open="auditModalOpen"
+    <ScheduledTaskAuditDrawer
+      v-model:open="auditDrawerOpen"
       :task="auditTask"
       :runs="auditRuns"
       :loading="auditLoading"
