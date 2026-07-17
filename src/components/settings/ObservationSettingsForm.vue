@@ -16,7 +16,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { Slider } from '@/components/ui/slider'
 import { Switch } from '@/components/ui/switch'
+import { cn } from '@/lib/utils'
 import { useObservationStore } from '@/stores/observation'
 import { errorToText, useToast } from '@/utils/toast'
 
@@ -29,6 +31,13 @@ const observationStore = useObservationStore()
 const toast = useToast()
 const observation = computed(() => props.draft.observation)
 const runtime = computed(() => observationStore.runtime)
+const probabilityPresets = [
+  { value: 0, class: 'translate-x-0 items-start' },
+  { value: 25, class: '-translate-x-1/2 items-center' },
+  { value: 50, class: '-translate-x-1/2 items-center' },
+  { value: 75, class: '-translate-x-1/2 items-center' },
+  { value: 100, class: '-translate-x-full items-end' },
+] as const
 const runtimeEnabled = computed({
   get: () => runtime.value?.active === true,
   set: (enabled: boolean) => {
@@ -61,6 +70,22 @@ const reactionNudgeProbabilityPercent = computed({
   get: () => Math.round(observation.value.reactionNudgeProbability * 100),
   set: (value: string | number) => {
     observation.value.reactionNudgeProbability = clampInteger(value, 0, 100) / 100
+  },
+})
+
+const captureProbabilitySliderValue = computed<number[]>({
+  get: () => [captureProbabilityPercent.value],
+  set: (values) => {
+    const [value] = values
+    if (value !== undefined) captureProbabilityPercent.value = value
+  },
+})
+
+const reactionNudgeProbabilitySliderValue = computed<number[]>({
+  get: () => [reactionNudgeProbabilityPercent.value],
+  set: (values) => {
+    const [value] = values
+    if (value !== undefined) reactionNudgeProbabilityPercent.value = value
   },
 })
 
@@ -179,32 +204,58 @@ function clampInteger(value: string | number, min: number, max = Number.MAX_SAFE
           control-id="observation-reaction-nudge-probability"
           :title="t('settings.observation.reactionNudgeProbability.title')"
           :description="t('settings.observation.reactionNudgeProbability.description')"
+          control-class="md:shrink-0"
         >
-          <Input
-            id="observation-reaction-nudge-probability"
-            v-model="reactionNudgeProbabilityPercent"
-            class="w-full md:w-48"
-            type="number"
-            min="0"
-            max="100"
-            step="1"
-          />
+          <div class="flex w-full max-w-full flex-col gap-1.5 md:w-96">
+            <Slider
+              id="observation-reaction-nudge-probability"
+              v-model="reactionNudgeProbabilitySliderValue"
+              :min="0"
+              :max="100"
+              :step="25"
+              :aria-label="t('settings.observation.reactionNudgeProbability.title')"
+            />
+            <div class="relative h-7 text-[0.625rem] leading-none tabular-nums text-muted-foreground">
+              <span
+                v-for="preset in probabilityPresets"
+                :key="preset.value"
+                :class="cn('absolute top-0 flex flex-col gap-0.5', preset.class)"
+                :style="{ left: `${preset.value}%` }"
+              >
+                <span aria-hidden="true">|</span>
+                <span>{{ preset.value }}%</span>
+              </span>
+            </div>
+          </div>
         </SettingEntry>
 
         <SettingEntry
           control-id="observation-capture-probability"
           :title="t('settings.observation.captureProbability.title')"
           :description="t('settings.observation.captureProbability.description')"
+          control-class="md:shrink-0"
         >
-          <Input
-            id="observation-capture-probability"
-            v-model="captureProbabilityPercent"
-            class="w-full md:w-48"
-            type="number"
-            min="0"
-            max="100"
-            step="1"
-          />
+          <div class="flex w-full max-w-full flex-col gap-1.5 md:w-96">
+            <Slider
+              id="observation-capture-probability"
+              v-model="captureProbabilitySliderValue"
+              :min="0"
+              :max="100"
+              :step="25"
+              :aria-label="t('settings.observation.captureProbability.title')"
+            />
+            <div class="relative h-7 text-[0.625rem] leading-none tabular-nums text-muted-foreground">
+              <span
+                v-for="preset in probabilityPresets"
+                :key="preset.value"
+                :class="cn('absolute top-0 flex flex-col gap-0.5', preset.class)"
+                :style="{ left: `${preset.value}%` }"
+              >
+                <span aria-hidden="true">|</span>
+                <span>{{ preset.value }}%</span>
+              </span>
+            </div>
+          </div>
         </SettingEntry>
 
         <SettingEntry
