@@ -76,7 +76,6 @@ function updatePetInteraction(
 <template>
   <SettingsSection
     :title="t('settings.catAppearance.role.sections.interactions.title')"
-    :description="t('settings.catAppearance.role.sections.interactions.description')"
     :icon="HandIcon"
   >
     <FieldGroup class="gap-0">

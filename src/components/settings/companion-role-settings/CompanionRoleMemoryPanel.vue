@@ -230,7 +230,6 @@ function clampInteger(value: string | number, min: number, max: number): number 
       :include-inactive="includeInactive"
       :confirm-delete-memory-id="confirmDeleteMemoryId"
       :title="t('settings.memory.rolePanelTitle', { name: roleName })"
-      :description="t('settings.memory.rolePanelDescription')"
       :empty-title="t('settings.memory.roleEmptyTitle')"
       :empty-hint="t('settings.memory.roleEmptyHint')"
       :show-policy="false"

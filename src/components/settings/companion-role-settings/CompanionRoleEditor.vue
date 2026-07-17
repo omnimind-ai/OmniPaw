@@ -354,7 +354,6 @@ function confirmDeleteRole(): void {
         <div class="flex flex-col gap-4 p-4 sm:p-5">
           <SettingsSection
             :title="t('settings.catAppearance.role.sections.identity.title')"
-            :description="t('settings.catAppearance.role.sections.identity.description')"
             :icon="UserRoundIcon"
           >
             <FieldGroup class="gap-0">
@@ -405,7 +404,6 @@ function confirmDeleteRole(): void {
 
           <SettingsSection
             :title="t('settings.catAppearance.role.sections.persona.title')"
-            :description="t('settings.catAppearance.role.sections.persona.description')"
             :icon="BrainIcon"
           >
             <FieldGroup class="gap-0">
@@ -452,7 +450,6 @@ function confirmDeleteRole(): void {
 
           <SettingsSection
             :title="t('settings.catAppearance.role.sections.background.title')"
-            :description="t('settings.catAppearance.role.sections.background.description')"
             :icon="MessageCircleIcon"
           >
             <FieldGroup class="gap-0">
@@ -469,7 +466,6 @@ function confirmDeleteRole(): void {
 
           <SettingsSection
             :title="t('settings.catAppearance.role.sections.behavior.title')"
-            :description="t('settings.catAppearance.role.sections.behavior.description')"
             :icon="BotIcon"
           >
             <FieldGroup class="gap-0">
@@ -576,7 +572,6 @@ function confirmDeleteRole(): void {
         <div class="flex flex-col gap-4 p-4 sm:p-5">
           <SettingsSection
             :title="t('settings.catAppearance.role.sections.advanced.title')"
-            :description="t('settings.catAppearance.role.sections.advanced.description')"
             :icon="SlidersHorizontalIcon"
           >
             <FieldGroup class="gap-0">

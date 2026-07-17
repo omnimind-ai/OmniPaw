@@ -156,11 +156,7 @@ function clearSearch() {
       <SettingsPanelHeader
         :title="t('settings.mcpServer.title')"
         :icon="ServerIcon"
-      >
-        <template #description>
-          {{ t('settings.mcpServer.description') }}
-        </template>
-      </SettingsPanelHeader>
+      />
 
       <SettingsSearchBar
         v-model="searchQuery"

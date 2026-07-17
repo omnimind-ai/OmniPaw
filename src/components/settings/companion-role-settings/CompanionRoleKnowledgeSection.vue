@@ -193,7 +193,6 @@ function createRoleKnowledgeId(index: number): string {
     <Card class="grid h-full min-h-0 flex-1 grid-rows-[auto_auto_minmax(0,1fr)] gap-0 rounded-md border border-border py-0 ring-0">
       <SettingsPanelHeader
         :title="t('settings.catAppearance.role.knowledge.title')"
-        :description="t('settings.catAppearance.role.knowledge.description')"
         :icon="BookOpenIcon"
       />
 

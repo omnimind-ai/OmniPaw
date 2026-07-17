@@ -310,7 +310,6 @@ function clampInteger(value: string | number, min: number, max: number): number 
       :include-inactive="includeInactive"
       :confirm-delete-memory-id="confirmDeleteMemoryId"
       :title="t('settings.memory.commonPanelTitle')"
-      :description="t('settings.memory.commonPanelDescription')"
       :empty-title="t('settings.memory.commonEmptyTitle')"
       :empty-hint="t('settings.memory.commonEmptyHint')"
       @policy="openPolicySettings"

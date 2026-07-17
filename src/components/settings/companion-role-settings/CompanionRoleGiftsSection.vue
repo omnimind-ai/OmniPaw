@@ -88,7 +88,6 @@ function clonePetGift(item: CatPetGiftConfig): CatPetGiftConfig {
 <template>
   <SettingsSection
     :title="t('settings.catAppearance.role.gifts.title')"
-    :description="t('settings.catAppearance.role.gifts.description')"
     :icon="GiftIcon"
     content-class="p-4 sm:p-5"
   >

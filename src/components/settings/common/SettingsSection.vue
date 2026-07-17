@@ -7,13 +7,11 @@ import { cn } from '@/lib/utils'
 
 const props = defineProps<{
   title: string
-  description?: string
   icon?: Component
   class?: HTMLAttributes['class']
   headerClass?: HTMLAttributes['class']
   contentClass?: HTMLAttributes['class']
   titleClass?: HTMLAttributes['class']
-  descriptionClass?: HTMLAttributes['class']
   iconClass?: HTMLAttributes['class']
 }>()
 </script>
@@ -22,20 +20,11 @@ const props = defineProps<{
   <Card :class="cn('gap-0 rounded-md py-0', props.class)">
     <SettingsPanelHeader
       :title="title"
-      :description="description"
       :icon="icon"
       :class="headerClass"
       :title-class="titleClass"
-      :description-class="descriptionClass"
       :icon-class="iconClass"
     >
-      <template
-        v-if="$slots.description"
-        #description
-      >
-        <slot name="description" />
-      </template>
-
       <template
         v-if="$slots.action || $slots.actions"
         #action

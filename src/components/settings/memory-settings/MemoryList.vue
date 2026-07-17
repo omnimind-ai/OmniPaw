@@ -45,7 +45,6 @@ const props = defineProps<{
   includeInactive: boolean
   confirmDeleteMemoryId?: string
   title?: string
-  description?: string
   showPolicy?: boolean
   emptyTitle?: string
   emptyHint?: string
@@ -70,7 +69,6 @@ const emit = defineEmits<{
   <Card :class="cn('grid h-full min-h-0 flex-1 grid-rows-[auto_auto_minmax(0,1fr)] gap-0 rounded-md border border-border py-0 ring-0', props.class)">
     <SettingsPanelHeader
       :title="props.title ?? t('settings.memory.panelTitle')"
-      :description="props.description ?? t('settings.memory.panelDescription')"
       :icon="BrainIcon"
     />
 

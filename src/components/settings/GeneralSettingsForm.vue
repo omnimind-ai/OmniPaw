@@ -178,7 +178,6 @@ function clearBackgroundImage(): void {
   <div class="flex flex-col gap-6">
     <SettingsSection
       :title="t('settings.general.title')"
-      :description="t('settings.general.description')"
       :icon="SlidersHorizontalIcon"
     >
       <FieldGroup class="gap-0">
@@ -291,7 +290,6 @@ function clearBackgroundImage(): void {
 
     <SettingsSection
       :title="t('settings.general.background.title')"
-      :description="t('settings.general.background.description')"
       :icon="ImageIcon"
     >
       <FieldGroup class="gap-0">
@@ -392,7 +390,6 @@ function clearBackgroundImage(): void {
 
     <SettingsSection
       :title="t('settings.general.chat.title')"
-      :description="t('settings.general.chat.description')"
       :icon="MessagesSquareIcon"
     >
       <FieldGroup class="gap-0">

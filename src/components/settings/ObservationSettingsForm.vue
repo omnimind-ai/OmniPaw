@@ -106,7 +106,6 @@ function clampInteger(value: string | number, min: number, max = Number.MAX_SAFE
   <div class="flex flex-col gap-6">
     <SettingsSection
       :title="t('settings.observation.title')"
-      :description="t('settings.observation.description')"
       :icon="PlayCircleIcon"
     >
       <FieldGroup class="gap-0">
@@ -143,7 +142,6 @@ function clampInteger(value: string | number, min: number, max = Number.MAX_SAFE
 
     <SettingsSection
       :title="t('settings.observation.triggerPolicy.title')"
-      :description="t('settings.observation.triggerPolicy.description')"
       :icon="TimerIcon"
     >
       <FieldGroup class="gap-0">
@@ -253,7 +251,6 @@ function clampInteger(value: string | number, min: number, max = Number.MAX_SAFE
 
     <SettingsSection
       :title="t('settings.observation.privacy.title')"
-      :description="t('settings.observation.privacy.description')"
       :icon="ShieldIcon"
     >
       <FieldGroup class="gap-0">

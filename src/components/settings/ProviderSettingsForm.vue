@@ -426,6 +426,7 @@ function clearMessages() {}
 
     <SettingsSection
       :title="t('settings.provider.title')"
+      :icon="PlugIcon"
       class="min-w-0 flex-1 self-stretch"
     >
       <template #actions>

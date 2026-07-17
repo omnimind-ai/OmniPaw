@@ -129,11 +129,7 @@ function clearSearch() {
       <SettingsPanelHeader
         :title="t('settings.skill.title')"
         :icon="BookOpenIcon"
-      >
-        <template #description>
-          {{ t('settings.skill.description') }}
-        </template>
-      </SettingsPanelHeader>
+      />
 
       <SettingsSearchBar
         v-model="searchQuery"

@@ -76,7 +76,6 @@ function clampInteger(value: string | number, min: number, max: number, fallback
 <template>
   <SettingsSection
     :title="t('settings.localAgent.title')"
-    :description="t('settings.localAgent.description')"
     :icon="TerminalIcon"
   >
     <FieldGroup class="gap-0">

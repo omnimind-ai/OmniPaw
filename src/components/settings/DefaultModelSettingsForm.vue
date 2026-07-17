@@ -204,7 +204,6 @@ function modelLabel(option: ProviderModelOption) {
   <div class="flex flex-col gap-6">
     <SettingsSection
       :title="t('settings.defaultModel.title')"
-      :description="t('settings.defaultModel.description')"
       :icon="BotIcon"
     >
       <FieldGroup class="gap-0">
@@ -330,7 +329,6 @@ function modelLabel(option: ProviderModelOption) {
 
     <SettingsSection
       :title="t('settings.defaultModel.observation.title')"
-      :description="t('settings.defaultModel.observation.description')"
       :icon="EyeIcon"
     >
       <FieldGroup class="gap-0">
@@ -406,7 +404,7 @@ function modelLabel(option: ProviderModelOption) {
 
     <SettingsSection
       :title="t('settings.defaultModel.fallback.title')"
-      :description="t('settings.defaultModel.fallback.description')"
+      :icon="ListChecksIcon"
     >
       <template #action>
         <div class="flex flex-wrap items-center justify-end gap-2">

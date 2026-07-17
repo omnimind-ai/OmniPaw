@@ -243,7 +243,6 @@ function acceleratorParts(accelerator: string): string[] {
 <template>
   <SettingsSection
     :title="t('settings.shortcut.title')"
-    :description="t('settings.shortcut.description')"
     :icon="KeyboardIcon"
   >
     <FieldGroup class="gap-0">

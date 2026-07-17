@@ -155,7 +155,6 @@ async function loadCurrentDetail(packId = activeRoleAppearancePackId.value): Pro
 <template>
   <SettingsSection
     :title="t('settings.catAppearance.role.sections.appearance.title')"
-    :description="t('settings.catAppearance.role.sections.appearance.description')"
     :icon="ImageIcon"
     content-class="p-4 sm:p-5"
   >
