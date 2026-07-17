@@ -24,13 +24,7 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Switch } from '@/components/ui/switch'
 import { cn } from '@/lib/utils'
-import {
-  formatMemoryTime,
-  memoryKindLabel,
-  memoryScopeLabel,
-  memoryStatusLabel,
-  memoryStatusVariant,
-} from './format'
+import { formatMemoryTime, memoryKindLabel } from './format'
 
 const { t } = useI18n()
 
@@ -182,14 +176,6 @@ const emit = defineEmits<{
             :icon="FileTextIcon"
             :pending="saving"
           >
-            <template #badges>
-              <Badge :variant="memoryStatusVariant(memory.status)">
-                {{ memoryStatusLabel(memory.status) }}
-              </Badge>
-              <Badge variant="outline">{{ memoryScopeLabel(memory.scope) }}</Badge>
-              <Badge variant="outline">{{ t('settings.memory.list.importanceBadge', { value: memory.importance }) }}</Badge>
-            </template>
-
             <template #meta>
               <p class="text-sm text-muted-foreground">
                 {{ t('settings.memory.list.updatedAt', { time: formatMemoryTime(memory.updatedAt) }) }}
@@ -210,6 +196,7 @@ const emit = defineEmits<{
                 variant="ghost"
                 size="icon-sm"
                 :aria-label="t('settings.memory.list.decreaseImportanceAriaLabel')"
+                :title="t('settings.memory.list.decreaseImportanceAriaLabel')"
                 :disabled="saving || memory.importance <= 1"
                 @click="emit('importance', memory, -1)"
               >
@@ -220,6 +207,7 @@ const emit = defineEmits<{
                 variant="ghost"
                 size="icon-sm"
                 :aria-label="t('settings.memory.list.increaseImportanceAriaLabel')"
+                :title="t('settings.memory.list.increaseImportanceAriaLabel')"
                 :disabled="saving || memory.importance >= 5"
                 @click="emit('importance', memory, 1)"
               >
@@ -230,6 +218,7 @@ const emit = defineEmits<{
                 variant="ghost"
                 size="icon-sm"
                 :aria-label="t('settings.memory.list.detailAriaLabel')"
+                :title="t('settings.memory.list.detailAriaLabel')"
                 :disabled="saving"
                 @click="emit('detail', memory)"
               >
@@ -240,6 +229,7 @@ const emit = defineEmits<{
                 variant="ghost"
                 size="icon-sm"
                 :aria-label="t('settings.memory.list.archiveAriaLabel')"
+                :title="t('settings.memory.list.archiveAriaLabel')"
                 :disabled="saving || memory.status !== 'active'"
                 @click="emit('archive', memory)"
               >
@@ -247,13 +237,14 @@ const emit = defineEmits<{
               </Button>
               <Button
                 type="button"
-                size="sm"
+                size="icon-sm"
                 :variant="confirmDeleteMemoryId === memory.id ? 'destructive' : 'outline'"
+                :aria-label="confirmDeleteMemoryId === memory.id ? t('settings.memory.list.confirmDeleteButton') : t('settings.memory.list.deleteButton')"
+                :title="confirmDeleteMemoryId === memory.id ? t('settings.memory.list.confirmDeleteButton') : t('settings.memory.list.deleteButton')"
                 :disabled="saving"
                 @click="emit('delete', memory)"
               >
-                <Trash2Icon data-icon="inline-start" />
-                {{ confirmDeleteMemoryId === memory.id ? t('settings.memory.list.confirmDeleteButton') : t('settings.memory.list.deleteButton') }}
+                <Trash2Icon />
               </Button>
             </template>
           </SettingsPanelItem>

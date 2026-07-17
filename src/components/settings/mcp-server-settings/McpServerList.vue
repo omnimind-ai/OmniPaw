@@ -15,16 +15,12 @@ import {
 } from '@lucide/vue'
 import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import type {
-  BridgeMcpDiscoveryStatus,
-  BridgeMcpSafeTransport,
-  BridgeMcpServerSummary,
-} from '@/bridge/app'
+import type { BridgeMcpSafeTransport, BridgeMcpServerSummary } from '@/bridge/app'
 
 import SettingsPanelHeader from '@/components/settings/common/SettingsPanelHeader.vue'
 import SettingsPanelItem from '@/components/settings/common/SettingsPanelItem.vue'
 import SettingsSearchBar from '@/components/settings/common/SettingsSearchBar.vue'
-import { Badge, type BadgeVariants } from '@/components/ui/badge'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -68,23 +64,6 @@ const filteredServers = computed(() => {
   )
 })
 const searchEmpty = computed(() => props.servers.length > 0 && filteredServers.value.length === 0)
-
-function statusLabel(status: BridgeMcpDiscoveryStatus) {
-  const labels: Record<BridgeMcpDiscoveryStatus, string> = {
-    idle: t('settings.mcpServer.statusLabels.idle'),
-    refreshing: t('settings.mcpServer.statusLabels.refreshing'),
-    available: t('settings.mcpServer.statusLabels.available'),
-    error: t('settings.mcpServer.statusLabels.error'),
-    disabled: t('settings.mcpServer.statusLabels.disabled'),
-  }
-  return labels[status] || status
-}
-
-function statusVariant(status: BridgeMcpDiscoveryStatus): BadgeVariants['variant'] {
-  if (status === 'error') return 'destructive'
-  if (status === 'available') return 'secondary'
-  return 'outline'
-}
 
 function transportLabel(transport: BridgeMcpSafeTransport) {
   return transport.type === 'stdio'
@@ -300,22 +279,6 @@ function clearSearch() {
                 :icon="transportIcon(server.transport)"
                 :pending="isServerPending(server.id)"
               >
-                <template #badges>
-                  <Badge :variant="statusVariant(server.status)">
-                    {{ statusLabel(server.status) }}
-                  </Badge>
-                  <Badge variant="outline">
-                    <component
-                      :is="transportIcon(server.transport)"
-                      data-icon="inline-start"
-                    />
-                    {{ transportLabel(server.transport) }}
-                  </Badge>
-                  <Badge :variant="server.enabled ? 'secondary' : 'outline'">
-                    {{ server.enabled ? t('settings.mcpServer.serverEnabledBadge') : t('settings.mcpServer.serverDisabledBadge') }}
-                  </Badge>
-                </template>
-
                 <template #actions>
                   <Switch
                     :id="`mcp-enabled-${server.id}`"
@@ -328,34 +291,36 @@ function clearSearch() {
                   <Button
                     type="button"
                     variant="ghost"
-                    size="sm"
+                    size="icon-sm"
+                    :aria-label="`${t('settings.mcpServer.toolsCountLabel')} ${server.tools.length}`"
+                    :title="`${t('settings.mcpServer.toolsCountLabel')} ${server.tools.length}`"
                     @click="emit('details', server)"
                   >
-                    <WrenchIcon data-icon="inline-start" />
-                    {{ t('settings.mcpServer.toolsCountLabel') }} {{ server.tools.length }}
+                    <WrenchIcon />
                   </Button>
                   <Button
                     type="button"
                     variant="ghost"
-                    size="sm"
+                    size="icon-sm"
+                    :aria-label="t('settings.mcpServer.refreshServerLabel')"
+                    :title="t('settings.mcpServer.refreshServerLabel')"
                     :disabled="isServerPending(server.id) || mcpUnavailable"
                     @click="emit('refresh', server.id)"
                   >
                     <RefreshCwIcon
-                      data-icon="inline-start"
                       :class="cn(isPending(`refresh:${server.id}`) && 'animate-spin')"
                     />
-                    {{ t('settings.mcpServer.refreshServerLabel') }}
                   </Button>
                   <Button
                     type="button"
                     variant="ghost"
-                    size="sm"
+                    size="icon-sm"
+                    :aria-label="t('settings.mcpServer.editServerLabel')"
+                    :title="t('settings.mcpServer.editServerLabel')"
                     :disabled="isServerPending(server.id)"
                     @click="emit('edit', server)"
                   >
-                    <PencilIcon data-icon="inline-start" />
-                    {{ t('settings.mcpServer.editServerLabel') }}
+                    <PencilIcon />
                   </Button>
                   <Button
                     type="button"
@@ -363,9 +328,10 @@ function clearSearch() {
                     size="icon-sm"
                     :disabled="isServerPending(server.id) || mcpUnavailable"
                     :aria-label="t('settings.mcpServer.deleteAriaLabel')"
+                    :title="t('settings.mcpServer.deleteAriaLabel')"
                     @click="emit('delete', server)"
                   >
-                    <Trash2Icon data-icon />
+                    <Trash2Icon />
                   </Button>
                 </template>
 

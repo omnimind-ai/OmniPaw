@@ -22,7 +22,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Switch } from '@/components/ui/switch'
-import { formatTime, scheduleSummary, statusLabel, statusVariant, taskSessionLabel } from './format'
+import { formatTime, scheduleSummary, statusLabel, taskSessionLabel } from './format'
 
 const props = defineProps<{
   tasks: CronTask[]
@@ -176,18 +176,6 @@ function clearSearch() {
             :title="task.name"
             :icon="ClipboardListIcon"
           >
-            <template #badges>
-              <Badge :variant="statusVariant(task)">
-                {{ statusLabel(task) }}
-              </Badge>
-              <Badge
-                v-if="task.schedule.kind === 'cron'"
-                variant="outline"
-              >
-                {{ t('settings.scheduledTask.listItem.repeat') }}
-              </Badge>
-            </template>
-
             <template #meta>
               <p class="text-sm text-muted-foreground">
                 {{ scheduleSummary(task.schedule) }} · {{ taskSessionLabel(task) }} · {{ t('settings.scheduledTask.detailFields.nextRun') }}
@@ -216,6 +204,7 @@ function clearSearch() {
                 size="icon-sm"
                 :disabled="saving"
                 :aria-label="t('settings.scheduledTask.listItem.viewDetails')"
+                :title="t('settings.scheduledTask.listItem.viewDetails')"
                 @click="emit('detail', task)"
               >
                 <InfoIcon />
@@ -226,6 +215,7 @@ function clearSearch() {
                 size="icon-sm"
                 :disabled="saving"
                 :aria-label="t('settings.scheduledTask.listItem.viewAudit')"
+                :title="t('settings.scheduledTask.listItem.viewAudit')"
                 @click="emit('audit', task)"
               >
                 <HistoryIcon />
@@ -236,6 +226,7 @@ function clearSearch() {
                 size="icon-sm"
                 :disabled="saving"
                 :aria-label="t('settings.scheduledTask.listItem.runNow')"
+                :title="t('settings.scheduledTask.listItem.runNow')"
                 @click="emit('run', task)"
               >
                 <PlayIcon />
@@ -246,19 +237,21 @@ function clearSearch() {
                 size="icon-sm"
                 :disabled="saving"
                 :aria-label="t('settings.scheduledTask.listItem.editTask')"
+                :title="t('settings.scheduledTask.listItem.editTask')"
                 @click="emit('edit', task)"
               >
                 <PencilIcon />
               </Button>
               <Button
                 type="button"
-                size="sm"
+                size="icon-sm"
                 :variant="confirmDeleteTaskId === task.id ? 'destructive' : 'outline'"
+                :aria-label="confirmDeleteTaskId === task.id ? t('settings.scheduledTask.listItem.confirmDelete') : t('settings.scheduledTask.listItem.deleteTask')"
+                :title="confirmDeleteTaskId === task.id ? t('settings.scheduledTask.listItem.confirmDelete') : t('settings.scheduledTask.listItem.deleteTask')"
                 :disabled="saving"
                 @click="emit('delete', task)"
               >
-                <Trash2Icon data-icon="inline-start" />
-                {{ confirmDeleteTaskId === task.id ? t('settings.scheduledTask.listItem.confirmDelete') : t('settings.scheduledTask.listItem.deleteTask') }}
+                <Trash2Icon />
               </Button>
             </template>
           </SettingsPanelItem>

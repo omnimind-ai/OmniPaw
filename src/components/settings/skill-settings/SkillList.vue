@@ -14,7 +14,7 @@ import type { BridgeLocalSkillSummary } from '@/bridge/app'
 import SettingsPanelHeader from '@/components/settings/common/SettingsPanelHeader.vue'
 import SettingsPanelItem from '@/components/settings/common/SettingsPanelItem.vue'
 import SettingsSearchBar from '@/components/settings/common/SettingsSearchBar.vue'
-import { Badge, type BadgeVariants } from '@/components/ui/badge'
+import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { Field, FieldContent, FieldDescription, FieldLabel } from '@/components/ui/field'
@@ -69,26 +69,6 @@ const searchEmpty = computed(() => props.skills.length > 0 && filteredSkills.val
 
 function isInvalidSkill(skill: BridgeLocalSkillSummary) {
   return isInvalidStatus(skill.status)
-}
-
-function statusLabel(status?: LocalSkillStatus) {
-  const statusMap: Record<string, string> = {
-    valid: t('settings.skill.skillStatus.valid'),
-    available: t('settings.skill.skillStatus.available'),
-    invalid: t('settings.skill.skillStatus.invalid'),
-    error: t('settings.skill.skillStatus.error'),
-    disabled: t('settings.skill.skillStatus.disabled'),
-    missing: t('settings.skill.skillStatus.missing'),
-  }
-  return statusMap[String(status || 'valid')] || String(status)
-}
-
-function statusVariant(status?: LocalSkillStatus): BadgeVariants['variant'] {
-  return isInvalidStatus(status) ? 'destructive' : 'secondary'
-}
-
-function sourceLabel() {
-  return t('settings.skill.sourceLabel')
 }
 
 function safeLocationLabel(skill: BridgeLocalSkillSummary) {
@@ -261,18 +241,6 @@ function clearSearch() {
               :pending="isSkillPending(skill.id)"
               :avatar-class="isInvalidSkill(skill) ? 'bg-destructive/10 text-destructive' : undefined"
             >
-              <template #badges>
-                <Badge :variant="statusVariant(skill.status)">
-                  {{ statusLabel(skill.status) }}
-                </Badge>
-                <Badge variant="outline">
-                  {{ sourceLabel() }}
-                </Badge>
-                <Badge :variant="skill.enabled ? 'secondary' : 'outline'">
-                  {{ skill.enabled ? t('settings.skill.enabled') : t('settings.skill.disabled') }}
-                </Badge>
-              </template>
-
               <template #meta>
                 <p class="truncate text-xs text-muted-foreground">
                   {{ skill.id }}
