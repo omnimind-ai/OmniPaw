@@ -35,7 +35,6 @@ const detailLoading = ref(false)
 const confirmDeleteMemoryId = ref<string | undefined>()
 
 const selectedMemory = computed(() => selected.value?.memory)
-const selectedSources = computed(() => selected.value?.sources ?? [])
 const selectedLinks = computed(() => selected.value?.links ?? [])
 const selectedProposals = computed(() => selected.value?.proposals ?? [])
 const showMemoryListSkeleton = useDelayedFlag(() => loading.value)
@@ -160,20 +159,6 @@ async function updateMemoryStatus(
   }
 }
 
-async function setImportance(memory: CompanionMemoryItem, delta: number): Promise<void> {
-  confirmDeleteMemoryId.value = undefined
-  const importance = clampInteger(memory.importance + delta, 1, 5)
-  try {
-    const updated = await memoryStore.setImportance(memory.id, importance)
-    await reload()
-    if (updated && selectedMemory.value?.id === memory.id) {
-      await inspectMemory(memory.id)
-    }
-  } catch (error) {
-    toast.error(errorToText(error, t('settings.memory.toast.importanceFailed')))
-  }
-}
-
 async function deleteMemory(memory: CompanionMemoryItem): Promise<void> {
   if (confirmDeleteMemoryId.value !== memory.id) {
     confirmDeleteMemoryId.value = memory.id
@@ -209,12 +194,6 @@ function toggleIncludeInactive(): void {
   includeInactive.value = !includeInactive.value
   void reload()
 }
-
-function clampInteger(value: string | number, min: number, max: number): number {
-  const next = Math.round(Number(value))
-  if (!Number.isFinite(next)) return min
-  return Math.min(max, Math.max(min, next))
-}
 </script>
 
 <template>
@@ -240,7 +219,6 @@ function clampInteger(value: string | number, min: number, max: number): number 
       @toggle-inactive="toggleIncludeInactive"
       @enable="setMemoryEnabled"
       @archive="archiveMemory"
-      @importance="setImportance"
       @delete="deleteMemory"
     />
 
@@ -258,7 +236,6 @@ function clampInteger(value: string | number, min: number, max: number): number 
     <MemoryDetailModal
       v-model:open="detailModalOpen"
       :memory="selectedMemory"
-      :sources="selectedSources"
       :links="selectedLinks"
       :proposals="selectedProposals"
       :loading="detailLoading"

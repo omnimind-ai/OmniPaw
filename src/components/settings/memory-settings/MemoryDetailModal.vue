@@ -5,7 +5,6 @@ import type {
   CompanionMemoryKind,
   CompanionMemoryLink,
   CompanionMemoryMaintenanceProposal,
-  CompanionMemorySourceEvidence,
   CompanionMemoryStatus,
   UpdateCompanionMemoryRequest,
 } from '@shared/types/memory'
@@ -55,7 +54,6 @@ const open = defineModel<boolean>('open', { required: true })
 
 const props = defineProps<{
   memory?: CompanionMemoryInspectResponse['memory']
-  sources: CompanionMemorySourceEvidence[]
   links?: CompanionMemoryLink[]
   proposals?: CompanionMemoryMaintenanceProposal[]
   loading: boolean
@@ -111,41 +109,6 @@ function resetDraft(memory: CompanionMemoryItem): void {
   kind.value = memory.kind
   status.value = memory.status
   importance.value = memory.importance
-}
-
-function sourceKindLabel(source: CompanionMemorySourceEvidence): string {
-  if (source.sourceKind === 'chat-turn') return t('settings.memory.detailModal.sourceKindChatTurn')
-  if (source.sourceKind === 'message-window')
-    return t('settings.memory.detailModal.sourceKindMessageWindow')
-  if (source.sourceKind === 'tool' || source.sourceKind === 'manual-intent')
-    return t('settings.memory.detailModal.sourceKindToolWrite')
-  return t('settings.memory.detailModal.sourceKindManualWrite')
-}
-
-function sourceTime(source: CompanionMemorySourceEvidence): string {
-  return formatMemoryTime(source.sourceCreatedAt || source.createdAt)
-}
-
-function attributionLabel(value: string | undefined): string {
-  if (value === 'assistant-provided') return t('settings.memory.detailModal.attributionAssistant')
-  if (value === 'mixed') return t('settings.memory.detailModal.attributionMixed')
-  return t('settings.memory.detailModal.attributionUser')
-}
-
-function extractionLabel(value: string | undefined): string {
-  if (value === 'semantic') return t('settings.memory.detailModal.extractionSemantic')
-  if (value === 'heuristic-fallback') return t('settings.memory.detailModal.extractionHeuristic')
-  if (value === 'tool') return t('settings.memory.detailModal.extractionTool')
-  return t('settings.memory.detailModal.extractionManual')
-}
-
-function shouldShowExtractionBadge(
-  memory: CompanionMemoryItem,
-  source: CompanionMemorySourceEvidence
-): boolean {
-  return Boolean(
-    memory.extractionMethod && extractionLabel(memory.extractionMethod) !== sourceKindLabel(source)
-  )
 }
 
 function clampInteger(value: string | number, min: number, max: number): number {
@@ -253,10 +216,6 @@ function clampInteger(value: string | number, min: number, max: number): number 
 
         <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
           <Field class="rounded-md border px-3 py-2">
-            <FieldLabel>{{ t('settings.memory.detailModal.memoryId') }}</FieldLabel>
-            <FieldDescription class="break-all">{{ memory.id }}</FieldDescription>
-          </Field>
-          <Field class="rounded-md border px-3 py-2">
             <FieldLabel>{{ t('settings.memory.detailModal.createdAt') }}</FieldLabel>
             <FieldDescription>{{ formatMemoryTime(memory.createdAt) }}</FieldDescription>
           </Field>
@@ -264,45 +223,7 @@ function clampInteger(value: string | number, min: number, max: number): number 
             <FieldLabel>{{ t('settings.memory.detailModal.updatedAt') }}</FieldLabel>
             <FieldDescription>{{ formatMemoryTime(memory.updatedAt) }}</FieldDescription>
           </Field>
-          <Field class="rounded-md border px-3 py-2">
-            <FieldLabel>{{ t('settings.memory.detailModal.observedAt') }}</FieldLabel>
-            <FieldDescription>{{ formatMemoryTime(memory.observedAt) }}</FieldDescription>
-          </Field>
         </div>
-
-        <template v-if="sources.length">
-          <Field>
-            <FieldContent>
-              <FieldLabel>{{ t('settings.memory.detailModal.sources') }}</FieldLabel>
-            </FieldContent>
-          </Field>
-
-          <div class="flex flex-col gap-2">
-            <div
-              v-for="source in sources"
-              :key="source.id"
-              class="rounded-md border px-3 py-2 text-sm"
-            >
-              <div class="flex flex-wrap items-center gap-2">
-                <Badge variant="outline">{{ sourceKindLabel(source) }}</Badge>
-                <Badge
-                  v-if="shouldShowExtractionBadge(memory, source)"
-                  variant="outline"
-                >
-                  {{ extractionLabel(memory.extractionMethod) }}
-                </Badge>
-                <Badge variant="outline">{{ attributionLabel(memory.attribution) }}</Badge>
-                <span class="text-muted-foreground">{{ sourceTime(source) }}</span>
-              </div>
-              <p
-                v-if="source.sessionId"
-                class="mt-2 break-all text-xs text-muted-foreground"
-              >
-                {{ t('settings.memory.detailModal.session', { id: source.sessionId }) }}
-              </p>
-            </div>
-          </div>
-        </template>
 
         <template v-if="links?.length">
           <Field>

@@ -4,7 +4,6 @@ import {
   BrainIcon,
   FileTextIcon,
   InfoIcon,
-  MinusIcon,
   PlusIcon,
   RefreshCwIcon,
   SearchIcon,
@@ -54,7 +53,6 @@ const emit = defineEmits<{
   toggleInactive: []
   enable: [memory: CompanionMemoryItem, enabled: boolean]
   archive: [memory: CompanionMemoryItem]
-  importance: [memory: CompanionMemoryItem, delta: number]
   delete: [memory: CompanionMemoryItem]
 }>()
 </script>
@@ -191,28 +189,6 @@ const emit = defineEmits<{
                 :aria-label="t('settings.memory.list.toggleAriaLabel', { action: memory.status === 'active' ? t('settings.memory.list.disable') : t('settings.memory.list.enable') })"
                 @update:model-value="emit('enable', memory, $event)"
               />
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-sm"
-                :aria-label="t('settings.memory.list.decreaseImportanceAriaLabel')"
-                :title="t('settings.memory.list.decreaseImportanceAriaLabel')"
-                :disabled="saving || memory.importance <= 1"
-                @click="emit('importance', memory, -1)"
-              >
-                <MinusIcon />
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-sm"
-                :aria-label="t('settings.memory.list.increaseImportanceAriaLabel')"
-                :title="t('settings.memory.list.increaseImportanceAriaLabel')"
-                :disabled="saving || memory.importance >= 5"
-                @click="emit('importance', memory, 1)"
-              >
-                <PlusIcon />
-              </Button>
               <Button
                 type="button"
                 variant="ghost"
