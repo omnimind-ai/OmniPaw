@@ -14,6 +14,16 @@ const manager = new CatAppearanceManager({
 try {
   manager.load()
 
+  const builtInPacks = manager.list().packs
+  assert.deepEqual(
+    builtInPacks.map((pack) => pack.id),
+    ['builtin', 'builtin-dog']
+  )
+  assert.equal(manager.getPack('builtin-dog').source, 'builtin')
+  assert.equal(manager.setActive('builtin-dog').id, 'builtin-dog')
+  assert.equal(manager.current().id, 'builtin-dog')
+  assert.throws(() => manager.deletePack('builtin-dog'), /cannot be deleted/i)
+
   const rootZipPath = join(tempDir, 'root-pack.zip')
   writeFileSync(
     rootZipPath,

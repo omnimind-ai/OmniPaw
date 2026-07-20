@@ -17,8 +17,10 @@ import { basename, dirname, extname, isAbsolute, join, relative, resolve, sep } 
 
 import type { Logger } from '@core/logging'
 import {
+  BUILTIN_APPEARANCE_LAYOUT_BY_PACK_ID,
+  BUILTIN_APPEARANCE_PACK_IDS,
+  BUILTIN_APPEARANCE_PACKS,
   BUILTIN_CAT_APPEARANCE_LAYOUT,
-  BUILTIN_CAT_APPEARANCE_PACK,
   BUILTIN_CAT_APPEARANCE_PACK_ID,
   DEFAULT_CAT_APPEARANCE_DURATIONS,
   DEFAULT_CAT_APPEARANCE_LAYOUT,
@@ -83,7 +85,13 @@ const mimeByExtension: Record<string, string> = {
   '.avif': 'image/avif',
 }
 
-const builtinPack: CatAppearancePackSummary = BUILTIN_CAT_APPEARANCE_PACK
+const builtinPackById = new Map<string, CatAppearancePackSummary>(
+  BUILTIN_APPEARANCE_PACKS.map((pack) => [pack.id, pack])
+)
+
+function isBuiltinPackId(packId: string): boolean {
+  return builtinPackById.has(packId)
+}
 
 export const defaultCatAppearanceDurations: CatAppearanceDurations =
   DEFAULT_CAT_APPEARANCE_DURATIONS
@@ -227,8 +235,8 @@ export class CatAppearanceManager {
     this.ensureDirectories()
 
     const requestedId = normalizePackId(typeof request === 'string' ? request : request.packId)
-    if (!requestedId || requestedId === BUILTIN_PACK_ID) {
-      throw new Error('Built-in cat appearance pack cannot be deleted.')
+    if (!requestedId || isBuiltinPackId(requestedId)) {
+      throw new Error('Built-in pet appearance pack cannot be deleted.')
     }
 
     const requestedRootName =
@@ -401,7 +409,7 @@ export class CatAppearanceManager {
   exportEmbeddedPack(packId: string | undefined): CatAppearanceEmbeddedPack | undefined {
     this.ensureLoaded()
     const normalizedPackId = normalizePackId(packId)
-    if (!normalizedPackId || normalizedPackId === BUILTIN_PACK_ID) {
+    if (!normalizedPackId || isBuiltinPackId(normalizedPackId)) {
       return undefined
     }
 
@@ -454,7 +462,7 @@ export class CatAppearanceManager {
     reason: Extract<CatAppearanceChangeReason, 'select' | 'import'>
   ): CatAppearanceResolvedPack {
     if (
-      packId !== BUILTIN_PACK_ID &&
+      !isBuiltinPackId(packId) &&
       !this.packs.some((pack) => pack.id === packId && pack.status === 'available')
     ) {
       throw new Error(`Cat appearance pack is not available: ${packId}`)
@@ -478,7 +486,7 @@ export class CatAppearanceManager {
       return null
     }
     const normalizedPackId = normalizePackId(packId)
-    if (!normalizedPackId || normalizedPackId === BUILTIN_PACK_ID) {
+    if (!normalizedPackId || isBuiltinPackId(normalizedPackId)) {
       return null
     }
 
@@ -671,14 +679,18 @@ export class CatAppearanceManager {
   }
 
   private resolvePackById(packId: string, active: boolean): CatAppearanceResolvedPack {
-    if (packId === BUILTIN_PACK_ID) {
+    const builtinPack = builtinPackById.get(packId)
+    if (builtinPack) {
       return {
         ...builtinPack,
         active,
         assets: {},
         durations: defaultCatAppearanceDurations,
-        layout: builtinCatAppearanceLayout,
-        version: BUILTIN_PACK_ID,
+        layout:
+          BUILTIN_APPEARANCE_LAYOUT_BY_PACK_ID[
+            packId as keyof typeof BUILTIN_APPEARANCE_LAYOUT_BY_PACK_ID
+          ] ?? builtinCatAppearanceLayout,
+        version: packId,
         updatedAt: this.lastUpdatedAt,
       }
     }
@@ -717,11 +729,11 @@ export class CatAppearanceManager {
 
   private packSummaries(activePackId: string): CatAppearancePackSummary[] {
     return [
-      {
-        ...builtinPack,
-        active: activePackId === BUILTIN_PACK_ID,
+      ...BUILTIN_APPEARANCE_PACKS.map((pack) => ({
+        ...pack,
+        active: activePackId === pack.id,
         updatedAt: this.lastUpdatedAt,
-      },
+      })),
       ...this.packs.map((pack) => ({
         id: pack.id,
         name: pack.name,
@@ -739,7 +751,10 @@ export class CatAppearanceManager {
 
   private nextAvailablePackId(packId: string): string {
     const base = normalizePackId(packId) || `pack-${packsafeTimestamp()}`
-    const existingIds = new Set([BUILTIN_PACK_ID, ...this.packs.map((pack) => pack.id)])
+    const existingIds = new Set([
+      ...BUILTIN_APPEARANCE_PACK_IDS,
+      ...this.packs.map((pack) => pack.id),
+    ])
     if (!existingIds.has(base)) {
       return base
     }
@@ -830,7 +845,7 @@ function normalizeManifest(manifest: unknown, rootName: string): NormalizedManif
   }
 
   const id = normalizePackId(manifest.id) || normalizePackId(rootName)
-  if (!id || id === BUILTIN_PACK_ID) {
+  if (!id || isBuiltinPackId(id)) {
     throw new Error('Cat appearance manifest id is invalid.')
   }
 

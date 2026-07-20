@@ -1,19 +1,14 @@
+import { BUILTIN_CAT_APPEARANCE_PACK_ID } from '@shared/constants'
 import type {
   CatAppearanceAssetKey,
   CatAppearanceDurations,
   CatAppearanceLayout,
   CatAppearanceResolvedPack,
 } from '@shared/types/cat-appearance'
-import doTaskImage from '@/asserts/cat/anim_cat_doing_task.webp'
-import draggedImage from '@/asserts/cat/anim_cat_dragging.webp'
-import endTaskImage from '@/asserts/cat/anim_cat_end_doing.webp'
-import finishImage from '@/asserts/cat/anim_cat_finish.webp'
-import firstShowImage from '@/asserts/cat/anim_cat_show.webp'
-import startTaskImage from '@/asserts/cat/anim_cat_start_doing.webp'
-import doTaskFallbackImage from '@/asserts/cat/ic_cat_doing_task.png'
-import firstShowFallbackImage from '@/asserts/cat/ic_cat_first_show.png'
-import idleImage from '@/asserts/cat/ic_cat_normal.png'
-import draggedFallbackImage from '@/asserts/cat/ic_cat_normal_dragging.png'
+import {
+  BUILTIN_PET_APPEARANCE_ASSETS,
+  builtinPetAppearanceAssets,
+} from '@/utils/builtin-pet-appearance-assets'
 
 type RequiredCatWindowAssetKey = Exclude<CatAppearanceAssetKey, 'dragTransition'>
 
@@ -29,16 +24,7 @@ export interface CatVisualAppearance {
 const catWindowRenderSize = 116
 
 const defaultAssets = Object.freeze({
-  show: firstShowImage,
-  showFallback: firstShowFallbackImage,
-  idle: idleImage,
-  drag: draggedImage,
-  dragFallback: draggedFallbackImage,
-  startDoing: startTaskImage,
-  doing: doTaskImage,
-  doingFallback: doTaskFallbackImage,
-  endDoing: endTaskImage,
-  finish: finishImage,
+  ...BUILTIN_PET_APPEARANCE_ASSETS[BUILTIN_CAT_APPEARANCE_PACK_ID],
 } satisfies CatVisualAssets)
 
 const defaultDurations = Object.freeze({
@@ -97,10 +83,12 @@ export function resolveCatVisualAppearance(pack: CatAppearanceResolvedPack): Cat
   const customAssets = Object.fromEntries(
     Object.entries(pack.assets || {}).filter(([, value]) => typeof value === 'string' && value)
   ) as Partial<Record<CatAppearanceAssetKey, string>>
+  const builtinAssets = pack.source === 'builtin' ? builtinPetAppearanceAssets(pack.id) : undefined
 
   return {
     assets: {
       ...defaultAssets,
+      ...builtinAssets,
       ...customAssets,
     },
     durations: {

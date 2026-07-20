@@ -1,7 +1,7 @@
 import { redactSensitiveText } from '@core/logging/redaction'
 import {
   CAT_PET_ACTIONS,
-  createXiaowanCompanionRolePreset,
+  createDefaultCompanionRolePresets,
   isPresetCatPetAction as isCatPetAction,
   normalizePetGiftConfigs as normalizeCatPetGiftConfigs,
   normalizePetInteractionConfigs as normalizeCatPetInteractionConfigs,
@@ -67,7 +67,8 @@ const defaultProviderModel: DesktopProviderModel = {
   updatedAt: now,
 }
 
-const defaultCompanionRole = createXiaowanCompanionRolePreset()
+const defaultCompanionRoles = createDefaultCompanionRolePresets()
+const defaultCompanionRole = defaultCompanionRoles[0]
 
 export const defaultConfig: DesktopSettingsConfig = {
   version: CURRENT_SETTINGS_VERSION,
@@ -112,7 +113,7 @@ export const defaultConfig: DesktopSettingsConfig = {
         text: '',
       },
     },
-    companionRoles: [defaultCompanionRole],
+    companionRoles: defaultCompanionRoles,
     activeCompanionRoleId: defaultCompanionRole.id,
     background: {
       enabled: false,

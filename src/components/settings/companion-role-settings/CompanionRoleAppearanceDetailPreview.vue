@@ -8,33 +8,11 @@ import type {
 import type { ComponentPublicInstance } from 'vue'
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import doTaskImage from '@/asserts/cat/anim_cat_doing_task.webp'
-import draggedImage from '@/asserts/cat/anim_cat_dragging.webp'
-import endTaskImage from '@/asserts/cat/anim_cat_end_doing.webp'
-import finishImage from '@/asserts/cat/anim_cat_finish.webp'
-import firstShowImage from '@/asserts/cat/anim_cat_show.webp'
-import startTaskImage from '@/asserts/cat/anim_cat_start_doing.webp'
-import doTaskFallbackImage from '@/asserts/cat/ic_cat_doing_task.png'
-import firstShowFallbackImage from '@/asserts/cat/ic_cat_first_show.png'
-import idleImage from '@/asserts/cat/ic_cat_normal.png'
-import draggedFallbackImage from '@/asserts/cat/ic_cat_normal_dragging.png'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
-
-const defaultAssetUrls: Partial<Record<CatAppearanceAssetKey, string>> = {
-  show: firstShowImage,
-  showFallback: firstShowFallbackImage,
-  idle: idleImage,
-  drag: draggedImage,
-  dragFallback: draggedFallbackImage,
-  startDoing: startTaskImage,
-  doing: doTaskImage,
-  doingFallback: doTaskFallbackImage,
-  endDoing: endTaskImage,
-  finish: finishImage,
-}
+import { builtinPetAppearanceAssets } from '@/utils/builtin-pet-appearance-assets'
 
 const assetKeys: CatAppearanceAssetKey[] = [
   'idle',
@@ -87,7 +65,10 @@ const assetItems = computed(() =>
   assetKeys.map((key) => {
     const customSrc = props.detail?.assets[key]
     const src =
-      customSrc ?? (props.detail?.source === 'builtin' ? defaultAssetUrls[key] : undefined)
+      customSrc ??
+      (props.detail?.source === 'builtin'
+        ? builtinPetAppearanceAssets(props.detail.id)?.[key]
+        : undefined)
     return {
       key,
       src,

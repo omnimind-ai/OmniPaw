@@ -10,6 +10,8 @@ import {
   SmileIcon,
   SparklesIcon,
 } from '@lucide/vue'
+import { BUILTIN_CAT_APPEARANCE_PACK_ID } from '@shared/constants'
+import type { CatAppearanceResolvedPack } from '@shared/types/cat-appearance'
 import type {
   CatPetAction,
   CatPetGiftDefinition,
@@ -20,12 +22,15 @@ import { storeToRefs } from 'pinia'
 import type { Component } from 'vue'
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import fallbackIdleImage from '@/asserts/cat/ic_cat_normal.png'
 import { appBridge, type BridgeUnsubscribe } from '@/bridge/app'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { useCatPetStore } from '@/stores/cat-pet'
+import {
+  BUILTIN_PET_IDLE_IMAGE_BY_PACK_ID,
+  builtinPetAppearanceIdleImage,
+} from '@/utils/builtin-pet-appearance-assets'
 import { catPetGiftImageSrc } from '@/utils/cat-pet-gift-images'
 import { errorToText, useToast } from '@/utils/toast'
 import CatPanelGiftInventoryModal from './CatPanelGiftInventoryModal.vue'
@@ -57,6 +62,7 @@ const {
   performing,
 } = storeToRefs(store)
 
+const fallbackIdleImage = BUILTIN_PET_IDLE_IMAGE_BY_PACK_ID[BUILTIN_CAT_APPEARANCE_PACK_ID]
 const idleImage = ref<string>(fallbackIdleImage)
 const giftDialogOpen = ref(false)
 const selectedGift = ref<CatPetGiftDefinition>()
@@ -69,8 +75,12 @@ const actionIcons: Record<CatPetAction, Component> = {
   custom_150: HeartIcon,
 }
 
-function applyIdleAsset(url: string | undefined): void {
-  idleImage.value = url?.trim() ? url : fallbackIdleImage
+function applyIdleAppearance(pack: CatAppearanceResolvedPack | undefined): void {
+  const resolvedIdleImage = pack?.assets?.idle?.trim()
+  idleImage.value =
+    resolvedIdleImage ||
+    (pack?.source === 'builtin' ? builtinPetAppearanceIdleImage(pack.id) : undefined) ||
+    fallbackIdleImage
 }
 
 onMounted(async () => {
@@ -81,12 +91,12 @@ onMounted(async () => {
   }
   try {
     const pack = await appBridge.catAppearance.current()
-    applyIdleAsset(pack.assets?.idle)
+    applyIdleAppearance(pack)
   } catch {
-    applyIdleAsset(undefined)
+    applyIdleAppearance(undefined)
   }
   appearanceUnsubscribe = appBridge.catAppearance.onChanged((event) => {
-    applyIdleAsset(event.current?.assets?.idle)
+    applyIdleAppearance(event.current)
   })
 })
 

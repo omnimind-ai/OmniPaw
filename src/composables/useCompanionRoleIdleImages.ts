@@ -1,11 +1,17 @@
+import { BUILTIN_CAT_APPEARANCE_PACK_ID } from '@shared/constants'
 import type { CatAppearanceResolvedPack } from '@shared/types/cat-appearance'
 import { type MaybeRefOrGetter, onBeforeUnmount, onMounted, shallowRef, toValue, watch } from 'vue'
 
-import builtinIdleImage from '@/asserts/cat/ic_cat_normal.png'
 import { appBridge, type BridgeUnsubscribe } from '@/bridge/app'
+import {
+  BUILTIN_PET_IDLE_IMAGE_BY_PACK_ID,
+  builtinPetAppearanceIdleImage,
+} from '@/utils/builtin-pet-appearance-assets'
 
 export function useCompanionRoleIdleImages(appearancePackIds: MaybeRefOrGetter<readonly string[]>) {
-  const idleImageByPackId = shallowRef<Record<string, string>>({ builtin: builtinIdleImage })
+  const idleImageByPackId = shallowRef<Record<string, string>>({
+    ...BUILTIN_PET_IDLE_IMAGE_BY_PACK_ID,
+  })
   let appearanceUnsubscribe: BridgeUnsubscribe | undefined
   let idleImageRequestId = 0
 
@@ -37,7 +43,11 @@ export function useCompanionRoleIdleImages(appearancePackIds: MaybeRefOrGetter<r
           const pack = await appBridge.catAppearance.getPack({ packId })
           return [packId, resolveIdleImage(pack)] as const
         } catch {
-          return [packId, builtinIdleImage] as const
+          return [
+            packId,
+            builtinPetAppearanceIdleImage(packId) ??
+              BUILTIN_PET_IDLE_IMAGE_BY_PACK_ID[BUILTIN_CAT_APPEARANCE_PACK_ID],
+          ] as const
         }
       })
     )
@@ -52,10 +62,18 @@ export function useCompanionRoleIdleImages(appearancePackIds: MaybeRefOrGetter<r
 }
 
 function normalizePackIds(packIds: readonly string[]): string[] {
-  return [...new Set(['builtin', ...packIds.map((packId) => packId.trim() || 'builtin')])].sort()
+  return [
+    ...new Set([
+      BUILTIN_CAT_APPEARANCE_PACK_ID,
+      ...packIds.map((packId) => packId.trim() || BUILTIN_CAT_APPEARANCE_PACK_ID),
+    ]),
+  ].sort()
 }
 
 function resolveIdleImage(pack: CatAppearanceResolvedPack): string {
-  if (pack.source === 'builtin') return builtinIdleImage
-  return pack.assets.idle || builtinIdleImage
+  const fallbackIdleImage =
+    builtinPetAppearanceIdleImage(pack.id) ??
+    BUILTIN_PET_IDLE_IMAGE_BY_PACK_ID[BUILTIN_CAT_APPEARANCE_PACK_ID]
+  if (pack.source === 'builtin') return fallbackIdleImage
+  return pack.assets.idle || fallbackIdleImage
 }

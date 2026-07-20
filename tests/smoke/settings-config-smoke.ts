@@ -115,6 +115,14 @@ try {
   assert.equal(xiaowanRole?.introduction, '你最好的桌面伙伴')
   assert.equal(xiaowanRole?.avatar?.source, 'appearance-idle')
 
+  const xiaozhiRole = cloneDefaultConfig().app.companionRoles[1]
+  assert.equal(xiaozhiRole?.id, 'xiaozhi')
+  assert.equal(xiaozhiRole?.name, '小智')
+  assert.equal(xiaozhiRole?.introduction, '活力满满的桌面搭档')
+  assert.equal(xiaozhiRole?.appearancePackId, 'builtin-dog')
+  assert.match(xiaozhiRole?.personality ?? '', /活泼/)
+  assert.equal(xiaozhiRole?.petGifts[0]?.image?.packagePath, 'presets/dog/gifts/squeaky-ball.png')
+
   const roleConfig = normalizeConfig({
     ...cloneDefaultConfig(),
     app: {

@@ -1,3 +1,4 @@
+import { BUILTIN_CAT_APPEARANCE_PACK_ID, BUILTIN_DOG_APPEARANCE_PACK_ID } from '@shared/constants'
 import type { OmniPawBridge } from '@shared/types/bridge'
 import type { CatDraftState, CatPanelPlacement, CatStatus, CatWindowState } from '@shared/types/cat'
 import type {
@@ -899,14 +900,20 @@ function fallbackCatStatus(extra: Partial<CatStatus> = {}): CatStatus {
   }
 }
 
-function fallbackCatAppearance(now = Date.now()): CatAppearanceResolvedPack {
+function fallbackCatAppearance(
+  now = Date.now(),
+  requestedPackId = BUILTIN_CAT_APPEARANCE_PACK_ID,
+  active = true
+): CatAppearanceResolvedPack {
+  const dog = requestedPackId === BUILTIN_DOG_APPEARANCE_PACK_ID
+  const packId = dog ? BUILTIN_DOG_APPEARANCE_PACK_ID : BUILTIN_CAT_APPEARANCE_PACK_ID
   return {
-    id: 'builtin',
-    name: 'OmniPaw Cat',
-    description: 'Built-in OmniPaw cat appearance.',
+    id: packId,
+    name: dog ? 'OmniPaw Dog' : 'OmniPaw Cat',
+    description: dog ? 'Built-in OmniPaw dog appearance.' : 'Built-in OmniPaw cat appearance.',
     source: 'builtin',
     status: 'available',
-    active: true,
+    active,
     assets: {},
     durations: {
       appearing: 1000,
@@ -920,7 +927,7 @@ function fallbackCatAppearance(now = Date.now()): CatAppearanceResolvedPack {
       offsetX: 0,
       offsetY: 0,
     },
-    version: 'builtin',
+    version: packId,
     updatedAt: now,
   }
 }
@@ -975,7 +982,7 @@ function fallbackCatAppearanceList(): CatAppearanceListResponse {
   const now = Date.now()
   const current = fallbackCatAppearance(now)
   return {
-    packs: [current],
+    packs: [current, fallbackCatAppearance(now, BUILTIN_DOG_APPEARANCE_PACK_ID, false)],
     current,
     activePackId: current.id,
     updatedAt: now,
@@ -1184,14 +1191,16 @@ const fallbackBridge: OmniPawBridge = {
   },
   catAppearance: {
     current: async () => fallbackCatAppearance(),
-    getPack: async () => fallbackCatAppearance(),
+    getPack: async (request) =>
+      fallbackCatAppearance(Date.now(), typeof request === 'string' ? request : request?.packId),
     list: async () => fallbackCatAppearanceList(),
     refresh: async () => fallbackCatAppearanceList(),
     importPack: () =>
       rejectFallbackPersistence<CatAppearanceImportResponse>('catAppearance.importPack'),
     deletePack: () =>
       rejectFallbackPersistence<CatAppearanceDeleteResponse>('catAppearance.deletePack'),
-    setActive: async () => fallbackCatAppearance(),
+    setActive: async (request) =>
+      fallbackCatAppearance(Date.now(), typeof request === 'string' ? request : request?.packId),
     onChanged: () => () => {},
   },
   catPanel: {
@@ -1704,13 +1713,47 @@ function fallbackCompanionRole(): BridgeDesktopSettingsConfig['app']['companionR
     avatar: {
       source: 'appearance-idle',
     },
-    appearancePackId: 'builtin',
+    appearancePackId: BUILTIN_CAT_APPEARANCE_PACK_ID,
     userNickname: '',
     personality: '温柔、可靠、带一点轻松感',
     speechStyle: '简短、自然、日常感',
     relationship: '桌面伙伴',
     background: '',
     proactiveStyle: '适度主动提醒，但不打扰用户专注。',
+    advanced: {
+      enabled: false,
+      systemPrompt: '',
+      exampleDialogue: '',
+      finalInstructions: '',
+    },
+    petInteractions: defaultCatPetInteractionConfigs(),
+    petGifts: defaultCatPetGiftConfigs(),
+    knowledgeSettings: {
+      scanDepth: 8,
+      maxTokens: 900,
+    },
+    knowledgeEntries: [],
+    source: undefined,
+    defaultProviderId: undefined,
+    defaultModelId: undefined,
+  }
+}
+
+function fallbackXiaozhiCompanionRole(): BridgeDesktopSettingsConfig['app']['companionRoles'][number] {
+  return {
+    id: 'xiaozhi',
+    name: '小智',
+    introduction: '活力满满的桌面搭档',
+    avatar: {
+      source: 'appearance-idle',
+    },
+    appearancePackId: BUILTIN_DOG_APPEARANCE_PACK_ID,
+    userNickname: '',
+    personality: '活泼、好奇、热情，像小狗一样元气十足',
+    speechStyle: '轻快、俏皮、简短，善于用积极回应带动气氛',
+    relationship: '元气桌面伙伴',
+    background: '',
+    proactiveStyle: '更主动地打招呼、鼓励和分享新发现；用户专注时会安静陪伴。',
     advanced: {
       enabled: false,
       systemPrompt: '',
@@ -1761,7 +1804,7 @@ function fallbackSettingsConfig(): BridgeDesktopSettingsConfig {
           text: '',
         },
       },
-      companionRoles: [fallbackCompanionRole()],
+      companionRoles: [fallbackCompanionRole(), fallbackXiaozhiCompanionRole()],
       activeCompanionRoleId: FALLBACK_COMPANION_ROLE_ID,
       background: {
         enabled: false,

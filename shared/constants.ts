@@ -2,6 +2,12 @@ export const APP_NAME = 'OmniPaw'
 export const APP_ID = 'com.omnipaw.desktop'
 export const CAT_APPEARANCE_ASSET_PROTOCOL = 'omnipaw-cat-asset'
 export const BACKGROUND_ASSET_PROTOCOL = 'omnipaw-background'
+export const BUILTIN_CAT_APPEARANCE_PACK_ID = 'builtin'
+export const BUILTIN_DOG_APPEARANCE_PACK_ID = 'builtin-dog'
+export const BUILTIN_APPEARANCE_PACK_IDS = [
+  BUILTIN_CAT_APPEARANCE_PACK_ID,
+  BUILTIN_DOG_APPEARANCE_PACK_ID,
+] as const
 
 export const SYSTEM_SESSION_IDS = {
   cron: 'cron-default',

@@ -7,9 +7,9 @@
 - MUST：每个本地资源包是 OmniPaw 数据根 `cat-appearances/` 下的独立目录，并包含根级 `manifest.json`。
 - MUST：`manifest.json` 是不超过 64 KiB 的 JSON object。
 - MUST：资源包至少提供 `assets.idle`；其他状态资源可选并由运行时回退。
-- MUST：资源包 ID 在规范化后非空且不等于保留 ID `builtin`。
+- MUST：资源包 ID 在规范化后非空且不等于内置保留 ID `builtin`、`builtin-dog`。
 - MUST：相同 ID 的本地包不得同时成为有效包。
-- MUST：内置包不可删除；删除当前本地包后必须回退到内置包。
+- MUST：内置包不可删除；删除当前本地包后必须回退到默认内置猫咪包。
 - MUST：显式选择状态优先于自动选择；未有显式选择且仅存在一个有效本地包时允许自动启用该包。
 
 ## Manifest 契约
