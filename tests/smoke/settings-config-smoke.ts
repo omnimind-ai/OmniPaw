@@ -1,11 +1,12 @@
 import assert from 'node:assert/strict'
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { CompanionRoleService } from '@core/role/package'
 import { ToolManagementService } from '../../core/agent/tools/management-service'
 import {
   ConfigValidationError,
+  CURRENT_SETTINGS_VERSION,
   cloneDefaultConfig,
   normalizeConfig,
 } from '../../core/config/schema'
@@ -122,6 +123,58 @@ try {
   assert.equal(xiaozhiRole?.appearancePackId, 'builtin-dog')
   assert.match(xiaozhiRole?.personality ?? '', /活泼/)
   assert.equal(xiaozhiRole?.petGifts[0]?.image?.packagePath, 'presets/dog/gifts/squeaky-ball.png')
+
+  const existingXiaowanRole = cloneDefaultConfig().app.companionRoles[0]
+  const legacyExistingRolesConfig = {
+    ...cloneDefaultConfig(),
+    version: 1,
+    app: {
+      ...cloneDefaultConfig().app,
+      companionRoles: [
+        existingXiaowanRole,
+        {
+          ...existingXiaowanRole,
+          id: 'existing-custom-role',
+          name: 'Existing Custom Role',
+        },
+      ],
+      activeCompanionRoleId: 'existing-custom-role',
+    },
+  }
+  const migratedExistingRoles = normalizeConfig(legacyExistingRolesConfig).config
+  assert.equal(migratedExistingRoles.version, CURRENT_SETTINGS_VERSION)
+  assert.equal(migratedExistingRoles.app.companionRoles.length, 3)
+  assert.equal(
+    migratedExistingRoles.app.companionRoles.some((role) => role.id === 'xiaozhi'),
+    true
+  )
+  assert.equal(migratedExistingRoles.app.activeCompanionRoleId, 'existing-custom-role')
+
+  const legacyConfigPath = join(tempDir, 'legacy-existing-roles.json')
+  writeFileSync(legacyConfigPath, JSON.stringify(legacyExistingRolesConfig), 'utf8')
+  const migratedStore = new ConfigStore({ configPath: legacyConfigPath })
+  const migratedFromDisk = migratedStore.load()
+  assert.equal(migratedFromDisk.version, CURRENT_SETTINGS_VERSION)
+  assert.equal(migratedFromDisk.app.activeCompanionRoleId, 'existing-custom-role')
+  assert.equal(
+    migratedFromDisk.app.companionRoles.some((role) => role.id === 'xiaozhi'),
+    true
+  )
+  assert.equal(JSON.parse(readFileSync(legacyConfigPath, 'utf8')).version, CURRENT_SETTINGS_VERSION)
+  assert.equal(migratedStore.status().backupExists, true)
+
+  const savedWithoutXiaozhi = normalizeConfig({
+    ...cloneDefaultConfig(),
+    app: {
+      ...cloneDefaultConfig().app,
+      companionRoles: [existingXiaowanRole],
+      activeCompanionRoleId: existingXiaowanRole?.id ?? 'default',
+    },
+  }).config
+  assert.equal(
+    savedWithoutXiaozhi.app.companionRoles.some((role) => role.id === 'xiaozhi'),
+    false
+  )
 
   const roleConfig = normalizeConfig({
     ...cloneDefaultConfig(),
@@ -462,7 +515,7 @@ try {
 
   const store = new ConfigStore({ appDataPath: tempDir })
   const firstLoad = store.load()
-  assert.equal(firstLoad.version, 1)
+  assert.equal(firstLoad.version, CURRENT_SETTINGS_VERSION)
   assert.equal(store.status().exists, true)
 
   firstLoad.app.theme = 'light'

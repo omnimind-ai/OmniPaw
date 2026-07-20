@@ -2,9 +2,11 @@ import { redactSensitiveText } from '@core/logging/redaction'
 import {
   CAT_PET_ACTIONS,
   createDefaultCompanionRolePresets,
+  createXiaozhiCompanionRolePreset,
   isPresetCatPetAction as isCatPetAction,
   normalizePetGiftConfigs as normalizeCatPetGiftConfigs,
   normalizePetInteractionConfigs as normalizeCatPetInteractionConfigs,
+  XIAOZHI_COMPANION_ROLE_ID,
 } from '@core/role/presets'
 import type { ContextAttachmentPolicy, ToolProfile } from '@shared/types/chat'
 import {
@@ -20,19 +22,21 @@ import type {
   LocalNetworkPolicy,
   WorkspaceRootStrategy,
 } from '@shared/types/local-agent'
-import type {
-  DesktopAppBackgroundImage,
-  DesktopCompanionRoleSettings,
-  DesktopObservationSettings,
-  DesktopProviderModel,
-  DesktopProviderSource,
-  DesktopSettingsConfig,
-  SettingsOperationError,
-  SettingsValidationIssue,
+import {
+  CURRENT_DESKTOP_SETTINGS_VERSION,
+  type DesktopAppBackgroundImage,
+  type DesktopCompanionRoleSettings,
+  type DesktopObservationSettings,
+  type DesktopProviderModel,
+  type DesktopProviderSource,
+  type DesktopSettingsConfig,
+  type SettingsOperationError,
+  type SettingsValidationIssue,
 } from '@shared/types/settings'
 import { type DesktopShortcutSettings, SHORTCUT_ACTIONS } from '@shared/types/shortcuts'
 
-export const CURRENT_SETTINGS_VERSION = 1
+export const CURRENT_SETTINGS_VERSION = CURRENT_DESKTOP_SETTINGS_VERSION
+const XIAOZHI_COMPANION_ROLE_MIGRATION_VERSION = 2
 
 const now = 0
 const defaultProviderSource: DesktopProviderSource = {
@@ -349,8 +353,8 @@ function migrateConfig(raw: unknown): unknown {
     throwValidationError([{ path: '', message: 'Config must be an object.', code: 'invalid_type' }])
   }
 
-  const migrated = migrateCompanionRoleCollection(migrateInitializedFlag(raw))
-  const version = typeof migrated.version === 'number' ? migrated.version : CURRENT_SETTINGS_VERSION
+  let migrated = migrateCompanionRoleCollection(migrateInitializedFlag(raw))
+  const version = typeof migrated.version === 'number' ? migrated.version : 0
   if (version > CURRENT_SETTINGS_VERSION) {
     throw new ConfigValidationError(
       configError(
@@ -370,6 +374,10 @@ function migrateConfig(raw: unknown): unknown {
     )
   }
 
+  if (version < XIAOZHI_COMPANION_ROLE_MIGRATION_VERSION) {
+    migrated = migrateXiaozhiCompanionRole(migrated)
+  }
+
   if (version < CURRENT_SETTINGS_VERSION) {
     return {
       ...migrated,
@@ -378,6 +386,31 @@ function migrateConfig(raw: unknown): unknown {
   }
 
   return migrated
+}
+
+function migrateXiaozhiCompanionRole(raw: Record<string, unknown>): Record<string, unknown> {
+  const app = raw.app
+  if (!isPlainObject(app) || !Array.isArray(app.companionRoles) || !app.companionRoles.length) {
+    return raw
+  }
+
+  const hasXiaozhi = app.companionRoles.some(
+    (role) =>
+      isPlainObject(role) &&
+      typeof role.id === 'string' &&
+      role.id.trim() === XIAOZHI_COMPANION_ROLE_ID
+  )
+  if (hasXiaozhi) {
+    return raw
+  }
+
+  return {
+    ...raw,
+    app: {
+      ...app,
+      companionRoles: [...app.companionRoles, createXiaozhiCompanionRolePreset()],
+    },
+  }
 }
 
 function migrateInitializedFlag(raw: Record<string, unknown>): Record<string, unknown> {

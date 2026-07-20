@@ -17,7 +17,8 @@ import type {
 } from './provider'
 import type { DesktopShortcutSettings } from './shortcuts'
 
-export type DesktopSettingsVersion = 1
+export const CURRENT_DESKTOP_SETTINGS_VERSION = 2 as const
+export type DesktopSettingsVersion = typeof CURRENT_DESKTOP_SETTINGS_VERSION
 export type AppTheme = 'system' | 'light' | 'dark'
 export type AppLanguage = 'zh-CN' | 'en-US' | 'system'
 export type SettingsChangeReason = 'load' | 'save' | 'reset'

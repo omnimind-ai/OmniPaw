@@ -64,7 +64,10 @@ import type {
   PickLocalGgufResponse,
   PickOmniInferInstallDirResponse,
 } from '@shared/types/omniinfer'
-import type { DesktopCompanionRoleSettings } from '@shared/types/settings'
+import {
+  CURRENT_DESKTOP_SETTINGS_VERSION,
+  type DesktopCompanionRoleSettings,
+} from '@shared/types/settings'
 import type { DesktopShortcutSettings, ShortcutStatusChangedEvent } from '@shared/types/shortcuts'
 import { SHORTCUT_ACTIONS } from '@shared/types/shortcuts'
 import type { SkillReadResult } from '@shared/types/skill'
@@ -153,7 +156,7 @@ export interface BridgeContextUsageMetadata {
 }
 
 export interface BridgeDesktopSettingsConfig {
-  version: 1
+  version: typeof CURRENT_DESKTOP_SETTINGS_VERSION
   app: {
     language: BridgeAppLanguage
     theme: BridgeAppTheme
@@ -238,7 +241,7 @@ export interface BridgeDesktopSettingsStatus {
   exists: boolean
   backupExists: boolean
   loaded: boolean
-  version?: 1
+  version?: typeof CURRENT_DESKTOP_SETTINGS_VERSION
   recoverable: boolean
   error?: BridgeSettingsOperationError
 }
@@ -1298,7 +1301,7 @@ const fallbackBridge: OmniPawBridge = {
       exists: false,
       backupExists: false,
       loaded: true,
-      version: 1,
+      version: CURRENT_DESKTOP_SETTINGS_VERSION,
       recoverable: false,
     }),
     onChanged: () => () => {},
@@ -1775,7 +1778,7 @@ function fallbackXiaozhiCompanionRole(): BridgeDesktopSettingsConfig['app']['com
 
 function fallbackSettingsConfig(): BridgeDesktopSettingsConfig {
   return {
-    version: 1,
+    version: CURRENT_DESKTOP_SETTINGS_VERSION,
     app: {
       language: 'system',
       theme: 'system',
