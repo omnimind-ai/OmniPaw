@@ -1,12 +1,14 @@
 import { redactSensitiveText } from '@core/logging/redaction'
 import {
+  BUILTIN_COMPANION_ROLE_PRESET_CATALOG,
   CAT_PET_ACTIONS,
-  createDefaultCompanionRolePresets,
-  createXiaozhiCompanionRolePreset,
+  createBuiltinCompanionRolePreset,
+  createBuiltinCompanionRolePresets,
+  createDefaultActiveCompanionRolePreset,
+  DEFAULT_ACTIVE_COMPANION_ROLE_ID,
   isPresetCatPetAction as isCatPetAction,
   normalizePetGiftConfigs as normalizeCatPetGiftConfigs,
   normalizePetInteractionConfigs as normalizeCatPetInteractionConfigs,
-  XIAOZHI_COMPANION_ROLE_ID,
 } from '@core/role/presets'
 import type { ContextAttachmentPolicy, ToolProfile } from '@shared/types/chat'
 import {
@@ -36,7 +38,7 @@ import {
 import { type DesktopShortcutSettings, SHORTCUT_ACTIONS } from '@shared/types/shortcuts'
 
 export const CURRENT_SETTINGS_VERSION = CURRENT_DESKTOP_SETTINGS_VERSION
-const XIAOZHI_COMPANION_ROLE_MIGRATION_VERSION = 2
+const LEGACY_SETTINGS_VERSION = 1
 
 const now = 0
 const defaultProviderSource: DesktopProviderSource = {
@@ -71,8 +73,8 @@ const defaultProviderModel: DesktopProviderModel = {
   updatedAt: now,
 }
 
-const defaultCompanionRoles = createDefaultCompanionRolePresets()
-const defaultCompanionRole = defaultCompanionRoles[0]
+const defaultCompanionRoles = createBuiltinCompanionRolePresets()
+const defaultCompanionRole = createDefaultActiveCompanionRolePreset()
 
 export const defaultConfig: DesktopSettingsConfig = {
   version: CURRENT_SETTINGS_VERSION,
@@ -118,7 +120,7 @@ export const defaultConfig: DesktopSettingsConfig = {
       },
     },
     companionRoles: defaultCompanionRoles,
-    activeCompanionRoleId: defaultCompanionRole.id,
+    activeCompanionRoleId: DEFAULT_ACTIVE_COMPANION_ROLE_ID,
     background: {
       enabled: false,
       opacity: 0.35,
@@ -354,7 +356,7 @@ function migrateConfig(raw: unknown): unknown {
   }
 
   let migrated = migrateCompanionRoleCollection(migrateInitializedFlag(raw))
-  const version = typeof migrated.version === 'number' ? migrated.version : 0
+  const version = typeof migrated.version === 'number' ? migrated.version : LEGACY_SETTINGS_VERSION
   if (version > CURRENT_SETTINGS_VERSION) {
     throw new ConfigValidationError(
       configError(
@@ -374,9 +376,7 @@ function migrateConfig(raw: unknown): unknown {
     )
   }
 
-  if (version < XIAOZHI_COMPANION_ROLE_MIGRATION_VERSION) {
-    migrated = migrateXiaozhiCompanionRole(migrated)
-  }
+  migrated = installBuiltinCompanionRolePresets(migrated, version)
 
   if (version < CURRENT_SETTINGS_VERSION) {
     return {
@@ -388,19 +388,27 @@ function migrateConfig(raw: unknown): unknown {
   return migrated
 }
 
-function migrateXiaozhiCompanionRole(raw: Record<string, unknown>): Record<string, unknown> {
+function installBuiltinCompanionRolePresets(
+  raw: Record<string, unknown>,
+  fromVersion: number
+): Record<string, unknown> {
   const app = raw.app
   if (!isPlainObject(app) || !Array.isArray(app.companionRoles) || !app.companionRoles.length) {
     return raw
   }
 
-  const hasXiaozhi = app.companionRoles.some(
-    (role) =>
-      isPlainObject(role) &&
-      typeof role.id === 'string' &&
-      role.id.trim() === XIAOZHI_COMPANION_ROLE_ID
+  const existingRoleIds = new Set(
+    app.companionRoles.flatMap((role) =>
+      isPlainObject(role) && typeof role.id === 'string' && role.id.trim() ? [role.id.trim()] : []
+    )
   )
-  if (hasXiaozhi) {
+  const introducedPresets = BUILTIN_COMPANION_ROLE_PRESET_CATALOG.filter(
+    (preset) =>
+      preset.introducedInSettingsVersion > fromVersion &&
+      preset.introducedInSettingsVersion <= CURRENT_SETTINGS_VERSION &&
+      !existingRoleIds.has(preset.id)
+  )
+  if (!introducedPresets.length) {
     return raw
   }
 
@@ -408,7 +416,10 @@ function migrateXiaozhiCompanionRole(raw: Record<string, unknown>): Record<strin
     ...raw,
     app: {
       ...app,
-      companionRoles: [...app.companionRoles, createXiaozhiCompanionRolePreset()],
+      companionRoles: [
+        ...app.companionRoles,
+        ...introducedPresets.map((preset) => preset.create()),
+      ],
     },
   }
 }
@@ -440,7 +451,7 @@ function migrateCompanionRoleCollection(raw: Record<string, unknown>): Record<st
   }
 
   const migratedRole = {
-    id: 'default',
+    id: DEFAULT_ACTIVE_COMPANION_ROLE_ID,
     ...legacyRole,
   }
 
@@ -2514,28 +2525,31 @@ function normalizeCompanionRoleSettings(
   rawValue: unknown,
   index = 0
 ): DesktopCompanionRoleSettings {
-  const defaults = defaultCompanionRole
   if (!isPlainObject(rawValue)) {
     return {
-      ...(cloneUnknown(defaults) as DesktopCompanionRoleSettings),
-      id: index === 0 ? defaults.id : `role-${index + 1}`,
+      ...(cloneUnknown(defaultCompanionRole) as DesktopCompanionRoleSettings),
+      id: index === 0 ? defaultCompanionRole.id : `role-${index + 1}`,
     }
   }
 
-  const isDefaultRole = typeof rawValue.id === 'string' ? rawValue.id === defaults.id : index === 0
+  const id =
+    typeof rawValue.id === 'string' && rawValue.id.trim()
+      ? rawValue.id
+      : index === 0
+        ? defaultCompanionRole.id
+        : `role-${index + 1}`
+  const builtinDefaults = createBuiltinCompanionRolePreset(id.trim())
+  const defaults = builtinDefaults ?? defaultCompanionRole
+  const rawPetInteractions = rawValue.petInteractions ?? rawValue.customInteractions
+  const rawPetGifts = rawValue.petGifts ?? rawValue.gifts
 
   return {
-    id:
-      typeof rawValue.id === 'string' && rawValue.id.trim()
-        ? rawValue.id
-        : index === 0
-          ? defaults.id
-          : `role-${index + 1}`,
+    id,
     name: typeof rawValue.name === 'string' ? rawValue.name : defaults.name,
     introduction:
       typeof rawValue.introduction === 'string'
         ? rawValue.introduction
-        : isDefaultRole
+        : builtinDefaults
           ? defaults.introduction
           : '',
     avatar:
@@ -2558,29 +2572,36 @@ function normalizeCompanionRoleSettings(
       typeof rawValue.proactiveStyle === 'string'
         ? rawValue.proactiveStyle
         : defaults.proactiveStyle,
-    advanced: normalizeCompanionRoleAdvancedSettings(rawValue.advanced),
-    petInteractions: normalizeCatPetInteractionConfigs(
-      rawValue.petInteractions ?? rawValue.customInteractions
+    advanced: normalizeCompanionRoleAdvancedSettings(rawValue.advanced, defaults.advanced),
+    petInteractions: normalizeCompanionRolePetInteractions(
+      rawPetInteractions,
+      defaults.petInteractions
     ),
-    petGifts: normalizeCatPetGiftConfigs(rawValue.petGifts ?? rawValue.gifts),
-    knowledgeSettings: normalizeCompanionRoleKnowledgeSettings(rawValue.knowledgeSettings),
-    knowledgeEntries: normalizeCompanionRoleKnowledgeEntries(rawValue.knowledgeEntries),
+    petGifts: normalizeCompanionRolePetGifts(rawPetGifts, defaults.petGifts),
+    knowledgeSettings: normalizeCompanionRoleKnowledgeSettings(
+      rawValue.knowledgeSettings,
+      defaults.knowledgeSettings
+    ),
+    knowledgeEntries:
+      rawValue.knowledgeEntries === undefined
+        ? (cloneUnknown(defaults.knowledgeEntries) as CompanionRoleKnowledgeEntry[])
+        : normalizeCompanionRoleKnowledgeEntries(rawValue.knowledgeEntries),
     source: normalizeCompanionRoleSource(rawValue.source),
     defaultProviderId:
       typeof rawValue.defaultProviderId === 'string' && rawValue.defaultProviderId.trim()
         ? rawValue.defaultProviderId
-        : undefined,
+        : defaults.defaultProviderId,
     defaultModelId:
       typeof rawValue.defaultModelId === 'string' && rawValue.defaultModelId.trim()
         ? rawValue.defaultModelId
-        : undefined,
+        : defaults.defaultModelId,
   }
 }
 
 function normalizeCompanionRoleKnowledgeSettings(
-  rawValue: unknown
+  rawValue: unknown,
+  defaults: DesktopCompanionRoleSettings['knowledgeSettings']
 ): DesktopCompanionRoleSettings['knowledgeSettings'] {
-  const defaults = defaultCompanionRole.knowledgeSettings
   if (!isPlainObject(rawValue)) {
     return { ...defaults }
   }
@@ -2589,6 +2610,23 @@ function normalizeCompanionRoleKnowledgeSettings(
     scanDepth: normalizeInteger(rawValue.scanDepth, defaults.scanDepth, 1, 40),
     maxTokens: normalizeInteger(rawValue.maxTokens, defaults.maxTokens, 200, 8000),
   }
+}
+
+function normalizeCompanionRolePetInteractions(
+  rawValue: unknown,
+  defaults: DesktopCompanionRoleSettings['petInteractions']
+): DesktopCompanionRoleSettings['petInteractions'] {
+  return normalizeCatPetInteractionConfigs([
+    ...defaults,
+    ...(Array.isArray(rawValue) ? rawValue : []),
+  ])
+}
+
+function normalizeCompanionRolePetGifts(
+  rawValue: unknown,
+  defaults: DesktopCompanionRoleSettings['petGifts']
+): DesktopCompanionRoleSettings['petGifts'] {
+  return normalizeCatPetGiftConfigs([...defaults, ...(Array.isArray(rawValue) ? rawValue : [])])
 }
 
 function normalizeCompanionRoleKnowledgeEntries(rawValue: unknown): CompanionRoleKnowledgeEntry[] {
@@ -2683,9 +2721,9 @@ function normalizeCompanionRoleSource(rawValue: unknown): CompanionRoleSourceMet
 }
 
 function normalizeCompanionRoleAdvancedSettings(
-  rawValue: unknown
+  rawValue: unknown,
+  defaults: DesktopCompanionRoleSettings['advanced']
 ): DesktopCompanionRoleSettings['advanced'] {
-  const defaults = defaultCompanionRole.advanced
   if (!isPlainObject(rawValue)) {
     return cloneUnknown(defaults) as DesktopCompanionRoleSettings['advanced']
   }

@@ -73,7 +73,7 @@ import { SHORTCUT_ACTIONS } from '@shared/types/shortcuts'
 import type { SkillReadResult } from '@shared/types/skill'
 import type { DesktopWindowState, DesktopWindowStateChangedEvent } from '@shared/types/window'
 
-const FALLBACK_COMPANION_ROLE_ID = 'default'
+const FALLBACK_COMPANION_ROLE_ID = 'fallback-preview'
 
 export type BridgeUnsubscribe = () => void
 export type BridgeChatRun = ChatRun
@@ -1708,55 +1708,21 @@ function fallbackShortcutStatus(): BridgeShortcutStatusChangedEvent {
   }
 }
 
-function fallbackCompanionRole(): BridgeDesktopSettingsConfig['app']['companionRoles'][number] {
+function createFallbackCompanionRole(): BridgeDesktopSettingsConfig['app']['companionRoles'][number] {
   return {
     id: FALLBACK_COMPANION_ROLE_ID,
-    name: '小万',
-    introduction: '你最好的桌面伙伴',
+    name: '桌面伙伴',
+    introduction: '非 Electron 环境的预览角色',
     avatar: {
       source: 'appearance-idle',
     },
     appearancePackId: BUILTIN_CAT_APPEARANCE_PACK_ID,
     userNickname: '',
-    personality: '温柔、可靠、带一点轻松感',
-    speechStyle: '简短、自然、日常感',
+    personality: '',
+    speechStyle: '',
     relationship: '桌面伙伴',
     background: '',
-    proactiveStyle: '适度主动提醒，但不打扰用户专注。',
-    advanced: {
-      enabled: false,
-      systemPrompt: '',
-      exampleDialogue: '',
-      finalInstructions: '',
-    },
-    petInteractions: defaultCatPetInteractionConfigs(),
-    petGifts: defaultCatPetGiftConfigs(),
-    knowledgeSettings: {
-      scanDepth: 8,
-      maxTokens: 900,
-    },
-    knowledgeEntries: [],
-    source: undefined,
-    defaultProviderId: undefined,
-    defaultModelId: undefined,
-  }
-}
-
-function fallbackXiaozhiCompanionRole(): BridgeDesktopSettingsConfig['app']['companionRoles'][number] {
-  return {
-    id: 'xiaozhi',
-    name: '小智',
-    introduction: '活力满满的桌面搭档',
-    avatar: {
-      source: 'appearance-idle',
-    },
-    appearancePackId: BUILTIN_DOG_APPEARANCE_PACK_ID,
-    userNickname: '',
-    personality: '活泼、好奇、热情，像小狗一样元气十足',
-    speechStyle: '轻快、俏皮、简短，善于用积极回应带动气氛',
-    relationship: '元气桌面伙伴',
-    background: '',
-    proactiveStyle: '更主动地打招呼、鼓励和分享新发现；用户专注时会安静陪伴。',
+    proactiveStyle: '',
     advanced: {
       enabled: false,
       systemPrompt: '',
@@ -1807,7 +1773,7 @@ function fallbackSettingsConfig(): BridgeDesktopSettingsConfig {
           text: '',
         },
       },
-      companionRoles: [fallbackCompanionRole(), fallbackXiaozhiCompanionRole()],
+      companionRoles: [createFallbackCompanionRole()],
       activeCompanionRoleId: FALLBACK_COMPANION_ROLE_ID,
       background: {
         enabled: false,

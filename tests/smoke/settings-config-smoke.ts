@@ -3,6 +3,11 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { CompanionRoleService } from '@core/role/package'
+import {
+  BUILTIN_COMPANION_ROLE_PRESET_CATALOG,
+  createBuiltinCompanionRolePresets,
+  DEFAULT_ACTIVE_COMPANION_ROLE_ID,
+} from '@core/role/presets'
 import { ToolManagementService } from '../../core/agent/tools/management-service'
 import {
   ConfigValidationError,
@@ -112,6 +117,28 @@ try {
   assert.equal(normalized.observation.consecutiveFailureLimit, 4)
   assert.equal(normalized.observation.notificationCooldownMs, 45_000)
 
+  const builtinPresetIds = BUILTIN_COMPANION_ROLE_PRESET_CATALOG.map((preset) => preset.id)
+  assert.deepEqual(builtinPresetIds, ['default', 'xiaozhi'])
+  assert.equal(new Set(builtinPresetIds).size, builtinPresetIds.length)
+  assert.equal(
+    BUILTIN_COMPANION_ROLE_PRESET_CATALOG.every(
+      (preset) => preset.introducedInSettingsVersion <= CURRENT_SETTINGS_VERSION
+    ),
+    true
+  )
+  assert.equal(DEFAULT_ACTIVE_COMPANION_ROLE_ID, 'default')
+  assert.deepEqual(
+    BUILTIN_COMPANION_ROLE_PRESET_CATALOG.filter(
+      (preset) => preset.introducedInSettingsVersion > 1
+    ).map((preset) => preset.id),
+    ['xiaozhi']
+  )
+  assert.notEqual(
+    createBuiltinCompanionRolePresets()[0],
+    createBuiltinCompanionRolePresets()[0],
+    'builtin role factories must return independent role instances'
+  )
+
   const xiaowanRole = cloneDefaultConfig().app.companionRoles[0]
   assert.equal(xiaowanRole?.introduction, '你最好的桌面伙伴')
   assert.equal(xiaowanRole?.avatar?.source, 'appearance-idle')
@@ -123,6 +150,23 @@ try {
   assert.equal(xiaozhiRole?.appearancePackId, 'builtin-dog')
   assert.match(xiaozhiRole?.personality ?? '', /活泼/)
   assert.equal(xiaozhiRole?.petGifts[0]?.image?.packagePath, 'presets/dog/gifts/squeaky-ball.png')
+
+  const normalizedPartialXiaozhi = normalizeConfig({
+    ...cloneDefaultConfig(),
+    app: {
+      ...cloneDefaultConfig().app,
+      companionRoles: [{ id: 'xiaozhi' }],
+      activeCompanionRoleId: 'xiaozhi',
+    },
+  }).config.app.companionRoles[0]
+  assert.equal(normalizedPartialXiaozhi?.name, '小智')
+  assert.equal(normalizedPartialXiaozhi?.appearancePackId, 'builtin-dog')
+  assert.match(normalizedPartialXiaozhi?.personality ?? '', /活泼/)
+  assert.equal(normalizedPartialXiaozhi?.petInteractions[0]?.label, '摸摸')
+  assert.equal(
+    normalizedPartialXiaozhi?.petGifts[0]?.image?.packagePath,
+    'presets/dog/gifts/squeaky-ball.png'
+  )
 
   const existingXiaowanRole = cloneDefaultConfig().app.companionRoles[0]
   const legacyExistingRolesConfig = {
@@ -168,7 +212,7 @@ try {
     app: {
       ...cloneDefaultConfig().app,
       companionRoles: [existingXiaowanRole],
-      activeCompanionRoleId: existingXiaowanRole?.id ?? 'default',
+      activeCompanionRoleId: existingXiaowanRole?.id ?? DEFAULT_ACTIVE_COMPANION_ROLE_ID,
     },
   }).config
   assert.equal(
