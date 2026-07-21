@@ -384,7 +384,7 @@ function confirmDeleteRole(): void {
                 <Input
                   id="settings-companion-role-personality"
                   v-model="editableRole.personality"
-                  class="w-full md:w-96"
+                  class="w-full md:w-72"
                   :placeholder="t('settings.catAppearance.role.fields.personality.placeholder')"
                 />
               </SettingEntry>
@@ -450,7 +450,6 @@ function confirmDeleteRole(): void {
       >
         <CompanionRoleMemoryPanel
           :role-id="editableRole.id"
-          :role-name="editableRole.name || t('settings.catAppearance.role.unnamed')"
         />
       </TabsContent>
 

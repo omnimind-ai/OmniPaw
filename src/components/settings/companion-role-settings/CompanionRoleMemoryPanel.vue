@@ -18,7 +18,6 @@ import { errorToText, useToast } from '@/utils/toast'
 
 const props = defineProps<{
   roleId: string
-  roleName: string
 }>()
 
 const { t } = useI18n()
@@ -208,9 +207,9 @@ function toggleIncludeInactive(): void {
       :show-skeleton="showMemoryListSkeleton"
       :include-inactive="includeInactive"
       :confirm-delete-memory-id="confirmDeleteMemoryId"
-      :title="t('settings.memory.rolePanelTitle', { name: roleName })"
+      :title="t('settings.memory.rolePanelTitle')"
       :empty-title="t('settings.memory.roleEmptyTitle')"
-      :empty-hint="t('settings.memory.roleEmptyHint')"
+      hide-empty-hint
       :show-policy="false"
       @create="openCreateMemory"
       @detail="openMemoryDetail"

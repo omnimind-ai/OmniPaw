@@ -418,8 +418,6 @@ export default {
           noSearchMatchHint: 'Try another title, content phrase, or trigger keyword.',
           clearSearch: 'Clear search',
           empty: 'No character knowledge yet.',
-          emptyHint:
-            'Add knowledge to manage trigger rules, enabled state, and injection budgets here.',
           newTitle: 'New knowledge',
           untitled: 'Untitled knowledge',
           order: 'Order {index}',
@@ -698,13 +696,12 @@ export default {
       commonPanelTitle: 'Shared Memory',
       commonPanelDescription:
         'These memories are available to every character and are best for durable facts and preferences about the user.',
-      rolePanelTitle: '{name} Memory',
+      rolePanelTitle: 'Character Memory',
       rolePanelDescription:
         'These memories belong only to the current character, such as private nicknames, promises, and relationship progress.',
       commonEmptyTitle: 'No shared memories yet',
       commonEmptyHint: 'After creating one, every character can use it in context.',
       roleEmptyTitle: 'No character memories yet',
-      roleEmptyHint: 'After creating one, only the current character will read it.',
       searchLabel: 'Search memories',
       searchPlaceholder: 'Search memory content',
       clearSearchLabel: 'Clear memory search',

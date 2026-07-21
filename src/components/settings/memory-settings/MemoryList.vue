@@ -40,6 +40,7 @@ const props = defineProps<{
   showPolicy?: boolean
   emptyTitle?: string
   emptyHint?: string
+  hideEmptyHint?: boolean
   class?: HTMLAttributes['class']
 }>()
 
@@ -149,7 +150,7 @@ const emit = defineEmits<{
           <BrainIcon class="size-8 opacity-50" />
           <div class="flex flex-col gap-1">
             <p class="font-medium text-foreground">{{ props.emptyTitle ?? t('settings.memory.list.emptyTitle') }}</p>
-            <p>{{ props.emptyHint ?? t('settings.memory.list.emptyHint') }}</p>
+            <p v-if="!props.hideEmptyHint">{{ props.emptyHint ?? t('settings.memory.list.emptyHint') }}</p>
           </div>
           <Button
             type="button"

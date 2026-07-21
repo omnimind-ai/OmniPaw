@@ -241,7 +241,6 @@ function createRoleKnowledgeId(index: number): string {
               <p class="font-medium text-foreground">
                 {{ t('settings.catAppearance.role.knowledge.empty') }}
               </p>
-              <p>{{ t('settings.catAppearance.role.knowledge.emptyHint') }}</p>
             </div>
             <Button
               type="button"
