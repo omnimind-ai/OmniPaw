@@ -27,6 +27,9 @@
   --color-prompt-slate: var(--prompt-slate);
   --color-prompt-violet: var(--prompt-violet);
   --color-prompt-blue: var(--prompt-blue);
+  --color-model-capability-streaming: var(--model-capability-streaming);
+  --color-model-capability-tools: var(--model-capability-tools);
+  --color-model-capability-reasoning: var(--model-capability-reasoning);
   --color-ring: var(--ring);
   --color-input: var(--input);
   --color-border: var(--border);
@@ -80,6 +83,9 @@
   --prompt-slate: oklch(0.57 0.06 250);
   --prompt-teal: oklch(0.66 0.12 190);
   --prompt-amber: oklch(0.72 0.14 75);
+  --model-capability-streaming: oklch(0.58 0.14 160);
+  --model-capability-tools: oklch(0.64 0.16 55);
+  --model-capability-reasoning: oklch(0.58 0.17 275);
   --radius: 0.625rem;
   --sidebar: oklch(0.985 0 0);
   --sidebar-foreground: oklch(0.145 0 0);
@@ -123,6 +129,9 @@
   --chart-3: oklch(0.439 0 0);
   --chart-4: oklch(0.371 0 0);
   --chart-5: oklch(0.269 0 0);
+  --model-capability-streaming: oklch(0.75 0.14 160);
+  --model-capability-tools: oklch(0.78 0.14 65);
+  --model-capability-reasoning: oklch(0.74 0.15 275);
   --sidebar: oklch(0.205 0 0);
   --sidebar-foreground: oklch(0.985 0 0);
   --sidebar-primary: oklch(0.488 0.243 264.376);

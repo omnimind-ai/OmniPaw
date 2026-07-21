@@ -1,5 +1,12 @@
 <script setup lang="ts">
-import { ChevronDownIcon, Trash2Icon } from '@lucide/vue'
+import {
+  BrainCircuitIcon,
+  ChevronDownIcon,
+  RadioTowerIcon,
+  Trash2Icon,
+  WrenchIcon,
+} from '@lucide/vue'
+import type { Component } from 'vue'
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 
@@ -10,6 +17,8 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/component
 import { Field, FieldGroup, FieldLabel, FieldLegend, FieldSet } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import { cn } from '@/lib/utils'
 import type { ModelInput, ProviderModelDraft } from './types'
 
 const { t } = useI18n()
@@ -29,12 +38,36 @@ const emit = defineEmits<{
 
 const modelInputs: ModelInput[] = ['text', 'image', 'audio', 'file']
 
-const capabilityBadges = computed(() =>
+interface CapabilityBadge {
+  key: 'streaming' | 'tools' | 'reasoning'
+  label: string
+  icon: Component
+  toneClass: string
+}
+
+const capabilityBadges = computed<CapabilityBadge[]>(() =>
   [
-    props.model.supportsStreaming && t('settings.provider.models.item.streaming'),
-    props.model.supportsTools && t('settings.provider.models.item.tools'),
-    props.model.supportsReasoning && t('settings.provider.models.item.reasoning'),
-  ].filter((value): value is string => Boolean(value))
+    props.model.supportsStreaming && {
+      key: 'streaming' as const,
+      label: t('settings.provider.models.item.streaming'),
+      icon: RadioTowerIcon,
+      toneClass:
+        'border-transparent bg-model-capability-streaming/15 text-model-capability-streaming',
+    },
+    props.model.supportsTools && {
+      key: 'tools' as const,
+      label: t('settings.provider.models.item.tools'),
+      icon: WrenchIcon,
+      toneClass: 'border-transparent bg-model-capability-tools/15 text-model-capability-tools',
+    },
+    props.model.supportsReasoning && {
+      key: 'reasoning' as const,
+      label: t('settings.provider.models.item.reasoning'),
+      icon: BrainCircuitIcon,
+      toneClass:
+        'border-transparent bg-model-capability-reasoning/15 text-model-capability-reasoning',
+    },
+  ].filter((value): value is CapabilityBadge => Boolean(value))
 )
 
 function isModelInputChecked(input: ModelInput) {
@@ -63,12 +96,6 @@ function isModelInputChecked(input: ModelInput) {
               <span class="truncate text-sm font-medium">
                 {{ model.name || model.remoteId || t('settings.provider.models.item.unnamed') }}
               </span>
-              <Badge
-                v-if="model.enabled === false"
-                variant="outline"
-              >
-                {{ t('settings.provider.models.item.disabled') }}
-              </Badge>
             </span>
             <span
               v-if="model.remoteId"
@@ -76,24 +103,42 @@ function isModelInputChecked(input: ModelInput) {
             >
               {{ model.remoteId }}
             </span>
-            <div
-              v-if="capabilityBadges.length"
-              class="mt-2 flex flex-wrap items-center gap-2"
-            >
-              <Badge
-                v-for="badge in capabilityBadges"
-                :key="badge"
-                variant="outline"
-                class="text-[11px]"
-              >
-                {{ badge }}
-              </Badge>
-            </div>
           </span>
         </button>
       </CollapsibleTrigger>
 
       <div class="flex shrink-0 items-center gap-2 pt-0.5">
+        <TooltipProvider
+          v-if="capabilityBadges.length"
+          :delay-duration="120"
+        >
+          <div class="flex items-center gap-1">
+            <Tooltip
+              v-for="capability in capabilityBadges"
+              :key="capability.key"
+            >
+              <TooltipTrigger as-child>
+                <Badge
+                  as="span"
+                  variant="outline"
+                  role="img"
+                  tabindex="0"
+                  :aria-label="capability.label"
+                  :class="cn('size-6 rounded-full p-0', capability.toneClass)"
+                >
+                  <component
+                    :is="capability.icon"
+                    aria-hidden="true"
+                  />
+                </Badge>
+              </TooltipTrigger>
+              <TooltipContent side="bottom">
+                {{ capability.label }}
+              </TooltipContent>
+            </Tooltip>
+          </div>
+        </TooltipProvider>
+
         <Switch
           :id="`model-enabled-${index}`"
           v-model="model.enabled"

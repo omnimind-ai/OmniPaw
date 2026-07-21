@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import {
   AlertCircleIcon,
+  AlertTriangleIcon,
   GlobeIcon,
   PencilIcon,
   PlusIcon,
@@ -275,7 +276,8 @@ function clearSearch() {
                 :key="server.id"
                 :title="server.name"
                 :description="transportTarget(server.transport)"
-                :icon="transportIcon(server.transport)"
+                :icon="server.error ? AlertTriangleIcon : transportIcon(server.transport)"
+                :avatar-class="server.error ? 'bg-destructive/10 text-destructive' : undefined"
                 :pending="isServerPending(server.id)"
                 interactive
                 :activation-label="t('settings.mcpServer.tools.viewDetails', { name: server.name })"
@@ -327,13 +329,6 @@ function clearSearch() {
                     @update:model-value="emit('enable', server, $event)"
                   />
                 </template>
-
-                <div
-                  v-if="server.error"
-                  class="mt-3 rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-sm text-destructive"
-                >
-                  {{ server.error }}
-                </div>
               </SettingsPanelItem>
             </div>
           </div>
