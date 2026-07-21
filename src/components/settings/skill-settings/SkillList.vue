@@ -273,7 +273,6 @@ function clearSearch() {
               <template #actions>
                 <Switch
                   :id="`skill-enabled-${skill.id}`"
-                  size="sm"
                   :model-value="skill.enabled"
                   :disabled="isSkillPending(skill.id) || persistenceUnavailable || isInvalidSkill(skill)"
                   :aria-label="`${skill.enabled ? t('settings.skill.toggleAction.disable') : t('settings.skill.toggleAction.enable')} ${skill.name}`"

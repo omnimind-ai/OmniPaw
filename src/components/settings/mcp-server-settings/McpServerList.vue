@@ -283,15 +283,6 @@ function clearSearch() {
                 @activate="emit('details', server)"
               >
                 <template #actions>
-                  <Switch
-                    :id="`mcp-enabled-${server.id}`"
-                    size="sm"
-                    :model-value="server.enabled"
-                    :disabled="isServerPending(server.id) || mcpUnavailable"
-                    :aria-label="`${server.enabled ? t('settings.mcpServer.enabledSwitch') : t('settings.mcpServer.disabledSwitch')} ${server.name}`"
-                    @click.stop
-                    @update:model-value="emit('enable', server, $event)"
-                  />
                   <Button
                     type="button"
                     variant="ghost"
@@ -327,6 +318,14 @@ function clearSearch() {
                   >
                     <Trash2Icon />
                   </Button>
+                  <Switch
+                    :id="`mcp-enabled-${server.id}`"
+                    :model-value="server.enabled"
+                    :disabled="isServerPending(server.id) || mcpUnavailable"
+                    :aria-label="`${server.enabled ? t('settings.mcpServer.enabledSwitch') : t('settings.mcpServer.disabledSwitch')} ${server.name}`"
+                    @click.stop
+                    @update:model-value="emit('enable', server, $event)"
+                  />
                 </template>
 
                 <div

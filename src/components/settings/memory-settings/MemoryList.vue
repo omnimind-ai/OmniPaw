@@ -185,15 +185,6 @@ const emit = defineEmits<{
             </template>
 
             <template #actions>
-              <Switch
-                :id="`memory-enabled-${memory.id}`"
-                size="sm"
-                :model-value="memory.status === 'active'"
-                :disabled="saving || memory.status === 'archived' || memory.status === 'deleted'"
-                :aria-label="t('settings.memory.list.toggleAriaLabel', { action: memory.status === 'active' ? t('settings.memory.list.disable') : t('settings.memory.list.enable') })"
-                @click.stop
-                @update:model-value="emit('enable', memory, $event)"
-              />
               <Button
                 type="button"
                 variant="ghost"
@@ -216,6 +207,14 @@ const emit = defineEmits<{
               >
                 <Trash2Icon />
               </Button>
+              <Switch
+                :id="`memory-enabled-${memory.id}`"
+                :model-value="memory.status === 'active'"
+                :disabled="saving || memory.status === 'archived' || memory.status === 'deleted'"
+                :aria-label="t('settings.memory.list.toggleAriaLabel', { action: memory.status === 'active' ? t('settings.memory.list.disable') : t('settings.memory.list.enable') })"
+                @click.stop
+                @update:model-value="emit('enable', memory, $event)"
+              />
             </template>
           </SettingsPanelItem>
         </div>

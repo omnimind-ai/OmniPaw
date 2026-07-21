@@ -193,15 +193,6 @@ function clearSearch() {
             </template>
 
             <template #actions>
-              <Switch
-                :id="`cron-task-enabled-${task.id}`"
-                size="sm"
-                :model-value="task.enabled"
-                :disabled="saving"
-                :aria-label="`${task.enabled ? t('settings.scheduledTask.listItem.toggleAction.disable') : t('settings.scheduledTask.listItem.toggleAction.enable')} ${task.name}`"
-                @click.stop
-                @update:model-value="emit('enable', task, $event)"
-              />
               <Button
                 type="button"
                 variant="ghost"
@@ -246,6 +237,14 @@ function clearSearch() {
               >
                 <Trash2Icon />
               </Button>
+              <Switch
+                :id="`cron-task-enabled-${task.id}`"
+                :model-value="task.enabled"
+                :disabled="saving"
+                :aria-label="`${task.enabled ? t('settings.scheduledTask.listItem.toggleAction.disable') : t('settings.scheduledTask.listItem.toggleAction.enable')} ${task.name}`"
+                @click.stop
+                @update:model-value="emit('enable', task, $event)"
+              />
             </template>
           </SettingsPanelItem>
         </div>
