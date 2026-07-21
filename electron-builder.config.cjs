@@ -45,9 +45,11 @@ module.exports = {
   win: {
     target: 'nsis',
     icon: 'resources/app-icon.ico',
+    artifactName: '${productName}-${version}-windows-${arch}.${ext}',
   },
   mac: {
     icon: 'resources/app-icon.icns',
+    artifactName: '${productName}-${version}-macos-${arch}.${ext}',
     ...(macBundleVersion ? { bundleVersion: macBundleVersion } : {}),
     ...(macBundleShortVersion ? { bundleShortVersion: macBundleShortVersion } : {}),
   },

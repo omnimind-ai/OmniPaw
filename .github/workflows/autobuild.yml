@@ -71,6 +71,11 @@ jobs:
             builder_args: --mac dmg --arm64
             artifact_name: omnipaw-macos-arm64
             artifact_path: release/*.dmg
+          - name: macOS x64 DMG
+            runner: macos-15-intel
+            builder_args: --mac dmg --x64
+            artifact_name: omnipaw-macos-x64
+            artifact_path: release/*.dmg
     runs-on: ${{ matrix.runner }}
     env:
       CSC_IDENTITY_AUTO_DISCOVERY: "false"
@@ -160,7 +165,7 @@ jobs:
       - name: Create or update autobuild release
         shell: bash
         run: |
-          release_notes="Automated development build ${APP_VERSION} from commit ${GITHUB_SHA}. Windows is x64; macOS is arm64. These packages are unsigned slim builds and do not bundle OmniInfer."
+          release_notes="Automated development build ${APP_VERSION} from commit ${GITHUB_SHA}. Includes Windows x64 and macOS arm64/x64 packages. These packages are unsigned slim builds and do not bundle OmniInfer."
 
           if gh release view "${DEV_TAG}" >/dev/null 2>&1; then
             gh release edit "${DEV_TAG}" \
@@ -176,10 +181,10 @@ jobs:
               --latest=false
           fi
 
-          gh release upload "${DEV_TAG}" release-assets/* --clobber
-
           while IFS= read -r asset; do
-            if [[ -n "${asset}" && ! -f "release-assets/${asset}" ]]; then
+            if [[ -n "${asset}" ]]; then
               gh release delete-asset "${DEV_TAG}" "${asset}" --yes
             fi
           done < <(gh release view "${DEV_TAG}" --json assets --jq '.assets[].name')
+
+          gh release upload "${DEV_TAG}" release-assets/*
