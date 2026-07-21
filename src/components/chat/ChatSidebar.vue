@@ -177,8 +177,8 @@ const activeCompanionRole = computed(
 const activeCompanionRoleName = computed(
   () => activeCompanionRole.value?.name || t('chat.sidebar.footer.role.fallbackName')
 )
-const companionRoleMenuWidth = computed(() =>
-  isMobile.value ? SIDEBAR_WIDTH_MOBILE : SIDEBAR_WIDTH
+const companionRoleMenuWidth = computed(
+  () => `calc(${isMobile.value ? SIDEBAR_WIDTH_MOBILE : SIDEBAR_WIDTH} - 1rem)`
 )
 const visibleCompanionRoleOptions = computed(() => {
   const roles = props.companionRoleOptions
@@ -530,7 +530,6 @@ function updateCompanionRole(value: unknown): void {
               side="top"
               align="start"
               :side-offset="8"
-              :align-offset="-8"
               :style="{ width: companionRoleMenuWidth }"
             >
               <DropdownMenuLabel>{{ t('chat.sidebar.footer.role.menuLabel') }}</DropdownMenuLabel>
