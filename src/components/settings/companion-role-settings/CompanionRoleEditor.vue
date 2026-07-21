@@ -1,10 +1,7 @@
 <script setup lang="ts">
 import {
-  BotIcon,
-  BrainIcon,
   DownloadIcon,
   EyeIcon,
-  MessageCircleIcon,
   SlidersHorizontalIcon,
   Trash2Icon,
   UserRoundIcon,
@@ -145,13 +142,6 @@ function buildCompanionRolePromptSegments(role: CompanionRole): CompanionRolePro
   )
   pushPromptSegment(
     segments,
-    'relationship',
-    t('settings.catAppearance.role.fields.relationship.title'),
-    role.relationship.trim() ? `你和用户的关系：${role.relationship.trim()}` : '',
-    'violet'
-  )
-  pushPromptSegment(
-    segments,
     'user-nickname',
     t('settings.catAppearance.role.fields.userNickname.title'),
     role.userNickname.trim() ? `你称呼用户为：${role.userNickname.trim()}` : '',
@@ -166,24 +156,10 @@ function buildCompanionRolePromptSegments(role: CompanionRole): CompanionRolePro
   )
   pushPromptSegment(
     segments,
-    'speech-style',
-    t('settings.catAppearance.role.fields.speechStyle.title'),
-    role.speechStyle.trim() ? `说话风格：${role.speechStyle.trim()}` : '',
-    'slate'
-  )
-  pushPromptSegment(
-    segments,
     'background',
     t('settings.catAppearance.role.fields.background.title'),
     role.background.trim() ? `背景资料：${role.background.trim()}` : '',
     'blue'
-  )
-  pushPromptSegment(
-    segments,
-    'proactive-style',
-    t('settings.catAppearance.role.fields.proactiveStyle.title'),
-    role.proactiveStyle.trim() ? `主动互动风格：${role.proactiveStyle.trim()}` : '',
-    'violet'
   )
   pushPromptSegment(
     segments,
@@ -353,7 +329,7 @@ function confirmDeleteRole(): void {
       >
         <div class="flex flex-col gap-4 p-4 sm:p-5">
           <SettingsSection
-            :title="t('settings.catAppearance.role.sections.identity.title')"
+            :title="t('settings.catAppearance.role.sections.basic.title')"
             :icon="UserRoundIcon"
           >
             <FieldGroup class="gap-0">
@@ -399,14 +375,7 @@ function confirmDeleteRole(): void {
                   :placeholder="t('settings.catAppearance.role.fields.userNickname.placeholder')"
                 />
               </SettingEntry>
-            </FieldGroup>
-          </SettingsSection>
 
-          <SettingsSection
-            :title="t('settings.catAppearance.role.sections.persona.title')"
-            :icon="BrainIcon"
-          >
-            <FieldGroup class="gap-0">
               <SettingEntry
                 control-id="settings-companion-role-personality"
                 :title="t('settings.catAppearance.role.fields.personality.title')"
@@ -420,39 +389,6 @@ function confirmDeleteRole(): void {
                 />
               </SettingEntry>
 
-              <SettingEntry
-                control-id="settings-companion-role-speech"
-                :title="t('settings.catAppearance.role.fields.speechStyle.title')"
-                :description="t('settings.catAppearance.role.fields.speechStyle.description')"
-              >
-                <Input
-                  id="settings-companion-role-speech"
-                  v-model="editableRole.speechStyle"
-                  class="w-full md:w-96"
-                  :placeholder="t('settings.catAppearance.role.fields.speechStyle.placeholder')"
-                />
-              </SettingEntry>
-
-              <SettingEntry
-                control-id="settings-companion-role-relationship"
-                :title="t('settings.catAppearance.role.fields.relationship.title')"
-                :description="t('settings.catAppearance.role.fields.relationship.description')"
-              >
-                <Input
-                  id="settings-companion-role-relationship"
-                  v-model="editableRole.relationship"
-                  class="w-full md:w-96"
-                  :placeholder="t('settings.catAppearance.role.fields.relationship.placeholder')"
-                />
-              </SettingEntry>
-            </FieldGroup>
-          </SettingsSection>
-
-          <SettingsSection
-            :title="t('settings.catAppearance.role.sections.background.title')"
-            :icon="MessageCircleIcon"
-          >
-            <FieldGroup class="gap-0">
               <CompanionRoleTextEditorField
                 control-id="settings-companion-role-background"
                 v-model="editableRole.background"
@@ -461,14 +397,7 @@ function confirmDeleteRole(): void {
                 :placeholder="t('settings.catAppearance.role.fields.background.placeholder')"
                 :rows="18"
               />
-            </FieldGroup>
-          </SettingsSection>
 
-          <SettingsSection
-            :title="t('settings.catAppearance.role.sections.behavior.title')"
-            :icon="BotIcon"
-          >
-            <FieldGroup class="gap-0">
               <SettingEntry
                 control-id="settings-companion-role-model"
                 :title="t('settings.catAppearance.role.fields.defaultModel.title')"
@@ -501,15 +430,6 @@ function confirmDeleteRole(): void {
                   </SelectContent>
                 </Select>
               </SettingEntry>
-
-              <CompanionRoleTextEditorField
-                control-id="settings-companion-role-proactive"
-                v-model="editableRole.proactiveStyle"
-                :title="t('settings.catAppearance.role.fields.proactiveStyle.title')"
-                :description="t('settings.catAppearance.role.fields.proactiveStyle.description')"
-                :placeholder="t('settings.catAppearance.role.fields.proactiveStyle.placeholder')"
-                :rows="16"
-              />
             </FieldGroup>
           </SettingsSection>
         </div>

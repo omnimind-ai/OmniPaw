@@ -70,10 +70,13 @@ export interface DesktopCompanionRoleSettings {
   appearancePackId?: string
   userNickname: string
   personality: string
-  speechStyle: string
-  relationship: string
   background: string
-  proactiveStyle: string
+  /** @deprecated Retained only when loading existing role configurations. */
+  speechStyle?: string
+  /** @deprecated Retained only when loading existing role configurations. */
+  relationship?: string
+  /** @deprecated Retained only when loading existing role configurations. */
+  proactiveStyle?: string
   advanced: DesktopCompanionRoleAdvancedSettings
   petInteractions: CatPetInteractionConfig[]
   petGifts: CatPetGiftConfig[]

@@ -819,16 +819,27 @@ function validateCompanionRole(
       'introduction',
       'userNickname',
       'personality',
-      'speechStyle',
-      'relationship',
       'background',
-      'proactiveStyle',
     ]
     for (const field of textFields) {
       if (typeof settings[field] !== 'string') {
         issues.push({
           path: `${basePath}.${field}`,
           message: 'Companion role text fields must be strings.',
+          code: 'invalid_type',
+        })
+      }
+    }
+    const legacyTextFields: Array<keyof DesktopCompanionRoleSettings> = [
+      'speechStyle',
+      'relationship',
+      'proactiveStyle',
+    ]
+    for (const field of legacyTextFields) {
+      if (settings[field] !== undefined && typeof settings[field] !== 'string') {
+        issues.push({
+          path: `${basePath}.${field}`,
+          message: 'Legacy companion role text fields must be strings when present.',
           code: 'invalid_type',
         })
       }
@@ -2563,15 +2574,12 @@ function normalizeCompanionRoleSettings(
       typeof rawValue.userNickname === 'string' ? rawValue.userNickname : defaults.userNickname,
     personality:
       typeof rawValue.personality === 'string' ? rawValue.personality : defaults.personality,
-    speechStyle:
-      typeof rawValue.speechStyle === 'string' ? rawValue.speechStyle : defaults.speechStyle,
-    relationship:
-      typeof rawValue.relationship === 'string' ? rawValue.relationship : defaults.relationship,
     background: typeof rawValue.background === 'string' ? rawValue.background : defaults.background,
-    proactiveStyle:
-      typeof rawValue.proactiveStyle === 'string'
-        ? rawValue.proactiveStyle
-        : defaults.proactiveStyle,
+    ...(typeof rawValue.speechStyle === 'string' ? { speechStyle: rawValue.speechStyle } : {}),
+    ...(typeof rawValue.relationship === 'string' ? { relationship: rawValue.relationship } : {}),
+    ...(typeof rawValue.proactiveStyle === 'string'
+      ? { proactiveStyle: rawValue.proactiveStyle }
+      : {}),
     advanced: normalizeCompanionRoleAdvancedSettings(rawValue.advanced, defaults.advanced),
     petInteractions: normalizeCompanionRolePetInteractions(
       rawPetInteractions,

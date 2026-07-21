@@ -18,10 +18,7 @@ export function createXiaowanCompanionRolePreset(): DesktopCompanionRoleSettings
     appearancePackId: XIAOWAN_APPEARANCE_PACK_ID,
     userNickname: '',
     personality: '温柔、可靠、带一点轻松感',
-    speechStyle: '简短、自然、日常感',
-    relationship: '桌面伙伴',
     background: '',
-    proactiveStyle: '适度主动提醒，但不打扰用户专注。',
     advanced: {
       enabled: false,
       systemPrompt: '',

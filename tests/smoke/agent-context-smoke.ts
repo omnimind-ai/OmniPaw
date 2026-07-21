@@ -20,10 +20,16 @@ displayOnlyRole.avatar = {
   dataUrl: 'data:image/png;base64,RElTUExBWV9PTkxZX0FWQVRBUg==',
   mimeType: 'image/png',
 }
+displayOnlyRole.speechStyle = 'LEGACY_SPEECH_STYLE'
+displayOnlyRole.relationship = 'LEGACY_RELATIONSHIP'
+displayOnlyRole.proactiveStyle = 'LEGACY_PROACTIVE_STYLE'
 const displayOnlyRoleInstruction = compileCompanionRoleInstruction(displayOnlyRole)
 assert.ok(displayOnlyRoleInstruction)
 assert.doesNotMatch(displayOnlyRoleInstruction.text, /DISPLAY_ONLY_INTRODUCTION/)
 assert.doesNotMatch(displayOnlyRoleInstruction.text, /RElTUExBWV9PTkxZX0FWQVRBUg/)
+assert.doesNotMatch(displayOnlyRoleInstruction.text, /LEGACY_SPEECH_STYLE/)
+assert.doesNotMatch(displayOnlyRoleInstruction.text, /LEGACY_RELATIONSHIP/)
+assert.doesNotMatch(displayOnlyRoleInstruction.text, /LEGACY_PROACTIVE_STYLE/)
 
 const attachment: InternalAttachmentRecord = {
   id: 'att-1',

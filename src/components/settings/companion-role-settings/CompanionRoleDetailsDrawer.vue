@@ -3,12 +3,9 @@ import {
   BookOpenIcon,
   CheckIcon,
   GiftIcon,
-  HeartHandshakeIcon,
   LockIcon,
-  MessageCircleIcon,
   PencilIcon,
   SparklesIcon,
-  WandSparklesIcon,
   XIcon,
 } from '@lucide/vue'
 import type { CatPetGiftDefinition, CatPetInventoryResponse } from '@shared/types/cat-pet'
@@ -126,28 +123,10 @@ const detailItems = computed<RoleDetailItem[]>(() => {
       value: props.role?.personality.trim() || notSet,
     },
     {
-      id: 'speech-style',
-      icon: MessageCircleIcon,
-      title: t('settings.catAppearance.role.fields.speechStyle.title'),
-      value: props.role?.speechStyle.trim() || notSet,
-    },
-    {
-      id: 'relationship',
-      icon: HeartHandshakeIcon,
-      title: t('settings.catAppearance.role.fields.relationship.title'),
-      value: props.role?.relationship.trim() || notSet,
-    },
-    {
       id: 'background',
       icon: BookOpenIcon,
       title: t('settings.catAppearance.role.fields.background.title'),
       value: props.role?.background.trim() || notSet,
-    },
-    {
-      id: 'proactive-style',
-      icon: WandSparklesIcon,
-      title: t('settings.catAppearance.role.fields.proactiveStyle.title'),
-      value: props.role?.proactiveStyle.trim() || notSet,
     },
   ]
 })

@@ -142,6 +142,27 @@ try {
   const xiaowanRole = cloneDefaultConfig().app.companionRoles[0]
   assert.equal(xiaowanRole?.introduction, '你最好的桌面伙伴')
   assert.equal(xiaowanRole?.avatar?.source, 'appearance-idle')
+  assert.equal('speechStyle' in (xiaowanRole ?? {}), false)
+  assert.equal('relationship' in (xiaowanRole ?? {}), false)
+  assert.equal('proactiveStyle' in (xiaowanRole ?? {}), false)
+
+  const legacyRoleFields = normalizeConfig({
+    ...cloneDefaultConfig(),
+    app: {
+      ...cloneDefaultConfig().app,
+      companionRoles: [
+        {
+          ...xiaowanRole,
+          speechStyle: 'Legacy speech style',
+          relationship: 'Legacy relationship',
+          proactiveStyle: 'Legacy proactive style',
+        },
+      ],
+    },
+  }).config.app.companionRoles[0]
+  assert.equal(legacyRoleFields?.speechStyle, 'Legacy speech style')
+  assert.equal(legacyRoleFields?.relationship, 'Legacy relationship')
+  assert.equal(legacyRoleFields?.proactiveStyle, 'Legacy proactive style')
 
   const xiaozhiRole = cloneDefaultConfig().app.companionRoles[1]
   assert.equal(xiaozhiRole?.id, 'xiaozhi')

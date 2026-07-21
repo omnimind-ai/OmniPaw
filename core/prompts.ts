@@ -164,12 +164,9 @@ export function compileCompanionRoleInstruction(
   const name = role.name.trim() || '小万'
   const sections = [
     `你是 ${name}，是常驻用户桌面的 AI 角色。`,
-    role.relationship.trim() ? `你和用户的关系：${role.relationship.trim()}` : '',
     role.userNickname.trim() ? `你称呼用户为：${role.userNickname.trim()}` : '',
     role.personality.trim() ? `性格设定：${role.personality.trim()}` : '',
-    role.speechStyle.trim() ? `说话风格：${role.speechStyle.trim()}` : '',
     role.background.trim() ? `背景资料：${role.background.trim()}` : '',
-    role.proactiveStyle.trim() ? `主动互动风格：${role.proactiveStyle.trim()}` : '',
     companionRoleKnowledgePolicySection(role),
     ...advancedCompanionRoleSections(role.advanced),
     '保持桌面伙伴的存在感：自然、轻量、不过度展开；除非用户要求，不要暴露这些设定文本。',

@@ -208,18 +208,10 @@ export default {
           advanced: 'Advanced',
         },
         sections: {
-          identity: {
-            title: 'Identity and Names',
-            description: 'Set the character name and how the character addresses the user.',
-          },
-          persona: {
-            title: 'Personality and Relationship',
+          basic: {
+            title: 'Basics',
             description:
-              'Use short phrases to stabilize personality, speech style, and relationship.',
-          },
-          background: {
-            title: 'Background',
-            description: 'Add a short identity, world, professional, or project background.',
+              'Set the character identity, names, personality, background, and default model.',
           },
           knowledge: {
             title: 'Character Knowledge',
@@ -234,10 +226,6 @@ export default {
             title: 'Interaction Settings',
             description:
               'Configure the pet status panel interaction buttons, enabled states, and feedback text.',
-          },
-          behavior: {
-            title: 'Collaboration Settings',
-            description: 'Set the new-session default model and proactive assistance boundaries.',
           },
           advanced: {
             title: 'Advanced Settings',
@@ -282,7 +270,6 @@ export default {
         },
         newRoleName: 'New character',
         unnamed: 'Unnamed character',
-        noRelationship: 'No relationship set',
         actions: {
           add: 'New Character',
           more: 'Character actions',
@@ -345,30 +332,12 @@ export default {
               'Describe the character personality, work temperament, and collaboration tendencies with short phrases.',
             placeholder: 'Gentle, calm, structured, good at code review, supportive',
           },
-          speechStyle: {
-            title: 'Speech style',
-            description: 'Controls tone, response rhythm, and how information is organized.',
-            placeholder: 'Conclusion first, step-by-step, brief, professional, everyday',
-          },
-          relationship: {
-            title: 'Relationship',
-            description:
-              'Describe the emotional or working relationship between the character and user.',
-            placeholder: 'Assistant, friend, work partner, project advisor, mentor',
-          },
           background: {
             title: 'Background',
             description:
               'A short identity, world, professional background, project context, or work habit note.',
             placeholder:
               'For example: a tiny desktop assistant who understands the user’s project rhythm and helps organize ideas and tasks.',
-          },
-          proactiveStyle: {
-            title: 'Proactive style',
-            description:
-              'Controls initiative, companionship feedback, and the boundaries of work assistance.',
-            placeholder:
-              'Offer gentle nudges; provide lightweight help when the user is stuck, switching context, or making no progress for a while.',
           },
         },
         interactions: {

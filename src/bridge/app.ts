@@ -1719,10 +1719,7 @@ function createFallbackCompanionRole(): BridgeDesktopSettingsConfig['app']['comp
     appearancePackId: BUILTIN_CAT_APPEARANCE_PACK_ID,
     userNickname: '',
     personality: '',
-    speechStyle: '',
-    relationship: '桌面伙伴',
     background: '',
-    proactiveStyle: '',
     advanced: {
       enabled: false,
       systemPrompt: '',

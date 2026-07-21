@@ -62,14 +62,7 @@ const roleItems = computed<RoleListItem[]>(() => {
   return props.roles
     .filter((role) => {
       if (!query) return true
-      return [
-        role.name,
-        role.introduction,
-        role.personality,
-        role.relationship,
-        role.speechStyle,
-        role.background,
-      ]
+      return [role.name, role.introduction, role.userNickname, role.personality, role.background]
         .filter(Boolean)
         .some((value) => value.toLocaleLowerCase().includes(query))
     })

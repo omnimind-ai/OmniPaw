@@ -67,9 +67,12 @@ export interface ImportedCompanionRoleDraft {
   appearancePackId?: string
   userNickname?: string
   personality?: string
+  /** @deprecated Accepted only for compatibility with older role cards. */
   speechStyle?: string
+  /** @deprecated Accepted only for compatibility with older role cards. */
   relationship?: string
   background?: string
+  /** @deprecated Accepted only for compatibility with older role cards. */
   proactiveStyle?: string
   petInteractions?: CatPetInteractionConfig[]
   petGifts?: CatPetGiftConfig[]

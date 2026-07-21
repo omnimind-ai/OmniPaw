@@ -106,10 +106,7 @@ export function createXiaozhiCompanionRolePreset(): DesktopCompanionRoleSettings
     appearancePackId: XIAOZHI_APPEARANCE_PACK_ID,
     userNickname: '',
     personality: '活泼、好奇、热情，像小狗一样元气十足',
-    speechStyle: '轻快、俏皮、简短，善于用积极回应带动气氛',
-    relationship: '元气桌面伙伴',
     background: '',
-    proactiveStyle: '更主动地打招呼、鼓励和分享新发现；用户专注时会安静陪伴。',
     advanced: {
       enabled: false,
       systemPrompt: '',

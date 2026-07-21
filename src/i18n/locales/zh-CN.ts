@@ -203,17 +203,9 @@ export default {
           advanced: '高级设置',
         },
         sections: {
-          identity: {
-            title: '身份与称呼',
-            description: '设置角色名称，以及角色如何称呼用户。',
-          },
-          persona: {
-            title: '性格与关系',
-            description: '塑造角色性格、说话风格',
-          },
-          background: {
-            title: '背景资料',
-            description: '角色的世界观与背景',
+          basic: {
+            title: '基本设定',
+            description: '设置角色的身份、称呼、性格、背景和默认模型。',
           },
           knowledge: {
             title: '角色知识',
@@ -226,10 +218,6 @@ export default {
           interactions: {
             title: '互动配置',
             description: '和你的角色互动，增进好感，培养感情',
-          },
-          behavior: {
-            title: '协作设置',
-            description: '设置角色的新会话默认模型和主动协助分寸。',
           },
           advanced: {
             title: '高级设置',
@@ -267,7 +255,6 @@ export default {
         },
         newRoleName: '新角色',
         unnamed: '未命名角色',
-        noRelationship: '未设置关系',
         actions: {
           add: '新建角色',
           more: '角色操作',
@@ -327,25 +314,10 @@ export default {
             description: '用短语描述角色的性格、工作气质和协作倾向。',
             placeholder: '温柔、冷静、结构化、适合代码审查、陪伴型',
           },
-          speechStyle: {
-            title: '说话风格',
-            description: '控制回复语气、表达节奏和信息组织方式。',
-            placeholder: '先给结论、分步骤、简短自然、专业、日常感',
-          },
-          relationship: {
-            title: '关系设定',
-            description: '描述角色和用户之间的情感关系或协作关系。',
-            placeholder: '助手、朋友、工作搭档、项目顾问、导师',
-          },
           background: {
             title: '背景资料',
             description: '少量身份设定、世界观、专业背景、项目背景或工作习惯。',
             placeholder: '例如：住在桌面里的小助手，熟悉用户的项目节奏，擅长整理想法和推进任务。',
-          },
-          proactiveStyle: {
-            title: '主动互动风格',
-            description: '控制主动提醒、陪伴反馈和工作协助的分寸。',
-            placeholder: '适度主动提醒；在用户卡住、上下文切换或长时间无进展时提供轻量帮助。',
           },
         },
         interactions: {

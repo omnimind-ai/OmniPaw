@@ -115,10 +115,7 @@ function createCompanionRole(): CompanionRole {
     appearancePackId: 'builtin',
     userNickname: '',
     personality: '',
-    speechStyle: '',
-    relationship: '',
     background: '',
-    proactiveStyle: '',
     petInteractions: defaultCatPetInteractionConfigs(),
     petGifts: defaultCatPetGiftConfigs(),
     advanced: {
@@ -390,10 +387,7 @@ function createRoleFromImportedDraft(
     appearancePackId: draft.appearancePackId || 'builtin',
     userNickname: draft.userNickname ?? '',
     personality: draft.personality ?? '',
-    speechStyle: draft.speechStyle ?? '',
-    relationship: draft.relationship ?? '',
     background: draft.background ?? '',
-    proactiveStyle: draft.proactiveStyle ?? '',
     petInteractions: normalizeCatPetInteractionConfigs(draft.petInteractions),
     petGifts: normalizeCatPetGiftConfigs(draft.petGifts),
     advanced: {
@@ -421,10 +415,7 @@ function createExportRoleDraft(role: CompanionRole): ImportedCompanionRoleDraft 
     appearancePackId: role.appearancePackId,
     userNickname: role.userNickname,
     personality: role.personality,
-    speechStyle: role.speechStyle,
-    relationship: role.relationship,
     background: role.background,
-    proactiveStyle: role.proactiveStyle,
     petInteractions: normalizeCatPetInteractionConfigs(role.petInteractions),
     petGifts: normalizeCatPetGiftConfigs(role.petGifts),
     advanced: {
