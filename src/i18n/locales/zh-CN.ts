@@ -330,6 +330,13 @@ export default {
           slot: '互动 {index}',
           dailyLimit: '每日 {count} 次',
           summary: '已配置 {count}/{total} 个互动，改动会随当前角色自动保存。',
+          edit: '编辑',
+          dialog: {
+            editTitle: '编辑互动：{name}',
+            description: '调整按钮名称、说明和互动反馈文案。启用状态可直接在列表中切换。',
+            cancel: '取消',
+            save: '保存互动',
+          },
           fields: {
             enabled: '启用互动',
             label: '按钮名称',

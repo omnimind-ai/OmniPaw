@@ -350,6 +350,14 @@ export default {
           dailyLimit: '{count} per day',
           summary:
             '{count}/{total} interactions configured. Changes are auto-saved with this character.',
+          edit: 'Edit',
+          dialog: {
+            editTitle: 'Edit interaction: {name}',
+            description:
+              'Update the button label, hint, and feedback text. Enable or disable it directly from the list.',
+            cancel: 'Cancel',
+            save: 'Save interaction',
+          },
           fields: {
             enabled: 'Enable interaction',
             label: 'Button label',

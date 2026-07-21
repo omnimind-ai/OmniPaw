@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { HandIcon } from '@lucide/vue'
+import { HandIcon, PencilIcon } from '@lucide/vue'
 import type { CatPetInteractionConfig } from '@shared/types/cat-pet'
 import {
   CAT_PET_ACTIONS,
@@ -8,13 +8,14 @@ import {
   defaultCatPetInteractionConfigs,
   normalizeCatPetInteractionConfigs,
 } from '@shared/types/cat-pet'
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import SettingEntry from '@/components/settings/common/SettingEntry.vue'
 import SettingsSection from '@/components/settings/common/SettingsSection.vue'
+import CompanionRoleInteractionModal from '@/components/settings/companion-role-settings/CompanionRoleInteractionModal.vue'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { FieldGroup } from '@/components/ui/field'
-import { Input } from '@/components/ui/input'
 import { Switch } from '@/components/ui/switch'
 
 const props = defineProps<{
@@ -29,6 +30,8 @@ const { t } = useI18n()
 const defaultPetInteractionById = new Map(
   defaultCatPetInteractionConfigs().map((item) => [item.id, item])
 )
+const interactionDialogOpen = ref(false)
+const interactionDialogDraft = ref<CatPetInteractionConfig>()
 const normalizedInteractions = computed(() => normalizeCatPetInteractionConfigs(props.interactions))
 
 function petInteractionFallback(item: CatPetInteractionConfig): CatPetInteractionConfig {
@@ -71,6 +74,23 @@ function updatePetInteraction(
   next[index] = { ...current, ...patch }
   emit('update:interactions', normalizeCatPetInteractionConfigs(next))
 }
+
+function openInteractionDialog(item: CatPetInteractionConfig): void {
+  interactionDialogDraft.value = { ...item }
+  interactionDialogOpen.value = true
+}
+
+function savePetInteraction(interaction: CatPetInteractionConfig): void {
+  const items = normalizedInteractions.value
+  const index = items.findIndex((item) => item.id === interaction.id)
+  if (index < 0) return
+
+  const next = [...items]
+  next[index] = interaction
+  emit('update:interactions', normalizeCatPetInteractionConfigs(next))
+  interactionDialogOpen.value = false
+  interactionDialogDraft.value = undefined
+}
 </script>
 
 <template>
@@ -82,10 +102,9 @@ function updatePetInteraction(
       <SettingEntry
         v-for="(item, index) in normalizedInteractions"
         :key="item.id"
-        :control-id="`settings-companion-role-interaction-label-${item.id}`"
+        :control-id="`settings-companion-role-interaction-enabled-${item.id}`"
         :title="petInteractionTitle(item, index)"
         :description="petInteractionDescription(item)"
-        control-class="@md/field-group:w-[min(38rem,58vw)]"
       >
         <template #meta>
           <div class="flex flex-wrap gap-1.5">
@@ -98,51 +117,21 @@ function updatePetInteraction(
           </div>
         </template>
 
-        <div class="flex w-full min-w-0 flex-col gap-3">
-          <div class="flex items-center justify-between gap-3 rounded-md border bg-background/60 px-3 py-2">
-            <span class="text-sm text-muted-foreground">
-              {{ t('settings.catAppearance.role.interactions.fields.enabled') }}
-            </span>
-            <Switch
-              :id="`settings-companion-role-interaction-enabled-${item.id}`"
-              :model-value="item.enabled !== false"
-              :aria-label="t('catPet.config.enabledAria', { name: petInteractionTitle(item, index) })"
-              @update:model-value="updatePetInteraction(index, { enabled: Boolean($event) })"
-            />
-          </div>
-
-          <div class="grid gap-2 md:grid-cols-2">
-            <Input
-              :id="`settings-companion-role-interaction-label-${item.id}`"
-              :model-value="item.label"
-              maxlength="18"
-              :aria-label="t('settings.catAppearance.role.interactions.fields.label')"
-              :placeholder="petInteractionFallback(item).label"
-              @update:model-value="updatePetInteraction(index, { label: String($event) })"
-            />
-            <Input
-              :model-value="item.description"
-              maxlength="80"
-              :aria-label="t('settings.catAppearance.role.interactions.fields.description')"
-              :placeholder="t('catPet.config.hintPlaceholder')"
-              @update:model-value="updatePetInteraction(index, { description: String($event) })"
-            />
-            <Input
-              :model-value="item.positiveFeedback"
-              maxlength="120"
-              :aria-label="t('settings.catAppearance.role.interactions.fields.positiveFeedback')"
-              :placeholder="t('catPet.config.positivePlaceholder')"
-              @update:model-value="updatePetInteraction(index, { positiveFeedback: String($event) })"
-            />
-            <Input
-              :model-value="item.negativeFeedback"
-              maxlength="120"
-              :aria-label="t('settings.catAppearance.role.interactions.fields.negativeFeedback')"
-              :placeholder="t('catPet.config.negativePlaceholder')"
-              @update:model-value="updatePetInteraction(index, { negativeFeedback: String($event) })"
-            />
-          </div>
-        </div>
+        <Switch
+          :id="`settings-companion-role-interaction-enabled-${item.id}`"
+          :model-value="item.enabled !== false"
+          :aria-label="t('catPet.config.enabledAria', { name: petInteractionTitle(item, index) })"
+          @update:model-value="updatePetInteraction(index, { enabled: Boolean($event) })"
+        />
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          @click="openInteractionDialog(item)"
+        >
+          <PencilIcon data-icon="inline-start" />
+          {{ t('settings.catAppearance.role.interactions.edit') }}
+        </Button>
       </SettingEntry>
     </FieldGroup>
   </SettingsSection>
@@ -155,4 +144,10 @@ function updatePetInteraction(
       })
     }}
   </p>
+
+  <CompanionRoleInteractionModal
+    v-model:open="interactionDialogOpen"
+    :interaction="interactionDialogDraft"
+    @submit="savePetInteraction"
+  />
 </template>
