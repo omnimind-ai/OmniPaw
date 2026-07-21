@@ -248,6 +248,7 @@ export default {
           selected: 'In use',
           select: 'Use this character',
           edit: 'Edit',
+          activeSwitch: 'Use {name} as the current character',
           import: 'Import',
           introFallback:
             'This character does not have an introduction yet. Open the editor to add one.',

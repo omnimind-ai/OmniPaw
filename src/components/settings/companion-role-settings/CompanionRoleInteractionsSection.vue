@@ -117,21 +117,21 @@ function savePetInteraction(interaction: CatPetInteractionConfig): void {
           </div>
         </template>
 
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon-sm"
+          :aria-label="t('settings.catAppearance.role.interactions.edit')"
+          @click="openInteractionDialog(item)"
+        >
+          <PencilIcon />
+        </Button>
         <Switch
           :id="`settings-companion-role-interaction-enabled-${item.id}`"
           :model-value="item.enabled !== false"
           :aria-label="t('catPet.config.enabledAria', { name: petInteractionTitle(item, index) })"
           @update:model-value="updatePetInteraction(index, { enabled: Boolean($event) })"
         />
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          @click="openInteractionDialog(item)"
-        >
-          <PencilIcon data-icon="inline-start" />
-          {{ t('settings.catAppearance.role.interactions.edit') }}
-        </Button>
       </SettingEntry>
     </FieldGroup>
   </SettingsSection>

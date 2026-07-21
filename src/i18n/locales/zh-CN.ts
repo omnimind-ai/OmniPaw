@@ -236,6 +236,7 @@ export default {
           selected: '正在使用',
           select: '设为当前角色',
           edit: '编辑',
+          activeSwitch: '将{name}设为当前角色',
           import: '导入',
           introFallback: '这个角色还没有填写简介，进入编辑可补充。',
           avatarAlt: '{name} 的角色头像',

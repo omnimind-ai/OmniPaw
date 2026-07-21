@@ -1,13 +1,5 @@
 <script setup lang="ts">
-import {
-  CheckIcon,
-  FileJsonIcon,
-  PencilIcon,
-  PlusIcon,
-  SearchIcon,
-  SparklesIcon,
-  XIcon,
-} from '@lucide/vue'
+import { FileJsonIcon, PencilIcon, PlusIcon, SearchIcon, SparklesIcon, XIcon } from '@lucide/vue'
 import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import SettingsPanelHeader from '@/components/settings/common/SettingsPanelHeader.vue'
@@ -25,6 +17,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import { Switch } from '@/components/ui/switch'
 import { cn } from '@/lib/utils'
 
 const props = defineProps<{
@@ -86,6 +79,11 @@ const roleItems = computed<RoleListItem[]>(() => {
 
 function clearSearch(): void {
   searchQuery.value = ''
+}
+
+function selectRole(item: RoleListItem, enabled: boolean): void {
+  if (!enabled || item.active) return
+  emit('selectRole', item.role)
 }
 </script>
 
@@ -220,32 +218,21 @@ function clearSearch(): void {
 
             <template #actions>
               <Button
-                v-if="item.active"
                 type="button"
-                variant="secondary"
-                size="sm"
-                disabled
-              >
-                <CheckIcon data-icon="inline-start" />
-                {{ t('settings.catAppearance.role.overview.selected') }}
-              </Button>
-              <Button
-                v-if="!item.active"
-                type="button"
-                variant="outline"
-                size="sm"
-                @click.stop="emit('selectRole', item.role)"
-              >
-                {{ t('settings.catAppearance.role.overview.select') }}
-              </Button>
-              <Button
-                type="button"
-                size="sm"
+                variant="ghost"
+                size="icon-sm"
+                :aria-label="t('settings.catAppearance.role.overview.edit')"
                 @click.stop="emit('editRole', item.role)"
               >
-                <PencilIcon data-icon="inline-start" />
-                {{ t('settings.catAppearance.role.overview.edit') }}
+                <PencilIcon />
               </Button>
+              <Switch
+                :id="`settings-companion-role-active-${item.role.id}`"
+                :model-value="item.active"
+                :disabled="item.active"
+                :aria-label="t('settings.catAppearance.role.overview.activeSwitch', { name: item.name })"
+                @update:model-value="selectRole(item, Boolean($event))"
+              />
             </template>
           </SettingsPanelItem>
         </div>
