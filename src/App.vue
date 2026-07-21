@@ -11,6 +11,7 @@ import { chatWorkspaceContextKey } from '@/components/chat/chat-workspace-contex
 import AppTopBar from '@/components/common/AppTopBar.vue'
 import FirstLaunchProviderGuide from '@/components/onboarding/FirstLaunchProviderGuide.vue'
 import SettingsSidebar, { type SettingsTab } from '@/components/settings/common/SettingsSidebar.vue'
+import { appFloatingBoundaryKey } from '@/components/ui/floating-boundary'
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar'
 import { Toaster } from '@/components/ui/sonner'
 import { useChatWorkspaceController } from '@/composables/chat/useChatWorkspaceController'
@@ -54,6 +55,7 @@ const {
 } = chatWorkspace
 const isMobile = useMediaQuery('(max-width: 768px)')
 const settingsSidebarOpen = ref(true)
+const appFloatingBoundary = ref<HTMLElement | null>(null)
 const startupLoaded = ref(false)
 const forceShowProviderGuide = ref(false)
 const activeCatRuns = new Set<string>()
@@ -62,6 +64,7 @@ let stopCatSubscription: (() => void) | undefined
 let stopOpenChatSubscription: (() => void) | undefined
 
 provide(chatWorkspaceContextKey, chatWorkspaceContext)
+provide(appFloatingBoundaryKey, appFloatingBoundary)
 
 const showProviderGuide = computed(
   () =>
@@ -273,7 +276,10 @@ onBeforeUnmount(() => {
       aria-hidden="true"
     />
     <AppTopBar />
-    <div class="relative z-10 min-h-0 flex-1 overflow-hidden">
+    <div
+      ref="appFloatingBoundary"
+      class="relative z-10 min-h-0 flex-1 overflow-hidden"
+    >
       <div
         v-if="showStartupPlaceholder"
         class="h-full bg-background"
