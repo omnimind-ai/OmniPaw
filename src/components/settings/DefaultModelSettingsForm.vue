@@ -3,7 +3,6 @@ import {
   ArrowDownIcon,
   ArrowUpIcon,
   BotIcon,
-  EyeIcon,
   GripVerticalIcon,
   ListChecksIcon,
   PlusIcon,
@@ -324,14 +323,6 @@ function modelLabel(option: ProviderModelOption) {
           </Select>
         </SettingEntry>
 
-      </FieldGroup>
-    </SettingsSection>
-
-    <SettingsSection
-      :title="t('settings.defaultModel.observation.title')"
-      :icon="EyeIcon"
-    >
-      <FieldGroup class="gap-0">
         <SettingEntry control-id="settings-observation-vision-model" :title="t('settings.defaultModel.observation.visionModel.title')">
           <template #description>
             {{ t('settings.defaultModel.observation.visionModel.description') }}
