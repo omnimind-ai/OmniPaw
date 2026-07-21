@@ -211,7 +211,7 @@ export default {
           basic: {
             title: 'Basics',
             description:
-              'Set the character identity, names, personality, background, and default model.',
+              'Set the character identity, names, personality, background, example dialogue, and default model.',
           },
           knowledge: {
             title: 'Character Knowledge',
@@ -229,8 +229,7 @@ export default {
           },
           advanced: {
             title: 'Advanced Settings',
-            description:
-              'Append finer role instructions, example dialogues, and output constraints.',
+            description: 'Append finer role instructions and output constraints.',
           },
         },
         listTitle: 'Characters',
@@ -338,6 +337,12 @@ export default {
               'A short identity, world, professional background, project context, or work habit note.',
             placeholder:
               'For example: a tiny desktop assistant who understands the user’s project rhythm and helps organize ideas and tasks.',
+          },
+          exampleDialogue: {
+            title: 'Example dialogue',
+            description: 'A few examples that stabilize voice and interaction style.',
+            placeholder:
+              'User: This requirement is messy.\nCharacter: I will split it into goals, constraints, and next steps, then we can start with the smallest change.',
           },
         },
         interactions: {
@@ -479,12 +484,6 @@ export default {
                 'Fine-grained behavior rules, collaboration boundaries, output habits, and long-running role guidance.',
               placeholder:
                 'For example: Start with the goal, then give actionable steps. For code, call out risks and verification. Avoid long explanations unless asked.',
-            },
-            exampleDialogue: {
-              title: 'Example dialogue',
-              description: 'A few examples that stabilize voice and interaction style.',
-              placeholder:
-                'User: This requirement is messy.\nCharacter: I will split it into goals, constraints, and next steps, then we can start with the smallest change.',
             },
             finalInstructions: {
               title: 'Final response constraints',

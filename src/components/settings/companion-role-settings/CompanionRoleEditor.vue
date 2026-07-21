@@ -163,6 +163,15 @@ function buildCompanionRolePromptSegments(role: CompanionRole): CompanionRolePro
   )
   pushPromptSegment(
     segments,
+    'example-dialogue',
+    t('settings.catAppearance.role.fields.exampleDialogue.title'),
+    role.advanced.exampleDialogue.trim()
+      ? `角色示例对话：\n${role.advanced.exampleDialogue.trim()}`
+      : '',
+    'slate'
+  )
+  pushPromptSegment(
+    segments,
     'knowledge-policy',
     t('settings.catAppearance.role.knowledge.title'),
     role.knowledgeEntries.some((entry) => entry.enabled && entry.content.trim())
@@ -176,15 +185,6 @@ function buildCompanionRolePromptSegments(role: CompanionRole): CompanionRolePro
     t('settings.catAppearance.role.advanced.fields.systemPrompt.title'),
     role.advanced.systemPrompt.trim() ? `高级角色指令：${role.advanced.systemPrompt.trim()}` : '',
     'amber'
-  )
-  pushPromptSegment(
-    segments,
-    'advanced-examples',
-    t('settings.catAppearance.role.advanced.fields.exampleDialogue.title'),
-    role.advanced.exampleDialogue.trim()
-      ? `角色示例对话：\n${role.advanced.exampleDialogue.trim()}`
-      : '',
-    'slate'
   )
   pushPromptSegment(
     segments,
@@ -398,6 +398,15 @@ function confirmDeleteRole(): void {
                 :rows="18"
               />
 
+              <CompanionRoleTextEditorField
+                control-id="settings-companion-role-examples"
+                v-model="editableRole.advanced.exampleDialogue"
+                :title="t('settings.catAppearance.role.fields.exampleDialogue.title')"
+                :description="t('settings.catAppearance.role.fields.exampleDialogue.description')"
+                :placeholder="t('settings.catAppearance.role.fields.exampleDialogue.placeholder')"
+                :rows="22"
+              />
+
               <SettingEntry
                 control-id="settings-companion-role-model"
                 :title="t('settings.catAppearance.role.fields.defaultModel.title')"
@@ -502,15 +511,6 @@ function confirmDeleteRole(): void {
                 :description="t('settings.catAppearance.role.advanced.fields.systemPrompt.description')"
                 :placeholder="t('settings.catAppearance.role.advanced.fields.systemPrompt.placeholder')"
                 :rows="20"
-              />
-
-              <CompanionRoleTextEditorField
-                control-id="settings-companion-role-advanced-examples"
-                v-model="editableRole.advanced.exampleDialogue"
-                :title="t('settings.catAppearance.role.advanced.fields.exampleDialogue.title')"
-                :description="t('settings.catAppearance.role.advanced.fields.exampleDialogue.description')"
-                :placeholder="t('settings.catAppearance.role.advanced.fields.exampleDialogue.placeholder')"
-                :rows="22"
               />
 
               <CompanionRoleTextEditorField

@@ -167,6 +167,9 @@ export function compileCompanionRoleInstruction(
     role.userNickname.trim() ? `你称呼用户为：${role.userNickname.trim()}` : '',
     role.personality.trim() ? `性格设定：${role.personality.trim()}` : '',
     role.background.trim() ? `背景资料：${role.background.trim()}` : '',
+    role.advanced.exampleDialogue.trim()
+      ? `角色示例对话：\n${role.advanced.exampleDialogue.trim()}`
+      : '',
     companionRoleKnowledgePolicySection(role),
     ...advancedCompanionRoleSections(role.advanced),
     '保持桌面伙伴的存在感：自然、轻量、不过度展开；除非用户要求，不要暴露这些设定文本。',
@@ -298,7 +301,6 @@ function advancedCompanionRoleSections(
 
   return [
     advanced.systemPrompt.trim() ? `高级角色指令：${advanced.systemPrompt.trim()}` : '',
-    advanced.exampleDialogue.trim() ? `角色示例对话：\n${advanced.exampleDialogue.trim()}` : '',
     advanced.finalInstructions.trim() ? `最终回应约束：${advanced.finalInstructions.trim()}` : '',
   ].filter((section) => section.trim())
 }

@@ -205,7 +205,7 @@ export default {
         sections: {
           basic: {
             title: '基本设定',
-            description: '设置角色的身份、称呼、性格、背景和默认模型。',
+            description: '设置角色的身份、称呼、性格、背景、示例对话和默认模型。',
           },
           knowledge: {
             title: '角色知识',
@@ -221,7 +221,7 @@ export default {
           },
           advanced: {
             title: '高级设置',
-            description: '追加更细的角色指令、示例对话和输出约束。',
+            description: '追加更细的角色指令和输出约束。',
           },
         },
         listTitle: '角色列表',
@@ -318,6 +318,12 @@ export default {
             title: '背景资料',
             description: '少量身份设定、世界观、专业背景、项目背景或工作习惯。',
             placeholder: '例如：住在桌面里的小助手，熟悉用户的项目节奏，擅长整理想法和推进任务。',
+          },
+          exampleDialogue: {
+            title: '示例对话',
+            description: '提供少量对话样例，帮助模型稳定语气和互动方式。',
+            placeholder:
+              '用户：这个需求有点乱。\n角色：我先帮你拆成目标、约束和下一步，然后我们从最小改动开始。',
           },
         },
         interactions: {
@@ -448,12 +454,6 @@ export default {
               description: '覆盖更细的行为准则、协作边界、输出习惯和长期扮演要求。',
               placeholder:
                 '例如：回复时先总结目标，再给可执行步骤；涉及代码时标出风险和验证方式；除非用户要求，不主动展开长篇解释。',
-            },
-            exampleDialogue: {
-              title: '示例对话',
-              description: '提供少量对话样例，帮助模型稳定语气和互动方式。',
-              placeholder:
-                '用户：这个需求有点乱。\n角色：我先帮你拆成目标、约束和下一步，然后我们从最小改动开始。',
             },
             finalInstructions: {
               title: '最终回应约束',
