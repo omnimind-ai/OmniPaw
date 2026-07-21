@@ -8,6 +8,10 @@
 
 const bundleOmniInferRaw = (process.env.OMNIPAW_BUNDLE_OMNIINFER ?? '1').trim()
 const bundleOmniInfer = bundleOmniInferRaw !== '0' && bundleOmniInferRaw.toLowerCase() !== 'false'
+const buildNumber = process.env.OMNIPAW_BUILD_NUMBER?.trim()
+const buildVersion = process.env.OMNIPAW_BUILD_VERSION?.trim()
+const macBundleVersion = process.env.OMNIPAW_MAC_BUNDLE_VERSION?.trim()
+const macBundleShortVersion = process.env.OMNIPAW_MAC_BUNDLE_SHORT_VERSION?.trim()
 
 const extraResources = []
 if (bundleOmniInfer) {
@@ -21,6 +25,8 @@ if (bundleOmniInfer) {
 module.exports = {
   appId: 'com.omnipaw.desktop',
   productName: 'OmniPaw',
+  ...(buildNumber ? { buildNumber } : {}),
+  ...(buildVersion ? { buildVersion } : {}),
   directories: {
     output: 'release',
   },
@@ -42,6 +48,8 @@ module.exports = {
   },
   mac: {
     icon: 'resources/app-icon.icns',
+    ...(macBundleVersion ? { bundleVersion: macBundleVersion } : {}),
+    ...(macBundleShortVersion ? { bundleShortVersion: macBundleShortVersion } : {}),
   },
   nsis: {
     oneClick: false,

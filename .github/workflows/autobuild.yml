@@ -1,0 +1,185 @@
+name: Autobuild
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: autobuild-dev-latest
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  version:
+    name: Resolve development version
+    runs-on: ubuntu-latest
+    outputs:
+      app_version: ${{ steps.version.outputs.app_version }}
+      base_version: ${{ steps.version.outputs.base_version }}
+      build_number: ${{ steps.version.outputs.build_number }}
+      platform_build_version: ${{ steps.version.outputs.platform_build_version }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Resolve version from package.json
+        id: version
+        shell: bash
+        run: |
+          node --input-type=module <<'NODE'
+          import { appendFileSync, readFileSync } from 'node:fs'
+
+          const packageJson = JSON.parse(readFileSync('package.json', 'utf8'))
+          const match = /^(\d+)\.(\d+)\.(\d+)(?:[-+].*)?$/.exec(packageJson.version)
+          if (!match) {
+            throw new Error(`package.json contains an unsupported version: ${packageJson.version}`)
+          }
+
+          const baseVersion = `${match[1]}.${match[2]}.${match[3]}`
+          const buildNumber = process.env.GITHUB_RUN_NUMBER
+          const shortSha = process.env.GITHUB_SHA.slice(0, 7)
+          const appVersion = `${baseVersion}-dev.${buildNumber}+${shortSha}`
+          const platformBuildVersion = `${baseVersion}.${buildNumber}`
+
+          appendFileSync(
+            process.env.GITHUB_OUTPUT,
+            [
+              `app_version=${appVersion}`,
+              `base_version=${baseVersion}`,
+              `build_number=${buildNumber}`,
+              `platform_build_version=${platformBuildVersion}`,
+              '',
+            ].join('\n')
+          )
+          NODE
+
+  build:
+    name: Build ${{ matrix.name }}
+    needs: version
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Windows x64
+            runner: windows-latest
+            builder_args: --win nsis --x64
+            artifact_name: omnipaw-windows-x64
+            artifact_path: release/*.exe
+          - name: macOS arm64 DMG
+            runner: macos-15
+            builder_args: --mac dmg --arm64
+            artifact_name: omnipaw-macos-arm64
+            artifact_path: release/*.dmg
+    runs-on: ${{ matrix.runner }}
+    env:
+      CSC_IDENTITY_AUTO_DISCOVERY: "false"
+      OMNIPAW_BUNDLE_OMNIINFER: "0"
+      OMNIPAW_BUILD_NUMBER: ${{ needs.version.outputs.build_number }}
+      OMNIPAW_BUILD_VERSION: ${{ needs.version.outputs.platform_build_version }}
+      OMNIPAW_MAC_BUNDLE_VERSION: ${{ needs.version.outputs.build_number }}
+      OMNIPAW_MAC_BUNDLE_SHORT_VERSION: ${{ needs.version.outputs.base_version }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Inject development version
+        shell: bash
+        env:
+          APP_VERSION: ${{ needs.version.outputs.app_version }}
+        run: |
+          node --input-type=module <<'NODE'
+          import { readFileSync, writeFileSync } from 'node:fs'
+
+          const packageJson = JSON.parse(readFileSync('package.json', 'utf8'))
+          packageJson.version = process.env.APP_VERSION
+          writeFileSync('package.json', `${JSON.stringify(packageJson, null, 2)}\n`)
+          NODE
+
+      - name: Rebuild native dependencies
+        run: pnpm rebuild:electron
+
+      - name: Stage packaged runtime dependencies
+        run: node scripts/stage-runtime-deps.mjs
+
+      - name: Build application
+        run: pnpm build
+
+      - name: Package installer
+        shell: bash
+        run: pnpm exec electron-builder --config electron-builder.config.cjs ${{ matrix.builder_args }} --publish never
+
+      - name: Upload installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: ${{ matrix.artifact_path }}
+          if-no-files-found: error
+          retention-days: 7
+
+  publish:
+    name: Publish dev-latest
+    needs:
+      - version
+      - build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      APP_VERSION: ${{ needs.version.outputs.app_version }}
+      DEV_TAG: dev-latest
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Download installers
+        uses: actions/download-artifact@v4
+        with:
+          path: release-assets
+          merge-multiple: true
+
+      - name: Move dev-latest tag
+        shell: bash
+        run: git push origin "${GITHUB_SHA}:refs/tags/${DEV_TAG}" --force
+
+      - name: Create or update autobuild release
+        shell: bash
+        run: |
+          release_notes="Automated development build ${APP_VERSION} from commit ${GITHUB_SHA}. Windows is x64; macOS is arm64. These packages are unsigned slim builds and do not bundle OmniInfer."
+
+          if gh release view "${DEV_TAG}" >/dev/null 2>&1; then
+            gh release edit "${DEV_TAG}" \
+              --title "Autobuild ${APP_VERSION}" \
+              --notes "${release_notes}" \
+              --prerelease
+          else
+            gh release create "${DEV_TAG}" \
+              --verify-tag \
+              --title "Autobuild ${APP_VERSION}" \
+              --notes "${release_notes}" \
+              --prerelease \
+              --latest=false
+          fi
+
+          gh release upload "${DEV_TAG}" release-assets/* --clobber
+
+          while IFS= read -r asset; do
+            if [[ -n "${asset}" && ! -f "release-assets/${asset}" ]]; then
+              gh release delete-asset "${DEV_TAG}" "${asset}" --yes
+            fi
+          done < <(gh release view "${DEV_TAG}" --json assets --jq '.assets[].name')
