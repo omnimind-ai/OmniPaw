@@ -108,6 +108,7 @@ protocol.registerSchemesAsPrivileged([
       standard: true,
       secure: true,
       supportFetchAPI: true,
+      corsEnabled: true,
     },
   },
 ])
@@ -687,6 +688,7 @@ function registerCatAppearanceAssetProtocol(): void {
         headers: {
           'Content-Type': asset.mimeType,
           'Cache-Control': 'no-store',
+          'Access-Control-Allow-Origin': '*',
         },
       })
     } catch (error) {

@@ -25,6 +25,7 @@ function handleCommand(event: CatCommandEvent): void {
 
 function applyAppearance(nextAppearance: typeof appearance): void {
   appearance = nextAppearance
+  view.resetHitAreaMeasurements()
   view.applyLayout(appearance.layout)
   stateMachine.applyAppearance(appearance)
 }
