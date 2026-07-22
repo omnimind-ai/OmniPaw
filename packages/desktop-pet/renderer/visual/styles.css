@@ -54,8 +54,12 @@ body {
   place-items: center;
   pointer-events: none;
   transform: translate3d(var(--cat-image-offset-x, 0px), var(--cat-image-offset-y, 0px), 0)
-    scale(var(--cat-image-scale, 1));
+    scale(var(--cat-image-scale, 1)) scaleX(var(--cat-facing-scale-x, 1));
   transform-origin: center bottom;
+}
+
+.cat-surface.is-docked-left {
+  --cat-facing-scale-x: -1;
 }
 
 .cat-stage img {

@@ -1,3 +1,4 @@
+import type { CatCommandEvent } from '@shared/types/cat'
 import { appBridge } from '@/bridge/app'
 import { createDefaultCatVisualAppearance, resolveCatVisualAppearance } from './appearance'
 import { createCatVisualStateMachine } from './state-machine'
@@ -17,6 +18,11 @@ const stateMachine = createCatVisualStateMachine({
   reportState: (state) => appBridge.cat.reportState(state),
 })
 
+function handleCommand(event: CatCommandEvent): void {
+  if (event.dockSide) view.applyDockSide(event.dockSide)
+  stateMachine.handleCommand(event)
+}
+
 function applyAppearance(nextAppearance: typeof appearance): void {
   appearance = nextAppearance
   view.applyLayout(appearance.layout)
@@ -34,7 +40,7 @@ async function loadAppearance(): Promise<void> {
 view.applyLayout(appearance.layout)
 view.showInitialImage(appearance.assets.idle)
 
-const unsubscribeCommand = appBridge.cat.onCommand(stateMachine.handleCommand)
+const unsubscribeCommand = appBridge.cat.onCommand(handleCommand)
 const unsubscribeAppearance = appBridge.catAppearance.onChanged((event) => {
   applyAppearance(resolveCatVisualAppearance(event.current))
 })

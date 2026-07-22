@@ -1,4 +1,4 @@
-import type { CatHitArea, CatWindowState } from '@shared/types/cat'
+import type { CatDockSide, CatHitArea, CatWindowState } from '@shared/types/cat'
 import type { CatAppearanceLayout } from '@shared/types/cat-appearance'
 import type { CatVisualFrame } from './state-machine'
 
@@ -7,6 +7,7 @@ interface CatVisualViewOptions {
 }
 
 export interface CatVisualView {
+  applyDockSide: (side: CatDockSide) => void
   applyLayout: (layout: CatAppearanceLayout) => void
   render: (frame: CatVisualFrame) => void
   showInitialImage: (source: string) => void
@@ -62,6 +63,9 @@ export function createCatVisualView(options: CatVisualViewOptions): CatVisualVie
   image.addEventListener('error', handleImageError)
 
   return {
+    applyDockSide(side) {
+      surface.classList.toggle('is-docked-left', side === 'left')
+    },
     applyLayout(layout) {
       imageFrame.style.setProperty('--cat-image-scale', String(layout.scale))
       imageFrame.style.setProperty('--cat-image-offset-x', `${layout.offsetX}px`)

@@ -8,6 +8,8 @@ export type CatWindowState = CatTaskState | 'hidden' | 'appearing' | 'dragging'
 
 export type CatInteractionState = CatTaskState | 'dragging'
 
+export type CatDockSide = 'left' | 'right'
+
 export type CatPanelSide = 'left' | 'right'
 
 export interface CatBounds {
@@ -28,6 +30,7 @@ export interface CatStatus {
 
 export interface CatCommandEvent {
   state: CatWindowState
+  dockSide?: CatDockSide
   source?: string
 }
 

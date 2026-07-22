@@ -8,6 +8,7 @@ import type {
   CatBubbleEvent,
   CatBubbleShowRequest,
   CatCommandEvent,
+  CatDockSide,
   CatDraftAttachment,
   CatDraftChangedEvent,
   CatDraftClearRequest,
@@ -696,6 +697,9 @@ function sendCatCommand(state: CatWindowState, source = 'main'): void {
 
   const payload: CatCommandEvent = {
     state,
+    ...(catWindow && !catWindow.isDestroyed()
+      ? { dockSide: getCatDockSide(catWindow.getBounds()) }
+      : {}),
     source,
   }
   if (catWindow && !catWindow.isDestroyed()) {
@@ -1094,17 +1098,24 @@ function getSnapTargetBounds(): CatBounds | null {
   const bounds = catWindow.getBounds()
   const display = getDisplay(bounds)
   const workArea = display.workArea
-  const centerX = bounds.x + bounds.width / 2
-  const displayCenterX = workArea.x + workArea.width / 2
-  const isRight = centerX > displayCenterX
-  const targetX = isRight
-    ? workArea.x + workArea.width - bounds.width + catEdgeOverflow
-    : workArea.x - catEdgeOverflow
+  const dockSide = getCatDockSide(bounds)
+  const targetX =
+    dockSide === 'right'
+      ? workArea.x + workArea.width - bounds.width + catEdgeOverflow
+      : workArea.x - catEdgeOverflow
 
   return constrainCatBounds({
     ...bounds,
     x: targetX,
   })
+}
+
+function getCatDockSide(bounds: CatBounds): CatDockSide {
+  const display = getDisplay(bounds)
+  const workArea = display.workArea
+  const centerX = bounds.x + bounds.width / 2
+  const displayCenterX = workArea.x + workArea.width / 2
+  return centerX > displayCenterX ? 'right' : 'left'
 }
 
 function animateCatBounds(targetBounds: CatBounds, duration = 260): Promise<CatBounds | null> {
