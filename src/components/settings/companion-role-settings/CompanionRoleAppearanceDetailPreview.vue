@@ -2,10 +2,11 @@
 import { ImageIcon, PauseIcon, PlayIcon, RotateCcwIcon } from '@lucide/vue'
 import type {
   CatAppearanceAssetKey,
+  CatAppearanceLayout,
   CatAppearancePackSummary,
   CatAppearanceResolvedPack,
 } from '@shared/types/cat-appearance'
-import type { ComponentPublicInstance } from 'vue'
+import type { ComponentPublicInstance, CSSProperties } from 'vue'
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { Badge } from '@/components/ui/badge'
@@ -31,6 +32,7 @@ const assetKeys: CatAppearanceAssetKey[] = [
 const props = defineProps<{
   pack?: CatAppearancePackSummary
   detail?: CatAppearanceResolvedPack
+  layout?: CatAppearanceLayout
   loading?: boolean
   error?: string
 }>()
@@ -60,6 +62,15 @@ const previewStates = ref(createPreviewStates())
 const imageElements = new Map<CatAppearanceAssetKey, HTMLImageElement>()
 const canvasElements = new Map<CatAppearanceAssetKey, HTMLCanvasElement>()
 const replayFrameIds = new Map<CatAppearanceAssetKey, number>()
+
+const previewLayoutStyle = computed<CSSProperties>(() => {
+  const layout = props.layout ?? props.detail?.layout
+  if (!layout) return {}
+  return {
+    transform: `translate3d(${layout.offsetX}px, ${layout.offsetY}px, 0) scale(${layout.scale})`,
+    transformOrigin: 'center bottom',
+  }
+})
 
 const assetItems = computed(() =>
   assetKeys.map((key) => {
@@ -263,6 +274,7 @@ onBeforeUnmount(() => {
               :src="buildReplaySource(item.src, previewStates[item.key].replayVersion)"
               :alt="t('settings.catAppearance.detail.assetAlt', { name: pack?.name || '', action: item.label })"
               class="max-h-full max-w-full object-contain"
+              :style="previewLayoutStyle"
               draggable="false"
               @load="markPreviewReady(item.key, $event)"
               @error="markPreviewUnavailable(item.key, $event)"
@@ -272,6 +284,7 @@ onBeforeUnmount(() => {
               v-show="previewStates[item.key].paused"
               :ref="(element) => setCanvasElement(item.key, element)"
               class="max-h-full max-w-full object-contain"
+              :style="previewLayoutStyle"
               role="img"
               :aria-label="t('settings.catAppearance.detail.assetAlt', { name: pack?.name || '', action: item.label })"
             />

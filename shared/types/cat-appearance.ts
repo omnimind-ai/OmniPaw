@@ -21,6 +21,7 @@ export type CatAppearanceChangeReason =
   | 'select'
   | 'watch'
   | 'import'
+  | 'layout'
   | 'delete'
 
 export interface CatAppearanceDurations {
@@ -75,6 +76,11 @@ export interface CatAppearanceSetActiveRequest {
 
 export interface CatAppearanceGetPackRequest {
   packId?: string
+}
+
+export interface CatAppearanceUpdateLayoutRequest {
+  packId?: string
+  layout: CatAppearanceLayout
 }
 
 export interface CatAppearanceDeletePackRequest {

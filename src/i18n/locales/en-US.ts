@@ -580,6 +580,18 @@ export default {
           pause: 'Pause',
           resume: 'Resume',
         },
+        layout: {
+          title: 'Image layout',
+          description: 'Drag to preview changes; releasing a slider saves them to the local pack.',
+          readonlyDescription:
+            'Built-in appearances use preset layouts. Import a local pack to customize it.',
+          saving: 'Saving…',
+          scale: 'Scale',
+          offsetX: 'Horizontal offset',
+          offsetY: 'Vertical offset',
+          scaleRange: '25%–200%',
+          offsetRange: '-116px–116px',
+        },
         assetActions: {
           idle: 'Idle',
           show: 'Show animation',
@@ -598,6 +610,7 @@ export default {
         loadFailed: 'Failed to load appearance packs.',
         importFailed: 'Failed to import appearance pack.',
         imported: 'Appearance pack imported.',
+        layoutSaveFailed: 'Failed to save the appearance layout.',
       },
     },
     localAgent: {

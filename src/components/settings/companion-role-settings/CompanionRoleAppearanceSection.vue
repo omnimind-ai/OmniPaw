@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ImageIcon, PackagePlusIcon } from '@lucide/vue'
 import type {
+  CatAppearanceLayout,
   CatAppearanceListResponse,
   CatAppearancePackSummary,
   CatAppearanceResolvedPack,
@@ -15,6 +16,7 @@ import {
 } from '@/bridge/app'
 import SettingsSection from '@/components/settings/common/SettingsSection.vue'
 import CompanionRoleAppearanceDetailPreview from '@/components/settings/companion-role-settings/CompanionRoleAppearanceDetailPreview.vue'
+import CompanionRoleAppearanceLayoutControls from '@/components/settings/companion-role-settings/CompanionRoleAppearanceLayoutControls.vue'
 import { Button } from '@/components/ui/button'
 import { errorToText, useToast } from '@/utils/toast'
 
@@ -34,6 +36,8 @@ const importing = ref(false)
 const currentDetailLoading = ref(false)
 const currentDetailError = ref<string>()
 const currentDetail = shallowRef<CatAppearanceResolvedPack>()
+const layoutDraft = ref<CatAppearanceLayout>({ scale: 1, offsetX: 0, offsetY: 0 })
+const layoutSaving = ref(false)
 let unsubscribe: BridgeUnsubscribe | undefined
 let detailRequestId = 0
 
@@ -67,6 +71,13 @@ const currentPack = computed<CatAppearancePackSummary | undefined>(() => {
     error: t('settings.catAppearance.detail.unavailable'),
   }
 })
+const layoutReadonly = computed(
+  () =>
+    isFallbackBridge ||
+    currentDetail.value?.source !== 'local' ||
+    currentDetail.value.status !== 'available'
+)
+
 onMounted(async () => {
   unsubscribe = appBridge.catAppearance.onChanged((event) => {
     response.value = event
@@ -83,6 +94,16 @@ onBeforeUnmount(() => {
 watch(activeRoleAppearancePackId, () => {
   void loadCurrentDetail()
 })
+
+watch(
+  () => currentDetail.value?.layout,
+  (layout) => {
+    if (layout && !layoutSaving.value) {
+      layoutDraft.value = { ...layout }
+    }
+  },
+  { immediate: true }
+)
 
 async function loadPacks(): Promise<void> {
   loading.value = true
@@ -150,6 +171,26 @@ async function loadCurrentDetail(packId = activeRoleAppearancePackId.value): Pro
     }
   }
 }
+
+async function saveLayout(layout: CatAppearanceLayout): Promise<void> {
+  const detail = currentDetail.value
+  if (layoutSaving.value || layoutReadonly.value || !detail) return
+
+  layoutSaving.value = true
+  try {
+    const updated = await appBridge.catAppearance.updateLayout({
+      packId: detail.id,
+      layout,
+    })
+    currentDetail.value = updated
+    layoutDraft.value = { ...updated.layout }
+  } catch (error) {
+    layoutDraft.value = { ...detail.layout }
+    toast.error(errorToText(error, t('settings.catAppearance.toasts.layoutSaveFailed')))
+  } finally {
+    layoutSaving.value = false
+  }
+}
 </script>
 
 <template>
@@ -185,9 +226,19 @@ async function loadCurrentDetail(packId = activeRoleAppearancePackId.value): Pro
         </Button>
       </div>
 
+      <CompanionRoleAppearanceLayoutControls
+        v-if="currentDetail?.id === activeRoleAppearancePackId"
+        v-model="layoutDraft"
+        :readonly="layoutReadonly"
+        :disabled="layoutReadonly || layoutSaving"
+        :saving="layoutSaving"
+        @commit="saveLayout"
+      />
+
       <CompanionRoleAppearanceDetailPreview
         :pack="currentPack"
         :detail="currentDetail"
+        :layout="currentDetail?.id === activeRoleAppearancePackId ? layoutDraft : undefined"
         :loading="loading || currentDetailLoading"
         :error="currentDetailError"
       />

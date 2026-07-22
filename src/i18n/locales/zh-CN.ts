@@ -547,6 +547,17 @@ export default {
           pause: '暂停',
           resume: '继续',
         },
+        layout: {
+          title: '图片布局',
+          description: '拖动滑块可实时预览；松开后会将布局写入本地外观包。',
+          readonlyDescription: '内置外观使用预设布局；导入本地外观包后可调整。',
+          saving: '保存中…',
+          scale: '缩放',
+          offsetX: '水平位移',
+          offsetY: '垂直位移',
+          scaleRange: '25%–200%',
+          offsetRange: '-116px–116px',
+        },
         assetActions: {
           idle: '空闲',
           show: '出现动画',
@@ -565,6 +576,7 @@ export default {
         loadFailed: '外观包加载失败。',
         importFailed: '外观包导入失败。',
         imported: '外观包已导入。',
+        layoutSaveFailed: '外观布局保存失败。',
       },
     },
     localAgent: {
