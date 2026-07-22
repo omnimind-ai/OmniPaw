@@ -35,7 +35,6 @@ export interface ChatWorkspaceContext {
   selectedModel: ComputedRef<ProviderModelOption | undefined>
   selectedModelKey: Ref<string>
   selectedModelLabel: ComputedRef<string>
-  selectedModelMeta: ComputedRef<string>
   companionRoleOptions: ComputedRef<ChatCompanionRoleOption[]>
   activeCompanionRoleId: ComputedRef<string>
   companionRoleSaving: Ref<boolean>

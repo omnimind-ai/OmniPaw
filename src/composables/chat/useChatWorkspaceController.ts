@@ -228,7 +228,6 @@ export function useChatWorkspaceController() {
     selectedModel: model.selectedModel,
     selectedModelKey: model.selectedModelKey,
     selectedModelLabel: model.selectedModelLabel,
-    selectedModelMeta: model.selectedModelMeta,
     companionRoleOptions,
     activeCompanionRoleId,
     companionRoleSaving,

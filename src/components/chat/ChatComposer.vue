@@ -1,17 +1,10 @@
 <script setup lang="ts">
-import {
-  ArrowUpIcon,
-  CpuIcon,
-  PlusIcon,
-  ReplyIcon,
-  ShieldCheckIcon,
-  SquareIcon,
-  XIcon,
-} from '@lucide/vue'
+import { ArrowUpIcon, PlusIcon, ReplyIcon, ShieldCheckIcon, SquareIcon, XIcon } from '@lucide/vue'
 import type { ToolProfile } from '@shared/types/chat'
 import { computed, nextTick, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import ChatContextUsageIndicator from '@/components/chat/ChatContextUsageIndicator.vue'
+import ProviderBrandIcon from '@/components/settings/provider-settings/ProviderBrandIcon.vue'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -50,7 +43,6 @@ const props = defineProps<{
   modelOptions: ProviderModelOption[]
   selectedModelKey: string
   selectedModelLabel: string
-  selectedModelMeta?: string
   toolProfile: ToolProfile
   toolProfileOptions: Array<{
     value: ToolProfile
@@ -145,6 +137,12 @@ const selectedToolProfile = computed(
 const selectedModelOption = computed(
   () => props.modelOptions.find((option) => option.key === props.selectedModelKey) ?? null
 )
+const selectedProvider = computed(() => ({
+  id: selectedModelOption.value?.providerId,
+  name: selectedModelOption.value?.providerName,
+  type: selectedModelOption.value?.providerType ?? selectedModelOption.value?.providerApi,
+  baseUrl: selectedModelOption.value?.baseUrl,
+}))
 const selectedModelCompactLabel = computed(() =>
   compactModelLabel(
     selectedModelOption.value?.modelName || props.selectedModelLabel,
@@ -484,7 +482,11 @@ function handleDrop(event: DragEvent) {
                       :disabled="!modelOptions.length"
                       :aria-label="t('chat.composer.switchModelAria', { model: selectedModelLabel })"
                     >
-                      <CpuIcon data-icon="inline-start" />
+                      <ProviderBrandIcon
+                        :provider="selectedProvider"
+                        data-icon="inline-start"
+                        class="size-4!"
+                      />
                       <span class="hidden truncate @min-[30rem]/chat-composer:inline @min-[44rem]/chat-composer:hidden">
                         {{ selectedModelCompactLabel }}
                       </span>
@@ -569,13 +571,6 @@ function handleDrop(event: DragEvent) {
               </div>
 
               <div class="flex shrink-0 items-center gap-2">
-                <span
-                  v-if="selectedModelMeta"
-                  class="hidden max-w-36 truncate text-xs text-muted-foreground @min-[44rem]/chat-composer:inline"
-                >
-                  {{ selectedModelMeta }}
-                </span>
-
                 <InputGroupButton
                   size="icon-sm"
                   variant="default"

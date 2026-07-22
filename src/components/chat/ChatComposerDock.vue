@@ -29,7 +29,6 @@ const {
   enabledModelOptions,
   selectedModelKey,
   selectedModelLabel,
-  selectedModelMeta,
   agentToolProfile,
   toolProfileOptions,
   toolProfileSaving,
@@ -93,7 +92,6 @@ const {
         :model-options="enabledModelOptions"
         :selected-model-key="selectedModelKey"
         :selected-model-label="selectedModelLabel"
-        :selected-model-meta="selectedModelMeta"
         :tool-profile="agentToolProfile"
         :tool-profile-options="toolProfileOptions"
         :show-tool-profile="true"

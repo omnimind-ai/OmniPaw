@@ -53,11 +53,6 @@ export function useChatWorkspaceModel({
     return selectedModel.value.modelName
   })
 
-  const selectedModelMeta = computed(() => {
-    if (!selectedModel.value) return ''
-    return selectedModel.value.providerName
-  })
-
   watch(
     [enabledModelOptions, defaultModelKey, currSessionId, sessions],
     () => syncSelectedModel(),
@@ -157,7 +152,6 @@ export function useChatWorkspaceModel({
     selectedModel,
     selectedModelKey,
     selectedModelLabel,
-    selectedModelMeta,
     syncSelectedModel,
     handleModelChange,
     selectModel,
