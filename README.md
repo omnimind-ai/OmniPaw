@@ -27,31 +27,34 @@ OmniPaw is a local-first AI desktop pet that lives on your desktop and gradually
 ## Screenshots
 
 <p align="center">
-  <img src="public/version.png" alt="OmniPaw desktop pet observing the screen and responding with a notification bubble" width="100%" />
+  <img src="public/hello.png" alt="OmniPaw home screen" width="100%" />
   <br />
-  <strong>Desktop Pet, Visual Observation, and Proactive Feedback</strong>
 </p>
 
 <table>
   <tr>
     <td width="50%">
-      <img src="public/traven.png" alt="OmniPaw character and role-play context" />
+      <img src="public/pet.png" alt="Chat with the OmniPaw desktop pet" />
+    </td>
+    <td width="50%">
+      <img src="public/pet-status.png" alt="OmniPaw desktop pet relationship and status panel" />
+    </td>
+  </tr>
+  <tr>
+    <td align="center"><strong>Chat with Your Desktop Pet</strong></td>
+    <td align="center"><strong>Relationship and Status</strong></td>
+  </tr>
+  <tr>
+    <td width="50%">
+      <img src="public/version.png" alt="OmniPaw desktop pet observing the screen and responding with a notification bubble" />
     </td>
     <td width="50%">
       <img src="public/corn.png" alt="Scheduled tasks and tool calls" />
     </td>
   </tr>
   <tr>
-    <td align="center"><strong>Characters and Role-play Context</strong></td>
+    <td align="center"><strong>Visual Observation and Proactive Feedback</strong></td>
     <td align="center"><strong>Scheduled Tasks and Tool Calls</strong></td>
-  </tr>
-  <tr>
-    <td colspan="2">
-      <img src="public/hello.png" alt="OmniPaw focused chat workspace" />
-    </td>
-  </tr>
-  <tr>
-    <td colspan="2" align="center"><strong>Focused Chat Workspace</strong></td>
   </tr>
 </table>
 
@@ -106,37 +109,6 @@ pnpm start
 pnpm pack
 pnpm dist
 ```
-
-## Local Models (OmniInfer)
-
-OmniPaw can run small GGUF models locally via the embedded OmniInfer runtime.
-
-### Distribution Variants
-
-- **Full build** (`pnpm build:full`): bundles the OmniInfer binary under `resources/omniinfer/` via electron-builder `extraResources`. Users get a turnkey experience — drop a `.gguf` into the models directory and chat.
-- **Slim build** (`pnpm build:slim`): omits the OmniInfer binary to reduce installer size by hundreds of MB. Users supply OmniInfer themselves by either placing it in the install directory under `resources/omniinfer/` or setting `OMNIPAW_OMNIINFER_PATH` to the binary path.
-
-### Bundling OmniInfer for the Full Build
-
-Developers must drop an OmniInfer release (e.g. from the OmniStudio release package) into `resources/omniinfer/` before running `pnpm build:full`. The directory is `.gitignore`d except for `.gitkeep`. The build pre-check (`scripts/check-omniinfer-resources.mjs`) warns if expected binaries are missing.
-
-### Models Directory
-
-- Production: `<userData>/models/` (auto-created on first run)
-- Development: if `<repo-root>/models/` exists, it overrides the userData path
-
-Override at runtime via the `OMNIINFER_MODELS_DIR_OVERRIDE` environment variable.
-
-### Using a Local Model
-
-1. Place a `.gguf` file into the models directory, or use the "选择本地 .gguf" button in **Settings → 本地模型** to point to a file anywhere on disk.
-2. The Settings panel shows the OmniInfer process state (`运行中` / `已停止` / `未内置` / ...) and the list of installed models.
-3. Click "加载" on a model to invoke `/omni/model/select`; the badge "已加载" appears once OmniInfer reports the model ready.
-4. In **设置 → 模型服务** make sure the `OmniInfer Local` provider is enabled, then select it in any chat session and start talking — the provider lazily ensures the right model is loaded before sending the request.
-
-### Logs
-
-OmniInfer process stdout/stderr is written under `<app logs>/omniinfer/`. Open the directory via the "查看日志" button in the Local Models settings.
 
 ## Contributing
 
