@@ -1,10 +1,8 @@
 <div align="center">
 
-<img src="assets/brand-logo.png" alt="OmniPaw Logo" style="width:140px;" />
+<img src="public/brand-logo.png" alt="OmniPaw Logo" style="width:140px;" />
 
-# OmniPaw
-
-**面向端侧模型的桌面 AI 助手与 Agent 客户端**
+**更懂你的 AI 桌面宠物，与你工作，伴你身边**
 
 [English](README.md) | 简体中文
 
@@ -16,43 +14,43 @@
 
 </div>
 
-OmniPaw 是一个面向桌面环境的 AI 助手客户端，目标是让本地部署或局域网内的 OpenAI 兼容模型更容易接入日常工作流。提供聊天、酒馆、视觉观察、技能/MCP/Agent 工具/计划任务等能力
+OmniPaw 是一只本地优先的 AI 桌面宠物。它常驻在你的桌面，在日常互动中逐渐了解你，他能看到并记住你再干什么，陪你一起完成工作。你可以选择它的角色与形象，在相处中培养好感、感受心情变化并解锁礼物
 
 ## 特性
-
-- **OpenAI 兼容模型服务** - 支持配置 OpenAI-compatible Provider、模型列表、默认模型和备用模型
-- **桌面小猫助手** - 提供悬浮窗、通知气泡、会话入口和运行状态联动
-- **Persona 与上下文管理** - 支持人格配置、系统上下文、附件上下文和自动压缩策略
-- **Agent 工具能力** - 支持 Skills、MCP、本地 workspace、terminal process 和工具权限配置
-- **计划任务与主动观察** - 支持定时任务、视觉观察和通知反馈
-- **本地数据优先** - 配置、Provider、Persona、SQLite、附件、技能状态和日志默认保存在本机
+- **持续的视觉能力** - 查看你的桌面，了解你在做什么，你喜欢做的，经常做的，它都能记住，当然，在你允许的前提下
+- **持续成长的关系** - 好感度、每日互动、让每一次相处都能延续下来、或许能收到宠物的礼物？
+- **属于你的角色与形象** - 更高 的自定义程度，让你拥有自己专属的角色，并支持按需导入导出角色卡，让社区更了解你的角色
+- **与你一起工作** - 支持较完整的agent harness、计划提醒、工作任务，无需离开当前工作环境
+- **藏在陪伴背后的 Agent 能力** - 通过 Skills、MCP、本地工作区、终端进程与工具权限扩展桌宠能完成的事情
 
 ## 截图
 
 <p align="center">
-  <img src="assets/hello.png" alt="OmniPaw 主界面" width="100%" />
+  <img src="public/version.png" alt="OmniPaw 桌宠观察屏幕并通过通知气泡回应" width="100%" />
+  <br />
+  <strong>桌宠陪伴、视觉观察与主动反馈</strong>
 </p>
 
 <table>
   <tr>
     <td width="50%">
-      <img src="assets/traven.png" alt="酒馆角色会话" />
+      <img src="public/traven.png" alt="OmniPaw 角色与角色扮演上下文" />
     </td>
     <td width="50%">
-      <img src="assets/corn.png" alt="计划任务与工具调用" />
+      <img src="public/corn.png" alt="计划任务与工具调用" />
     </td>
   </tr>
   <tr>
-    <td align="center"><strong>酒馆会话</strong></td>
+    <td align="center"><strong>角色与角色扮演上下文</strong></td>
     <td align="center"><strong>计划任务与工具调用</strong></td>
   </tr>
   <tr>
     <td colspan="2">
-      <img src="assets/version.png" alt="视觉观察与桌面助手" />
+      <img src="public/hello.png" alt="OmniPaw 专注聊天工作区" />
     </td>
   </tr>
   <tr>
-    <td colspan="2" align="center"><strong>视觉观察与桌面助手</strong></td>
+    <td colspan="2" align="center"><strong>专注聊天工作区</strong></td>
   </tr>
 </table>
 
@@ -107,13 +105,6 @@ pnpm start
 pnpm pack
 pnpm dist
 ```
-
-## 首次使用
-
-1. 启动应用后打开「设置」。
-2. 在「模型服务」中添加 OpenAI 兼容 Provider。
-3. 在「默认模型」中选择默认聊天模型和备用模型。
-4. 按需启用 Persona、酒馆、技能、MCP、本地 Agent、计划任务或视觉观察。
 
 ## 贡献
 

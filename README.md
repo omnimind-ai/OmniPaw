@@ -2,9 +2,7 @@
 
 <img src="public/brand-logo.png" alt="OmniPaw Logo" style="width:140px;" />
 
-# OmniPaw
-
-**A desktop AI assistant and Agent client for edge-side models**
+**Understand your AI desktop pet better, work with you, accompany you by your side**
 
 English | [简体中文](README.zh-CN.md)
 
@@ -16,43 +14,44 @@ English | [简体中文](README.zh-CN.md)
 
 </div>
 
-OmniPaw is a desktop AI assistant client designed to make locally deployed or LAN-hosted OpenAI-compatible models easier to use in everyday workflows. It provides chat, tavern role-play, visual observation, Skills, MCP, Agent tools, scheduled tasks, and other local-first capabilities.
+OmniPaw is a local-first AI desktop pet that lives on your desktop and gradually gets to know you through everyday interactions. It can see and remember what you are doing, work alongside you, and keep you company throughout the day. Choose its character and appearance, build affection, watch its mood change, and unlock gifts as your bond grows.
 
 ## Features
 
-- **OpenAI-compatible model services** - Configure OpenAI-compatible providers, model lists, default models, and fallback models
-- **Desktop cat assistant** - Floating window, notification bubbles, session entry points, and runtime state sync
-- **Persona and context management** - Persona profiles, system context, attachment context, and automatic compaction policies
-- **Agent tooling** - Skills, MCP, local workspace, terminal process management, and configurable tool permissions
-- **Scheduled tasks and proactive observation** - Scheduled task execution, visual observation, and notification feedback
-- **Local-first data** - Config, providers, personas, SQLite data, attachments, skill state, and logs are stored locally by default
+- **Continuous visual awareness** - With your permission, your pet can observe your desktop, understand what you are doing, and remember the things you enjoy and do often
+- **A relationship that grows** - Affection and daily interactions make every moment part of an ongoing relationship—and your pet may even surprise you with a gift
+- **A character and look of your own** - Deep customization lets you create a truly unique companion, while character card import and export make it easy to share your creation with the community
+- **Works alongside you** - A capable Agent harness, scheduled reminders, and task execution help you stay productive without leaving your current workflow
+- **Agent capabilities behind the companion** - Extend what your pet can do with Skills, MCP, a local workspace, terminal processes, and configurable tool permissions
 
 ## Screenshots
 
 <p align="center">
-  <img src="public/hello.png" alt="OmniPaw main screen" width="100%" />
+  <img src="public/version.png" alt="OmniPaw desktop pet observing the screen and responding with a notification bubble" width="100%" />
+  <br />
+  <strong>Desktop Pet, Visual Observation, and Proactive Feedback</strong>
 </p>
 
 <table>
   <tr>
     <td width="50%">
-      <img src="public/traven.png" alt="Tavern role-play session" />
+      <img src="public/traven.png" alt="OmniPaw character and role-play context" />
     </td>
     <td width="50%">
       <img src="public/corn.png" alt="Scheduled tasks and tool calls" />
     </td>
   </tr>
   <tr>
-    <td align="center"><strong>Tavern Session</strong></td>
+    <td align="center"><strong>Characters and Role-play Context</strong></td>
     <td align="center"><strong>Scheduled Tasks and Tool Calls</strong></td>
   </tr>
   <tr>
     <td colspan="2">
-      <img src="public/version.png" alt="Visual observation and desktop assistant" />
+      <img src="public/hello.png" alt="OmniPaw focused chat workspace" />
     </td>
   </tr>
   <tr>
-    <td colspan="2" align="center"><strong>Visual Observation and Desktop Assistant</strong></td>
+    <td colspan="2" align="center"><strong>Focused Chat Workspace</strong></td>
   </tr>
 </table>
 
@@ -107,13 +106,6 @@ pnpm start
 pnpm pack
 pnpm dist
 ```
-
-## First Use
-
-1. Start the app and open Settings.
-2. Add an OpenAI-compatible provider under Model Services.
-3. Select the default chat model and fallback models under Default Models.
-4. Enable Persona, Tavern, Skills, MCP, local Agent tools, scheduled tasks, or visual observation as needed.
 
 ## Local Models (OmniInfer)
 
