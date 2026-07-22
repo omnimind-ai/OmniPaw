@@ -113,6 +113,7 @@ function createCompanionRole(): CompanionRole {
       source: 'appearance-idle',
     },
     appearancePackId: 'builtin',
+    appearanceLayoutOverride: undefined,
     userNickname: '',
     personality: '',
     background: '',
@@ -385,6 +386,9 @@ function createRoleFromImportedDraft(
     introduction: draft.introduction ?? '',
     avatar: cloneRoleAvatar(draft.avatar) ?? { source: 'appearance-idle' },
     appearancePackId: draft.appearancePackId || 'builtin',
+    appearanceLayoutOverride: draft.appearanceLayoutOverride
+      ? { ...draft.appearanceLayoutOverride }
+      : undefined,
     userNickname: draft.userNickname ?? '',
     personality: draft.personality ?? '',
     background: draft.background ?? '',
@@ -413,6 +417,9 @@ function createExportRoleDraft(role: CompanionRole): ImportedCompanionRoleDraft 
     introduction: role.introduction,
     avatar: cloneRoleAvatar(role.avatar),
     appearancePackId: role.appearancePackId,
+    appearanceLayoutOverride: role.appearanceLayoutOverride
+      ? { ...role.appearanceLayoutOverride }
+      : undefined,
     userNickname: role.userNickname,
     personality: role.personality,
     background: role.background,

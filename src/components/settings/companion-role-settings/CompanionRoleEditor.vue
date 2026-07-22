@@ -119,7 +119,16 @@ function updateKnowledgeSettings(settings: CompanionRole['knowledgeSettings']): 
 }
 
 function updateAppearancePackId(appearancePackId: string): void {
+  if (editableRole.value.appearancePackId !== appearancePackId) {
+    editableRole.value.appearanceLayoutOverride = undefined
+  }
   editableRole.value.appearancePackId = appearancePackId
+}
+
+function updateAppearanceLayoutOverride(
+  layout: NonNullable<CompanionRole['appearanceLayoutOverride']>
+): void {
+  editableRole.value.appearanceLayoutOverride = { ...layout }
 }
 
 function updatePetInteractions(interactions: CompanionRole['petInteractions']): void {
@@ -472,7 +481,9 @@ function confirmDeleteRole(): void {
         <div class="flex flex-col gap-4 p-4 sm:p-5">
           <CompanionRoleAppearanceSection
             :appearance-pack-id="editableRole.appearancePackId"
+            :appearance-layout-override="editableRole.appearanceLayoutOverride"
             @update:appearance-pack-id="updateAppearancePackId"
+            @update:appearance-layout-override="updateAppearanceLayoutOverride"
           />
         </div>
       </TabsContent>

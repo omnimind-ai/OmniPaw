@@ -68,7 +68,10 @@ function syncActiveCompanionRoleAppearance(
   }
 
   try {
-    options.runtime.catAppearanceManager.setActive({ packId })
+    options.runtime.catAppearanceManager.setActive({
+      packId,
+      layoutOverride: activeRole?.appearanceLayoutOverride,
+    })
   } catch (error) {
     options.ipcLogger.warn('Failed to sync active companion role appearance.', {
       packId,

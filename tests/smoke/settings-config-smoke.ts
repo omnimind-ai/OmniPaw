@@ -255,6 +255,11 @@ try {
             mimeType: 'image/png',
             fileName: 'avatar-smoke.png',
           },
+          appearanceLayoutOverride: {
+            scale: 3,
+            offsetX: 12.3456,
+            offsetY: -200,
+          },
           enabled: false,
           greeting: '旧开场白',
           greetingMode: 'random',
@@ -316,6 +321,11 @@ try {
     roleConfig.app.companionRoles[0]?.avatar?.dataUrl,
     'data:image/png;base64,YXZhdGFyLXNtb2tl'
   )
+  assert.deepEqual(roleConfig.app.companionRoles[0]?.appearanceLayoutOverride, {
+    scale: 2,
+    offsetX: 12.346,
+    offsetY: -116,
+  })
   assert.equal(roleConfig.app.companionRoles[0]?.knowledgeSettings.scanDepth, 5)
   assert.equal(roleConfig.app.companionRoles[0]?.knowledgeSettings.maxTokens, 1200)
   assert.equal(roleConfig.app.companionRoles[0]?.knowledgeEntries[0]?.title, '桌面设定')
@@ -375,6 +385,11 @@ try {
         mimeType: 'image/png',
         fileName: 'role-avatar.png',
       },
+      appearanceLayoutOverride: {
+        scale: 1.1,
+        offsetX: 5,
+        offsetY: -6,
+      },
       petGifts: [
         {
           id: 'gift_100',
@@ -403,6 +418,11 @@ try {
     importedGiftPackage.role.avatar?.dataUrl,
     'data:image/png;base64,YXZhdGFyLXBhY2thZ2U='
   )
+  assert.deepEqual(importedGiftPackage.role.appearanceLayoutOverride, {
+    scale: 1.1,
+    offsetX: 5,
+    offsetY: -6,
+  })
   assert.equal(importedGiftPackage.role.petGifts?.[0]?.name, 'Gift Package Smoke')
   assert.equal(
     importedGiftPackage.role.petGifts?.[0]?.image?.dataUrl,

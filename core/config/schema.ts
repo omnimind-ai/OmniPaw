@@ -10,6 +10,7 @@ import {
   normalizePetGiftConfigs as normalizeCatPetGiftConfigs,
   normalizePetInteractionConfigs as normalizeCatPetInteractionConfigs,
 } from '@core/role/presets'
+import { normalizeCatAppearanceLayoutOverride } from '@shared/types/cat-appearance'
 import type { ContextAttachmentPolicy, ToolProfile } from '@shared/types/chat'
 import {
   type CompanionRoleAvatar,
@@ -790,6 +791,11 @@ function validateCompanionRole(
         code: 'invalid_type',
       })
     }
+    validateCompanionRoleAppearanceLayoutOverride(
+      settings.appearanceLayoutOverride,
+      `${basePath}.appearanceLayoutOverride`,
+      issues
+    )
     validateCompanionRoleAvatar(settings.avatar, `${basePath}.avatar`, issues)
     if (!isPlainObject(settings.knowledgeSettings)) {
       issues.push({
@@ -888,6 +894,40 @@ function validateCompanionRole(
       message: 'Active companion role ID must reference an existing role.',
       code: 'invalid_reference',
     })
+  }
+}
+
+function validateCompanionRoleAppearanceLayoutOverride(
+  layout: DesktopCompanionRoleSettings['appearanceLayoutOverride'],
+  basePath: string,
+  issues: SettingsValidationIssue[]
+): void {
+  if (layout === undefined) return
+  if (!isPlainObject(layout)) {
+    issues.push({
+      path: basePath,
+      message: 'Companion role appearance layout override must be an object.',
+      code: 'invalid_type',
+    })
+    return
+  }
+
+  for (const [field, min, max] of [
+    ['scale', 0.25, 2],
+    ['offsetX', -116, 116],
+    ['offsetY', -116, 116],
+  ] as const) {
+    const value = layout[field]
+    if (
+      value !== undefined &&
+      (typeof value !== 'number' || !Number.isFinite(value) || value < min || value > max)
+    ) {
+      issues.push({
+        path: `${basePath}.${field}`,
+        message: `Value must be a number between ${min} and ${max}.`,
+        code: 'out_of_range',
+      })
+    }
   }
 }
 
@@ -2570,6 +2610,9 @@ function normalizeCompanionRoleSettings(
       typeof rawValue.appearancePackId === 'string' && rawValue.appearancePackId.trim()
         ? rawValue.appearancePackId
         : defaults.appearancePackId,
+    appearanceLayoutOverride:
+      normalizeCatAppearanceLayoutOverride(rawValue.appearanceLayoutOverride) ??
+      (defaults.appearanceLayoutOverride ? { ...defaults.appearanceLayoutOverride } : undefined),
     userNickname:
       typeof rawValue.userNickname === 'string' ? rawValue.userNickname : defaults.userNickname,
     personality:

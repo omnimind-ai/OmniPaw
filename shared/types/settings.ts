@@ -1,3 +1,4 @@
+import type { CatAppearanceLayoutOverride } from './cat-appearance'
 import type { CatPetGiftConfig, CatPetInteractionConfig } from './cat-pet'
 import type { ContextAttachmentPolicy, ToolProfile } from './chat'
 import type {
@@ -68,6 +69,7 @@ export interface DesktopCompanionRoleSettings {
   introduction: string
   avatar?: CompanionRoleAvatar
   appearancePackId?: string
+  appearanceLayoutOverride?: CatAppearanceLayoutOverride
   userNickname: string
   personality: string
   background: string

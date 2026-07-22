@@ -687,7 +687,10 @@ function syncStartupCompanionRoleAppearance(
   }
 
   try {
-    catAppearanceManager.setActive({ packId })
+    catAppearanceManager.setActive({
+      packId,
+      layoutOverride: activeRole?.appearanceLayoutOverride,
+    })
     lifecycleLogger.info('Companion role appearance synced.', { packId })
   } catch (error) {
     lifecycleLogger.warn('Failed to sync companion role appearance.', {

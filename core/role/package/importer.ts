@@ -6,7 +6,10 @@ import {
   normalizePetInteractionConfigs,
 } from '@core/role/presets'
 import { normalizeArchivePath, readZipEntries, validateArchivePaths } from '@core/utils/zip'
-import type { CatAppearanceEmbeddedPack } from '@shared/types/cat-appearance'
+import {
+  type CatAppearanceEmbeddedPack,
+  normalizeCatAppearanceLayoutOverride,
+} from '@shared/types/cat-appearance'
 import {
   type CompanionRoleAvatar,
   type CompanionRoleKnowledgeEntryDraft,
@@ -367,6 +370,7 @@ function normalizeOmniPawExportedRole(
     introduction: pickString(role, ['introduction']),
     avatar: normalizeCompanionRoleAvatar(role.avatar),
     appearancePackId: pickString(role, ['appearancePackId']),
+    appearanceLayoutOverride: normalizeCatAppearanceLayoutOverride(role.appearanceLayoutOverride),
     userNickname: pickString(role, ['userNickname']),
     personality: pickString(role, ['personality']),
     speechStyle: pickString(role, ['speechStyle']),

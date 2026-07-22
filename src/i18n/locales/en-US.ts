@@ -582,10 +582,8 @@ export default {
         },
         layout: {
           title: 'Image layout',
-          description: 'Drag to preview changes; releasing a slider saves them to the local pack.',
-          readonlyDescription:
-            'Built-in appearances use preset layouts. Import a local pack to customize it.',
-          saving: 'Saving…',
+          description:
+            'Built-in and local appearances can both be adjusted; changes apply only to this character and are saved with it.',
           scale: 'Scale',
           offsetX: 'Horizontal offset',
           offsetY: 'Vertical offset',
@@ -610,7 +608,6 @@ export default {
         loadFailed: 'Failed to load appearance packs.',
         importFailed: 'Failed to import appearance pack.',
         imported: 'Appearance pack imported.',
-        layoutSaveFailed: 'Failed to save the appearance layout.',
       },
     },
     localAgent: {

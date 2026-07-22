@@ -1200,8 +1200,6 @@ const fallbackBridge: OmniPawBridge = {
     refresh: async () => fallbackCatAppearanceList(),
     importPack: () =>
       rejectFallbackPersistence<CatAppearanceImportResponse>('catAppearance.importPack'),
-    updateLayout: () =>
-      rejectFallbackPersistence<CatAppearanceResolvedPack>('catAppearance.updateLayout'),
     deletePack: () =>
       rejectFallbackPersistence<CatAppearanceDeleteResponse>('catAppearance.deletePack'),
     setActive: async (request) =>

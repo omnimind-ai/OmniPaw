@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
@@ -22,18 +22,25 @@ try {
     builtInPacks.map((pack) => pack.id),
     ['builtin', 'builtin-dog']
   )
-  assert.equal(manager.getPack('builtin-dog').source, 'builtin')
-  assert.equal(manager.setActive('builtin-dog').id, 'builtin-dog')
-  assert.equal(manager.current().id, 'builtin-dog')
+  const builtInDog = manager.getPack('builtin-dog')
+  assert.equal(builtInDog.source, 'builtin')
+  const overriddenBuiltInDog = manager.setActive({
+    packId: 'builtin-dog',
+    layoutOverride: {
+      scale: 1.25,
+      offsetX: 18,
+    },
+  })
+  assert.equal(overriddenBuiltInDog.id, 'builtin-dog')
+  assert.deepEqual(overriddenBuiltInDog.layout, {
+    scale: 1.25,
+    offsetX: 18,
+    offsetY: builtInDog.layout.offsetY,
+  })
+  assert.deepEqual(manager.current().layout, overriddenBuiltInDog.layout)
+  assert.deepEqual(manager.getPack('builtin-dog').layout, builtInDog.layout)
+  assert.equal(changeReasons.at(-1), 'select')
   assert.throws(() => manager.deletePack('builtin-dog'), /cannot be deleted/i)
-  assert.throws(
-    () =>
-      manager.updateLayout({
-        packId: 'builtin-dog',
-        layout: { scale: 1, offsetX: 0, offsetY: 0 },
-      }),
-    /layout cannot be changed/i
-  )
 
   const rootZipPath = join(tempDir, 'root-pack.zip')
   writeFileSync(
@@ -46,9 +53,6 @@ try {
         assets: {
           idle: 'assets/idle.png',
         },
-        customMetadata: {
-          author: 'OmniPaw smoke test',
-        },
       }),
       'assets/idle.png': Buffer.from('png'),
     })
@@ -60,29 +64,6 @@ try {
   assert.equal(rootImport.activePackId, 'zip-cat')
   assert.equal(existsSync(join(tempDir, 'cat-appearances', 'zip-cat', 'manifest.json')), true)
   assert.equal(manager.resolveAsset('zip-cat', 'idle')?.mimeType, 'image/png')
-
-  const updatedLayout = manager.updateLayout({
-    packId: 'zip-cat',
-    layout: {
-      scale: 1.35,
-      offsetX: 24,
-      offsetY: -18,
-    },
-  })
-  assert.deepEqual(updatedLayout.layout, {
-    scale: 1.35,
-    offsetX: 24,
-    offsetY: -18,
-  })
-  assert.equal(changeReasons.at(-1), 'layout')
-  const updatedManifest = JSON.parse(
-    readFileSync(join(tempDir, 'cat-appearances', 'zip-cat', 'manifest.json'), 'utf8')
-  ) as {
-    customMetadata?: { author?: string }
-    layout?: { scale?: number; offsetX?: number; offsetY?: number }
-  }
-  assert.equal(updatedManifest.customMetadata?.author, 'OmniPaw smoke test')
-  assert.deepEqual(updatedManifest.layout, updatedLayout.layout)
 
   const folderZipPath = join(tempDir, 'folder-pack.zip')
   writeFileSync(

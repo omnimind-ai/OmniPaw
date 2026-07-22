@@ -1,5 +1,6 @@
 import { normalizePetGiftConfigs, normalizePetInteractionConfigs } from '@core/role/presets'
 import { writeZipEntries, type ZipArchiveEntry } from '@core/utils/zip'
+import { normalizeCatAppearanceLayoutOverride } from '@shared/types/cat-appearance'
 import {
   type CompanionRoleAvatar,
   type CompanionRoleKnowledgeEntryDraft,
@@ -83,6 +84,7 @@ function normalizeExportedRoleDraft(role: ImportedCompanionRoleDraft): ImportedC
     introduction: normalizeOptionalText(role.introduction),
     avatar: normalizeCompanionRoleAvatar(role.avatar),
     appearancePackId: normalizeOptionalText(role.appearancePackId),
+    appearanceLayoutOverride: normalizeCatAppearanceLayoutOverride(role.appearanceLayoutOverride),
     userNickname: normalizeOptionalText(role.userNickname),
     personality: normalizeOptionalText(role.personality),
     speechStyle: normalizeOptionalText(role.speechStyle),

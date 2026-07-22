@@ -44,11 +44,15 @@ import type {
   CatAppearanceGetPackRequest,
   CatAppearanceImportResponse,
   CatAppearanceLayout,
+  CatAppearanceLayoutOverride,
   CatAppearanceListResponse,
   CatAppearancePackSummary,
   CatAppearanceResolvedPack,
   CatAppearanceSetActiveRequest,
-  CatAppearanceUpdateLayoutRequest,
+} from '@shared/types/cat-appearance'
+import {
+  normalizeCatAppearanceLayoutOverride,
+  resolveCatAppearanceLayout,
 } from '@shared/types/cat-appearance'
 
 const BUILTIN_PACK_ID = BUILTIN_CAT_APPEARANCE_PACK_ID
@@ -154,6 +158,7 @@ export class CatAppearanceManager {
   private state: CatAppearanceState = defaultState()
   private hasExplicitState = false
   private packs: LoadedCatAppearancePack[] = []
+  private activeLayoutOverride?: { packId: string; layout: CatAppearanceLayoutOverride }
   private watchers: FSWatcher[] = []
   private watchTimer: ReturnType<typeof setTimeout> | undefined
   private lastUpdatedAt = Date.now()
@@ -226,54 +231,13 @@ export class CatAppearanceManager {
     this.ensureLoaded()
     const requestedId = normalizePackId(typeof request === 'string' ? request : request.packId)
     const packId = requestedId || BUILTIN_PACK_ID
-    const current = this.activatePack(packId, 'select')
+    const current = this.activatePack(
+      packId,
+      'select',
+      typeof request === 'string' ? undefined : request.layoutOverride
+    )
     this.logger?.info('Cat appearance active pack changed.', { activePackId: current.id })
     return current
-  }
-
-  updateLayout(request: CatAppearanceUpdateLayoutRequest): CatAppearanceResolvedPack {
-    this.ensureLoaded()
-
-    const packId = normalizePackId(request?.packId)
-    if (!packId) {
-      throw new Error('Cat appearance pack id is required to update its layout.')
-    }
-    if (isBuiltinPackId(packId)) {
-      throw new Error('Built-in pet appearance pack layout cannot be changed.')
-    }
-
-    const pack = this.packs.find((item) => item.id === packId && item.status === 'available')
-    if (!pack) {
-      throw new Error(`Cat appearance pack is not available: ${packId}`)
-    }
-
-    const manifestPath = resolve(pack.path, MANIFEST_FILE_NAME)
-    if (!isInsidePath(this.rootPath, manifestPath) || lstatSync(manifestPath).isSymbolicLink()) {
-      throw new Error('Cat appearance manifest update target is invalid.')
-    }
-
-    const manifest = JSON.parse(readFileSync(manifestPath, 'utf8')) as unknown
-    if (!isRecord(manifest)) {
-      throw new Error('Cat appearance manifest must be an object.')
-    }
-
-    const layout = normalizeLayout(
-      isRecord(request?.layout) ? request.layout : undefined,
-      pack.layout
-    )
-    const serializedManifest = `${JSON.stringify({ ...manifest, layout }, null, 2)}\n`
-    if (Buffer.byteLength(serializedManifest, 'utf8') > MAX_MANIFEST_BYTES) {
-      throw new Error(`${MANIFEST_FILE_NAME} is too large after updating its layout.`)
-    }
-
-    writeFileSync(manifestPath, serializedManifest, 'utf8')
-    this.packs = this.scanPacks()
-    this.lastUpdatedAt = Date.now()
-
-    const updated = this.resolvePackById(packId, this.resolveActivePackId() === packId)
-    this.emitChanged('layout')
-    this.logger?.info('Cat appearance pack layout changed.', { packId, layout })
-    return updated
   }
 
   deletePack(request: CatAppearanceDeletePackRequest | string): CatAppearanceDeleteResponse {
@@ -505,7 +469,8 @@ export class CatAppearanceManager {
 
   private activatePack(
     packId: string,
-    reason: Extract<CatAppearanceChangeReason, 'select' | 'import'>
+    reason: Extract<CatAppearanceChangeReason, 'select' | 'import'>,
+    layoutOverride?: CatAppearanceSetActiveRequest['layoutOverride']
   ): CatAppearanceResolvedPack {
     if (
       !isBuiltinPackId(packId) &&
@@ -513,6 +478,14 @@ export class CatAppearanceManager {
     ) {
       throw new Error(`Cat appearance pack is not available: ${packId}`)
     }
+
+    const normalizedLayoutOverride = normalizeCatAppearanceLayoutOverride(layoutOverride)
+    this.activeLayoutOverride = normalizedLayoutOverride
+      ? {
+          packId,
+          layout: normalizedLayoutOverride,
+        }
+      : undefined
 
     this.state = {
       version: CURRENT_STATE_VERSION,
@@ -708,9 +681,17 @@ export class CatAppearanceManager {
   private resolveCurrentPack(): CatAppearanceResolvedPack {
     const activePackId = this.resolveActivePackId()
     try {
-      return this.resolvePackById(activePackId, true)
+      return this.applyActiveLayoutOverride(this.resolvePackById(activePackId, true))
     } catch {
-      return this.resolvePackById(BUILTIN_PACK_ID, true)
+      return this.applyActiveLayoutOverride(this.resolvePackById(BUILTIN_PACK_ID, true))
+    }
+  }
+
+  private applyActiveLayoutOverride(pack: CatAppearanceResolvedPack): CatAppearanceResolvedPack {
+    if (this.activeLayoutOverride?.packId !== pack.id) return pack
+    return {
+      ...pack,
+      layout: resolveCatAppearanceLayout(pack.layout, this.activeLayoutOverride.layout),
     }
   }
 
@@ -1011,14 +992,11 @@ function normalizeDuration(value: unknown, fallback: number): number {
   return Math.round(Math.min(Math.max(value, 0), 30_000))
 }
 
-function normalizeLayout(
-  raw: Record<string, unknown> | undefined,
-  fallback: CatAppearanceLayout = defaultCatAppearanceLayout
-): CatAppearanceLayout {
+function normalizeLayout(raw: Record<string, unknown> | undefined): CatAppearanceLayout {
   return {
-    scale: normalizeLayoutNumber(raw?.scale, fallback.scale, 0.25, 2),
-    offsetX: normalizeLayoutNumber(raw?.offsetX, fallback.offsetX, -116, 116),
-    offsetY: normalizeLayoutNumber(raw?.offsetY, fallback.offsetY, -116, 116),
+    scale: normalizeLayoutNumber(raw?.scale, defaultCatAppearanceLayout.scale, 0.25, 2),
+    offsetX: normalizeLayoutNumber(raw?.offsetX, defaultCatAppearanceLayout.offsetX, -116, 116),
+    offsetY: normalizeLayoutNumber(raw?.offsetY, defaultCatAppearanceLayout.offsetY, -116, 116),
   }
 }
 

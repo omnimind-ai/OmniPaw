@@ -1,4 +1,4 @@
-import type { CatAppearanceEmbeddedPack } from './cat-appearance'
+import type { CatAppearanceEmbeddedPack, CatAppearanceLayoutOverride } from './cat-appearance'
 import type { CatPetGiftConfig, CatPetInteractionConfig } from './cat-pet'
 import type { ID, UnixMs } from './chat'
 
@@ -65,6 +65,7 @@ export interface ImportedCompanionRoleDraft {
   introduction?: string
   avatar?: CompanionRoleAvatar
   appearancePackId?: string
+  appearanceLayoutOverride?: CatAppearanceLayoutOverride
   userNickname?: string
   personality?: string
   /** @deprecated Accepted only for compatibility with older role cards. */

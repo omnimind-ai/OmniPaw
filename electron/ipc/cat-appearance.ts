@@ -4,7 +4,6 @@ import type {
   CatAppearanceGetPackRequest,
   CatAppearanceImportResponse,
   CatAppearanceSetActiveRequest,
-  CatAppearanceUpdateLayoutRequest,
 } from '@shared/types/cat-appearance'
 import { BrowserWindow, dialog } from 'electron'
 import { registerLoggedIpcHandler } from './common'
@@ -48,12 +47,6 @@ export function registerCatAppearanceIpcHandlers(options: IpcHandlerOptions): vo
     IPC_CHANNELS.catAppearance.setActive,
     (_event, request: CatAppearanceSetActiveRequest | string) =>
       options.runtime.catAppearanceManager.setActive(request)
-  )
-  registerLoggedIpcHandler(
-    options,
-    IPC_CHANNELS.catAppearance.updateLayout,
-    (_event, request: CatAppearanceUpdateLayoutRequest) =>
-      options.runtime.catAppearanceManager.updateLayout(request)
   )
   registerLoggedIpcHandler(
     options,
