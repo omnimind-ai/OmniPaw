@@ -1,5 +1,5 @@
 import { CAT_APPEARANCE_ASSET_PROTOCOL } from '@shared/constants'
-import type { CatDockSide, CatHitArea, CatWindowState } from '@shared/types/cat'
+import type { CatDockSide, CatHitGeometry, CatWindowState } from '@shared/types/cat'
 import type { CatAppearanceLayout } from '@shared/types/cat-appearance'
 import {
   findAlphaContentBounds,
@@ -12,7 +12,7 @@ import {
 import type { CatVisualFrame } from './state-machine'
 
 interface CatVisualViewOptions {
-  reportHitArea: (area: CatHitArea) => void
+  reportHitGeometry: (geometry: CatHitGeometry) => void
 }
 
 export interface CatVisualView {
@@ -133,14 +133,25 @@ export function createCatVisualView(options: CatVisualViewOptions): CatVisualVie
         width: rect.width,
         height: rect.height,
       }
-      options.reportHitArea(
-        (appearanceBounds &&
-          resolveNormalizedHitArea(appearanceBounds, rect, viewport, {
+      const visualAreas = appearanceBounds
+        ? {
+            left:
+              resolveNormalizedHitArea(appearanceBounds, rect, viewport, { mirrored: true }) ??
+              fallbackArea,
+            right: resolveNormalizedHitArea(appearanceBounds, rect, viewport) ?? fallbackArea,
+          }
+        : {
+            left: fallbackArea,
+            right: fallbackArea,
+          }
+      const hitArea = appearanceBounds
+        ? (resolveNormalizedHitArea(appearanceBounds, rect, viewport, {
             mirrored: dockSide === 'left',
             padding: appearanceHitPadding,
-          })) ||
-          fallbackArea
-      )
+          }) ?? fallbackArea)
+        : fallbackArea
+
+      options.reportHitGeometry({ hitArea, visualAreas })
     })
   }
 

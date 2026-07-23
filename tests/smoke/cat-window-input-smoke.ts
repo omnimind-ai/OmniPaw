@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
+import { resolveCatDockTargetX } from '../../packages/desktop-pet/electron/hit-geometry'
 import {
   findAlphaContentBounds,
   normalizeAlphaBoundsForContain,
@@ -39,6 +40,8 @@ assert.match(main, /window\.setShape/)
 assert.match(main, /screen\.getCursorScreenPoint\(\)/)
 assert.match(main, /function getCatDockSide/)
 assert.match(main, /dockSide: getCatDockSide\(catWindow\.getBounds\(\)\)/)
+assert.match(main, /resolveCatDockTargetX\(workArea, dockSide, catVisualAreas\[dockSide\]\)/)
+assert.match(main, /function setCatHitGeometry/)
 assert.match(main, /catTopmostWatchdogMs/)
 assert.match(electronMain, /scheme: CAT_APPEARANCE_ASSET_PROTOCOL[\s\S]*?corsEnabled: true/)
 assert.match(electronMain, /'Access-Control-Allow-Origin': '\*'/)
@@ -48,6 +51,7 @@ assert.match(main, /event\.sender\.id === catHitWindow\.webContents\.id/)
 assert.match(preload, /IPC_CHANNELS\.cat\.setHitArea/)
 assert.match(preload, /IPC_CHANNELS\.cat\.setInteractionState/)
 assert.match(bridgeTypes, /setHitArea:/)
+assert.match(bridgeTypes, /CatHitGeometry/)
 assert.match(bridgeTypes, /setInteractionState:/)
 assert.match(viteConfig, /packages\/desktop-pet\/entries\/cat-hit-window\.html/)
 
@@ -62,6 +66,7 @@ assert.match(renderView, /getBoundingClientRect/)
 assert.match(renderView, /image\.addEventListener\('load', handleImageLoad\)/)
 assert.match(renderView, /findAlphaContentBounds/)
 assert.match(renderView, /unionNormalizedBounds/)
+assert.match(renderView, /visualAreas/)
 assert.match(renderView, /maxMeasurementDimension = 512/)
 assert.match(renderView, /surface\.classList\.toggle\('is-docked-left', side === 'left'\)/)
 assert.match(renderStyles, /scaleX\(var\(--cat-facing-scale-x, 1\)\)/)
@@ -120,5 +125,10 @@ assert.deepEqual(
   resolveNormalizedHitArea(normalized, frame, viewport, { mirrored: true, padding: 2 }),
   { x: 48, y: 34, width: 36, height: 44 }
 )
+
+const workArea = { x: 0, y: 0, width: 1920, height: 1040 }
+const visualArea = { x: 38, y: 20, width: 60, height: 70 }
+assert.equal(resolveCatDockTargetX(workArea, 'left', visualArea), -38)
+assert.equal(resolveCatDockTargetX(workArea, 'right', visualArea), 1822)
 
 console.log('Cat window input layering smoke check passed')

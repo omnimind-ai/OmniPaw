@@ -7,8 +7,8 @@ import { createCatVisualView } from './view'
 let appearance = createDefaultCatVisualAppearance()
 
 const view = createCatVisualView({
-  reportHitArea: (area) => {
-    void appBridge.cat.setHitArea(area)
+  reportHitGeometry: (geometry) => {
+    void appBridge.cat.setHitArea(geometry)
   },
 })
 

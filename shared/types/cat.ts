@@ -97,6 +97,11 @@ export interface CatHitArea {
   height: number
 }
 
+export interface CatHitGeometry {
+  hitArea: CatHitArea
+  visualAreas: Record<CatDockSide, CatHitArea>
+}
+
 export interface CatPanelActiveSessionState {
   sessionId?: ID
   updatedAt: UnixMs

@@ -17,6 +17,7 @@ import type {
   CatDraftState,
   CatDragPayload,
   CatHitArea,
+  CatHitGeometry,
   CatInteractionState,
   CatPanelActiveSessionState,
   CatPanelOpenRequest,
@@ -35,6 +36,7 @@ import {
 import type { ObservationReactionEvent } from '@shared/types/observation'
 import { app, BrowserWindow, ipcMain, screen } from 'electron'
 import { applyMacDockIcon, createAppIconImage } from '../../../electron/app-icon'
+import { resolveCatDockTargetX } from './hit-geometry'
 
 type CatSessionIdResolver = (
   preferredSessionId?: string | null
@@ -106,6 +108,11 @@ const defaultCatHitArea: CatHitArea = {
   height: 86,
 }
 
+const defaultCatVisualAreas: CatHitGeometry['visualAreas'] = {
+  left: { ...defaultCatHitArea },
+  right: { ...defaultCatHitArea },
+}
+
 const isDarwin = process.platform === 'darwin'
 const isWindows = process.platform === 'win32'
 const shouldSkipFloatingWindowTaskbar = true
@@ -123,6 +130,10 @@ let catBubbleWindow: BrowserWindow | null = null
 let catSnapTimer: ReturnType<typeof setInterval> | null = null
 let catTopmostWatchdog: ReturnType<typeof setInterval> | null = null
 let catHitArea: CatHitArea = { ...defaultCatHitArea }
+let catVisualAreas: CatHitGeometry['visualAreas'] = {
+  left: { ...defaultCatVisualAreas.left },
+  right: { ...defaultCatVisualAreas.right },
+}
 let catHitLocked = false
 let catDragSnapshot: {
   cursor: Electron.Point
@@ -1099,10 +1110,7 @@ function getSnapTargetBounds(): CatBounds | null {
   const display = getDisplay(bounds)
   const workArea = display.workArea
   const dockSide = getCatDockSide(bounds)
-  const targetX =
-    dockSide === 'right'
-      ? workArea.x + workArea.width - bounds.width + catEdgeOverflow
-      : workArea.x - catEdgeOverflow
+  const targetX = resolveCatDockTargetX(workArea, dockSide, catVisualAreas[dockSide])
 
   return constrainCatBounds({
     ...bounds,
@@ -1574,7 +1582,7 @@ async function dragEnd(): Promise<CatBounds | null> {
   return animateCatBounds(targetBounds)
 }
 
-function setCatHitArea(area: CatHitArea): void {
+function normalizeCatReportedArea(area: CatHitArea, minimumSize: number): CatHitArea | null {
   if (
     !area ||
     !isFiniteNumber(area.x) ||
@@ -1582,14 +1590,53 @@ function setCatHitArea(area: CatHitArea): void {
     !isFiniteNumber(area.width) ||
     !isFiniteNumber(area.height)
   ) {
-    return
+    return null
   }
 
-  catHitArea = {
+  return {
     x: clamp(Math.round(area.x), -catWindowSize.width, catWindowSize.width),
     y: clamp(Math.round(area.y), -catWindowSize.height, catWindowSize.height),
-    width: clamp(Math.round(area.width), 8, catWindowSize.width * 2),
-    height: clamp(Math.round(area.height), 8, catWindowSize.height * 2),
+    width: clamp(Math.round(area.width), minimumSize, catWindowSize.width * 2),
+    height: clamp(Math.round(area.height), minimumSize, catWindowSize.height * 2),
+  }
+}
+
+function setCatHitGeometry(geometry: CatHitGeometry): void {
+  if (!geometry?.visualAreas) return
+
+  const nextHitArea = normalizeCatReportedArea(geometry.hitArea, 8)
+  const nextLeftVisualArea = normalizeCatReportedArea(geometry.visualAreas.left, 1)
+  const nextRightVisualArea = normalizeCatReportedArea(geometry.visualAreas.right, 1)
+  if (!nextHitArea || !nextLeftVisualArea || !nextRightVisualArea) return
+
+  let dockedBounds: CatBounds | null = null
+  let dockedSide: CatDockSide | null = null
+  if (catWindow && !catWindow.isDestroyed() && !catHitLocked && !catDragSnapshot && !catSnapTimer) {
+    const bounds = catWindow.getBounds()
+    const display = getDisplay(bounds)
+    const side = getCatDockSide(bounds)
+    const previousTargetX = resolveCatDockTargetX(display.workArea, side, catVisualAreas[side])
+    const legacyTargetX =
+      side === 'right'
+        ? display.workArea.x + display.workArea.width - bounds.width + catEdgeOverflow
+        : display.workArea.x - catEdgeOverflow
+    if (Math.abs(bounds.x - previousTargetX) <= 2 || Math.abs(bounds.x - legacyTargetX) <= 2) {
+      dockedBounds = bounds
+      dockedSide = side
+    }
+  }
+
+  catHitArea = nextHitArea
+  catVisualAreas = {
+    left: nextLeftVisualArea,
+    right: nextRightVisualArea,
+  }
+
+  if (dockedBounds && dockedSide && catWindow && !catWindow.isDestroyed()) {
+    const display = getDisplay(dockedBounds)
+    const x = resolveCatDockTargetX(display.workArea, dockedSide, catVisualAreas[dockedSide])
+    catWindow.setBounds({ ...dockedBounds, x })
+    repositionCatBubbleWindow()
   }
   syncCatHitWindowBounds()
 }
@@ -1610,9 +1657,9 @@ function registerCatWindowIpcHandlers(): void {
   ipcMain.handle(IPC_CHANNELS.cat.dragStart, () => dragStart())
   ipcMain.handle(IPC_CHANNELS.cat.dragMove, (_event, payload?: CatDragPayload) => dragMove(payload))
   ipcMain.handle(IPC_CHANNELS.cat.dragEnd, () => dragEnd())
-  ipcMain.handle(IPC_CHANNELS.cat.setHitArea, (event, area: CatHitArea) => {
+  ipcMain.handle(IPC_CHANNELS.cat.setHitArea, (event, geometry: CatHitGeometry) => {
     if (catWindow && !catWindow.isDestroyed() && event.sender.id === catWindow.webContents.id) {
-      setCatHitArea(area)
+      setCatHitGeometry(geometry)
     }
   })
   ipcMain.handle(IPC_CHANNELS.cat.setInteractionState, (event, state: CatInteractionState) => {

@@ -1663,7 +1663,7 @@ export default {
       },
     },
     welcome: {
-      title: '欢迎回来，今天从哪里开始？',
+      title: '👋你好呀~ 小万能帮你做什么？',
     },
     noModel: {
       message: '未配置可用模型',

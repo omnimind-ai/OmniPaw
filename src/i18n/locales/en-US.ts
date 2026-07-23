@@ -1753,7 +1753,7 @@ export default {
       },
     },
     welcome: {
-      title: 'Welcome back. Where should we start today?',
+      title: '👋Hi~ What can Xiao Wan do for you?',
     },
     noModel: {
       message: 'No models configured',
