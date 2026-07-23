@@ -85,6 +85,7 @@
     "files": [
       "out/**/*",
       "resources/**/*",
+      "!resources/omniinfer/**/*",
       "package.json",
       {
         "from": "tmp/package-runtime/node_modules",

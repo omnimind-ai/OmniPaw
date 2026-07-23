@@ -12,6 +12,7 @@ const buildNumber = process.env.OMNIPAW_BUILD_NUMBER?.trim()
 const buildVersion = process.env.OMNIPAW_BUILD_VERSION?.trim()
 const macBundleVersion = process.env.OMNIPAW_MAC_BUNDLE_VERSION?.trim()
 const macBundleShortVersion = process.env.OMNIPAW_MAC_BUNDLE_SHORT_VERSION?.trim()
+const artifactSuffix = process.env.OMNIPAW_ARTIFACT_SUFFIX?.trim() || ''
 
 const extraResources = []
 if (bundleOmniInfer) {
@@ -33,6 +34,7 @@ module.exports = {
   files: [
     'out/**/*',
     'resources/**/*',
+    '!resources/omniinfer/**/*',
     'package.json',
     {
       from: 'tmp/package-runtime/node_modules',
@@ -45,11 +47,11 @@ module.exports = {
   win: {
     target: 'nsis',
     icon: 'resources/app-icon.ico',
-    artifactName: '${productName}-${version}-windows-${arch}.${ext}',
+    artifactName: '${productName}-${version}-windows-${arch}' + artifactSuffix + '.${ext}',
   },
   mac: {
     icon: 'resources/app-icon.icns',
-    artifactName: '${productName}-${version}-macos-${arch}.${ext}',
+    artifactName: '${productName}-${version}-macos-${arch}' + artifactSuffix + '.${ext}',
     ...(macBundleVersion ? { bundleVersion: macBundleVersion } : {}),
     ...(macBundleShortVersion ? { bundleShortVersion: macBundleShortVersion } : {}),
   },

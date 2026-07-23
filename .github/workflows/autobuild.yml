@@ -2,6 +2,12 @@ name: Autobuild
 
 on:
   workflow_dispatch:
+    inputs:
+      omniinfer_version:
+        description: OmniInfer release version to bundle
+        required: true
+        default: "0.3.11"
+        type: string
 
 concurrency:
   group: autobuild-dev-latest
@@ -61,25 +67,53 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          - name: Windows x64 with OmniInfer
+            runner: windows-latest
+            builder_args: --win nsis --x64
+            artifact_name: omnipaw-windows-x64-with-omniinfer
+            artifact_path: release/*.exe
+            artifact_suffix: -with-omniinfer
+            bundle_omniinfer: "1"
+            omniinfer_target: windows-x64
           - name: Windows x64
             runner: windows-latest
             builder_args: --win nsis --x64
             artifact_name: omnipaw-windows-x64
             artifact_path: release/*.exe
+            artifact_suffix: ""
+            bundle_omniinfer: "0"
+            omniinfer_target: ""
+          - name: macOS arm64 DMG with OmniInfer
+            runner: macos-15
+            builder_args: --mac dmg --arm64
+            artifact_name: omnipaw-macos-arm64-with-omniinfer
+            artifact_path: release/*.dmg
+            artifact_suffix: -with-omniinfer
+            bundle_omniinfer: "1"
+            omniinfer_target: macos-arm64
           - name: macOS arm64 DMG
             runner: macos-15
             builder_args: --mac dmg --arm64
             artifact_name: omnipaw-macos-arm64
             artifact_path: release/*.dmg
+            artifact_suffix: ""
+            bundle_omniinfer: "0"
+            omniinfer_target: ""
           - name: macOS x64 DMG
             runner: macos-15-intel
             builder_args: --mac dmg --x64
             artifact_name: omnipaw-macos-x64
             artifact_path: release/*.dmg
+            artifact_suffix: ""
+            bundle_omniinfer: "0"
+            omniinfer_target: ""
     runs-on: ${{ matrix.runner }}
     env:
       CSC_IDENTITY_AUTO_DISCOVERY: "false"
-      OMNIPAW_BUNDLE_OMNIINFER: "0"
+      OMNIPAW_BUNDLE_OMNIINFER: ${{ matrix.bundle_omniinfer }}
+      OMNIPAW_ARTIFACT_SUFFIX: ${{ matrix.artifact_suffix }}
+      OMNIINFER_TARGET: ${{ matrix.omniinfer_target }}
+      OMNIINFER_VERSION: ${{ inputs.omniinfer_version }}
       OMNIPAW_BUILD_NUMBER: ${{ needs.version.outputs.build_number }}
       OMNIPAW_BUILD_VERSION: ${{ needs.version.outputs.platform_build_version }}
       OMNIPAW_MAC_BUNDLE_VERSION: ${{ needs.version.outputs.build_number }}
@@ -99,6 +133,14 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      - name: Stage OmniInfer runtime
+        if: matrix.bundle_omniinfer == '1'
+        run: node scripts/prepare-omniinfer-resource.mjs
+
+      - name: Verify OmniInfer runtime
+        if: matrix.bundle_omniinfer == '1'
+        run: node scripts/check-omniinfer-resources.mjs
 
       - name: Inject development version
         shell: bash
@@ -146,6 +188,7 @@ jobs:
       APP_VERSION: ${{ needs.version.outputs.app_version }}
       DEV_TAG: dev-latest
       GH_TOKEN: ${{ github.token }}
+      OMNIINFER_VERSION: ${{ inputs.omniinfer_version }}
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -165,7 +208,7 @@ jobs:
       - name: Create or update autobuild release
         shell: bash
         run: |
-          release_notes="Automated development build ${APP_VERSION} from commit ${GITHUB_SHA}. Includes Windows x64 and macOS arm64/x64 packages. These packages are unsigned slim builds and do not bundle OmniInfer."
+          release_notes="Automated development build ${APP_VERSION} from commit ${GITHUB_SHA}. Windows x64 and macOS arm64 are available both with and without OmniInfer ${OMNIINFER_VERSION}. Packages with the bundled runtime use the -with-omniinfer suffix. macOS x64 remains without OmniInfer because the upstream release does not publish a macOS x64 CLI asset. All packages are unsigned development builds."
 
           if gh release view "${DEV_TAG}" >/dev/null 2>&1; then
             gh release edit "${DEV_TAG}" \
