@@ -188,8 +188,6 @@ export function createCatVisualView(options: CatVisualViewOptions): CatVisualVie
     },
     applyLayout(layout) {
       imageFrame.style.setProperty('--cat-image-scale', String(layout.scale))
-      imageFrame.style.setProperty('--cat-image-offset-x', `${layout.offsetX}px`)
-      imageFrame.style.setProperty('--cat-image-offset-y', `${layout.offsetY}px`)
       scheduleHitAreaReport()
     },
     resetHitAreaMeasurements() {

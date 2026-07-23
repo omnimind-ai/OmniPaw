@@ -550,10 +550,7 @@ export default {
         layout: {
           title: '角色布局',
           scale: '缩放',
-          offsetX: '水平位移',
-          offsetY: '垂直位移',
           scaleRange: '25%–200%',
-          offsetRange: '-116px–116px',
         },
         assetActions: {
           idle: '空闲',

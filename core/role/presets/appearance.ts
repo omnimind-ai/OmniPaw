@@ -48,20 +48,14 @@ export const DEFAULT_CAT_APPEARANCE_DURATIONS: CatAppearanceDurations = {
 
 export const DEFAULT_CAT_APPEARANCE_LAYOUT: CatAppearanceLayout = {
   scale: 1,
-  offsetX: 0,
-  offsetY: 0,
 }
 
 export const BUILTIN_CAT_APPEARANCE_LAYOUT: CatAppearanceLayout = {
   scale: 86 / 116,
-  offsetX: 0,
-  offsetY: 0,
 }
 
 export const BUILTIN_DOG_APPEARANCE_LAYOUT: CatAppearanceLayout = {
   scale: 86 / 116,
-  offsetX: 0,
-  offsetY: 0,
 }
 
 export const BUILTIN_APPEARANCE_LAYOUT_BY_PACK_ID = {

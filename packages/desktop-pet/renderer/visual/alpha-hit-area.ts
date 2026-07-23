@@ -121,12 +121,12 @@ export function normalizeAlphaBoundsForContain(
   const containScale = Math.min(1 / sourceWidth, 1 / sourceHeight)
   const renderedWidth = sourceWidth * containScale
   const renderedHeight = sourceHeight * containScale
-  const offsetX = (1 - renderedWidth) / 2
-  const offsetY = (1 - renderedHeight) / 2
-  const left = offsetX + bounds.x * containScale
-  const top = offsetY + bounds.y * containScale
-  const right = offsetX + (bounds.x + bounds.width) * containScale
-  const bottom = offsetY + (bounds.y + bounds.height) * containScale
+  const containLeft = (1 - renderedWidth) / 2
+  const containTop = (1 - renderedHeight) / 2
+  const left = containLeft + bounds.x * containScale
+  const top = containTop + bounds.y * containScale
+  const right = containLeft + (bounds.x + bounds.width) * containScale
+  const bottom = containTop + (bounds.y + bounds.height) * containScale
 
   return {
     x: Math.min(1, Math.max(0, left)),

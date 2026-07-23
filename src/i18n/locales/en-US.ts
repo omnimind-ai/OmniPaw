@@ -583,12 +583,9 @@ export default {
         layout: {
           title: 'Image layout',
           description:
-            'Built-in and local appearances can both be adjusted; changes apply only to this character and are saved with it.',
+            'Built-in and local appearances can both be scaled; changes apply only to this character and are saved with it.',
           scale: 'Scale',
-          offsetX: 'Horizontal offset',
-          offsetY: 'Vertical offset',
           scaleRange: '25%–200%',
-          offsetRange: '-116px–116px',
         },
         assetActions: {
           idle: 'Idle',

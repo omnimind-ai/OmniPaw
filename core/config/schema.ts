@@ -912,11 +912,7 @@ function validateCompanionRoleAppearanceLayoutOverride(
     return
   }
 
-  for (const [field, min, max] of [
-    ['scale', 0.25, 2],
-    ['offsetX', -116, 116],
-    ['offsetY', -116, 116],
-  ] as const) {
+  for (const [field, min, max] of [['scale', 0.25, 2]] as const) {
     const value = layout[field]
     if (
       value !== undefined &&

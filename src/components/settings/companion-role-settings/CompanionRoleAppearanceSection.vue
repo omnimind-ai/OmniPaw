@@ -43,7 +43,7 @@ const currentDetail = shallowRef<CatAppearanceResolvedPack>()
 let unsubscribe: BridgeUnsubscribe | undefined
 let detailRequestId = 0
 
-const fallbackLayout: CatAppearanceLayout = { scale: 1, offsetX: 0, offsetY: 0 }
+const fallbackLayout: CatAppearanceLayout = { scale: 1 }
 
 const packs = computed(() => response.value?.packs ?? [])
 const importDisabled = computed(() => importing.value || loading.value || isFallbackBridge)

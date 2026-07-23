@@ -257,8 +257,6 @@ try {
           },
           appearanceLayoutOverride: {
             scale: 3,
-            offsetX: 12.3456,
-            offsetY: -200,
           },
           enabled: false,
           greeting: '旧开场白',
@@ -323,8 +321,6 @@ try {
   )
   assert.deepEqual(roleConfig.app.companionRoles[0]?.appearanceLayoutOverride, {
     scale: 2,
-    offsetX: 12.346,
-    offsetY: -116,
   })
   assert.equal(roleConfig.app.companionRoles[0]?.knowledgeSettings.scanDepth, 5)
   assert.equal(roleConfig.app.companionRoles[0]?.knowledgeSettings.maxTokens, 1200)
@@ -387,8 +383,6 @@ try {
       },
       appearanceLayoutOverride: {
         scale: 1.1,
-        offsetX: 5,
-        offsetY: -6,
       },
       petGifts: [
         {
@@ -420,8 +414,6 @@ try {
   )
   assert.deepEqual(importedGiftPackage.role.appearanceLayoutOverride, {
     scale: 1.1,
-    offsetX: 5,
-    offsetY: -6,
   })
   assert.equal(importedGiftPackage.role.petGifts?.[0]?.name, 'Gift Package Smoke')
   assert.equal(

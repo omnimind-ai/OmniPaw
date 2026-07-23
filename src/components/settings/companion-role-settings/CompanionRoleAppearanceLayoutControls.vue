@@ -19,8 +19,6 @@ const emit = defineEmits<{
 const { t } = useI18n()
 
 const scaleLabel = computed(() => `${Math.round(props.modelValue.scale * 100)}%`)
-const offsetXLabel = computed(() => `${props.modelValue.offsetX}px`)
-const offsetYLabel = computed(() => `${props.modelValue.offsetY}px`)
 
 function updateLayoutValue(key: LayoutKey, values: number[] | undefined): void {
   const [value] = values ?? []
@@ -39,7 +37,7 @@ function updateLayoutValue(key: LayoutKey, values: number[] | undefined): void {
       </div>
     </div>
 
-    <FieldGroup class="grid grid-cols-1 gap-4 md:grid-cols-3">
+    <FieldGroup>
       <Field :data-disabled="disabled ? '' : undefined">
         <div class="flex items-center justify-between gap-3">
           <FieldLabel for="cat-appearance-layout-scale">
@@ -59,50 +57,6 @@ function updateLayoutValue(key: LayoutKey, values: number[] | undefined): void {
         />
         <FieldDescription>
           {{ t('settings.catAppearance.detail.layout.scaleRange') }}
-        </FieldDescription>
-      </Field>
-
-      <Field :data-disabled="disabled ? '' : undefined">
-        <div class="flex items-center justify-between gap-3">
-          <FieldLabel for="cat-appearance-layout-offset-x">
-            {{ t('settings.catAppearance.detail.layout.offsetX') }}
-          </FieldLabel>
-          <span class="text-xs tabular-nums text-muted-foreground">{{ offsetXLabel }}</span>
-        </div>
-        <Slider
-          id="cat-appearance-layout-offset-x"
-          :model-value="[modelValue.offsetX]"
-          :min="-116"
-          :max="116"
-          :step="1"
-          :disabled="disabled"
-          :aria-label="t('settings.catAppearance.detail.layout.offsetX')"
-          @update:model-value="updateLayoutValue('offsetX', $event)"
-        />
-        <FieldDescription>
-          {{ t('settings.catAppearance.detail.layout.offsetRange') }}
-        </FieldDescription>
-      </Field>
-
-      <Field :data-disabled="disabled ? '' : undefined">
-        <div class="flex items-center justify-between gap-3">
-          <FieldLabel for="cat-appearance-layout-offset-y">
-            {{ t('settings.catAppearance.detail.layout.offsetY') }}
-          </FieldLabel>
-          <span class="text-xs tabular-nums text-muted-foreground">{{ offsetYLabel }}</span>
-        </div>
-        <Slider
-          id="cat-appearance-layout-offset-y"
-          :model-value="[modelValue.offsetY]"
-          :min="-116"
-          :max="116"
-          :step="1"
-          :disabled="disabled"
-          :aria-label="t('settings.catAppearance.detail.layout.offsetY')"
-          @update:model-value="updateLayoutValue('offsetY', $event)"
-        />
-        <FieldDescription>
-          {{ t('settings.catAppearance.detail.layout.offsetRange') }}
         </FieldDescription>
       </Field>
     </FieldGroup>

@@ -927,8 +927,6 @@ function fallbackCatAppearance(
     },
     layout: {
       scale: 86 / 116,
-      offsetX: 0,
-      offsetY: 0,
     },
     version: packId,
     updatedAt: now,

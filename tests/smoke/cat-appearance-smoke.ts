@@ -28,14 +28,11 @@ try {
     packId: 'builtin-dog',
     layoutOverride: {
       scale: 1.25,
-      offsetX: 18,
     },
   })
   assert.equal(overriddenBuiltInDog.id, 'builtin-dog')
   assert.deepEqual(overriddenBuiltInDog.layout, {
     scale: 1.25,
-    offsetX: 18,
-    offsetY: builtInDog.layout.offsetY,
   })
   assert.deepEqual(manager.current().layout, overriddenBuiltInDog.layout)
   assert.deepEqual(manager.getPack('builtin-dog').layout, builtInDog.layout)

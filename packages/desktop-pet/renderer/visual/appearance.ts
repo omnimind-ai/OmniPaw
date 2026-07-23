@@ -37,14 +37,10 @@ const defaultDurations = Object.freeze({
 
 const defaultBuiltinLayout = Object.freeze({
   scale: 86 / catWindowRenderSize,
-  offsetX: 0,
-  offsetY: 0,
 } satisfies CatAppearanceLayout)
 
 const defaultLocalLayout = Object.freeze({
   scale: 1,
-  offsetX: 0,
-  offsetY: 0,
 } satisfies CatAppearanceLayout)
 
 function clamp(value: number, min: number, max: number): number {
@@ -60,14 +56,6 @@ function normalizeLayout(
       typeof layout?.scale === 'number' && Number.isFinite(layout.scale)
         ? clamp(layout.scale, 0.25, 2)
         : fallback.scale,
-    offsetX:
-      typeof layout?.offsetX === 'number' && Number.isFinite(layout.offsetX)
-        ? clamp(layout.offsetX, -catWindowRenderSize, catWindowRenderSize)
-        : fallback.offsetX,
-    offsetY:
-      typeof layout?.offsetY === 'number' && Number.isFinite(layout.offsetY)
-        ? clamp(layout.offsetY, -catWindowRenderSize, catWindowRenderSize)
-        : fallback.offsetY,
   }
 }
 

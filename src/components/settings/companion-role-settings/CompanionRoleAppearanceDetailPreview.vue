@@ -67,7 +67,7 @@ const previewLayoutStyle = computed<CSSProperties>(() => {
   const layout = props.layout ?? props.detail?.layout
   if (!layout) return {}
   return {
-    transform: `translate3d(${layout.offsetX}px, ${layout.offsetY}px, 0) scale(${layout.scale})`,
+    transform: `scale(${layout.scale})`,
     transformOrigin: 'center bottom',
   }
 })

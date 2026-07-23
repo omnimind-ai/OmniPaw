@@ -33,8 +33,6 @@ export interface CatAppearanceDurations {
 
 export interface CatAppearanceLayout {
   scale: number
-  offsetX: number
-  offsetY: number
 }
 
 export type CatAppearanceLayoutOverride = Partial<CatAppearanceLayout>
@@ -112,11 +110,7 @@ export function normalizeCatAppearanceLayoutOverride(
   const record = value as Record<string, unknown>
   const override: CatAppearanceLayoutOverride = {}
   const scale = normalizeLayoutNumber(record.scale, 0.25, 2)
-  const offsetX = normalizeLayoutNumber(record.offsetX, -116, 116)
-  const offsetY = normalizeLayoutNumber(record.offsetY, -116, 116)
   if (scale !== undefined) override.scale = scale
-  if (offsetX !== undefined) override.offsetX = offsetX
-  if (offsetY !== undefined) override.offsetY = offsetY
   return Object.keys(override).length ? override : undefined
 }
 
@@ -127,8 +121,6 @@ export function resolveCatAppearanceLayout(
   const normalizedOverride = normalizeCatAppearanceLayoutOverride(override)
   return {
     scale: normalizedOverride?.scale ?? base.scale,
-    offsetX: normalizedOverride?.offsetX ?? base.offsetX,
-    offsetY: normalizedOverride?.offsetY ?? base.offsetY,
   }
 }
 

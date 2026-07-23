@@ -995,8 +995,6 @@ function normalizeDuration(value: unknown, fallback: number): number {
 function normalizeLayout(raw: Record<string, unknown> | undefined): CatAppearanceLayout {
   return {
     scale: normalizeLayoutNumber(raw?.scale, defaultCatAppearanceLayout.scale, 0.25, 2),
-    offsetX: normalizeLayoutNumber(raw?.offsetX, defaultCatAppearanceLayout.offsetX, -116, 116),
-    offsetY: normalizeLayoutNumber(raw?.offsetY, defaultCatAppearanceLayout.offsetY, -116, 116),
   }
 }
 
