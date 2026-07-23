@@ -312,19 +312,18 @@ export default {
           },
           personality: {
             title: '性格设定',
-            description: '用短语描述角色的性格、工作气质和协作倾向。',
-            placeholder: '温柔、冷静、结构化、适合代码审查、陪伴型',
+            description: '用短语描述角色的性格',
+            placeholder: '温柔、冷静等',
           },
           background: {
             title: '背景资料',
-            description: '少量身份设定、世界观、专业背景、项目背景或工作习惯。',
-            placeholder: '例如：住在桌面里的小助手，熟悉用户的项目节奏，擅长整理想法和推进任务。',
+            description: '角色的身份设定、世界观等',
+            placeholder: '例如：住在桌面里的小助手，擅长整理想法和推进任务。',
           },
           exampleDialogue: {
             title: '示例对话',
-            description: '提供少量对话样例，帮助模型稳定语气和互动方式。',
-            placeholder:
-              '用户：这个需求有点乱。\n角色：我先帮你拆成目标、约束和下一步，然后我们从最小改动开始。',
+            description: '提供少量对话样例，帮助模型了解对应角色的特点。',
+            placeholder: '用户：你是谁？。\n角色：我是小万，你最好的桌面伙伴喵~',
           },
         },
         interactions: {

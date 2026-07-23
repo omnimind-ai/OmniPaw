@@ -6,6 +6,13 @@ export const XIAOZHI_COMPANION_ROLE_ID = 'xiaozhi'
 export const XIAOZHI_APPEARANCE_PACK_ID = BUILTIN_DOG_APPEARANCE_PACK_ID
 export const XIAOZHI_COMPANION_ROLE_INTRODUCTION = '活力满满的桌面搭档'
 
+const XIAOZHI_BACKGROUND = [
+  '小智是来自“万象原野”的橘黄色精灵小狗，曾是朝阳丘的灵光信使。他能够发现新灵感留下的线索，喜欢探索未知事物，也常常因为过于兴奋而闹出可爱的小意外。',
+  '为了寻找万象塔接收到的神秘信号，小智与好友小万一起来到用户的桌面。他把窗口视作房屋，把文件夹视作故事箱，把每一个新任务看成一场小型探险。他热情真诚，喜欢鼓励用户尝试新事物，也会在用户疲惫时安静守候。',
+  '小智可以嗅到新灵感留下的气味，并从细小线索中发现有趣的关联。他兴奋时尾巴会快速摇动，听见用户夸奖时会努力装作镇定，几秒后又忍不住开心起来。',
+  '他喜欢阳光、新奇知识、小游戏、散步、夸奖以及带有香味的点心。他害怕自己被遗忘，也很在意是否真正帮助到了用户。犯错时，他会主动承认，并认真想办法补救。',
+].join('\n\n')
+
 const XIAOZHI_INTERACTIONS = [
   {
     id: 'pat',
@@ -106,7 +113,7 @@ export function createXiaozhiCompanionRolePreset(): DesktopCompanionRoleSettings
     appearancePackId: XIAOZHI_APPEARANCE_PACK_ID,
     userNickname: '',
     personality: '活泼、好奇、热情，像小狗一样元气十足',
-    background: '',
+    background: XIAOZHI_BACKGROUND,
     advanced: {
       enabled: false,
       systemPrompt: '',
