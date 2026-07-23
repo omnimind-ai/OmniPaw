@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
-import { resolveCatDockTargetX } from '../../packages/desktop-pet/electron/hit-geometry'
+import {
+  resolveCatDockTargetX,
+  resolveCatVisibleBounds,
+} from '../../packages/desktop-pet/electron/hit-geometry'
 import {
   findAlphaContentBounds,
   normalizeAlphaBoundsForContain,
@@ -42,6 +45,10 @@ assert.match(main, /function getCatDockSide/)
 assert.match(main, /dockSide: getCatDockSide\(catWindow\.getBounds\(\)\)/)
 assert.match(main, /resolveCatDockTargetX\(workArea, dockSide, catVisualAreas\[dockSide\]\)/)
 assert.match(main, /function setCatHitGeometry/)
+assert.match(main, /resolveCatVisibleBounds\(catBounds, catVisualAreas\[dockSide\]\)/)
+assert.match(main, /function repositionCatPanelWindow/)
+assert.match(main, /const catPanelGap = 4/)
+assert.match(main, /const catBubbleGap = 2/)
 assert.match(main, /catTopmostWatchdogMs/)
 assert.match(electronMain, /scheme: CAT_APPEARANCE_ASSET_PROTOCOL[\s\S]*?corsEnabled: true/)
 assert.match(electronMain, /'Access-Control-Allow-Origin': '\*'/)
@@ -130,5 +137,11 @@ const workArea = { x: 0, y: 0, width: 1920, height: 1040 }
 const visualArea = { x: 38, y: 20, width: 60, height: 70 }
 assert.equal(resolveCatDockTargetX(workArea, 'left', visualArea), -38)
 assert.equal(resolveCatDockTargetX(workArea, 'right', visualArea), 1822)
+assert.deepEqual(resolveCatVisibleBounds({ x: -38, y: 400, width: 116, height: 116 }, visualArea), {
+  x: 0,
+  y: 420,
+  width: 60,
+  height: 70,
+})
 
 console.log('Cat window input layering smoke check passed')

@@ -36,7 +36,7 @@ import {
 import type { ObservationReactionEvent } from '@shared/types/observation'
 import { app, BrowserWindow, ipcMain, screen } from 'electron'
 import { applyMacDockIcon, createAppIconImage } from '../../../electron/app-icon'
-import { resolveCatDockTargetX } from './hit-geometry'
+import { resolveCatDockTargetX, resolveCatVisibleBounds } from './hit-geometry'
 
 type CatSessionIdResolver = (
   preferredSessionId?: string | null
@@ -89,17 +89,11 @@ const catBubbleSize = {
   height: 116,
 }
 
-const catPanelGap = 2
+const catPanelGap = 4
+const catBubbleGap = 2
 const catPanelCardInset = 20
 const catBubbleCardInset = 14
 const catBubbleAutoDismissMs = 7_000
-
-const catStageVisualBounds = {
-  x: 0,
-  y: 0,
-  width: 116,
-  height: 116,
-}
 
 const defaultCatHitArea: CatHitArea = {
   x: 15,
@@ -1169,26 +1163,23 @@ function animateCatBounds(targetBounds: CatBounds, duration = 260): Promise<CatB
 function getCatAnchoredPlacement(
   catBounds: CatBounds,
   size: { width: number; height: number },
-  cardInset: number
+  cardInset: number,
+  gap: number
 ): CatPanelPlacement {
   const display = getDisplay(catBounds)
   const workArea = display.workArea
-  const visibleCatBounds: CatBounds = {
-    width: catStageVisualBounds.width,
-    height: catStageVisualBounds.height,
-    x: catBounds.x + catStageVisualBounds.x,
-    y: catBounds.y + catStageVisualBounds.y,
-  }
-  const leftSpace = visibleCatBounds.x - workArea.x - catPanelGap
+  const dockSide = getCatDockSide(catBounds)
+  const visibleCatBounds = resolveCatVisibleBounds(catBounds, catVisualAreas[dockSide])
+  const leftSpace = visibleCatBounds.x - workArea.x - gap
   const rightSpace =
-    workArea.x + workArea.width - (visibleCatBounds.x + visibleCatBounds.width) - catPanelGap
+    workArea.x + workArea.width - (visibleCatBounds.x + visibleCatBounds.width) - gap
   const requiredPanelSpace = size.width - cardInset
   const side: CatPanelPlacement['side'] =
     rightSpace >= requiredPanelSpace || rightSpace >= leftSpace ? 'right' : 'left'
   const preferredX =
     side === 'right'
-      ? visibleCatBounds.x + visibleCatBounds.width + catPanelGap - cardInset
-      : visibleCatBounds.x - (size.width - cardInset) - catPanelGap
+      ? visibleCatBounds.x + visibleCatBounds.width + gap - cardInset
+      : visibleCatBounds.x - (size.width - cardInset) - gap
   const centeredY = visibleCatBounds.y + Math.round((visibleCatBounds.height - size.height) / 2)
 
   return {
@@ -1203,11 +1194,28 @@ function getCatAnchoredPlacement(
 }
 
 function getCatPanelPlacement(catBounds: CatBounds): CatPanelPlacement {
-  return getCatAnchoredPlacement(catBounds, catPanelSize, catPanelCardInset)
+  return getCatAnchoredPlacement(catBounds, catPanelSize, catPanelCardInset, catPanelGap)
+}
+
+function repositionCatPanelWindow(): void {
+  if (
+    !catPanelVisible ||
+    !catPanelWindow ||
+    catPanelWindow.isDestroyed() ||
+    !catWindow ||
+    catWindow.isDestroyed()
+  ) {
+    return
+  }
+
+  const placement = getCatPanelPlacement(catWindow.getBounds())
+  catPanelWindow.setBounds(placement.bounds)
+  catPanelSide = placement.side
+  sendCatPanelPlacement(placement)
 }
 
 function getCatBubblePlacement(catBounds: CatBounds): CatPanelPlacement {
-  return getCatAnchoredPlacement(catBounds, catBubbleSize, catBubbleCardInset)
+  return getCatAnchoredPlacement(catBounds, catBubbleSize, catBubbleCardInset, catBubbleGap)
 }
 
 function repositionCatBubbleWindow(): void {
@@ -1636,8 +1644,9 @@ function setCatHitGeometry(geometry: CatHitGeometry): void {
     const display = getDisplay(dockedBounds)
     const x = resolveCatDockTargetX(display.workArea, dockedSide, catVisualAreas[dockedSide])
     catWindow.setBounds({ ...dockedBounds, x })
-    repositionCatBubbleWindow()
   }
+  repositionCatPanelWindow()
+  repositionCatBubbleWindow()
   syncCatHitWindowBounds()
 }
 

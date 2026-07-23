@@ -11,3 +11,12 @@ export function resolveCatDockTargetX(
       : workArea.x - visualArea.x
   )
 }
+
+export function resolveCatVisibleBounds(catBounds: CatBounds, visualArea: CatHitArea): CatBounds {
+  return {
+    x: catBounds.x + visualArea.x,
+    y: catBounds.y + visualArea.y,
+    width: visualArea.width,
+    height: visualArea.height,
+  }
+}
