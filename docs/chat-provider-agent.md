@@ -12,7 +12,8 @@
 
 ## 上下文、角色与记忆
 
-- MUST：基础 system context、mask 和 companion role 作为系统上下文参与请求，不作为普通消息持久化。
+- MUST：基础 system context 和 companion role 作为系统上下文参与请求，不作为普通消息持久化。
+- MUST：角色 Prompt 的正文与预览共用 `shared/companion-role-prompt.ts`，不得分别维护两套拼接规则。
 - MUST：新会话捕获其创建时的系统上下文与 active role；后续角色变更不得隐式改写历史会话。
 - MUST：上下文预算、摘要、附件、技能、记忆和工具结果由统一上下文边界排序和裁剪。
 - MUST：角色指令、记忆正文和摘要内容视为用户敏感内容，不进入日志、工具结果或调试快照。

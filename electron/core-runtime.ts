@@ -132,8 +132,6 @@ export function createCoreRuntime(options: CoreRuntimeOptions): CoreRuntime {
     logger: coreLogger.child({ scope: 'db' }),
   })
   const db = dbClient.connect()
-  seedDefaultChatData(db)
-  coreLogger.debug('Default chat seed checked.')
 
   const sessionRepo = new ChatSessionRepo(db)
   const messageRepo = new ChatMessageRepo(db)
@@ -455,6 +453,10 @@ export function createCoreRuntime(options: CoreRuntimeOptions): CoreRuntime {
     observationManager: () => observationManager,
     logger: coreLogger.child({ scope: 'chat' }),
   })
+  seedDefaultChatData(db, {
+    systemContext: chatService.buildDefaultSystemContext('chat'),
+  })
+  coreLogger.debug('Default chat seed checked.')
   void chatService
     .recoverResidualRuns({
       id: 'startup-recovery',

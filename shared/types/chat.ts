@@ -209,7 +209,6 @@ export type ContextAttachmentPolicy = 'current-only' | 'recent' | 'never'
 export type ContextUsageSource = 'estimated' | 'actual' | 'mixed'
 export type ContextUnitKind =
   | 'base-system'
-  | 'mask'
   | 'role'
   | 'memory-profile'
   | 'memory-preference'
@@ -256,14 +255,11 @@ export interface SessionContextInstruction {
   label?: string
   text?: string
   refId?: ID
-  enabled?: boolean
 }
 
 export interface ChatSystemContextConfig {
   baseSystemPrompt?: string
-  mask?: SessionContextInstruction
   role?: SessionContextInstruction
-  runtimeInstructions?: SessionContextInstruction[]
 }
 
 export interface ContextUnitMetadata {
@@ -560,7 +556,7 @@ export interface TransientChatImageInput {
 
 export type TransientChatInstructionKind = Extract<
   ContextUnitKind,
-  'base-system' | 'mask' | 'role' | 'runtime'
+  'base-system' | 'role' | 'runtime'
 >
 
 export interface TransientChatInstruction {

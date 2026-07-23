@@ -18,21 +18,14 @@ import type {
 } from './provider'
 import type { DesktopShortcutSettings } from './shortcuts'
 
-export const CURRENT_DESKTOP_SETTINGS_VERSION = 2 as const
+export const CURRENT_DESKTOP_SETTINGS_VERSION = 3 as const
 export type DesktopSettingsVersion = typeof CURRENT_DESKTOP_SETTINGS_VERSION
 export type AppTheme = 'system' | 'light' | 'dark'
 export type AppLanguage = 'zh-CN' | 'en-US' | 'system'
 export type SettingsChangeReason = 'load' | 'save' | 'reset'
 
-export interface DesktopSystemContextMaskSettings {
-  enabled: boolean
-  label?: string
-  text: string
-}
-
 export interface DesktopSystemContextSettings {
   baseSystemPrompt: string
-  mask?: DesktopSystemContextMaskSettings
 }
 
 export interface DesktopAppBackgroundImage {

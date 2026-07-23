@@ -29,7 +29,6 @@ import type {
   RegenerateMessageRequest,
   SendMessageRequest,
   SendMessageResponse,
-  SessionContextInstruction,
   SubscribeRunRequest,
   SubscribeRunResponse,
   ToolApprovalRequest,
@@ -279,20 +278,11 @@ export class ChatService {
         : undefined
 
     const baseSystemPrompt = defaults?.baseSystemPrompt?.trim() || undefined
-    const maskInput = defaults?.mask
-    const mask: SessionContextInstruction | undefined = maskInput?.text?.trim()
-      ? {
-          label: maskInput.label,
-          text: maskInput.text,
-          enabled: maskInput.enabled !== false,
-        }
-      : undefined
-    if (!baseSystemPrompt && !mask && !roleInstruction) {
+    if (!baseSystemPrompt && !roleInstruction) {
       return undefined
     }
     const systemContext: ChatSystemContextConfig = {}
     if (baseSystemPrompt) systemContext.baseSystemPrompt = baseSystemPrompt
-    if (mask) systemContext.mask = mask
     if (roleInstruction) systemContext.role = roleInstruction
     return systemContext
   }

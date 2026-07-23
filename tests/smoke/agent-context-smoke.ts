@@ -6,6 +6,7 @@ import { ContextBuilder } from '../../core/chat/context-manager'
 import type { ChatMessageRepo } from '../../core/db/repos'
 import { compileCompanionRoleInstruction } from '../../core/prompts'
 import { createXiaowanCompanionRolePreset } from '../../core/role/presets'
+import { compileCompanionRolePrompt } from '../../shared/companion-role-prompt'
 import type {
   ChatMessage,
   InternalAttachmentRecord,
@@ -25,6 +26,7 @@ displayOnlyRole.relationship = 'LEGACY_RELATIONSHIP'
 displayOnlyRole.proactiveStyle = 'LEGACY_PROACTIVE_STYLE'
 const displayOnlyRoleInstruction = compileCompanionRoleInstruction(displayOnlyRole)
 assert.ok(displayOnlyRoleInstruction)
+assert.equal(displayOnlyRoleInstruction.text, compileCompanionRolePrompt(displayOnlyRole))
 assert.doesNotMatch(displayOnlyRoleInstruction.text, /DISPLAY_ONLY_INTRODUCTION/)
 assert.doesNotMatch(displayOnlyRoleInstruction.text, /RElTUExBWV9PTkxZX0FWQVRBUg/)
 assert.doesNotMatch(displayOnlyRoleInstruction.text, /LEGACY_SPEECH_STYLE/)
@@ -219,8 +221,7 @@ async function testContextBuilderSystemFallbackAndTokenBudget(): Promise<void> {
       systemPrompt: 'Base prompt',
       systemContext: {
         baseSystemPrompt: 'Base prompt',
-        mask: { text: 'Mask prompt', enabled: true },
-        role: { text: 'Role prompt', enabled: true },
+        role: { text: 'Role prompt' },
       },
       contextPolicy: {
         mode: 'token-budget',
@@ -243,7 +244,6 @@ async function testContextBuilderSystemFallbackAndTokenBudget(): Promise<void> {
 
   assert.equal(context.messages[0]?.role, 'user')
   assert.match(String(context.messages[0]?.content), /Base prompt/)
-  assert.match(JSON.stringify(context.messages), /Mask prompt/)
   assert.match(JSON.stringify(context.messages), /Role prompt/)
   assert.match(JSON.stringify(context.messages), /current question/)
   assert.equal(context.snapshot.contextPolicyMode, 'token-budget')

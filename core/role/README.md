@@ -8,3 +8,4 @@
 - `presets/`: 内置小万、小智、交互、养成数值和内置外观默认预设。
 
 外部调用优先从 `@core/role` 或对应子模块导入，避免再新增分散的 `core/appearance`、`core/companion-role`、`core/pet` 包。
+角色 Prompt 的共享编译规则位于 `shared/companion-role-prompt.ts`，Core 请求与 renderer 预览共同使用该模块。

@@ -101,15 +101,8 @@ export interface BridgeChatContextSettings {
   compactModelId?: string
 }
 
-export interface BridgeSystemContextMaskSettings {
-  enabled: boolean
-  label?: string
-  text: string
-}
-
 export interface BridgeSystemContextSettings {
   baseSystemPrompt: string
-  mask?: BridgeSystemContextMaskSettings
 }
 
 export interface BridgeDesktopBackgroundImage {
@@ -1762,11 +1755,6 @@ function fallbackSettingsConfig(): BridgeDesktopSettingsConfig {
       },
       systemContext: {
         baseSystemPrompt: '',
-        mask: {
-          enabled: false,
-          label: 'Mask',
-          text: '',
-        },
       },
       companionRoles: [createFallbackCompanionRole()],
       activeCompanionRoleId: FALLBACK_COMPANION_ROLE_ID,

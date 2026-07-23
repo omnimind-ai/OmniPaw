@@ -81,6 +81,7 @@ try {
   assert.equal(normalized.app.chatContext.recentMessages, 20)
   assert.equal(normalized.app.chatContext.includeAttachments, 'current-only')
   assert.equal(normalized.app.chatContext.autoCompact, true)
+  assert.deepEqual(normalized.app.systemContext, { baseSystemPrompt: '' })
   assert.equal('unknownField' in normalized.app, false)
   assert.equal(normalized.providers.sources[0]?.id, 'custom-openai')
   assert.equal(normalized.providers.models[0]?.providerSourceId, 'custom-openai')
@@ -116,6 +117,27 @@ try {
   assert.equal(normalized.observation.dailyCaptureLimit, 12)
   assert.equal(normalized.observation.consecutiveFailureLimit, 4)
   assert.equal(normalized.observation.notificationCooldownMs, 45_000)
+
+  const migratedLegacySystemContext = normalizeConfig({
+    ...cloneDefaultConfig(),
+    version: 2,
+    app: {
+      ...cloneDefaultConfig().app,
+      systemContext: {
+        baseSystemPrompt: 'Legacy base prompt',
+        mask: {
+          enabled: true,
+          label: 'Legacy mask',
+          text: 'Legacy mask prompt',
+        },
+      },
+    },
+  }).config
+  assert.equal(migratedLegacySystemContext.version, CURRENT_SETTINGS_VERSION)
+  assert.deepEqual(migratedLegacySystemContext.app.systemContext, {
+    baseSystemPrompt: 'Legacy base prompt',
+  })
+  assert.equal('mask' in migratedLegacySystemContext.app.systemContext, false)
 
   const builtinPresetIds = BUILTIN_COMPANION_ROLE_PRESET_CATALOG.map((preset) => preset.id)
   assert.deepEqual(builtinPresetIds, ['default', 'xiaozhi'])
@@ -309,10 +331,12 @@ try {
       ],
     },
   }).config
-  assert.equal('enabled' in roleConfig.app.companionRoles[0]!, false)
-  assert.equal('greeting' in roleConfig.app.companionRoles[0]!, false)
-  assert.equal('greetingMode' in roleConfig.app.companionRoles[0]!, false)
-  assert.equal('alternateGreetings' in roleConfig.app.companionRoles[0]!, false)
+  const normalizedRoleConfig = roleConfig.app.companionRoles[0]
+  assert.ok(normalizedRoleConfig)
+  assert.equal('enabled' in normalizedRoleConfig, false)
+  assert.equal('greeting' in normalizedRoleConfig, false)
+  assert.equal('greetingMode' in normalizedRoleConfig, false)
+  assert.equal('alternateGreetings' in normalizedRoleConfig, false)
   assert.equal(roleConfig.app.companionRoles[0]?.introduction, 'A display-only smoke introduction.')
   assert.equal(roleConfig.app.companionRoles[0]?.avatar?.source, 'custom')
   assert.equal(

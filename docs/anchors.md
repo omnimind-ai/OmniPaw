@@ -27,6 +27,7 @@
 | IPC channel | `shared/constants.ts` |
 | 完整 bridge 契约 | `shared/types/bridge.ts` |
 | 业务 payload | `shared/types/` |
+| 角色 Prompt 编译 | `shared/companion-role-prompt.ts` |
 | 跨层日志清洗 | `shared/logging/` |
 
 ## Renderer

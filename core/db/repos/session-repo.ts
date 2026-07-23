@@ -1,3 +1,4 @@
+import type { SessionContextInstruction } from '@shared/types/chat'
 import type { DatabaseConnection } from '../client'
 import { decodeJson, encodeJson } from '../json'
 import type { ChatSession, ChatSessionKind, ChatSystemContextConfig, ContextPolicy } from '../types'
@@ -137,8 +138,12 @@ export class ChatSessionRepo {
 }
 
 function mapSession(row: SessionRow): ChatSession {
-  const metadata = decodeJson<Record<string, unknown> | undefined>(row.metadata_json, undefined)
-  const systemContext = getSystemContextFromMetadata(metadata, row.system_prompt ?? undefined)
+  const storedMetadata = decodeJson<Record<string, unknown> | undefined>(
+    row.metadata_json,
+    undefined
+  )
+  const systemContext = getSystemContextFromMetadata(storedMetadata, row.system_prompt ?? undefined)
+  const metadata = withoutSystemContextMetadata(storedMetadata)
 
   return {
     id: row.id,
@@ -162,13 +167,7 @@ function mapSession(row: SessionRow): ChatSession {
 
 function toSessionParams(session: ChatSession): Record<string, unknown> {
   const systemPrompt = session.systemPrompt ?? session.systemContext?.baseSystemPrompt
-  const systemContext =
-    session.systemContext || systemPrompt
-      ? {
-          ...(session.systemContext ?? {}),
-          ...(systemPrompt !== undefined ? { baseSystemPrompt: systemPrompt } : {}),
-        }
-      : undefined
+  const systemContext = normalizeSystemContext(session.systemContext, systemPrompt)
 
   return {
     id: session.id,
@@ -194,34 +193,65 @@ function getSystemContextFromMetadata(
   systemPrompt: string | undefined
 ): ChatSystemContextConfig | undefined {
   const value = metadata?.[systemContextMetadataKey]
-  if (isSystemContextConfig(value)) {
-    return value
-  }
-  return systemPrompt ? { baseSystemPrompt: systemPrompt } : undefined
+  return normalizeSystemContext(value, systemPrompt)
 }
 
 function withSystemContextMetadata(
   metadata: Record<string, unknown> | undefined,
   systemContext: ChatSystemContextConfig | undefined
 ): Record<string, unknown> | undefined {
-  if (!systemContext) {
-    return metadata
+  const normalizedMetadata = withoutSystemContextMetadata(metadata) ?? {}
+  const nextMetadata = {
+    ...normalizedMetadata,
+    ...(systemContext ? { [systemContextMetadataKey]: systemContext } : {}),
   }
+  return Object.keys(nextMetadata).length ? nextMetadata : undefined
+}
+
+function withoutSystemContextMetadata(
+  metadata: Record<string, unknown> | undefined
+): Record<string, unknown> | undefined {
+  if (!metadata) {
+    return undefined
+  }
+  const nextMetadata = { ...metadata }
+  delete nextMetadata[systemContextMetadataKey]
+  return Object.keys(nextMetadata).length ? nextMetadata : undefined
+}
+
+function normalizeSystemContext(
+  value: unknown,
+  fallbackBaseSystemPrompt?: string
+): ChatSystemContextConfig | undefined {
+  const candidate =
+    value && typeof value === 'object' && !Array.isArray(value)
+      ? (value as Record<string, unknown>)
+      : undefined
+  const baseSystemPrompt =
+    typeof candidate?.baseSystemPrompt === 'string'
+      ? candidate.baseSystemPrompt
+      : fallbackBaseSystemPrompt
+  const role = normalizeSessionContextInstruction(candidate?.role)
+
+  if (baseSystemPrompt === undefined && !role) {
+    return undefined
+  }
+
   return {
-    ...(metadata ?? {}),
-    [systemContextMetadataKey]: systemContext,
+    ...(baseSystemPrompt !== undefined ? { baseSystemPrompt } : {}),
+    ...(role ? { role } : {}),
   }
 }
 
-function isSystemContextConfig(value: unknown): value is ChatSystemContextConfig {
+function normalizeSessionContextInstruction(value: unknown): SessionContextInstruction | undefined {
   if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    return false
+    return undefined
   }
-  const candidate = value as ChatSystemContextConfig
-  return (
-    (candidate.baseSystemPrompt === undefined || typeof candidate.baseSystemPrompt === 'string') &&
-    (candidate.mask === undefined || typeof candidate.mask === 'object') &&
-    (candidate.role === undefined || typeof candidate.role === 'object') &&
-    (candidate.runtimeInstructions === undefined || Array.isArray(candidate.runtimeInstructions))
-  )
+  const candidate = value as Record<string, unknown>
+  const instruction: SessionContextInstruction = {}
+  if (typeof candidate.id === 'string') instruction.id = candidate.id
+  if (typeof candidate.label === 'string') instruction.label = candidate.label
+  if (typeof candidate.text === 'string') instruction.text = candidate.text
+  if (typeof candidate.refId === 'string') instruction.refId = candidate.refId
+  return Object.keys(instruction).length ? instruction : undefined
 }

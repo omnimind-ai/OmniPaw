@@ -32,7 +32,17 @@ const client = new DatabaseClient({ path: join(tempDir, 'smoke.sqlite3') })
 
 try {
   const db = client.connect()
-  seedDefaultChatData(db, 1000)
+  const defaultRoleSystemContext = {
+    role: {
+      refId: 'default',
+      label: '小万',
+      text: '你是小万，是常驻用户桌面的 AI 角色。',
+    },
+  }
+  seedDefaultChatData(db, {
+    now: 1000,
+    systemContext: defaultRoleSystemContext,
+  })
 
   const sessions = new ChatSessionRepo(db)
   const messages = new ChatMessageRepo(db)
@@ -47,6 +57,38 @@ try {
   assert.equal(sessions.list().length, 1)
   assert.equal(sessions.list({ kind: 'chat' }).length, 1)
   assert.equal(sessions.get('default')?.kind, 'chat')
+  assert.deepEqual(sessions.get('default')?.systemContext, defaultRoleSystemContext)
+
+  db.prepare('UPDATE chat_sessions SET metadata_json = ? WHERE id = ?').run(
+    JSON.stringify({
+      retained: 'session metadata',
+      systemContext: {
+        ...defaultRoleSystemContext,
+        mask: {
+          enabled: true,
+          text: 'Legacy mask prompt',
+        },
+        runtimeInstructions: [{ text: 'Legacy runtime prompt' }],
+      },
+    }),
+    'default'
+  )
+  assert.deepEqual(sessions.get('default')?.systemContext, defaultRoleSystemContext)
+  assert.deepEqual(sessions.get('default')?.metadata, {
+    retained: 'session metadata',
+  })
+
+  const defaultSessionWithoutRole = sessions.get('default')
+  assert.ok(defaultSessionWithoutRole)
+  sessions.save({
+    ...defaultSessionWithoutRole,
+    systemContext: undefined,
+  })
+  seedDefaultChatData(db, {
+    now: 1001,
+    systemContext: defaultRoleSystemContext,
+  })
+  assert.deepEqual(sessions.get('default')?.systemContext, defaultRoleSystemContext)
 
   const session: ChatSession = {
     id: 'session-smoke',

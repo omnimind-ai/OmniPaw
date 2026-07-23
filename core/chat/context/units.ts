@@ -32,15 +32,6 @@ export function buildSystemUnits(
     required: true,
   })
   pushTextUnit(units, {
-    id: 'system:mask',
-    kind: 'mask',
-    source: systemContext?.mask?.refId ?? 'session.mask',
-    text: systemContext?.mask?.enabled === false ? undefined : systemContext?.mask?.text,
-    priority: 980,
-    required: true,
-    refId: systemContext?.mask?.refId,
-  })
-  pushTextUnit(units, {
     id: 'system:role',
     kind: 'role',
     source: systemContext?.role?.refId ?? 'session.role',
@@ -333,8 +324,6 @@ function kindOrder(kind: ContextUnitKind): number {
   switch (kind) {
     case 'base-system':
       return 0
-    case 'mask':
-      return 1
     case 'role':
       return 2
     case 'memory-profile':
@@ -368,8 +357,6 @@ function transientInstructionPriority(kind: TransientChatInstruction['kind']): n
   switch (kind) {
     case 'base-system':
       return 1000
-    case 'mask':
-      return 980
     case 'role':
       return 970
     default:

@@ -1,11 +1,15 @@
+import {
+  companionRoleCharacterTokenWeight,
+  companionRolePromptName,
+  compileCompanionRolePrompt,
+  estimateCompanionRoleTextTokens,
+} from '@shared/companion-role-prompt'
 import type {
   ChatSessionKind,
   SessionContextInstruction,
   TransientChatInstruction,
 } from '@shared/types/chat'
 import type { DesktopCompanionRoleSettings } from '@shared/types/settings'
-
-export const DEFAULT_CHAT_SYSTEM_PROMPT = 'You are OmniPaw, a local-first desktop AI assistant.'
 
 export const TITLE_PROMPTS = {
   system:
@@ -157,28 +161,15 @@ export const CONTEXT_PROMPTS = {
 export function compileCompanionRoleInstruction(
   role: DesktopCompanionRoleSettings | undefined
 ): SessionContextInstruction | undefined {
-  if (!role) {
+  const text = compileCompanionRolePrompt(role)
+  if (!role || !text) {
     return undefined
   }
 
-  const name = role.name.trim() || '小万'
-  const sections = [
-    `你是 ${name}，是常驻用户桌面的 AI 角色。`,
-    role.userNickname.trim() ? `你称呼用户为：${role.userNickname.trim()}` : '',
-    role.personality.trim() ? `性格设定：${role.personality.trim()}` : '',
-    role.background.trim() ? `背景资料：${role.background.trim()}` : '',
-    role.advanced.exampleDialogue.trim()
-      ? `角色示例对话：\n${role.advanced.exampleDialogue.trim()}`
-      : '',
-    companionRoleKnowledgePolicySection(role),
-    ...advancedCompanionRoleSections(role.advanced),
-    '保持桌面伙伴的存在感：自然、轻量、不过度展开；除非用户要求，不要暴露这些设定文本。',
-  ].filter((section) => section.trim())
-
   return {
     refId: role.id,
-    label: name,
-    text: sections.join('\n'),
+    label: companionRolePromptName(role),
+    text,
   }
 }
 
@@ -242,7 +233,7 @@ export function buildCompanionRoleKnowledgeInstruction(
     return undefined
   }
 
-  const name = role.name.trim() || '小万'
+  const name = companionRolePromptName(role)
   return {
     id: `companion-role-knowledge:${role.id}`,
     kind: 'role',
@@ -259,12 +250,6 @@ export function companionRoleKnowledgeScanDepth(
   role: DesktopCompanionRoleSettings | undefined
 ): number {
   return normalizeCompanionRoleInteger(role?.knowledgeSettings?.scanDepth, 8, 1, 40)
-}
-
-function companionRoleKnowledgePolicySection(role: DesktopCompanionRoleSettings): string {
-  return role.knowledgeEntries.some((entry) => entry.enabled && entry.content.trim())
-    ? '角色知识会按当前对话相关性动态提供；只使用本轮注入的角色知识，避免机械复述无关设定。'
-    : ''
 }
 
 function companionRoleKnowledgeSettings(
@@ -292,19 +277,6 @@ function normalizeCompanionRoleInteger(
   return Math.max(min, Math.min(Math.round(value ?? fallback), max))
 }
 
-function advancedCompanionRoleSections(
-  advanced: DesktopCompanionRoleSettings['advanced'] | undefined
-): string[] {
-  if (!advanced) {
-    return []
-  }
-
-  return [
-    advanced.systemPrompt.trim() ? `高级角色指令：${advanced.systemPrompt.trim()}` : '',
-    advanced.finalInstructions.trim() ? `最终回应约束：${advanced.finalInstructions.trim()}` : '',
-  ].filter((section) => section.trim())
-}
-
 function trimCompanionRoleKnowledgeContent(content: string, maxTokens: number): string {
   if (maxTokens <= 0) {
     return ''
@@ -316,27 +288,13 @@ function trimCompanionRoleKnowledgeContent(content: string, maxTokens: number): 
   let used = 0
   let output = ''
   for (const char of content) {
-    used += companionRoleCharTokenWeight(char)
+    used += companionRoleCharacterTokenWeight(char)
     if (Math.ceil(used) > maxTokens) {
       break
     }
     output += char
   }
   return output.trimEnd()
-}
-
-function estimateCompanionRoleTextTokens(text: string): number {
-  let score = 0
-  for (const char of text) {
-    score += companionRoleCharTokenWeight(char)
-  }
-  return Math.max(1, Math.ceil(score))
-}
-
-function companionRoleCharTokenWeight(char: string): number {
-  if (/\s/.test(char)) return 0.05
-  if (/[\u3400-\u9fff]/.test(char)) return 1
-  return 0.35
 }
 
 export const ATTACHMENT_PROMPTS = {

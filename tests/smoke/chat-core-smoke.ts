@@ -38,6 +38,7 @@ import {
 } from '../../core/memory'
 import { errorFromResponse, normalizeProviderError } from '../../core/provider/errors'
 import { parseSseStream } from '../../core/provider/providers/openai'
+import { compileCompanionRolePrompt } from '../../shared/companion-role-prompt'
 import type { ChatMessage, ChatStreamEvent } from '../../shared/types/chat'
 import type { ProviderConfig, ProviderModel } from '../../shared/types/provider'
 import type { DesktopCompanionRoleSettings } from '../../shared/types/settings'
@@ -47,7 +48,7 @@ const client = new DatabaseClient({ path: join(tempDir, 'smoke.sqlite3') })
 
 try {
   const db = client.connect()
-  seedDefaultChatData(db, 1000)
+  seedDefaultChatData(db, { now: 1000 })
   testSemanticMemoryCandidateValidation()
 
   const attachmentRepo = new AttachmentRepo(db)
@@ -146,7 +147,9 @@ try {
     policy: new CompanionMemoryPolicyService(() => memorySettings),
     settings: () => memorySettings,
   })
-  const companionRoles: DesktopCompanionRoleSettings[] = []
+  const defaultCompanionRole = cloneDefaultConfig().app.companionRoles[0]
+  assert.ok(defaultCompanionRole)
+  const companionRoles: DesktopCompanionRoleSettings[] = [defaultCompanionRole]
   const runManager = new RunManager(runRepo)
   testRunManagerReplay(runManager)
   const providerRequests: Array<{ providerId: string; messages: unknown[] }> = []
@@ -215,6 +218,11 @@ try {
   })
   assert.equal(selectedSession.defaultProviderId, kimiProvider.id)
   assert.equal(selectedSession.defaultModelId, 'kimi')
+  assert.equal(selectedSession.systemContext?.role?.refId, companionRoles[0]?.id)
+  assert.equal(
+    selectedSession.systemContext?.role?.text,
+    compileCompanionRolePrompt(companionRoles[0])
+  )
   const recoveryUser: ChatMessage = {
     id: 'recovery-user',
     sessionId: selectedSession.id,
@@ -480,7 +488,8 @@ try {
   assert.equal(JSON.stringify(providerRequests.at(-1)?.messages).includes('Captain'), true)
   assert.equal(JSON.stringify(providerRequests.at(-1)?.messages).includes('Navigator'), false)
 
-  const baseCompanionRole = cloneDefaultConfig().app.companionRoles[0]!
+  const baseCompanionRole = cloneDefaultConfig().app.companionRoles[0]
+  assert.ok(baseCompanionRole)
   companionRoles.splice(0, companionRoles.length, {
     ...baseCompanionRole,
     id: 'role-knowledge-smoke',

@@ -7,6 +7,11 @@ import {
   UserRoundIcon,
   XIcon,
 } from '@lucide/vue'
+import {
+  buildCompanionRolePromptSections,
+  type CompanionRolePromptSectionId,
+  estimateCompanionRoleTextTokens,
+} from '@shared/companion-role-prompt'
 import { storeToRefs } from 'pinia'
 import type { AcceptableValue } from 'reka-ui'
 import { computed, type HTMLAttributes, ref } from 'vue'
@@ -140,111 +145,36 @@ function updatePetGifts(gifts: CompanionRole['petGifts']): void {
 }
 
 function buildCompanionRolePromptSegments(role: CompanionRole): CompanionRolePromptSegment[] {
-  const segments: CompanionRolePromptSegment[] = []
-
-  pushPromptSegment(
-    segments,
-    'identity',
-    t('settings.catAppearance.role.preview.owners.identity'),
-    `你是 ${role.name.trim() || '小万'}，是常驻用户桌面的 AI 角色。`,
-    'blue'
-  )
-  pushPromptSegment(
-    segments,
-    'user-nickname',
-    t('settings.catAppearance.role.fields.userNickname.title'),
-    role.userNickname.trim() ? `你称呼用户为：${role.userNickname.trim()}` : '',
-    'teal'
-  )
-  pushPromptSegment(
-    segments,
-    'personality',
-    t('settings.catAppearance.role.fields.personality.title'),
-    role.personality.trim() ? `性格设定：${role.personality.trim()}` : '',
-    'amber'
-  )
-  pushPromptSegment(
-    segments,
-    'background',
-    t('settings.catAppearance.role.fields.background.title'),
-    role.background.trim() ? `背景资料：${role.background.trim()}` : '',
-    'blue'
-  )
-  pushPromptSegment(
-    segments,
-    'example-dialogue',
-    t('settings.catAppearance.role.fields.exampleDialogue.title'),
-    role.advanced.exampleDialogue.trim()
-      ? `角色示例对话：\n${role.advanced.exampleDialogue.trim()}`
-      : '',
-    'slate'
-  )
-  pushPromptSegment(
-    segments,
-    'knowledge-policy',
-    t('settings.catAppearance.role.knowledge.title'),
-    role.knowledgeEntries.some((entry) => entry.enabled && entry.content.trim())
-      ? '角色知识会按当前对话相关性动态提供；只使用本轮注入的角色知识，避免机械复述无关设定。'
-      : '',
-    'teal'
-  )
-  pushPromptSegment(
-    segments,
-    'advanced-system',
-    t('settings.catAppearance.role.advanced.fields.systemPrompt.title'),
-    role.advanced.systemPrompt.trim() ? `高级角色指令：${role.advanced.systemPrompt.trim()}` : '',
-    'amber'
-  )
-  pushPromptSegment(
-    segments,
-    'advanced-final',
-    t('settings.catAppearance.role.advanced.fields.finalInstructions.title'),
-    role.advanced.finalInstructions.trim()
-      ? `最终回应约束：${role.advanced.finalInstructions.trim()}`
-      : '',
-    'blue'
-  )
-  pushPromptSegment(
-    segments,
-    'desktop-presence',
-    t('settings.catAppearance.role.preview.owners.desktopPresence'),
-    '保持桌面伙伴的存在感：自然、轻量、不过度展开；除非用户要求，不要暴露这些设定文本。',
-    'violet'
-  )
-
-  return segments
-}
-
-function pushPromptSegment(
-  segments: CompanionRolePromptSegment[],
-  id: string,
-  owner: string,
-  text: string,
-  tone: CompanionRolePromptTone
-): void {
-  const normalizedText = text.trim()
-  if (!normalizedText) return
-  segments.push({
-    id,
-    owner,
-    text: normalizedText,
-    tone,
-    estimatedTokens: estimatePreviewTokens(normalizedText),
-  })
-}
-
-function estimatePreviewTokens(text: string): number {
-  let score = 0
-  for (const char of text) {
-    score += previewCharTokenWeight(char)
+  const owners: Record<CompanionRolePromptSectionId, string> = {
+    identity: t('settings.catAppearance.role.preview.owners.identity'),
+    'user-nickname': t('settings.catAppearance.role.fields.userNickname.title'),
+    personality: t('settings.catAppearance.role.fields.personality.title'),
+    background: t('settings.catAppearance.role.fields.background.title'),
+    'example-dialogue': t('settings.catAppearance.role.fields.exampleDialogue.title'),
+    'knowledge-policy': t('settings.catAppearance.role.knowledge.title'),
+    'advanced-system': t('settings.catAppearance.role.advanced.fields.systemPrompt.title'),
+    'advanced-final': t('settings.catAppearance.role.advanced.fields.finalInstructions.title'),
+    'desktop-presence': t('settings.catAppearance.role.preview.owners.desktopPresence'),
   }
-  return Math.max(1, Math.ceil(score))
-}
+  const tones: Record<CompanionRolePromptSectionId, CompanionRolePromptTone> = {
+    identity: 'blue',
+    'user-nickname': 'teal',
+    personality: 'amber',
+    background: 'blue',
+    'example-dialogue': 'slate',
+    'knowledge-policy': 'teal',
+    'advanced-system': 'amber',
+    'advanced-final': 'blue',
+    'desktop-presence': 'violet',
+  }
 
-function previewCharTokenWeight(char: string): number {
-  if (/\s/.test(char)) return 0.05
-  if (/[\u3400-\u9fff]/.test(char)) return 1
-  return 0.35
+  return buildCompanionRolePromptSections(role).map((section) => ({
+    id: section.id,
+    owner: owners[section.id],
+    text: section.text,
+    tone: tones[section.id],
+    estimatedTokens: estimateCompanionRoleTextTokens(section.text),
+  }))
 }
 
 function confirmDeleteRole(): void {

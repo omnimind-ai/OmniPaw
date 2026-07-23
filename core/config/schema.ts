@@ -114,11 +114,6 @@ export const defaultConfig: DesktopSettingsConfig = {
     },
     systemContext: {
       baseSystemPrompt: '',
-      mask: {
-        enabled: false,
-        label: 'Mask',
-        text: '',
-      },
     },
     companionRoles: defaultCompanionRoles,
     activeCompanionRoleId: DEFAULT_ACTIVE_COMPANION_ROLE_ID,
@@ -1507,37 +1502,6 @@ function validateSystemContext(
       code: 'invalid_type',
     })
   }
-  if (settings.mask !== undefined) {
-    if (!isPlainObject(settings.mask)) {
-      issues.push({
-        path: 'app.systemContext.mask',
-        message: 'Mask settings must be an object when set.',
-        code: 'invalid_type',
-      })
-    } else {
-      if (typeof settings.mask.enabled !== 'boolean') {
-        issues.push({
-          path: 'app.systemContext.mask.enabled',
-          message: 'Mask enabled flag must be boolean.',
-          code: 'invalid_type',
-        })
-      }
-      if (typeof settings.mask.text !== 'string') {
-        issues.push({
-          path: 'app.systemContext.mask.text',
-          message: 'Mask text must be a string.',
-          code: 'invalid_type',
-        })
-      }
-      if (settings.mask.label !== undefined && typeof settings.mask.label !== 'string') {
-        issues.push({
-          path: 'app.systemContext.mask.label',
-          message: 'Mask label must be a string when set.',
-          code: 'invalid_type',
-        })
-      }
-    }
-  }
 }
 
 function validateChatContext(
@@ -2518,21 +2482,8 @@ function normalizeSystemContextSettings(
       ? rawValue.baseSystemPrompt
       : defaults.baseSystemPrompt
 
-  const rawMask = rawValue.mask
-  let mask = defaults.mask ? cloneUnknown(defaults.mask) : undefined
-  if (rawMask === null) {
-    mask = undefined
-  } else if (isPlainObject(rawMask)) {
-    mask = {
-      enabled: typeof rawMask.enabled === 'boolean' ? rawMask.enabled : (mask?.enabled ?? false),
-      label: typeof rawMask.label === 'string' ? rawMask.label : mask?.label,
-      text: typeof rawMask.text === 'string' ? rawMask.text : (mask?.text ?? ''),
-    }
-  }
-
   return {
     baseSystemPrompt,
-    mask,
   }
 }
 
