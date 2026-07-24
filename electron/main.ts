@@ -194,6 +194,7 @@ function createControllers(): void {
     devActions: {
       debugUnlockNextGift: () =>
         runDevTrayAction('cat-pet.debugUnlockNextGift', debugUnlockNextGiftFromTray),
+      showFirstLaunchGuide: () => showFirstLaunchGuideFromTray(),
       triggerObservationReaction: () =>
         runDevTrayAction('observation.triggerDevReaction', triggerDevObservationReactionFromTray),
       showDirectCatBubble: () =>
@@ -221,6 +222,30 @@ function quitApp(): void {
 
 function showMainWindow(): void {
   mainWindowController?.show()
+}
+
+function showFirstLaunchGuideFromTray(): void {
+  if (!isDevMode()) {
+    return
+  }
+
+  showMainWindow()
+  const window = mainWindowController?.getWindow()
+  if (!window || window.isDestroyed()) {
+    return
+  }
+
+  const send = () => {
+    if (!window.isDestroyed()) {
+      window.webContents.send(IPC_CHANNELS.app.showFirstLaunchGuide)
+    }
+  }
+
+  if (window.webContents.isLoading()) {
+    window.webContents.once('did-finish-load', send)
+  } else {
+    send()
+  }
 }
 
 function openMainChatSession(sessionId: string, kind?: OpenChatSessionRequest['kind']): void {

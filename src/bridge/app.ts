@@ -1041,6 +1041,7 @@ const fallbackBridge: OmniPawBridge = {
     }),
     openChatSession: async () => {},
     onOpenChatSession: () => () => {},
+    onShowFirstLaunchGuide: () => () => {},
   },
   window: {
     getState: async () => ({

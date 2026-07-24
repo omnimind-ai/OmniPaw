@@ -234,6 +234,8 @@ const bridge: OmniPawBridge = {
     openSettingsDirectory: () => ipcRenderer.invoke(IPC_CHANNELS.app.openSettingsDirectory),
     openChatSession: (request) => ipcRenderer.invoke(IPC_CHANNELS.app.openChatSession, request),
     onOpenChatSession: (callback) => createUnsubscriber(IPC_CHANNELS.app.navigateToChat, callback),
+    onShowFirstLaunchGuide: (callback) =>
+      createUnsubscriber<void>(IPC_CHANNELS.app.showFirstLaunchGuide, callback),
   },
   window: {
     getState: () => ipcRenderer.invoke(IPC_CHANNELS.window.getState),

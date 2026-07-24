@@ -62,6 +62,7 @@ const activeCatRuns = new Set<string>()
 let lastCatTaskState: CatTaskState | null = null
 let stopCatSubscription: (() => void) | undefined
 let stopOpenChatSubscription: (() => void) | undefined
+let stopShowFirstLaunchGuideSubscription: (() => void) | undefined
 
 provide(chatWorkspaceContextKey, chatWorkspaceContext)
 provide(appFloatingBoundaryKey, appFloatingBoundary)
@@ -244,6 +245,9 @@ onMounted(() => {
     }
     void router.push(`/chat/${request.sessionId}`)
   })
+  stopShowFirstLaunchGuideSubscription = appBridge.app.onShowFirstLaunchGuide(() => {
+    forceShowProviderGuide.value = true
+  })
 })
 
 watch(
@@ -260,6 +264,7 @@ onBeforeUnmount(() => {
   uninstallDebugApi?.()
   stopCatSubscription?.()
   stopOpenChatSubscription?.()
+  stopShowFirstLaunchGuideSubscription?.()
 })
 </script>
 

@@ -378,6 +378,7 @@ export interface OmniPawBridge {
     openSettingsDirectory: () => Promise<OpenDirectoryResponse>
     openChatSession: (request: OpenChatSessionRequest | string) => Promise<void>
     onOpenChatSession: (callback: (request: OpenChatSessionRequest) => void) => Unsubscribe
+    onShowFirstLaunchGuide: (callback: () => void) => Unsubscribe
   }
   window: {
     getState: () => Promise<DesktopWindowState>

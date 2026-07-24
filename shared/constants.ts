@@ -19,6 +19,7 @@ export const IPC_CHANNELS = {
     openSettingsDirectory: 'app:open-settings-directory',
     openChatSession: 'app:open-chat-session',
     navigateToChat: 'app:navigate-to-chat',
+    showFirstLaunchGuide: 'app:show-first-launch-guide',
   },
   window: {
     getState: 'window:get-state',

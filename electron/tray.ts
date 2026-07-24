@@ -3,6 +3,7 @@ import { createTrayIconImage } from './app-icon'
 
 interface TrayDevActions {
   debugUnlockNextGift: () => void
+  showFirstLaunchGuide: () => void
   triggerObservationReaction: () => void
   showDirectCatBubble: () => void
 }
@@ -88,6 +89,10 @@ export function createTrayController(options: TrayControllerOptions): TrayContro
     }
 
     return [
+      {
+        label: '显示首次引导',
+        click: () => options.devActions?.showFirstLaunchGuide(),
+      },
       {
         label: '测试触发礼物',
         click: () => options.devActions?.debugUnlockNextGift(),
