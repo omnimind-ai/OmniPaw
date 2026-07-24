@@ -1401,6 +1401,14 @@ export default {
       enUS: 'English / 英文',
       saveFailed: '语言设置保存失败。',
     },
+    theme: {
+      title: '主题',
+      placeholder: '选择主题',
+      system: '跟随系统',
+      light: '亮色',
+      dark: '暗色',
+      saveFailed: '主题设置保存失败。',
+    },
     provider: {
       sectionLabel: '模型提供商',
       heading: '选择模型提供商',

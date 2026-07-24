@@ -1488,6 +1488,14 @@ export default {
       enUS: 'English / 英文',
       saveFailed: 'Failed to save language setting.',
     },
+    theme: {
+      title: 'Theme',
+      placeholder: 'Select theme',
+      system: 'Follow system',
+      light: 'Light',
+      dark: 'Dark',
+      saveFailed: 'Failed to save theme setting.',
+    },
     provider: {
       sectionLabel: 'Model provider',
       heading: 'Choose a model provider',

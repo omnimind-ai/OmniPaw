@@ -14,6 +14,7 @@ import brandLogoUrl from '@/asserts/brand-logo.png'
 import {
   appBridge,
   type BridgeAppLanguage,
+  type BridgeAppTheme,
   type BridgeProviderConfig,
   type BridgeProviderPreset,
 } from '@/bridge/app'
@@ -65,6 +66,7 @@ const selectedChoiceId = ref<ProviderChoiceId | null>(null)
 const omniInferPackaged = ref(false)
 const submitting = ref(false)
 const languageSaving = ref(false)
+const themeSaving = ref(false)
 const cloudBaseUrl = ref('https://api.openai.com/v1')
 const cloudApiKey = ref('')
 const cloudModelId = ref('gpt-4o-mini')
@@ -73,6 +75,12 @@ const selectedLanguage = computed<BridgeAppLanguage>({
   get: () => settingsDraft.value?.app.language ?? settingsConfig.value?.app.language ?? 'system',
   set: (value) => {
     void saveLanguage(value)
+  },
+})
+const selectedTheme = computed<BridgeAppTheme>({
+  get: () => settingsDraft.value?.app.theme ?? settingsConfig.value?.app.theme ?? 'system',
+  set: (value) => {
+    void saveTheme(value)
   },
 })
 const omniInferBadge = computed((): { label: string; description: string } => {
@@ -147,8 +155,14 @@ const providerGridStyle = computed<Record<string, string>>(() => {
   return { '--provider-columns': 'minmax(0, 1fr) minmax(0, 1fr)' }
 })
 const languageBusy = computed(() => languageSaving.value || settingsSaving.value)
+const themeBusy = computed(() => themeSaving.value || settingsSaving.value)
 const busy = computed(
-  () => submitting.value || loading.value || presetsLoading.value || languageBusy.value
+  () =>
+    submitting.value ||
+    loading.value ||
+    presetsLoading.value ||
+    languageBusy.value ||
+    themeBusy.value
 )
 
 onMounted(async () => {
@@ -185,6 +199,20 @@ async function saveLanguage(language: BridgeAppLanguage) {
     toast.error(errorToText(error, t('onboarding.language.saveFailed')))
   } finally {
     languageSaving.value = false
+  }
+}
+
+async function saveTheme(theme: BridgeAppTheme) {
+  if (themeBusy.value) return
+  themeSaving.value = true
+  try {
+    await settingsStore.load()
+    settingsStore.updateAppSetting('theme', theme)
+    await settingsStore.save()
+  } catch (error) {
+    toast.error(errorToText(error, t('onboarding.theme.saveFailed')))
+  } finally {
+    themeSaving.value = false
   }
 }
 
@@ -440,7 +468,7 @@ function toObjectRecord(value: unknown): Record<string, unknown> {
           <img
             :src="brandLogoUrl"
             alt=""
-            class="w-56 shrink-0 object-contain sm:w-64 md:w-80"
+            class="w-56 shrink-0 object-contain sm:w-64 md:w-80 dark:brightness-125 dark:invert dark:hue-rotate-180"
             aria-hidden="true"
             draggable="false"
           />
@@ -450,31 +478,60 @@ function toObjectRecord(value: unknown): Record<string, unknown> {
         </p>
       </header>
 
-      <section class="mt-12">
-        <FieldLabel
-          for="onboarding-language"
-          class="mb-3 block text-base font-medium"
-        >
-          {{ t('onboarding.language.title') }}
-        </FieldLabel>
-        <Select
-          v-model="selectedLanguage"
-          :disabled="languageBusy"
-        >
-          <SelectTrigger
-            id="onboarding-language"
-            class="h-12 w-full bg-background px-4 text-base"
+      <section class="mt-12 grid gap-5 sm:grid-cols-2">
+        <div>
+          <FieldLabel
+            for="onboarding-language"
+            class="mb-3 block text-base font-medium"
           >
-            <SelectValue :placeholder="t('onboarding.language.placeholder')" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectGroup>
-              <SelectItem value="system">{{ t('onboarding.language.system') }}</SelectItem>
-              <SelectItem value="zh-CN">{{ t('onboarding.language.zhCN') }}</SelectItem>
-              <SelectItem value="en-US">{{ t('onboarding.language.enUS') }}</SelectItem>
-            </SelectGroup>
-          </SelectContent>
-        </Select>
+            {{ t('onboarding.language.title') }}
+          </FieldLabel>
+          <Select
+            v-model="selectedLanguage"
+            :disabled="languageBusy"
+          >
+            <SelectTrigger
+              id="onboarding-language"
+              class="h-12 w-full bg-background px-4 text-base"
+            >
+              <SelectValue :placeholder="t('onboarding.language.placeholder')" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectGroup>
+                <SelectItem value="system">{{ t('onboarding.language.system') }}</SelectItem>
+                <SelectItem value="zh-CN">{{ t('onboarding.language.zhCN') }}</SelectItem>
+                <SelectItem value="en-US">{{ t('onboarding.language.enUS') }}</SelectItem>
+              </SelectGroup>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div>
+          <FieldLabel
+            for="onboarding-theme"
+            class="mb-3 block text-base font-medium"
+          >
+            {{ t('onboarding.theme.title') }}
+          </FieldLabel>
+          <Select
+            v-model="selectedTheme"
+            :disabled="themeBusy"
+          >
+            <SelectTrigger
+              id="onboarding-theme"
+              class="h-12 w-full bg-background px-4 text-base"
+            >
+              <SelectValue :placeholder="t('onboarding.theme.placeholder')" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectGroup>
+                <SelectItem value="system">{{ t('onboarding.theme.system') }}</SelectItem>
+                <SelectItem value="light">{{ t('onboarding.theme.light') }}</SelectItem>
+                <SelectItem value="dark">{{ t('onboarding.theme.dark') }}</SelectItem>
+              </SelectGroup>
+            </SelectContent>
+          </Select>
+        </div>
       </section>
 
       <section class="mt-8">
