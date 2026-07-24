@@ -723,7 +723,14 @@ function reportCatState(state: CatWindowState): void {
   catState = state
   if (isCatTaskState(state)) {
     lastKnownCatTaskState = state
-  } else {
+    sendToCatHitWindow(IPC_CHANNELS.cat.commandState, {
+      state,
+      ...(catWindow && !catWindow.isDestroyed()
+        ? { dockSide: getCatDockSide(catWindow.getBounds()) }
+        : {}),
+      source: 'cat-window',
+    } satisfies CatCommandEvent)
+  } else if (state === 'hidden') {
     lastKnownCatTaskState = null
   }
   catVisible =
@@ -1703,7 +1710,10 @@ function registerCatWindowIpcHandlers(): void {
 
     syncCatBubbleWindowState()
   })
-  ipcMain.on(IPC_CHANNELS.cat.reportState, (_event, state: CatWindowState) => {
+  ipcMain.on(IPC_CHANNELS.cat.reportState, (event, state: CatWindowState) => {
+    if (!catWindow || catWindow.isDestroyed() || event.sender.id !== catWindow.webContents.id) {
+      return
+    }
     reportCatState(state)
   })
 

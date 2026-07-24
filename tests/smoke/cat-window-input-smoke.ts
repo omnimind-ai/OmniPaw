@@ -54,6 +54,14 @@ assert.match(electronMain, /scheme: CAT_APPEARANCE_ASSET_PROTOCOL[\s\S]*?corsEna
 assert.match(electronMain, /'Access-Control-Allow-Origin': '\*'/)
 assert.match(main, /event\.sender\.id === catWindow\.webContents\.id/)
 assert.match(main, /event\.sender\.id === catHitWindow\.webContents\.id/)
+assert.match(
+  main,
+  /function reportCatState[\s\S]*?sendToCatHitWindow\(IPC_CHANNELS\.cat\.commandState/
+)
+assert.match(
+  main,
+  /IPC_CHANNELS\.cat\.reportState[\s\S]*?event\.sender\.id !== catWindow\.webContents\.id/
+)
 
 assert.match(preload, /IPC_CHANNELS\.cat\.setHitArea/)
 assert.match(preload, /IPC_CHANNELS\.cat\.setInteractionState/)
