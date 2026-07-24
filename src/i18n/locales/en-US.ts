@@ -1477,6 +1477,7 @@ export default {
   onboarding: {
     welcome: {
       title: 'Welcome to OmniPaw',
+      titlePrefix: 'Welcome to',
       description: "Let's get you set up",
     },
     language: {
@@ -1492,6 +1493,13 @@ export default {
       heading: 'Choose a model provider',
       omniInfer: {
         title: 'OmniInfer',
+        details: {
+          heading: 'Use bundled OmniInfer',
+          description:
+            'OmniPaw will connect to the local inference service included in this build.',
+          status: 'Service status',
+          baseUrl: 'Service URL',
+        },
         status: {
           notBundled: {
             label: 'Not bundled',
@@ -1527,8 +1535,6 @@ export default {
       },
     },
     cloud: {
-      heading: 'Connect Cloud API',
-      description: 'Credentials are kept in local credential storage.',
       baseUrl: 'Base URL',
       modelId: 'Model ID',
       apiKey: 'API Key',
@@ -1541,6 +1547,7 @@ export default {
       configured: 'Model service configured.',
     },
     errors: {
+      providerRequired: 'Choose a model provider.',
       providerPresetNotFound: 'Provider preset not found: {id}',
       configureFailed: 'Failed to configure model service.',
       initializationSaveFailed: 'Failed to save initialization state.',

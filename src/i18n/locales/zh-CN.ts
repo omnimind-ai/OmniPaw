@@ -1390,6 +1390,7 @@ export default {
   onboarding: {
     welcome: {
       title: '欢迎使用 OmniPaw',
+      titlePrefix: '欢迎使用',
       description: '让我们来快速设置一下',
     },
     language: {
@@ -1405,6 +1406,12 @@ export default {
       heading: '选择模型提供商',
       omniInfer: {
         title: 'OmniInfer',
+        details: {
+          heading: '使用内置 OmniInfer',
+          description: 'OmniPaw 将连接当前安装包内的本地推理服务。',
+          status: '服务状态',
+          baseUrl: '服务地址',
+        },
         status: {
           notBundled: {
             label: '未内置',
@@ -1439,8 +1446,6 @@ export default {
       },
     },
     cloud: {
-      heading: '连接 Cloud API',
-      description: '凭据会安全保存在本地凭据存储中。',
       baseUrl: 'Base URL',
       modelId: 'Model ID',
       apiKey: 'API Key',
@@ -1453,6 +1458,7 @@ export default {
       configured: '模型服务已配置。',
     },
     errors: {
+      providerRequired: '请选择一个模型提供商。',
       providerPresetNotFound: '未找到 Provider preset：{id}',
       configureFailed: '模型服务配置失败。',
       initializationSaveFailed: '初始化状态保存失败。',
