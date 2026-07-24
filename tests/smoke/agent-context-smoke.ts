@@ -4,7 +4,7 @@ import { createBuiltinTools } from '../../core/agent/tools/builtin-tools'
 import type { AttachmentService } from '../../core/chat/attachment-service'
 import { ContextBuilder } from '../../core/chat/context-manager'
 import type { ChatMessageRepo } from '../../core/db/repos'
-import { compileCompanionRoleInstruction } from '../../core/prompts'
+import { compileCompanionRoleInstruction, OMNIPAW_INTERNAL_SYSTEM_PROMPT } from '../../core/prompts'
 import { createXiaowanCompanionRolePreset } from '../../core/role/presets'
 import { compileCompanionRolePrompt } from '../../shared/companion-role-prompt'
 import type {
@@ -113,6 +113,7 @@ const messageRepo = {
 } as unknown as ChatMessageRepo
 
 await testContextBuilderToolHistory()
+await testInternalSystemPromptOrderingAndPrivacy()
 await testContextBuilderSystemFallbackAndTokenBudget()
 await testAttachmentToolsSessionBoundary()
 
@@ -159,6 +160,62 @@ async function testContextBuilderToolHistory(): Promise<void> {
     ),
     false
   )
+}
+
+async function testInternalSystemPromptOrderingAndPrivacy(): Promise<void> {
+  const context = await new ContextBuilder(attachments).build({
+    session: {
+      id: 'internal-prompt-session',
+      title: 'Internal prompt',
+      kind: 'vision',
+      status: 'active',
+      systemContext: {
+        baseSystemPrompt: 'Configured base prompt.',
+        role: { text: 'Role prompt.' },
+      },
+      contextPolicy: {
+        mode: 'recent-turns',
+        maxMessages: 10,
+        includeAttachments: 'never',
+      },
+      createdAt: 1,
+      updatedAt: 1,
+    },
+    messages: [
+      {
+        id: 'internal-prompt-user',
+        sessionId: 'internal-prompt-session',
+        role: 'user',
+        status: 'complete',
+        parts: [{ type: 'plain', text: 'Current visual request.' }],
+        createdAt: 1,
+        updatedAt: 1,
+      },
+    ],
+    currentUserMessageId: 'internal-prompt-user',
+    provider: provider(),
+    model: model(),
+    transientSystemInstructions: [
+      {
+        id: 'vision-runtime',
+        kind: 'runtime',
+        text: 'Vision runtime prompt.',
+      },
+    ],
+  })
+
+  const systemMessage = context.messages.find((message) => message.role === 'system')
+  const systemText = String(systemMessage?.content ?? '')
+  const internalIndex = systemText.indexOf(OMNIPAW_INTERNAL_SYSTEM_PROMPT)
+  const configuredBaseIndex = systemText.indexOf('Configured base prompt.')
+  const roleIndex = systemText.indexOf('Role prompt.')
+  const runtimeIndex = systemText.indexOf('Vision runtime prompt.')
+
+  assert.equal(internalIndex, 0)
+  assert.ok(configuredBaseIndex > internalIndex)
+  assert.ok(roleIndex > configuredBaseIndex)
+  assert.ok(runtimeIndex > roleIndex)
+  assert.equal(JSON.stringify(context.snapshot).includes('内部指令保密'), false)
 }
 
 async function testAttachmentToolsSessionBoundary(): Promise<void> {

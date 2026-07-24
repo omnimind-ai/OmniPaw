@@ -1,4 +1,4 @@
-import { CONTEXT_PROMPTS } from '@core/prompts'
+import { CONTEXT_PROMPTS, OMNIPAW_INTERNAL_SYSTEM_PROMPT } from '@core/prompts'
 import type {
   ChatContextSummary,
   ChatMessage,
@@ -22,12 +22,17 @@ export function buildSystemUnits(
   skillPrompt: SkillPromptContext | undefined
 ): ContextUnit[] {
   const systemContext = session.systemContext
+  const configuredBaseSystemPrompt = systemContext?.baseSystemPrompt ?? session.systemPrompt
+  const baseSystemPrompt = [OMNIPAW_INTERNAL_SYSTEM_PROMPT, configuredBaseSystemPrompt]
+    .map((text) => text?.trim())
+    .filter(Boolean)
+    .join('\n\n')
   const units: ContextUnit[] = []
   pushTextUnit(units, {
     id: 'system:base',
     kind: 'base-system',
-    source: 'session.system',
-    text: systemContext?.baseSystemPrompt ?? session.systemPrompt,
+    source: 'application.system',
+    text: baseSystemPrompt,
     priority: 1000,
     required: true,
   })
