@@ -1475,14 +1475,12 @@ export default {
     },
   },
   onboarding: {
-    badge: 'First launch',
-    title: 'Choose language and model service',
-    description:
-      'Confirm the interface language first, then configure the Provider used by the Agent. You can keep adjusting models, keys, and advanced compatibility options later in Settings.',
+    welcome: {
+      title: 'Welcome to OmniPaw',
+      description: "Let's get you set up",
+    },
     language: {
-      title: 'Language / 语言',
-      description:
-        'OmniPaw still detects the system language automatically; you can also choose manually here so the first run feels right.',
+      title: 'Language',
       placeholder: 'Select language / 选择语言',
       system: 'System default / 系统默认',
       zhCN: 'Chinese / 中文',
@@ -1490,6 +1488,8 @@ export default {
       saveFailed: 'Failed to save language setting.',
     },
     provider: {
+      sectionLabel: 'Model provider',
+      heading: 'Choose a model provider',
       omniInfer: {
         title: 'OmniInfer',
         status: {
@@ -1520,11 +1520,6 @@ export default {
           },
         },
       },
-      ollama: {
-        title: 'Ollama',
-        badge: 'Local',
-        description: 'Use Ollama models on this Mac.',
-      },
       cloud: {
         title: 'Cloud API',
         badge: 'API Key',
@@ -1532,13 +1527,15 @@ export default {
       },
     },
     cloud: {
+      heading: 'Connect Cloud API',
+      description: 'Credentials are kept in local credential storage.',
       baseUrl: 'Base URL',
       modelId: 'Model ID',
       apiKey: 'API Key',
     },
     actions: {
-      advancedSettings: 'Advanced settings',
-      continue: 'Continue',
+      skip: 'Skip for now',
+      continue: 'Finish setup',
     },
     toasts: {
       configured: 'Model service configured.',

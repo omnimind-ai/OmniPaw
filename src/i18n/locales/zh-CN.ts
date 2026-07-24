@@ -1388,13 +1388,12 @@ export default {
     },
   },
   onboarding: {
-    badge: '首次启动',
-    title: '选择语言和模型服务',
-    description:
-      '先确认界面语言，再配置 Agent 使用的 Provider。稍后可以在设置中继续调整模型、密钥和高级兼容选项。',
+    welcome: {
+      title: '欢迎使用 OmniPaw',
+      description: '让我们来快速设置一下',
+    },
     language: {
-      title: '语言 / Language',
-      description: '默认会按系统自动判断；这里也可以手动选择，避免首次使用时语言不符合预期。',
+      title: '语言',
       placeholder: '选择语言 / Select language',
       system: '系统默认 / System default',
       zhCN: '中文 / Chinese',
@@ -1402,6 +1401,8 @@ export default {
       saveFailed: '语言设置保存失败。',
     },
     provider: {
+      sectionLabel: '模型提供商',
+      heading: '选择模型提供商',
       omniInfer: {
         title: 'OmniInfer',
         status: {
@@ -1431,11 +1432,6 @@ export default {
           },
         },
       },
-      ollama: {
-        title: 'Ollama',
-        badge: '本地',
-        description: '使用这台 Mac 上的 Ollama 模型',
-      },
       cloud: {
         title: 'Cloud API',
         badge: 'API Key',
@@ -1443,13 +1439,15 @@ export default {
       },
     },
     cloud: {
+      heading: '连接 Cloud API',
+      description: '凭据会安全保存在本地凭据存储中。',
       baseUrl: 'Base URL',
       modelId: 'Model ID',
       apiKey: 'API Key',
     },
     actions: {
-      advancedSettings: '进入高级设置',
-      continue: '继续',
+      skip: '暂时跳过',
+      continue: '完成设置',
     },
     toasts: {
       configured: '模型服务已配置。',

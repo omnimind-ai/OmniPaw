@@ -1,12 +1,5 @@
 <script setup lang="ts">
-import {
-  CloudIcon,
-  KeyRoundIcon,
-  LanguagesIcon,
-  LaptopIcon,
-  Loader2Icon,
-  SparklesIcon,
-} from '@lucide/vue'
+import { ArrowRightIcon, CheckIcon, KeyRoundIcon, LaptopIcon, Loader2Icon } from '@lucide/vue'
 import type {
   ProviderCapabilities,
   ProviderCompat,
@@ -16,12 +9,14 @@ import type {
 import { storeToRefs } from 'pinia'
 import { type Component, computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useRouter } from 'vue-router'
 
-import type { BridgeAppLanguage, BridgeProviderConfig, BridgeProviderPreset } from '@/bridge/app'
-import { Badge } from '@/components/ui/badge'
+import {
+  appBridge,
+  type BridgeAppLanguage,
+  type BridgeProviderConfig,
+  type BridgeProviderPreset,
+} from '@/bridge/app'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader } from '@/components/ui/card'
 import { Field, FieldGroup, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import {
@@ -38,16 +33,14 @@ import { useProviderStore } from '@/stores/provider'
 import { useSettingsStore } from '@/stores/settings'
 import { errorToText, useToast } from '@/utils/toast'
 
-type ProviderChoiceId = 'omniinfer-local' | 'ollama' | 'openai-compatible'
+type ProviderChoiceId = 'omniinfer-local' | 'openai-compatible'
 
 interface ProviderChoice {
   id: ProviderChoiceId
   title: string
   badge: string
-  badgeVariant: 'secondary' | 'outline'
   description: string
   icon: Component
-  disabled?: boolean
 }
 
 const emit = defineEmits<{
@@ -56,7 +49,6 @@ const emit = defineEmits<{
 const providerStore = useProviderStore()
 const settingsStore = useSettingsStore()
 const omniInferStore = useOmniInferStore()
-const router = useRouter()
 const { t } = useI18n()
 const toast = useToast()
 const { rawProviders, providerPresets, loading, presetsLoading } = storeToRefs(providerStore)
@@ -67,7 +59,8 @@ const {
 } = storeToRefs(settingsStore)
 const { processState: omniInferProcessState } = storeToRefs(omniInferStore)
 
-const selectedChoiceId = ref<ProviderChoiceId>('ollama')
+const selectedChoiceId = ref<ProviderChoiceId>('openai-compatible')
+const omniInferPackaged = ref(false)
 const submitting = ref(false)
 const languageSaving = ref(false)
 const cloudBaseUrl = ref('https://api.openai.com/v1')
@@ -80,74 +73,61 @@ const selectedLanguage = computed<BridgeAppLanguage>({
     void saveLanguage(value)
   },
 })
-const omniInferBadge = computed((): { label: string; disabled: boolean; description: string } => {
+const omniInferBadge = computed((): { label: string; description: string } => {
   switch (omniInferProcessState.value) {
     case 'not_bundled':
       return {
         label: t('onboarding.provider.omniInfer.status.notBundled.label'),
-        disabled: true,
         description: t('onboarding.provider.omniInfer.status.notBundled.description'),
       }
     case 'starting':
       return {
         label: t('onboarding.provider.omniInfer.status.starting.label'),
-        disabled: true,
         description: t('onboarding.provider.omniInfer.status.starting.description'),
       }
     case 'running':
       return {
         label: t('onboarding.provider.omniInfer.status.running.label'),
-        disabled: false,
         description: t('onboarding.provider.omniInfer.status.running.description'),
       }
     case 'unhealthy':
       return {
         label: t('onboarding.provider.omniInfer.status.unhealthy.label'),
-        disabled: false,
         description: t('onboarding.provider.omniInfer.status.unhealthy.description'),
       }
     case 'crashed':
       return {
         label: t('onboarding.provider.omniInfer.status.crashed.label'),
-        disabled: false,
         description: t('onboarding.provider.omniInfer.status.crashed.description'),
       }
     default:
       return {
         label: t('onboarding.provider.omniInfer.status.stopped.label'),
-        disabled: false,
         description: t('onboarding.provider.omniInfer.status.stopped.description'),
       }
   }
 })
 
-const choices = computed((): ProviderChoice[] => [
-  {
-    id: 'omniinfer-local',
-    title: t('onboarding.provider.omniInfer.title'),
-    badge: omniInferBadge.value.label,
-    badgeVariant: 'secondary',
-    description: omniInferBadge.value.description,
-    icon: LaptopIcon,
-    disabled: omniInferBadge.value.disabled,
-  },
-  {
-    id: 'ollama',
-    title: t('onboarding.provider.ollama.title'),
-    badge: t('onboarding.provider.ollama.badge'),
-    badgeVariant: 'secondary',
-    description: t('onboarding.provider.ollama.description'),
-    icon: SparklesIcon,
-  },
-  {
+const choices = computed((): ProviderChoice[] => {
+  const options: ProviderChoice[] = []
+  if (omniInferPackaged.value) {
+    options.push({
+      id: 'omniinfer-local',
+      title: t('onboarding.provider.omniInfer.title'),
+      badge: omniInferBadge.value.label,
+      description: omniInferBadge.value.description,
+      icon: LaptopIcon,
+    })
+  }
+  options.push({
     id: 'openai-compatible',
     title: t('onboarding.provider.cloud.title'),
     badge: t('onboarding.provider.cloud.badge'),
-    badgeVariant: 'outline',
     description: t('onboarding.provider.cloud.description'),
     icon: KeyRoundIcon,
-  },
-])
+  })
+  return options
+})
 
 const selectedChoice = computed(
   () => choices.value.find((choice) => choice.id === selectedChoiceId.value) ?? choices.value[0]
@@ -158,15 +138,29 @@ const busy = computed(
 )
 
 onMounted(async () => {
+  let omniInferStatusPromise: Promise<void> = Promise.resolve()
+  const appInfoPromise = appBridge.app
+    .getInfo()
+    .then((info) => {
+      omniInferPackaged.value = info.omniInferPackaged
+    })
+    .catch(() => {
+      omniInferPackaged.value = false
+    })
   if (omniInferStore.available) {
     omniInferStore.subscribe()
-    await omniInferStore.refreshStatus().catch(() => {})
+    omniInferStatusPromise = omniInferStore.refreshStatus().catch(() => {})
   }
   await Promise.allSettled([
+    appInfoPromise,
+    omniInferStatusPromise,
     settingsStore.load(),
     providerStore.loadProviders(),
     providerStore.loadProviderPresets(),
   ])
+  if (omniInferPackaged.value) {
+    selectedChoiceId.value = 'omniinfer-local'
+  }
 })
 
 async function saveLanguage(language: BridgeAppLanguage) {
@@ -188,10 +182,6 @@ async function continueSetup() {
   submitting.value = true
   try {
     const choice = selectedChoice.value
-    if (choice.disabled) {
-      return
-    }
-
     const preset = providerPresets.value.find((item) => item.id === choice.id)
     if (!preset) {
       throw new Error(t('onboarding.errors.providerPresetNotFound', { id: choice.id }))
@@ -201,9 +191,8 @@ async function continueSetup() {
       await saveCloudProvider(preset)
     } else {
       const existing = findExistingProvider(preset)
-      const provider = existing ?? (await providerStore.createProviderFromPreset(choice.id))
-      if (choice.id === 'ollama' && provider?.id) {
-        await providerStore.refreshModels(provider.id)
+      if (!existing) {
+        await providerStore.createProviderFromPreset(choice.id)
       }
 
       await providerStore.loadProviders()
@@ -219,14 +208,13 @@ async function continueSetup() {
   }
 }
 
-async function openAdvancedSettings() {
+async function skipSetup() {
   try {
     await markInitializationCompleted()
     emit('completed')
   } catch (error) {
     toast.error(errorToText(error, t('onboarding.errors.initializationSaveFailed')))
   }
-  await router.push({ name: 'settings', query: { tab: 'providers' } })
 }
 
 function findExistingProvider(preset: BridgeProviderPreset) {
@@ -324,7 +312,7 @@ function mergeCloudModels(models: ProviderModel[], modelId: string): ProviderMod
 
 function choiceButtonClass(choice: ProviderChoice) {
   return cn(
-    'group flex min-h-[86px] w-full items-start gap-3 rounded-md border bg-background px-4 py-3 text-left transition-colors hover:bg-muted/50 disabled:cursor-not-allowed disabled:opacity-50',
+    'relative isolate flex min-h-32 w-full flex-col overflow-hidden rounded-xl border bg-card px-5 py-4 text-left transition-colors hover:border-primary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2',
     selectedChoiceId.value === choice.id
       ? 'border-primary bg-primary/5 ring-1 ring-primary/20'
       : 'border-border'
@@ -333,17 +321,10 @@ function choiceButtonClass(choice: ProviderChoice) {
 
 function choiceIndicatorClass(choice: ProviderChoice) {
   return cn(
-    'mt-1 flex size-4 shrink-0 items-center justify-center rounded-full border',
+    'absolute right-4 top-4 flex size-5 shrink-0 items-center justify-center rounded-full border',
     selectedChoiceId.value === choice.id
-      ? 'border-primary bg-primary'
-      : 'border-muted-foreground/40 bg-background'
-  )
-}
-
-function choiceIconClass(choice: ProviderChoice) {
-  return cn(
-    'flex size-10 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground [&>svg]:size-5',
-    selectedChoiceId.value === choice.id && 'bg-primary/10 text-primary'
+      ? 'border-primary bg-primary text-primary-foreground'
+      : 'border-muted-foreground/40 bg-background text-transparent'
   )
 }
 
@@ -442,97 +423,87 @@ function toObjectRecord(value: unknown): Record<string, unknown> {
 </script>
 
 <template>
-  <div
-    class="flex min-h-full flex-1 items-center justify-center overflow-auto bg-muted/40 px-4 py-6 md:px-6"
-  >
-    <Card class="w-full max-w-4xl rounded-md py-0">
-      <CardHeader class="border-b px-5 py-4 md:px-6">
-        <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-          <div class="flex min-w-0 flex-col gap-2">
-            <Badge
-              variant="outline"
-              class="w-fit"
-            >
-              <CloudIcon data-icon="inline-start" />
-              {{ t('onboarding.badge') }}
-            </Badge>
-            <div class="flex flex-col gap-1">
-              <h1 class="text-xl font-semibold tracking-normal md:text-2xl">
-                {{ t('onboarding.title') }}
-              </h1>
-              <p class="max-w-2xl text-sm leading-6 text-muted-foreground">
-                {{ t('onboarding.description') }}
-              </p>
-            </div>
-          </div>
+  <div class="h-full min-h-0 overflow-auto bg-background">
+    <main
+      class="mx-auto flex min-h-full w-full max-w-[840px] flex-col justify-center px-6 py-12 sm:px-8 md:py-16"
+    >
+      <header class="text-center">
+        <h1
+          class="text-4xl font-semibold tracking-[-0.02em] [word-spacing:0.18em] sm:text-5xl md:text-6xl"
+        >
+          {{ t('onboarding.welcome.title') }}
+        </h1>
+        <p class="mt-6 text-base text-muted-foreground sm:text-lg">
+          {{ t('onboarding.welcome.description') }}
+        </p>
+      </header>
 
-          <div class="flex w-full shrink-0 flex-col gap-2 rounded-md border bg-background/70 p-3 lg:w-72">
-            <FieldLabel
-              for="onboarding-language"
-              class="flex items-center gap-2 text-sm font-medium"
-            >
-              <LanguagesIcon class="size-4 text-muted-foreground" />
-              {{ t('onboarding.language.title') }}
-            </FieldLabel>
-            <Select
-              v-model="selectedLanguage"
-              :disabled="languageBusy"
-              class="w-full"
-            >
-              <SelectTrigger
-                id="onboarding-language"
-                class="w-full"
-              >
-                <SelectValue :placeholder="t('onboarding.language.placeholder')" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectGroup>
-                  <SelectItem value="system">{{ t('onboarding.language.system') }}</SelectItem>
-                  <SelectItem value="zh-CN">{{ t('onboarding.language.zhCN') }}</SelectItem>
-                  <SelectItem value="en-US">{{ t('onboarding.language.enUS') }}</SelectItem>
-                </SelectGroup>
-              </SelectContent>
-            </Select>
-            <p class="text-xs leading-5 text-muted-foreground">
-              {{ t('onboarding.language.description') }}
-            </p>
-          </div>
-        </div>
-      </CardHeader>
+      <section class="mt-12">
+        <FieldLabel
+          for="onboarding-language"
+          class="mb-3 block text-base font-medium"
+        >
+          {{ t('onboarding.language.title') }}
+        </FieldLabel>
+        <Select
+          v-model="selectedLanguage"
+          :disabled="languageBusy"
+        >
+          <SelectTrigger
+            id="onboarding-language"
+            class="h-12 w-full bg-background px-4 text-base"
+          >
+            <SelectValue :placeholder="t('onboarding.language.placeholder')" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectGroup>
+              <SelectItem value="system">{{ t('onboarding.language.system') }}</SelectItem>
+              <SelectItem value="zh-CN">{{ t('onboarding.language.zhCN') }}</SelectItem>
+              <SelectItem value="en-US">{{ t('onboarding.language.enUS') }}</SelectItem>
+            </SelectGroup>
+          </SelectContent>
+        </Select>
+      </section>
 
-      <CardContent class="flex flex-col gap-4 p-5 md:p-6">
-        <div class="flex flex-col gap-3">
+      <section class="mt-8">
+        <h2 class="text-base font-medium">
+          {{ t('onboarding.provider.sectionLabel') }}
+        </h2>
+
+        <div
+          :class="[
+            'mx-auto mt-3 grid w-full gap-4',
+            choices.length > 1 ? 'sm:grid-cols-2' : 'max-w-sm grid-cols-1',
+          ]"
+          role="group"
+          :aria-label="t('onboarding.provider.heading')"
+        >
           <button
             v-for="choice in choices"
             :key="choice.id"
             type="button"
-            :disabled="choice.disabled"
             :aria-pressed="selectedChoiceId === choice.id"
             :class="choiceButtonClass(choice)"
-            @click="!choice.disabled && (selectedChoiceId = choice.id)"
+            @click="selectedChoiceId = choice.id"
           >
             <span :class="choiceIndicatorClass(choice)">
-              <span
-                v-if="selectedChoiceId === choice.id"
-                class="size-1.5 rounded-full bg-primary-foreground"
-              />
+              <CheckIcon class="size-3" />
             </span>
 
-            <span :class="choiceIconClass(choice)">
-              <component
-                :is="choice.icon"
-                aria-hidden="true"
-              />
-            </span>
+            <component
+              :is="choice.icon"
+              class="pointer-events-none absolute -right-1 -bottom-3 z-0 size-24 -rotate-6 text-primary opacity-[0.07]"
+              aria-hidden="true"
+            />
 
-            <span class="flex min-w-0 flex-1 flex-col gap-1">
-              <span class="flex min-w-0 flex-wrap items-center gap-2">
-                <span class="truncate text-sm font-medium">{{ choice.title }}</span>
-                <Badge :variant="choice.badgeVariant">
+            <span class="relative z-10 mt-auto flex min-w-0 flex-col">
+              <span class="flex min-w-0 flex-wrap items-center gap-2 pr-6">
+                <span class="truncate text-sm font-semibold">{{ choice.title }}</span>
+                <span class="text-xs text-muted-foreground">
                   {{ choice.badge }}
-                </Badge>
+                </span>
               </span>
-              <span class="text-sm leading-6 text-muted-foreground">
+              <span class="mt-1.5 line-clamp-2 text-xs leading-5 text-muted-foreground">
                 {{ choice.description }}
               </span>
             </span>
@@ -541,9 +512,17 @@ function toObjectRecord(value: unknown): Record<string, unknown> {
 
         <div
           v-if="selectedChoiceId === 'openai-compatible'"
-          class="rounded-md border bg-muted/30 p-4"
+          class="mt-5 rounded-xl border bg-card p-5"
         >
-          <FieldGroup class="gap-3">
+          <FieldGroup class="w-full gap-3">
+            <div>
+              <h3 class="text-sm font-medium">
+                {{ t('onboarding.cloud.heading') }}
+              </h3>
+              <p class="mt-1 text-xs text-muted-foreground">
+                {{ t('onboarding.cloud.description') }}
+              </p>
+            </div>
             <div class="grid gap-3 md:grid-cols-[1.2fr_1fr]">
               <Field>
                 <FieldLabel for="onboarding-cloud-base-url">
@@ -581,24 +560,23 @@ function toObjectRecord(value: unknown): Record<string, unknown> {
             </Field>
           </FieldGroup>
         </div>
+      </section>
 
-        <div
-          class="flex items-center justify-between gap-3 border-t pt-4"
-        >
+      <footer class="mt-6 flex items-center justify-between gap-4">
           <Button
             type="button"
-            variant="outline"
-            size="lg"
-            class="min-w-0 flex-1 sm:min-w-32 sm:flex-none"
-            @click="openAdvancedSettings"
+            variant="ghost"
+            class="px-1 text-muted-foreground underline underline-offset-4 hover:bg-transparent hover:text-foreground"
+            :disabled="busy"
+            @click="skipSetup"
           >
-            {{ t('onboarding.actions.advancedSettings') }}
+            {{ t('onboarding.actions.skip') }}
           </Button>
 
           <Button
             type="button"
             size="lg"
-            class="min-w-0 flex-1 sm:min-w-32 sm:flex-none"
+            class="min-w-40"
             :disabled="busy"
             @click="continueSetup"
           >
@@ -608,9 +586,12 @@ function toObjectRecord(value: unknown): Record<string, unknown> {
               class="animate-spin"
             />
             {{ t('onboarding.actions.continue') }}
+            <ArrowRightIcon
+              v-if="!busy"
+              data-icon="inline-end"
+            />
           </Button>
-        </div>
-      </CardContent>
-    </Card>
+      </footer>
+    </main>
   </div>
 </template>
