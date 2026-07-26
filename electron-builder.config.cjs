@@ -13,6 +13,7 @@ const buildVersion = process.env.OMNIPAW_BUILD_VERSION?.trim()
 const macBundleVersion = process.env.OMNIPAW_MAC_BUNDLE_VERSION?.trim()
 const macBundleShortVersion = process.env.OMNIPAW_MAC_BUNDLE_SHORT_VERSION?.trim()
 const artifactSuffix = process.env.OMNIPAW_ARTIFACT_SUFFIX?.trim() || ''
+const requireMacSigning = parseBooleanEnv('OMNIPAW_REQUIRE_MAC_SIGNING', false)
 
 const extraResources = []
 if (bundleOmniInfer) {
@@ -47,11 +48,20 @@ module.exports = {
   win: {
     target: 'nsis',
     icon: 'resources/app-icon.ico',
-    artifactName: '${productName}-${version}-windows-${arch}' + artifactSuffix + '.${ext}',
+    artifactName: `\${productName}-\${version}-windows-\${arch}${artifactSuffix}.\${ext}`,
   },
   mac: {
     icon: 'resources/app-icon.icns',
-    artifactName: '${productName}-${version}-macos-${arch}' + artifactSuffix + '.${ext}',
+    artifactName: `\${productName}-\${version}-macos-\${arch}${artifactSuffix}.\${ext}`,
+    // Local builds use a complete ad-hoc signature instead of shipping the
+    // linker-only Electron signature that macOS reports as "damaged".
+    // Release CI requires a Developer ID identity and notarization.
+    identity: requireMacSigning ? undefined : '-',
+    forceCodeSigning: requireMacSigning,
+    hardenedRuntime: true,
+    entitlements: 'build/entitlements.mac.plist',
+    entitlementsInherit: 'build/entitlements.mac.plist',
+    notarize: requireMacSigning,
     ...(macBundleVersion ? { bundleVersion: macBundleVersion } : {}),
     ...(macBundleShortVersion ? { bundleShortVersion: macBundleShortVersion } : {}),
   },
@@ -59,4 +69,12 @@ module.exports = {
     oneClick: false,
     allowToChangeInstallationDirectory: true,
   },
+}
+
+function parseBooleanEnv(name, fallback) {
+  const raw = process.env[name]?.trim().toLowerCase()
+  if (!raw) return fallback
+  if (raw === '1' || raw === 'true') return true
+  if (raw === '0' || raw === 'false') return false
+  throw new Error(`${name} must be one of: 1, 0, true, false`)
 }

@@ -8,6 +8,14 @@ on:
         required: true
         default: "0.3.11"
         type: string
+      mac_signing_mode:
+        description: macOS signing mode (ad-hoc packages require manual Gatekeeper approval)
+        required: true
+        default: adhoc
+        type: choice
+        options:
+          - adhoc
+          - developer-id
 
 concurrency:
   group: autobuild-dev-latest
@@ -109,15 +117,20 @@ jobs:
             omniinfer_target: ""
     runs-on: ${{ matrix.runner }}
     env:
-      CSC_IDENTITY_AUTO_DISCOVERY: "false"
       OMNIPAW_BUNDLE_OMNIINFER: ${{ matrix.bundle_omniinfer }}
       OMNIPAW_ARTIFACT_SUFFIX: ${{ matrix.artifact_suffix }}
+      OMNIPAW_REQUIRE_MAC_SIGNING: ${{ startsWith(matrix.runner, 'macos-') && inputs.mac_signing_mode == 'developer-id' && '1' || '0' }}
       OMNIINFER_TARGET: ${{ matrix.omniinfer_target }}
       OMNIINFER_VERSION: ${{ inputs.omniinfer_version }}
       OMNIPAW_BUILD_NUMBER: ${{ needs.version.outputs.build_number }}
       OMNIPAW_BUILD_VERSION: ${{ needs.version.outputs.platform_build_version }}
       OMNIPAW_MAC_BUNDLE_VERSION: ${{ needs.version.outputs.build_number }}
       OMNIPAW_MAC_BUNDLE_SHORT_VERSION: ${{ needs.version.outputs.base_version }}
+      CSC_LINK: ${{ startsWith(matrix.runner, 'macos-') && inputs.mac_signing_mode == 'developer-id' && secrets.MAC_CSC_LINK || '' }}
+      CSC_KEY_PASSWORD: ${{ startsWith(matrix.runner, 'macos-') && inputs.mac_signing_mode == 'developer-id' && secrets.MAC_CSC_KEY_PASSWORD || '' }}
+      APPLE_ID: ${{ startsWith(matrix.runner, 'macos-') && inputs.mac_signing_mode == 'developer-id' && secrets.APPLE_ID || '' }}
+      APPLE_APP_SPECIFIC_PASSWORD: ${{ startsWith(matrix.runner, 'macos-') && inputs.mac_signing_mode == 'developer-id' && secrets.APPLE_APP_SPECIFIC_PASSWORD || '' }}
+      APPLE_TEAM_ID: ${{ startsWith(matrix.runner, 'macos-') && inputs.mac_signing_mode == 'developer-id' && secrets.APPLE_TEAM_ID || '' }}
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -168,6 +181,16 @@ jobs:
         shell: bash
         run: pnpm exec electron-builder --config electron-builder.config.cjs ${{ matrix.builder_args }} --publish never
 
+      - name: Verify macOS signature and notarization
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          verification_args=(--release-dir release)
+          if [[ "${OMNIPAW_REQUIRE_MAC_SIGNING}" == "1" ]]; then
+            verification_args+=(--require-notarization)
+          fi
+          node scripts/verify-macos-signing.mjs "${verification_args[@]}"
+
       - name: Upload installer
         uses: actions/upload-artifact@v4
         with:
@@ -189,6 +212,7 @@ jobs:
       DEV_TAG: dev-latest
       GH_TOKEN: ${{ github.token }}
       OMNIINFER_VERSION: ${{ inputs.omniinfer_version }}
+      MAC_SIGNING_MODE: ${{ inputs.mac_signing_mode }}
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -208,7 +232,13 @@ jobs:
       - name: Create or update autobuild release
         shell: bash
         run: |
-          release_notes="Automated development build ${APP_VERSION} from commit ${GITHUB_SHA}. Windows x64 and macOS arm64 are available both with and without OmniInfer ${OMNIINFER_VERSION}. Packages with the bundled runtime use the -with-omniinfer suffix. macOS x64 remains without OmniInfer because the upstream release does not publish a macOS x64 CLI asset. All packages are unsigned development builds."
+          if [[ "${MAC_SIGNING_MODE}" == "developer-id" ]]; then
+            mac_signing_note="macOS packages are Developer ID signed, notarized, and verified before upload."
+          else
+            mac_signing_note="macOS packages use complete ad-hoc code signatures and are verified before upload, but are not notarized. On first launch, use Finder's Open action or System Settings > Privacy & Security > Open Anyway."
+          fi
+
+          release_notes="Automated development build ${APP_VERSION} from commit ${GITHUB_SHA}. Windows x64 and macOS arm64 are available both with and without OmniInfer ${OMNIINFER_VERSION}. Packages with the bundled runtime use the -with-omniinfer suffix. macOS x64 remains without OmniInfer because the upstream release does not publish a macOS x64 CLI asset. ${mac_signing_note}"
 
           if gh release view "${DEV_TAG}" >/dev/null 2>&1; then
             gh release edit "${DEV_TAG}" \
