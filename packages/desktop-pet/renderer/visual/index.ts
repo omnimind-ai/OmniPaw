@@ -29,7 +29,7 @@ function applyAppearance(nextAppearance: typeof appearance): void {
   if (assetsChanged) {
     view.resetHitAreaMeasurements()
   }
-  view.applyLayout(appearance.layout)
+  view.applyLayout(appearance.layout, assetsChanged)
   stateMachine.applyAppearance(appearance)
 }
 

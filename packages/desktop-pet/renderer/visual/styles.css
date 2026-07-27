@@ -74,6 +74,22 @@ body {
   transform-origin: center;
 }
 
+.cat-stage img.is-appearance-transition {
+  transition: opacity 140ms ease-in-out;
+  will-change: opacity;
+}
+
+.cat-stage img.is-appearance-entering,
+.cat-stage img.is-appearance-leaving {
+  opacity: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cat-stage img.is-appearance-transition {
+    transition-duration: 1ms;
+  }
+}
+
 .cat-surface.is-dragging .cat-stage img {
   transform: rotate(-4deg) scale(1.04);
 }

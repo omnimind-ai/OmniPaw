@@ -11,13 +11,15 @@ import {
 } from './alpha-hit-area'
 import type { CatVisualFrame } from './state-machine'
 
+const catAppearanceTransitionDurationMs = 140
+
 interface CatVisualViewOptions {
   reportHitGeometry: (geometry: CatHitGeometry) => void
 }
 
 export interface CatVisualView {
   applyDockSide: (side: CatDockSide) => void
-  applyLayout: (layout: CatAppearanceLayout) => void
+  applyLayout: (layout: CatAppearanceLayout, deferUntilImageSwap?: boolean) => void
   resetHitAreaMeasurements: () => void
   render: (frame: CatVisualFrame) => void
   showInitialImage: (source: string) => void
@@ -59,10 +61,12 @@ export function createCatVisualView(options: CatVisualViewOptions): CatVisualVie
   let hitAreaEpoch = 0
   let activeImageEpoch = 0
   let imageRequestEpoch = 0
+  let pendingLayout: CatAppearanceLayout | undefined
   let hitAreaFrame: number | undefined
   let dockSide: CatDockSide = 'right'
   let visualState: CatWindowState = 'idle'
   const measuredBoundsBySource = new Map<string, NormalizedBounds | null>()
+  const imageTransitionTimers = new Map<HTMLImageElement, number>()
 
   function applyStateClasses(state: CatWindowState): void {
     visualState = state
@@ -71,11 +75,22 @@ export function createCatVisualView(options: CatVisualViewOptions): CatVisualVie
     surface.classList.toggle('is-completed', state === 'completed')
   }
 
-  function showImage(source: string, fallback = source): void {
+  function commitLayout(layout: CatAppearanceLayout): void {
+    imageFrame.style.setProperty('--cat-image-scale', String(layout.scale))
+    scheduleHitAreaReport()
+  }
+
+  function showImage(
+    source: string,
+    fallback = source,
+    transition: CatVisualFrame['transition'] = 'replace'
+  ): void {
     imageRequestEpoch += 1
     const requestEpoch = imageRequestEpoch
     const sourceEpoch = hitAreaEpoch
     pendingImage?.remove()
+    clearImageTransitionTimer(image)
+    image.classList.remove('is-appearance-transition', 'is-appearance-leaving')
 
     const nextImage = document.createElement('img')
     pendingImage = nextImage
@@ -83,6 +98,9 @@ export function createCatVisualView(options: CatVisualViewOptions): CatVisualVie
     nextImage.draggable = false
     nextImage.decoding = 'async'
     nextImage.style.visibility = 'hidden'
+    if (transition === 'fade-out-in') {
+      nextImage.classList.add('is-appearance-transition', 'is-appearance-entering')
+    }
     nextImage.crossOrigin = source.startsWith(`${CAT_APPEARANCE_ASSET_PROTOCOL}:`)
       ? 'anonymous'
       : null
@@ -93,20 +111,18 @@ export function createCatVisualView(options: CatVisualViewOptions): CatVisualVie
         return
       }
 
-      pendingImage = undefined
       nextImage.removeEventListener('error', handlePendingImageError)
-      image.removeEventListener('error', handleActiveImageError)
-      image.removeAttribute('id')
-      nextImage.id = 'cat-image'
-      nextImage.style.removeProperty('visibility')
-
       const previousImage = image
-      image = nextImage
-      activeFallbackSource = fallback
-      activeImageEpoch = sourceEpoch
-      image.addEventListener('error', handleActiveImageError)
-      previousImage.remove()
-      handleImageLoad()
+      if (
+        transition === 'fade-out-in' &&
+        (previousImage.currentSrc || previousImage.getAttribute('src'))
+      ) {
+        previousImage.classList.add('is-appearance-transition', 'is-appearance-leaving')
+        scheduleImageActivation(previousImage, nextImage, requestEpoch, sourceEpoch, fallback)
+        return
+      }
+
+      activateImage(previousImage, nextImage, sourceEpoch, fallback, false)
     }
 
     const handlePendingImageError = () => {
@@ -118,7 +134,7 @@ export function createCatVisualView(options: CatVisualViewOptions): CatVisualVie
       pendingImage = undefined
       nextImage.remove()
       if (fallback && fallback !== source) {
-        showImage(fallback, fallback)
+        showImage(fallback, fallback, transition)
       }
     }
 
@@ -134,6 +150,80 @@ export function createCatVisualView(options: CatVisualViewOptions): CatVisualVie
     if (fallback && fallback !== image.currentSrc && fallback !== image.src) {
       showImage(fallback, fallback)
     }
+  }
+
+  function clearImageTransitionTimer(target: HTMLImageElement): void {
+    const timer = imageTransitionTimers.get(target)
+    if (timer === undefined) return
+    window.clearTimeout(timer)
+    imageTransitionTimers.delete(target)
+  }
+
+  function scheduleImageActivation(
+    previousImage: HTMLImageElement,
+    nextImage: HTMLImageElement,
+    requestEpoch: number,
+    sourceEpoch: number,
+    fallback: string
+  ): void {
+    clearImageTransitionTimer(previousImage)
+    const timer = window.setTimeout(() => {
+      imageTransitionTimers.delete(previousImage)
+      if (imageRequestEpoch !== requestEpoch || pendingImage !== nextImage) {
+        return
+      }
+      activateImage(previousImage, nextImage, sourceEpoch, fallback, true)
+    }, resolveAppearanceTransitionDurationMs() + 16)
+    imageTransitionTimers.set(previousImage, timer)
+  }
+
+  function activateImage(
+    previousImage: HTMLImageElement,
+    nextImage: HTMLImageElement,
+    sourceEpoch: number,
+    fallback: string,
+    fadeIn: boolean
+  ): void {
+    pendingImage = undefined
+    previousImage.removeEventListener('error', handleActiveImageError)
+    previousImage.removeAttribute('id')
+    nextImage.id = 'cat-image'
+    image = nextImage
+    activeFallbackSource = fallback
+    activeImageEpoch = sourceEpoch
+    image.addEventListener('error', handleActiveImageError)
+    previousImage.remove()
+    if (pendingLayout) {
+      const nextLayout = pendingLayout
+      pendingLayout = undefined
+      commitLayout(nextLayout)
+    }
+
+    if (fadeIn) {
+      nextImage.style.removeProperty('visibility')
+      void nextImage.offsetWidth
+      nextImage.classList.remove('is-appearance-entering')
+      scheduleImageTransitionCleanup(nextImage)
+    } else {
+      nextImage.classList.remove('is-appearance-transition', 'is-appearance-entering')
+      nextImage.style.removeProperty('visibility')
+    }
+    handleImageLoad()
+  }
+
+  function scheduleImageTransitionCleanup(target: HTMLImageElement): void {
+    clearImageTransitionTimer(target)
+    const timer = window.setTimeout(() => {
+      imageTransitionTimers.delete(target)
+      target.classList.remove('is-appearance-transition')
+    }, resolveAppearanceTransitionDurationMs() + 16)
+    imageTransitionTimers.set(target, timer)
+  }
+
+  function resolveAppearanceTransitionDurationMs(): number {
+    return window.matchMedia('(prefers-reduced-motion: reduce)').matches
+      ? 1
+      : catAppearanceTransitionDurationMs
   }
 
   function sourceHitPadding(source: string): number {
@@ -253,9 +343,12 @@ export function createCatVisualView(options: CatVisualViewOptions): CatVisualVie
       surface.classList.toggle('is-docked-left', side === 'left')
       scheduleHitAreaReport()
     },
-    applyLayout(layout) {
-      imageFrame.style.setProperty('--cat-image-scale', String(layout.scale))
-      scheduleHitAreaReport()
+    applyLayout(layout, deferUntilImageSwap = false) {
+      if (deferUntilImageSwap || pendingLayout) {
+        pendingLayout = layout
+        return
+      }
+      commitLayout(layout)
     },
     resetHitAreaMeasurements() {
       hitAreaEpoch += 1
@@ -269,7 +362,7 @@ export function createCatVisualView(options: CatVisualViewOptions): CatVisualVie
         appearanceHitPadding = Math.max(appearanceHitPadding, 5)
       }
       scheduleHitAreaReport()
-      showImage(frame.source, frame.fallback)
+      showImage(frame.source, frame.fallback, frame.transition)
     },
     showInitialImage(source) {
       showImage(source)
@@ -278,6 +371,13 @@ export function createCatVisualView(options: CatVisualViewOptions): CatVisualVie
       imageRequestEpoch += 1
       pendingImage?.remove()
       pendingImage = undefined
+      for (const timer of imageTransitionTimers.values()) {
+        window.clearTimeout(timer)
+      }
+      imageTransitionTimers.clear()
+      for (const candidate of imageFrame.querySelectorAll('img')) {
+        if (candidate !== image) candidate.remove()
+      }
       if (hitAreaFrame !== undefined) window.cancelAnimationFrame(hitAreaFrame)
       image.removeEventListener('error', handleActiveImageError)
       measuredBoundsBySource.clear()

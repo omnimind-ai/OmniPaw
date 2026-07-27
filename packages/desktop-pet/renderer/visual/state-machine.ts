@@ -5,7 +5,10 @@ export interface CatVisualFrame {
   state: CatWindowState
   source: string
   fallback: string
+  transition: CatVisualTransition
 }
+
+export type CatVisualTransition = 'replace' | 'fade-out-in'
 
 interface CatVisualStateMachineOptions {
   appearance: CatVisualAppearance
@@ -43,15 +46,19 @@ export function createCatVisualStateMachine(
     stateTimer = undefined
   }
 
-  function render(source: string, fallback = appearance.assets.idle): void {
-    options.render({ state: currentState, source, fallback })
+  function render(
+    source: string,
+    fallback = appearance.assets.idle,
+    transition: CatVisualTransition = 'replace'
+  ): void {
+    options.render({ state: currentState, source, fallback, transition })
   }
 
   function schedule(delayMs: number, callback: () => void): void {
     stateTimer = window.setTimeout(callback, delayMs)
   }
 
-  function enterState(state: CatWindowState): void {
+  function enterState(state: CatWindowState, transition: CatVisualTransition = 'replace'): void {
     if (!validStates.has(state)) return
 
     clearStateTimer()
@@ -61,10 +68,10 @@ export function createCatVisualStateMachine(
     switch (state) {
       case 'hidden':
       case 'idle':
-        render(appearance.assets.idle)
+        render(appearance.assets.idle, appearance.assets.idle, transition)
         break
       case 'appearing':
-        render(appearance.assets.show, appearance.assets.showFallback)
+        render(appearance.assets.show, appearance.assets.showFallback, transition)
         schedule(appearance.durations.appearing, () => {
           firstShow = false
           enterState('idle')
@@ -72,10 +79,10 @@ export function createCatVisualStateMachine(
         break
       case 'dragging':
         if (!appearance.assets.dragTransition) {
-          render(appearance.assets.drag, appearance.assets.dragFallback)
+          render(appearance.assets.drag, appearance.assets.dragFallback, transition)
           break
         }
-        render(appearance.assets.dragTransition, appearance.assets.dragFallback)
+        render(appearance.assets.dragTransition, appearance.assets.dragFallback, transition)
         schedule(appearance.durations.dragTransition, () => {
           if (currentState === 'dragging') {
             render(appearance.assets.drag, appearance.assets.dragFallback)
@@ -83,7 +90,7 @@ export function createCatVisualStateMachine(
         })
         break
       case 'preparing':
-        render(appearance.assets.startDoing, appearance.assets.doingFallback)
+        render(appearance.assets.startDoing, appearance.assets.doingFallback, transition)
         schedule(appearance.durations.preparing, () => {
           if (currentState === 'preparing') {
             render(appearance.assets.doingFallback)
@@ -91,10 +98,10 @@ export function createCatVisualStateMachine(
         })
         break
       case 'running':
-        render(appearance.assets.doing, appearance.assets.doingFallback)
+        render(appearance.assets.doing, appearance.assets.doingFallback, transition)
         break
       case 'completed':
-        render(appearance.assets.endDoing, appearance.assets.doingFallback)
+        render(appearance.assets.endDoing, appearance.assets.doingFallback, transition)
         schedule(appearance.durations.completedEnd, () => {
           if (currentState !== 'completed') return
           render(appearance.assets.finish, appearance.assets.idle)
@@ -111,7 +118,7 @@ export function createCatVisualStateMachine(
       const assetsChanged = catVisualAssetsChanged(appearance, nextAppearance)
       appearance = nextAppearance
       if (!assetsChanged) return
-      enterState(currentState)
+      enterState(currentState, 'fade-out-in')
     },
     handleCommand(event) {
       if (!validStates.has(event.state)) return

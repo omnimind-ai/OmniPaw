@@ -12,7 +12,11 @@ import {
   unionNormalizedBounds,
 } from '../../packages/desktop-pet/renderer/visual/alpha-hit-area'
 import type { CatVisualAppearance } from '../../packages/desktop-pet/renderer/visual/appearance'
-import { catVisualAssetsChanged } from '../../packages/desktop-pet/renderer/visual/state-machine'
+import {
+  type CatVisualFrame,
+  catVisualAssetsChanged,
+  createCatVisualStateMachine,
+} from '../../packages/desktop-pet/renderer/visual/state-machine'
 import { resolveCatVisualEffectPadding } from '../../packages/desktop-pet/renderer/visual/view'
 import {
   catAssetRenderSize,
@@ -86,6 +90,7 @@ assert.doesNotMatch(renderEntry, /import ['"]\.\/styles\.css['"]/)
 assert.match(renderHtml, /href="\.\.\/renderer\/visual\/styles\.css"/)
 assert.match(renderEntry, /appBridge\.cat\.setHitArea/)
 assert.match(renderEntry, /view\.applyDockSide\(event\.dockSide\)/)
+assert.match(renderEntry, /view\.applyLayout\(appearance\.layout, assetsChanged\)/)
 assert.match(renderStateMachine, /createCatVisualStateMachine/)
 assert.doesNotMatch(renderStateMachine, /querySelector|classList/)
 assert.match(renderView, /getBoundingClientRect/)
@@ -97,8 +102,16 @@ assert.match(renderView, /maxMeasurementDimension = 512/)
 assert.match(renderView, /surface\.classList\.toggle\('is-docked-left', side === 'left'\)/)
 assert.match(renderView, /imageFrame\.appendChild\(nextImage\)/)
 assert.doesNotMatch(renderView, /image\.removeAttribute\('src'\)/)
+assert.match(renderView, /applyLayout\(layout, deferUntilImageSwap = false\)/)
+assert.match(renderView, /if \(deferUntilImageSwap \|\| pendingLayout\)/)
+assert.match(
+  renderView,
+  /previousImage\.remove\(\)\s+if \(pendingLayout\) \{[\s\S]*?commitLayout\(nextLayout\)/
+)
 assert.match(renderStyles, /scaleX\(var\(--cat-facing-scale-x, 1\)\)/)
 assert.match(renderStyles, /grid-area: 1 \/ 1/)
+assert.match(renderStyles, /\.is-appearance-transition/)
+assert.match(renderStyles, /transition: opacity 140ms ease-in-out/)
 assert.match(renderStyles, /--cat-window-size: 276px/)
 assert.match(renderStyles, /--cat-window-bottom-inset: 16px/)
 assert.match(mainWindow, /webContents\.getZoomFactor\(\)/)
@@ -230,6 +243,23 @@ assert.equal(
   }),
   true
 )
+const visualFrames: CatVisualFrame[] = []
+const visualStateMachine = createCatVisualStateMachine({
+  appearance: defaultAppearance,
+  render: (frame) => visualFrames.push(frame),
+  reportState: () => {},
+})
+visualStateMachine.applyAppearance({
+  ...defaultAppearance,
+  assets: {
+    ...defaultAppearance.assets,
+    idle: `${defaultAppearance.assets.idle}?role-changed`,
+  },
+})
+assert.equal(visualFrames.at(-1)?.transition, 'fade-out-in')
+visualStateMachine.handleCommand({ state: 'running' })
+assert.equal(visualFrames.at(-1)?.transition, 'replace')
+visualStateMachine.dispose()
 
 const workArea = { x: 0, y: 0, width: 1920, height: 1040 }
 const visualArea = { x: 38, y: 20, width: 60, height: 70 }
