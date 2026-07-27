@@ -6,10 +6,18 @@ import {
 } from '../../packages/desktop-pet/electron/hit-geometry'
 import {
   findAlphaContentBounds,
+  fullNormalizedBounds,
   normalizeAlphaBoundsForContain,
   resolveNormalizedHitArea,
   unionNormalizedBounds,
 } from '../../packages/desktop-pet/renderer/visual/alpha-hit-area'
+import { resolveCatVisualEffectPadding } from '../../packages/desktop-pet/renderer/visual/view'
+import {
+  catAssetRenderSize,
+  catWindowBottomInset,
+  catWindowRenderSize,
+  defaultCatContentArea,
+} from '../../shared/cat-window-layout'
 import { IPC_CHANNELS } from '../../shared/constants'
 
 const main = readFileSync('packages/desktop-pet/electron/controller.ts', 'utf8')
@@ -85,6 +93,8 @@ assert.match(renderView, /visualAreas/)
 assert.match(renderView, /maxMeasurementDimension = 512/)
 assert.match(renderView, /surface\.classList\.toggle\('is-docked-left', side === 'left'\)/)
 assert.match(renderStyles, /scaleX\(var\(--cat-facing-scale-x, 1\)\)/)
+assert.match(renderStyles, /--cat-window-size: 276px/)
+assert.match(renderStyles, /--cat-window-bottom-inset: 16px/)
 assert.match(hitEntry, /createPointerDragController/)
 assert.match(hitEntry, /createFileDropController/)
 assert.doesNotMatch(hitEntry, /import ['"]\.\/styles\.css['"]/)
@@ -140,6 +150,37 @@ assert.deepEqual(
   resolveNormalizedHitArea(normalized, frame, viewport, { mirrored: true, padding: 2 }),
   { x: 48, y: 34, width: 36, height: 44 }
 )
+
+assert.deepEqual(defaultCatContentArea, {
+  x: 95,
+  y: 174,
+  width: 86,
+  height: 86,
+})
+const maximumScaledFrameSize = catAssetRenderSize * 2
+const maximumScaledFrame = {
+  left: (catWindowRenderSize - maximumScaledFrameSize) / 2,
+  top: catWindowRenderSize - catWindowBottomInset - maximumScaledFrameSize,
+  width: maximumScaledFrameSize,
+  height: maximumScaledFrameSize,
+}
+assert.deepEqual(maximumScaledFrame, {
+  left: 22,
+  top: 28,
+  width: 232,
+  height: 232,
+})
+assert.deepEqual(
+  resolveNormalizedHitArea(fullNormalizedBounds, maximumScaledFrame, {
+    width: catWindowRenderSize,
+    height: catWindowRenderSize,
+  }),
+  { x: 22, y: 28, width: 232, height: 232 }
+)
+assert.equal(resolveCatVisualEffectPadding('idle', 232, 232), 0)
+assert.equal(resolveCatVisualEffectPadding('running', 232, 232), 2)
+assert.ok(resolveCatVisualEffectPadding('completed', 232, 232) < catWindowBottomInset)
+assert.ok(resolveCatVisualEffectPadding('dragging', 232, 232) < catWindowBottomInset)
 
 const workArea = { x: 0, y: 0, width: 1920, height: 1040 }
 const visualArea = { x: 38, y: 20, width: 60, height: 70 }

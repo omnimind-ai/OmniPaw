@@ -1,3 +1,4 @@
+import { catAssetRenderSize, catDefaultRenderSize } from '@shared/cat-window-layout'
 import { BUILTIN_CAT_APPEARANCE_PACK_ID } from '@shared/constants'
 import type {
   CatAppearanceAssetKey,
@@ -21,8 +22,6 @@ export interface CatVisualAppearance {
   layout: CatAppearanceLayout
 }
 
-const catWindowRenderSize = 116
-
 const defaultAssets = Object.freeze({
   ...BUILTIN_PET_APPEARANCE_ASSETS[BUILTIN_CAT_APPEARANCE_PACK_ID],
 } satisfies CatVisualAssets)
@@ -36,7 +35,7 @@ const defaultDurations = Object.freeze({
 } satisfies CatAppearanceDurations)
 
 const defaultBuiltinLayout = Object.freeze({
-  scale: 86 / catWindowRenderSize,
+  scale: catDefaultRenderSize / catAssetRenderSize,
 } satisfies CatAppearanceLayout)
 
 const defaultLocalLayout = Object.freeze({

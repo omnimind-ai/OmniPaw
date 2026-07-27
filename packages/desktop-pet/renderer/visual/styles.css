@@ -5,6 +5,9 @@
   --line: rgb(31 38 44 / 0.16);
   --paper: rgba(255 255 255 / 0.94);
   --accent: #e05237;
+  --cat-window-size: 276px;
+  --cat-asset-size: 116px;
+  --cat-window-bottom-inset: 16px;
   font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
@@ -30,8 +33,8 @@ body {
 .cat-surface {
   position: relative;
   display: grid;
-  width: 116px;
-  height: 116px;
+  width: var(--cat-window-size);
+  height: var(--cat-window-size);
   place-items: end center;
   padding: 0;
 }
@@ -39,9 +42,9 @@ body {
 .cat-stage {
   position: relative;
   display: grid;
-  width: 116px;
-  height: 116px;
-  padding: 0;
+  width: var(--cat-window-size);
+  height: var(--cat-window-size);
+  padding: 0 0 var(--cat-window-bottom-inset);
   place-items: end center;
   background: transparent;
   pointer-events: none;
@@ -49,8 +52,8 @@ body {
 
 .cat-image-frame {
   display: grid;
-  width: 116px;
-  height: 116px;
+  width: var(--cat-asset-size);
+  height: var(--cat-asset-size);
   place-items: center;
   pointer-events: none;
   transform: scale(var(--cat-image-scale, 1)) scaleX(var(--cat-facing-scale-x, 1));
@@ -63,8 +66,8 @@ body {
 
 .cat-stage img {
   display: block;
-  width: 116px;
-  height: 116px;
+  width: var(--cat-asset-size);
+  height: var(--cat-asset-size);
   object-fit: contain;
   pointer-events: none;
   transform-origin: center;

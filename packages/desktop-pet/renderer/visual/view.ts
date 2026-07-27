@@ -24,6 +24,24 @@ export interface CatVisualView {
   dispose: () => void
 }
 
+export function resolveCatVisualEffectPadding(
+  state: CatWindowState,
+  frameWidth: number,
+  frameHeight: number
+): number {
+  const frameSize = Math.max(frameWidth, frameHeight)
+  if (!Number.isFinite(frameSize) || frameSize <= 0) return 0
+  if (state === 'dragging') {
+    const rotationRadians = (4 * Math.PI) / 180
+    const boundingScale =
+      1.04 * (Math.abs(Math.cos(rotationRadians)) + Math.abs(Math.sin(rotationRadians)))
+    return (frameSize * (boundingScale - 1)) / 2
+  }
+  if (state === 'completed') return (frameSize * (1.08 - 1)) / 2
+  if (state === 'running') return 2
+  return 0
+}
+
 function requireElement<T extends Element>(selector: string): T {
   const element = document.querySelector<T>(selector)
   if (!element) throw new Error(`Desktop pet visual element is missing: ${selector}`)
@@ -43,9 +61,11 @@ export function createCatVisualView(options: CatVisualViewOptions): CatVisualVie
   let imageSourceFrame: number | undefined
   let hitAreaFrame: number | undefined
   let dockSide: CatDockSide = 'right'
+  let visualState: CatWindowState = 'idle'
   const measuredBoundsBySource = new Map<string, NormalizedBounds | null>()
 
   function applyStateClasses(state: CatWindowState): void {
+    visualState = state
     surface.classList.toggle('is-dragging', state === 'dragging')
     surface.classList.toggle('is-running', state === 'running')
     surface.classList.toggle('is-completed', state === 'completed')
@@ -127,7 +147,10 @@ export function createCatVisualView(options: CatVisualViewOptions): CatVisualVie
         width: document.documentElement.clientWidth || window.innerWidth,
         height: document.documentElement.clientHeight || window.innerHeight,
       }
-      const fallbackArea = resolveNormalizedHitArea(fullNormalizedBounds, rect, viewport) ?? {
+      const effectPadding = resolveCatVisualEffectPadding(visualState, rect.width, rect.height)
+      const fallbackArea = resolveNormalizedHitArea(fullNormalizedBounds, rect, viewport, {
+        padding: effectPadding,
+      }) ?? {
         x: rect.left,
         y: rect.top,
         width: rect.width,
@@ -136,9 +159,14 @@ export function createCatVisualView(options: CatVisualViewOptions): CatVisualVie
       const visualAreas = appearanceBounds
         ? {
             left:
-              resolveNormalizedHitArea(appearanceBounds, rect, viewport, { mirrored: true }) ??
-              fallbackArea,
-            right: resolveNormalizedHitArea(appearanceBounds, rect, viewport) ?? fallbackArea,
+              resolveNormalizedHitArea(appearanceBounds, rect, viewport, {
+                mirrored: true,
+                padding: effectPadding,
+              }) ?? fallbackArea,
+            right:
+              resolveNormalizedHitArea(appearanceBounds, rect, viewport, {
+                padding: effectPadding,
+              }) ?? fallbackArea,
           }
         : {
             left: fallbackArea,
@@ -147,7 +175,7 @@ export function createCatVisualView(options: CatVisualViewOptions): CatVisualVie
       const hitArea = appearanceBounds
         ? (resolveNormalizedHitArea(appearanceBounds, rect, viewport, {
             mirrored: dockSide === 'left',
-            padding: appearanceHitPadding,
+            padding: appearanceHitPadding + effectPadding,
           }) ?? fallbackArea)
         : fallbackArea
 
@@ -201,6 +229,7 @@ export function createCatVisualView(options: CatVisualViewOptions): CatVisualVie
       if (frame.state === 'dragging' || frame.state === 'completed') {
         appearanceHitPadding = Math.max(appearanceHitPadding, 5)
       }
+      scheduleHitAreaReport()
       showImage(frame.source, frame.fallback)
     },
     showInitialImage(source) {

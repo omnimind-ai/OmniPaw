@@ -1,6 +1,7 @@
 import { join } from 'node:path'
 
 import type { Logger } from '@core/logging'
+import { catWindowRenderSize, defaultCatContentArea } from '@shared/cat-window-layout'
 import { IPC_CHANNELS } from '@shared/constants'
 import type {
   CatBounds,
@@ -73,8 +74,8 @@ const allowedWindowStates = new Set<CatWindowState>([
 ])
 
 const catWindowSize = {
-  width: 116,
-  height: 116,
+  width: catWindowRenderSize,
+  height: catWindowRenderSize,
 }
 
 const catEdgeOverflow = 16
@@ -96,10 +97,7 @@ const catBubbleCardInset = 14
 const catBubbleAutoDismissMs = 7_000
 
 const defaultCatHitArea: CatHitArea = {
-  x: 15,
-  y: 30,
-  width: 86,
-  height: 86,
+  ...defaultCatContentArea,
 }
 
 const defaultCatVisualAreas: CatHitGeometry['visualAreas'] = {
@@ -522,22 +520,27 @@ function notifyCatDraftChanged(snapshot: CatDraftState | null, source = 'main'):
 function getInitialCatBounds(): CatBounds {
   const primaryDisplay = screen.getPrimaryDisplay()
   const workArea = primaryDisplay.workArea
-  const x = workArea.x + workArea.width - catWindowSize.width + catEdgeOverflow
-  const y = workArea.y + Math.round((workArea.height - catWindowSize.height) / 2)
+  const x = resolveCatDockTargetX(workArea, 'right', defaultCatVisualAreas.right)
+  const y =
+    workArea.y +
+    Math.round((workArea.height - defaultCatVisualAreas.right.height) / 2) -
+    defaultCatVisualAreas.right.y
 
-  return {
+  return constrainCatBounds({
     width: catWindowSize.width,
     height: catWindowSize.height,
     x,
-    y: clamp(y, workArea.y + 8, workArea.y + workArea.height - catWindowSize.height - 8),
-  }
+    y,
+  })
 }
 
 function constrainCatBounds(bounds: CatBounds): CatBounds {
   const display = getDisplay(bounds)
   const workArea = display.workArea
-  const minY = workArea.y + 8
-  const maxY = workArea.y + workArea.height - bounds.height - 8
+  const dockSide = getCatDockSide(bounds)
+  const visualArea = catVisualAreas[dockSide]
+  const minY = workArea.y + 8 - visualArea.y
+  const maxY = workArea.y + workArea.height - 8 - visualArea.y - visualArea.height
 
   return {
     ...bounds,
@@ -1647,10 +1650,22 @@ function setCatHitGeometry(geometry: CatHitGeometry): void {
     right: nextRightVisualArea,
   }
 
-  if (dockedBounds && dockedSide && catWindow && !catWindow.isDestroyed()) {
-    const display = getDisplay(dockedBounds)
-    const x = resolveCatDockTargetX(display.workArea, dockedSide, catVisualAreas[dockedSide])
-    catWindow.setBounds({ ...dockedBounds, x })
+  if (catWindow && !catWindow.isDestroyed() && !catHitLocked && !catDragSnapshot && !catSnapTimer) {
+    const currentBounds = catWindow.getBounds()
+    const nextBounds =
+      dockedBounds && dockedSide
+        ? constrainCatBounds({
+            ...dockedBounds,
+            x: resolveCatDockTargetX(
+              getDisplay(dockedBounds).workArea,
+              dockedSide,
+              catVisualAreas[dockedSide]
+            ),
+          })
+        : constrainCatBounds(currentBounds)
+    if (nextBounds.x !== currentBounds.x || nextBounds.y !== currentBounds.y) {
+      catWindow.setBounds(nextBounds)
+    }
   }
   repositionCatPanelWindow()
   repositionCatBubbleWindow()
