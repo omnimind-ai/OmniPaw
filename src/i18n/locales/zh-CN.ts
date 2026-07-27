@@ -1269,6 +1269,7 @@ export default {
         tab: '基础配置',
         name: '名称',
         baseUrl: 'Base URL',
+        apiAddress: 'API 地址',
         enabled: '启用 Provider',
         enabledDescription: '禁用后该 Provider 下模型不会出现在可选列表中。',
         oauth: {
@@ -1294,6 +1295,7 @@ export default {
           envName: '环境变量名',
           value: 'API Key',
           valuePlaceholder: '留空保留已有值',
+          savedApiKeyDescription: 'API 密钥已保存。出于安全考虑不会显示原值；输入新值可覆盖。',
         },
       },
       advanced: {

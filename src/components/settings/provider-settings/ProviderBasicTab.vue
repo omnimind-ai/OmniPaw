@@ -16,16 +16,8 @@ import {
 } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
 import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group'
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-import { Separator } from '@/components/ui/separator'
 import { Switch } from '@/components/ui/switch'
+import ProviderBrandIcon from './ProviderBrandIcon.vue'
 import type { CredentialMode, ProviderDraft } from './types'
 
 const { t } = useI18n()
@@ -47,14 +39,14 @@ const emit = defineEmits<{
   oauthRefresh: []
 }>()
 
-const localCredentialMode = computed({
-  get: () => props.credentialMode,
-  set: (value: CredentialMode) => emit('update:credentialMode', value),
-})
-
 const localCredentialValue = computed({
   get: () => props.credentialValue,
-  set: (value: string) => emit('update:credentialValue', value),
+  set: (value: string) => {
+    emit('update:credentialValue', value)
+    if (value && props.credentialMode !== 'api-key') {
+      emit('update:credentialMode', 'api-key')
+    }
+  },
 })
 
 const isOpenAICodexProvider = computed(
@@ -84,16 +76,30 @@ const hasSavedCredential = computed(() =>
 
 <template>
   <FieldGroup>
-    <Field>
-      <FieldLabel for="provider-name">{{ t('settings.provider.basic.name') }}</FieldLabel>
-      <Input
-        id="provider-name"
-        v-model="draft.name"
-      />
-    </Field>
+    <div class="flex flex-col gap-3 pt-3">
+      <div class="flex justify-center">
+        <div
+          class="flex size-16 items-center justify-center rounded-xl border bg-muted/40 shadow-sm"
+          aria-hidden="true"
+        >
+          <ProviderBrandIcon
+            :provider="draft"
+            class="size-8!"
+          />
+        </div>
+      </div>
+
+      <Field>
+        <FieldLabel for="provider-name">{{ t('settings.provider.basic.name') }}</FieldLabel>
+        <Input
+          id="provider-name"
+          v-model="draft.name"
+        />
+      </Field>
+    </div>
 
     <Field>
-      <FieldLabel for="provider-base-url">{{ t('settings.provider.basic.baseUrl') }}</FieldLabel>
+      <FieldLabel for="provider-base-url">{{ t('settings.provider.basic.apiAddress') }}</FieldLabel>
       <InputGroup>
         <InputGroupAddon>
           <CloudIcon />
@@ -104,6 +110,21 @@ const hasSavedCredential = computed(() =>
           placeholder="https://api.openai.com/v1"
         />
       </InputGroup>
+    </Field>
+
+    <Field v-if="!isOpenAICodexProvider">
+      <FieldLabel for="credential-value">
+        {{ t('settings.provider.basic.credential.apiKey') }}
+      </FieldLabel>
+      <Input
+        id="credential-value"
+        v-model="localCredentialValue"
+        type="password"
+        :placeholder="t('settings.provider.basic.credential.valuePlaceholder')"
+      />
+      <FieldDescription v-if="hasSavedCredential">
+        {{ t('settings.provider.basic.credential.savedApiKeyDescription') }}
+      </FieldDescription>
     </Field>
 
     <Field
@@ -120,8 +141,6 @@ const hasSavedCredential = computed(() =>
         <FieldDescription>{{ t('settings.provider.basic.enabledDescription') }}</FieldDescription>
       </FieldContent>
     </Field>
-
-    <Separator />
 
     <FieldSet v-if="isOpenAICodexProvider">
       <FieldLegend>{{ t('settings.provider.basic.oauth.title') }}</FieldLegend>
@@ -173,51 +192,6 @@ const hasSavedCredential = computed(() =>
           </div>
         </div>
       </Field>
-    </FieldSet>
-
-    <FieldSet v-else>
-      <FieldLegend>{{ t('settings.provider.basic.credential.title') }}</FieldLegend>
-      <FieldDescription>
-        {{
-          hasSavedCredential
-            ? t('settings.provider.basic.credential.savedDescription')
-            : t('settings.provider.basic.credential.description')
-        }}
-      </FieldDescription>
-
-      <div class="grid grid-cols-1 gap-4 lg:grid-cols-[12rem_minmax(0,1fr)]">
-        <Field>
-          <FieldLabel for="credential-mode">{{ t('settings.provider.basic.credential.type') }}</FieldLabel>
-          <Select v-model="localCredentialMode">
-            <SelectTrigger
-              id="credential-mode"
-              class="w-full"
-            >
-              <SelectValue :placeholder="t('settings.provider.basic.credential.placeholder')" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectGroup>
-                <SelectItem value="api-key">{{ t('settings.provider.basic.credential.apiKey') }}</SelectItem>
-                <SelectItem value="env">{{ t('settings.provider.basic.credential.env') }}</SelectItem>
-                <SelectItem value="none">{{ t('settings.provider.basic.credential.noUpdate') }}</SelectItem>
-              </SelectGroup>
-            </SelectContent>
-          </Select>
-        </Field>
-
-        <Field :data-disabled="localCredentialMode === 'none'">
-          <FieldLabel for="credential-value">
-            {{ localCredentialMode === 'env' ? t('settings.provider.basic.credential.envName') : t('settings.provider.basic.credential.value') }}
-          </FieldLabel>
-          <Input
-            id="credential-value"
-            v-model="localCredentialValue"
-            :disabled="localCredentialMode === 'none'"
-            :type="localCredentialMode === 'api-key' ? 'password' : 'text'"
-            :placeholder="t('settings.provider.basic.credential.valuePlaceholder')"
-          />
-        </Field>
-      </div>
     </FieldSet>
   </FieldGroup>
 </template>

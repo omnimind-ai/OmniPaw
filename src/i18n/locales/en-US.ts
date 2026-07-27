@@ -1351,6 +1351,7 @@ export default {
         tab: 'Basic Settings',
         name: 'Name',
         baseUrl: 'Base URL',
+        apiAddress: 'API URL',
         enabled: 'Enable Provider',
         enabledDescription:
           'Models under disabled providers will not appear in the selection list.',
@@ -1379,6 +1380,8 @@ export default {
           envName: 'Environment Variable Name',
           value: 'API Key',
           valuePlaceholder: 'Leave empty to keep existing value',
+          savedApiKeyDescription:
+            'The API key is saved. Its current value is hidden; enter a new value to replace it.',
         },
       },
       advanced: {
