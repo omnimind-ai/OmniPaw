@@ -1,5 +1,5 @@
 import { EventEmitter } from 'node:events'
-import { isAbsolute, join, resolve } from 'node:path'
+import { isAbsolute, resolve } from 'node:path'
 import type { Logger } from '@core/logging'
 import type {
   OmniInferBackendDescriptor,
@@ -107,10 +107,6 @@ export class OmniInferRuntimeService {
       }
     })
 
-    if (this.processState.installDir) {
-      this.setModelsDir(modelsDirFromInstallDir(this.processState.installDir))
-    }
-
     // Always probe the gateway at steady cadence so externally-managed instances are detected
     // even when this controller has no binary to spawn.
     this.switchToSteadyPolling()
@@ -169,9 +165,6 @@ export class OmniInferRuntimeService {
       this.processState = this.process.getState()
       this.logger?.info('OmniInfer install directory updated.', { from: previous, to: trimmed })
       this.emit()
-    }
-    if (trimmed) {
-      this.setModelsDir(modelsDirFromInstallDir(trimmed))
     }
   }
 
@@ -539,10 +532,6 @@ function sameOptionalPath(a: string | undefined, b: string | undefined): boolean
 
 function normalizePath(value: string): string {
   return value.replace(/\\/g, '/').toLowerCase()
-}
-
-function modelsDirFromInstallDir(installDir: string): string {
-  return join(installDir, '.local', 'models')
 }
 
 function parseHost(baseUrl: string): string {

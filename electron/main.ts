@@ -54,7 +54,8 @@ import { registerIpcHandlers } from './ipc'
 import { createElectronLogSink } from './logging/electron-log-adapter'
 import { createMainWindowController, type MainWindowController } from './main-window'
 import { locateOmniInferInstall } from './omniinfer/binary-locator'
-import { defaultOmniInferLogsDir, OmniInferProcess } from './omniinfer/process'
+import { prepareOmniInferDataDirectories } from './omniinfer/data-directories'
+import { OmniInferProcess } from './omniinfer/process'
 import { createShortcutController, type ShortcutController } from './shortcut-controller'
 import { createTrayController, type TrayController } from './tray'
 
@@ -833,9 +834,13 @@ app
     registerCatAppearanceAssetProtocol()
 
     const omniInferLocator = locateOmniInferInstall({ app })
-    const omniInferLogsDir = defaultOmniInferLogsDir(
-      logSink.status().logDir ?? resolveAppLogsPath()
-    )
+    const dataPaths = resolveOmniPawDataPaths({ appDataPath: app.getPath('appData') })
+    const omniInferData = prepareOmniInferDataDirectories({
+      dataRootPath: dataPaths.root,
+      installDir: omniInferLocator.installDir,
+      logger: mainLogger.child({ scope: 'omniinfer.data' }),
+    })
+    const omniInferLogsDir = omniInferData.logsDir
     const modelsDir = resolveModelsDir({
       userDataPath: app.getPath('appData'),
       repoRoot: app.isPackaged ? undefined : process.cwd(),
@@ -843,8 +848,11 @@ app
     const omniInferClient = new OmniInferRuntimeClient()
     omniInferProcess = new OmniInferProcess({
       installDir: omniInferLocator.installDir,
+      stateRoot: omniInferData.stateRoot,
+      runtimeRoot: omniInferData.runtimeRoot,
       modelsDir,
       logsDir: omniInferLogsDir,
+      autoInstallBackend: omniInferPackaged,
       client: omniInferClient,
       logger: mainLogger.child({ scope: 'omniinfer.process' }),
     })

@@ -46,8 +46,14 @@ const DEFAULT_CLI_NAMES_POSIX = [
 export interface OmniInferProcessOptions {
   /** Absolute path to OmniInfer project/install directory; undefined -> `not_bundled`. */
   installDir?: string
+  /** Writable OmniInfer state root, kept outside the application/install directory. */
+  stateRoot: string
+  /** Writable backend runtime root, kept outside the application/install directory. */
+  runtimeRoot: string
   modelsDir: string
   logsDir: string
+  /** Install the first compatible backend when a bundled CLI has no runtime yet. */
+  autoInstallBackend?: boolean
   /** Client used for graceful `/omni/shutdown` calls during stop(). */
   client: OmniInferRuntimeClient
   port?: number
@@ -75,8 +81,11 @@ export class OmniInferProcess implements OmniInferProcessController {
   constructor(options: OmniInferProcessOptions) {
     this.options = {
       installDir: options.installDir,
+      stateRoot: options.stateRoot,
+      runtimeRoot: options.runtimeRoot,
       modelsDir: options.modelsDir,
       logsDir: options.logsDir,
+      autoInstallBackend: options.autoInstallBackend ?? false,
       client: options.client,
       port: options.port ?? DEFAULT_PORT,
       host: options.host ?? DEFAULT_HOST,
@@ -92,6 +101,8 @@ export class OmniInferProcess implements OmniInferProcessController {
       lastUpdatedAt: this.options.now(),
     }
     try {
+      mkdirSync(this.options.stateRoot, { recursive: true })
+      mkdirSync(this.options.runtimeRoot, { recursive: true })
       mkdirSync(this.options.logsDir, { recursive: true })
     } catch {
       // ignored
@@ -167,6 +178,18 @@ export class OmniInferProcess implements OmniInferProcessController {
       OMNIINFER_LLAMA_CPP_CPU_MODELS_DIR: this.options.modelsDir,
       OMNIINFER_LLAMA_CPP_GPU_MODELS_DIR: this.options.modelsDir,
       OMNIINFER_SERVE_DIRECT: '1',
+    }
+
+    if (this.options.autoInstallBackend) {
+      try {
+        await this.ensureBackendInstalled(resolvedCli, env)
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : 'Failed to install an OmniInfer backend.'
+        this.options.logger?.error('OmniInfer backend preparation failed.', { error })
+        this.transition({ state: 'crashed', errorMessage: message })
+        throw error
+      }
     }
 
     const command = buildServeCommand(resolvedCli.cliPath, this.buildArgs())
@@ -301,7 +324,45 @@ export class OmniInferProcess implements OmniInferProcessController {
     if (this.options.apiKey) {
       args.push('--api-key', this.options.apiKey)
     }
-    return args
+    return buildManagedCliArgs(this.options.stateRoot, this.options.runtimeRoot, args)
+  }
+
+  private async ensureBackendInstalled(
+    resolvedCli: { installDir: string; cliPath: string },
+    env: NodeJS.ProcessEnv
+  ): Promise<void> {
+    const installed = await runCliCommand({
+      cliPath: resolvedCli.cliPath,
+      installDir: resolvedCli.installDir,
+      args: this.buildControlArgs(['backend', 'list', '--scope', 'installed']),
+      env,
+    })
+    if (parseBackendTable(installed.stdout).length > 0) return
+
+    const compatible = await runCliCommand({
+      cliPath: resolvedCli.cliPath,
+      installDir: resolvedCli.installDir,
+      args: this.buildControlArgs(['backend', 'list', '--scope', 'compatible']),
+      env,
+    })
+    const backend = parseBackendTable(compatible.stdout)[0]
+    if (!backend) {
+      throw new Error('No compatible OmniInfer backend is available for this system.')
+    }
+
+    this.emitLog('stdout', `Installing compatible OmniInfer backend: ${backend}`)
+    await runCliCommand({
+      cliPath: resolvedCli.cliPath,
+      installDir: resolvedCli.installDir,
+      args: this.buildControlArgs(['backend', 'install', backend, '--json']),
+      env,
+      onStdout: (line) => this.emitLog('stdout', line),
+      onStderr: (line) => this.emitLog('stderr', line),
+    })
+  }
+
+  private buildControlArgs(args: string[]): string[] {
+    return buildManagedCliArgs(this.options.stateRoot, this.options.runtimeRoot, args)
   }
 
   private transition(patch: Partial<OmniInferProcessSnapshot>): void {
@@ -392,6 +453,78 @@ function buildServeCommand(
   return { command: cliPath, args: serveArgs }
 }
 
+interface RunCliCommandOptions {
+  cliPath: string
+  installDir: string
+  args: string[]
+  env: NodeJS.ProcessEnv
+  onStdout?: (line: string) => void
+  onStderr?: (line: string) => void
+}
+
+async function runCliCommand(
+  options: RunCliCommandOptions
+): Promise<{ stdout: string; stderr: string }> {
+  const command = buildServeCommand(options.cliPath, options.args)
+  const spawnOptions: Parameters<typeof spawn>[2] = {
+    cwd: options.installDir,
+    env: options.env,
+    stdio: ['ignore', 'pipe', 'pipe'],
+    windowsHide: true,
+  }
+  if (process.platform === 'win32') {
+    ;(spawnOptions as { creationFlags?: number }).creationFlags = CREATE_NO_WINDOW
+  }
+
+  return new Promise((resolvePromise, reject) => {
+    const child = spawn(command.command, command.args, spawnOptions)
+    let stdout = ''
+    let stderr = ''
+    child.stdout?.setEncoding('utf8')
+    child.stderr?.setEncoding('utf8')
+    attachLineReader(child.stdout, (line) => {
+      stdout += `${line}\n`
+      options.onStdout?.(line)
+    })
+    attachLineReader(child.stderr, (line) => {
+      stderr += `${line}\n`
+      options.onStderr?.(line)
+    })
+    child.on('error', reject)
+    child.on('close', (code, signal) => {
+      if (code === 0) {
+        resolvePromise({ stdout, stderr })
+        return
+      }
+      reject(
+        new Error(
+          `OmniInfer command exited with ${code ?? signal ?? 'unknown'}: ${
+            stderr.trim() || stdout.trim() || command.command
+          }`
+        )
+      )
+    })
+  })
+}
+
+export function parseBackendTable(output: string): string[] {
+  const lines = output.split(/\r?\n/)
+  const separatorIndex = lines.findIndex((line) => /^\s*-{3,}/.test(line))
+  if (separatorIndex < 0) return []
+  return lines
+    .slice(separatorIndex + 1)
+    .map((line) => /^\s*([A-Za-z0-9._-]+)\s+.*\b(?:installed|missing)\s*$/.exec(line)?.[1])
+    .filter((value): value is string => Boolean(value))
+}
+
+export function buildManagedCliArgs(
+  stateRoot: string,
+  runtimeRoot: string,
+  args: string[]
+): string[] {
+  return ['--state-root', stateRoot, '--runtime-root', runtimeRoot, ...args]
+}
+
 function quoteCmdArg(value: string): string {
   return /^[A-Za-z0-9._:/=-]+$/.test(value) ? value : `"${value.replace(/"/g, '\\"')}"`
 }
@@ -436,10 +569,6 @@ function waitForExit(child: ChildProcess, timeoutMs: number): Promise<boolean> {
     }
     child.once('exit', onExit)
   })
-}
-
-export function defaultOmniInferLogsDir(rootLogsDir: string): string {
-  return join(rootLogsDir, 'omniinfer')
 }
 
 export { OMNIINFER_DEFAULT_BASE_URL }
