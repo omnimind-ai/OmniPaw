@@ -1,9 +1,8 @@
 import type { Logger } from '@core/logging'
 import type { ProviderManager, ProviderModelRecord } from '@core/provider/manager'
 import type { InstalledModelRecord } from '@shared/types/omniinfer'
+import type { ProviderConfig } from '@shared/types/provider'
 import type { InstalledModelRegistry } from './installed-models'
-
-const OMNIINFER_PROVIDER_ID = 'omniinfer-local'
 
 export interface SyncOmniInferProviderModelsOptions {
   providers: ProviderManager
@@ -13,22 +12,37 @@ export interface SyncOmniInferProviderModelsOptions {
 }
 
 /**
- * Mirror the installed-models index into the `omniinfer-local` (or specified) provider's model
- * list. Preserves user-overridden fields (`enabled`, `displayName`, `compat`).
+ * Mirror the installed-models index into every OmniInfer provider, or one explicitly specified
+ * provider. Preserves user-overridden fields (`enabled`, `displayName`, `compat`).
  */
 export async function syncOmniInferProviderModels(
   options: SyncOmniInferProviderModelsOptions
 ): Promise<void> {
-  const providerId = options.providerId ?? OMNIINFER_PROVIDER_ID
-  const provider = await options.providers.get(providerId)
-  if (!provider) {
+  const providers = options.providerId
+    ? [await options.providers.get(options.providerId)].filter(
+        (provider): provider is ProviderConfig => provider !== undefined
+      )
+    : (await options.providers.list()).filter(isOmniInferProvider)
+
+  if (providers.length === 0) {
     options.logger?.debug?.('Skipping OmniInfer model sync; provider not registered.', {
-      providerId,
+      providerId: options.providerId,
     })
     return
   }
 
   const installed = options.installedModels.list().filter((record) => !record.missing)
+  for (const provider of providers) {
+    await syncProvider(options, provider, installed)
+  }
+}
+
+async function syncProvider(
+  options: SyncOmniInferProviderModelsOptions,
+  provider: ProviderConfig,
+  installed: InstalledModelRecord[]
+): Promise<void> {
+  const providerId = provider.id
   const existingModels = await options.providers.listModels(providerId)
   const existingById = new Map(existingModels.map((model) => [model.id, model]))
   const nextModels: ProviderModelRecord[] = installed.map((record) =>
@@ -45,6 +59,12 @@ export async function syncOmniInferProviderModels(
     }
   }
 
+  const defaultModelId =
+    provider.defaultModelId &&
+    nextModels.some((model) => model.id === provider.defaultModelId && model.enabled)
+      ? provider.defaultModelId
+      : nextModels.find((model) => model.enabled)?.id
+
   await options.providers.save({
     id: provider.id,
     name: provider.name,
@@ -56,7 +76,7 @@ export async function syncOmniInferProviderModels(
     authHeader: provider.authHeader,
     headers: provider.headers,
     extraBody: provider.extraBody,
-    defaultModelId: provider.defaultModelId ?? nextModels.find((m) => m.enabled)?.id,
+    defaultModelId,
     capabilities: provider.capabilities,
     models: nextModels,
     updatedAt: Date.now(),
@@ -66,6 +86,10 @@ export async function syncOmniInferProviderModels(
     providerId,
     count: nextModels.length,
   })
+}
+
+function isOmniInferProvider(provider: ProviderConfig): boolean {
+  return provider.api === 'omniinfer' || provider.type === 'omniinfer'
 }
 
 function mergeRecord(

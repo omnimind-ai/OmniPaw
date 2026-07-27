@@ -6,6 +6,7 @@ import { join } from 'node:path'
 import { ConfigStore } from '../../core/config/store'
 import type { InstalledModelRegistry } from '../../core/omniinfer/installed-models'
 import type { OmniInferRuntimeService } from '../../core/omniinfer/runtime-service'
+import { syncOmniInferProviderModels } from '../../core/omniinfer/sync-provider-models'
 import { ProviderManager } from '../../core/provider/manager'
 import {
   MODELS_DEV_METADATA_URL,
@@ -150,6 +151,67 @@ try {
   assert.equal(firstLocalPreset.models[0]?.id, 'local-small-model')
   assert.equal(secondLocalPreset.id, 'omniinfer-local_1')
   assert.equal(secondLocalPreset.models[0]?.id, 'local-small-model')
+
+  const syncRegistryStore = new ProviderRegistryStore({
+    appDataPath: join(tempDir, 'omniinfer-sync'),
+  })
+  const syncProviders = new ProviderManager({ registryStore: syncRegistryStore })
+  await syncProviders.save({
+    id: 'omniinfer-local-generated',
+    name: 'Generated OmniInfer',
+    type: 'omniinfer',
+    api: 'omniinfer',
+    baseUrl: 'http://127.0.0.1:19157/v1',
+    enabled: true,
+    defaultModelId: 'local-small-model',
+    models: [
+      {
+        id: 'local-small-model',
+        providerId: 'omniinfer-local-generated',
+        name: 'Local Small Model',
+        enabled: true,
+      },
+    ],
+  })
+  await syncProviders.save({
+    id: 'unrelated-openai',
+    name: 'Unrelated OpenAI',
+    type: 'openai-compatible',
+    api: 'openai-chat-completions',
+    baseUrl: 'https://example.test/v1',
+    enabled: true,
+    defaultModelId: 'gpt-test',
+    models: [
+      {
+        id: 'gpt-test',
+        providerId: 'unrelated-openai',
+        name: 'GPT Test',
+        enabled: true,
+      },
+    ],
+  })
+  const syncedModel = {
+    id: 'smollm2-135m-instruct-q4-k-m',
+    name: 'smollm2-135m-instruct-q4_k_m.gguf',
+    path: join(tempDir, 'smollm2-135m-instruct-q4_k_m.gguf'),
+    sizeBytes: 105454560,
+    mtimeMs: Date.now(),
+    missing: false,
+  }
+  await syncOmniInferProviderModels({
+    providers: syncProviders,
+    installedModels: {
+      list() {
+        return [syncedModel]
+      },
+    } as unknown as InstalledModelRegistry,
+  })
+  const syncedProvider = await syncProviders.get('omniinfer-local-generated')
+  assert.equal(syncedProvider?.models.length, 1)
+  assert.equal(syncedProvider?.models[0]?.id, syncedModel.id)
+  assert.equal(syncedProvider?.models[0]?.remoteId, syncedModel.path)
+  const unrelatedProvider = await syncProviders.get('unrelated-openai')
+  assert.equal(unrelatedProvider?.models[0]?.id, 'gpt-test')
 
   const saved = await providers.upsert({
     provider: {
