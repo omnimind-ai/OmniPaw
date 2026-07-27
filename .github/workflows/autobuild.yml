@@ -126,11 +126,6 @@ jobs:
       OMNIPAW_BUILD_VERSION: ${{ needs.version.outputs.platform_build_version }}
       OMNIPAW_MAC_BUNDLE_VERSION: ${{ needs.version.outputs.build_number }}
       OMNIPAW_MAC_BUNDLE_SHORT_VERSION: ${{ needs.version.outputs.base_version }}
-      CSC_LINK: ${{ startsWith(matrix.runner, 'macos-') && inputs.mac_signing_mode == 'developer-id' && secrets.MAC_CSC_LINK || '' }}
-      CSC_KEY_PASSWORD: ${{ startsWith(matrix.runner, 'macos-') && inputs.mac_signing_mode == 'developer-id' && secrets.MAC_CSC_KEY_PASSWORD || '' }}
-      APPLE_ID: ${{ startsWith(matrix.runner, 'macos-') && inputs.mac_signing_mode == 'developer-id' && secrets.APPLE_ID || '' }}
-      APPLE_APP_SPECIFIC_PASSWORD: ${{ startsWith(matrix.runner, 'macos-') && inputs.mac_signing_mode == 'developer-id' && secrets.APPLE_APP_SPECIFIC_PASSWORD || '' }}
-      APPLE_TEAM_ID: ${{ startsWith(matrix.runner, 'macos-') && inputs.mac_signing_mode == 'developer-id' && secrets.APPLE_TEAM_ID || '' }}
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
@@ -178,7 +173,19 @@ jobs:
         run: pnpm build
 
       - name: Package installer
+        if: ${{ !startsWith(matrix.runner, 'macos-') || inputs.mac_signing_mode == 'adhoc' }}
         shell: bash
+        run: pnpm exec electron-builder --config electron-builder.config.cjs ${{ matrix.builder_args }} --publish never
+
+      - name: Package Developer ID installer
+        if: ${{ startsWith(matrix.runner, 'macos-') && inputs.mac_signing_mode == 'developer-id' }}
+        shell: bash
+        env:
+          CSC_LINK: ${{ secrets.MAC_CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.MAC_CSC_KEY_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: pnpm exec electron-builder --config electron-builder.config.cjs ${{ matrix.builder_args }} --publish never
 
       - name: Verify macOS signature and notarization
