@@ -480,6 +480,16 @@ export class CatAppearanceManager {
     }
 
     const normalizedLayoutOverride = normalizeCatAppearanceLayoutOverride(layoutOverride)
+    const currentLayoutOverride =
+      this.activeLayoutOverride?.packId === packId ? this.activeLayoutOverride.layout : undefined
+    if (
+      this.hasExplicitState &&
+      this.resolveActivePackId() === packId &&
+      catAppearanceLayoutOverridesEqual(currentLayoutOverride, normalizedLayoutOverride)
+    ) {
+      return this.current()
+    }
+
     this.activeLayoutOverride = normalizedLayoutOverride
       ? {
           packId,
@@ -855,6 +865,13 @@ export class CatAppearanceManager {
       reason,
     })
   }
+}
+
+function catAppearanceLayoutOverridesEqual(
+  first: CatAppearanceLayoutOverride | undefined,
+  second: CatAppearanceLayoutOverride | undefined
+): boolean {
+  return first?.scale === second?.scale
 }
 
 interface NormalizedManifest {

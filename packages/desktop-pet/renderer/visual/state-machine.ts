@@ -108,7 +108,9 @@ export function createCatVisualStateMachine(
 
   return {
     applyAppearance(nextAppearance) {
+      const assetsChanged = catVisualAssetsChanged(appearance, nextAppearance)
       appearance = nextAppearance
+      if (!assetsChanged) return
       enterState(currentState)
     },
     handleCommand(event) {
@@ -123,4 +125,16 @@ export function createCatVisualStateMachine(
       clearStateTimer()
     },
   }
+}
+
+export function catVisualAssetsChanged(
+  current: CatVisualAppearance,
+  next: CatVisualAppearance
+): boolean {
+  const assetKeys = new Set([...Object.keys(current.assets), ...Object.keys(next.assets)])
+  return [...assetKeys].some(
+    (key) =>
+      current.assets[key as keyof CatVisualAppearance['assets']] !==
+      next.assets[key as keyof CatVisualAppearance['assets']]
+  )
 }

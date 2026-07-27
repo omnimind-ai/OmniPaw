@@ -11,6 +11,8 @@ import {
   resolveNormalizedHitArea,
   unionNormalizedBounds,
 } from '../../packages/desktop-pet/renderer/visual/alpha-hit-area'
+import type { CatVisualAppearance } from '../../packages/desktop-pet/renderer/visual/appearance'
+import { catVisualAssetsChanged } from '../../packages/desktop-pet/renderer/visual/state-machine'
 import { resolveCatVisualEffectPadding } from '../../packages/desktop-pet/renderer/visual/view'
 import {
   catAssetRenderSize,
@@ -22,6 +24,7 @@ import { IPC_CHANNELS } from '../../shared/constants'
 
 const main = readFileSync('packages/desktop-pet/electron/controller.ts', 'utf8')
 const electronMain = readFileSync('electron/main.ts', 'utf8')
+const mainWindow = readFileSync('electron/main-window.ts', 'utf8')
 const preload = readFileSync('electron/preload.ts', 'utf8')
 const bridgeTypes = readFileSync('shared/types/bridge.ts', 'utf8')
 const renderEntry = readFileSync('packages/desktop-pet/renderer/visual/index.ts', 'utf8')
@@ -86,15 +89,19 @@ assert.match(renderEntry, /view\.applyDockSide\(event\.dockSide\)/)
 assert.match(renderStateMachine, /createCatVisualStateMachine/)
 assert.doesNotMatch(renderStateMachine, /querySelector|classList/)
 assert.match(renderView, /getBoundingClientRect/)
-assert.match(renderView, /image\.addEventListener\('load', handleImageLoad\)/)
+assert.match(renderView, /nextImage\.addEventListener\('load', commitImage/)
 assert.match(renderView, /findAlphaContentBounds/)
 assert.match(renderView, /unionNormalizedBounds/)
 assert.match(renderView, /visualAreas/)
 assert.match(renderView, /maxMeasurementDimension = 512/)
 assert.match(renderView, /surface\.classList\.toggle\('is-docked-left', side === 'left'\)/)
+assert.match(renderView, /imageFrame\.appendChild\(nextImage\)/)
+assert.doesNotMatch(renderView, /image\.removeAttribute\('src'\)/)
 assert.match(renderStyles, /scaleX\(var\(--cat-facing-scale-x, 1\)\)/)
+assert.match(renderStyles, /grid-area: 1 \/ 1/)
 assert.match(renderStyles, /--cat-window-size: 276px/)
 assert.match(renderStyles, /--cat-window-bottom-inset: 16px/)
+assert.match(mainWindow, /webContents\.getZoomFactor\(\)/)
 assert.match(hitEntry, /createPointerDragController/)
 assert.match(hitEntry, /createFileDropController/)
 assert.doesNotMatch(hitEntry, /import ['"]\.\/styles\.css['"]/)
@@ -181,6 +188,48 @@ assert.equal(resolveCatVisualEffectPadding('idle', 232, 232), 0)
 assert.equal(resolveCatVisualEffectPadding('running', 232, 232), 2)
 assert.ok(resolveCatVisualEffectPadding('completed', 232, 232) < catWindowBottomInset)
 assert.ok(resolveCatVisualEffectPadding('dragging', 232, 232) < catWindowBottomInset)
+const defaultAppearance = {
+  assets: {
+    show: 'show',
+    showFallback: 'show-fallback',
+    idle: 'idle',
+    dragTransition: 'drag-transition',
+    drag: 'drag',
+    dragFallback: 'drag-fallback',
+    startDoing: 'start-doing',
+    doing: 'doing',
+    doingFallback: 'doing-fallback',
+    endDoing: 'end-doing',
+    finish: 'finish',
+  },
+  durations: {
+    appearing: 1_000,
+    dragTransition: 1_100,
+    preparing: 1_050,
+    completedEnd: 980,
+    completedFinish: 1_500,
+  },
+  layout: {
+    scale: 1,
+  },
+} satisfies CatVisualAppearance
+assert.equal(
+  catVisualAssetsChanged(defaultAppearance, {
+    ...defaultAppearance,
+    layout: { scale: defaultAppearance.layout.scale + 0.05 },
+  }),
+  false
+)
+assert.equal(
+  catVisualAssetsChanged(defaultAppearance, {
+    ...defaultAppearance,
+    assets: {
+      ...defaultAppearance.assets,
+      idle: `${defaultAppearance.assets.idle}?changed`,
+    },
+  }),
+  true
+)
 
 const workArea = { x: 0, y: 0, width: 1920, height: 1040 }
 const visualArea = { x: 38, y: 20, width: 60, height: 70 }

@@ -37,6 +37,17 @@ try {
   assert.deepEqual(manager.current().layout, overriddenBuiltInDog.layout)
   assert.deepEqual(manager.getPack('builtin-dog').layout, builtInDog.layout)
   assert.equal(changeReasons.at(-1), 'select')
+  const unchangedSelectionEventCount = changeReasons.length
+  assert.deepEqual(
+    manager.setActive({
+      packId: 'builtin-dog',
+      layoutOverride: {
+        scale: 1.25,
+      },
+    }).layout,
+    overriddenBuiltInDog.layout
+  )
+  assert.equal(changeReasons.length, unchangedSelectionEventCount)
   assert.throws(() => manager.deletePack('builtin-dog'), /cannot be deleted/i)
 
   const rootZipPath = join(tempDir, 'root-pack.zip')

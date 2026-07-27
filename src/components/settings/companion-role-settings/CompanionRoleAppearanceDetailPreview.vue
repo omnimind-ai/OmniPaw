@@ -223,7 +223,7 @@ onBeforeUnmount(() => {
 <template>
   <div class="flex flex-col gap-3">
     <div
-      v-if="loading"
+      v-if="loading && !detail"
       class="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3"
     >
       <Skeleton

@@ -1,7 +1,7 @@
 import type { CatCommandEvent } from '@shared/types/cat'
 import { appBridge } from '@/bridge/app'
 import { createDefaultCatVisualAppearance, resolveCatVisualAppearance } from './appearance'
-import { createCatVisualStateMachine } from './state-machine'
+import { catVisualAssetsChanged, createCatVisualStateMachine } from './state-machine'
 import { createCatVisualView } from './view'
 
 let appearance = createDefaultCatVisualAppearance()
@@ -24,8 +24,11 @@ function handleCommand(event: CatCommandEvent): void {
 }
 
 function applyAppearance(nextAppearance: typeof appearance): void {
+  const assetsChanged = catVisualAssetsChanged(appearance, nextAppearance)
   appearance = nextAppearance
-  view.resetHitAreaMeasurements()
+  if (assetsChanged) {
+    view.resetHitAreaMeasurements()
+  }
   view.applyLayout(appearance.layout)
   stateMachine.applyAppearance(appearance)
 }

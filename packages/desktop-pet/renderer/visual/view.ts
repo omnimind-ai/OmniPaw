@@ -51,14 +51,14 @@ function requireElement<T extends Element>(selector: string): T {
 export function createCatVisualView(options: CatVisualViewOptions): CatVisualView {
   const surface = requireElement<HTMLElement>('.cat-surface')
   const imageFrame = requireElement<HTMLElement>('#cat-image-frame')
-  const image = requireElement<HTMLImageElement>('#cat-image')
-  let fallbackSource = ''
-  let suppressNextImageError = false
+  let image = requireElement<HTMLImageElement>('#cat-image')
+  let pendingImage: HTMLImageElement | undefined
+  let activeFallbackSource = ''
   let appearanceBounds: NormalizedBounds | undefined
   let appearanceHitPadding = 2
   let hitAreaEpoch = 0
   let activeImageEpoch = 0
-  let imageSourceFrame: number | undefined
+  let imageRequestEpoch = 0
   let hitAreaFrame: number | undefined
   let dockSide: CatDockSide = 'right'
   let visualState: CatWindowState = 'idle'
@@ -72,19 +72,68 @@ export function createCatVisualView(options: CatVisualViewOptions): CatVisualVie
   }
 
   function showImage(source: string, fallback = source): void {
-    fallbackSource = fallback
-    suppressNextImageError = false
-    if (imageSourceFrame !== undefined) window.cancelAnimationFrame(imageSourceFrame)
-    image.removeAttribute('src')
+    imageRequestEpoch += 1
+    const requestEpoch = imageRequestEpoch
     const sourceEpoch = hitAreaEpoch
-    imageSourceFrame = window.requestAnimationFrame(() => {
-      imageSourceFrame = undefined
+    pendingImage?.remove()
+
+    const nextImage = document.createElement('img')
+    pendingImage = nextImage
+    nextImage.alt = ''
+    nextImage.draggable = false
+    nextImage.decoding = 'async'
+    nextImage.style.visibility = 'hidden'
+    nextImage.crossOrigin = source.startsWith(`${CAT_APPEARANCE_ASSET_PROTOCOL}:`)
+      ? 'anonymous'
+      : null
+
+    const commitImage = () => {
+      if (imageRequestEpoch !== requestEpoch || pendingImage !== nextImage) {
+        nextImage.remove()
+        return
+      }
+
+      pendingImage = undefined
+      nextImage.removeEventListener('error', handlePendingImageError)
+      image.removeEventListener('error', handleActiveImageError)
+      image.removeAttribute('id')
+      nextImage.id = 'cat-image'
+      nextImage.style.removeProperty('visibility')
+
+      const previousImage = image
+      image = nextImage
+      activeFallbackSource = fallback
       activeImageEpoch = sourceEpoch
-      image.crossOrigin = source.startsWith(`${CAT_APPEARANCE_ASSET_PROTOCOL}:`)
-        ? 'anonymous'
-        : null
-      image.src = source
-    })
+      image.addEventListener('error', handleActiveImageError)
+      previousImage.remove()
+      handleImageLoad()
+    }
+
+    const handlePendingImageError = () => {
+      if (imageRequestEpoch !== requestEpoch || pendingImage !== nextImage) {
+        nextImage.remove()
+        return
+      }
+
+      pendingImage = undefined
+      nextImage.remove()
+      if (fallback && fallback !== source) {
+        showImage(fallback, fallback)
+      }
+    }
+
+    nextImage.addEventListener('load', commitImage, { once: true })
+    nextImage.addEventListener('error', handlePendingImageError, { once: true })
+    imageFrame.appendChild(nextImage)
+    nextImage.src = source
+  }
+
+  function handleActiveImageError(): void {
+    const fallback = activeFallbackSource
+    activeFallbackSource = ''
+    if (fallback && fallback !== image.currentSrc && fallback !== image.src) {
+      showImage(fallback, fallback)
+    }
   }
 
   function sourceHitPadding(source: string): number {
@@ -196,17 +245,7 @@ export function createCatVisualView(options: CatVisualViewOptions): CatVisualVie
     scheduleHitAreaReport()
   }
 
-  function handleImageError(): void {
-    if (suppressNextImageError || !fallbackSource) return
-    suppressNextImageError = true
-    image.crossOrigin = fallbackSource.startsWith(`${CAT_APPEARANCE_ASSET_PROTOCOL}:`)
-      ? 'anonymous'
-      : null
-    image.src = fallbackSource
-  }
-
-  image.addEventListener('load', handleImageLoad)
-  image.addEventListener('error', handleImageError)
+  image.addEventListener('error', handleActiveImageError)
 
   return {
     applyDockSide(side) {
@@ -236,10 +275,11 @@ export function createCatVisualView(options: CatVisualViewOptions): CatVisualVie
       showImage(source)
     },
     dispose() {
-      if (imageSourceFrame !== undefined) window.cancelAnimationFrame(imageSourceFrame)
+      imageRequestEpoch += 1
+      pendingImage?.remove()
+      pendingImage = undefined
       if (hitAreaFrame !== undefined) window.cancelAnimationFrame(hitAreaFrame)
-      image.removeEventListener('load', handleImageLoad)
-      image.removeEventListener('error', handleImageError)
+      image.removeEventListener('error', handleActiveImageError)
       measuredBoundsBySource.clear()
     },
   }

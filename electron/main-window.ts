@@ -33,6 +33,7 @@ export function createMainWindowController(
   options: MainWindowControllerOptions
 ): MainWindowController {
   let mainWindow: BrowserWindow | null = null
+  let mainWindowBehaviorApplied = false
 
   function create(): void {
     const isMac = process.platform === 'darwin'
@@ -62,6 +63,7 @@ export function createMainWindowController(
       },
     })
     mainWindow = window
+    mainWindowBehaviorApplied = false
     attachWindowDiagnostics(window, 'main', options.logger)
     attachWindowStateEvents(window)
     applyZoomFactor()
@@ -96,6 +98,7 @@ export function createMainWindowController(
 
     window.on('closed', () => {
       mainWindow = null
+      mainWindowBehaviorApplied = false
 
       if (process.platform === 'darwin' && !options.isQuitting()) {
         return
@@ -124,17 +127,23 @@ export function createMainWindowController(
       return
     }
 
-    mainWindow.webContents.setZoomFactor(normalizeZoomFactor(factor))
+    const nextFactor = normalizeZoomFactor(factor)
+    if (Math.abs(mainWindow.webContents.getZoomFactor() - nextFactor) < 0.000_001) {
+      return
+    }
+
+    mainWindow.webContents.setZoomFactor(nextFactor)
   }
 
   function applyBackgroundSettings(_settings?: DesktopAppBackgroundSettings): void {
-    if (!mainWindow || mainWindow.isDestroyed()) {
+    if (!mainWindow || mainWindow.isDestroyed() || mainWindowBehaviorApplied) {
       return
     }
 
     mainWindow.setAspectRatio(0)
     mainWindow.setMaximizable(true)
     mainWindow.setFullScreenable(true)
+    mainWindowBehaviorApplied = true
     sendWindowState(mainWindow)
   }
 

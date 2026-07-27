@@ -66,6 +66,7 @@ body {
 
 .cat-stage img {
   display: block;
+  grid-area: 1 / 1;
   width: var(--cat-asset-size);
   height: var(--cat-asset-size);
   object-fit: contain;
