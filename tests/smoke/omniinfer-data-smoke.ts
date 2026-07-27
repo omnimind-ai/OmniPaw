@@ -6,7 +6,12 @@ import {
   omniInferRuntimePlatformDirectory,
   prepareOmniInferDataDirectories,
 } from '../../electron/omniinfer/data-directories'
-import { buildManagedCliArgs, parseBackendTable } from '../../electron/omniinfer/process'
+import {
+  buildManagedCliArgs,
+  parseBackendTable,
+  supportsBackendInstallCommand,
+  supportsManagedDataDirectories,
+} from '../../electron/omniinfer/process'
 
 const tempRoot = mkdtempSync(join(tmpdir(), 'omnipaw-omniinfer-data-'))
 
@@ -77,6 +82,53 @@ Backend  Selected  Runtime
 -------  --------  -------
 `),
     []
+  )
+  assert.deepEqual(
+    parseBackendTable(`Installed backends
+Backend         Selected  Installed
+--------------  --------  ---------
+llama.cpp-cuda  yes       yes
+`),
+    ['llama.cpp-cuda']
+  )
+  assert.deepEqual(
+    parseBackendTable(`Compatible backends
+Backend            Selected  Installed
+-----------------  --------  ---------
+llama.cpp-cpu
+llama.cpp-cuda     yes       yes
+llama.cpp-vulkan
+`),
+    ['llama.cpp-cpu', 'llama.cpp-cuda', 'llama.cpp-vulkan']
+  )
+  assert.equal(
+    supportsManagedDataDirectories(`
+options:
+  --state-root STATE_ROOT
+  --runtime-root RUNTIME_ROOT
+`),
+    true
+  )
+  assert.equal(
+    supportsManagedDataDirectories(`
+options:
+  --port PORT
+`),
+    false
+  )
+  assert.equal(
+    supportsBackendInstallCommand(`
+positional arguments:
+  {list,install,select,stop}
+`),
+    true
+  )
+  assert.equal(
+    supportsBackendInstallCommand(`
+positional arguments:
+  {list,select,stop}
+`),
+    false
   )
 
   console.log('OmniInfer data directory smoke check passed')

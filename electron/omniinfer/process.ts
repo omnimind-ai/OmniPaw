@@ -66,6 +66,7 @@ export interface OmniInferProcessOptions {
 export class OmniInferProcess implements OmniInferProcessController {
   private state: OmniInferProcessSnapshot
   private child?: ChildProcess
+  private managedDataDirectoriesSupported?: boolean
   private readonly emitter = new EventEmitter()
   private readonly options: Required<
     Omit<OmniInferProcessOptions, 'logger' | 'installDir' | 'apiKey' | 'client' | 'now'>
@@ -121,6 +122,7 @@ export class OmniInferProcess implements OmniInferProcessController {
   setInstallDir(installDir: string | undefined): void {
     this.options.installDir = installDir
     this.options.cliPath = undefined
+    this.managedDataDirectoriesSupported = undefined
     if (this.state.state === 'not_bundled' && installDir) {
       this.transition({ state: 'stopped', installDir, cliPath: undefined })
     } else if (!installDir && this.state.state === 'stopped') {
@@ -179,10 +181,14 @@ export class OmniInferProcess implements OmniInferProcessController {
       OMNIINFER_LLAMA_CPP_GPU_MODELS_DIR: this.options.modelsDir,
       OMNIINFER_SERVE_DIRECT: '1',
     }
+    const managedDataDirectoriesSupported = await this.detectManagedDataDirectoriesSupport(
+      resolvedCli,
+      env
+    )
 
     if (this.options.autoInstallBackend) {
       try {
-        await this.ensureBackendInstalled(resolvedCli, env)
+        await this.ensureBackendInstalled(resolvedCli, env, managedDataDirectoriesSupported)
       } catch (error) {
         const message =
           error instanceof Error ? error.message : 'Failed to install an OmniInfer backend.'
@@ -192,7 +198,10 @@ export class OmniInferProcess implements OmniInferProcessController {
       }
     }
 
-    const command = buildServeCommand(resolvedCli.cliPath, this.buildArgs())
+    const command = buildServeCommand(
+      resolvedCli.cliPath,
+      this.buildArgs(managedDataDirectoriesSupported)
+    )
     const spawnOptions: Parameters<typeof spawn>[2] = {
       cwd: resolvedCli.installDir,
       env,
@@ -312,7 +321,7 @@ export class OmniInferProcess implements OmniInferProcessController {
     }
   }
 
-  private buildArgs(): string[] {
+  private buildArgs(managedDataDirectoriesSupported: boolean): string[] {
     const args: string[] = [
       'serve',
       '--port',
@@ -324,17 +333,21 @@ export class OmniInferProcess implements OmniInferProcessController {
     if (this.options.apiKey) {
       args.push('--api-key', this.options.apiKey)
     }
-    return buildManagedCliArgs(this.options.stateRoot, this.options.runtimeRoot, args)
+    return this.buildCompatibleArgs(args, managedDataDirectoriesSupported)
   }
 
   private async ensureBackendInstalled(
     resolvedCli: { installDir: string; cliPath: string },
-    env: NodeJS.ProcessEnv
+    env: NodeJS.ProcessEnv,
+    managedDataDirectoriesSupported: boolean
   ): Promise<void> {
     const installed = await runCliCommand({
       cliPath: resolvedCli.cliPath,
       installDir: resolvedCli.installDir,
-      args: this.buildControlArgs(['backend', 'list', '--scope', 'installed']),
+      args: this.buildCompatibleArgs(
+        ['backend', 'list', '--scope', 'installed'],
+        managedDataDirectoriesSupported
+      ),
       env,
     })
     if (parseBackendTable(installed.stdout).length > 0) return
@@ -342,7 +355,10 @@ export class OmniInferProcess implements OmniInferProcessController {
     const compatible = await runCliCommand({
       cliPath: resolvedCli.cliPath,
       installDir: resolvedCli.installDir,
-      args: this.buildControlArgs(['backend', 'list', '--scope', 'compatible']),
+      args: this.buildCompatibleArgs(
+        ['backend', 'list', '--scope', 'compatible'],
+        managedDataDirectoriesSupported
+      ),
       env,
     })
     const backend = parseBackendTable(compatible.stdout)[0]
@@ -351,18 +367,87 @@ export class OmniInferProcess implements OmniInferProcessController {
     }
 
     this.emitLog('stdout', `Installing compatible OmniInfer backend: ${backend}`)
+    const installArgs = await this.resolveBackendInstallArgs(
+      resolvedCli,
+      env,
+      backend,
+      managedDataDirectoriesSupported
+    )
     await runCliCommand({
       cliPath: resolvedCli.cliPath,
       installDir: resolvedCli.installDir,
-      args: this.buildControlArgs(['backend', 'install', backend, '--json']),
+      args: installArgs,
       env,
       onStdout: (line) => this.emitLog('stdout', line),
       onStderr: (line) => this.emitLog('stderr', line),
     })
   }
 
-  private buildControlArgs(args: string[]): string[] {
+  private buildCompatibleArgs(args: string[], managedDataDirectoriesSupported: boolean): string[] {
+    if (!managedDataDirectoriesSupported) return args
     return buildManagedCliArgs(this.options.stateRoot, this.options.runtimeRoot, args)
+  }
+
+  private async detectManagedDataDirectoriesSupport(
+    resolvedCli: { installDir: string; cliPath: string },
+    env: NodeJS.ProcessEnv
+  ): Promise<boolean> {
+    if (this.managedDataDirectoriesSupported !== undefined) {
+      return this.managedDataDirectoriesSupported
+    }
+
+    try {
+      const help = await runCliCommand({
+        cliPath: resolvedCli.cliPath,
+        installDir: resolvedCli.installDir,
+        args: ['--help'],
+        env,
+      })
+      const supported = supportsManagedDataDirectories(`${help.stdout}\n${help.stderr}`)
+      this.managedDataDirectoriesSupported = supported
+      if (!supported) {
+        this.options.logger?.warn?.(
+          'OmniInfer CLI does not expose managed data directory arguments; compatibility arguments will be used.',
+          { cliPath: resolvedCli.cliPath }
+        )
+      }
+      return supported
+    } catch (error) {
+      this.options.logger?.warn?.(
+        'OmniInfer CLI capability detection failed; managed data directory arguments will be preserved.',
+        { error, cliPath: resolvedCli.cliPath }
+      )
+      this.managedDataDirectoriesSupported = true
+      return true
+    }
+  }
+
+  private async resolveBackendInstallArgs(
+    resolvedCli: { installDir: string; cliPath: string },
+    env: NodeJS.ProcessEnv,
+    backend: string,
+    managedDataDirectoriesSupported: boolean
+  ): Promise<string[]> {
+    const legacyInstallArgs = ['backend', 'install', backend, '--json']
+    try {
+      const help = await runCliCommand({
+        cliPath: resolvedCli.cliPath,
+        installDir: resolvedCli.installDir,
+        args: this.buildCompatibleArgs(['backend', '--help'], managedDataDirectoriesSupported),
+        env,
+      })
+      const helpOutput = `${help.stdout}\n${help.stderr}`
+      const args = supportsBackendInstallCommand(helpOutput)
+        ? legacyInstallArgs
+        : ['build', backend, '--prebuilt']
+      return this.buildCompatibleArgs(args, managedDataDirectoriesSupported)
+    } catch (error) {
+      this.options.logger?.warn?.(
+        'OmniInfer backend command detection failed; the legacy installation command will be used.',
+        { error }
+      )
+      return this.buildCompatibleArgs(legacyInstallArgs, managedDataDirectoriesSupported)
+    }
   }
 
   private transition(patch: Partial<OmniInferProcessSnapshot>): void {
@@ -513,8 +598,16 @@ export function parseBackendTable(output: string): string[] {
   if (separatorIndex < 0) return []
   return lines
     .slice(separatorIndex + 1)
-    .map((line) => /^\s*([A-Za-z0-9._-]+)\s+.*\b(?:installed|missing)\s*$/.exec(line)?.[1])
+    .map((line) => /^\s*([A-Za-z0-9._-]+)(?:\s{2,}.*)?\s*$/.exec(line)?.[1])
     .filter((value): value is string => Boolean(value))
+}
+
+export function supportsManagedDataDirectories(helpOutput: string): boolean {
+  return helpOutput.includes('--state-root') && helpOutput.includes('--runtime-root')
+}
+
+export function supportsBackendInstallCommand(helpOutput: string): boolean {
+  return /\binstall\b/i.test(helpOutput)
 }
 
 export function buildManagedCliArgs(
