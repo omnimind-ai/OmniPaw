@@ -63,6 +63,7 @@ import type {
   ListOmniInferModelCatalogRequest,
   RetryOmniInferModelDownloadRequest,
   SelectModelRequest,
+  SelectOmniInferBackendRequest,
   SetThinkingRequest,
   StartOmniInferModelDownloadRequest,
 } from '@shared/types/omniinfer'
@@ -582,6 +583,8 @@ const bridge: OmniPawBridge = {
     getBackendSetup: () => ipcRenderer.invoke(IPC_CHANNELS.omniinfer.getBackendSetup),
     installBackend: (request: InstallOmniInferBackendRequest) =>
       ipcRenderer.invoke(IPC_CHANNELS.omniinfer.installBackend, request),
+    selectBackend: (request: SelectOmniInferBackendRequest) =>
+      ipcRenderer.invoke(IPC_CHANNELS.omniinfer.selectBackend, request),
     listModelCatalog: (request: ListOmniInferModelCatalogRequest) =>
       ipcRenderer.invoke(IPC_CHANNELS.omniinfer.listModelCatalog, request),
     listModelDownloads: () => ipcRenderer.invoke(IPC_CHANNELS.omniinfer.listModelDownloads),

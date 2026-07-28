@@ -116,6 +116,21 @@ export class OmniInferRuntimeClient {
       .filter((item) => item.id.length > 0)
   }
 
+  async selectBackend(backend: string): Promise<void> {
+    const target = backend.trim()
+    if (!target) {
+      throw new OmniInferControlException({
+        code: 'VALIDATION_ERROR',
+        message: 'Backend ID cannot be empty.',
+        path: '/omni/backend/select',
+      })
+    }
+    await this.requestJson('/omni/backend/select', {
+      method: 'POST',
+      body: JSON.stringify({ backend: target }),
+    })
+  }
+
   async getSupportedModelsBest(system: 'windows' | 'mac'): Promise<unknown> {
     const params = new URLSearchParams({ system })
     return this.requestJson<unknown>(`/omni/supported-models/best?${params.toString()}`)

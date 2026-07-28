@@ -266,7 +266,7 @@ function handleSelectedModelAction(quantization: OmniInferCatalogQuantization): 
   <Sheet v-model:open="open">
     <SheetContent
       side="right"
-      class="w-full gap-0 p-0 sm:max-w-4xl"
+      class="gap-0 p-0 data-[side=right]:w-full data-[side=right]:sm:w-1/2 data-[side=right]:sm:max-w-none"
       :show-close-button="false"
     >
       <SheetHeader class="flex-row items-start gap-3 px-5 py-4 text-left">
@@ -280,19 +280,26 @@ function handleSelectedModelAction(quantization: OmniInferCatalogQuantization): 
         >
           <ArrowLeftIcon />
         </Button>
-        <div class="min-w-0 flex-1">
+        <div
+          v-if="selectedModel"
+          class="min-w-0 flex-1"
+        >
+          <SheetTitle class="sr-only">
+            {{ selectedModel.name }}
+          </SheetTitle>
+          <SheetDescription class="sr-only">
+            {{ selectedModel.repoId || selectedModel.provider }}
+          </SheetDescription>
+        </div>
+        <div
+          v-else
+          class="min-w-0 flex-1"
+        >
           <SheetTitle class="truncate">
-            {{
-              selectedModel?.name ||
-              t('settings.provider.models.download.title')
-            }}
+            {{ t('settings.provider.models.download.title') }}
           </SheetTitle>
           <SheetDescription class="truncate">
-            {{
-              selectedModel?.repoId ||
-              selectedModel?.provider ||
-              t('settings.provider.models.download.description')
-            }}
+            {{ t('settings.provider.models.download.description') }}
           </SheetDescription>
         </div>
         <SheetClose as-child>

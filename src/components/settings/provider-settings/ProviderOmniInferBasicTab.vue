@@ -1,11 +1,10 @@
 <script setup lang="ts">
-import { CloudIcon, CpuIcon, FolderOpenIcon, Loader2Icon, RefreshCwIcon } from '@lucide/vue'
+import { CloudIcon, CpuIcon, FolderOpenIcon, Loader2Icon } from '@lucide/vue'
 import type { OmniInferProcessState } from '@shared/types/omniinfer'
 import { storeToRefs } from 'pinia'
-import { computed, onBeforeUnmount, onMounted } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { appBridge } from '@/bridge/app'
-import SettingEntry from '@/components/settings/common/SettingEntry.vue'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import {
@@ -23,6 +22,7 @@ import { Separator } from '@/components/ui/separator'
 import { Switch } from '@/components/ui/switch'
 import { useOmniInferStore } from '@/stores/omniinfer'
 import { errorToText, useToast } from '@/utils/toast'
+import ProviderOmniInferBackendDialog from './ProviderOmniInferBackendDialog.vue'
 import type { ProviderDraft } from './types'
 
 const { t } = useI18n()
@@ -38,9 +38,11 @@ const {
   backendSetup,
   loadingBackendSetup,
   installingBackend,
+  selectingBackend,
   backendInstallPercent,
 } = storeToRefs(store)
 const toast = useToast()
+const backendDialogOpen = ref(false)
 
 const stateLabel: Record<OmniInferProcessState, string> = {
   not_bundled: t('settings.provider.omniInfer.notBundled'),
@@ -73,18 +75,16 @@ const canStop = computed(
   () => !isExternallyManaged.value && snapshot.value.process.state === 'running'
 )
 const isAvailable = computed(() => store.available)
-const recommendedAcceleration = computed(() => {
-  const setup = backendSetup.value
-  const backend = setup?.recommendedBackend?.trim()
-  if (!setup || !backend || backend === setup.baseBackend) return ''
-  return setup.installedBackends.includes(backend) ? '' : backend
-})
-const installedAccelerators = computed(() => {
-  const setup = backendSetup.value
-  if (!setup) return []
-  return setup.installedBackends.filter((backend) => backend !== setup.baseBackend)
-})
-const backendBusy = computed(() => loadingBackendSetup.value || Boolean(installingBackend.value))
+const currentBackend = computed(
+  () =>
+    snapshot.value.backends.find((backend) => backend.selected)?.id ??
+    snapshot.value.loadedModel?.backend ??
+    ''
+)
+const backendBusy = computed(
+  () =>
+    loadingBackendSetup.value || Boolean(installingBackend.value) || Boolean(selectingBackend.value)
+)
 
 const effectiveStateLabel = computed(() =>
   isExternallyManaged.value
@@ -151,9 +151,7 @@ async function handleToggleThinking(value: boolean): Promise<void> {
   }
 }
 
-async function handleInstallRecommendedBackend(): Promise<void> {
-  const backend = recommendedAcceleration.value
-  if (!backend) return
+async function handleInstallBackend(backend: string): Promise<void> {
   try {
     await store.installBackend(backend)
     toast.success(t('settings.omniInfer.messages.installCompleted', { backend }))
@@ -162,12 +160,27 @@ async function handleInstallRecommendedBackend(): Promise<void> {
   }
 }
 
+async function handleSelectBackend(backend: string): Promise<void> {
+  try {
+    await store.selectBackend(backend)
+    backendDialogOpen.value = false
+    toast.success(t('settings.omniInfer.messages.selectCompleted', { backend }))
+  } catch (error) {
+    toast.error(errorToText(error, t('settings.omniInfer.messages.selectFailed')))
+  }
+}
+
 async function handleRefreshBackendSetup(): Promise<void> {
   try {
-    await store.refreshBackendSetup()
+    await Promise.all([store.refreshStatus(), store.refreshBackendSetup()])
   } catch (error) {
     toast.error(errorToText(error, t('settings.omniInfer.messages.refreshFailed')))
   }
+}
+
+function handleOpenBackendDialog(): void {
+  backendDialogOpen.value = true
+  void handleRefreshBackendSetup()
 }
 
 function handleOpenLogs(): void {
@@ -327,101 +340,53 @@ onBeforeUnmount(() => {
 
     <FieldSet>
       <FieldLegend class="flex items-center gap-2">
-        <CpuIcon class="size-4" />
         {{ t('settings.omniInfer.backends.title') }}
       </FieldLegend>
-      <FieldDescription>{{ t('settings.omniInfer.backends.baseDescription') }}</FieldDescription>
-      <div class="flex justify-end">
+      <FieldDescription>{{ t('settings.omniInfer.backends.description') }}</FieldDescription>
+
+      <div class="flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-card p-4">
+        <div class="flex min-w-0 flex-wrap items-center gap-3">
+          <Badge variant="secondary">
+            <Loader2Icon
+              v-if="loadingBackendSetup"
+              data-icon="inline-start"
+              class="animate-spin"
+            />
+            {{ currentBackend || t('settings.omniInfer.backends.currentEmpty') }}
+          </Badge>
+          <span class="text-sm text-muted-foreground">
+            {{
+              currentBackend
+                ? t('settings.omniInfer.backends.currentDescription')
+                : t('settings.omniInfer.backends.currentEmptyDescription')
+            }}
+          </span>
+        </div>
         <Button
           type="button"
           variant="outline"
           size="sm"
           :disabled="backendBusy"
-          @click="handleRefreshBackendSetup"
+          @click="handleOpenBackendDialog"
         >
-          <RefreshCwIcon
-            data-icon="inline-start"
-            :class="{ 'animate-spin': loadingBackendSetup }"
-          />
-          {{ t('settings.omniInfer.actions.refresh') }}
+          {{ t('settings.omniInfer.actions.switchBackend') }}
         </Button>
       </div>
-
-      <div class="flex flex-col gap-1 rounded-lg border p-2">
-        <SettingEntry
-          :title="t('settings.omniInfer.backends.baseTitle')"
-          :description="t('settings.omniInfer.backends.baseDescription')"
-        >
-          <div class="flex flex-wrap items-center gap-2">
-            <code class="text-xs">{{ backendSetup?.baseBackend || '—' }}</code>
-            <Badge :variant="backendSetup?.baseBackendInstalled ? 'default' : 'destructive'">
-              {{
-                backendSetup?.baseBackendInstalled
-                  ? t('settings.omniInfer.backends.installed')
-                  : t('settings.omniInfer.backends.missing')
-              }}
-            </Badge>
-          </div>
-        </SettingEntry>
-
-        <SettingEntry
-          :title="t('settings.omniInfer.backends.accelerationTitle')"
-          :description="recommendedAcceleration
-            ? t('settings.omniInfer.backends.recommendedDescription', {
-              backend: recommendedAcceleration,
-            })
-            : t('settings.omniInfer.backends.noRecommendation')"
-        >
-          <Button
-            v-if="recommendedAcceleration"
-            type="button"
-            size="sm"
-            :disabled="backendBusy"
-            @click="handleInstallRecommendedBackend"
-          >
-            <Loader2Icon
-              v-if="installingBackend"
-              data-icon="inline-start"
-              class="animate-spin"
-            />
-            {{
-              installingBackend
-                ? t('settings.omniInfer.actions.installing', {
-                  progress: backendInstallPercent,
-                })
-                : t('settings.omniInfer.actions.install')
-            }}
-          </Button>
-          <Badge
-            v-else
-            variant="secondary"
-          >
-            {{ t('settings.omniInfer.backends.configured') }}
-          </Badge>
-        </SettingEntry>
-
-        <SettingEntry
-          :title="t('settings.omniInfer.backends.installedTitle')"
-          :description="t('settings.omniInfer.backends.installedDescription')"
-        >
-          <div class="flex flex-wrap gap-2">
-            <Badge
-              v-for="backend in installedAccelerators"
-              :key="backend"
-              variant="outline"
-            >
-              {{ backend }}
-            </Badge>
-            <span
-              v-if="installedAccelerators.length === 0"
-              class="text-xs text-muted-foreground"
-            >
-              {{ t('settings.omniInfer.backends.noneInstalled') }}
-            </span>
-          </div>
-        </SettingEntry>
-      </div>
     </FieldSet>
+
+    <ProviderOmniInferBackendDialog
+      v-model:open="backendDialogOpen"
+      :setup="backendSetup"
+      :current-backend="currentBackend"
+      :server-online="snapshot.server.online"
+      :loading="loadingBackendSetup"
+      :installing-backend="installingBackend"
+      :selecting-backend="selectingBackend"
+      :install-progress="backendInstallPercent"
+      @refresh="handleRefreshBackendSetup"
+      @install="handleInstallBackend"
+      @select="handleSelectBackend"
+    />
 
     <Field
       orientation="horizontal"

@@ -16,6 +16,7 @@ import type {
   RescanInstalledModelsResponse,
   RetryOmniInferModelDownloadRequest,
   SelectModelRequest,
+  SelectOmniInferBackendRequest,
   SetThinkingRequest,
   StartOmniInferModelDownloadRequest,
 } from '@shared/types/omniinfer'
@@ -82,6 +83,12 @@ export function registerOmniInferIpcHandlers(options: IpcHandlerOptions): void {
     IPC_CHANNELS.omniinfer.installBackend,
     async (_event, request: InstallOmniInferBackendRequest) =>
       service.installBackend(request.backend)
+  )
+
+  registerLoggedIpcHandler(
+    options,
+    IPC_CHANNELS.omniinfer.selectBackend,
+    async (_event, request: SelectOmniInferBackendRequest) => service.selectBackend(request.backend)
   )
 
   registerLoggedIpcHandler(

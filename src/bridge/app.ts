@@ -1666,6 +1666,8 @@ const fallbackBridge: OmniPawBridge = {
     }),
     installBackend: () =>
       rejectFallbackPersistence<OmniInferBackendSetupStatus>('omniinfer.installBackend'),
+    selectBackend: () =>
+      rejectFallbackPersistence<OmniInferRuntimeSnapshot>('omniinfer.selectBackend'),
     listModelCatalog: () =>
       rejectFallbackPersistence<ListOmniInferModelCatalogResponse>('omniinfer.listModelCatalog'),
     listModelDownloads: async (): Promise<OmniInferModelDownloadTask[]> => [],

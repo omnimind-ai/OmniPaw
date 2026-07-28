@@ -175,6 +175,7 @@ import type {
   RescanInstalledModelsResponse,
   RetryOmniInferModelDownloadRequest,
   SelectModelRequest,
+  SelectOmniInferBackendRequest,
   SetThinkingRequest,
   StartOmniInferModelDownloadRequest,
 } from './omniinfer'
@@ -670,6 +671,7 @@ export interface OmniPawBridge {
     installBackend: (
       request: InstallOmniInferBackendRequest
     ) => Promise<OmniInferBackendSetupStatus>
+    selectBackend: (request: SelectOmniInferBackendRequest) => Promise<OmniInferRuntimeSnapshot>
     listModelCatalog: (
       request: ListOmniInferModelCatalogRequest
     ) => Promise<ListOmniInferModelCatalogResponse>

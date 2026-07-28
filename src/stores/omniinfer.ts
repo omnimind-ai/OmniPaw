@@ -38,6 +38,7 @@ export const useOmniInferStore = defineStore('omniinfer', () => {
   const backendSetup = ref<OmniInferBackendSetupStatus | null>(null)
   const loadingBackendSetup = ref(false)
   const installingBackend = ref<string | null>(null)
+  const selectingBackend = ref<string | null>(null)
   const backendInstallProgress = ref<OmniInferBackendInstallProgress | null>(null)
   const busyModelIds = ref<Set<string>>(new Set())
   const error = ref<unknown>(null)
@@ -127,6 +128,23 @@ export const useOmniInferStore = defineStore('omniinfer', () => {
       throw err
     } finally {
       installingBackend.value = null
+    }
+  }
+
+  async function selectBackend(backend: string): Promise<void> {
+    if (!available.value || selectingBackend.value) return
+    selectingBackend.value = backend
+    error.value = null
+    try {
+      const result = await appBridge.omniinfer?.selectBackend({ backend })
+      if (result) {
+        snapshot.value = result
+      }
+    } catch (err) {
+      error.value = err
+      throw err
+    } finally {
+      selectingBackend.value = null
     }
   }
 
@@ -221,6 +239,7 @@ export const useOmniInferStore = defineStore('omniinfer', () => {
     logs.value = []
     backendSetup.value = null
     installingBackend.value = null
+    selectingBackend.value = null
     backendInstallProgress.value = null
     error.value = null
   }
@@ -234,6 +253,7 @@ export const useOmniInferStore = defineStore('omniinfer', () => {
     backendSetup,
     loadingBackendSetup,
     installingBackend,
+    selectingBackend,
     backendInstallProgress,
     backendInstallPercent,
     error,
@@ -245,6 +265,7 @@ export const useOmniInferStore = defineStore('omniinfer', () => {
     refreshStatus,
     refreshBackendSetup,
     installBackend,
+    selectBackend,
     rescanModels,
     start,
     stop,

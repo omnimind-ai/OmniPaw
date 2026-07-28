@@ -236,6 +236,7 @@ export const IPC_CHANNELS = {
     rescanModels: 'omniinfer:rescan-models',
     getBackendSetup: 'omniinfer:get-backend-setup',
     installBackend: 'omniinfer:install-backend',
+    selectBackend: 'omniinfer:select-backend',
     backendInstallProgress: 'omniinfer:backend-install-progress',
     listModelCatalog: 'omniinfer:list-model-catalog',
     listModelDownloads: 'omniinfer:list-model-downloads',

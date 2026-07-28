@@ -257,6 +257,13 @@ export class OmniInferRuntimeService {
     }
   }
 
+  async selectBackend(backend: string): Promise<OmniInferRuntimeSnapshot> {
+    await this.client.selectBackend(backend)
+    this.backends = await this.client.listBackends()
+    await this.refreshHealthOnce()
+    return this.getSnapshot()
+  }
+
   /**
    * Ensure that OmniInfer has loaded the model at `absolutePath`. Concurrent calls for the
    * same path collapse to one /omni/model/select request.

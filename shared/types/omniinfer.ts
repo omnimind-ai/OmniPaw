@@ -69,6 +69,10 @@ export interface InstallOmniInferBackendRequest {
   backend: string
 }
 
+export interface SelectOmniInferBackendRequest {
+  backend: string
+}
+
 export interface OmniInferBackendInstallProgress {
   event: string
   backend?: string
