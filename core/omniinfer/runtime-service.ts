@@ -235,31 +235,42 @@ export class OmniInferRuntimeService {
   }
 
   async getBackendSetup(): Promise<OmniInferBackendSetupStatus> {
-    const setup = await this.process.inspectBackends()
-    if (!this.server.online) {
-      return setup
-    }
-    try {
-      const inventory = await this.client.listBackends('compatible')
-      const apiBackends = inventory.filter((backend) => !backend.id.startsWith('ik_'))
-      const compatibleBackends = uniqueValues([
-        ...setup.compatibleBackends,
-        ...apiBackends.map((backend) => backend.id),
-      ])
-      const installedBackends = uniqueValues([
-        ...setup.installedBackends,
-        ...apiBackends.filter((backend) => backend.installed).map((backend) => backend.id),
-      ])
-      return {
-        ...setup,
-        baseBackendInstalled: installedBackends.includes(setup.baseBackend),
-        compatibleBackends,
-        installedBackends,
+    if (this.server.online) {
+      try {
+        const inventory = await this.client.getBackendInventory('compatible')
+        const apiBackends = inventory.backends.filter((backend) => !backend.id.startsWith('ik_'))
+        const compatibleBackends = uniqueValues(apiBackends.map((backend) => backend.id))
+        const installedBackends = uniqueValues(
+          apiBackends
+            .filter(
+              (backend) => backend.installed === true || backend.compatibility === 'installed'
+            )
+            .map((backend) => backend.id)
+        )
+        const baseBackend = this.process.getDefaultBackendId()
+        const selectedBackend = apiBackends.find((backend) => backend.selected)
+        const recommendedBackend =
+          inventory.recommended && compatibleBackends.includes(inventory.recommended)
+            ? inventory.recommended
+            : (selectedBackend?.id ?? compatibleBackends[0])
+        const recommendedInstalledBackend =
+          selectedBackend &&
+          (selectedBackend.installed === true || selectedBackend.compatibility === 'installed')
+            ? selectedBackend.id
+            : installedBackends[0]
+        return {
+          baseBackend,
+          baseBackendInstalled: installedBackends.includes(baseBackend),
+          recommendedBackend,
+          recommendedInstalledBackend,
+          compatibleBackends,
+          installedBackends,
+        }
+      } catch (error) {
+        this.logger?.debug?.('OmniInfer compatible backend API request failed.', { error })
       }
-    } catch (error) {
-      this.logger?.debug?.('OmniInfer compatible backend API request failed.', { error })
-      return setup
     }
+    return this.process.inspectBackends()
   }
 
   async installBackend(backend: string): Promise<OmniInferBackendSetupStatus> {

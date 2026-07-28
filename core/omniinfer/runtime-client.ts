@@ -30,6 +30,13 @@ export interface OmniInferRuntimeClientOptions {
   defaultTimeoutMs?: number
 }
 
+export type OmniInferBackendScope = 'installed' | 'compatible' | 'all'
+
+export interface OmniInferBackendInventory {
+  backends: OmniInferBackendDescriptor[]
+  recommended?: string
+}
+
 const DEFAULT_TIMEOUT_MS = 4000
 
 export class OmniInferControlException extends Error {
@@ -103,9 +110,9 @@ export class OmniInferRuntimeClient {
     return this.requestJson<unknown>('/omni/state')
   }
 
-  async listBackends(
-    scope: 'installed' | 'compatible' | 'all' = 'installed'
-  ): Promise<OmniInferBackendDescriptor[]> {
+  async getBackendInventory(
+    scope: OmniInferBackendScope = 'installed'
+  ): Promise<OmniInferBackendInventory> {
     const params = new URLSearchParams({ scope })
     const raw = await this.requestJson<{
       data?: Array<{
@@ -114,9 +121,10 @@ export class OmniInferRuntimeClient {
         binary_exists?: unknown
         compatibility?: unknown
       }>
+      recommended?: unknown
     }>(`/omni/backends?${params.toString()}`)
     const list = Array.isArray(raw?.data) ? raw.data : []
-    return list
+    const backends = list
       .map((item) => {
         const compatibility: OmniInferBackendDescriptor['compatibility'] =
           item.compatibility === 'installed' ||
@@ -132,6 +140,19 @@ export class OmniInferRuntimeClient {
         }
       })
       .filter((item) => item.id.length > 0)
+    return {
+      backends,
+      recommended:
+        typeof raw.recommended === 'string' && raw.recommended.trim()
+          ? raw.recommended.trim()
+          : undefined,
+    }
+  }
+
+  async listBackends(
+    scope: OmniInferBackendScope = 'installed'
+  ): Promise<OmniInferBackendDescriptor[]> {
+    return (await this.getBackendInventory(scope)).backends
   }
 
   async selectBackend(backend: string): Promise<void> {

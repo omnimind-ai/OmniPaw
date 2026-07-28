@@ -115,6 +115,10 @@ export class OmniInferProcess implements OmniInferProcessController {
     return { ...this.state }
   }
 
+  getDefaultBackendId(): string {
+    return defaultBaseBackend()
+  }
+
   async inspectBackends(): Promise<OmniInferBackendSetupStatus> {
     const resolvedCli = this.resolveRuntimeCli()
     const env = this.buildRuntimeEnv()

@@ -26,6 +26,7 @@ const client = new OmniInferRuntimeClient({
             compatibility: 'installed',
           },
         ],
+        recommended: 'llama.cpp-cuda',
       })
     }
     return Response.json({})
@@ -39,20 +40,23 @@ assert.deepEqual(JSON.parse(String(requests[0]?.init?.body)), {
   backend: 'llama.cpp-cuda',
 })
 
-assert.deepEqual(await client.listBackends('compatible'), [
-  {
-    id: 'llama.cpp-cpu',
-    selected: false,
-    installed: false,
-    compatibility: 'compatible',
-  },
-  {
-    id: 'llama.cpp-cuda',
-    selected: true,
-    installed: true,
-    compatibility: 'installed',
-  },
-])
+assert.deepEqual(await client.getBackendInventory('compatible'), {
+  backends: [
+    {
+      id: 'llama.cpp-cpu',
+      selected: false,
+      installed: false,
+      compatibility: 'compatible',
+    },
+    {
+      id: 'llama.cpp-cuda',
+      selected: true,
+      installed: true,
+      compatibility: 'installed',
+    },
+  ],
+  recommended: 'llama.cpp-cuda',
+})
 assert.equal(requests[1]?.path, '/omni/backends?scope=compatible')
 
 await assert.rejects(

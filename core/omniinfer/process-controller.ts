@@ -29,6 +29,9 @@ export interface OmniInferProcessController {
   /** Latest process snapshot. */
   getState(): OmniInferProcessSnapshot
 
+  /** Platform-default backend identifier without invoking the OmniInfer CLI. */
+  getDefaultBackendId(): string
+
   /** Inspect installed and device-compatible inference backends. */
   inspectBackends(): Promise<OmniInferBackendSetupStatus>
 
