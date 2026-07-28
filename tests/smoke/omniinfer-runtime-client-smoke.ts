@@ -9,12 +9,22 @@ const client = new OmniInferRuntimeClient({
   baseUrl: 'http://127.0.0.1:19157/v1',
   fetch: async (input, init) => {
     const url = new URL(String(input))
-    requests.push({ path: url.pathname, init })
+    requests.push({ path: `${url.pathname}${url.search}`, init })
     if (url.pathname === '/omni/backends') {
       return Response.json({
         data: [
-          { id: 'llama.cpp-cpu', selected: false },
-          { id: 'llama.cpp-cuda', selected: true },
+          {
+            id: 'llama.cpp-cpu',
+            selected: false,
+            binary_exists: false,
+            compatibility: 'compatible',
+          },
+          {
+            id: 'llama.cpp-cuda',
+            selected: true,
+            binary_exists: true,
+            compatibility: 'installed',
+          },
         ],
       })
     }
@@ -29,10 +39,21 @@ assert.deepEqual(JSON.parse(String(requests[0]?.init?.body)), {
   backend: 'llama.cpp-cuda',
 })
 
-assert.deepEqual(await client.listBackends(), [
-  { id: 'llama.cpp-cpu', selected: false },
-  { id: 'llama.cpp-cuda', selected: true },
+assert.deepEqual(await client.listBackends('compatible'), [
+  {
+    id: 'llama.cpp-cpu',
+    selected: false,
+    installed: false,
+    compatibility: 'compatible',
+  },
+  {
+    id: 'llama.cpp-cuda',
+    selected: true,
+    installed: true,
+    compatibility: 'installed',
+  },
 ])
+assert.equal(requests[1]?.path, '/omni/backends?scope=compatible')
 
 await assert.rejects(
   () => client.selectBackend('  '),

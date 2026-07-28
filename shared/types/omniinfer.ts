@@ -54,6 +54,8 @@ export interface OmniInferRuntimeSnapshot {
 export interface OmniInferBackendDescriptor {
   id: string
   selected: boolean
+  installed?: boolean
+  compatibility?: 'installed' | 'compatible' | 'unavailable'
 }
 
 export interface OmniInferBackendSetupStatus {

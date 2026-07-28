@@ -235,7 +235,31 @@ export class OmniInferRuntimeService {
   }
 
   async getBackendSetup(): Promise<OmniInferBackendSetupStatus> {
-    return this.process.inspectBackends()
+    const setup = await this.process.inspectBackends()
+    if (!this.server.online) {
+      return setup
+    }
+    try {
+      const inventory = await this.client.listBackends('compatible')
+      const apiBackends = inventory.filter((backend) => !backend.id.startsWith('ik_'))
+      const compatibleBackends = uniqueValues([
+        ...setup.compatibleBackends,
+        ...apiBackends.map((backend) => backend.id),
+      ])
+      const installedBackends = uniqueValues([
+        ...setup.installedBackends,
+        ...apiBackends.filter((backend) => backend.installed).map((backend) => backend.id),
+      ])
+      return {
+        ...setup,
+        baseBackendInstalled: installedBackends.includes(setup.baseBackend),
+        compatibleBackends,
+        installedBackends,
+      }
+    } catch (error) {
+      this.logger?.debug?.('OmniInfer compatible backend API request failed.', { error })
+      return setup
+    }
   }
 
   async installBackend(backend: string): Promise<OmniInferBackendSetupStatus> {
@@ -562,6 +586,10 @@ export class OmniInferRuntimeService {
 
 function samePath(a: string, b: string): boolean {
   return normalizePath(a) === normalizePath(b)
+}
+
+function uniqueValues(values: string[]): string[] {
+  return [...new Set(values)]
 }
 
 function sameOptionalPath(a: string | undefined, b: string | undefined): boolean {

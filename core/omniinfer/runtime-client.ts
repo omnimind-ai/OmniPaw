@@ -103,16 +103,34 @@ export class OmniInferRuntimeClient {
     return this.requestJson<unknown>('/omni/state')
   }
 
-  async listBackends(): Promise<OmniInferBackendDescriptor[]> {
-    const raw = await this.requestJson<{ data?: Array<{ id?: unknown; selected?: unknown }> }>(
-      '/omni/backends'
-    )
+  async listBackends(
+    scope: 'installed' | 'compatible' | 'all' = 'installed'
+  ): Promise<OmniInferBackendDescriptor[]> {
+    const params = new URLSearchParams({ scope })
+    const raw = await this.requestJson<{
+      data?: Array<{
+        id?: unknown
+        selected?: unknown
+        binary_exists?: unknown
+        compatibility?: unknown
+      }>
+    }>(`/omni/backends?${params.toString()}`)
     const list = Array.isArray(raw?.data) ? raw.data : []
     return list
-      .map((item) => ({
-        id: typeof item.id === 'string' ? item.id : '',
-        selected: item.selected === true,
-      }))
+      .map((item) => {
+        const compatibility: OmniInferBackendDescriptor['compatibility'] =
+          item.compatibility === 'installed' ||
+          item.compatibility === 'compatible' ||
+          item.compatibility === 'unavailable'
+            ? item.compatibility
+            : undefined
+        return {
+          id: typeof item.id === 'string' ? item.id : '',
+          selected: item.selected === true,
+          ...(typeof item.binary_exists === 'boolean' ? { installed: item.binary_exists } : {}),
+          ...(compatibility ? { compatibility } : {}),
+        }
+      })
       .filter((item) => item.id.length > 0)
   }
 

@@ -694,20 +694,27 @@ export function parseAdvisorSystemOutput(
   }
   const backends = Array.isArray(payload.backends) ? payload.backends : []
   const summary = payload.summary ?? {}
-  const installedBackends = stringArray(summary.installed_backends)
+  const installedBackends = uniqueStrings([
+    ...stringArray(summary.installed_backends),
+    ...backends
+      .filter((entry) => entry.installed === true)
+      .map((entry) => entry.id)
+      .filter((id): id is string => typeof id === 'string'),
+  ])
+  const compatibleFromSummary = stringArray(summary.compatible_backends).filter(
+    (backend) => !backend.startsWith('ik_')
+  )
   const compatibleFromInventory = backends
     .filter(
       (entry) =>
         typeof entry.id === 'string' &&
+        !entry.id.startsWith('ik_') &&
         entry.compatibility !== 'incompatible' &&
         entry.hardware_compatible !== false &&
         (entry.prebuilt_installable === true || entry.installed === true)
     )
     .map((entry) => entry.id as string)
-  const compatibleBackends =
-    compatibleFromInventory.length > 0
-      ? compatibleFromInventory
-      : stringArray(summary.compatible_backends).filter((backend) => !backend.startsWith('ik_'))
+  const compatibleBackends = uniqueStrings([...compatibleFromSummary, ...compatibleFromInventory])
   const recommendedCandidate = stringValue(summary.recommended_backend_to_install)
   const recommendedBackend =
     recommendedCandidate && compatibleBackends.includes(recommendedCandidate)
@@ -771,6 +778,10 @@ function stringArray(value: unknown): string[] {
   return Array.isArray(value)
     ? value.filter((entry): entry is string => typeof entry === 'string')
     : []
+}
+
+function uniqueStrings(values: string[]): string[] {
+  return [...new Set(values)]
 }
 
 function stringValue(value: unknown): string | undefined {

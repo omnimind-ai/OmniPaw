@@ -191,6 +191,53 @@ positional arguments:
     }
   )
   assert.deepEqual(
+    parseAdvisorSystemOutput(
+      JSON.stringify({
+        backends: [
+          {
+            id: 'llama.cpp-cuda',
+            installed: true,
+            hardware_compatible: true,
+          },
+          {
+            id: 'llama.cpp-vulkan',
+            installed: false,
+            hardware_compatible: true,
+          },
+          {
+            id: 'llama.cpp-cpu',
+            installed: false,
+            hardware_compatible: true,
+          },
+          {
+            id: 'ik_llama.cpp-cuda',
+            installed: false,
+            hardware_compatible: true,
+          },
+        ],
+        summary: {
+          installed_backends: ['llama.cpp-cuda'],
+          compatible_backends: [
+            'llama.cpp-cpu',
+            'llama.cpp-cuda',
+            'llama.cpp-vulkan',
+            'ik_llama.cpp-cuda',
+          ],
+          recommended_installed_backend: 'llama.cpp-cuda',
+        },
+      }),
+      'llama.cpp-cpu'
+    ),
+    {
+      baseBackend: 'llama.cpp-cpu',
+      baseBackendInstalled: false,
+      recommendedBackend: 'llama.cpp-vulkan',
+      recommendedInstalledBackend: 'llama.cpp-cuda',
+      compatibleBackends: ['llama.cpp-cpu', 'llama.cpp-cuda', 'llama.cpp-vulkan'],
+      installedBackends: ['llama.cpp-cuda'],
+    }
+  )
+  assert.deepEqual(
     parseBackendInstallProgress(
       '{"event":"download_progress","backend":"llama.cpp-cuda","asset_count":1,"asset_index":1,"bytes_downloaded":50,"bytes_total":100}'
     ),
