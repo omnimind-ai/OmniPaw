@@ -4,6 +4,7 @@ export type {
 } from './installed-models'
 export { InstalledModelRegistry, resolveModelsDir, scanInstalledModels } from './installed-models'
 export type {
+  OmniInferBackendInstallProgressListener,
   OmniInferProcessController,
   OmniInferProcessExitListener,
   OmniInferProcessLogListener,
@@ -21,6 +22,7 @@ export {
   OmniInferRuntimeClient,
 } from './runtime-client'
 export type {
+  OmniInferBackendInstallListener,
   OmniInferRuntimeChangeListener,
   OmniInferRuntimeServiceOptions,
 } from './runtime-service'

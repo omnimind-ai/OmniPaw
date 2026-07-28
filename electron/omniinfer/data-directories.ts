@@ -31,6 +31,7 @@ export function prepareOmniInferDataDirectories(
   mkdirSync(stateRoot, { recursive: true })
   migrateLegacyState(options.installDir, stateRoot, options.logger)
   mkdirSync(runtimeRoot, { recursive: true })
+  seedBundledRuntime(options.installDir, runtimeRoot, options.logger)
   mkdirSync(logsDir, { recursive: true })
 
   return { stateRoot, runtimeRoot, logsDir }
@@ -42,6 +43,46 @@ export function omniInferRuntimePlatformDirectory(
   if (platform === 'darwin') return 'macos'
   if (platform === 'win32') return 'windows'
   return platform
+}
+
+function seedBundledRuntime(
+  installDir: string | undefined,
+  runtimeRoot: string,
+  logger: Logger | undefined
+): void {
+  if (!installDir) return
+  const bundledRuntimeRoot = join(resolve(installDir), 'bootstrap-runtime')
+  if (!existsSync(bundledRuntimeRoot)) return
+
+  const copied: string[] = []
+  try {
+    for (const entry of readdirSync(bundledRuntimeRoot, { withFileTypes: true })) {
+      if (!entry.isDirectory()) continue
+      const destination = join(runtimeRoot, entry.name)
+      if (existsSync(destination)) continue
+      cpSync(join(bundledRuntimeRoot, entry.name), destination, {
+        recursive: true,
+        errorOnExist: true,
+        force: false,
+      })
+      copied.push(entry.name)
+    }
+  } catch (error) {
+    logger?.warn('Failed to prepare the bundled OmniInfer base backend.', {
+      error,
+      from: bundledRuntimeRoot,
+      to: runtimeRoot,
+    })
+    return
+  }
+
+  if (copied.length > 0) {
+    logger?.info('Prepared the bundled OmniInfer base backend.', {
+      from: bundledRuntimeRoot,
+      to: runtimeRoot,
+      backends: copied,
+    })
+  }
 }
 
 function migrateLegacyState(

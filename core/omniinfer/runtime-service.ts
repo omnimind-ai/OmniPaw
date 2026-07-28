@@ -3,6 +3,8 @@ import { isAbsolute, resolve } from 'node:path'
 import type { Logger } from '@core/logging'
 import type {
   OmniInferBackendDescriptor,
+  OmniInferBackendInstallProgress,
+  OmniInferBackendSetupStatus,
   OmniInferLoadedModel,
   OmniInferModelLoadOptions,
   OmniInferProcessSnapshot,
@@ -23,6 +25,7 @@ const STEADY_POLL_INTERVAL_MS = 10_000
 const UNHEALTHY_FAILURE_THRESHOLD = 3
 
 export type OmniInferRuntimeChangeListener = (snapshot: OmniInferRuntimeSnapshot) => void
+export type OmniInferBackendInstallListener = (event: OmniInferBackendInstallProgress) => void
 
 export interface OmniInferRuntimeServiceOptions {
   client: OmniInferRuntimeClient
@@ -134,6 +137,13 @@ export class OmniInferRuntimeService {
     }
   }
 
+  onBackendInstallProgress(listener: OmniInferBackendInstallListener): () => void {
+    this.emitter.on('backend-install-progress', listener)
+    return () => {
+      this.emitter.off('backend-install-progress', listener)
+    }
+  }
+
   /**
    * Repoint the installed-models registry at a different directory and trigger a scan. This is
    * kept as an internal runtime hook; the user-facing configuration only exposes installDir.
@@ -222,6 +232,29 @@ export class OmniInferRuntimeService {
     this.switchToSteadyPolling()
     this.emit()
     return this.getSnapshot()
+  }
+
+  async getBackendSetup(): Promise<OmniInferBackendSetupStatus> {
+    return this.process.inspectBackends()
+  }
+
+  async installBackend(backend: string): Promise<OmniInferBackendSetupStatus> {
+    const shouldRestart =
+      this.processState.state === 'running' ||
+      this.processState.state === 'starting' ||
+      this.processState.state === 'unhealthy'
+    if (shouldRestart) {
+      await this.stop()
+    }
+    try {
+      return await this.process.installBackend(backend, (event) => {
+        this.emitter.emit('backend-install-progress', event)
+      })
+    } finally {
+      if (shouldRestart) {
+        await this.start()
+      }
+    }
   }
 
   /**

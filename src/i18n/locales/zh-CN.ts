@@ -6,6 +6,7 @@ export default {
       capabilities: '能力',
       nav: {
         providers: '模型服务',
+        omniInfer: 'OmniInfer',
         defaults: '默认模型',
         general: '常规设置',
         shortcuts: '快捷键',
@@ -1250,6 +1251,55 @@ export default {
       refreshErrorToast: 'MCP 服务器刷新失败。',
       toolsLoadErrorToast: '内置工具加载失败。',
     },
+    omniInfer: {
+      runtime: {
+        title: 'OmniInfer 运行服务',
+        status: '服务状态',
+        description: '管理随 OmniPaw 提供的本地推理服务。',
+        endpoint: '服务地址',
+        online: '本地推理服务可用。',
+        offline: '本地推理服务等待启动。',
+        thinking: 'Think 模式',
+        thinkingDescription: '控制模型是否输出思考过程。',
+        states: {
+          notBundled: '当前安装包未包含',
+          stopped: '停止',
+          starting: '启动中',
+          running: '运行中',
+          unhealthy: '等待就绪',
+          crashed: '运行异常',
+        },
+      },
+      backends: {
+        title: '推理后端',
+        baseTitle: '基础后端',
+        baseDescription: '基础 CPU 后端随 OmniInfer 版本提供，可用于所有受支持设备。',
+        installed: '可用',
+        missing: '资源缺失',
+        accelerationTitle: '加速推理后端',
+        recommendedDescription: '根据当前设备推荐 {backend}。',
+        noRecommendation: '当前设备使用现有后端即可。',
+        configured: '配置完成',
+        installedTitle: '加速后端列表',
+        installedDescription: '展示本机已经准备的加速推理后端。',
+        noneInstalled: '仅使用基础后端',
+      },
+      actions: {
+        refresh: '刷新',
+        start: '启动服务',
+        stop: '停止服务',
+        install: '安装推荐后端',
+        installing: '安装中 {progress}%',
+      },
+      messages: {
+        refreshFailed: 'OmniInfer 状态刷新失败。',
+        startFailed: 'OmniInfer 启动失败。',
+        stopFailed: 'OmniInfer 停止失败。',
+        installCompleted: '{backend} 安装完成。',
+        installFailed: '加速推理后端安装失败。',
+        thinkingFailed: 'Think 模式更新失败。',
+      },
+    },
     provider: {
       title: '模型服务',
       emptyState: '当前没有 Provider',
@@ -1417,10 +1467,16 @@ export default {
       omniInfer: {
         title: 'OmniInfer',
         details: {
-          heading: '使用内置 OmniInfer',
-          description: 'OmniPaw 将连接当前安装包内的本地推理服务。',
           status: '服务状态',
           baseUrl: '服务地址',
+          baseBackend: '基础后端',
+        },
+        acceleration: {
+          title: '加速推理',
+          checking: '正在检测适合当前设备的推理后端',
+          recommended: '推荐安装 {backend}',
+          install: '安装加速后端',
+          later: '之后再说',
         },
         status: {
           notBundled: {

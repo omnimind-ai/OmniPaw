@@ -161,6 +161,9 @@ import type {
 import type {
   GetOmniInferLogsPathResponse,
   InstalledModelRecord,
+  InstallOmniInferBackendRequest,
+  OmniInferBackendInstallProgress,
+  OmniInferBackendSetupStatus,
   OmniInferLogEntry,
   OmniInferRuntimeSnapshot,
   PickLocalGgufResponse,
@@ -657,7 +660,14 @@ export interface OmniPawBridge {
     pickInstallDir: () => Promise<PickOmniInferInstallDirResponse>
     rescanModels: () => Promise<RescanInstalledModelsResponse>
     listInstalledModels: () => Promise<InstalledModelRecord[]>
+    getBackendSetup: () => Promise<OmniInferBackendSetupStatus>
+    installBackend: (
+      request: InstallOmniInferBackendRequest
+    ) => Promise<OmniInferBackendSetupStatus>
     onStatusChanged: (callback: (event: OmniInferRuntimeSnapshot) => void) => Unsubscribe
     onLog: (callback: (event: OmniInferLogEntry) => void) => Unsubscribe
+    onBackendInstallProgress: (
+      callback: (event: OmniInferBackendInstallProgress) => void
+    ) => Unsubscribe
   }
 }

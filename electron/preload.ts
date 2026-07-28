@@ -57,7 +57,11 @@ import type {
   UpdateCompanionMemoryProposalRequest,
   UpdateCompanionMemoryRequest,
 } from '@shared/types/memory'
-import type { SelectModelRequest, SetThinkingRequest } from '@shared/types/omniinfer'
+import type {
+  InstallOmniInferBackendRequest,
+  SelectModelRequest,
+  SetThinkingRequest,
+} from '@shared/types/omniinfer'
 import type {
   CreateProviderFromPresetRequest,
   DeleteProviderRequest,
@@ -571,9 +575,14 @@ const bridge: OmniPawBridge = {
       const result = await ipcRenderer.invoke(IPC_CHANNELS.omniinfer.rescanModels)
       return result?.models ?? []
     },
+    getBackendSetup: () => ipcRenderer.invoke(IPC_CHANNELS.omniinfer.getBackendSetup),
+    installBackend: (request: InstallOmniInferBackendRequest) =>
+      ipcRenderer.invoke(IPC_CHANNELS.omniinfer.installBackend, request),
     onStatusChanged: (callback) =>
       createUnsubscriber(IPC_CHANNELS.omniinfer.statusChanged, callback),
     onLog: (callback) => createUnsubscriber(IPC_CHANNELS.omniinfer.log, callback),
+    onBackendInstallProgress: (callback) =>
+      createUnsubscriber(IPC_CHANNELS.omniinfer.backendInstallProgress, callback),
   },
 }
 

@@ -56,6 +56,29 @@ export interface OmniInferBackendDescriptor {
   selected: boolean
 }
 
+export interface OmniInferBackendSetupStatus {
+  baseBackend: string
+  baseBackendInstalled: boolean
+  recommendedBackend?: string
+  recommendedInstalledBackend?: string
+  compatibleBackends: string[]
+  installedBackends: string[]
+}
+
+export interface InstallOmniInferBackendRequest {
+  backend: string
+}
+
+export interface OmniInferBackendInstallProgress {
+  event: string
+  backend?: string
+  assetCount?: number
+  assetIndex?: number
+  bytesDownloaded?: number
+  bytesTotal?: number
+  message?: string
+}
+
 export interface InstalledModelRecord {
   id: string
   name: string

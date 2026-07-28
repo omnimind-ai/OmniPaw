@@ -137,6 +137,7 @@ function normalizeSettingsTab(value: unknown): SettingsTab | undefined {
   if (typeof tab !== 'string') return undefined
   if (
     tab === 'providers' ||
+    tab === 'omniinfer' ||
     tab === 'defaults' ||
     tab === 'general' ||
     tab === 'roles' ||

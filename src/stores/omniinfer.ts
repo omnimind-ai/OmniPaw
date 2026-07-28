@@ -1,5 +1,7 @@
 import type {
   InstalledModelRecord,
+  OmniInferBackendInstallProgress,
+  OmniInferBackendSetupStatus,
   OmniInferLogEntry,
   OmniInferRuntimeSnapshot,
 } from '@shared/types/omniinfer'
@@ -33,6 +35,10 @@ export const useOmniInferStore = defineStore('omniinfer', () => {
   const modelsDir = ref('')
   const logs = ref<OmniInferLogEntry[]>([])
   const loadingStatus = ref(false)
+  const backendSetup = ref<OmniInferBackendSetupStatus | null>(null)
+  const loadingBackendSetup = ref(false)
+  const installingBackend = ref<string | null>(null)
+  const backendInstallProgress = ref<OmniInferBackendInstallProgress | null>(null)
   const busyModelIds = ref<Set<string>>(new Set())
   const error = ref<unknown>(null)
 
@@ -41,9 +47,15 @@ export const useOmniInferStore = defineStore('omniinfer', () => {
   const serverStatus = computed(() => snapshot.value.server)
   const loadedModel = computed(() => snapshot.value.loadedModel)
   const thinking = computed(() => snapshot.value.thinking)
+  const backendInstallPercent = computed(() => {
+    const downloaded = backendInstallProgress.value?.bytesDownloaded ?? 0
+    const total = backendInstallProgress.value?.bytesTotal ?? 0
+    return total > 0 ? Math.min(100, Math.round((downloaded / total) * 100)) : 0
+  })
 
   let statusUnsubscribe: BridgeUnsubscribe | undefined
   let logUnsubscribe: BridgeUnsubscribe | undefined
+  let backendInstallUnsubscribe: BridgeUnsubscribe | undefined
 
   async function refreshStatus(): Promise<void> {
     if (!available.value) return
@@ -76,6 +88,45 @@ export const useOmniInferStore = defineStore('omniinfer', () => {
     } catch (err) {
       error.value = err
       throw err
+    }
+  }
+
+  async function refreshBackendSetup(): Promise<void> {
+    if (!available.value) return
+    loadingBackendSetup.value = true
+    error.value = null
+    try {
+      const result = await appBridge.omniinfer?.getBackendSetup()
+      if (result) {
+        backendSetup.value = result
+      }
+    } catch (err) {
+      error.value = err
+      throw err
+    } finally {
+      loadingBackendSetup.value = false
+    }
+  }
+
+  async function installBackend(backend: string): Promise<void> {
+    if (!available.value || installingBackend.value) return
+    installingBackend.value = backend
+    backendInstallProgress.value = {
+      event: 'install_started',
+      backend,
+    }
+    error.value = null
+    try {
+      const result = await appBridge.omniinfer?.installBackend({ backend })
+      if (result) {
+        backendSetup.value = result
+      }
+      await refreshStatus()
+    } catch (err) {
+      error.value = err
+      throw err
+    } finally {
+      installingBackend.value = null
     }
   }
 
@@ -138,19 +189,25 @@ export const useOmniInferStore = defineStore('omniinfer', () => {
     if (!available.value) return
     statusUnsubscribe?.()
     logUnsubscribe?.()
+    backendInstallUnsubscribe?.()
     statusUnsubscribe = appBridge.omniinfer?.onStatusChanged((event) => {
       snapshot.value = event
     })
     logUnsubscribe = appBridge.omniinfer?.onLog((entry) => {
       logs.value = [...logs.value.slice(-MAX_LOG_LINES + 1), entry]
     })
+    backendInstallUnsubscribe = appBridge.omniinfer?.onBackendInstallProgress((event) => {
+      backendInstallProgress.value = event
+    })
   }
 
   function unsubscribe(): void {
     statusUnsubscribe?.()
     logUnsubscribe?.()
+    backendInstallUnsubscribe?.()
     statusUnsubscribe = undefined
     logUnsubscribe = undefined
+    backendInstallUnsubscribe = undefined
   }
 
   function isBusyFor(modelId: string): boolean {
@@ -162,6 +219,9 @@ export const useOmniInferStore = defineStore('omniinfer', () => {
     installedModels.value = []
     modelsDir.value = ''
     logs.value = []
+    backendSetup.value = null
+    installingBackend.value = null
+    backendInstallProgress.value = null
     error.value = null
   }
 
@@ -171,6 +231,11 @@ export const useOmniInferStore = defineStore('omniinfer', () => {
     modelsDir,
     logs,
     loadingStatus,
+    backendSetup,
+    loadingBackendSetup,
+    installingBackend,
+    backendInstallProgress,
+    backendInstallPercent,
     error,
     available,
     processState,
@@ -178,6 +243,8 @@ export const useOmniInferStore = defineStore('omniinfer', () => {
     loadedModel,
     thinking,
     refreshStatus,
+    refreshBackendSetup,
+    installBackend,
     rescanModels,
     start,
     stop,

@@ -22,18 +22,21 @@ const RELEASE_REPOSITORY = 'omnimind-ai/OmniInfer'
 const TARGETS = {
   'linux-x64': {
     archiveExtension: 'tar.gz',
+    baseBackend: 'llama.cpp-cpu',
     cliNames: ['omniinfer', 'OmniInfer', 'omniinfer-cli'],
     hostArch: 'x64',
     hostPlatform: 'linux',
   },
   'macos-arm64': {
     archiveExtension: 'tar.gz',
+    baseBackend: 'llama.cpp-mac',
     cliNames: ['omniinfer', 'OmniInfer', 'omniinfer-cli'],
     hostArch: 'arm64',
     hostPlatform: 'darwin',
   },
   'windows-x64': {
     archiveExtension: 'zip',
+    baseBackend: 'llama.cpp-cpu',
     cliNames: ['omniinfer.exe', 'OmniInfer.exe', 'omniinfer-cli.exe'],
     hostArch: 'x64',
     hostPlatform: 'win32',
@@ -93,6 +96,14 @@ try {
 
   verifyVersionFile(outputDir, version, targetName)
   verifyExecutableWhenNative(cliPath, target, version)
+  stageBundledBaseBackend({
+    cliPath,
+    installDir: outputDir,
+    stateRoot: join(temporaryRoot, 'base-backend-state'),
+    runtimeRoot: join(outputDir, 'bootstrap-runtime'),
+    backend: target.baseBackend,
+    target,
+  })
 
   const manifest = {
     repository: RELEASE_REPOSITORY,
@@ -101,6 +112,7 @@ try {
     target: targetName,
     asset: assetName,
     sha256: actualChecksum,
+    bundledBaseBackend: target.baseBackend,
   }
   writeFileSync(
     join(outputDir, 'omniinfer-release.json'),
@@ -289,6 +301,43 @@ function verifyExecutableWhenNative(cliPath, target, expectedVersion) {
   const expectedOutput = `omniinfer ${expectedVersion}`
   if (actualVersion !== expectedOutput) {
     fail(`OmniInfer executable mismatch: expected "${expectedOutput}", received "${actualVersion}"`)
+  }
+}
+
+function stageBundledBaseBackend({ cliPath, installDir, stateRoot, runtimeRoot, backend, target }) {
+  if (process.platform !== target.hostPlatform || process.arch !== target.hostArch) {
+    fail(`Bundling ${backend} requires a matching ${target.hostPlatform}-${target.hostArch} host`)
+  }
+  mkdirSync(stateRoot, { recursive: true })
+  mkdirSync(runtimeRoot, { recursive: true })
+  const result = spawnSync(
+    cliPath,
+    [
+      '--state-root',
+      stateRoot,
+      '--runtime-root',
+      runtimeRoot,
+      'backend',
+      'install',
+      backend,
+      '--json',
+    ],
+    {
+      cwd: installDir,
+      encoding: 'utf8',
+      stdio: ['ignore', 'inherit', 'inherit'],
+      windowsHide: true,
+    }
+  )
+  if (result.error) {
+    fail(`Failed to prepare bundled OmniInfer backend ${backend}: ${result.error.message}`)
+  }
+  if (result.status !== 0) {
+    fail(`Preparing bundled OmniInfer backend ${backend} exited with ${result.status}`)
+  }
+  const manifestPath = join(runtimeRoot, backend, 'prebuilt.json')
+  if (!existsSync(manifestPath)) {
+    fail(`Bundled OmniInfer backend manifest is missing: ${manifestPath}`)
   }
 }
 

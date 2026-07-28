@@ -6,6 +6,7 @@ export default {
       capabilities: 'Capabilities',
       nav: {
         providers: 'Model services',
+        omniInfer: 'OmniInfer',
         defaults: 'Default models',
         general: 'General',
         shortcuts: 'Shortcuts',
@@ -1332,6 +1333,56 @@ export default {
       refreshErrorToast: 'Failed to refresh MCP server.',
       toolsLoadErrorToast: 'Failed to load built-in tools.',
     },
+    omniInfer: {
+      runtime: {
+        title: 'OmniInfer Runtime',
+        status: 'Service status',
+        description: 'Manage the local inference service included with OmniPaw.',
+        endpoint: 'Service endpoint',
+        online: 'The local inference service is available.',
+        offline: 'The local inference service is waiting to start.',
+        thinking: 'Think mode',
+        thinkingDescription: 'Control whether the model emits its reasoning process.',
+        states: {
+          notBundled: 'Not included in this build',
+          stopped: 'Stopped',
+          starting: 'Starting',
+          running: 'Running',
+          unhealthy: 'Waiting for readiness',
+          crashed: 'Runtime error',
+        },
+      },
+      backends: {
+        title: 'Inference backends',
+        baseTitle: 'Base backend',
+        baseDescription:
+          'The base CPU backend is included with OmniInfer and works on every supported device.',
+        installed: 'Available',
+        missing: 'Resource missing',
+        accelerationTitle: 'Accelerated inference backend',
+        recommendedDescription: '{backend} is recommended for this device.',
+        noRecommendation: 'The existing backend is suitable for this device.',
+        configured: 'Configured',
+        installedTitle: 'Accelerated backend list',
+        installedDescription: 'Accelerated inference backends prepared on this device.',
+        noneInstalled: 'Using the base backend only',
+      },
+      actions: {
+        refresh: 'Refresh',
+        start: 'Start service',
+        stop: 'Stop service',
+        install: 'Install recommended backend',
+        installing: 'Installing {progress}%',
+      },
+      messages: {
+        refreshFailed: 'Failed to refresh OmniInfer status.',
+        startFailed: 'Failed to start OmniInfer.',
+        stopFailed: 'Failed to stop OmniInfer.',
+        installCompleted: '{backend} installation completed.',
+        installFailed: 'Failed to install the accelerated inference backend.',
+        thinkingFailed: 'Failed to update think mode.',
+      },
+    },
     provider: {
       title: 'Model Services',
       emptyState: 'No providers',
@@ -1505,11 +1556,16 @@ export default {
       omniInfer: {
         title: 'OmniInfer',
         details: {
-          heading: 'Use bundled OmniInfer',
-          description:
-            'OmniPaw will connect to the local inference service included in this build.',
           status: 'Service status',
           baseUrl: 'Service URL',
+          baseBackend: 'Base backend',
+        },
+        acceleration: {
+          title: 'Accelerated inference',
+          checking: 'Checking inference backends for this device',
+          recommended: 'Recommended: {backend}',
+          install: 'Install acceleration',
+          later: 'Later',
         },
         status: {
           notBundled: {

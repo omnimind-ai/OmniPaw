@@ -1,4 +1,9 @@
-import type { OmniInferLogEntry, OmniInferProcessSnapshot } from '@shared/types/omniinfer'
+import type {
+  OmniInferBackendInstallProgress,
+  OmniInferBackendSetupStatus,
+  OmniInferLogEntry,
+  OmniInferProcessSnapshot,
+} from '@shared/types/omniinfer'
 
 export interface OmniInferProcessStopOptions {
   shutdownTimeoutMs?: number
@@ -7,6 +12,9 @@ export interface OmniInferProcessStopOptions {
 export type OmniInferProcessLogListener = (entry: OmniInferLogEntry) => void
 export type OmniInferProcessExitListener = (snapshot: OmniInferProcessSnapshot) => void
 export type OmniInferProcessStateListener = (snapshot: OmniInferProcessSnapshot) => void
+export type OmniInferBackendInstallProgressListener = (
+  event: OmniInferBackendInstallProgress
+) => void
 
 export interface OmniInferProcessController {
   /** Spawn the OmniInfer binary if not already running. No-op if already running. */
@@ -20,6 +28,15 @@ export interface OmniInferProcessController {
 
   /** Latest process snapshot. */
   getState(): OmniInferProcessSnapshot
+
+  /** Inspect installed and device-compatible inference backends. */
+  inspectBackends(): Promise<OmniInferBackendSetupStatus>
+
+  /** Install one backend selected from the compatible backend inventory. */
+  installBackend(
+    backend: string,
+    onProgress?: OmniInferBackendInstallProgressListener
+  ): Promise<OmniInferBackendSetupStatus>
 
   /** Update the managed OmniInfer project/install directory. */
   setInstallDir?(installDir: string | undefined): void

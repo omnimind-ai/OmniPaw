@@ -7,7 +7,7 @@ import type {
   SaveProviderRequest,
 } from '@shared/types/provider'
 import { storeToRefs } from 'pinia'
-import { type Component, computed, onMounted, ref } from 'vue'
+import { type Component, computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 
 import brandLogoUrl from '@/asserts/brand-logo.png'
@@ -29,6 +29,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { cn } from '@/lib/utils'
 import { useOmniInferStore } from '@/stores/omniinfer'
 import { useProviderStore } from '@/stores/provider'
@@ -61,8 +62,15 @@ const {
 } = storeToRefs(settingsStore)
 const { processState: omniInferProcessState, serverStatus: omniInferServerStatus } =
   storeToRefs(omniInferStore)
+const {
+  backendSetup: omniInferBackendSetup,
+  loadingBackendSetup,
+  installingBackend,
+  backendInstallPercent,
+} = storeToRefs(omniInferStore)
 
 const selectedChoiceId = ref<ProviderChoiceId | null>(null)
+const accelerationChoice = ref<'install' | 'later'>('later')
 const omniInferPackaged = ref(false)
 const submitting = ref(false)
 const languageSaving = ref(false)
@@ -156,13 +164,23 @@ const providerGridStyle = computed<Record<string, string>>(() => {
 })
 const languageBusy = computed(() => languageSaving.value || settingsSaving.value)
 const themeBusy = computed(() => themeSaving.value || settingsSaving.value)
+const recommendedAcceleration = computed(() => {
+  const setup = omniInferBackendSetup.value
+  const backend = setup?.recommendedBackend?.trim()
+  if (!setup || !backend || backend === setup.baseBackend) return ''
+  return setup.installedBackends.includes(backend) ? '' : backend
+})
+const backendSetupBusy = computed(
+  () => loadingBackendSetup.value || Boolean(installingBackend.value)
+)
 const busy = computed(
   () =>
     submitting.value ||
     loading.value ||
     presetsLoading.value ||
     languageBusy.value ||
-    themeBusy.value
+    themeBusy.value ||
+    backendSetupBusy.value
 )
 
 onMounted(async () => {
@@ -177,7 +195,12 @@ onMounted(async () => {
     })
   if (omniInferStore.available) {
     omniInferStore.subscribe()
-    omniInferStatusPromise = omniInferStore.refreshStatus().catch(() => {})
+    omniInferStatusPromise = Promise.all([
+      omniInferStore.refreshStatus(),
+      omniInferStore.refreshBackendSetup(),
+    ])
+      .then(() => undefined)
+      .catch(() => undefined)
   }
   await Promise.allSettled([
     appInfoPromise,
@@ -186,6 +209,10 @@ onMounted(async () => {
     providerStore.loadProviders(),
     providerStore.loadProviderPresets(),
   ])
+})
+
+onBeforeUnmount(() => {
+  omniInferStore.unsubscribe()
 })
 
 async function saveLanguage(language: BridgeAppLanguage) {
@@ -233,6 +260,9 @@ async function continueSetup() {
     if (choice.id === 'openai-compatible') {
       await saveCloudProvider(preset)
     } else {
+      if (accelerationChoice.value === 'install' && recommendedAcceleration.value) {
+        await omniInferStore.installBackend(recommendedAcceleration.value)
+      }
       const existing = findExistingProvider(preset)
       if (!existing) {
         await providerStore.createProviderFromPreset(choice.id)
@@ -358,6 +388,12 @@ function choiceCardClass(choice: ProviderChoice) {
     'relative isolate flex h-[250px] w-full flex-col overflow-hidden rounded-xl border border-border bg-card transition-colors sm:h-[180px]',
     selectedChoiceId.value === choice.id && 'bg-muted/20'
   )
+}
+
+function setAccelerationChoice(value: unknown) {
+  if (value === 'install' || value === 'later') {
+    accelerationChoice.value = value
+  }
 }
 
 function normalizeCapabilities(
@@ -610,13 +646,7 @@ function toObjectRecord(value: unknown): Record<string, unknown> {
                 key="omniinfer-details"
                 class="relative z-10 flex h-full flex-col justify-center px-4 py-4"
               >
-                <h3 class="text-sm font-medium">
-                  {{ t('onboarding.provider.omniInfer.details.heading') }}
-                </h3>
-                <p class="mt-1 text-xs leading-5 text-muted-foreground">
-                  {{ t('onboarding.provider.omniInfer.details.description') }}
-                </p>
-                <dl class="mt-3 grid gap-3 text-xs sm:grid-cols-2">
+                <dl class="grid gap-3 text-xs sm:grid-cols-3">
                   <div class="min-w-0">
                     <dt class="text-muted-foreground">
                       {{ t('onboarding.provider.omniInfer.details.status') }}
@@ -631,7 +661,73 @@ function toObjectRecord(value: unknown): Record<string, unknown> {
                       {{ omniInferServerStatus.baseUrl }}
                     </dd>
                   </div>
+                  <div class="min-w-0">
+                    <dt class="text-muted-foreground">
+                      {{ t('onboarding.provider.omniInfer.details.baseBackend') }}
+                    </dt>
+                    <dd class="mt-1 truncate font-mono">
+                      {{ omniInferBackendSetup?.baseBackend || '—' }}
+                    </dd>
+                  </div>
                 </dl>
+
+                <div
+                  v-if="loadingBackendSetup || recommendedAcceleration"
+                  class="mt-3 border-t border-border pt-3"
+                >
+                  <div
+                    v-if="loadingBackendSetup"
+                    class="flex items-center gap-2 text-xs text-muted-foreground"
+                  >
+                    <Loader2Icon class="size-4 animate-spin" />
+                    {{ t('onboarding.provider.omniInfer.acceleration.checking') }}
+                  </div>
+
+                  <template v-else-if="recommendedAcceleration">
+                    <div class="mb-2 flex items-center justify-between gap-3 text-xs">
+                      <div class="min-w-0">
+                        <p class="font-medium">
+                          {{ t('onboarding.provider.omniInfer.acceleration.title') }}
+                        </p>
+                        <p class="truncate text-muted-foreground">
+                          {{ t('onboarding.provider.omniInfer.acceleration.recommended', {
+                            backend: recommendedAcceleration,
+                          }) }}
+                        </p>
+                      </div>
+                      <span
+                        v-if="installingBackend"
+                        class="shrink-0 font-medium text-primary"
+                      >
+                        {{ backendInstallPercent }}%
+                      </span>
+                    </div>
+                    <ToggleGroup
+                      type="single"
+                      variant="outline"
+                      class="grid w-full grid-cols-2"
+                      :model-value="accelerationChoice"
+                      :disabled="Boolean(installingBackend)"
+                      @update:model-value="setAccelerationChoice"
+                    >
+                      <ToggleGroupItem
+                        value="install"
+                        class="w-full"
+                        :aria-label="t('onboarding.provider.omniInfer.acceleration.install')"
+                      >
+                        {{ t('onboarding.provider.omniInfer.acceleration.install') }}
+                      </ToggleGroupItem>
+                      <ToggleGroupItem
+                        value="later"
+                        class="w-full"
+                        :aria-label="t('onboarding.provider.omniInfer.acceleration.later')"
+                      >
+                        {{ t('onboarding.provider.omniInfer.acceleration.later') }}
+                      </ToggleGroupItem>
+                    </ToggleGroup>
+                  </template>
+
+                </div>
               </div>
 
               <button

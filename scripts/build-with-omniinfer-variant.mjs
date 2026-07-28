@@ -13,7 +13,7 @@ import { spawnPnpm } from './spawn-pnpm.mjs'
 
 const variant = process.argv[2]
 if (variant !== 'full' && variant !== 'slim') {
-  console.error('Usage: node scripts/build-with-omniinfer-variant.mjs <full|slim>')
+  process.stderr.write('Usage: node scripts/build-with-omniinfer-variant.mjs <full|slim>\n')
   process.exit(64)
 }
 
@@ -46,12 +46,12 @@ function runNext() {
     ? spawnPnpm(step.pnpmArgs, { stdio: 'inherit', env })
     : spawn(step.cmd, step.args, { stdio: 'inherit', env, shell: false })
   child.on('error', (error) => {
-    console.error(`[build:${variant}] failed to launch:`, error.message)
+    process.stderr.write(`[build:${variant}] failed to launch: ${error.message}\n`)
     process.exit(1)
   })
   child.on('exit', (code) => {
     if (code !== 0) {
-      console.error(`[build:${variant}] step exited with ${code}`)
+      process.stderr.write(`[build:${variant}] step exited with ${code}\n`)
       process.exit(code ?? 1)
     }
     runNext()

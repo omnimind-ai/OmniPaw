@@ -852,7 +852,6 @@ app
       runtimeRoot: omniInferData.runtimeRoot,
       modelsDir,
       logsDir: omniInferLogsDir,
-      autoInstallBackend: omniInferPackaged,
       client: omniInferClient,
       logger: mainLogger.child({ scope: 'omniinfer.process' }),
     })

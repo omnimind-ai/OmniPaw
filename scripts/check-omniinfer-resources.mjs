@@ -20,19 +20,20 @@ const RESOURCE_DIR = join(ROOT, 'resources', 'omniinfer')
 const BINARY_NAMES_WINDOWS = ['OmniInfer.exe', 'omniinfer.exe', 'omniinfer-cli.exe']
 const BINARY_NAMES_POSIX = ['OmniInfer', 'omniinfer', 'omniinfer-cli']
 const expected = process.platform === 'win32' ? BINARY_NAMES_WINDOWS : BINARY_NAMES_POSIX
+const baseBackend = process.platform === 'darwin' ? 'llama.cpp-mac' : 'llama.cpp-cpu'
 
 if (!existsSync(RESOURCE_DIR)) {
-  console.error(
+  process.stderr.write(
     `[omniinfer] resources/omniinfer/ does not exist.\n` +
       `  Either set OMNIPAW_BUNDLE_OMNIINFER=0 to build a slim variant, or place an\n` +
-      `  OmniInfer release into resources/omniinfer/ and retry.`
+      `  OmniInfer release into resources/omniinfer/ and retry.\n`
   )
   process.exit(2)
 }
 
 const entries = readdirSync(RESOURCE_DIR).filter((name) => name !== '.gitkeep')
 if (entries.length === 0) {
-  console.error('[omniinfer] resources/omniinfer/ is empty.')
+  process.stderr.write('[omniinfer] resources/omniinfer/ is empty.\n')
   process.exit(2)
 }
 
@@ -48,6 +49,16 @@ if (!present) {
       `  Continuing build.`
   )
 } else {
-  console.log('[omniinfer] resources/omniinfer/ contents look ready for bundling.')
+  const baseBackendManifest = join(RESOURCE_DIR, 'bootstrap-runtime', baseBackend, 'prebuilt.json')
+  if (!existsSync(baseBackendManifest)) {
+    process.stderr.write(
+      `[omniinfer] Bundled base backend is missing: ${baseBackendManifest}\n` +
+        `  Run scripts/prepare-omniinfer-resource.mjs for this platform before packaging.\n`
+    )
+    process.exit(2)
+  }
+  console.log(
+    `[omniinfer] resources/omniinfer/ contains the CLI and bundled ${baseBackend} backend.`
+  )
 }
 process.exit(0)

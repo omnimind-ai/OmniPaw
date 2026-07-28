@@ -11,6 +11,7 @@ import LocalAgentSettingsForm from '@/components/settings/LocalAgentSettingsForm
 import McpServerSettingsForm from '@/components/settings/McpServerSettingsForm.vue'
 import MemorySettingsForm from '@/components/settings/MemorySettingsForm.vue'
 import ObservationSettingsForm from '@/components/settings/ObservationSettingsForm.vue'
+import OmniInferSettingsForm from '@/components/settings/OmniInferSettingsForm.vue'
 import ProviderSettingsForm from '@/components/settings/ProviderSettingsForm.vue'
 import ScheduledTaskSettingsForm from '@/components/settings/ScheduledTaskSettingsForm.vue'
 import ShortcutSettingsForm from '@/components/settings/ShortcutSettingsForm.vue'
@@ -161,6 +162,7 @@ function normalizeSettingsTab(value: unknown): SettingsTab | undefined {
   if (typeof tab !== 'string') return undefined
   if (
     tab === 'providers' ||
+    tab === 'omniinfer' ||
     tab === 'defaults' ||
     tab === 'general' ||
     tab === 'roles' ||
@@ -263,6 +265,8 @@ function normalizeSettingsTab(value: unknown): SettingsTab | undefined {
 
         <template v-else>
           <ProviderSettingsForm v-if="activeTab === 'providers'" />
+
+          <OmniInferSettingsForm v-else-if="activeTab === 'omniinfer'" />
 
           <DefaultModelSettingsForm
             v-else-if="activeTab === 'defaults'"

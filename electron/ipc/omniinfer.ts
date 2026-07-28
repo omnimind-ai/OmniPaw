@@ -5,6 +5,8 @@ import { IPC_CHANNELS } from '@shared/constants'
 import type {
   GetOmniInferLogsPathResponse,
   InstalledModelRecord,
+  InstallOmniInferBackendRequest,
+  OmniInferBackendInstallProgress,
   OmniInferRuntimeSnapshot,
   PickLocalGgufResponse,
   PickOmniInferInstallDirResponse,
@@ -62,6 +64,17 @@ export function registerOmniInferIpcHandlers(options: IpcHandlerOptions): void {
     options,
     IPC_CHANNELS.omniinfer.setThinking,
     async (_event, request: SetThinkingRequest) => service.setThinking(request.enabled)
+  )
+
+  registerLoggedIpcHandler(options, IPC_CHANNELS.omniinfer.getBackendSetup, async () =>
+    service.getBackendSetup()
+  )
+
+  registerLoggedIpcHandler(
+    options,
+    IPC_CHANNELS.omniinfer.installBackend,
+    async (_event, request: InstallOmniInferBackendRequest) =>
+      service.installBackend(request.backend)
   )
 
   registerLoggedIpcHandler(
@@ -149,6 +162,15 @@ export function registerOmniInferIpcHandlers(options: IpcHandlerOptions): void {
     }
   }
   options.runtime.omniInferProcessController?.onLog(broadcastLog)
+
+  const broadcastBackendInstallProgress = (progress: OmniInferBackendInstallProgress): void => {
+    for (const window of BrowserWindow.getAllWindows()) {
+      if (!window.isDestroyed()) {
+        window.webContents.send(IPC_CHANNELS.omniinfer.backendInstallProgress, progress)
+      }
+    }
+  }
+  service.onBackendInstallProgress(broadcastBackendInstallProgress)
 
   // Expose installed models list-only channel under same `rescan` (for read-only).
   // We piggy-back on rescanModels return shape for live list; the renderer can simply call
