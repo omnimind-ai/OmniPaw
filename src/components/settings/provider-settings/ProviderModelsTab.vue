@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { PlusIcon, RefreshCwIcon } from '@lucide/vue'
+import { DownloadIcon, PlusIcon, RefreshCwIcon } from '@lucide/vue'
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 
@@ -7,6 +7,7 @@ import SettingsSearchBar from '@/components/settings/common/SettingsSearchBar.vu
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import ProviderModelItem from './ProviderModelItem.vue'
+import ProviderOmniInferModelDownloadDrawer from './ProviderOmniInferModelDownloadDrawer.vue'
 import type { ModelInput, ProviderDraft, ProviderModelDraft } from './types'
 
 const { t } = useI18n()
@@ -15,6 +16,7 @@ const props = defineProps<{
   draft: ProviderDraft
   canRefreshModels: boolean
   refreshingModels: boolean
+  isOmniInferProvider: boolean
 }>()
 
 const emit = defineEmits<{
@@ -35,6 +37,7 @@ const emit = defineEmits<{
 
 const searchQuery = ref('')
 const openModelKeys = ref<string[]>([])
+const downloadDrawerOpen = ref(false)
 
 const filteredModels = computed(() => {
   const entries = props.draft.models.map((model, index) => ({ model, index }))
@@ -105,6 +108,17 @@ function setModelOpen(model: ProviderModelDraft, open: boolean) {
         </Button>
 
         <Button
+          v-if="isOmniInferProvider"
+          type="button"
+          variant="outline"
+          @click="downloadDrawerOpen = true"
+        >
+          <DownloadIcon data-icon="inline-start" />
+          {{ t('settings.provider.models.download.openButton') }}
+        </Button>
+
+        <Button
+          v-else
           type="button"
           variant="outline"
           @click="emit('add-model')"
@@ -139,6 +153,12 @@ function setModelOpen(model: ProviderModelDraft, open: boolean) {
       @remove="emit('remove-model', index)"
       @set-optional-number="(key, value) => emit('set-optional-number', model, key, value)"
       @update-model-input="(input, checked) => emit('update-model-input', model, input, checked)"
+    />
+
+    <ProviderOmniInferModelDownloadDrawer
+      v-if="isOmniInferProvider"
+      v-model:open="downloadDrawerOpen"
+      @models-changed="emit('refresh-models')"
     />
   </div>
 </template>

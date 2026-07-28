@@ -175,6 +175,102 @@ export interface RescanInstalledModelsResponse {
   modelsDir: string
 }
 
+export type OmniInferModelCatalogSource = 'omnicore' | 'huggingface'
+
+export interface OmniInferCatalogDownloadFile {
+  download: string
+  sizeGiB?: number
+  filename?: string
+}
+
+export interface OmniInferCatalogQuantization {
+  id: string
+  label: string
+  download: string
+  sizeGiB: number
+  filename?: string
+  files?: OmniInferCatalogDownloadFile[]
+  backend?: string
+  requiredMemoryGiB?: number
+  suitable?: boolean
+}
+
+export interface OmniInferCatalogVisionSpec {
+  download: string
+  sizeGiB: number
+  filename?: string
+}
+
+export interface OmniInferCatalogModel {
+  id: string
+  source: OmniInferModelCatalogSource
+  runtime: string
+  backend: string
+  provider: string
+  name: string
+  tags: string[]
+  quantizations: OmniInferCatalogQuantization[]
+  contextLength?: number
+  repoId?: string
+  downloads?: number
+  likes?: number
+  lastModified?: string
+  vision?: OmniInferCatalogVisionSpec
+}
+
+export interface ListOmniInferModelCatalogRequest {
+  source: OmniInferModelCatalogSource
+  query?: string
+  limit?: number
+}
+
+export interface ListOmniInferModelCatalogResponse {
+  source: OmniInferModelCatalogSource
+  query: string
+  models: OmniInferCatalogModel[]
+}
+
+export type OmniInferModelDownloadStatus =
+  | 'queued'
+  | 'downloading'
+  | 'completed'
+  | 'failed'
+  | 'canceled'
+
+export interface StartOmniInferModelDownloadRequest {
+  modelId: string
+  modelName: string
+  source: OmniInferModelCatalogSource
+  runtime?: string
+  contextLength?: number
+  supportsVision?: boolean
+  supportsThinking?: boolean
+  files: OmniInferCatalogDownloadFile[]
+}
+
+export interface OmniInferModelDownloadTask {
+  id: string
+  modelId: string
+  modelName: string
+  source: OmniInferModelCatalogSource
+  status: OmniInferModelDownloadStatus
+  progress: number
+  downloadedBytes: number
+  totalBytes?: number
+  speedBytesPerSecond?: number
+  errorMessage?: string
+  createdAt: number
+  updatedAt: number
+}
+
+export interface CancelOmniInferModelDownloadRequest {
+  taskId: string
+}
+
+export interface RetryOmniInferModelDownloadRequest {
+  taskId: string
+}
+
 export interface GetOmniInferLogsPathResponse {
   path: string
   exists: boolean

@@ -35,6 +35,8 @@ import { ObservationManager } from '@core/observation'
 import type { OmniInferProcessController } from '@core/omniinfer'
 import {
   InstalledModelRegistry,
+  OmniInferModelCatalogService,
+  OmniInferModelDownloadManager,
   OmniInferRuntimeClient,
   OmniInferRuntimeService,
   resolveModelsDir,
@@ -114,6 +116,8 @@ export interface CoreRuntime {
   toolManagementService: ToolManagementService
   omniInferRuntimeService?: OmniInferRuntimeService
   omniInferInstalledModels?: InstalledModelRegistry
+  omniInferModelCatalog?: OmniInferModelCatalogService
+  omniInferModelDownloads?: OmniInferModelDownloadManager
   omniInferProcessController?: OmniInferProcessController
   omniInferLogsDir?: string
   dispose: () => void
@@ -274,6 +278,13 @@ export function createCoreRuntime(options: CoreRuntimeOptions): CoreRuntime {
     logger: omniInferLogger.child({ scope: 'installed-models' }),
   })
   const omniInferClient = new OmniInferRuntimeClient()
+  const omniInferModelCatalog = new OmniInferModelCatalogService({
+    getGatewayBaseUrl: () => omniInferClient.getBaseUrl(),
+  })
+  const omniInferModelDownloads = new OmniInferModelDownloadManager({
+    installedModels: omniInferInstalledModels,
+    logger: omniInferLogger.child({ scope: 'model-downloads' }),
+  })
   let omniInferRuntimeService: OmniInferRuntimeService | undefined
   if (options.omniInferProcessController) {
     omniInferRuntimeService = new OmniInferRuntimeService({
@@ -513,12 +524,15 @@ export function createCoreRuntime(options: CoreRuntimeOptions): CoreRuntime {
     toolManagementService,
     omniInferRuntimeService,
     omniInferInstalledModels,
+    omniInferModelCatalog,
+    omniInferModelDownloads,
     omniInferProcessController: options.omniInferProcessController,
     omniInferLogsDir: options.omniInferLogsDir,
     dispose: () => {
       observationManager.dispose('app_exit')
       catAppearanceManager.dispose()
       cronManager.stop()
+      omniInferModelDownloads.dispose()
       omniInferRuntimeService?.dispose()
       dbClient.close()
     },

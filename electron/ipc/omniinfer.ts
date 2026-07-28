@@ -3,16 +3,21 @@ import { isAbsolute } from 'node:path'
 import { syncOmniInferProviderModels } from '@core/omniinfer'
 import { IPC_CHANNELS } from '@shared/constants'
 import type {
+  CancelOmniInferModelDownloadRequest,
   GetOmniInferLogsPathResponse,
   InstalledModelRecord,
   InstallOmniInferBackendRequest,
+  ListOmniInferModelCatalogRequest,
   OmniInferBackendInstallProgress,
+  OmniInferModelDownloadTask,
   OmniInferRuntimeSnapshot,
   PickLocalGgufResponse,
   PickOmniInferInstallDirResponse,
   RescanInstalledModelsResponse,
+  RetryOmniInferModelDownloadRequest,
   SelectModelRequest,
   SetThinkingRequest,
+  StartOmniInferModelDownloadRequest,
 } from '@shared/types/omniinfer'
 import { BrowserWindow, dialog } from 'electron'
 import { registerLoggedIpcHandler } from './common'
@@ -21,7 +26,9 @@ import type { IpcHandlerOptions } from './types'
 export function registerOmniInferIpcHandlers(options: IpcHandlerOptions): void {
   const service = options.runtime.omniInferRuntimeService
   const installedModels = options.runtime.omniInferInstalledModels
-  if (!service || !installedModels) {
+  const modelCatalog = options.runtime.omniInferModelCatalog
+  const modelDownloads = options.runtime.omniInferModelDownloads
+  if (!service || !installedModels || !modelCatalog || !modelDownloads) {
     options.ipcLogger.warn('OmniInfer runtime service is not configured; IPC disabled.')
     return
   }
@@ -75,6 +82,35 @@ export function registerOmniInferIpcHandlers(options: IpcHandlerOptions): void {
     IPC_CHANNELS.omniinfer.installBackend,
     async (_event, request: InstallOmniInferBackendRequest) =>
       service.installBackend(request.backend)
+  )
+
+  registerLoggedIpcHandler(
+    options,
+    IPC_CHANNELS.omniinfer.listModelCatalog,
+    async (_event, request: ListOmniInferModelCatalogRequest) => modelCatalog.list(request)
+  )
+
+  registerLoggedIpcHandler(options, IPC_CHANNELS.omniinfer.listModelDownloads, async () =>
+    modelDownloads.list()
+  )
+
+  registerLoggedIpcHandler(
+    options,
+    IPC_CHANNELS.omniinfer.startModelDownload,
+    async (_event, request: StartOmniInferModelDownloadRequest) => modelDownloads.start(request)
+  )
+
+  registerLoggedIpcHandler(
+    options,
+    IPC_CHANNELS.omniinfer.cancelModelDownload,
+    async (_event, request: CancelOmniInferModelDownloadRequest) =>
+      modelDownloads.cancel(request.taskId)
+  )
+
+  registerLoggedIpcHandler(
+    options,
+    IPC_CHANNELS.omniinfer.retryModelDownload,
+    async (_event, request: RetryOmniInferModelDownloadRequest) => modelDownloads.retry(request)
   )
 
   registerLoggedIpcHandler(
@@ -171,6 +207,15 @@ export function registerOmniInferIpcHandlers(options: IpcHandlerOptions): void {
     }
   }
   service.onBackendInstallProgress(broadcastBackendInstallProgress)
+
+  const broadcastModelDownload = (task: OmniInferModelDownloadTask): void => {
+    for (const window of BrowserWindow.getAllWindows()) {
+      if (!window.isDestroyed()) {
+        window.webContents.send(IPC_CHANNELS.omniinfer.modelDownloadChanged, task)
+      }
+    }
+  }
+  modelDownloads.onChanged(broadcastModelDownload)
 
   // Expose installed models list-only channel under same `rescan` (for read-only).
   // We piggy-back on rescanModels return shape for live list; the renderer can simply call

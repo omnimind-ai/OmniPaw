@@ -60,7 +60,9 @@ import type {
 } from '@shared/types/memory'
 import type { ObservationState } from '@shared/types/observation'
 import type {
+  ListOmniInferModelCatalogResponse,
   OmniInferBackendSetupStatus,
+  OmniInferModelDownloadTask,
   OmniInferRuntimeSnapshot,
   PickLocalGgufResponse,
   PickOmniInferInstallDirResponse,
@@ -1664,9 +1666,19 @@ const fallbackBridge: OmniPawBridge = {
     }),
     installBackend: () =>
       rejectFallbackPersistence<OmniInferBackendSetupStatus>('omniinfer.installBackend'),
+    listModelCatalog: () =>
+      rejectFallbackPersistence<ListOmniInferModelCatalogResponse>('omniinfer.listModelCatalog'),
+    listModelDownloads: async (): Promise<OmniInferModelDownloadTask[]> => [],
+    startModelDownload: () =>
+      rejectFallbackPersistence<OmniInferModelDownloadTask>('omniinfer.startModelDownload'),
+    cancelModelDownload: () =>
+      rejectFallbackPersistence<OmniInferModelDownloadTask>('omniinfer.cancelModelDownload'),
+    retryModelDownload: () =>
+      rejectFallbackPersistence<OmniInferModelDownloadTask>('omniinfer.retryModelDownload'),
     onStatusChanged: () => () => {},
     onLog: () => () => {},
     onBackendInstallProgress: () => () => {},
+    onModelDownloadChanged: () => () => {},
   },
   mcp: {
     listServers: async () => ({

@@ -506,6 +506,7 @@ function clearMessages() {}
               <ProviderModelsTab
                 :can-refresh-models="canRefreshModels"
                 :draft="providerDraft"
+                :is-omni-infer-provider="isOmniInferProvider"
                 :refreshing-models="refreshingModels"
                 @add-model="addModel"
                 @refresh-models="refreshProviderModels"

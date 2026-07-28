@@ -5,7 +5,6 @@ import {
   BotIcon,
   BrainIcon,
   CalendarClockIcon,
-  CpuIcon,
   EyeIcon,
   InfoIcon,
   KeyboardIcon,
@@ -37,7 +36,6 @@ import {
 
 export type SettingsTab =
   | 'providers'
-  | 'omniinfer'
   | 'defaults'
   | 'general'
   | 'roles'
@@ -71,7 +69,6 @@ const { t } = useI18n()
 
 const primaryItems: SettingsNavItem[] = [
   { value: 'providers', labelKey: 'settings.sidebar.nav.providers', icon: PlugIcon },
-  { value: 'omniinfer', labelKey: 'settings.sidebar.nav.omniInfer', icon: CpuIcon },
   { value: 'defaults', labelKey: 'settings.sidebar.nav.defaults', icon: BotIcon },
 ]
 

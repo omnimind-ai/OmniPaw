@@ -419,6 +419,8 @@ function shouldSkip(filename: string): boolean {
   const lower = filename.toLowerCase()
   if (SKIP_PREFIXES.some((p) => lower.startsWith(p))) return true
   if (SKIP_SUFFIXES.some((s) => lower.endsWith(s))) return true
+  const splitShard = lower.match(/-(\d{5})-of-\d{5}\.gguf$/)
+  if (splitShard && splitShard[1] !== '00001') return true
   return false
 }
 

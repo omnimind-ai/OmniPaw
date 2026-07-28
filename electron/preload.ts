@@ -58,9 +58,13 @@ import type {
   UpdateCompanionMemoryRequest,
 } from '@shared/types/memory'
 import type {
+  CancelOmniInferModelDownloadRequest,
   InstallOmniInferBackendRequest,
+  ListOmniInferModelCatalogRequest,
+  RetryOmniInferModelDownloadRequest,
   SelectModelRequest,
   SetThinkingRequest,
+  StartOmniInferModelDownloadRequest,
 } from '@shared/types/omniinfer'
 import type {
   CreateProviderFromPresetRequest,
@@ -578,11 +582,22 @@ const bridge: OmniPawBridge = {
     getBackendSetup: () => ipcRenderer.invoke(IPC_CHANNELS.omniinfer.getBackendSetup),
     installBackend: (request: InstallOmniInferBackendRequest) =>
       ipcRenderer.invoke(IPC_CHANNELS.omniinfer.installBackend, request),
+    listModelCatalog: (request: ListOmniInferModelCatalogRequest) =>
+      ipcRenderer.invoke(IPC_CHANNELS.omniinfer.listModelCatalog, request),
+    listModelDownloads: () => ipcRenderer.invoke(IPC_CHANNELS.omniinfer.listModelDownloads),
+    startModelDownload: (request: StartOmniInferModelDownloadRequest) =>
+      ipcRenderer.invoke(IPC_CHANNELS.omniinfer.startModelDownload, request),
+    cancelModelDownload: (request: CancelOmniInferModelDownloadRequest) =>
+      ipcRenderer.invoke(IPC_CHANNELS.omniinfer.cancelModelDownload, request),
+    retryModelDownload: (request: RetryOmniInferModelDownloadRequest) =>
+      ipcRenderer.invoke(IPC_CHANNELS.omniinfer.retryModelDownload, request),
     onStatusChanged: (callback) =>
       createUnsubscriber(IPC_CHANNELS.omniinfer.statusChanged, callback),
     onLog: (callback) => createUnsubscriber(IPC_CHANNELS.omniinfer.log, callback),
     onBackendInstallProgress: (callback) =>
       createUnsubscriber(IPC_CHANNELS.omniinfer.backendInstallProgress, callback),
+    onModelDownloadChanged: (callback) =>
+      createUnsubscriber(IPC_CHANNELS.omniinfer.modelDownloadChanged, callback),
   },
 }
 

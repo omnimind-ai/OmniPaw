@@ -3,6 +3,10 @@ export type {
   ResolveModelsDirContext,
 } from './installed-models'
 export { InstalledModelRegistry, resolveModelsDir, scanInstalledModels } from './installed-models'
+export type { OmniInferModelCatalogServiceOptions } from './model-catalog'
+export { OmniInferModelCatalogService, parseOmniCoreCatalog } from './model-catalog'
+export type { OmniInferModelDownloadManagerOptions } from './model-download-manager'
+export { OmniInferModelDownloadManager } from './model-download-manager'
 export type {
   OmniInferBackendInstallProgressListener,
   OmniInferProcessController,

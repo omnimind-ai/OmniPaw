@@ -159,18 +159,24 @@ import type {
   TriggerObservationRequest,
 } from './observation'
 import type {
+  CancelOmniInferModelDownloadRequest,
   GetOmniInferLogsPathResponse,
   InstalledModelRecord,
   InstallOmniInferBackendRequest,
+  ListOmniInferModelCatalogRequest,
+  ListOmniInferModelCatalogResponse,
   OmniInferBackendInstallProgress,
   OmniInferBackendSetupStatus,
   OmniInferLogEntry,
+  OmniInferModelDownloadTask,
   OmniInferRuntimeSnapshot,
   PickLocalGgufResponse,
   PickOmniInferInstallDirResponse,
   RescanInstalledModelsResponse,
+  RetryOmniInferModelDownloadRequest,
   SelectModelRequest,
   SetThinkingRequest,
+  StartOmniInferModelDownloadRequest,
 } from './omniinfer'
 import type {
   CreateProviderFromPresetRequest,
@@ -664,10 +670,24 @@ export interface OmniPawBridge {
     installBackend: (
       request: InstallOmniInferBackendRequest
     ) => Promise<OmniInferBackendSetupStatus>
+    listModelCatalog: (
+      request: ListOmniInferModelCatalogRequest
+    ) => Promise<ListOmniInferModelCatalogResponse>
+    listModelDownloads: () => Promise<OmniInferModelDownloadTask[]>
+    startModelDownload: (
+      request: StartOmniInferModelDownloadRequest
+    ) => Promise<OmniInferModelDownloadTask>
+    cancelModelDownload: (
+      request: CancelOmniInferModelDownloadRequest
+    ) => Promise<OmniInferModelDownloadTask>
+    retryModelDownload: (
+      request: RetryOmniInferModelDownloadRequest
+    ) => Promise<OmniInferModelDownloadTask>
     onStatusChanged: (callback: (event: OmniInferRuntimeSnapshot) => void) => Unsubscribe
     onLog: (callback: (event: OmniInferLogEntry) => void) => Unsubscribe
     onBackendInstallProgress: (
       callback: (event: OmniInferBackendInstallProgress) => void
     ) => Unsubscribe
+    onModelDownloadChanged: (callback: (event: OmniInferModelDownloadTask) => void) => Unsubscribe
   }
 }

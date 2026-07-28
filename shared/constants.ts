@@ -237,5 +237,11 @@ export const IPC_CHANNELS = {
     getBackendSetup: 'omniinfer:get-backend-setup',
     installBackend: 'omniinfer:install-backend',
     backendInstallProgress: 'omniinfer:backend-install-progress',
+    listModelCatalog: 'omniinfer:list-model-catalog',
+    listModelDownloads: 'omniinfer:list-model-downloads',
+    startModelDownload: 'omniinfer:start-model-download',
+    cancelModelDownload: 'omniinfer:cancel-model-download',
+    retryModelDownload: 'omniinfer:retry-model-download',
+    modelDownloadChanged: 'omniinfer:model-download-changed',
   },
 } as const
