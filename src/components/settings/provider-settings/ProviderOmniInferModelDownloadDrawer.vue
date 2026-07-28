@@ -1,5 +1,12 @@
 <script setup lang="ts">
-import { DownloadIcon, RefreshCwIcon, RotateCcwIcon, SearchIcon, XIcon } from '@lucide/vue'
+import {
+  ArrowLeftIcon,
+  ArrowRightIcon,
+  RefreshCwIcon,
+  RotateCcwIcon,
+  SearchIcon,
+  XIcon,
+} from '@lucide/vue'
 import type {
   OmniInferCatalogDownloadFile,
   OmniInferCatalogModel,
@@ -10,31 +17,14 @@ import type {
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { appBridge, type BridgeUnsubscribe } from '@/bridge/app'
-import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card'
+import { Card, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import {
   InputGroup,
   InputGroupAddon,
   InputGroupButton,
   InputGroupInput,
 } from '@/components/ui/input-group'
-import { Progress } from '@/components/ui/progress'
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
 import { Separator } from '@/components/ui/separator'
 import {
   Sheet,
@@ -48,6 +38,8 @@ import {
 import { Skeleton } from '@/components/ui/skeleton'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { errorToText, useToast } from '@/utils/toast'
+import ProviderModelCapabilityBadges from './ProviderModelCapabilityBadges.vue'
+import ProviderOmniInferModelDownloadDetail from './ProviderOmniInferModelDownloadDetail.vue'
 
 const open = defineModel<boolean>('open', { required: true })
 
@@ -65,7 +57,7 @@ const catalogs = ref<Record<OmniInferModelCatalogSource, OmniInferCatalogModel[]
 })
 const loadingSources = ref<Set<OmniInferModelCatalogSource>>(new Set())
 const catalogErrors = ref<Partial<Record<OmniInferModelCatalogSource, string>>>({})
-const selectedQuantizations = ref<Record<string, string>>({})
+const selectedModelId = ref<string>()
 const tasks = ref<OmniInferModelDownloadTask[]>([])
 const completedTaskIds = new Set<string>()
 let downloadUnsubscribe: BridgeUnsubscribe | undefined
@@ -83,13 +75,21 @@ const visibleModels = computed(() => {
   })
 })
 const activeSourceLoading = computed(() => loadingSources.value.has(activeSource.value))
+const selectedModel = computed(() => {
+  if (!selectedModelId.value) return undefined
+  return catalogs.value[activeSource.value].find((model) => model.id === selectedModelId.value)
+})
 
 watch(open, (isOpen) => {
-  if (!isOpen) return
+  if (!isOpen) {
+    selectedModelId.value = undefined
+    return
+  }
   void Promise.allSettled([loadTasks(), loadCatalog(activeSource.value)])
 })
 
 watch(activeSource, (source) => {
+  selectedModelId.value = undefined
   searchQuery.value = ''
   if (open.value) void loadCatalog(source)
 })
@@ -133,7 +133,6 @@ async function loadCatalog(source: OmniInferModelCatalogSource, force = false): 
       ...catalogs.value,
       [source]: result.models,
     }
-    ensureQuantizationSelections(result.models)
   } catch (error) {
     const message = errorToText(error, t('settings.provider.models.download.catalogLoadFailed'))
     catalogErrors.value[source] = message
@@ -145,31 +144,6 @@ async function loadCatalog(source: OmniInferModelCatalogSource, force = false): 
   }
 }
 
-function ensureQuantizationSelections(models: OmniInferCatalogModel[]): void {
-  const next = { ...selectedQuantizations.value }
-  for (const model of models) {
-    if (!next[model.id] && model.quantizations[0]) {
-      next[model.id] = model.quantizations[0].id
-    }
-  }
-  selectedQuantizations.value = next
-}
-
-function selectedQuantization(model: OmniInferCatalogModel): OmniInferCatalogQuantization {
-  const selectedId = selectedQuantizations.value[model.id]
-  return (
-    model.quantizations.find((quantization) => quantization.id === selectedId) ??
-    model.quantizations[0]
-  )
-}
-
-function setSelectedQuantization(modelId: string, value: unknown): void {
-  selectedQuantizations.value = {
-    ...selectedQuantizations.value,
-    [modelId]: String(value),
-  }
-}
-
 function downloadModelId(
   model: OmniInferCatalogModel,
   quantization: OmniInferCatalogQuantization
@@ -177,8 +151,10 @@ function downloadModelId(
   return `${model.id}-${quantization.id}`
 }
 
-function taskFor(model: OmniInferCatalogModel): OmniInferModelDownloadTask | undefined {
-  const quantization = selectedQuantization(model)
+function taskFor(
+  model: OmniInferCatalogModel,
+  quantization: OmniInferCatalogQuantization
+): OmniInferModelDownloadTask | undefined {
   const modelId = downloadModelId(model, quantization)
   return tasks.value.find((task) => task.modelId === modelId)
 }
@@ -187,8 +163,11 @@ function taskIsActive(task: OmniInferModelDownloadTask | undefined): boolean {
   return task?.status === 'queued' || task?.status === 'downloading'
 }
 
-async function handleModelAction(model: OmniInferCatalogModel): Promise<void> {
-  const task = taskFor(model)
+async function handleModelAction(
+  model: OmniInferCatalogModel,
+  quantization: OmniInferCatalogQuantization
+): Promise<void> {
+  const task = taskFor(model, quantization)
   try {
     if (taskIsActive(task) && task) {
       upsertTask(await appBridge.omniinfer.cancelModelDownload({ taskId: task.id }))
@@ -200,7 +179,6 @@ async function handleModelAction(model: OmniInferCatalogModel): Promise<void> {
     }
     if (task?.status === 'completed') return
 
-    const quantization = selectedQuantization(model)
     const files: OmniInferCatalogDownloadFile[] = quantization.files?.length
       ? [...quantization.files]
       : [
@@ -256,35 +234,9 @@ function supportsThinking(model: OmniInferCatalogModel): boolean {
   return model.tags.some((tag) => ['thinking', 'reasoning', '深度思考'].includes(tag.toLowerCase()))
 }
 
-function formatSize(sizeGiB: number): string {
-  return sizeGiB > 0
-    ? t('settings.provider.models.download.sizeGiB', { size: sizeGiB.toFixed(2) })
-    : t('settings.provider.models.download.sizeUnknown')
-}
-
 function formatCount(value?: number): string {
   if (!value) return ''
   return new Intl.NumberFormat(undefined, { notation: 'compact' }).format(value)
-}
-
-function formatSpeed(value?: number): string {
-  if (!value) return ''
-  return `${formatBytes(value)}/s`
-}
-
-function formatBytes(value: number): string {
-  if (value >= 1024 * 1024 * 1024) return `${(value / 1024 / 1024 / 1024).toFixed(1)} GB`
-  if (value >= 1024 * 1024) return `${(value / 1024 / 1024).toFixed(1)} MB`
-  return `${(value / 1024).toFixed(1)} KB`
-}
-
-function actionLabel(task: OmniInferModelDownloadTask | undefined): string {
-  if (taskIsActive(task)) return t('settings.provider.models.download.cancel')
-  if (task?.status === 'failed' || task?.status === 'canceled') {
-    return t('settings.provider.models.download.retry')
-  }
-  if (task?.status === 'completed') return t('settings.provider.models.download.downloaded')
-  return t('settings.provider.models.download.download')
 }
 
 function refreshCatalog(): void {
@@ -295,20 +247,52 @@ function searchHuggingFace(): void {
   if (activeSource.value !== 'huggingface') return
   void loadCatalog('huggingface', true)
 }
+
+function openModelDetail(model: OmniInferCatalogModel): void {
+  selectedModelId.value = model.id
+}
+
+function closeModelDetail(): void {
+  selectedModelId.value = undefined
+}
+
+function handleSelectedModelAction(quantization: OmniInferCatalogQuantization): void {
+  if (!selectedModel.value) return
+  void handleModelAction(selectedModel.value, quantization)
+}
 </script>
 
 <template>
   <Sheet v-model:open="open">
     <SheetContent
       side="right"
-      class="w-full gap-0 p-0 sm:max-w-3xl"
+      class="w-full gap-0 p-0 sm:max-w-4xl"
       :show-close-button="false"
     >
       <SheetHeader class="flex-row items-start gap-3 px-5 py-4 text-left">
+        <Button
+          v-if="selectedModel"
+          type="button"
+          variant="ghost"
+          size="icon"
+          :aria-label="t('settings.provider.models.download.backToCatalog')"
+          @click="closeModelDetail"
+        >
+          <ArrowLeftIcon />
+        </Button>
         <div class="min-w-0 flex-1">
-          <SheetTitle>{{ t('settings.provider.models.download.title') }}</SheetTitle>
-          <SheetDescription>
-            {{ t('settings.provider.models.download.description') }}
+          <SheetTitle class="truncate">
+            {{
+              selectedModel?.name ||
+              t('settings.provider.models.download.title')
+            }}
+          </SheetTitle>
+          <SheetDescription class="truncate">
+            {{
+              selectedModel?.repoId ||
+              selectedModel?.provider ||
+              t('settings.provider.models.download.description')
+            }}
           </SheetDescription>
         </div>
         <SheetClose as-child>
@@ -325,7 +309,10 @@ function searchHuggingFace(): void {
 
       <Separator />
 
-      <div class="flex min-h-0 flex-1 flex-col">
+      <div
+        v-if="!selectedModel"
+        class="flex min-h-0 flex-1 flex-col"
+      >
         <div class="flex flex-col gap-3 border-b px-5 py-4">
           <Tabs
             v-model="activeSource"
@@ -440,80 +427,21 @@ function searchHuggingFace(): void {
                       </template>
                     </CardDescription>
                   </div>
-                  <div class="flex shrink-0 flex-wrap justify-end gap-1">
-                    <Badge
-                      v-if="supportsVision(model)"
-                      variant="outline"
-                    >
-                      {{ t('settings.provider.models.download.vision') }}
-                    </Badge>
-                    <Badge
-                      v-if="supportsThinking(model)"
-                      variant="secondary"
-                    >
-                      {{ t('settings.provider.models.download.thinking') }}
-                    </Badge>
-                  </div>
+                  <ProviderModelCapabilityBadges
+                    :supports-reasoning="supportsThinking(model)"
+                    :supports-vision="supportsVision(model)"
+                  />
                 </div>
               </CardHeader>
 
-              <CardContent
-                v-if="taskFor(model)"
-                class="flex flex-col gap-2 px-4"
-              >
-                <div class="flex items-center justify-between gap-3 text-xs text-muted-foreground">
-                  <span>{{ t(`settings.provider.models.download.status.${taskFor(model)?.status}`) }}</span>
-                  <span>
-                    {{ Math.round(taskFor(model)?.progress ?? 0) }}%
-                    <template v-if="formatSpeed(taskFor(model)?.speedBytesPerSecond)">
-                      · {{ formatSpeed(taskFor(model)?.speedBytesPerSecond) }}
-                    </template>
-                  </span>
-                </div>
-                <Progress :model-value="taskFor(model)?.progress ?? 0" />
-                <p
-                  v-if="taskFor(model)?.errorMessage"
-                  class="text-xs text-destructive"
-                >
-                  {{ taskFor(model)?.errorMessage }}
-                </p>
-              </CardContent>
-
-              <CardFooter class="flex-wrap gap-2 px-4">
-                <Select
-                  :model-value="selectedQuantizations[model.id]"
-                  @update:model-value="setSelectedQuantization(model.id, $event)"
-                >
-                  <SelectTrigger class="min-w-44 flex-1">
-                    <SelectValue :placeholder="t('settings.provider.models.download.quantization')" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectGroup>
-                      <SelectItem
-                        v-for="quantization in model.quantizations"
-                        :key="quantization.id"
-                        :value="quantization.id"
-                      >
-                        {{ quantization.label }} · {{ formatSize(quantization.sizeGiB) }}
-                      </SelectItem>
-                    </SelectGroup>
-                  </SelectContent>
-                </Select>
+              <CardFooter class="justify-end px-4">
                 <Button
                   type="button"
-                  :variant="taskIsActive(taskFor(model)) ? 'outline' : 'default'"
-                  :disabled="taskFor(model)?.status === 'completed'"
-                  @click="handleModelAction(model)"
+                  variant="outline"
+                  @click="openModelDetail(model)"
                 >
-                  <DownloadIcon
-                    v-if="!taskIsActive(taskFor(model))"
-                    data-icon="inline-start"
-                  />
-                  <XIcon
-                    v-else
-                    data-icon="inline-start"
-                  />
-                  {{ actionLabel(taskFor(model)) }}
+                  {{ t('settings.provider.models.download.viewDetails') }}
+                  <ArrowRightIcon data-icon="inline-end" />
                 </Button>
               </CardFooter>
             </Card>
@@ -521,12 +449,43 @@ function searchHuggingFace(): void {
         </div>
       </div>
 
+      <div
+        v-else
+        class="min-h-0 flex-1 overflow-y-auto"
+      >
+        <ProviderOmniInferModelDownloadDetail
+          :model="selectedModel"
+          :tasks="tasks"
+          @action="handleSelectedModelAction"
+        />
+      </div>
+
       <Separator />
       <SheetFooter class="flex-row items-center justify-between gap-3 p-4">
         <span class="text-xs text-muted-foreground">
-          {{ t('settings.provider.models.download.modelsFound', { count: visibleModels.length }) }}
+          {{
+            selectedModel
+              ? t('settings.provider.models.download.variantsFound', {
+                  count: selectedModel.quantizations.length,
+                })
+              : t('settings.provider.models.download.modelsFound', {
+                  count: visibleModels.length,
+                })
+          }}
         </span>
-        <SheetClose as-child>
+        <Button
+          v-if="selectedModel"
+          type="button"
+          variant="outline"
+          @click="closeModelDetail"
+        >
+          <ArrowLeftIcon data-icon="inline-start" />
+          {{ t('settings.provider.models.download.backToCatalog') }}
+        </Button>
+        <SheetClose
+          v-else
+          as-child
+        >
           <Button
             type="button"
             variant="outline"
