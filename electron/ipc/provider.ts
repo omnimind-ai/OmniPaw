@@ -396,6 +396,9 @@ function legacyProviderSource(provider: ProviderConfig): ProviderRegistrySource 
     defaultModelId: provider.defaultModelId,
     capabilities: provider.capabilities,
     compat: provider.compat,
+    omniInferInstallDir: provider.omniInferInstallDir,
+    omniInferAutoStart: provider.omniInferAutoStart,
+    omniInferModelsDir: provider.omniInferModelsDir,
     createdAt: provider.createdAt,
     updatedAt: provider.updatedAt,
   }

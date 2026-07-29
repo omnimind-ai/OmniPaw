@@ -104,6 +104,9 @@ const showCustomInstallFields = computed(
 )
 
 const showInstallDirField = computed(() => showCustomInstallFields.value)
+const modelsDirPlaceholder = computed(
+  () => snapshot.value.process.modelsDir || t('settings.provider.omniInfer.modelsDirExample')
+)
 
 async function handlePickInstallDir(): Promise<void> {
   try {
@@ -113,6 +116,17 @@ async function handlePickInstallDir(): Promise<void> {
     }
   } catch (error) {
     toast.error(errorToText(error, t('settings.provider.messages.pickInstallDirFailed')))
+  }
+}
+
+async function handlePickModelsDir(): Promise<void> {
+  try {
+    const result = await appBridge.omniinfer?.pickModelsDir()
+    if (result?.path) {
+      props.draft.omniInferModelsDir = result.path
+    }
+  } catch (error) {
+    toast.error(errorToText(error, t('settings.provider.messages.pickModelsDirFailed')))
   }
 }
 
@@ -234,6 +248,7 @@ onBeforeUnmount(() => {
           :placeholder="t('settings.provider.omniInfer.installDirExample')"
         />
         <Button
+          type="button"
           size="sm"
           variant="ghost"
           @click="handlePickInstallDir"
@@ -241,6 +256,52 @@ onBeforeUnmount(() => {
           {{ t('settings.provider.omniInfer.selectDir') }}
         </Button>
       </InputGroup>
+    </Field>
+
+    <Field>
+      <FieldLabel for="omniinfer-models-dir">
+        {{ t('settings.provider.omniInfer.modelsDir') }}
+      </FieldLabel>
+      <InputGroup>
+        <InputGroupAddon>
+          <FolderOpenIcon />
+        </InputGroupAddon>
+        <InputGroupInput
+          id="omniinfer-models-dir"
+          v-model="draft.omniInferModelsDir"
+          :placeholder="modelsDirPlaceholder"
+        />
+        <Button
+          type="button"
+          size="sm"
+          variant="ghost"
+          @click="handlePickModelsDir"
+        >
+          {{ t('settings.provider.omniInfer.selectDir') }}
+        </Button>
+      </InputGroup>
+      <FieldDescription>
+        {{ t('settings.provider.omniInfer.modelsDirDescription') }}
+      </FieldDescription>
+    </Field>
+
+    <Field
+      orientation="horizontal"
+      class="items-center rounded-lg border px-3 py-2"
+    >
+      <Switch
+        id="omniinfer-auto-start"
+        v-model="draft.omniInferAutoStart"
+        :aria-label="t('settings.provider.omniInfer.autoStart')"
+      />
+      <FieldContent>
+        <FieldLabel for="omniinfer-auto-start">
+          {{ t('settings.provider.omniInfer.autoStart') }}
+        </FieldLabel>
+        <FieldDescription>
+          {{ t('settings.provider.omniInfer.autoStartDescription') }}
+        </FieldDescription>
+      </FieldContent>
     </Field>
 
     <Field

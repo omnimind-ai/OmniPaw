@@ -1,3 +1,4 @@
+import { isAbsolute } from 'node:path'
 import { redactSensitiveText } from '@core/logging/redaction'
 import type {
   ProviderApi,
@@ -202,6 +203,9 @@ function normalizeSourceRecord(
     compat: isPlainObject(raw.compat) ? structuredClone(raw.compat) : undefined,
     omniInferInstallDir:
       stringValue(raw.omniInferInstallDir) || stringValue(raw.omniInferBinaryPath) || undefined,
+    omniInferAutoStart:
+      typeof raw.omniInferAutoStart === 'boolean' ? raw.omniInferAutoStart : undefined,
+    omniInferModelsDir: stringValue(raw.omniInferModelsDir) || undefined,
     createdAt: finiteNumber(raw.createdAt) ?? now,
     updatedAt: finiteNumber(raw.updatedAt) ?? now,
   }
@@ -370,6 +374,13 @@ function validateSource(
       path: `${path}.enabled`,
       message: 'Source enabled state must be boolean.',
       code: 'invalid_type',
+    })
+  }
+  if (source.omniInferModelsDir && !isAbsolute(source.omniInferModelsDir)) {
+    issues.push({
+      path: `${path}.omniInferModelsDir`,
+      message: 'OmniInfer models directory must be an absolute path.',
+      code: 'invalid_path',
     })
   }
 }

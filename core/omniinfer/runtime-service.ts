@@ -47,6 +47,7 @@ export class OmniInferRuntimeService {
   private readonly client: OmniInferRuntimeClient
   private readonly process: OmniInferProcessController
   private readonly installedModels: InstalledModelRegistry
+  private readonly defaultModelsDir: string
   private readonly logger?: Logger
   private readonly now: () => number
 
@@ -69,6 +70,7 @@ export class OmniInferRuntimeService {
     this.client = options.client
     this.process = options.process
     this.installedModels = options.installedModels
+    this.defaultModelsDir = options.installedModels.getModelsDir()
     this.logger = options.logger
     this.now = options.now ?? Date.now
     this.processState = this.process.getState()
@@ -144,13 +146,9 @@ export class OmniInferRuntimeService {
     }
   }
 
-  /**
-   * Repoint the installed-models registry at a different directory and trigger a scan. This is
-   * kept as an internal runtime hook; the user-facing configuration only exposes installDir.
-   */
-  setModelsDir(dir: string): void {
-    const trimmed = dir.trim()
-    if (!trimmed) return
+  /** Repoint model downloads and installed-model scans, then refresh the model index. */
+  setModelsDir(dir: string | undefined): void {
+    const trimmed = dir?.trim() || this.defaultModelsDir
     const previous = this.installedModels.getModelsDir()
     if (samePath(previous, trimmed)) return
     this.installedModels.setModelsDir(trimmed)

@@ -13,6 +13,7 @@ import type {
   OmniInferRuntimeSnapshot,
   PickLocalGgufResponse,
   PickOmniInferInstallDirResponse,
+  PickOmniInferModelsDirResponse,
   RescanInstalledModelsResponse,
   RetryOmniInferModelDownloadRequest,
   SelectModelRequest,
@@ -175,6 +176,25 @@ export function registerOmniInferIpcHandlers(options: IpcHandlerOptions): void {
 
   registerLoggedIpcHandler(
     options,
+    IPC_CHANNELS.omniinfer.pickModelsDir,
+    async (event): Promise<PickOmniInferModelsDirResponse> => {
+      const senderWindow = BrowserWindow.fromWebContents(event.sender) ?? undefined
+      const result = senderWindow
+        ? await dialog.showOpenDialog(senderWindow, modelsDirDialogOptions())
+        : await dialog.showOpenDialog(modelsDirDialogOptions())
+      if (result.canceled || result.filePaths.length === 0) {
+        return { path: null }
+      }
+      const picked = result.filePaths[0]
+      if (!isAbsolute(picked) || !existsSync(picked)) {
+        return { path: null }
+      }
+      return { path: picked }
+    }
+  )
+
+  registerLoggedIpcHandler(
+    options,
     IPC_CHANNELS.omniinfer.rescanModels,
     async (): Promise<RescanInstalledModelsResponse> => {
       const models = await installedModels.scan()
@@ -240,6 +260,13 @@ function gguDialogOptions(): Electron.OpenDialogOptions {
 function installDirDialogOptions(): Electron.OpenDialogOptions {
   return {
     title: '选择 OmniInfer 安装目录',
+    properties: ['openDirectory'],
+  }
+}
+
+function modelsDirDialogOptions(): Electron.OpenDialogOptions {
+  return {
+    title: '选择 OmniInfer 模型目录',
     properties: ['openDirectory'],
   }
 }

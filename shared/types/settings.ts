@@ -134,6 +134,8 @@ export interface DesktopProviderSource {
   createdAt: number
   updatedAt: number
   omniInferInstallDir?: string
+  omniInferAutoStart?: boolean
+  omniInferModelsDir?: string
   /** @deprecated Use `omniInferInstallDir`; kept only for old config normalization. */
   omniInferBinaryPath?: string
 }

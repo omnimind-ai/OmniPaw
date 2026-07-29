@@ -58,6 +58,8 @@ const defaultProviderSource: DesktopProviderSource = {
   createdAt: now,
   updatedAt: now,
   omniInferInstallDir: undefined,
+  omniInferAutoStart: undefined,
+  omniInferModelsDir: undefined,
 }
 const defaultProviderModel: DesktopProviderModel = {
   id: '',
@@ -608,6 +610,10 @@ function normalizeProviderSource(item: unknown): DesktopProviderSource {
         : typeof raw.omniInferBinaryPath === 'string'
           ? raw.omniInferBinaryPath
           : undefined,
+    omniInferAutoStart:
+      typeof raw.omniInferAutoStart === 'boolean' ? raw.omniInferAutoStart : undefined,
+    omniInferModelsDir:
+      typeof raw.omniInferModelsDir === 'string' ? raw.omniInferModelsDir : undefined,
     defaultModelId:
       typeof raw.defaultModelId === 'string' ? raw.defaultModelId : merged.defaultModelId,
     createdAt: typeof raw.createdAt === 'number' ? raw.createdAt : Date.now(),

@@ -120,6 +120,7 @@ export interface CoreRuntime {
   omniInferModelDownloads?: OmniInferModelDownloadManager
   omniInferProcessController?: OmniInferProcessController
   omniInferLogsDir?: string
+  prepareOmniInferStartup: () => Promise<boolean>
   dispose: () => void
 }
 
@@ -346,9 +347,14 @@ export function createCoreRuntime(options: CoreRuntimeOptions): CoreRuntime {
     },
   })
   loadStartupProviderRegistry(providerManager, options.lifecycleLogger)
-  migrateOmniInferProvider(providerManager, omniInferLogger)
-    .then(async () => {
-      if (!omniInferRuntimeService) return
+  const omniInferStartupPreparation = (async (): Promise<boolean> => {
+    try {
+      await migrateOmniInferProvider(providerManager, omniInferLogger)
+    } catch (error: unknown) {
+      omniInferLogger.warn('OmniInfer provider migration failed.', { error })
+    }
+    if (!omniInferRuntimeService) return false
+    try {
       const providers = await providerManager.list()
       const omniInferProvider = providers.find(
         (item) => item.api === 'omniinfer' || item.type === 'omniinfer'
@@ -359,10 +365,13 @@ export function createCoreRuntime(options: CoreRuntimeOptions): CoreRuntime {
       if (omniInferProvider?.omniInferInstallDir) {
         omniInferRuntimeService.setInstallDir(omniInferProvider.omniInferInstallDir)
       }
-    })
-    .catch((error: unknown) => {
-      omniInferLogger.warn('OmniInfer provider migration failed.', { error })
-    })
+      omniInferRuntimeService.setModelsDir(omniInferProvider?.omniInferModelsDir)
+      return omniInferProvider?.omniInferAutoStart !== false
+    } catch (error: unknown) {
+      omniInferLogger.warn('OmniInfer startup settings could not be applied.', { error })
+      return true
+    }
+  })()
   // Initial sync; main.ts will trigger another after the gateway is ready.
   void syncOmniInferProviderModels({
     providers: providerManager,
@@ -528,6 +537,7 @@ export function createCoreRuntime(options: CoreRuntimeOptions): CoreRuntime {
     omniInferModelDownloads,
     omniInferProcessController: options.omniInferProcessController,
     omniInferLogsDir: options.omniInferLogsDir,
+    prepareOmniInferStartup: () => omniInferStartupPreparation,
     dispose: () => {
       observationManager.dispose('app_exit')
       catAppearanceManager.dispose()

@@ -102,7 +102,10 @@ export function useProviderDraft(options: {
 
     if (providerDraft.value.type === 'omniinfer') {
       const installDir = providerDraft.value.omniInferInstallDir?.trim()
+      const modelsDir = providerDraft.value.omniInferModelsDir?.trim()
       request.provider.omniInferInstallDir = installDir ? installDir : undefined
+      request.provider.omniInferAutoStart = providerDraft.value.omniInferAutoStart
+      request.provider.omniInferModelsDir = modelsDir ? modelsDir : undefined
     }
 
     if (
@@ -269,6 +272,7 @@ function createEmptyProviderDraft(): ProviderDraft {
       reasoningFormat: 'none',
     },
     models: [],
+    omniInferAutoStart: true,
   }
 }
 
@@ -299,6 +303,9 @@ function draftFromProvider(provider: BridgeProviderConfig): ProviderDraft {
         : typeof provider.omniInferBinaryPath === 'string'
           ? provider.omniInferBinaryPath
           : undefined,
+    omniInferAutoStart: provider.omniInferAutoStart !== false,
+    omniInferModelsDir:
+      typeof provider.omniInferModelsDir === 'string' ? provider.omniInferModelsDir : undefined,
   }
 }
 
@@ -321,6 +328,8 @@ function draftFromPreset(preset: BridgeProviderPreset): ProviderDraft {
     capabilities: normalizeCapabilities(preset.capabilities),
     compat: normalizeCompat(preset.compat),
     models: presetModels,
+    omniInferAutoStart: preset.omniInferAutoStart !== false,
+    omniInferModelsDir: preset.omniInferModelsDir,
   }
 }
 

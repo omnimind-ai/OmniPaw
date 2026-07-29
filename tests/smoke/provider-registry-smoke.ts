@@ -103,6 +103,7 @@ try {
     mtimeMs: Date.now(),
     missing: false,
   }
+  let syncedModelsDir: string | undefined
   const providers = new ProviderManager({
     configStore,
     registryStore,
@@ -117,7 +118,10 @@ try {
     },
     omniInferRuntimeService: {
       setBaseUrl() {},
-      setModelsDir() {},
+      setInstallDir() {},
+      setModelsDir(dir: string | undefined) {
+        syncedModelsDir = dir
+      },
       async ensureModelLoaded() {},
     } as unknown as OmniInferRuntimeService,
     omniInferInstalledModels: {
@@ -151,6 +155,38 @@ try {
   assert.equal(firstLocalPreset.models[0]?.id, 'local-small-model')
   assert.equal(secondLocalPreset.id, 'omniinfer-local_1')
   assert.equal(secondLocalPreset.models[0]?.id, 'local-small-model')
+
+  const customModelsDir = join(tempDir, 'custom-models')
+  await providers.save({
+    id: 'omniinfer-settings',
+    name: 'OmniInfer Settings',
+    type: 'omniinfer',
+    api: 'omniinfer',
+    baseUrl: 'http://127.0.0.1:19157/v1',
+    enabled: true,
+    omniInferAutoStart: false,
+    omniInferModelsDir: customModelsDir,
+    models: [],
+  })
+  const savedOmniInferSettings = await providers.get('omniinfer-settings')
+  assert.equal(savedOmniInferSettings?.omniInferAutoStart, false)
+  assert.equal(savedOmniInferSettings?.omniInferModelsDir, customModelsDir)
+  assert.equal(syncedModelsDir, customModelsDir)
+  assert.match(readFileSync(registryStore.registryPath, 'utf8'), /"omniInferAutoStart": false/)
+
+  await providers.save({
+    id: 'omniinfer-settings',
+    name: 'OmniInfer Settings',
+    type: 'omniinfer',
+    api: 'omniinfer',
+    baseUrl: 'http://127.0.0.1:19157/v1',
+    enabled: true,
+    omniInferAutoStart: true,
+    omniInferModelsDir: undefined,
+    models: [],
+  })
+  assert.equal((await providers.get('omniinfer-settings'))?.omniInferModelsDir, undefined)
+  assert.equal(syncedModelsDir, undefined)
 
   const syncRegistryStore = new ProviderRegistryStore({
     appDataPath: join(tempDir, 'omniinfer-sync'),

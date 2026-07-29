@@ -82,6 +82,10 @@ export interface ProviderConfig {
    * local installation instead of only probing an already-running external gateway.
    */
   omniInferInstallDir?: string
+  /** OmniInfer-only: start the local gateway when OmniPaw launches. Defaults to true. */
+  omniInferAutoStart?: boolean
+  /** OmniInfer-only: absolute directory used for model downloads and installed-model scans. */
+  omniInferModelsDir?: string
   /** @deprecated Use `omniInferInstallDir`; kept only for old provider objects. */
   omniInferBinaryPath?: string
 }
@@ -102,6 +106,8 @@ export interface ProviderPreset {
   models?: ProviderModel[]
   capabilities?: ProviderCapabilities
   compat?: ProviderCompat
+  omniInferAutoStart?: boolean
+  omniInferModelsDir?: string
 }
 
 export interface ProviderCredential {
@@ -140,6 +146,8 @@ export interface ProviderRegistrySource {
   createdAt: number
   updatedAt: number
   omniInferInstallDir?: string
+  omniInferAutoStart?: boolean
+  omniInferModelsDir?: string
   /** @deprecated Use `omniInferInstallDir`; kept only for old registry normalization. */
   omniInferBinaryPath?: string
 }

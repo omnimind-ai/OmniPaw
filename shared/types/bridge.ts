@@ -172,6 +172,7 @@ import type {
   OmniInferRuntimeSnapshot,
   PickLocalGgufResponse,
   PickOmniInferInstallDirResponse,
+  PickOmniInferModelsDirResponse,
   RescanInstalledModelsResponse,
   RetryOmniInferModelDownloadRequest,
   SelectModelRequest,
@@ -242,6 +243,8 @@ export interface ProviderRegistrySource {
   capabilities?: ProviderCapabilities
   compat?: ProviderCompat
   omniInferInstallDir?: string
+  omniInferAutoStart?: boolean
+  omniInferModelsDir?: string
   createdAt?: number
   updatedAt?: number
 }
@@ -665,6 +668,7 @@ export interface OmniPawBridge {
     getLogsPath: () => Promise<GetOmniInferLogsPathResponse>
     pickLocalGguf: () => Promise<PickLocalGgufResponse>
     pickInstallDir: () => Promise<PickOmniInferInstallDirResponse>
+    pickModelsDir: () => Promise<PickOmniInferModelsDirResponse>
     rescanModels: () => Promise<RescanInstalledModelsResponse>
     listInstalledModels: () => Promise<InstalledModelRecord[]>
     getBackendSetup: () => Promise<OmniInferBackendSetupStatus>

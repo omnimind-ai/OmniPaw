@@ -947,12 +947,18 @@ app
 
     lifecycleLogger.info('Desktop startup complete.')
 
-    // Asynchronously start OmniInfer and run the initial models scan; never blocks the main window.
-    void runtime.omniInferInstalledModels?.scan().catch((error) => {
-      lifecycleLogger.warn('OmniInfer installed-models scan failed.', { error })
-    })
-    void runtime.omniInferRuntimeService?.start().catch((error) => {
-      lifecycleLogger.warn('OmniInfer runtime start failed.', { error })
+    // Apply persisted OmniInfer settings before scanning models or starting the local gateway.
+    void runtime.prepareOmniInferStartup().then((autoStart) => {
+      void runtime?.omniInferInstalledModels?.scan().catch((error) => {
+        lifecycleLogger.warn('OmniInfer installed-models scan failed.', { error })
+      })
+      if (!autoStart) {
+        lifecycleLogger.info('OmniInfer automatic startup is disabled.')
+        return
+      }
+      void runtime?.omniInferRuntimeService?.start().catch((error) => {
+        lifecycleLogger.warn('OmniInfer runtime start failed.', { error })
+      })
     })
 
     app.on('activate', () => {

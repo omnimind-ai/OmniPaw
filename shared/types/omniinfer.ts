@@ -171,6 +171,10 @@ export interface PickOmniInferInstallDirResponse {
   path: string | null
 }
 
+export interface PickOmniInferModelsDirResponse {
+  path: string | null
+}
+
 export interface OmniInferStartOptions {
   /** Override base URL for testing; defaults to `http://127.0.0.1:19157`. */
   baseUrl?: string

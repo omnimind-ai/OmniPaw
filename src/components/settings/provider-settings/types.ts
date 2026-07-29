@@ -26,6 +26,8 @@ export interface ProviderDraft {
   createdAt?: number
   updatedAt?: number
   omniInferInstallDir?: string
+  omniInferAutoStart: boolean
+  omniInferModelsDir?: string
 }
 
 export interface ProviderModelDraft {

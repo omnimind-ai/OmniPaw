@@ -90,6 +90,8 @@ export interface ProviderRecord {
   createdAt?: number
   updatedAt?: number
   omniInferInstallDir?: string
+  omniInferAutoStart?: boolean
+  omniInferModelsDir?: string
 }
 
 export interface SessionProviderOverrideRepository {
@@ -417,6 +419,7 @@ export class ProviderManager {
       })
       this.syncOmniInferGatewayUrl(provider)
       this.syncOmniInferInstallDir(provider)
+      this.syncOmniInferModelsDir(provider)
       return
     }
 
@@ -430,6 +433,7 @@ export class ProviderManager {
     })
     this.syncOmniInferGatewayUrl(provider)
     this.syncOmniInferInstallDir(provider)
+    this.syncOmniInferModelsDir(provider)
   }
 
   private syncOmniInferGatewayUrl(provider: ProviderRecord): void {
@@ -442,9 +446,14 @@ export class ProviderManager {
   private syncOmniInferInstallDir(provider: ProviderRecord): void {
     if (!this.omniInferRuntimeService) return
     if (provider.api !== 'omniinfer' && provider.type !== 'omniinfer') return
-    if (provider.omniInferInstallDir === undefined) return
     if (typeof this.omniInferRuntimeService.setInstallDir !== 'function') return
     this.omniInferRuntimeService.setInstallDir(provider.omniInferInstallDir)
+  }
+
+  private syncOmniInferModelsDir(provider: ProviderRecord): void {
+    if (!this.omniInferRuntimeService) return
+    if (provider.api !== 'omniinfer' && provider.type !== 'omniinfer') return
+    this.omniInferRuntimeService.setModelsDir(provider.omniInferModelsDir)
   }
 
   async listModels(providerId: string): Promise<ProviderModelRecord[]> {
@@ -562,7 +571,15 @@ export class ProviderManager {
       extraBody: request.source.extraBody,
       capabilities: request.source.capabilities,
       compat: request.source.compat,
-      omniInferInstallDir: request.source.omniInferInstallDir,
+      ...(hasOwn(request.source, 'omniInferInstallDir')
+        ? { omniInferInstallDir: request.source.omniInferInstallDir }
+        : {}),
+      ...(hasOwn(request.source, 'omniInferAutoStart')
+        ? { omniInferAutoStart: request.source.omniInferAutoStart }
+        : {}),
+      ...(hasOwn(request.source, 'omniInferModelsDir')
+        ? { omniInferModelsDir: request.source.omniInferModelsDir }
+        : {}),
       models: existingModels,
       createdAt: request.source.createdAt,
       updatedAt: Date.now(),
@@ -1355,6 +1372,8 @@ export function configToProviderRecords(config: DesktopSettingsConfig): Provider
     capabilities: source.capabilities,
     compat: source.compat,
     omniInferInstallDir: source.omniInferInstallDir,
+    omniInferAutoStart: source.omniInferAutoStart,
+    omniInferModelsDir: source.omniInferModelsDir,
     models: config.providers.models
       .filter((model) => model.providerSourceId === source.id)
       .map((model) => ({
@@ -1402,6 +1421,8 @@ function registryToProviderRecords(registry: ProviderRegistry): ProviderRecord[]
       capabilities: source.capabilities,
       compat: source.compat,
       omniInferInstallDir: source.omniInferInstallDir,
+      omniInferAutoStart: source.omniInferAutoStart,
+      omniInferModelsDir: source.omniInferModelsDir,
       models: registry.models
         .filter((model) => model.providerId === source.id)
         .map(registryModelToRecord),
@@ -1478,7 +1499,15 @@ function upsertProviderInRegistry(
     extraBody: provider.extraBody ?? existingSource?.extraBody ?? {},
     capabilities: provider.capabilities ?? existingSource?.capabilities ?? {},
     compat: provider.compat ?? existingSource?.compat,
-    omniInferInstallDir: provider.omniInferInstallDir ?? existingSource?.omniInferInstallDir,
+    omniInferInstallDir: hasOwn(provider, 'omniInferInstallDir')
+      ? provider.omniInferInstallDir
+      : existingSource?.omniInferInstallDir,
+    omniInferAutoStart: hasOwn(provider, 'omniInferAutoStart')
+      ? provider.omniInferAutoStart
+      : existingSource?.omniInferAutoStart,
+    omniInferModelsDir: hasOwn(provider, 'omniInferModelsDir')
+      ? provider.omniInferModelsDir
+      : existingSource?.omniInferModelsDir,
     createdAt: provider.createdAt ?? existingSource?.createdAt ?? now,
     updatedAt: provider.updatedAt ?? now,
   }
@@ -1658,6 +1687,8 @@ function sanitizeProvider(provider: ProviderRecord, models: ProviderModelRecord[
     createdAt: provider.createdAt,
     updatedAt: provider.updatedAt,
     omniInferInstallDir: provider.omniInferInstallDir,
+    omniInferAutoStart: provider.omniInferAutoStart,
+    omniInferModelsDir: provider.omniInferModelsDir,
     models: models.map(toLegacyModel),
   }
 }
@@ -1802,7 +1833,15 @@ function upsertProviderInConfig(config: DesktopSettingsConfig, provider: Provide
     defaultModelId: provider.defaultModelId,
     capabilities: provider.capabilities ?? {},
     compat: provider.compat,
-    omniInferInstallDir: provider.omniInferInstallDir ?? existing?.omniInferInstallDir,
+    omniInferInstallDir: hasOwn(provider, 'omniInferInstallDir')
+      ? provider.omniInferInstallDir
+      : existing?.omniInferInstallDir,
+    omniInferAutoStart: hasOwn(provider, 'omniInferAutoStart')
+      ? provider.omniInferAutoStart
+      : existing?.omniInferAutoStart,
+    omniInferModelsDir: hasOwn(provider, 'omniInferModelsDir')
+      ? provider.omniInferModelsDir
+      : existing?.omniInferModelsDir,
     createdAt: provider.createdAt ?? existing?.createdAt ?? now,
     updatedAt: provider.updatedAt ?? now,
   }
@@ -1825,6 +1864,10 @@ function upsertProviderInConfig(config: DesktopSettingsConfig, provider: Provide
   )
 
   pruneProviderModelReferences(config, provider.id)
+}
+
+function hasOwn<T extends object>(value: T, key: PropertyKey): boolean {
+  return Object.hasOwn(value, key)
 }
 
 function upsertModelInConfig(config: DesktopSettingsConfig, model: ProviderModelRecord): void {

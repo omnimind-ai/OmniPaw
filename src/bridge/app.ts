@@ -66,6 +66,7 @@ import type {
   OmniInferRuntimeSnapshot,
   PickLocalGgufResponse,
   PickOmniInferInstallDirResponse,
+  PickOmniInferModelsDirResponse,
 } from '@shared/types/omniinfer'
 import {
   CURRENT_DESKTOP_SETTINGS_VERSION,
@@ -517,6 +518,9 @@ export interface BridgeProviderConfig {
   defaultModelId?: string
   models?: BridgeProviderModel[]
   capabilities?: Record<string, unknown>
+  omniInferInstallDir?: string
+  omniInferAutoStart?: boolean
+  omniInferModelsDir?: string
   createdAt?: number
   updatedAt?: number
   [key: string]: unknown
@@ -544,6 +548,8 @@ export interface BridgeProviderPreset {
   models?: BridgeProviderModel[]
   capabilities?: Record<string, unknown>
   compat?: Record<string, unknown>
+  omniInferAutoStart?: boolean
+  omniInferModelsDir?: string
 }
 
 export interface BridgeProviderRegistrySource extends Omit<BridgeProviderConfig, 'models'> {
@@ -1656,6 +1662,8 @@ const fallbackBridge: OmniPawBridge = {
       rejectFallbackPersistence<PickLocalGgufResponse>('omniinfer.pickLocalGguf'),
     pickInstallDir: () =>
       rejectFallbackPersistence<PickOmniInferInstallDirResponse>('omniinfer.pickInstallDir'),
+    pickModelsDir: () =>
+      rejectFallbackPersistence<PickOmniInferModelsDirResponse>('omniinfer.pickModelsDir'),
     rescanModels: async () => ({ models: [], modelsDir: '' }),
     listInstalledModels: async () => [],
     getBackendSetup: async (): Promise<OmniInferBackendSetupStatus> => ({

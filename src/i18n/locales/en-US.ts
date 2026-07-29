@@ -1541,6 +1541,13 @@ export default {
       omniInfer: {
         installDir: 'OmniInfer Install Directory',
         installDirExample: 'e.g.: D:\\omniinfer\\OmniInfer',
+        modelsDir: 'Model Download Directory',
+        modelsDirExample: 'Select a model download and scan directory',
+        modelsDirDescription:
+          'New downloads and scans use this directory. Existing model files remain in their original directory.',
+        autoStart: 'Start OmniInfer Automatically',
+        autoStartDescription:
+          'Start OmniInfer when OmniPaw launches. Changes take effect the next time the app starts.',
         selectDir: 'Select Directory',
         gatewayStatus: 'Gateway Status',
         gatewayDescription: 'Control and monitor the OmniInfer local inference gateway.',
@@ -1578,6 +1585,7 @@ export default {
         oauthLogoutSuccess: 'OpenAI OAuth disconnected.',
         oauthLogoutFailed: 'OpenAI OAuth disconnection failed',
         pickInstallDirFailed: 'Failed to select OmniInfer install directory.',
+        pickModelsDirFailed: 'Failed to select OmniInfer model directory.',
         startOmniInferFailed: 'Failed to start OmniInfer.',
         stopOmniInferFailed: 'Failed to stop OmniInfer.',
         pickGgufSuccess: 'Local model selected. Enable it in "Model Configuration".',
