@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { CopyIcon, MinusIcon, SquareIcon, XIcon } from '@lucide/vue'
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
-
 import brandLogoUrl from '@/asserts/brand-logo.png'
+import brandLogoDarkUrl from '@/asserts/brand-logo-black.png'
 import { appBridge, type BridgeDesktopWindowState, type BridgeUnsubscribe } from '@/bridge/app'
 import { Button } from '@/components/ui/button'
 
@@ -80,7 +80,13 @@ function handleWindowAction(action: WindowAction): void {
       <img
         :src="brandLogoUrl"
         alt="OmniPaw"
-        class="h-5 w-auto max-w-[min(42vw,8rem)] object-contain"
+        class="h-5 w-auto max-w-[min(42vw,8rem)] object-contain dark:hidden"
+        draggable="false"
+      />
+      <img
+        :src="brandLogoDarkUrl"
+        alt="OmniPaw"
+        class="hidden h-5 w-auto max-w-[min(42vw,8rem)] object-contain dark:block"
         draggable="false"
       />
     </div>
