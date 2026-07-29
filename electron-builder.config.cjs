@@ -68,6 +68,7 @@ module.exports = {
   nsis: {
     oneClick: false,
     allowToChangeInstallationDirectory: true,
+    removeDefaultUninstallWelcomePage: true,
   },
 }
 

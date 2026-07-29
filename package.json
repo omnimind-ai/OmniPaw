@@ -107,7 +107,8 @@
     },
     "nsis": {
       "oneClick": false,
-      "allowToChangeInstallationDirectory": true
+      "allowToChangeInstallationDirectory": true,
+      "removeDefaultUninstallWelcomePage": true
     }
   }
 }
