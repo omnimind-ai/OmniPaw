@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="public/brand-logo.png" alt="OmniPaw Logo" style="width:140px;" />
+<img src="public/brand-logo.png" alt="OmniPaw Logo" style="width:360px;" />
 
 **Understand your AI desktop pet better, work with you, accompany you by your side**
 
