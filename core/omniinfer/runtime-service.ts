@@ -461,6 +461,7 @@ export class OmniInferRuntimeService {
       if (!wasOnline) {
         await this.syncControlPlane()
       }
+      this.startupDeadline = 0
       this.currentInterval = STEADY_POLL_INTERVAL_MS
       this.consecutiveFailures = 0
     } else if (result === 'offline') {
@@ -468,10 +469,16 @@ export class OmniInferRuntimeService {
       if (!this.server.online || this.consecutiveFailures >= UNHEALTHY_FAILURE_THRESHOLD) {
         this.markServerOffline()
       }
-      if (this.processState.state === 'starting' && this.now() > this.startupDeadline) {
+      const startupPolling = this.currentInterval === STARTUP_POLL_INTERVAL_MS
+      const startupTimedOut = startupPolling && this.now() > this.startupDeadline
+      if (
+        startupTimedOut &&
+        (this.processState.state === 'starting' || this.processState.state === 'running')
+      ) {
         this.transitionToUnhealthy()
       }
       if (
+        !startupPolling &&
         this.processState.state === 'running' &&
         this.consecutiveFailures >= UNHEALTHY_FAILURE_THRESHOLD
       ) {
@@ -494,6 +501,7 @@ export class OmniInferRuntimeService {
       if (!health.online) {
         return 'offline'
       }
+      this.recoverManagedProcessAfterHealthyProbe()
       this.server = {
         online: health.online,
         baseUrl,
@@ -588,6 +596,22 @@ export class OmniInferRuntimeService {
       lastUpdatedAt: this.now(),
     }
     this.emit()
+  }
+
+  private recoverManagedProcessAfterHealthyProbe(): void {
+    if (
+      !this.processState.pid ||
+      (this.processState.state !== 'starting' && this.processState.state !== 'unhealthy')
+    ) {
+      return
+    }
+    this.processState = {
+      ...this.processState,
+      previousState: this.processState.state,
+      state: 'running',
+      errorMessage: undefined,
+      lastUpdatedAt: this.now(),
+    }
   }
 
   private emit(): void {
