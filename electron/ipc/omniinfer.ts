@@ -1,4 +1,4 @@
-import { existsSync } from 'node:fs'
+import { existsSync, mkdirSync, statSync } from 'node:fs'
 import { isAbsolute } from 'node:path'
 import { syncOmniInferProviderModels } from '@core/omniinfer'
 import { IPC_CHANNELS } from '@shared/constants'
@@ -11,6 +11,8 @@ import type {
   OmniInferBackendInstallProgress,
   OmniInferModelDownloadTask,
   OmniInferRuntimeSnapshot,
+  OpenOmniInferDirectoryRequest,
+  OpenOmniInferDirectoryResponse,
   PickLocalGgufResponse,
   PickOmniInferInstallDirResponse,
   PickOmniInferModelsDirResponse,
@@ -21,7 +23,7 @@ import type {
   SetThinkingRequest,
   StartOmniInferModelDownloadRequest,
 } from '@shared/types/omniinfer'
-import { BrowserWindow, dialog } from 'electron'
+import { BrowserWindow, dialog, shell } from 'electron'
 import { registerLoggedIpcHandler } from './common'
 import type { IpcHandlerOptions } from './types'
 
@@ -195,6 +197,22 @@ export function registerOmniInferIpcHandlers(options: IpcHandlerOptions): void {
 
   registerLoggedIpcHandler(
     options,
+    IPC_CHANNELS.omniinfer.openDirectory,
+    async (
+      _event,
+      request: OpenOmniInferDirectoryRequest
+    ): Promise<OpenOmniInferDirectoryResponse> => {
+      const directory = resolveOpenDirectory(request, installedModels.getModelsDir())
+      const errorMessage = await shell.openPath(directory)
+      if (errorMessage) {
+        throw new Error(errorMessage)
+      }
+      return { opened: true, path: directory }
+    }
+  )
+
+  registerLoggedIpcHandler(
+    options,
     IPC_CHANNELS.omniinfer.rescanModels,
     async (): Promise<RescanInstalledModelsResponse> => {
       const models = await installedModels.scan()
@@ -269,6 +287,26 @@ function modelsDirDialogOptions(): Electron.OpenDialogOptions {
     title: '选择 OmniInfer 模型目录',
     properties: ['openDirectory'],
   }
+}
+
+function resolveOpenDirectory(
+  request: OpenOmniInferDirectoryRequest,
+  defaultModelsDir: string
+): string {
+  if (request?.kind !== 'install' && request?.kind !== 'models') {
+    throw new Error('Unsupported OmniInfer directory kind.')
+  }
+  const directory = request.path?.trim() || (request.kind === 'models' ? defaultModelsDir : '')
+  if (!directory || !isAbsolute(directory)) {
+    throw new Error('OmniInfer directory must be an absolute path.')
+  }
+  if (request.kind === 'models') {
+    mkdirSync(directory, { recursive: true })
+  }
+  if (!existsSync(directory) || !statSync(directory).isDirectory()) {
+    throw new Error(`OmniInfer directory is not accessible: ${directory}`)
+  }
+  return directory
 }
 
 function resolveModelRequest(

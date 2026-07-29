@@ -64,6 +64,7 @@ import type {
   OmniInferBackendSetupStatus,
   OmniInferModelDownloadTask,
   OmniInferRuntimeSnapshot,
+  OpenOmniInferDirectoryResponse,
   PickLocalGgufResponse,
   PickOmniInferInstallDirResponse,
   PickOmniInferModelsDirResponse,
@@ -1664,6 +1665,8 @@ const fallbackBridge: OmniPawBridge = {
       rejectFallbackPersistence<PickOmniInferInstallDirResponse>('omniinfer.pickInstallDir'),
     pickModelsDir: () =>
       rejectFallbackPersistence<PickOmniInferModelsDirResponse>('omniinfer.pickModelsDir'),
+    openDirectory: () =>
+      rejectFallbackPersistence<OpenOmniInferDirectoryResponse>('omniinfer.openDirectory'),
     rescanModels: async () => ({ models: [], modelsDir: '' }),
     listInstalledModels: async () => [],
     getBackendSetup: async (): Promise<OmniInferBackendSetupStatus> => ({

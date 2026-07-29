@@ -170,6 +170,8 @@ import type {
   OmniInferLogEntry,
   OmniInferModelDownloadTask,
   OmniInferRuntimeSnapshot,
+  OpenOmniInferDirectoryRequest,
+  OpenOmniInferDirectoryResponse,
   PickLocalGgufResponse,
   PickOmniInferInstallDirResponse,
   PickOmniInferModelsDirResponse,
@@ -669,6 +671,9 @@ export interface OmniPawBridge {
     pickLocalGguf: () => Promise<PickLocalGgufResponse>
     pickInstallDir: () => Promise<PickOmniInferInstallDirResponse>
     pickModelsDir: () => Promise<PickOmniInferModelsDirResponse>
+    openDirectory: (
+      request: OpenOmniInferDirectoryRequest
+    ) => Promise<OpenOmniInferDirectoryResponse>
     rescanModels: () => Promise<RescanInstalledModelsResponse>
     listInstalledModels: () => Promise<InstalledModelRecord[]>
     getBackendSetup: () => Promise<OmniInferBackendSetupStatus>

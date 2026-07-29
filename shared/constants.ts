@@ -234,6 +234,7 @@ export const IPC_CHANNELS = {
     pickLocalGguf: 'omniinfer:pick-local-gguf',
     pickInstallDir: 'omniinfer:pick-install-dir',
     pickModelsDir: 'omniinfer:pick-models-dir',
+    openDirectory: 'omniinfer:open-directory',
     rescanModels: 'omniinfer:rescan-models',
     getBackendSetup: 'omniinfer:get-backend-setup',
     installBackend: 'omniinfer:install-backend',

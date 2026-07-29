@@ -1,5 +1,12 @@
 <script setup lang="ts">
-import { CloudIcon, CpuIcon, FolderOpenIcon, Loader2Icon } from '@lucide/vue'
+import {
+  CloudIcon,
+  CpuIcon,
+  FolderIcon,
+  FolderOpenIcon,
+  FolderSearchIcon,
+  Loader2Icon,
+} from '@lucide/vue'
 import type { OmniInferProcessState } from '@shared/types/omniinfer'
 import { storeToRefs } from 'pinia'
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
@@ -17,7 +24,12 @@ import {
   FieldSet,
 } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
-import { InputGroup, InputGroupAddon, InputGroupInput } from '@/components/ui/input-group'
+import {
+  InputGroup,
+  InputGroupAddon,
+  InputGroupButton,
+  InputGroupInput,
+} from '@/components/ui/input-group'
 import { Separator } from '@/components/ui/separator'
 import { Switch } from '@/components/ui/switch'
 import { useOmniInferStore } from '@/stores/omniinfer'
@@ -96,14 +108,14 @@ const effectiveStateClass = computed(() =>
     ? 'bg-sky-200 text-sky-900 dark:bg-sky-700 dark:text-sky-50'
     : stateClass[snapshot.value.process.state]
 )
-const showNotBundledHint = computed(
-  () => snapshot.value.process.state === 'not_bundled' && !isExternallyManaged.value
-)
 const showCustomInstallFields = computed(
   () => snapshot.value.process.state === 'not_bundled' || Boolean(props.draft.omniInferInstallDir)
 )
 
 const showInstallDirField = computed(() => showCustomInstallFields.value)
+const effectiveModelsDir = computed(
+  () => props.draft.omniInferModelsDir?.trim() || snapshot.value.process.modelsDir || ''
+)
 const modelsDirPlaceholder = computed(
   () => snapshot.value.process.modelsDir || t('settings.provider.omniInfer.modelsDirExample')
 )
@@ -130,6 +142,17 @@ async function handlePickModelsDir(): Promise<void> {
   }
 }
 
+async function handleOpenDirectory(kind: 'install' | 'models'): Promise<void> {
+  const path =
+    kind === 'install' ? props.draft.omniInferInstallDir?.trim() : effectiveModelsDir.value
+  if (!path) return
+  try {
+    await appBridge.omniinfer?.openDirectory({ kind, path })
+  } catch (error) {
+    toast.error(errorToText(error, t('settings.provider.messages.openDirectoryFailed')))
+  }
+}
+
 async function handleStart(): Promise<void> {
   try {
     await store.start()
@@ -143,17 +166,6 @@ async function handleStop(): Promise<void> {
     await store.stop()
   } catch (error) {
     toast.error(errorToText(error, t('settings.provider.messages.stopOmniInferFailed')))
-  }
-}
-
-async function handlePickGguf(): Promise<void> {
-  try {
-    const path = await store.pickLocalGguf()
-    if (path) {
-      toast.success(t('settings.provider.messages.pickGgufSuccess'))
-    }
-  } catch (error) {
-    toast.error(errorToText(error, t('settings.provider.messages.pickFileFailed')))
   }
 }
 
@@ -240,21 +252,32 @@ onBeforeUnmount(() => {
       <FieldLabel for="omniinfer-install-dir">{{ t('settings.provider.omniInfer.installDir') }}</FieldLabel>
       <InputGroup>
         <InputGroupAddon>
-          <FolderOpenIcon />
+          <FolderIcon />
         </InputGroupAddon>
         <InputGroupInput
           id="omniinfer-install-dir"
           v-model="draft.omniInferInstallDir"
           :placeholder="t('settings.provider.omniInfer.installDirExample')"
         />
-        <Button
-          type="button"
-          size="sm"
-          variant="ghost"
-          @click="handlePickInstallDir"
-        >
-          {{ t('settings.provider.omniInfer.selectDir') }}
-        </Button>
+        <InputGroupAddon align="inline-end">
+          <InputGroupButton
+            size="icon-sm"
+            :aria-label="t('settings.provider.omniInfer.selectInstallDirAria')"
+            :title="t('settings.provider.omniInfer.selectInstallDirAria')"
+            @click="handlePickInstallDir"
+          >
+            <FolderSearchIcon />
+          </InputGroupButton>
+          <InputGroupButton
+            size="icon-sm"
+            :disabled="!draft.omniInferInstallDir?.trim()"
+            :aria-label="t('settings.provider.omniInfer.openInstallDirAria')"
+            :title="t('settings.provider.omniInfer.openInstallDirAria')"
+            @click="handleOpenDirectory('install')"
+          >
+            <FolderOpenIcon />
+          </InputGroupButton>
+        </InputGroupAddon>
       </InputGroup>
     </Field>
 
@@ -264,44 +287,36 @@ onBeforeUnmount(() => {
       </FieldLabel>
       <InputGroup>
         <InputGroupAddon>
-          <FolderOpenIcon />
+          <FolderIcon />
         </InputGroupAddon>
         <InputGroupInput
           id="omniinfer-models-dir"
           v-model="draft.omniInferModelsDir"
           :placeholder="modelsDirPlaceholder"
         />
-        <Button
-          type="button"
-          size="sm"
-          variant="ghost"
-          @click="handlePickModelsDir"
-        >
-          {{ t('settings.provider.omniInfer.selectDir') }}
-        </Button>
+        <InputGroupAddon align="inline-end">
+          <InputGroupButton
+            size="icon-sm"
+            :aria-label="t('settings.provider.omniInfer.selectModelsDirAria')"
+            :title="t('settings.provider.omniInfer.selectModelsDirAria')"
+            @click="handlePickModelsDir"
+          >
+            <FolderSearchIcon />
+          </InputGroupButton>
+          <InputGroupButton
+            size="icon-sm"
+            :disabled="!effectiveModelsDir"
+            :aria-label="t('settings.provider.omniInfer.openModelsDirAria')"
+            :title="t('settings.provider.omniInfer.openModelsDirAria')"
+            @click="handleOpenDirectory('models')"
+          >
+            <FolderOpenIcon />
+          </InputGroupButton>
+        </InputGroupAddon>
       </InputGroup>
       <FieldDescription>
         {{ t('settings.provider.omniInfer.modelsDirDescription') }}
       </FieldDescription>
-    </Field>
-
-    <Field
-      orientation="horizontal"
-      class="items-center rounded-lg border px-3 py-2"
-    >
-      <Switch
-        id="omniinfer-auto-start"
-        v-model="draft.omniInferAutoStart"
-        :aria-label="t('settings.provider.omniInfer.autoStart')"
-      />
-      <FieldContent>
-        <FieldLabel for="omniinfer-auto-start">
-          {{ t('settings.provider.omniInfer.autoStart') }}
-        </FieldLabel>
-        <FieldDescription>
-          {{ t('settings.provider.omniInfer.autoStartDescription') }}
-        </FieldDescription>
-      </FieldContent>
     </Field>
 
     <Field
@@ -357,14 +372,6 @@ onBeforeUnmount(() => {
             </Button>
             <Button
               size="sm"
-              variant="outline"
-              :disabled="showNotBundledHint"
-              @click="handlePickGguf"
-            >
-              {{ t('settings.provider.omniInfer.selectGguf') }}
-            </Button>
-            <Button
-              size="sm"
               variant="ghost"
               @click="handleOpenLogs"
             >
@@ -395,6 +402,25 @@ onBeforeUnmount(() => {
           </div>
         </div>
       </div>
+
+      <Field
+        orientation="horizontal"
+        class="items-center rounded-lg border px-3 py-2"
+      >
+        <Switch
+          id="omniinfer-auto-start"
+          v-model="draft.omniInferAutoStart"
+          :aria-label="t('settings.provider.omniInfer.autoStart')"
+        />
+        <FieldContent>
+          <FieldLabel for="omniinfer-auto-start">
+            {{ t('settings.provider.omniInfer.autoStart') }}
+          </FieldLabel>
+          <FieldDescription>
+            {{ t('settings.provider.omniInfer.autoStartDescription') }}
+          </FieldDescription>
+        </FieldContent>
+      </Field>
     </FieldSet>
 
     <Separator />

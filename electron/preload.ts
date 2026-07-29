@@ -576,6 +576,7 @@ const bridge: OmniPawBridge = {
     pickLocalGguf: () => ipcRenderer.invoke(IPC_CHANNELS.omniinfer.pickLocalGguf),
     pickInstallDir: () => ipcRenderer.invoke(IPC_CHANNELS.omniinfer.pickInstallDir),
     pickModelsDir: () => ipcRenderer.invoke(IPC_CHANNELS.omniinfer.pickModelsDir),
+    openDirectory: (request) => ipcRenderer.invoke(IPC_CHANNELS.omniinfer.openDirectory, request),
     rescanModels: () => ipcRenderer.invoke(IPC_CHANNELS.omniinfer.rescanModels),
     listInstalledModels: async () => {
       const result = await ipcRenderer.invoke(IPC_CHANNELS.omniinfer.rescanModels)
