@@ -278,7 +278,9 @@ function actionLabel(task: OmniInferModelDownloadTask | undefined): string {
         </div>
 
         <div
-          v-if="taskFor(quantization)"
+          v-if="
+            taskFor(quantization) && taskFor(quantization)?.status !== 'completed'
+          "
           class="flex flex-col gap-2"
         >
           <div class="flex items-center justify-between gap-3 text-xs text-muted-foreground">
