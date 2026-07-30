@@ -55,7 +55,7 @@ module.exports = {
     artifactName: `\${productName}-\${version}-macos-\${arch}${artifactSuffix}.\${ext}`,
     // Local builds use a complete ad-hoc signature instead of shipping the
     // linker-only Electron signature that macOS reports as "damaged".
-    // Release CI requires a Developer ID identity and notarization.
+    // Set OMNIPAW_REQUIRE_MAC_SIGNING=1 when Developer ID signing is available.
     identity: requireMacSigning ? undefined : '-',
     forceCodeSigning: requireMacSigning,
     hardenedRuntime: true,

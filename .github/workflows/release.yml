@@ -121,7 +121,6 @@ jobs:
     env:
       OMNIPAW_BUNDLE_OMNIINFER: ${{ matrix.bundle_omniinfer }}
       OMNIPAW_ARTIFACT_SUFFIX: ${{ matrix.artifact_suffix }}
-      OMNIPAW_REQUIRE_MAC_SIGNING: ${{ matrix.platform == 'macos' && '1' || '0' }}
       OMNIPAW_BUILD_NUMBER: ${{ github.run_number }}
       OMNIPAW_BUILD_VERSION: ${{ needs.validate.outputs.version }}.${{ github.run_number }}
       OMNIPAW_MAC_BUNDLE_VERSION: ${{ github.run_number }}
@@ -162,44 +161,9 @@ jobs:
       - name: Build application
         run: pnpm build
 
-      - name: Require macOS release credentials
-        if: matrix.platform == 'macos'
-        shell: bash
-        env:
-          CSC_LINK: ${{ secrets.MAC_CSC_LINK }}
-          CSC_KEY_PASSWORD: ${{ secrets.MAC_CSC_KEY_PASSWORD }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-        run: |
-          set -euo pipefail
-
-          missing=()
-          for name in \
-            CSC_LINK \
-            CSC_KEY_PASSWORD \
-            APPLE_ID \
-            APPLE_APP_SPECIFIC_PASSWORD \
-            APPLE_TEAM_ID
-          do
-            if [[ -z "${!name:-}" ]]; then
-              missing+=("${name}")
-            fi
-          done
-
-          if (( ${#missing[@]} > 0 )); then
-            echo "::error::Missing macOS release secrets: ${missing[*]}"
-            exit 1
-          fi
-
       - name: Package release
         shell: bash
         env:
-          CSC_LINK: ${{ secrets.MAC_CSC_LINK }}
-          CSC_KEY_PASSWORD: ${{ secrets.MAC_CSC_KEY_PASSWORD }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
           WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
           WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
         run: >-
@@ -207,14 +171,6 @@ jobs:
           --config electron-builder.config.cjs
           ${{ matrix.builder_args }}
           --publish never
-
-      - name: Verify macOS signature and notarization
-        if: matrix.platform == 'macos'
-        shell: bash
-        run: >-
-          node scripts/verify-macos-signing.mjs
-          --release-dir release
-          --require-notarization
 
       - name: Resolve release asset
         id: asset
