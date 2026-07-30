@@ -1,17 +1,46 @@
 !ifdef BUILD_UNINSTALLER
   !include "LogicLib.nsh"
+  !include "MUI2.nsh"
+  !include "nsDialogs.nsh"
 
-  ; Keep this directory name synchronized with OMNIPAW_DATA_ROOT_DIR in core/utils/data-paths.ts.
-  !macro customUnInstallSection
-    Section /o "删除所有本地数据 · Remove all local data" SEC_OMNIPAW_DELETE_DATA
-      SetShellVarContext current
-      DetailPrint "Removing OmniPaw local data: $APPDATA\omnipaw"
-      RMDir /r "$APPDATA\omnipaw"
+  Var OmniPawDeleteDataCheckbox
+  Var OmniPawDeleteDataRequested
 
-      IfFileExists "$APPDATA\omnipaw\*.*" 0 omnipawDataRemoved
-      MessageBox MB_ICONEXCLAMATION|MB_OK "部分本地数据无法删除，请确认相关文件没有被其他程序占用。$\r$\nSome local data could not be removed. Make sure no other program is using these files."
-
-      omnipawDataRemoved:
-    SectionEnd
+  !macro customUnWelcomePage
+    UninstPage custom un.OmniPawDataOptionsPageCreate un.OmniPawDataOptionsPageLeave
   !macroend
+
+  ; Register the cleanup section after electron-builder checks whether it should add
+  ; a components page. The section remains part of the uninstall progress page.
+  !macro customHeader
+    !include "uninstaller-data-section.nsh"
+  !macroend
+
+  Function un.OmniPawDataOptionsPageCreate
+    nsDialogs::Create 1018
+    Pop $0
+    ${If} $0 == error
+      Abort
+    ${EndIf}
+
+    !insertmacro MUI_HEADER_TEXT "本地数据 · Local data" "保留或删除本地数据 · Keep or remove local data"
+
+    ${NSD_CreateLabel} 0 0 100% 30u "默认保留设置、聊天记录、模型和其他本地数据。$\r$\nSettings, chats, models, and other local data are kept by default."
+    Pop $0
+
+    ${NSD_CreateCheckbox} 0 42u 100% 18u "删除所有本地数据 · Remove all local data"
+    Pop $OmniPawDeleteDataCheckbox
+
+    ${If} $OmniPawDeleteDataRequested == ${BST_CHECKED}
+      ${NSD_Check} $OmniPawDeleteDataCheckbox
+    ${Else}
+      ${NSD_Uncheck} $OmniPawDeleteDataCheckbox
+    ${EndIf}
+
+    nsDialogs::Show
+  FunctionEnd
+
+  Function un.OmniPawDataOptionsPageLeave
+    ${NSD_GetState} $OmniPawDeleteDataCheckbox $OmniPawDeleteDataRequested
+  FunctionEnd
 !endif
