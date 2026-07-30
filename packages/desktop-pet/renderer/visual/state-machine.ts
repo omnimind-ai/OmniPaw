@@ -14,6 +14,7 @@ interface CatVisualStateMachineOptions {
   appearance: CatVisualAppearance
   render: (frame: CatVisualFrame) => void
   reportState: (state: CatWindowState) => void
+  now?: () => number
 }
 
 export interface CatVisualStateMachine {
@@ -39,6 +40,10 @@ export function createCatVisualStateMachine(
   let currentState: CatWindowState = 'hidden'
   let firstShow = true
   let stateTimer: ReturnType<typeof window.setTimeout> | undefined
+  let pendingTaskState: Extract<CatWindowState, 'running' | 'completed'> | undefined
+  let preparingTransitionComplete = false
+  let runningStartedAt: number | undefined
+  const now = options.now ?? (() => performance.now())
 
   function clearStateTimer(): void {
     if (stateTimer === undefined) return
@@ -58,10 +63,33 @@ export function createCatVisualStateMachine(
     stateTimer = window.setTimeout(callback, delayMs)
   }
 
+  function queueCompletionAtLoopBoundary(): void {
+    if (currentState !== 'running') return
+
+    pendingTaskState = 'completed'
+    clearStateTimer()
+    const loopDuration = appearance.durations.runningLoop
+    if (loopDuration <= 0 || runningStartedAt === undefined) {
+      enterState('completed')
+      return
+    }
+
+    const elapsed = Math.max(0, now() - runningStartedAt)
+    const phase = elapsed % loopDuration
+    const remaining = phase < 1 ? loopDuration : loopDuration - phase
+    schedule(remaining, () => {
+      if (currentState !== 'running' || pendingTaskState !== 'completed') return
+      enterState('completed')
+    })
+  }
+
   function enterState(state: CatWindowState, transition: CatVisualTransition = 'replace'): void {
     if (!validStates.has(state)) return
 
     clearStateTimer()
+    pendingTaskState = undefined
+    preparingTransitionComplete = false
+    if (state !== 'running') runningStartedAt = undefined
     currentState = state
     options.reportState(state)
 
@@ -92,12 +120,24 @@ export function createCatVisualStateMachine(
       case 'preparing':
         render(appearance.assets.startDoing, appearance.assets.doingFallback, transition)
         schedule(appearance.durations.preparing, () => {
-          if (currentState === 'preparing') {
-            render(appearance.assets.doingFallback)
+          if (currentState !== 'preparing') return
+          preparingTransitionComplete = true
+          const requestedState = pendingTaskState
+          pendingTaskState = undefined
+          if (requestedState === 'running') {
+            enterState('running')
+            return
           }
+          if (requestedState === 'completed') {
+            enterState('running')
+            queueCompletionAtLoopBoundary()
+            return
+          }
+          render(appearance.assets.doingFallback)
         })
         break
       case 'running':
+        runningStartedAt = now()
         render(appearance.assets.doing, appearance.assets.doingFallback, transition)
         break
       case 'completed':
@@ -116,14 +156,37 @@ export function createCatVisualStateMachine(
   return {
     applyAppearance(nextAppearance) {
       const assetsChanged = catVisualAssetsChanged(appearance, nextAppearance)
+      const queuedTaskState = pendingTaskState
       appearance = nextAppearance
       if (!assetsChanged) return
       enterState(currentState, 'fade-out-in')
+      if (currentState === 'preparing') {
+        pendingTaskState = queuedTaskState
+      } else if (currentState === 'running' && queuedTaskState === 'completed') {
+        queueCompletionAtLoopBoundary()
+      }
     },
     handleCommand(event) {
       if (!validStates.has(event.state)) return
       if (event.state === 'idle' && firstShow && currentState === 'hidden') {
         enterState('appearing')
+        return
+      }
+      if (event.state === currentState) return
+      if (
+        currentState === 'preparing' &&
+        (event.state === 'running' || event.state === 'completed')
+      ) {
+        if (preparingTransitionComplete) {
+          enterState('running')
+          if (event.state === 'completed') queueCompletionAtLoopBoundary()
+        } else {
+          pendingTaskState = event.state
+        }
+        return
+      }
+      if (currentState === 'running' && event.state === 'completed') {
+        queueCompletionAtLoopBoundary()
         return
       }
       enterState(event.state)

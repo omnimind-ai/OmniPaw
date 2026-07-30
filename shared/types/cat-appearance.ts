@@ -27,6 +27,7 @@ export interface CatAppearanceDurations {
   appearing: number
   dragTransition: number
   preparing: number
+  runningLoop: number
   completedEnd: number
   completedFinish: number
 }

@@ -925,6 +925,7 @@ function fallbackCatAppearance(
       appearing: 1000,
       dragTransition: 1100,
       preparing: 1050,
+      runningLoop: 0,
       completedEnd: 980,
       completedFinish: 1500,
     },

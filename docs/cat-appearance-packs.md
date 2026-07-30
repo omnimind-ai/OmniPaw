@@ -55,6 +55,7 @@
 | `durations.appearing` | `1000` | 控制出现过渡；0–30000 ms |
 | `durations.dragTransition` | `1100` | 控制进入拖动过渡；0–30000 ms |
 | `durations.preparing` | `1050` | 控制进入任务过渡；0–30000 ms |
+| `durations.runningLoop` | `0` | 任务循环周期；大于 0 时完成状态等待下一个循环边界；0 保持立即切换行为，最大 30000 ms |
 | `durations.completedEnd` | `980` | 控制任务结束过渡；0–30000 ms |
 | `durations.completedFinish` | `1500` | 控制完成反馈；0–30000 ms |
 | `layout.scale` | `1` | 以底部中心为锚点；0.25–2 |

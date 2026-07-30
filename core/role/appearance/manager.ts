@@ -994,6 +994,7 @@ function normalizeDurations(raw: Record<string, unknown> | undefined): CatAppear
       defaultCatAppearanceDurations.dragTransition
     ),
     preparing: normalizeDuration(raw?.preparing, defaultCatAppearanceDurations.preparing),
+    runningLoop: normalizeDuration(raw?.runningLoop, defaultCatAppearanceDurations.runningLoop),
     completedEnd: normalizeDuration(raw?.completedEnd, defaultCatAppearanceDurations.completedEnd),
     completedFinish: normalizeDuration(
       raw?.completedFinish,

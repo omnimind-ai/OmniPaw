@@ -219,6 +219,7 @@ const defaultAppearance = {
     appearing: 1_000,
     dragTransition: 1_100,
     preparing: 1_050,
+    runningLoop: 0,
     completedEnd: 980,
     completedFinish: 1_500,
   },
