@@ -1180,7 +1180,7 @@ export default {
       builtinToolsButton: 'Built-in tools',
       refreshButton: 'Refresh',
       refreshTooltip: 'Refresh all MCP servers',
-      addServerButton: 'Add server',
+      addServerButton: 'Add',
       mcpUnavailableMsg:
         'MCP management bridge is not ready yet. Please open settings in the Electron runtime.',
       toolsUnavailableMsg:

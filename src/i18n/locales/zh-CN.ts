@@ -1106,7 +1106,7 @@ export default {
       builtinToolsButton: '内置工具',
       refreshButton: '刷新',
       refreshTooltip: '刷新所有 MCP 服务器',
-      addServerButton: '添加服务器',
+      addServerButton: '添加',
       mcpUnavailableMsg: 'MCP 管理桥接尚未就绪，请在 Electron 运行时中打开设置。',
       toolsUnavailableMsg: '工具管理桥接尚未就绪，请在 Electron 运行时中打开设置。',
       fallbackRuntimeMsg:

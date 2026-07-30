@@ -144,12 +144,6 @@ function clearSearch() {
         :placeholder="t('settings.mcpServer.searchPlaceholder')"
         :clear-label="t('settings.mcpServer.searchClearLabel')"
       >
-        <template #summary>
-          <Badge variant="secondary">
-            {{ servers.length }} {{ t('settings.mcpServer.summaryCount') }}
-          </Badge>
-        </template>
-
         <template #actions>
           <Button
             type="button"
@@ -170,7 +164,6 @@ function clearSearch() {
               data-icon="inline-start"
               :class="cn(isPending('refresh:all') && 'animate-spin')"
             />
-            {{ t('settings.mcpServer.refreshButton') }}
           </Button>
           <Button
             type="button"
