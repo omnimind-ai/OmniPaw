@@ -1,0 +1,373 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  NODE_VERSION: '22'
+  OMNIINFER_VERSION: '0.3.11'
+
+jobs:
+  validate:
+    name: Validate release tag
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      commit: ${{ steps.release.outputs.commit }}
+      version: ${{ steps.release.outputs.version }}
+
+    steps:
+      - name: Check out tagged revision
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Validate tag, version, and main ancestry
+        id: release
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          tag="${GITHUB_REF_NAME}"
+          if [[ ! "${tag}" =~ ^v([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+            echo "::error::Release tags must match vX.Y.Z; received ${tag}."
+            exit 1
+          fi
+
+          version="${tag#v}"
+          package_version="$(node -p "require('./package.json').version")"
+          if [[ "${package_version}" != "${version}" ]]; then
+            echo "::error::package.json version ${package_version} does not match tag ${tag}."
+            exit 1
+          fi
+
+          git fetch --no-tags origin main:refs/remotes/origin/main
+          tag_commit="$(git rev-list -n 1 "${tag}")"
+          if ! git merge-base --is-ancestor "${tag_commit}" refs/remotes/origin/main; then
+            echo "::error::Tag ${tag} must point to a commit contained in origin/main."
+            exit 1
+          fi
+
+          echo "commit=${tag_commit}" >> "${GITHUB_OUTPUT}"
+          echo "version=${version}" >> "${GITHUB_OUTPUT}"
+
+  build-release:
+    name: ${{ matrix.name }}
+    needs: validate
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: Windows x64 with OmniInfer
+            runner: windows-latest
+            platform: windows
+            arch: x64
+            extension: exe
+            builder_args: --win nsis --x64
+            bundle_omniinfer: '1'
+            omniinfer_target: windows-x64
+            artifact_suffix: -with-omniinfer
+            artifact_label: windows-x64-full
+          - name: Windows x64
+            runner: windows-latest
+            platform: windows
+            arch: x64
+            extension: exe
+            builder_args: --win nsis --x64
+            bundle_omniinfer: '0'
+            omniinfer_target: ''
+            artifact_suffix: ''
+            artifact_label: windows-x64-slim
+          - name: macOS arm64 with OmniInfer
+            runner: macos-15
+            platform: macos
+            arch: arm64
+            extension: dmg
+            builder_args: --mac dmg --arm64
+            bundle_omniinfer: '1'
+            omniinfer_target: macos-arm64
+            artifact_suffix: -with-omniinfer
+            artifact_label: macos-arm64-full
+          - name: macOS arm64
+            runner: macos-15
+            platform: macos
+            arch: arm64
+            extension: dmg
+            builder_args: --mac dmg --arm64
+            bundle_omniinfer: '0'
+            omniinfer_target: ''
+            artifact_suffix: ''
+            artifact_label: macos-arm64-slim
+          - name: macOS x64
+            runner: macos-15-intel
+            platform: macos
+            arch: x64
+            extension: dmg
+            builder_args: --mac dmg --x64
+            bundle_omniinfer: '0'
+            omniinfer_target: ''
+            artifact_suffix: ''
+            artifact_label: macos-x64-slim
+    env:
+      OMNIPAW_BUNDLE_OMNIINFER: ${{ matrix.bundle_omniinfer }}
+      OMNIPAW_ARTIFACT_SUFFIX: ${{ matrix.artifact_suffix }}
+      OMNIPAW_REQUIRE_MAC_SIGNING: ${{ matrix.platform == 'macos' && '1' || '0' }}
+      OMNIPAW_BUILD_NUMBER: ${{ github.run_number }}
+      OMNIPAW_BUILD_VERSION: ${{ needs.validate.outputs.version }}.${{ github.run_number }}
+      OMNIPAW_MAC_BUNDLE_VERSION: ${{ github.run_number }}
+      OMNIPAW_MAC_BUNDLE_SHORT_VERSION: ${{ needs.validate.outputs.version }}
+      OMNIINFER_TARGET: ${{ matrix.omniinfer_target }}
+
+    steps:
+      - name: Check out tagged revision
+        uses: actions/checkout@v7
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v6
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Stage OmniInfer runtime
+        if: matrix.bundle_omniinfer == '1'
+        run: node scripts/prepare-omniinfer-resource.mjs
+
+      - name: Verify OmniInfer runtime
+        if: matrix.bundle_omniinfer == '1'
+        run: node scripts/check-omniinfer-resources.mjs
+
+      - name: Rebuild native dependencies
+        run: pnpm rebuild:electron
+
+      - name: Stage packaged runtime dependencies
+        run: node scripts/stage-runtime-deps.mjs
+
+      - name: Build application
+        run: pnpm build
+
+      - name: Require macOS release credentials
+        if: matrix.platform == 'macos'
+        shell: bash
+        env:
+          CSC_LINK: ${{ secrets.MAC_CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.MAC_CSC_KEY_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          set -euo pipefail
+
+          missing=()
+          for name in \
+            CSC_LINK \
+            CSC_KEY_PASSWORD \
+            APPLE_ID \
+            APPLE_APP_SPECIFIC_PASSWORD \
+            APPLE_TEAM_ID
+          do
+            if [[ -z "${!name:-}" ]]; then
+              missing+=("${name}")
+            fi
+          done
+
+          if (( ${#missing[@]} > 0 )); then
+            echo "::error::Missing macOS release secrets: ${missing[*]}"
+            exit 1
+          fi
+
+      - name: Package release
+        shell: bash
+        env:
+          CSC_LINK: ${{ secrets.MAC_CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.MAC_CSC_KEY_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
+          WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
+        run: >-
+          pnpm exec electron-builder
+          --config electron-builder.config.cjs
+          ${{ matrix.builder_args }}
+          --publish never
+
+      - name: Verify macOS signature and notarization
+        if: matrix.platform == 'macos'
+        shell: bash
+        run: >-
+          node scripts/verify-macos-signing.mjs
+          --release-dir release
+          --require-notarization
+
+      - name: Resolve release asset
+        id: asset
+        shell: bash
+        env:
+          RELEASE_VERSION: ${{ needs.validate.outputs.version }}
+          RELEASE_PLATFORM: ${{ matrix.platform }}
+          RELEASE_ARCH: ${{ matrix.arch }}
+          RELEASE_SUFFIX: ${{ matrix.artifact_suffix }}
+          RELEASE_EXTENSION: ${{ matrix.extension }}
+        run: |
+          set -euo pipefail
+
+          asset="release/OmniPaw-${RELEASE_VERSION}-${RELEASE_PLATFORM}-${RELEASE_ARCH}${RELEASE_SUFFIX}.${RELEASE_EXTENSION}"
+          if [[ ! -f "${asset}" ]]; then
+            find release -maxdepth 2 -type f -print || true
+            echo "::error::Release asset was not created: ${asset}"
+            exit 1
+          fi
+
+          echo "artifact_path=${asset}" >> "${GITHUB_OUTPUT}"
+
+      - name: Upload release asset
+        uses: actions/upload-artifact@v7
+        with:
+          name: omnipaw-${{ needs.validate.outputs.version }}-${{ matrix.artifact_label }}
+          path: ${{ steps.asset.outputs.artifact_path }}
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 7
+
+  create-release:
+    name: Create GitHub Release
+    needs:
+      - validate
+      - build-release
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: write
+
+    steps:
+      - name: Check out tagged revision
+        uses: actions/checkout@v7
+
+      - name: Download release assets
+        uses: actions/download-artifact@v8
+        with:
+          pattern: omnipaw-${{ needs.validate.outputs.version }}-*
+          path: artifacts
+          merge-multiple: true
+
+      - name: Validate release assets and generate checksums
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          mapfile -d '' assets < <(
+            find artifacts \
+              -maxdepth 1 \
+              -type f \
+              \( -name '*.exe' -o -name '*.dmg' \) \
+              -print0
+          )
+          if (( ${#assets[@]} != 5 )); then
+            find artifacts -maxdepth 2 -type f -print || true
+            echo "::error::Expected 5 release assets, found ${#assets[@]}."
+            exit 1
+          fi
+
+          (
+            cd artifacts
+            while IFS= read -r -d '' asset; do
+              sha256sum "${asset}"
+            done < <(
+              find . \
+                -maxdepth 1 \
+                -type f \
+                \( -name '*.exe' -o -name '*.dmg' \) \
+                -print0 |
+                sort -z
+            )
+          ) > artifacts/SHA256SUMS.txt
+
+          ls -lh artifacts
+          cat artifacts/SHA256SUMS.txt
+
+      - name: Extract release notes from changelog
+        shell: bash
+        env:
+          RELEASE_VERSION: ${{ needs.validate.outputs.version }}
+        run: |
+          set -euo pipefail
+
+          if [[ ! -f CHANGELOG.md ]]; then
+            echo "::error::CHANGELOG.md is required for a release."
+            exit 1
+          fi
+
+          awk -v version="${RELEASE_VERSION}" '
+            function normalize_heading(line, heading) {
+              heading = line
+              sub(/^##[[:space:]]+/, "", heading)
+              sub(/^v/, "", heading)
+              sub(/[[:space:]]+$/, "", heading)
+              return heading
+            }
+
+            /^##[[:space:]]+/ {
+              current = normalize_heading($0)
+              if (found && current != version) {
+                exit
+              }
+              if (current == version) {
+                found = 1
+              }
+            }
+
+            found {
+              print
+            }
+          ' CHANGELOG.md > release_notes.md
+
+          if [[ ! -s release_notes.md ]]; then
+            echo "::error::CHANGELOG.md has no section for version ${RELEASE_VERSION}."
+            exit 1
+          fi
+
+          cat release_notes.md
+
+      - name: Create or refresh GitHub Release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.ref_name }}
+          RELEASE_TITLE: OmniPaw ${{ needs.validate.outputs.version }}
+          RELEASE_COMMIT: ${{ needs.validate.outputs.commit }}
+        run: |
+          set -euo pipefail
+
+          if gh release view "${RELEASE_TAG}" >/dev/null 2>&1; then
+            gh release upload "${RELEASE_TAG}" artifacts/* --clobber
+            gh release edit "${RELEASE_TAG}" \
+              --title "${RELEASE_TITLE}" \
+              --notes-file release_notes.md \
+              --draft=false \
+              --prerelease=false \
+              --latest
+          else
+            gh release create "${RELEASE_TAG}" artifacts/* \
+              --verify-tag \
+              --target "${RELEASE_COMMIT}" \
+              --title "${RELEASE_TITLE}" \
+              --notes-file release_notes.md \
+              --latest
+          fi
