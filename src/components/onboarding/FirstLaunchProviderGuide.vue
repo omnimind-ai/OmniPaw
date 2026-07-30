@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ArrowRightIcon, KeyRoundIcon, LaptopIcon, Loader2Icon } from '@lucide/vue'
+import { ArrowRightIcon, DownloadIcon, KeyRoundIcon, LaptopIcon, Loader2Icon } from '@lucide/vue'
 import type {
   ProviderCapabilities,
   ProviderCompat,
@@ -171,6 +171,13 @@ const recommendedAcceleration = computed(() => {
 })
 const backendSetupBusy = computed(
   () => loadingBackendSetup.value || Boolean(installingBackend.value)
+)
+const accelerationInstallLabel = computed(() =>
+  t(
+    installingBackend.value
+      ? 'onboarding.provider.omniInfer.acceleration.installing'
+      : 'onboarding.provider.omniInfer.acceleration.install'
+  )
 )
 const busy = computed(
   () =>
@@ -394,11 +401,7 @@ function mergeCloudModels(models: ProviderModel[], modelId: string): ProviderMod
 function choiceCardClass(choice: ProviderChoice) {
   return cn(
     'relative isolate flex h-[250px] w-full flex-col overflow-hidden rounded-xl border border-border bg-card transition-colors sm:h-[180px]',
-    selectedChoiceId.value === choice.id && 'bg-muted/20',
-    selectedChoiceId.value === choice.id &&
-      choice.id === 'omniinfer-local' &&
-      recommendedAcceleration.value &&
-      'sm:h-[215px]'
+    selectedChoiceId.value === choice.id && 'bg-muted/20'
   )
 }
 
@@ -690,57 +693,48 @@ function toObjectRecord(value: unknown): Record<string, unknown> {
                   </div>
 
                   <template v-else-if="recommendedAcceleration">
-                    <div class="mb-2 min-w-0 text-xs">
-                      <div class="min-w-0">
-                        <p class="font-medium">
-                          {{ t('onboarding.provider.omniInfer.acceleration.title') }}
-                        </p>
-                        <p class="truncate text-muted-foreground">
-                          {{ t('onboarding.provider.omniInfer.acceleration.recommended', {
-                            backend: recommendedAcceleration,
-                          }) }}
-                        </p>
-                      </div>
-                    </div>
-
-                    <Button
-                      type="button"
-                      variant="outline"
-                      class="w-full"
-                      :disabled="Boolean(installingBackend)"
-                      @click="installRecommendedAcceleration"
-                    >
-                      <Loader2Icon
-                        v-if="installingBackend"
-                        data-icon="inline-start"
-                        class="animate-spin"
-                      />
-                      {{
-                        installingBackend
-                          ? t('onboarding.provider.omniInfer.acceleration.installing')
-                          : t('onboarding.provider.omniInfer.acceleration.install')
-                      }}
-                    </Button>
-
                     <div
-                      class="mt-2"
+                      class="flex min-w-0 items-center gap-2 text-xs"
                       aria-live="polite"
                     >
-                      <div
-                        class="mb-1.5 flex items-center justify-between gap-3 text-xs text-muted-foreground"
+                      <span class="shrink-0 font-medium">
+                        {{ t('onboarding.provider.omniInfer.acceleration.title') }}
+                      </span>
+                      <span class="min-w-0 flex-1 truncate text-muted-foreground">
+                        {{ t('onboarding.provider.omniInfer.acceleration.recommended', {
+                          backend: recommendedAcceleration,
+                        }) }}
+                      </span>
+                      <span
+                        v-if="installingBackend"
+                        class="shrink-0 font-medium tabular-nums text-foreground"
                       >
-                        <span>
-                          {{ t('onboarding.provider.omniInfer.acceleration.progress') }}
-                        </span>
-                        <span class="font-medium tabular-nums text-foreground">
-                          {{ backendInstallPercent }}%
-                        </span>
-                      </div>
-                      <Progress
-                        :model-value="backendInstallPercent"
-                        :aria-label="t('onboarding.provider.omniInfer.acceleration.progress')"
-                      />
+                        {{ backendInstallPercent }}%
+                      </span>
+                      <Button
+                        type="button"
+                        size="icon-sm"
+                        variant="outline"
+                        class="shrink-0"
+                        :disabled="Boolean(installingBackend)"
+                        :aria-label="accelerationInstallLabel"
+                        :title="accelerationInstallLabel"
+                        @click="installRecommendedAcceleration"
+                      >
+                        <Loader2Icon
+                          v-if="installingBackend"
+                          class="animate-spin"
+                        />
+                        <DownloadIcon v-else />
+                      </Button>
                     </div>
+
+                    <Progress
+                      v-if="installingBackend"
+                      class="mt-2"
+                      :model-value="backendInstallPercent"
+                      :aria-label="t('onboarding.provider.omniInfer.acceleration.progress')"
+                    />
                   </template>
 
                 </div>
