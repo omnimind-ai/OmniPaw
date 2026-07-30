@@ -1634,8 +1634,9 @@ export default {
           install: 'Install acceleration',
           installing: 'Installing acceleration',
           progress: 'Installation progress',
-          installCompleted: '{backend} installation completed.',
-          installFailed: 'Failed to install the acceleration backend.',
+          active: 'Currently using {backend}',
+          installCompleted: '{backend} was installed and selected.',
+          installFailed: 'Failed to install or select the acceleration backend.',
         },
         status: {
           notBundled: {

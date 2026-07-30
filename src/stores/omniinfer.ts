@@ -10,6 +10,12 @@ import { computed, ref } from 'vue'
 import { appBridge, type BridgeUnsubscribe, isFallbackBridge } from '@/bridge/app'
 
 const MAX_LOG_LINES = 200
+const BACKEND_STARTUP_POLL_INTERVAL_MS = 500
+const BACKEND_STARTUP_TIMEOUT_MS = 30_000
+
+interface InstallBackendOptions {
+  selectAfterInstall?: boolean
+}
 
 const EMPTY_SNAPSHOT: OmniInferRuntimeSnapshot = {
   process: {
@@ -109,7 +115,10 @@ export const useOmniInferStore = defineStore('omniinfer', () => {
     }
   }
 
-  async function installBackend(backend: string): Promise<void> {
+  async function installBackend(
+    backend: string,
+    options: InstallBackendOptions = {}
+  ): Promise<void> {
     if (!available.value || installingBackend.value) return
     installingBackend.value = backend
     backendInstallProgress.value = {
@@ -123,12 +132,27 @@ export const useOmniInferStore = defineStore('omniinfer', () => {
         backendSetup.value = result
       }
       await refreshStatus()
+      if (options.selectAfterInstall) {
+        await waitForServerOnline()
+        await selectBackend(backend)
+        await refreshBackendSetup()
+      }
     } catch (err) {
       error.value = err
       throw err
     } finally {
       installingBackend.value = null
     }
+  }
+
+  async function waitForServerOnline(): Promise<void> {
+    const deadline = Date.now() + BACKEND_STARTUP_TIMEOUT_MS
+    while (Date.now() < deadline) {
+      await refreshStatus()
+      if (snapshot.value.server.online) return
+      await sleep(BACKEND_STARTUP_POLL_INTERVAL_MS)
+    }
+    throw new Error('OmniInfer gateway did not become ready after backend installation.')
   }
 
   async function selectBackend(backend: string): Promise<void> {
@@ -286,4 +310,8 @@ async function applyOrFallback(
 ): Promise<OmniInferRuntimeSnapshot> {
   const value = await promise
   return value ?? { ...EMPTY_SNAPSHOT }
+}
+
+function sleep(durationMs: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, durationMs))
 }

@@ -48,6 +48,7 @@ export class OmniInferRuntimeService {
   private readonly process: OmniInferProcessController
   private readonly installedModels: InstalledModelRegistry
   private readonly defaultModelsDir: string
+  private readonly defaultInstallDir: string | undefined
   private readonly logger?: Logger
   private readonly now: () => number
 
@@ -74,6 +75,7 @@ export class OmniInferRuntimeService {
     this.logger = options.logger
     this.now = options.now ?? Date.now
     this.processState = this.process.getState()
+    this.defaultInstallDir = this.processState.installDir
     const baseUrl = this.client.getBaseUrl()
     this.server = {
       online: false,
@@ -163,15 +165,17 @@ export class OmniInferRuntimeService {
 
   /**
    * Let a provider setting point at a user-installed OmniInfer directory. Bundled builds
-   * initialize this from the app resources locator, so this is mainly for external installs.
+   * initialize this from the app resources locator. Clearing the provider override restores
+   * that discovered directory.
    */
   setInstallDir(installDir: string | undefined): void {
     const trimmed = installDir?.trim()
+    const next = trimmed || this.defaultInstallDir
     const previous = this.processState.installDir
-    if (!sameOptionalPath(previous, trimmed)) {
-      this.process.setInstallDir?.(trimmed || undefined)
+    if (!sameOptionalPath(previous, next)) {
+      this.process.setInstallDir?.(next)
       this.processState = this.process.getState()
-      this.logger?.info('OmniInfer install directory updated.', { from: previous, to: trimmed })
+      this.logger?.info('OmniInfer install directory updated.', { from: previous, to: next })
       this.emit()
     }
   }

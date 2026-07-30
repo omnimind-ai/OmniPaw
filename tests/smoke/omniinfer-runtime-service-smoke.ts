@@ -87,6 +87,13 @@ const processController: OmniInferProcessController = {
   setModelsDir(modelsDir) {
     processSnapshot = { ...processSnapshot, modelsDir }
   },
+  setInstallDir(installDir) {
+    processSnapshot = {
+      ...processSnapshot,
+      state: installDir ? 'stopped' : 'not_bundled',
+      installDir,
+    }
+  },
   getDefaultBackendId() {
     return 'llama.cpp-cpu'
   },
@@ -127,6 +134,13 @@ const service = new OmniInferRuntimeService({
 })
 
 try {
+  const bundledInstallDir = processSnapshot.installDir
+  service.setInstallDir('D:\\CustomOmniInfer')
+  assert.equal(service.getSnapshot().process.installDir, 'D:\\CustomOmniInfer')
+  service.setInstallDir(undefined)
+  assert.equal(service.getSnapshot().process.installDir, bundledInstallDir)
+  assert.equal(service.getSnapshot().process.state, 'stopped')
+
   const defaultModelsDir = installedModels.getModelsDir()
   const customModelsDir = join(tmpdir(), 'omnipaw-omniinfer-runtime-service-custom-models')
   service.setModelsDir(customModelsDir)

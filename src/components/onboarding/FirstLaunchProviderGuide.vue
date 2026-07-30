@@ -1,5 +1,12 @@
 <script setup lang="ts">
-import { ArrowRightIcon, DownloadIcon, KeyRoundIcon, LaptopIcon, Loader2Icon } from '@lucide/vue'
+import {
+  ArrowRightIcon,
+  CheckIcon,
+  DownloadIcon,
+  KeyRoundIcon,
+  LaptopIcon,
+  Loader2Icon,
+} from '@lucide/vue'
 import type {
   ProviderCapabilities,
   ProviderCompat,
@@ -63,6 +70,7 @@ const {
 const { processState: omniInferProcessState, serverStatus: omniInferServerStatus } =
   storeToRefs(omniInferStore)
 const {
+  snapshot: omniInferSnapshot,
   backendSetup: omniInferBackendSetup,
   loadingBackendSetup,
   installingBackend,
@@ -71,6 +79,7 @@ const {
 
 const selectedChoiceId = ref<ProviderChoiceId | null>(null)
 const omniInferPackaged = ref(false)
+const confirmedAccelerationBackend = ref('')
 const submitting = ref(false)
 const languageSaving = ref(false)
 const themeSaving = ref(false)
@@ -163,12 +172,29 @@ const providerGridStyle = computed<Record<string, string>>(() => {
 })
 const languageBusy = computed(() => languageSaving.value || settingsSaving.value)
 const themeBusy = computed(() => themeSaving.value || settingsSaving.value)
+const activeAccelerationBackend = computed(() => {
+  const setup = omniInferBackendSetup.value
+  if (!setup) return ''
+  if (confirmedAccelerationBackend.value) return confirmedAccelerationBackend.value
+
+  const selectedBackend = omniInferSnapshot.value.backends
+    .find((backend) => backend.selected)
+    ?.id.trim()
+  const backend = selectedBackend || setup.recommendedInstalledBackend?.trim()
+  if (!backend || backend === setup.baseBackend) return ''
+  return setup.installedBackends.includes(backend) ? backend : ''
+})
 const recommendedAcceleration = computed(() => {
   const setup = omniInferBackendSetup.value
   const backend = setup?.recommendedBackend?.trim()
-  if (!setup || !backend || backend === setup.baseBackend) return ''
+  if (!setup || activeAccelerationBackend.value || !backend || backend === setup.baseBackend) {
+    return ''
+  }
   return setup.installedBackends.includes(backend) ? '' : backend
 })
+const accelerationTargetBackend = computed(
+  () => installingBackend.value || recommendedAcceleration.value
+)
 const backendSetupBusy = computed(
   () => loadingBackendSetup.value || Boolean(installingBackend.value)
 )
@@ -289,7 +315,8 @@ async function installRecommendedAcceleration() {
   if (!backend || installingBackend.value) return
 
   try {
-    await omniInferStore.installBackend(backend)
+    await omniInferStore.installBackend(backend, { selectAfterInstall: true })
+    confirmedAccelerationBackend.value = backend
     toast.success(t('onboarding.provider.omniInfer.acceleration.installCompleted', { backend }))
   } catch (error) {
     toast.error(errorToText(error, t('onboarding.provider.omniInfer.acceleration.installFailed')))
@@ -681,7 +708,11 @@ function toObjectRecord(value: unknown): Record<string, unknown> {
                 </dl>
 
                 <div
-                  v-if="loadingBackendSetup || recommendedAcceleration"
+                  v-if="
+                    loadingBackendSetup ||
+                    accelerationTargetBackend ||
+                    activeAccelerationBackend
+                  "
                   class="mt-3 border-t border-border pt-3"
                 >
                   <div
@@ -692,7 +723,23 @@ function toObjectRecord(value: unknown): Record<string, unknown> {
                     {{ t('onboarding.provider.omniInfer.acceleration.checking') }}
                   </div>
 
-                  <template v-else-if="recommendedAcceleration">
+                  <div
+                    v-else-if="activeAccelerationBackend && !installingBackend"
+                    class="flex min-w-0 items-center gap-2 text-xs"
+                    aria-live="polite"
+                  >
+                    <span class="shrink-0 font-medium">
+                      {{ t('onboarding.provider.omniInfer.acceleration.title') }}
+                    </span>
+                    <span class="min-w-0 flex-1 truncate text-muted-foreground">
+                      {{ t('onboarding.provider.omniInfer.acceleration.active', {
+                        backend: activeAccelerationBackend,
+                      }) }}
+                    </span>
+                    <CheckIcon class="size-4 shrink-0 text-primary" />
+                  </div>
+
+                  <template v-else-if="accelerationTargetBackend">
                     <div
                       class="flex min-w-0 items-center gap-2 text-xs"
                       aria-live="polite"
@@ -702,7 +749,7 @@ function toObjectRecord(value: unknown): Record<string, unknown> {
                       </span>
                       <span class="min-w-0 flex-1 truncate text-muted-foreground">
                         {{ t('onboarding.provider.omniInfer.acceleration.recommended', {
-                          backend: recommendedAcceleration,
+                          backend: accelerationTargetBackend,
                         }) }}
                       </span>
                       <span

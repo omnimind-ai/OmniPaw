@@ -1543,8 +1543,9 @@ export default {
           install: '安装加速后端',
           installing: '正在安装加速后端',
           progress: '安装进度',
-          installCompleted: '{backend} 安装完成。',
-          installFailed: '加速后端安装失败。',
+          active: '当前使用 {backend}',
+          installCompleted: '{backend} 安装完成并切换成功。',
+          installFailed: '加速后端安装或切换失败。',
         },
         status: {
           notBundled: {
