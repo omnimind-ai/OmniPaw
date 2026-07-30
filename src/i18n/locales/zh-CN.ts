@@ -1541,7 +1541,10 @@ export default {
           checking: '正在检测适合当前设备的推理后端',
           recommended: '推荐安装 {backend}',
           install: '安装加速后端',
-          later: '之后再说',
+          installing: '正在安装加速后端',
+          progress: '安装进度',
+          installCompleted: '{backend} 安装完成。',
+          installFailed: '加速后端安装失败。',
         },
         status: {
           notBundled: {

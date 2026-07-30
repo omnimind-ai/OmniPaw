@@ -21,6 +21,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Field, FieldGroup, FieldLabel } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
+import { Progress } from '@/components/ui/progress'
 import {
   Select,
   SelectContent,
@@ -29,7 +30,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group'
 import { cn } from '@/lib/utils'
 import { useOmniInferStore } from '@/stores/omniinfer'
 import { useProviderStore } from '@/stores/provider'
@@ -70,7 +70,6 @@ const {
 } = storeToRefs(omniInferStore)
 
 const selectedChoiceId = ref<ProviderChoiceId | null>(null)
-const accelerationChoice = ref<'install' | 'later'>('later')
 const omniInferPackaged = ref(false)
 const submitting = ref(false)
 const languageSaving = ref(false)
@@ -260,9 +259,6 @@ async function continueSetup() {
     if (choice.id === 'openai-compatible') {
       await saveCloudProvider(preset)
     } else {
-      if (accelerationChoice.value === 'install' && recommendedAcceleration.value) {
-        await omniInferStore.installBackend(recommendedAcceleration.value)
-      }
       const existing = findExistingProvider(preset)
       if (!existing) {
         await providerStore.createProviderFromPreset(choice.id)
@@ -278,6 +274,18 @@ async function continueSetup() {
     toast.error(errorToText(error, t('onboarding.errors.configureFailed')))
   } finally {
     submitting.value = false
+  }
+}
+
+async function installRecommendedAcceleration() {
+  const backend = recommendedAcceleration.value
+  if (!backend || installingBackend.value) return
+
+  try {
+    await omniInferStore.installBackend(backend)
+    toast.success(t('onboarding.provider.omniInfer.acceleration.installCompleted', { backend }))
+  } catch (error) {
+    toast.error(errorToText(error, t('onboarding.provider.omniInfer.acceleration.installFailed')))
   }
 }
 
@@ -386,14 +394,12 @@ function mergeCloudModels(models: ProviderModel[], modelId: string): ProviderMod
 function choiceCardClass(choice: ProviderChoice) {
   return cn(
     'relative isolate flex h-[250px] w-full flex-col overflow-hidden rounded-xl border border-border bg-card transition-colors sm:h-[180px]',
-    selectedChoiceId.value === choice.id && 'bg-muted/20'
+    selectedChoiceId.value === choice.id && 'bg-muted/20',
+    selectedChoiceId.value === choice.id &&
+      choice.id === 'omniinfer-local' &&
+      recommendedAcceleration.value &&
+      'sm:h-[215px]'
   )
-}
-
-function setAccelerationChoice(value: unknown) {
-  if (value === 'install' || value === 'later') {
-    accelerationChoice.value = value
-  }
 }
 
 function normalizeCapabilities(
@@ -684,7 +690,7 @@ function toObjectRecord(value: unknown): Record<string, unknown> {
                   </div>
 
                   <template v-else-if="recommendedAcceleration">
-                    <div class="mb-2 flex items-center justify-between gap-3 text-xs">
+                    <div class="mb-2 min-w-0 text-xs">
                       <div class="min-w-0">
                         <p class="font-medium">
                           {{ t('onboarding.provider.omniInfer.acceleration.title') }}
@@ -695,36 +701,46 @@ function toObjectRecord(value: unknown): Record<string, unknown> {
                           }) }}
                         </p>
                       </div>
-                      <span
-                        v-if="installingBackend"
-                        class="shrink-0 font-medium text-primary"
-                      >
-                        {{ backendInstallPercent }}%
-                      </span>
                     </div>
-                    <ToggleGroup
-                      type="single"
+
+                    <Button
+                      type="button"
                       variant="outline"
-                      class="grid w-full grid-cols-2"
-                      :model-value="accelerationChoice"
+                      class="w-full"
                       :disabled="Boolean(installingBackend)"
-                      @update:model-value="setAccelerationChoice"
+                      @click="installRecommendedAcceleration"
                     >
-                      <ToggleGroupItem
-                        value="install"
-                        class="w-full"
-                        :aria-label="t('onboarding.provider.omniInfer.acceleration.install')"
+                      <Loader2Icon
+                        v-if="installingBackend"
+                        data-icon="inline-start"
+                        class="animate-spin"
+                      />
+                      {{
+                        installingBackend
+                          ? t('onboarding.provider.omniInfer.acceleration.installing')
+                          : t('onboarding.provider.omniInfer.acceleration.install')
+                      }}
+                    </Button>
+
+                    <div
+                      class="mt-2"
+                      aria-live="polite"
+                    >
+                      <div
+                        class="mb-1.5 flex items-center justify-between gap-3 text-xs text-muted-foreground"
                       >
-                        {{ t('onboarding.provider.omniInfer.acceleration.install') }}
-                      </ToggleGroupItem>
-                      <ToggleGroupItem
-                        value="later"
-                        class="w-full"
-                        :aria-label="t('onboarding.provider.omniInfer.acceleration.later')"
-                      >
-                        {{ t('onboarding.provider.omniInfer.acceleration.later') }}
-                      </ToggleGroupItem>
-                    </ToggleGroup>
+                        <span>
+                          {{ t('onboarding.provider.omniInfer.acceleration.progress') }}
+                        </span>
+                        <span class="font-medium tabular-nums text-foreground">
+                          {{ backendInstallPercent }}%
+                        </span>
+                      </div>
+                      <Progress
+                        :model-value="backendInstallPercent"
+                        :aria-label="t('onboarding.provider.omniInfer.acceleration.progress')"
+                      />
+                    </div>
                   </template>
 
                 </div>

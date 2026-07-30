@@ -1632,7 +1632,10 @@ export default {
           checking: 'Checking inference backends for this device',
           recommended: 'Recommended: {backend}',
           install: 'Install acceleration',
-          later: 'Later',
+          installing: 'Installing acceleration',
+          progress: 'Installation progress',
+          installCompleted: '{backend} installation completed.',
+          installFailed: 'Failed to install the acceleration backend.',
         },
         status: {
           notBundled: {
