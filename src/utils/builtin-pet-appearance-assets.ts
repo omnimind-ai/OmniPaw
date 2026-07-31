@@ -1,4 +1,8 @@
-import { BUILTIN_CAT_APPEARANCE_PACK_ID, BUILTIN_DOG_APPEARANCE_PACK_ID } from '@shared/constants'
+import {
+  BUILTIN_CAT_APPEARANCE_PACK_ID,
+  BUILTIN_DOG_APPEARANCE_PACK_ID,
+  BUILTIN_NORI_APPEARANCE_PACK_ID,
+} from '@shared/constants'
 import type { CatAppearanceAssetKey } from '@shared/types/cat-appearance'
 
 import catDoingImage from '@/asserts/cat/anim_cat_doing_task.webp'
@@ -23,6 +27,17 @@ import dogDoingFallbackImage from '@/asserts/dog/ic_dog_doing_task.png'
 import dogShowFallbackImage from '@/asserts/dog/ic_dog_first_show.png'
 import dogIdleFallbackImage from '@/asserts/dog/ic_dog_normal.png'
 import dogDraggedFallbackImage from '@/asserts/dog/ic_dog_normal_dragging.png'
+import noriDoingImage from '@/asserts/nori/appearance/doing.webp'
+import noriDoingFallbackImage from '@/asserts/nori/appearance/doing-fallback.png'
+import noriDraggedImage from '@/asserts/nori/appearance/drag.webp'
+import noriDraggedFallbackImage from '@/asserts/nori/appearance/drag-fallback.png'
+import noriDragTransitionImage from '@/asserts/nori/appearance/drag-transition.webp'
+import noriEndDoingImage from '@/asserts/nori/appearance/end-doing.webp'
+import noriFinishImage from '@/asserts/nori/appearance/finish.webp'
+import noriIdleImage from '@/asserts/nori/appearance/idle.webp'
+import noriShowImage from '@/asserts/nori/appearance/show.webp'
+import noriShowFallbackImage from '@/asserts/nori/appearance/show-fallback.png'
+import noriStartDoingImage from '@/asserts/nori/appearance/start-doing.webp'
 
 export const BUILTIN_PET_APPEARANCE_ASSETS = {
   [BUILTIN_CAT_APPEARANCE_PACK_ID]: {
@@ -50,11 +65,25 @@ export const BUILTIN_PET_APPEARANCE_ASSETS = {
     endDoing: dogEndDoingImage,
     finish: dogFinishImage,
   },
+  [BUILTIN_NORI_APPEARANCE_PACK_ID]: {
+    show: noriShowImage,
+    showFallback: noriShowFallbackImage,
+    idle: noriIdleImage,
+    dragTransition: noriDragTransitionImage,
+    drag: noriDraggedImage,
+    dragFallback: noriDraggedFallbackImage,
+    startDoing: noriStartDoingImage,
+    doing: noriDoingImage,
+    doingFallback: noriDoingFallbackImage,
+    endDoing: noriEndDoingImage,
+    finish: noriFinishImage,
+  },
 } as const satisfies Record<string, Partial<Record<CatAppearanceAssetKey, string>>>
 
 export const BUILTIN_PET_IDLE_IMAGE_BY_PACK_ID: Record<string, string> = {
   [BUILTIN_CAT_APPEARANCE_PACK_ID]: catIdleImage,
   [BUILTIN_DOG_APPEARANCE_PACK_ID]: dogIdleFallbackImage,
+  [BUILTIN_NORI_APPEARANCE_PACK_ID]: noriIdleImage,
 }
 
 export function builtinPetAppearanceAssets(

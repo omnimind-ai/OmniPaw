@@ -20,8 +20,13 @@ try {
   const builtInPacks = manager.list().packs
   assert.deepEqual(
     builtInPacks.map((pack) => pack.id),
-    ['builtin', 'builtin-dog']
+    ['builtin', 'builtin-dog', 'builtin-nori']
   )
+  const builtInNori = manager.getPack('builtin-nori')
+  assert.equal(builtInNori.source, 'builtin')
+  assert.equal(builtInNori.durations.runningLoop, 1600)
+  assert.deepEqual(builtInNori.layout, { scale: 1 })
+  assert.throws(() => manager.deletePack('builtin-nori'), /cannot be deleted/i)
   const builtInDog = manager.getPack('builtin-dog')
   assert.equal(builtInDog.source, 'builtin')
   const overriddenBuiltInDog = manager.setActive({

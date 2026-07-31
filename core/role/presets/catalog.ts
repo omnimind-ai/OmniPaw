@@ -1,4 +1,5 @@
 import type { DesktopCompanionRoleSettings } from '@shared/types/settings'
+import { createNoriCompanionRolePreset, NORI_COMPANION_ROLE_ID } from './nori'
 import { createXiaowanCompanionRolePreset, XIAOWAN_COMPANION_ROLE_ID } from './xiaowan'
 import { createXiaozhiCompanionRolePreset, XIAOZHI_COMPANION_ROLE_ID } from './xiaozhi'
 
@@ -18,6 +19,11 @@ export const BUILTIN_COMPANION_ROLE_PRESET_CATALOG = [
     id: XIAOZHI_COMPANION_ROLE_ID,
     introducedInSettingsVersion: 2,
     create: createXiaozhiCompanionRolePreset,
+  },
+  {
+    id: NORI_COMPANION_ROLE_ID,
+    introducedInSettingsVersion: 4,
+    create: createNoriCompanionRolePreset,
   },
 ] as const satisfies readonly BuiltinCompanionRolePresetDescriptor[]
 

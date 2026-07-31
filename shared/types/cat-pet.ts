@@ -344,7 +344,7 @@ export function normalizeCatPetGiftConfigs(input: unknown): CatPetGiftConfig[] {
       fallback?.description
     byId.set(id, {
       id,
-      enabled: true,
+      enabled: record.enabled !== false,
       unlockAffection: fallback.unlockAffection,
       name,
       ...(description ? { description } : {}),
@@ -361,7 +361,7 @@ export function normalizeCatPetGiftConfigs(input: unknown): CatPetGiftConfig[] {
     return {
       ...fallback,
       ...override,
-      enabled: true,
+      enabled: override.enabled !== false,
       unlockAffection: fallback.unlockAffection,
       storyLines: [...override.storyLines],
     }

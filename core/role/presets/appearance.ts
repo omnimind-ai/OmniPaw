@@ -2,6 +2,7 @@ import {
   BUILTIN_APPEARANCE_PACK_IDS,
   BUILTIN_CAT_APPEARANCE_PACK_ID,
   BUILTIN_DOG_APPEARANCE_PACK_ID,
+  BUILTIN_NORI_APPEARANCE_PACK_ID,
 } from '@shared/constants'
 import type {
   CatAppearanceDurations,
@@ -13,6 +14,7 @@ export {
   BUILTIN_APPEARANCE_PACK_IDS,
   BUILTIN_CAT_APPEARANCE_PACK_ID,
   BUILTIN_DOG_APPEARANCE_PACK_ID,
+  BUILTIN_NORI_APPEARANCE_PACK_ID,
 }
 
 export const BUILTIN_CAT_APPEARANCE_PACK: CatAppearancePackSummary = {
@@ -33,9 +35,19 @@ export const BUILTIN_DOG_APPEARANCE_PACK: CatAppearancePackSummary = {
   active: false,
 }
 
+export const BUILTIN_NORI_APPEARANCE_PACK: CatAppearancePackSummary = {
+  id: BUILTIN_NORI_APPEARANCE_PACK_ID,
+  name: 'Nori Quill',
+  description: 'Built-in Nori Quill star-chart navigator appearance.',
+  source: 'builtin',
+  status: 'available',
+  active: false,
+}
+
 export const BUILTIN_APPEARANCE_PACKS = [
   BUILTIN_CAT_APPEARANCE_PACK,
   BUILTIN_DOG_APPEARANCE_PACK,
+  BUILTIN_NORI_APPEARANCE_PACK,
 ] as const satisfies readonly CatAppearancePackSummary[]
 
 export const DEFAULT_CAT_APPEARANCE_DURATIONS: CatAppearanceDurations = {
@@ -59,7 +71,23 @@ export const BUILTIN_DOG_APPEARANCE_LAYOUT: CatAppearanceLayout = {
   scale: 86 / 116,
 }
 
+export const BUILTIN_NORI_APPEARANCE_DURATIONS: CatAppearanceDurations = {
+  ...DEFAULT_CAT_APPEARANCE_DURATIONS,
+  runningLoop: 1600,
+}
+
+export const BUILTIN_NORI_APPEARANCE_LAYOUT: CatAppearanceLayout = {
+  scale: 1,
+}
+
+export const BUILTIN_APPEARANCE_DURATIONS_BY_PACK_ID = {
+  [BUILTIN_CAT_APPEARANCE_PACK_ID]: DEFAULT_CAT_APPEARANCE_DURATIONS,
+  [BUILTIN_DOG_APPEARANCE_PACK_ID]: DEFAULT_CAT_APPEARANCE_DURATIONS,
+  [BUILTIN_NORI_APPEARANCE_PACK_ID]: BUILTIN_NORI_APPEARANCE_DURATIONS,
+} as const satisfies Record<(typeof BUILTIN_APPEARANCE_PACK_IDS)[number], CatAppearanceDurations>
+
 export const BUILTIN_APPEARANCE_LAYOUT_BY_PACK_ID = {
   [BUILTIN_CAT_APPEARANCE_PACK_ID]: BUILTIN_CAT_APPEARANCE_LAYOUT,
   [BUILTIN_DOG_APPEARANCE_PACK_ID]: BUILTIN_DOG_APPEARANCE_LAYOUT,
+  [BUILTIN_NORI_APPEARANCE_PACK_ID]: BUILTIN_NORI_APPEARANCE_LAYOUT,
 } as const satisfies Record<(typeof BUILTIN_APPEARANCE_PACK_IDS)[number], CatAppearanceLayout>

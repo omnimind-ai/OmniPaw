@@ -140,7 +140,7 @@ try {
   assert.equal('mask' in migratedLegacySystemContext.app.systemContext, false)
 
   const builtinPresetIds = BUILTIN_COMPANION_ROLE_PRESET_CATALOG.map((preset) => preset.id)
-  assert.deepEqual(builtinPresetIds, ['default', 'xiaozhi'])
+  assert.deepEqual(builtinPresetIds, ['default', 'xiaozhi', 'nori-quill'])
   assert.equal(new Set(builtinPresetIds).size, builtinPresetIds.length)
   assert.equal(
     BUILTIN_COMPANION_ROLE_PRESET_CATALOG.every(
@@ -153,7 +153,7 @@ try {
     BUILTIN_COMPANION_ROLE_PRESET_CATALOG.filter(
       (preset) => preset.introducedInSettingsVersion > 1
     ).map((preset) => preset.id),
-    ['xiaozhi']
+    ['xiaozhi', 'nori-quill']
   )
   assert.notEqual(
     createBuiltinCompanionRolePresets()[0],
@@ -211,6 +211,51 @@ try {
     'presets/dog/gifts/squeaky-ball.png'
   )
 
+  const noriRole = cloneDefaultConfig().app.companionRoles[2]
+  assert.equal(noriRole?.id, 'nori-quill')
+  assert.equal(noriRole?.name, 'Nori Quill')
+  assert.equal(noriRole?.appearancePackId, 'builtin-nori')
+  assert.match(noriRole?.personality ?? '', /星图/)
+  assert.equal(
+    noriRole?.petGifts[0]?.image?.packagePath,
+    'presets/nori/gifts/route-compass-bookmark.png'
+  )
+  assert.equal(noriRole?.petGifts[1]?.enabled, false)
+  assert.equal(
+    noriRole?.petGifts[2]?.image?.packagePath,
+    'presets/nori/gifts/pocket-star-chart-lantern.png'
+  )
+  assert.equal(noriRole?.petGifts.filter((gift) => gift.enabled !== false).length, 2)
+
+  const normalizedPartialNori = normalizeConfig({
+    ...cloneDefaultConfig(),
+    app: {
+      ...cloneDefaultConfig().app,
+      companionRoles: [{ id: 'nori-quill' }],
+      activeCompanionRoleId: 'nori-quill',
+    },
+  }).config.app.companionRoles[0]
+  assert.equal(normalizedPartialNori?.name, 'Nori Quill')
+  assert.equal(normalizedPartialNori?.appearancePackId, 'builtin-nori')
+  assert.equal(normalizedPartialNori?.petGifts[1]?.enabled, false)
+  assert.equal(normalizedPartialNori?.petGifts.filter((gift) => gift.enabled !== false).length, 2)
+
+  const migratedVersionThree = normalizeConfig({
+    ...cloneDefaultConfig(),
+    version: 3,
+    app: {
+      ...cloneDefaultConfig().app,
+      companionRoles: cloneDefaultConfig().app.companionRoles.filter(
+        (role) => role.id !== 'nori-quill'
+      ),
+    },
+  }).config
+  assert.equal(migratedVersionThree.version, CURRENT_SETTINGS_VERSION)
+  assert.equal(
+    migratedVersionThree.app.companionRoles.some((role) => role.id === 'nori-quill'),
+    true
+  )
+
   const existingXiaowanRole = cloneDefaultConfig().app.companionRoles[0]
   const legacyExistingRolesConfig = {
     ...cloneDefaultConfig(),
@@ -230,9 +275,13 @@ try {
   }
   const migratedExistingRoles = normalizeConfig(legacyExistingRolesConfig).config
   assert.equal(migratedExistingRoles.version, CURRENT_SETTINGS_VERSION)
-  assert.equal(migratedExistingRoles.app.companionRoles.length, 3)
+  assert.equal(migratedExistingRoles.app.companionRoles.length, 4)
   assert.equal(
     migratedExistingRoles.app.companionRoles.some((role) => role.id === 'xiaozhi'),
+    true
+  )
+  assert.equal(
+    migratedExistingRoles.app.companionRoles.some((role) => role.id === 'nori-quill'),
     true
   )
   assert.equal(migratedExistingRoles.app.activeCompanionRoleId, 'existing-custom-role')
@@ -245,6 +294,10 @@ try {
   assert.equal(migratedFromDisk.app.activeCompanionRoleId, 'existing-custom-role')
   assert.equal(
     migratedFromDisk.app.companionRoles.some((role) => role.id === 'xiaozhi'),
+    true
+  )
+  assert.equal(
+    migratedFromDisk.app.companionRoles.some((role) => role.id === 'nori-quill'),
     true
   )
   assert.equal(JSON.parse(readFileSync(legacyConfigPath, 'utf8')).version, CURRENT_SETTINGS_VERSION)
@@ -260,6 +313,10 @@ try {
   }).config
   assert.equal(
     savedWithoutXiaozhi.app.companionRoles.some((role) => role.id === 'xiaozhi'),
+    false
+  )
+  assert.equal(
+    savedWithoutXiaozhi.app.companionRoles.some((role) => role.id === 'nori-quill'),
     false
   )
 

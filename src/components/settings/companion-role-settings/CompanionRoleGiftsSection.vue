@@ -23,7 +23,10 @@ const { t } = useI18n()
 const defaultPetGiftById = new Map(defaultCatPetGiftConfigs().map((item) => [item.id, item]))
 const giftDialogOpen = ref(false)
 const giftDialogDraft = ref<CatPetGiftConfig>()
-const petGiftItems = computed(() => normalizeCatPetGiftConfigs(props.gifts))
+const normalizedPetGiftItems = computed(() => normalizeCatPetGiftConfigs(props.gifts))
+const petGiftItems = computed(() =>
+  normalizedPetGiftItems.value.filter((gift) => gift.enabled !== false)
+)
 const giftSpoilerContentClass = [
   '[&_h3]:select-none',
   '[&_h3]:blur-[3px]',
@@ -67,7 +70,7 @@ function openGiftEditDialog(item: CatPetGiftConfig): void {
 }
 
 function savePetGift(gift: CatPetGiftConfig): void {
-  const items = petGiftItems.value
+  const items = normalizedPetGiftItems.value
   const index = items.findIndex((item) => item.id === gift.id)
   if (index < 0) return
   const next = [...items.slice(0, index), gift, ...items.slice(index + 1)]

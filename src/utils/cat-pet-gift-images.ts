@@ -5,6 +5,8 @@ import warmBellUrl from '@/asserts/cat/gifts/warm-bell.png'
 import collarNameplateUrl from '@/asserts/dog/gifts/collar-nameplate.png'
 import crystalBoneUrl from '@/asserts/dog/gifts/crystal-bone.png'
 import squeakyBallUrl from '@/asserts/dog/gifts/squeaky-ball.png'
+import pocketStarChartLanternUrl from '@/asserts/nori/gifts/pocket-star-chart-lantern.png'
+import routeCompassBookmarkUrl from '@/asserts/nori/gifts/route-compass-bookmark.png'
 
 const builtinGiftImageByPackagePath: Record<string, string> = {
   'presets/gifts/paw-print-sticker.png': pawPrintStickerUrl,
@@ -13,6 +15,8 @@ const builtinGiftImageByPackagePath: Record<string, string> = {
   'presets/dog/gifts/squeaky-ball.png': squeakyBallUrl,
   'presets/dog/gifts/collar-nameplate.png': collarNameplateUrl,
   'presets/dog/gifts/crystal-bone.png': crystalBoneUrl,
+  'presets/nori/gifts/pocket-star-chart-lantern.png': pocketStarChartLanternUrl,
+  'presets/nori/gifts/route-compass-bookmark.png': routeCompassBookmarkUrl,
 }
 
 const builtinGiftImageByGiftId: Record<string, string> = {

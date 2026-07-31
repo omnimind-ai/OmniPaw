@@ -17,6 +17,7 @@ import { basename, dirname, extname, isAbsolute, join, relative, resolve, sep } 
 
 import type { Logger } from '@core/logging'
 import {
+  BUILTIN_APPEARANCE_DURATIONS_BY_PACK_ID,
   BUILTIN_APPEARANCE_LAYOUT_BY_PACK_ID,
   BUILTIN_APPEARANCE_PACK_IDS,
   BUILTIN_APPEARANCE_PACKS,
@@ -722,7 +723,10 @@ export class CatAppearanceManager {
         ...builtinPack,
         active,
         assets: {},
-        durations: defaultCatAppearanceDurations,
+        durations:
+          BUILTIN_APPEARANCE_DURATIONS_BY_PACK_ID[
+            packId as keyof typeof BUILTIN_APPEARANCE_DURATIONS_BY_PACK_ID
+          ] ?? defaultCatAppearanceDurations,
         layout:
           BUILTIN_APPEARANCE_LAYOUT_BY_PACK_ID[
             packId as keyof typeof BUILTIN_APPEARANCE_LAYOUT_BY_PACK_ID

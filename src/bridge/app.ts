@@ -1,4 +1,9 @@
-import { BUILTIN_CAT_APPEARANCE_PACK_ID, BUILTIN_DOG_APPEARANCE_PACK_ID } from '@shared/constants'
+import {
+  BUILTIN_APPEARANCE_PACK_IDS,
+  BUILTIN_CAT_APPEARANCE_PACK_ID,
+  BUILTIN_DOG_APPEARANCE_PACK_ID,
+  BUILTIN_NORI_APPEARANCE_PACK_ID,
+} from '@shared/constants'
 import type { OmniPawBridge } from '@shared/types/bridge'
 import type { CatDraftState, CatPanelPlacement, CatStatus, CatWindowState } from '@shared/types/cat'
 import type {
@@ -894,6 +899,26 @@ let fallbackCatPanelVisible = false
 let fallbackCatPanelSide: CatPanelPlacement['side'] | null = null
 let fallbackActiveCatSessionId: string | undefined
 const fallbackCatDrafts = new Map<string, CatDraftState>()
+const fallbackBuiltinAppearanceMetadata = {
+  [BUILTIN_CAT_APPEARANCE_PACK_ID]: {
+    name: 'OmniPaw Cat',
+    description: 'Built-in OmniPaw cat appearance.',
+    runningLoop: 0,
+    scale: 86 / 116,
+  },
+  [BUILTIN_DOG_APPEARANCE_PACK_ID]: {
+    name: 'OmniPaw Dog',
+    description: 'Built-in OmniPaw dog appearance.',
+    runningLoop: 0,
+    scale: 86 / 116,
+  },
+  [BUILTIN_NORI_APPEARANCE_PACK_ID]: {
+    name: 'Nori Quill',
+    description: 'Built-in Nori Quill star-chart navigator appearance.',
+    runningLoop: 1600,
+    scale: 1,
+  },
+} as const
 
 function fallbackCatStatus(extra: Partial<CatStatus> = {}): CatStatus {
   return {
@@ -911,12 +936,16 @@ function fallbackCatAppearance(
   requestedPackId = BUILTIN_CAT_APPEARANCE_PACK_ID,
   active = true
 ): CatAppearanceResolvedPack {
-  const dog = requestedPackId === BUILTIN_DOG_APPEARANCE_PACK_ID
-  const packId = dog ? BUILTIN_DOG_APPEARANCE_PACK_ID : BUILTIN_CAT_APPEARANCE_PACK_ID
+  const packId = BUILTIN_APPEARANCE_PACK_IDS.includes(
+    requestedPackId as (typeof BUILTIN_APPEARANCE_PACK_IDS)[number]
+  )
+    ? (requestedPackId as (typeof BUILTIN_APPEARANCE_PACK_IDS)[number])
+    : BUILTIN_CAT_APPEARANCE_PACK_ID
+  const metadata = fallbackBuiltinAppearanceMetadata[packId]
   return {
     id: packId,
-    name: dog ? 'OmniPaw Dog' : 'OmniPaw Cat',
-    description: dog ? 'Built-in OmniPaw dog appearance.' : 'Built-in OmniPaw cat appearance.',
+    name: metadata.name,
+    description: metadata.description,
     source: 'builtin',
     status: 'available',
     active,
@@ -925,12 +954,12 @@ function fallbackCatAppearance(
       appearing: 1000,
       dragTransition: 1100,
       preparing: 1050,
-      runningLoop: 0,
+      runningLoop: metadata.runningLoop,
       completedEnd: 980,
       completedFinish: 1500,
     },
     layout: {
-      scale: 86 / 116,
+      scale: metadata.scale,
     },
     version: packId,
     updatedAt: now,
@@ -987,7 +1016,9 @@ function fallbackCatAppearanceList(): CatAppearanceListResponse {
   const now = Date.now()
   const current = fallbackCatAppearance(now)
   return {
-    packs: [current, fallbackCatAppearance(now, BUILTIN_DOG_APPEARANCE_PACK_ID, false)],
+    packs: BUILTIN_APPEARANCE_PACK_IDS.map((packId) =>
+      packId === current.id ? current : fallbackCatAppearance(now, packId, false)
+    ),
     current,
     activePackId: current.id,
     updatedAt: now,
