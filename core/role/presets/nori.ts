@@ -72,11 +72,20 @@ const NORI_GIFTS: readonly CatPetGiftConfig[] = [
   },
   {
     id: 'gift_200',
-    enabled: false,
+    enabled: true,
     unlockAffection: 200,
-    name: '星图工坊留白',
-    description: 'Nori 为未来保留的一页空白星图。',
-    storyLines: ['这页星图留给未来的旅程。'],
+    name: '星轨绘图羽笔',
+    description: '象牙白珐琅羽片上嵌着星轨，铜制笔尖会把共同发现的坐标记入星图。',
+    image: {
+      packagePath: 'presets/nori/gifts/star-route-quill.png',
+      mimeType: 'image/png',
+      fileName: 'star-route-quill.png',
+    },
+    storyLines: [
+      '这支羽笔曾陪我画过许多陌生星域。',
+      '从今天起，它也会记录我们共同发现的坐标。',
+      '写下名字吧，星图工坊会为这段旅程留出专属的一页。',
+    ],
   },
   {
     id: 'gift_300',

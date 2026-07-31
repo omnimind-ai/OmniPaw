@@ -305,7 +305,7 @@ export function normalizeCatPetInteractionConfigs(input: unknown): CatPetInterac
     }
     byId.set(id, {
       id,
-      enabled: record.enabled !== false,
+      enabled: true,
       label: normalizeOptionalText(record.label, MAX_LABEL_LENGTH),
       description: normalizeOptionalText(record.description, MAX_DESCRIPTION_LENGTH),
       positiveFeedback: normalizeOptionalText(record.positiveFeedback, MAX_FEEDBACK_LENGTH),
@@ -361,7 +361,7 @@ export function normalizeCatPetGiftConfigs(input: unknown): CatPetGiftConfig[] {
     return {
       ...fallback,
       ...override,
-      enabled: override.enabled !== false,
+      enabled: true,
       unlockAffection: fallback.unlockAffection,
       storyLines: [...override.storyLines],
     }

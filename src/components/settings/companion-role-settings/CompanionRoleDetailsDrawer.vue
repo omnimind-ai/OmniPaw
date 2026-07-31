@@ -105,15 +105,12 @@ const giftSlots = computed<CatPetGiftDefinition[]>(() => {
       .map((gift) => gift.id)
   )
 
-  return configs
-    .filter((gift) => gift.enabled !== false)
-    .slice(0, 3)
-    .map((gift) => ({
-      ...gift,
-      enabled: true,
-      unlocked: unlockedIds.has(gift.id),
-      storyLines: [...gift.storyLines],
-    }))
+  return configs.slice(0, 3).map((gift) => ({
+    ...gift,
+    enabled: gift.enabled !== false,
+    unlocked: unlockedIds.has(gift.id),
+    storyLines: [...gift.storyLines],
+  }))
 })
 const unlockedGiftCount = computed(() => giftSlots.value.filter((gift) => gift.unlocked).length)
 const detailItems = computed<RoleDetailItem[]>(() => {

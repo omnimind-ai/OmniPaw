@@ -220,12 +220,13 @@ try {
     noriRole?.petGifts[0]?.image?.packagePath,
     'presets/nori/gifts/route-compass-bookmark.png'
   )
-  assert.equal(noriRole?.petGifts[1]?.enabled, false)
+  assert.equal(noriRole?.petGifts[1]?.enabled, true)
+  assert.equal(noriRole?.petGifts[1]?.image?.packagePath, 'presets/nori/gifts/star-route-quill.png')
   assert.equal(
     noriRole?.petGifts[2]?.image?.packagePath,
     'presets/nori/gifts/pocket-star-chart-lantern.png'
   )
-  assert.equal(noriRole?.petGifts.filter((gift) => gift.enabled !== false).length, 2)
+  assert.equal(noriRole?.petGifts.filter((gift) => gift.enabled !== false).length, 3)
 
   const normalizedPartialNori = normalizeConfig({
     ...cloneDefaultConfig(),
@@ -237,8 +238,8 @@ try {
   }).config.app.companionRoles[0]
   assert.equal(normalizedPartialNori?.name, 'Nori Quill')
   assert.equal(normalizedPartialNori?.appearancePackId, 'builtin-nori')
-  assert.equal(normalizedPartialNori?.petGifts[1]?.enabled, false)
-  assert.equal(normalizedPartialNori?.petGifts.filter((gift) => gift.enabled !== false).length, 2)
+  assert.equal(normalizedPartialNori?.petGifts[1]?.enabled, true)
+  assert.equal(normalizedPartialNori?.petGifts.filter((gift) => gift.enabled !== false).length, 3)
 
   const migratedVersionThree = normalizeConfig({
     ...cloneDefaultConfig(),
