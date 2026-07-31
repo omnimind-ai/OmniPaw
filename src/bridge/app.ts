@@ -1078,6 +1078,7 @@ const fallbackBridge: OmniPawBridge = {
       omniInferPackaged: __OMNIINFER_PACKAGED__,
       platform: 'win32',
     }),
+    checkForUpdates: () => Promise.reject(new Error('检查更新仅在 Electron 应用中可用。')),
     openSettingsDirectory: async () => ({
       opened: false,
     }),

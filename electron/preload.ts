@@ -240,6 +240,7 @@ async function getLoggingStatus(): Promise<LoggerHealthStatus> {
 const bridge: OmniPawBridge = {
   app: {
     getInfo: () => ipcRenderer.invoke(IPC_CHANNELS.app.getInfo),
+    checkForUpdates: () => ipcRenderer.invoke(IPC_CHANNELS.app.checkForUpdates),
     openSettingsDirectory: () => ipcRenderer.invoke(IPC_CHANNELS.app.openSettingsDirectory),
     openChatSession: (request) => ipcRenderer.invoke(IPC_CHANNELS.app.openChatSession, request),
     onOpenChatSession: (callback) => createUnsubscriber(IPC_CHANNELS.app.navigateToChat, callback),

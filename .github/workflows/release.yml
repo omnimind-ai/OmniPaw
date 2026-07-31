@@ -48,6 +48,12 @@ jobs:
             exit 1
           fi
 
+          sync_version="$(node -p "require('./sync/version.json').version")"
+          if [[ "${sync_version}" != "${version}" ]]; then
+            echo "::error::sync/version.json version ${sync_version} does not match tag ${tag}."
+            exit 1
+          fi
+
           git fetch --no-tags origin main:refs/remotes/origin/main
           tag_commit="$(git rev-list -n 1 "${tag}")"
           if ! git merge-base --is-ancestor "${tag_commit}" refs/remotes/origin/main; then

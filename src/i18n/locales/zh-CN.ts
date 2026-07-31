@@ -134,9 +134,11 @@ export default {
         viewSettingsDir: '查看设置目录',
         opening: '打开中',
         openGithub: '打开 GitHub',
+        openReleases: '前往下载',
+        close: '关闭',
       },
       messages: {
-        checkUpdatesComingSoon: '检查更新能力待接入。',
+        upToDate: '当前版本 {version} 为最新版本。',
         noLogsAvailable: '当前运行环境没有可导出的日志文件。',
         logExportedSuccess: '日志已导出。',
         logNotExported: '日志未导出。',
@@ -145,8 +147,18 @@ export default {
       },
       errors: {
         loadInfoFailed: '应用信息加载失败。',
+        checkUpdatesFailed: '检查更新失败。',
         exportLogFailed: '日志导出失败。',
         openSettingsDirFailed: '设置目录打开失败。',
+      },
+      updateDialog: {
+        title: '发现新版本',
+        description: 'OmniPaw {version} 可供下载。',
+        currentVersion: '当前版本',
+        latestVersion: '最新版本',
+        releaseDate: '发布日期',
+        changelog: '更新内容',
+        noChangelog: '此版本暂未提供更新内容。',
       },
     },
     shortcut: {

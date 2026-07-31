@@ -18,6 +18,7 @@ export const SYSTEM_SESSION_IDS = {
 export const IPC_CHANNELS = {
   app: {
     getInfo: 'app:get-info',
+    checkForUpdates: 'app:check-for-updates',
     openSettingsDirectory: 'app:open-settings-directory',
     openChatSession: 'app:open-chat-session',
     navigateToChat: 'app:navigate-to-chat',

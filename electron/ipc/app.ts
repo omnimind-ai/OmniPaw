@@ -2,6 +2,7 @@ import { mkdirSync } from 'node:fs'
 import { resolveOmniPawDataPaths } from '@core/utils/data-paths'
 import { IPC_CHANNELS } from '@shared/constants'
 import { shell } from 'electron'
+import { checkForUpdates } from '../update-checker'
 import { isRecord, registerLoggedIpcHandler } from './common'
 import type { IpcHandlerOptions } from './types'
 
@@ -15,6 +16,9 @@ export function registerAppIpcHandlers(options: IpcHandlerOptions): void {
     omniInferPackaged: options.omniInferPackaged,
     platform: options.platform,
   }))
+  registerLoggedIpcHandler(options, IPC_CHANNELS.app.checkForUpdates, () =>
+    checkForUpdates(options.appVersion)
+  )
   registerLoggedIpcHandler(options, IPC_CHANNELS.app.openSettingsDirectory, async () => {
     const directory = resolveOmniPawDataPaths({
       appDataPath: options.appDataPath,

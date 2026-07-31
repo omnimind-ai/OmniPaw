@@ -138,9 +138,11 @@ export default {
         viewSettingsDir: 'View settings directory',
         opening: 'Opening',
         openGithub: 'Open GitHub',
+        openReleases: 'View download',
+        close: 'Close',
       },
       messages: {
-        checkUpdatesComingSoon: 'Update checking capability is coming soon.',
+        upToDate: 'Version {version} is current.',
         noLogsAvailable: 'No log files are available for export in the current environment.',
         logExportedSuccess: 'Logs have been exported.',
         logNotExported: 'Logs were not exported.',
@@ -150,8 +152,18 @@ export default {
       },
       errors: {
         loadInfoFailed: 'Failed to load application information.',
+        checkUpdatesFailed: 'Failed to check for updates.',
         exportLogFailed: 'Failed to export logs.',
         openSettingsDirFailed: 'Failed to open settings directory.',
+      },
+      updateDialog: {
+        title: 'New version available',
+        description: 'OmniPaw {version} is available to download.',
+        currentVersion: 'Current version',
+        latestVersion: 'Latest version',
+        releaseDate: 'Release date',
+        changelog: 'What changed',
+        noChangelog: 'No release notes are available for this version.',
       },
     },
     shortcut: {

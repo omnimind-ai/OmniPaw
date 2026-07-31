@@ -1,0 +1,8 @@
+{
+  "version": "0.1.0",
+  "release_date": "2026-07-31",
+  "changelog": ["首次发布", "- OmniPaw 首次版本"],
+  "downloads": {
+    "github": "https://github.com/omnimind-ai/OmniPaw/releases/latest"
+  }
+}
