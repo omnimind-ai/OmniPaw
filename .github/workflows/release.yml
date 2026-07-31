@@ -48,9 +48,9 @@ jobs:
             exit 1
           fi
 
-          sync_version="$(node -p "require('./sync/version.json').version")"
-          if [[ "${sync_version}" != "${version}" ]]; then
-            echo "::error::sync/version.json version ${sync_version} does not match tag ${tag}."
+          update_version="$(node -p "require('./workers/app-update-worker/version.json').version")"
+          if [[ "${update_version}" != "${version}" ]]; then
+            echo "::error::workers/app-update-worker/version.json version ${update_version} does not match tag ${tag}."
             exit 1
           fi
 

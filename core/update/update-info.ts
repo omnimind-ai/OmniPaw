@@ -1,4 +1,4 @@
-import type { UpdateInfo } from '@shared/types/update'
+import type { UpdateCheckResult, UpdateInfo } from '@shared/types/update'
 
 const VERSION_PATTERN = /^v?(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/
 const RELEASE_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/
@@ -37,6 +37,38 @@ export function isVersionNewer(currentVersion: string, latestVersion: string): b
   }
 
   return false
+}
+
+export function parseUpdateCheckResponseDocument(
+  input: unknown,
+  currentVersion: string
+): UpdateCheckResult {
+  if (!isRecord(input) || input.ok !== true) {
+    throw new Error('Update check response must be a successful JSON object.')
+  }
+
+  const normalizedCurrentVersion = parseVersionText(currentVersion, 'current version')
+  const responseCurrentVersion = parseVersionText(input.currentVersion, 'response currentVersion')
+  if (responseCurrentVersion !== normalizedCurrentVersion) {
+    throw new Error('Update check response currentVersion does not match the request.')
+  }
+
+  const updateInfo = parseUpdateInfoDocument(input.release)
+  const responseLatestVersion = parseVersionText(input.latestVersion, 'response latestVersion')
+  if (responseLatestVersion !== updateInfo.version) {
+    throw new Error('Update check response latestVersion does not match the release document.')
+  }
+
+  const hasUpdate = isVersionNewer(normalizedCurrentVersion, updateInfo.version)
+  if (typeof input.hasUpdate !== 'boolean' || input.hasUpdate !== hasUpdate) {
+    throw new Error('Update check response hasUpdate is inconsistent with its versions.')
+  }
+
+  return {
+    ...updateInfo,
+    currentVersion: normalizedCurrentVersion,
+    hasUpdate,
+  }
 }
 
 function parseVersionText(value: unknown, field: string): string {

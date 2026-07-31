@@ -1,0 +1,6 @@
+name = "omnipaw-app-update-worker"
+main = "worker.js"
+compatibility_date = "2026-07-31"
+
+[observability]
+enabled = true
