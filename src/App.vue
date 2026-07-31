@@ -14,11 +14,13 @@ import SettingsSidebar, { type SettingsTab } from '@/components/settings/common/
 import { appFloatingBoundaryKey } from '@/components/ui/floating-boundary'
 import { SidebarInset, SidebarProvider } from '@/components/ui/sidebar'
 import { Toaster } from '@/components/ui/sonner'
+import AppUpdateDialog from '@/components/update/AppUpdateDialog.vue'
 import { useChatWorkspaceController } from '@/composables/chat/useChatWorkspaceController'
 import { useAppLanguage } from '@/composables/useAppLanguage'
 import { useAppTheme } from '@/composables/useAppTheme'
 import { useProviderStore } from '@/stores/provider'
 import { useSettingsStore } from '@/stores/settings'
+import { useAppUpdateStore } from '@/stores/update'
 
 useAppLanguage()
 useAppTheme()
@@ -27,6 +29,7 @@ const router = useRouter()
 const route = useRoute()
 const providerStore = useProviderStore()
 const settingsStore = useSettingsStore()
+const updateStore = useAppUpdateStore()
 const { config: settingsConfig } = storeToRefs(settingsStore)
 const chatWorkspace = useChatWorkspaceController()
 const {
@@ -237,6 +240,7 @@ const uninstallDebugApi = installDebugApi()
 
 onMounted(() => {
   void initializeStartupState()
+  void updateStore.checkForUpdates().catch(() => undefined)
   stopCatSubscription = appBridge.chat.onStreamEvent?.(syncCatWindow)
   stopOpenChatSubscription = appBridge.app.onOpenChatSession?.((request) => {
     if (!request.sessionId) return
@@ -340,5 +344,6 @@ onBeforeUnmount(() => {
       rich-colors
       position="top-right"
     />
+    <AppUpdateDialog />
   </div>
 </template>
