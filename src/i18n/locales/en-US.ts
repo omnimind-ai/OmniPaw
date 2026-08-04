@@ -1403,7 +1403,7 @@ export default {
     },
     provider: {
       title: 'Model Services',
-      emptyState: 'No providers',
+      emptyState: 'No providers yet. Create one from the left.',
       createNew: 'New Provider',
       search: {
         placeholder: 'Search model platforms...',

@@ -1320,7 +1320,7 @@ export default {
     },
     provider: {
       title: '模型服务',
-      emptyState: '当前没有 Provider',
+      emptyState: '暂无 Provider，从左侧新建一个',
       createNew: '新建 Provider',
       search: {
         placeholder: '搜索模型平台...',

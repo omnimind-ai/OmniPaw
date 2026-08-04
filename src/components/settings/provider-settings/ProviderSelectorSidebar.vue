@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { PlusIcon, SearchIcon, Trash2Icon } from '@lucide/vue'
+import { PlugIcon, PlusIcon, SearchIcon, Trash2Icon } from '@lucide/vue'
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { BridgeProviderPreset } from '@/bridge/app'
@@ -113,7 +113,7 @@ const hasSearchQuery = computed(() => Boolean(localSearchQuery.value.trim()))
       </DropdownMenu>
     </div>
 
-    <div class="min-h-0 flex-1 overflow-y-auto p-2">
+    <div class="flex min-h-0 flex-1 flex-col overflow-y-auto p-2">
       <div
         v-if="loading"
         class="rounded-lg border px-3 py-2 text-sm text-muted-foreground"
@@ -123,9 +123,21 @@ const hasSearchQuery = computed(() => Boolean(localSearchQuery.value.trim()))
 
       <div
         v-else-if="!providerSidebarList.length"
-        class="rounded-lg border px-3 py-2 text-sm text-muted-foreground"
+        class="flex flex-1 flex-col items-center justify-center gap-3 px-4 py-10 text-center text-sm text-muted-foreground"
       >
-        {{ hasSearchQuery ? t('settings.provider.search.noResults') : t('settings.provider.search.empty') }}
+        <SearchIcon
+          v-if="hasSearchQuery"
+          class="size-8 opacity-50"
+          aria-hidden="true"
+        />
+        <PlugIcon
+          v-else
+          class="size-8 opacity-50"
+          aria-hidden="true"
+        />
+        <p class="font-medium">
+          {{ hasSearchQuery ? t('settings.provider.search.noResults') : t('settings.provider.search.empty') }}
+        </p>
       </div>
 
       <div

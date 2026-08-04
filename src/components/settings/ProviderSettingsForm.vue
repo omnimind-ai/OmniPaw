@@ -55,7 +55,6 @@ const {
   removeModel,
   replaceModels,
   setOptionalNumber,
-  startNewProviderDraft,
   startProviderDraftFromPreset,
   updateModelInput,
 } = useProviderDraft({ rawProviders, originalProviderId })
@@ -198,15 +197,6 @@ async function selectProvider(providerId: string) {
 async function selectProviderSidebarItem(provider: ProviderSidebarItem) {
   if (provider.unsaved) return
   await selectProvider(provider.id)
-}
-
-function createNewProviderDraft() {
-  const draft = startNewProviderDraft()
-  activeProviderId.value = draft.id
-  originalProviderId.value = ''
-  providerTab.value = 'basic'
-  clearMessages()
-  void refreshOpenAICodexOAuthStatus()
 }
 
 function createProviderFromPreset(preset: BridgeProviderPreset) {
@@ -428,6 +418,7 @@ function clearMessages() {}
       :title="t('settings.provider.title')"
       :icon="PlugIcon"
       class="min-w-0 flex-1 self-stretch"
+      content-class="flex min-h-0 flex-1 flex-col"
     >
       <template #actions>
         <Button
@@ -442,27 +433,16 @@ function clearMessages() {}
         </Button>
       </template>
 
-      <div class="flex min-h-0 flex-col gap-4 p-4">
+      <div class="flex min-h-0 flex-1 flex-col gap-4 p-4">
         <div
           v-if="!activeProviderId"
-          class="flex min-h-80 flex-col items-start justify-between gap-6 rounded-lg border bg-muted/20 p-6"
+          class="flex min-h-80 flex-1 flex-col items-center justify-center gap-3 px-6 py-12 text-center text-muted-foreground"
         >
-          <div class="flex max-w-2xl flex-col gap-2">
-            <div class="flex items-center gap-2">
-              <h3 class="text-base font-semibold">{{ t('settings.provider.emptyState') }}</h3>
-            </div>
-          </div>
-
-          <div class="flex flex-wrap gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              :disabled="saving || presetsLoading"
-              @click="createNewProviderDraft"
-            >
-              {{ t('settings.provider.createNew') }}
-            </Button>
-          </div>
+          <PlugIcon
+            class="size-9 opacity-50"
+            aria-hidden="true"
+          />
+          <p class="text-sm font-medium">{{ t('settings.provider.emptyState') }}</p>
         </div>
 
         <template v-else>
