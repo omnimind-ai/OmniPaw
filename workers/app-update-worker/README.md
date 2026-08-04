@@ -99,17 +99,17 @@ pnpm dlx wrangler deploy --config workers/app-update-worker/wrangler.toml
 首次执行 `wrangler login` 时，浏览器会打开 Cloudflare 授权页面。发布完成后，Wrangler 会输出 Worker 地址，例如：
 
 ```text
-https://omnipaw-app-update-worker.<Cloudflare 子域名>.workers.dev
+https://omnipaw-app-update-worker.dx390264.workers.dev
 ```
 
 Wrangler 的使用方式参见 [Cloudflare Wrangler 指南](https://developers.cloudflare.com/workers/get-started/guide/)。
 
 ## 验证线上服务
 
-将实际的 Cloudflare 子域名填入地址后访问：
+访问以下地址检查线上服务：
 
 ```text
-https://omnipaw-app-update-worker.<Cloudflare 子域名>.workers.dev/updates?currentVersion=0.0.9
+https://omnipaw-app-update-worker.dx390264.workers.dev/updates?currentVersion=0.0.9
 ```
 
 当 `version.json` 中的版本高于请求中的 `currentVersion` 时，响应里的 `hasUpdate` 为 `true`。
@@ -120,7 +120,7 @@ https://omnipaw-app-update-worker.<Cloudflare 子域名>.workers.dev/updates?cur
 
 ```ts
 const DEFAULT_UPDATE_SERVICE_URL
-  = 'https://omnipaw-app-update-worker.<Cloudflare 子域名>.workers.dev'
+  = 'https://omnipaw-app-update-worker.dx390264.workers.dev'
 ```
 
 客户端会在该地址后补充 `/updates` 和 `currentVersion` 查询参数。
@@ -128,7 +128,7 @@ const DEFAULT_UPDATE_SERVICE_URL
 开发期间也可以通过环境变量指定地址：
 
 ```powershell
-$env:OMNIPAW_UPDATE_INFO_URL='https://omnipaw-app-update-worker.<Cloudflare 子域名>.workers.dev'
+$env:OMNIPAW_UPDATE_INFO_URL='https://omnipaw-app-update-worker.dx390264.workers.dev'
 pnpm dev
 ```
 

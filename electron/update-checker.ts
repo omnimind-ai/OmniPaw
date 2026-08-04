@@ -2,7 +2,7 @@ import { parseUpdateCheckResponseDocument } from '@core/update/update-info'
 import type { UpdateCheckResult } from '@shared/types/update'
 import { net } from 'electron'
 
-const DEFAULT_UPDATE_SERVICE_URL = ''
+const DEFAULT_UPDATE_SERVICE_URL = 'https://omnipaw-app-update-worker.dx390264.workers.dev'
 const UPDATE_REQUEST_TIMEOUT_MS = 10_000
 const MAX_UPDATE_INFO_BYTES = 64 * 1024
 
