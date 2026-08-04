@@ -11,7 +11,7 @@ export interface IpcHandlerOptions {
   commit: string
   isPackaged: boolean
   omniInferPackaged: boolean
-  appDataPath: string
+  dataRootPath: string
   logSink: LogSink
   rootLogger: Logger
   ipcLogger: Logger

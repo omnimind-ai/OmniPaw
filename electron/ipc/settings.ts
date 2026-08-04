@@ -215,7 +215,7 @@ async function copyBackgroundImage(
   ipcOptions: IpcHandlerOptions
 ): Promise<string> {
   const directory = resolveOmniPawDataPaths({
-    appDataPath: ipcOptions.appDataPath,
+    dataRootPath: ipcOptions.dataRootPath,
   }).backgroundImages
   await mkdir(directory, { recursive: true })
 

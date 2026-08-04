@@ -1,5 +1,5 @@
 import { readFile } from 'node:fs/promises'
-import { basename, extname, isAbsolute, join, relative, resolve } from 'node:path'
+import { basename, extname, isAbsolute, relative, resolve } from 'node:path'
 import type { ChatRunEventTarget } from '@core/chat/run-manager'
 import { createProjectLogger } from '@core/logging'
 import { OmniInferRuntimeClient, resolveModelsDir } from '@core/omniinfer'
@@ -40,6 +40,7 @@ import {
   toggleCatVisibility,
 } from '../packages/desktop-pet/electron/controller'
 import { createAppIconImage, resolveAppIconPath } from './app-icon'
+import { resolveApplicationDataRoot } from './application-data'
 import {
   type CatNotificationController,
   createCatNotificationController,
@@ -59,6 +60,12 @@ import { OmniInferProcess } from './omniinfer/process'
 import { createShortcutController, type ShortcutController } from './shortcut-controller'
 import { createTrayController, type TrayController } from './tray'
 
+const appDataPath = app.getPath('appData')
+const dataRootPath = resolveApplicationDataRoot({
+  appDataPath,
+  isPackaged: app.isPackaged,
+  overridePath: process.env.OMNIPAW_DATA_DIR,
+})
 const appVersion = app.getVersion() || __APP_VERSION__
 const appBuildTime = __BUILD_TIME__
 const appCommit = __GIT_COMMIT__
@@ -144,15 +151,7 @@ function applyApplicationIcon(): void {
 }
 
 function resolveAppLogsPath(): string {
-  try {
-    return resolveOmniPawDataPaths({ appDataPath: app.getPath('appData') }).logs
-  } catch {
-    try {
-      return resolveOmniPawDataPaths().logs
-    } catch {
-      return join(process.cwd(), 'omnipaw', 'logs')
-    }
-  }
+  return resolveOmniPawDataPaths({ dataRootPath }).logs
 }
 
 function registerProcessDiagnostics(): void {
@@ -741,7 +740,7 @@ function registerBackgroundAssetProtocol(): void {
     }
 
     const rootPath = resolveOmniPawDataPaths({
-      appDataPath: app.getPath('appData'),
+      dataRootPath,
     }).backgroundImages
     const assetPath = resolve(rootPath, fileName)
     if (!isInsidePath(rootPath, assetPath)) {
@@ -834,7 +833,7 @@ app
     registerCatAppearanceAssetProtocol()
 
     const omniInferLocator = locateOmniInferInstall({ app })
-    const dataPaths = resolveOmniPawDataPaths({ appDataPath: app.getPath('appData') })
+    const dataPaths = resolveOmniPawDataPaths({ dataRootPath })
     const omniInferData = prepareOmniInferDataDirectories({
       dataRootPath: dataPaths.root,
       installDir: omniInferLocator.installDir,
@@ -842,7 +841,7 @@ app
     })
     const omniInferLogsDir = omniInferData.logsDir
     const modelsDir = resolveModelsDir({
-      userDataPath: app.getPath('appData'),
+      userDataPath: appDataPath,
       repoRoot: app.isPackaged ? undefined : process.cwd(),
     })
     const omniInferClient = new OmniInferRuntimeClient()
@@ -864,6 +863,7 @@ app
     runtime = createCoreRuntime({
       app,
       appName: APP_NAME,
+      dataRootPath,
       rootLogger,
       lifecycleLogger,
       onSettingsChanged: broadcastSettingsChanged,
@@ -930,7 +930,7 @@ app
       commit: appCommit,
       isPackaged: app.isPackaged,
       omniInferPackaged,
-      appDataPath: app.getPath('appData'),
+      dataRootPath,
       logSink,
       rootLogger,
       ipcLogger,

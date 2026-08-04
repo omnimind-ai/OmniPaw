@@ -21,7 +21,7 @@ export function registerAppIpcHandlers(options: IpcHandlerOptions): void {
   )
   registerLoggedIpcHandler(options, IPC_CHANNELS.app.openSettingsDirectory, async () => {
     const directory = resolveOmniPawDataPaths({
-      appDataPath: options.appDataPath,
+      dataRootPath: options.dataRootPath,
     }).configRoot
     mkdirSync(directory, { recursive: true })
 

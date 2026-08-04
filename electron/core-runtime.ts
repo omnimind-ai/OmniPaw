@@ -73,6 +73,7 @@ export type { CatAppearanceChangedEvent }
 interface CoreRuntimeOptions {
   app: typeof app
   appName: string
+  dataRootPath: string
   rootLogger: Logger
   lifecycleLogger: Logger
   onSettingsChanged: (reason: SettingsChangeReason, config: DesktopSettingsConfig) => void
@@ -131,7 +132,7 @@ export function createCoreRuntime(options: CoreRuntimeOptions): CoreRuntime {
   coreLogger.info('Core initialization started.')
 
   const appDataPath = options.app.getPath('appData')
-  const dataPaths = resolveOmniPawDataPaths({ appDataPath })
+  const dataPaths = resolveOmniPawDataPaths({ dataRootPath: options.dataRootPath })
 
   const dbClient = new DatabaseClient({
     path: dataPaths.database,
