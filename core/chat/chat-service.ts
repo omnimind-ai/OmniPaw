@@ -329,17 +329,51 @@ export class ChatService {
     return updated
   }
 
-  deleteSession(request: DeleteSessionRequest | string): { deleted: boolean } {
+  async deleteSession(request: DeleteSessionRequest | string): Promise<{ deleted: boolean }> {
     const sessionId = typeof request === 'string' ? request : request.sessionId
     const session = this.options.sessions.get(sessionId)
     if (session?.kind === 'vision') {
       this.options.observationManager?.()?.stopIfSessionActive(sessionId, 'session_deleted')
     }
+    const activeRuns = this.options.runs.list({
+      sessionId,
+      statuses: ['queued', 'running'],
+      limit: 500,
+    })
+    const runFinishedAt = Date.now()
+    for (const run of activeRuns) {
+      this.options.runManager.abort(run.id, 'session_deleted')
+      this.options.runs.updateStatus(
+        run.id,
+        'aborted',
+        { abortReason: 'session_deleted', finishedAt: runFinishedAt },
+        runFinishedAt
+      )
+    }
+    const terminatedProcesses = this.options.terminalService?.cleanupSession(sessionId) ?? 0
     const deleted = this.options.sessions.markDeleted(sessionId)
     if (deleted) {
       this.options.contextCompaction?.hideForSession(sessionId)
+      if (
+        this.options.workspaceService &&
+        this.options.toolSettings?.().workspace.cleanupOnSessionDelete
+      ) {
+        try {
+          await this.options.workspaceService.cleanupWorkspace(sessionId)
+        } catch (error) {
+          this.logger?.warn('Agent workspace cleanup after session deletion failed.', {
+            sessionId,
+            error,
+          })
+        }
+      }
     }
-    this.logger?.info('Chat session delete requested.', { sessionId, deleted })
+    this.logger?.info('Chat session delete requested.', {
+      sessionId,
+      deleted,
+      abortedRuns: activeRuns.length,
+      terminatedProcesses,
+    })
     return { deleted }
   }
 

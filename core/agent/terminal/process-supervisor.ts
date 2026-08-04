@@ -31,7 +31,13 @@ export interface ProcessSupervisorOptions {
   maxForegroundProcesses: () => number
   maxBackgroundProcesses: () => number
   backgroundMaxLifetimeMs: () => number
+  processTree?: ProcessTreeController
   logger?: Logger
+}
+
+export interface ProcessTreeController {
+  detached: boolean
+  terminate(child: ChildProcess): { terminated: boolean; signal: string }
 }
 
 interface ProcessRecord {
@@ -76,14 +82,40 @@ export class ProcessSupervisor {
     if (!record) {
       return false
     }
-    if (record.summary.status === 'running' && record.child && !record.child.killed) {
-      record.child.kill('SIGTERM')
-      this.finishRecord(record, 'killed', {
-        signal: 'SIGTERM',
-      })
-      return true
+    return this.terminateRecord(record, 'killed')
+  }
+
+  cleanupSession(sessionId: string): number {
+    const records = [...this.processes.values()].filter(
+      (record) => record.summary.sessionId === sessionId
+    )
+    let terminated = 0
+    for (const record of records) {
+      if (this.terminateRecord(record, 'killed')) {
+        terminated += 1
+      }
+      if (record.summary.status !== 'running') {
+        this.processes.delete(record.summary.id)
+      }
     }
-    return false
+    this.logger?.info('Local session processes cleaned up.', { sessionId, terminated })
+    return terminated
+  }
+
+  dispose(): number {
+    let terminated = 0
+    for (const record of this.processes.values()) {
+      if (this.terminateRecord(record, 'killed')) {
+        terminated += 1
+      }
+      if (record.lifetimeTimer) {
+        clearTimeout(record.lifetimeTimer)
+        record.lifetimeTimer = undefined
+      }
+    }
+    this.processes.clear()
+    this.logger?.info('Local process supervisor disposed.', { terminated })
+    return terminated
   }
 
   private async runForeground(input: ProcessExecutionRequest): Promise<ProcessExecutionResult> {
@@ -93,18 +125,14 @@ export class ProcessSupervisor {
     let timedOut = false
     const abort = () => {
       aborted = true
-      if (record.child && !record.child.killed) {
-        record.child.kill('SIGTERM')
-      }
+      this.terminateRecord(record, 'killed')
     }
 
     try {
       return await new Promise<ProcessExecutionResult>((resolve) => {
         timeout = setTimeout(() => {
           timedOut = true
-          if (record.child && !record.child.killed) {
-            record.child.kill('SIGTERM')
-          }
+          this.terminateRecord(record, 'timed-out')
         }, input.timeoutMs)
 
         if (input.signal) {
@@ -116,14 +144,24 @@ export class ProcessSupervisor {
         }
 
         record.child?.on('close', (exitCode, signal) => {
-          const status: LocalProcessStatus = timedOut
-            ? 'timed-out'
-            : aborted
-              ? 'killed'
-              : exitCode === 0
-                ? 'exited'
-                : 'failed'
-          this.finishRecord(record, status, { exitCode, signal })
+          if (record.summary.status === 'running') {
+            const status: LocalProcessStatus = timedOut
+              ? 'timed-out'
+              : aborted
+                ? 'killed'
+                : exitCode === 0
+                  ? 'exited'
+                  : 'failed'
+            this.finishRecord(record, status, { exitCode, signal })
+          } else {
+            record.summary = {
+              ...record.summary,
+              exitCode: record.summary.exitCode ?? exitCode,
+              signal: record.summary.signal ?? signal,
+              stdoutTail: record.stdout,
+              stderrTail: record.stderr,
+            }
+          }
           resolve({
             process: { ...record.summary },
             stdout: record.stdout,
@@ -147,8 +185,7 @@ export class ProcessSupervisor {
     const record = this.startRecord(input, true)
     record.lifetimeTimer = setTimeout(() => {
       if (record.summary.status === 'running') {
-        record.child?.kill('SIGTERM')
-        this.finishRecord(record, 'timed-out', { signal: 'SIGTERM' })
+        this.terminateRecord(record, 'timed-out')
       }
     }, this.options.backgroundMaxLifetimeMs())
     record.child?.on('close', (exitCode, signal) => {
@@ -197,6 +234,8 @@ export class ProcessSupervisor {
         env: input.env,
         shell: true,
         stdio: ['ignore', 'pipe', 'pipe'],
+        detached: this.options.processTree?.detached ?? false,
+        windowsHide: true,
       })
       record.child.stdout?.on('data', (chunk: Buffer) => {
         appendOutput(record, 'stdout', chunk.toString('utf8'), input.maxOutputChars)
@@ -254,6 +293,20 @@ export class ProcessSupervisor {
     })
   }
 
+  private terminateRecord(record: ProcessRecord, status: LocalProcessStatus): boolean {
+    if (record.summary.status !== 'running' || !record.child) {
+      return false
+    }
+    const termination = this.options.processTree
+      ? this.options.processTree.terminate(record.child)
+      : terminateChild(record.child)
+    if (!termination.terminated) {
+      return false
+    }
+    this.finishRecord(record, status, { signal: termination.signal })
+    return true
+  }
+
   private ensureProcessCapacity(background: boolean): void {
     const running = [...this.processes.values()].filter(
       (record) => record.summary.status === 'running' && record.summary.background === background
@@ -268,6 +321,17 @@ export class ProcessSupervisor {
           : 'Foreground process limit has been reached.'
       )
     }
+  }
+}
+
+function terminateChild(child: ChildProcess): { terminated: boolean; signal: string } {
+  if (child.killed || child.exitCode !== null) {
+    return { terminated: false, signal: 'SIGTERM' }
+  }
+  try {
+    return { terminated: child.kill('SIGTERM'), signal: 'SIGTERM' }
+  } catch {
+    return { terminated: false, signal: 'SIGTERM' }
   }
 }
 

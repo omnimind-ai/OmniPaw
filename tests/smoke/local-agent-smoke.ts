@@ -10,6 +10,7 @@ import { defaultToolPolicy } from '../../core/agent/tools/policy'
 import { AgentWorkspaceError, AgentWorkspaceService } from '../../core/agent/workspace'
 import { cloneDefaultConfig } from '../../core/config/schema'
 import type { ProviderToolCall } from '../../core/provider/base-provider'
+import { createLocalProcessTreeController } from '../../electron/local-process-tree'
 
 const tempDir = mkdtempSync(join(tmpdir(), 'omnipaw-local-agent-smoke-'))
 
@@ -19,10 +20,19 @@ try {
     userDataPath: tempDir,
     settings: () => config.tools.workspace,
   })
+  const terminatedProcessIds: number[] = []
+  const processTree = createLocalProcessTreeController()
   const supervisor = new ProcessSupervisor({
     maxForegroundProcesses: () => config.tools.terminal.maxForegroundProcesses,
     maxBackgroundProcesses: () => config.tools.terminal.maxBackgroundProcesses,
     backgroundMaxLifetimeMs: () => config.tools.terminal.backgroundMaxLifetimeMs,
+    processTree: {
+      detached: processTree.detached,
+      terminate: (child) => {
+        if (child.pid) terminatedProcessIds.push(child.pid)
+        return processTree.terminate(child)
+      },
+    },
   })
   const terminal = new TerminalService({
     workspace,
@@ -103,6 +113,24 @@ try {
   assert.equal(backgroundResult.process.background, true)
   assert.equal(terminal.listProcesses({ sessionId: 'session-1' }).length > 0, true)
   assert.equal(terminal.killProcess(backgroundResult.process.id), true)
+
+  const sessionOneBackground = await terminal.execute({
+    sessionId: 'session-1',
+    profile: 'power',
+    command: `node -e "setTimeout(() => {}, 5000)"`,
+    background: true,
+  })
+  const sessionTwoBackground = await terminal.execute({
+    sessionId: 'session-2',
+    profile: 'power',
+    command: `node -e "setTimeout(() => {}, 5000)"`,
+    background: true,
+  })
+  assert.equal(sessionOneBackground.process.status, 'running')
+  assert.equal(sessionTwoBackground.process.status, 'running')
+  assert.equal(terminal.cleanupSession('session-1') >= 1, true)
+  assert.equal(terminal.listProcesses({ sessionId: 'session-1' }).length, 0)
+  assert.equal(terminal.listProcesses({ sessionId: 'session-2' }).length, 1)
 
   const controller = new AbortController()
   const abortPromise = terminal.execute({
@@ -211,6 +239,9 @@ try {
   const binary = await workspace.readFile({ sessionId: 'session-1', path: 'binary.bin' })
   assert.equal(binary.binary, true)
 
+  assert.equal(terminal.dispose() >= 1, true)
+  assert.equal(terminal.listProcesses().length, 0)
+  assert.equal(terminatedProcessIds.length >= 4, true)
   await workspace.cleanupWorkspace('session-1')
   console.log('Local agent workspace and terminal smoke check passed')
 } finally {

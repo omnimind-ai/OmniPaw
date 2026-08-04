@@ -58,6 +58,7 @@ import type { ObservationChangedEvent, ObservationReactionEvent } from '@shared/
 import type { DesktopSettingsConfig, SettingsChangeReason } from '@shared/types/settings'
 import type { app } from 'electron'
 import { ElectronDesktopCaptureAdapter } from './desktop-capture-adapter'
+import { createLocalProcessTreeController } from './local-process-tree'
 
 export type McpChangedEvent = Parameters<
   NonNullable<ConstructorParameters<typeof McpServerManager>[0]['onChanged']>
@@ -161,6 +162,7 @@ export function createCoreRuntime(options: CoreRuntimeOptions): CoreRuntime {
     maxForegroundProcesses: () => configStore.get().tools.terminal.maxForegroundProcesses,
     maxBackgroundProcesses: () => configStore.get().tools.terminal.maxBackgroundProcesses,
     backgroundMaxLifetimeMs: () => configStore.get().tools.terminal.backgroundMaxLifetimeMs,
+    processTree: createLocalProcessTreeController(),
     logger: coreLogger.child({ scope: 'agent.process' }),
   })
   const terminalService = new TerminalService({
@@ -542,6 +544,17 @@ export function createCoreRuntime(options: CoreRuntimeOptions): CoreRuntime {
       observationManager.dispose('app_exit')
       catAppearanceManager.dispose()
       cronManager.stop()
+      runManager.abortAll('app_exit')
+      const runFinishedAt = Date.now()
+      for (const run of runRepo.list({ statuses: ['queued', 'running'], limit: 500 })) {
+        runRepo.updateStatus(
+          run.id,
+          'aborted',
+          { abortReason: 'app_exit', finishedAt: runFinishedAt },
+          runFinishedAt
+        )
+      }
+      terminalService.dispose()
       omniInferModelDownloads.dispose()
       omniInferRuntimeService?.dispose()
       dbClient.close()

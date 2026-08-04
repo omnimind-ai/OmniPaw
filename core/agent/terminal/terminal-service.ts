@@ -8,7 +8,7 @@ import type {
   LocalToolApprovalPlan,
 } from '@shared/types/local-agent'
 import type { AgentWorkspaceService } from '../workspace'
-import type { ProcessExecutionResult, ProcessSupervisor } from './process-supervisor'
+import type { ProcessSupervisor } from './process-supervisor'
 
 export interface TerminalServiceOptions {
   workspace: AgentWorkspaceService
@@ -132,6 +132,14 @@ export class TerminalService {
     return this.options.supervisor.kill(processId)
   }
 
+  cleanupSession(sessionId: string): number {
+    return this.options.supervisor.cleanupSession(sessionId)
+  }
+
+  dispose(): number {
+    return this.options.supervisor.dispose()
+  }
+
   private async createPlan(input: TerminalExecRequest): Promise<TerminalExecutionPlan> {
     const command = input.command.trim()
     if (!command) {
@@ -184,10 +192,10 @@ export class TerminalService {
     if (fullAccess && requested && isAbsolute(requested)) {
       return resolve(requested)
     }
-    if (fullAccess && requested && requested.startsWith('~')) {
+    if (fullAccess && requested?.startsWith('~')) {
       return resolve(process.env.HOME || process.cwd(), requested.slice(1))
     }
-    if (fullAccess && requested && requested.startsWith('.')) {
+    if (fullAccess && requested?.startsWith('.')) {
       return resolve(process.cwd(), requested)
     }
     return this.options.workspace.resolveCwd(input.sessionId, requested)

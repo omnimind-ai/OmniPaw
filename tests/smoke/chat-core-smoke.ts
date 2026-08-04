@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { mkdtempSync, rmSync } from 'node:fs'
-import { readFile } from 'node:fs/promises'
+import { access, readFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { evaluateComplexDocumentAttachmentAdmission } from '../../core/agent/run/document-attachments'
@@ -152,6 +152,13 @@ try {
   const companionRoles: DesktopCompanionRoleSettings[] = [defaultCompanionRole]
   const runManager = new RunManager(runRepo)
   testRunManagerReplay(runManager)
+  const lifecycleConfig = cloneDefaultConfig()
+  lifecycleConfig.tools.workspace.cleanupOnSessionDelete = true
+  const lifecycleWorkspace = new AgentWorkspaceService({
+    rootPath: join(tempDir, 'session-lifecycle-workspaces'),
+    settings: () => lifecycleConfig.tools.workspace,
+  })
+  const cleanedProcessSessions: string[] = []
   const providerRequests: Array<{ providerId: string; messages: unknown[] }> = []
   const sessionModelService = new ChatService({
     sessions: sessionRepo,
@@ -196,6 +203,14 @@ try {
     }),
     contextCompaction: new ContextCompactionService(new ChatContextSummaryRepo(db)),
     runManager,
+    workspaceService: lifecycleWorkspace,
+    terminalService: {
+      cleanupSession: (sessionId: string) => {
+        cleanedProcessSessions.push(sessionId)
+        return 1
+      },
+    } as never,
+    toolSettings: () => lifecycleConfig.tools,
     memoryService,
     companionRoles: () => companionRoles,
     companionRoleDefaults: () => companionRoles[0],
@@ -216,6 +231,60 @@ try {
     providerId: kimiProvider.id,
     modelId: 'kimi',
   })
+  const deletedSession = await sessionModelService.createSession({
+    providerId: kimiProvider.id,
+    modelId: 'kimi',
+  })
+  await lifecycleWorkspace.writeFile({
+    sessionId: deletedSession.id,
+    path: 'generated.txt',
+    content: 'delete with session',
+  })
+  const deletionUserMessage: ChatMessage = {
+    id: 'deletion-user',
+    sessionId: deletedSession.id,
+    role: 'user',
+    status: 'complete',
+    parts: [{ type: 'plain', text: 'delete this session' }],
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+  }
+  const deletionAssistantMessage: ChatMessage = {
+    id: 'deletion-assistant',
+    sessionId: deletedSession.id,
+    role: 'assistant',
+    status: 'streaming',
+    parts: [],
+    runId: 'deletion-run',
+    providerId: kimiProvider.id,
+    modelId: 'kimi',
+    createdAt: Date.now() + 1,
+    updatedAt: Date.now() + 1,
+  }
+  messageRepo.save(deletionUserMessage)
+  messageRepo.save(deletionAssistantMessage)
+  runRepo.save({
+    id: 'deletion-run',
+    sessionId: deletedSession.id,
+    userMessageId: deletionUserMessage.id,
+    assistantMessageId: deletionAssistantMessage.id,
+    providerId: kimiProvider.id,
+    modelId: 'kimi',
+    status: 'running',
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+  })
+  const deletionRunSignal = runManager.start('deletion-run', {
+    id: 'deletion-target',
+    send() {},
+  })
+  const deletedWorkspaceStatus = await lifecycleWorkspace.getStatus(deletedSession.id)
+  assert.equal((await sessionModelService.deleteSession(deletedSession.id)).deleted, true)
+  assert.deepEqual(cleanedProcessSessions, [deletedSession.id])
+  assert.equal(deletionRunSignal.aborted, true)
+  assert.equal(runRepo.get('deletion-run')?.status, 'aborted')
+  runManager.finish('deletion-run')
+  await assert.rejects(() => access(deletedWorkspaceStatus.rootPath))
   assert.equal(selectedSession.defaultProviderId, kimiProvider.id)
   assert.equal(selectedSession.defaultModelId, 'kimi')
   assert.equal(selectedSession.systemContext?.role?.refId, companionRoles[0]?.id)
@@ -1256,6 +1325,14 @@ function testRunManagerReplay(runManager: RunManager): void {
   assert.equal(firstTargetEvents.length, 3)
   assert.equal(secondTargetEvents.at(-1)?.type, 'retry')
   runManager.finish('run-replay-smoke')
+
+  const firstAbortSignal = runManager.start('run-abort-all-one', { id: 'abort-one', send() {} })
+  const secondAbortSignal = runManager.start('run-abort-all-two', { id: 'abort-two', send() {} })
+  assert.equal(runManager.abortAll('app_exit'), 2)
+  assert.equal(firstAbortSignal.aborted, true)
+  assert.equal(secondAbortSignal.aborted, true)
+  runManager.finish('run-abort-all-one')
+  runManager.finish('run-abort-all-two')
 }
 
 function fakeAgentTool(name: 'workspace_file' | 'terminal_exec'): AgentTool {

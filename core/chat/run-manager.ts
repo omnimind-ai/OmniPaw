@@ -175,6 +175,16 @@ export class RunManager {
     return true
   }
 
+  abortAll(reason?: string): number {
+    let aborted = 0
+    for (const runId of this.activeRuns.keys()) {
+      if (this.abort(runId, reason)) {
+        aborted += 1
+      }
+    }
+    return aborted
+  }
+
   finish(runId: string): void {
     this.rejectPendingApprovalsForRun(runId, new DOMException('Run finished.', 'AbortError'))
     this.rejectTerminalWaiters(

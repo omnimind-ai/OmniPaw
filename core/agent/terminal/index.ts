@@ -2,6 +2,7 @@ export {
   type ProcessExecutionRequest,
   type ProcessExecutionResult,
   ProcessSupervisor,
+  type ProcessTreeController,
 } from './process-supervisor'
 export {
   type TerminalExecRequest,
