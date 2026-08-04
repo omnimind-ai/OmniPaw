@@ -1,8 +1,15 @@
 {
-  "version": "0.1.0",
-  "release_date": "2026-07-31",
-  "changelog": ["首次发布", "- OmniPaw 首次版本"],
+  "version": "0.1.1",
+  "release_date": "2026-08-04",
+  "changelog": [
+    "新增桌面伙伴 Nori Quill，包含完整角色设定、专属动态形象、互动内容与三件好感度礼物。",
+    "新增应用更新检查，支持启动时自动检查与在“关于”页面手动检查。",
+    "改善本地任务的进程管理，删除会话或退出应用时会终止相关任务及其子进程。",
+    "统一应用数据目录的解析方式，并区分开发环境与正式版本的数据。",
+    "优化模型服务设置页的空状态与搜索无结果提示。",
+    "修正默认更新服务地址及部分子进程可能继续运行的问题。"
+  ],
   "downloads": {
-    "github": "https://github.com/omnimind-ai/OmniPaw/releases/latest"
+    "github": "https://github.com/Saramanda9988/OpenOmniClaw-electron/releases/latest"
   }
 }

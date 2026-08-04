@@ -12,19 +12,19 @@ test('returns an available update for an older client', async () => {
   assert.equal(response.status, 200)
   assert.equal(payload.ok, true)
   assert.equal(payload.currentVersion, '0.0.9')
-  assert.equal(payload.latestVersion, '0.1.0')
+  assert.equal(payload.latestVersion, '0.1.1')
   assert.equal(payload.hasUpdate, true)
-  assert.equal(payload.release.version, '0.1.0')
+  assert.equal(payload.release.version, '0.1.1')
 })
 
 test('reports the current version as up to date', async () => {
   const response = await worker.fetch(
-    new Request('https://updates.example.com/updates?currentVersion=v0.1.0')
+    new Request('https://updates.example.com/updates?currentVersion=v0.1.1')
   )
   const payload = await response.json()
 
   assert.equal(response.status, 200)
-  assert.equal(payload.currentVersion, '0.1.0')
+  assert.equal(payload.currentVersion, '0.1.1')
   assert.equal(payload.hasUpdate, false)
 })
 
