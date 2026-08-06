@@ -7,6 +7,7 @@ export {
 export {
   type TerminalExecRequest,
   type TerminalExecutionPlan,
+  TerminalPolicyError,
   TerminalService,
   type TerminalServiceOptions,
 } from './terminal-service'

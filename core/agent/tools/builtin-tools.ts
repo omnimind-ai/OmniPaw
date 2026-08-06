@@ -99,9 +99,12 @@ export function createBuiltinTools(options: BuiltinToolOptions): AgentTool[] {
       ...BUILTIN_TOOL_CATALOG.terminal_exec,
       localCapability: {
         kind: 'terminal',
-        fullAccess: options.policy?.profile === 'power',
+        fullAccess: configuredTerminalFullAccess(options),
       },
-      resolveRisk: () => 'exec',
+      resolveRisk: (args, context) =>
+        terminalNetworkPolicy(args, context.policyProfile, options) === 'ask' ? 'network' : 'exec',
+      requiresApproval: (args, context) =>
+        terminalRequiresApproval(args, context.policyProfile, options),
       resolveTimeoutMs: (args) => {
         const terminalArgs = asTerminalExecArgs(args)
         const settings = options.toolSettings?.().terminal
@@ -521,7 +524,6 @@ interface TerminalExecArgs {
   timeoutMs?: number
   maxOutputChars?: number
   background?: boolean
-  pty?: boolean
   env?: Record<string, string>
   network?: 'ask' | 'allow' | 'deny'
 }
@@ -878,7 +880,6 @@ function asTerminalExecArgs(value: unknown): TerminalExecArgs {
     timeoutMs: isFiniteNumber(args.timeoutMs) ? args.timeoutMs : undefined,
     maxOutputChars: isFiniteNumber(args.maxOutputChars) ? args.maxOutputChars : undefined,
     background: typeof args.background === 'boolean' ? args.background : undefined,
-    pty: typeof args.pty === 'boolean' ? args.pty : undefined,
     env,
     network:
       args.network === 'ask' || args.network === 'allow' || args.network === 'deny'
@@ -905,11 +906,44 @@ function toTerminalRequest(
     timeoutMs: terminalArgs.timeoutMs,
     maxOutputChars: terminalArgs.maxOutputChars,
     background: terminalArgs.background,
-    pty: terminalArgs.pty,
     env: terminalArgs.env,
     network: terminalArgs.network,
     signal: extra.signal,
   }
+}
+
+function terminalNetworkPolicy(
+  args: unknown,
+  profile: ToolProfile,
+  options: BuiltinToolOptions
+): 'ask' | 'allow' | 'deny' {
+  const terminalArgs = asTerminalExecArgs(args)
+  return (
+    options.terminalService?.resolveNetworkPolicy({
+      profile,
+      network: terminalArgs.network,
+    }) ?? 'deny'
+  )
+}
+
+function terminalRequiresApproval(
+  args: unknown,
+  profile: ToolProfile,
+  options: BuiltinToolOptions
+): boolean {
+  const terminalArgs = asTerminalExecArgs(args)
+  return (
+    options.terminalService?.requiresApproval({
+      profile,
+      network: terminalArgs.network,
+    }) ?? true
+  )
+}
+
+function configuredTerminalFullAccess(options: BuiltinToolOptions): boolean {
+  const profile = options.policy?.profile
+  if (profile !== 'assistant' && profile !== 'power') return false
+  return options.toolSettings?.().terminal[profile].fullAccess ?? false
 }
 
 function parseToolRunAt(value: string | number | undefined): number | undefined {

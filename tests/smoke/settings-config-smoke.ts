@@ -95,6 +95,8 @@ try {
   assert.equal('sandbox' in normalized.tools.terminal, false)
   assert.equal('approval' in normalized.tools.terminal.assistant, false)
   assert.equal('approval' in normalized.tools.terminal.power, false)
+  assert.equal('allowPty' in normalized.tools.terminal.assistant, false)
+  assert.equal('allowPty' in normalized.tools.terminal.power, false)
   assert.equal(normalized.tools.terminal.power.fullAccess, true)
   assert.equal(normalized.scheduledTasks.enabled, true)
   assert.equal(normalized.scheduledTasks.misfirePolicy, 'run_once')

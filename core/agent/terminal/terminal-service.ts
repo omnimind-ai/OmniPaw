@@ -27,7 +27,6 @@ export interface TerminalExecRequest {
   timeoutMs?: number
   maxOutputChars?: number
   background?: boolean
-  pty?: boolean
   env?: Record<string, string>
   network?: LocalNetworkPolicy
   signal?: AbortSignal
@@ -39,12 +38,20 @@ export interface TerminalExecutionPlan {
   timeoutMs: number
   maxOutputChars: number
   background: boolean
-  pty: boolean
   network: LocalNetworkPolicy
   env: Record<string, string>
   envKeys: string[]
   fullAccess: boolean
   accessScope: 'managed-workspace' | 'full-local-access'
+}
+
+export class TerminalPolicyError extends Error {
+  readonly code = 'terminal_policy_denied'
+
+  constructor(message: string) {
+    super(message)
+    this.name = 'TerminalPolicyError'
+  }
 }
 
 export class TerminalService {
@@ -112,7 +119,6 @@ export class TerminalService {
       cwd: displayCwd(plan.cwd),
       timeoutMs: plan.timeoutMs,
       background: plan.background,
-      pty: plan.pty,
       network: plan.network,
       envKeys: plan.envKeys,
       accessScope: plan.accessScope,
@@ -140,19 +146,41 @@ export class TerminalService {
     return this.options.supervisor.dispose()
   }
 
+  resolveNetworkPolicy(
+    input: Pick<TerminalExecRequest, 'profile' | 'network'>
+  ): LocalNetworkPolicy {
+    const profileSettings = this.profileSettings(input.profile, this.options.settings())
+    return restrictNetworkPolicy(profileSettings.network, input.network)
+  }
+
+  requiresApproval(input: Pick<TerminalExecRequest, 'profile' | 'network'>): boolean {
+    return this.resolveNetworkPolicy(input) === 'ask'
+  }
+
   private async createPlan(input: TerminalExecRequest): Promise<TerminalExecutionPlan> {
     const command = input.command.trim()
     if (!command) {
       throw new Error('terminal_exec requires a non-empty command.')
     }
     const settings = this.options.settings()
-    const profileSettings = input.profile === 'power' ? settings.power : settings.assistant
-    if (input.profile === 'minimal') {
-      throw new Error('Terminal execution is not available in minimal profile.')
+    const profileSettings = this.profileSettings(input.profile, settings)
+    const fullAccess = profileSettings.fullAccess
+    if (matchesAnyPattern(command, profileSettings.commandDenyPatterns)) {
+      throw new TerminalPolicyError('Terminal command is denied by the active command policy.')
     }
-    const fullAccess = input.profile === 'power' || profileSettings.fullAccess
-    if (!fullAccess && matchesAnyPattern(command, profileSettings.commandDenyPatterns)) {
-      throw new Error('Terminal command is denied by assistant command policy.')
+    if (
+      profileSettings.commandAllowPatterns.length > 0 &&
+      !matchesAnyPattern(command, profileSettings.commandAllowPatterns)
+    ) {
+      throw new TerminalPolicyError('Terminal command is outside the active command allow list.')
+    }
+    const background = input.background === true
+    if (background && !profileSettings.allowBackground) {
+      throw new TerminalPolicyError('Background terminal execution is disabled for this profile.')
+    }
+    const network = restrictNetworkPolicy(profileSettings.network, input.network)
+    if (network === 'deny') {
+      throw new TerminalPolicyError('Terminal execution is disabled by the active network policy.')
     }
     const workspace = await this.options.workspace.getWorkspacePaths(input.sessionId)
     const cwd = await this.resolveCwd(input, fullAccess)
@@ -163,9 +191,6 @@ export class TerminalService {
       settings.maxOutputChars,
       settings.maxOutputChars
     )
-    const background = input.background === true
-    const pty = input.pty === true
-    const network = input.network ?? profileSettings.network
     const env = buildMinimalEnv({
       keys: settings.minimalEnvKeys,
       workspaceRoot: workspace.root,
@@ -178,13 +203,22 @@ export class TerminalService {
       timeoutMs,
       maxOutputChars,
       background,
-      pty,
       network,
       env,
       envKeys: Object.keys(env).sort(),
       fullAccess,
       accessScope: fullAccess ? 'full-local-access' : 'managed-workspace',
     }
+  }
+
+  private profileSettings(
+    profile: ToolProfile,
+    settings: LocalAgentTerminalSettings
+  ): LocalAgentTerminalSettings['assistant'] | LocalAgentTerminalSettings['power'] {
+    if (profile === 'minimal') {
+      throw new TerminalPolicyError('Terminal execution is disabled for the minimal profile.')
+    }
+    return profile === 'power' ? settings.power : settings.assistant
   }
 
   private async resolveCwd(input: TerminalExecRequest, fullAccess: boolean): Promise<string> {
@@ -252,8 +286,21 @@ function matchesAnyPattern(command: string, patterns: string[]): boolean {
     const trimmed = pattern.trim()
     if (!trimmed) return false
     const escaped = trimmed.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*')
-    return new RegExp(`^${escaped}$`).test(command)
+    return new RegExp(`^${escaped}$`, 'is').test(command)
   })
+}
+
+function restrictNetworkPolicy(
+  profilePolicy: LocalNetworkPolicy,
+  requestedPolicy: LocalNetworkPolicy | undefined
+): LocalNetworkPolicy {
+  if (!requestedPolicy) return profilePolicy
+  const priority: Record<LocalNetworkPolicy, number> = {
+    deny: 0,
+    ask: 1,
+    allow: 2,
+  }
+  return priority[requestedPolicy] < priority[profilePolicy] ? requestedPolicy : profilePolicy
 }
 
 function displayCwd(path: string): string {

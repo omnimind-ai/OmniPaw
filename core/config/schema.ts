@@ -197,7 +197,6 @@ export const defaultConfig: DesktopSettingsConfig = {
       assistant: {
         network: 'ask',
         allowBackground: false,
-        allowPty: false,
         fullAccess: false,
         commandAllowPatterns: [],
         commandDenyPatterns: [],
@@ -205,7 +204,6 @@ export const defaultConfig: DesktopSettingsConfig = {
       power: {
         network: 'allow',
         allowBackground: true,
-        allowPty: true,
         fullAccess: true,
         commandAllowPatterns: [],
         commandDenyPatterns: [],
@@ -2069,13 +2067,6 @@ function validateTerminalProfileSettings(
       code: 'invalid_type',
     })
   }
-  if (typeof settings.allowPty !== 'boolean') {
-    issues.push({
-      path: `${path}.allowPty`,
-      message: 'Value must be boolean.',
-      code: 'invalid_type',
-    })
-  }
   if (typeof settings.fullAccess !== 'boolean') {
     issues.push({
       path: `${path}.fullAccess`,
@@ -2986,7 +2977,6 @@ function normalizeTerminalProfileSettings(
       typeof rawValue.allowBackground === 'boolean'
         ? rawValue.allowBackground
         : defaults.allowBackground,
-    allowPty: typeof rawValue.allowPty === 'boolean' ? rawValue.allowPty : defaults.allowPty,
     fullAccess:
       typeof rawValue.fullAccess === 'boolean' ? rawValue.fullAccess : defaults.fullAccess,
     commandAllowPatterns: normalizeStringArray(

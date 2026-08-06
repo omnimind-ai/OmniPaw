@@ -1918,7 +1918,6 @@ function fallbackSettingsConfig(): BridgeDesktopSettingsConfig {
         assistant: {
           network: 'ask',
           allowBackground: false,
-          allowPty: false,
           fullAccess: false,
           commandAllowPatterns: [],
           commandDenyPatterns: [],
@@ -1926,7 +1925,6 @@ function fallbackSettingsConfig(): BridgeDesktopSettingsConfig {
         power: {
           network: 'allow',
           allowBackground: true,
-          allowPty: true,
           fullAccess: true,
           commandAllowPatterns: [],
           commandDenyPatterns: [],

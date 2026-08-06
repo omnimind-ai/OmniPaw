@@ -1,5 +1,9 @@
 import type { ToolProfile } from './chat'
 
+/**
+ * Terminal network policy. `ask` requires approval, `allow` permits execution, and `deny`
+ * disables terminal execution because the desktop runtime has no process-level network sandbox.
+ */
 export type LocalNetworkPolicy = 'ask' | 'allow' | 'deny'
 export type WorkspaceRootStrategy = 'managed-user-data'
 export type ExternalRootAccessMode = 'read' | 'write' | 'read-write'
@@ -33,9 +37,10 @@ export interface LocalAgentWorkspaceSettings {
 export interface LocalTerminalBaseProfileSettings {
   network: LocalNetworkPolicy
   allowBackground: boolean
-  allowPty: boolean
   fullAccess: boolean
+  /** Full-command glob patterns. A non-empty list acts as an allow list. */
   commandAllowPatterns: string[]
+  /** Full-command glob patterns checked before the allow list for every profile. */
   commandDenyPatterns: string[]
 }
 
@@ -69,7 +74,6 @@ export type LocalToolApprovalPlan =
       cwd: string
       timeoutMs: number
       background: boolean
-      pty: boolean
       network: LocalNetworkPolicy
       envKeys: string[]
       accessScope: 'managed-workspace' | 'full-local-access'

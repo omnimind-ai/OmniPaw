@@ -109,14 +109,44 @@ export class ToolExecutor {
       runId: input.runId,
       policyProfile: input.policy.profile,
     }
-    const effectiveRisk = tool.resolveRisk?.(args, context) ?? tool.risk
-    const approvalPlan = await tool.approvalPlan?.(args, context)
+    let effectiveRisk: ToolRisk
+    let approvalPlan: LocalToolApprovalPlan | undefined
+    try {
+      effectiveRisk = tool.resolveRisk?.(args, context) ?? tool.risk
+      approvalPlan = await tool.approvalPlan?.(args, context)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Tool preflight validation failed.'
+      const policyDenied = isLocalPolicyDeniedError(error)
+      logger?.warn('Tool preflight validation failed.', {
+        status: policyDenied ? 'denied' : 'error',
+        errorCode: policyDenied ? 'tool_denied' : 'tool_preflight_failed',
+        durationMs: Date.now() - startedAt,
+        error,
+      })
+      return {
+        display: finishDisplay(baseDisplay, policyDenied ? 'denied' : 'error', message),
+        result: {
+          status: policyDenied ? 'denied' : 'error',
+          resultText: message,
+          error: {
+            code: policyDenied ? 'tool_denied' : 'tool_preflight_failed',
+            message,
+          },
+        },
+      }
+    }
     const baseDecision = decideToolUse(tool, input.policy, { risk: effectiveRisk })
+    const approvalOverride = tool.requiresApproval?.(args, context, effectiveRisk)
     const decision =
-      baseDecision.approvalRequired &&
-      tool.requiresApproval?.(args, context, effectiveRisk) === false
-        ? { allowed: true }
-        : baseDecision
+      baseDecision.allowed && approvalOverride === true
+        ? {
+            allowed: false,
+            approvalRequired: true,
+            reason: `Tool "${name}" requires approval for the active execution policy.`,
+          }
+        : baseDecision.approvalRequired && approvalOverride === false
+          ? { allowed: true }
+          : baseDecision
     if (!decision.allowed) {
       let approvalGranted = false
       if (decision.approvalRequired && input.approval) {
@@ -225,6 +255,23 @@ export class ToolExecutor {
         },
       }
     } catch (error) {
+      if (isLocalPolicyDeniedError(error)) {
+        const message = error instanceof Error ? error.message : 'Tool execution denied by policy.'
+        logger?.warn('Tool execution denied by local policy.', {
+          status: 'denied',
+          errorCode: 'tool_denied',
+          durationMs: Date.now() - startedAt,
+          error,
+        })
+        return {
+          display: finishDisplay(baseDisplay, 'denied', message),
+          result: {
+            status: 'denied',
+            resultText: message,
+            error: { code: 'tool_denied', message },
+          },
+        }
+      }
       if (error instanceof ToolTimeoutError) {
         const message = error.message
         logger?.warn('Tool execution timed out.', {
@@ -280,6 +327,15 @@ export class ToolExecutor {
       }
     }
   }
+}
+
+function isLocalPolicyDeniedError(error: unknown): boolean {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'code' in error &&
+    error.code === 'terminal_policy_denied'
+  )
 }
 
 function shouldRedactToolArguments(name: string): boolean {

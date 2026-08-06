@@ -395,7 +395,6 @@ export const BUILTIN_TOOL_CATALOG = {
         timeoutMs: { type: 'number' },
         maxOutputChars: { type: 'number' },
         background: { type: 'boolean' },
-        pty: { type: 'boolean' },
         env: {
           type: 'object',
           additionalProperties: { type: 'string' },
