@@ -27,7 +27,7 @@ import {
   CronRunRepo,
   CronTaskRepo,
 } from '@core/db/repos'
-import { defaultContextPolicy, seedDefaultChatData } from '@core/db/seed'
+import { defaultContextPolicy, repairLegacyDefaultChatSession } from '@core/db/seed'
 import type { Logger } from '@core/logging'
 import { McpRegistryStore, McpServerManager, McpValidationError } from '@core/mcp'
 import { CompanionMemoryPolicyService, CompanionMemoryService } from '@core/memory'
@@ -476,10 +476,10 @@ export function createCoreRuntime(options: CoreRuntimeOptions): CoreRuntime {
     observationManager: () => observationManager,
     logger: coreLogger.child({ scope: 'chat' }),
   })
-  seedDefaultChatData(db, {
+  repairLegacyDefaultChatSession(db, {
     systemContext: chatService.buildDefaultSystemContext('chat'),
   })
-  coreLogger.debug('Default chat seed checked.')
+  coreLogger.debug('Legacy default chat session checked.')
   void chatService
     .recoverResidualRuns({
       id: 'startup-recovery',

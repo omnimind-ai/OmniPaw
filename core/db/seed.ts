@@ -9,48 +9,20 @@ export const defaultContextPolicy: ChatSession['contextPolicy'] = {
   includeAttachments: 'current-only',
 }
 
-export interface SeedDefaultChatDataOptions {
-  now?: number
+export interface LegacyDefaultChatSessionRepairOptions {
   systemContext?: ChatSystemContextConfig
 }
 
-export function seedDefaultChatData(
+export function repairLegacyDefaultChatSession(
   db: DatabaseConnection,
-  options: SeedDefaultChatDataOptions = {}
+  options: LegacyDefaultChatSessionRepairOptions = {}
 ): void {
   const sessions = new ChatSessionRepo(db)
-  const now = options.now ?? Date.now()
-
-  const seed = db.transaction(() => {
-    if (sessions.count() === 0) {
-      sessions.save(defaultChatSession(now, options.systemContext))
-      return
-    }
+  const repair = db.transaction(() => {
     repairLegacyDefaultSessionRole(sessions, options.systemContext)
   })
 
-  seed()
-}
-
-export function defaultChatSession(
-  now = Date.now(),
-  systemContext?: ChatSystemContextConfig
-): ChatSession {
-  return {
-    id: 'default',
-    title: 'New chat',
-    kind: 'chat',
-    status: 'active',
-    defaultProviderId: 'openai-compatible',
-    defaultModelId: 'gpt-4o-mini',
-    systemPrompt: systemContext?.baseSystemPrompt,
-    systemContext: cloneSystemContext(systemContext),
-    pinned: false,
-    messageCount: 0,
-    contextPolicy: defaultContextPolicy,
-    createdAt: now,
-    updatedAt: now,
-  }
+  repair()
 }
 
 function repairLegacyDefaultSessionRole(
@@ -79,18 +51,4 @@ function repairLegacyDefaultSessionRole(
       role: { ...role },
     },
   })
-}
-
-function cloneSystemContext(
-  systemContext: ChatSystemContextConfig | undefined
-): ChatSystemContextConfig | undefined {
-  if (!systemContext) {
-    return undefined
-  }
-  return {
-    ...(systemContext.baseSystemPrompt !== undefined
-      ? { baseSystemPrompt: systemContext.baseSystemPrompt }
-      : {}),
-    ...(systemContext.role ? { role: { ...systemContext.role } } : {}),
-  }
 }

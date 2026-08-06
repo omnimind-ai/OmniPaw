@@ -17,7 +17,7 @@ import {
   CronRunRepo,
   CronTaskRepo,
 } from '../../core/db/repos'
-import { seedDefaultChatData } from '../../core/db/seed'
+import { repairLegacyDefaultChatSession } from '../../core/db/seed'
 import type {
   ChatMessage,
   ChatRun,
@@ -39,11 +39,6 @@ try {
       text: '你是小万，是常驻用户桌面的 AI 角色。',
     },
   }
-  seedDefaultChatData(db, {
-    now: 1000,
-    systemContext: defaultRoleSystemContext,
-  })
-
   const sessions = new ChatSessionRepo(db)
   const messages = new ChatMessageRepo(db)
   const contextSummaries = new ChatContextSummaryRepo(db)
@@ -54,6 +49,24 @@ try {
   const cronTasks = new CronTaskRepo(db)
   const cronRuns = new CronRunRepo(db)
 
+  repairLegacyDefaultChatSession(db, {
+    systemContext: defaultRoleSystemContext,
+  })
+  assert.equal(sessions.list().length, 0)
+  assert.equal(sessions.list({ kind: 'chat' }).length, 0)
+
+  sessions.save({
+    id: 'default',
+    title: 'New chat',
+    kind: 'chat',
+    status: 'active',
+    messageCount: 0,
+    createdAt: 1000,
+    updatedAt: 1000,
+  })
+  repairLegacyDefaultChatSession(db, {
+    systemContext: defaultRoleSystemContext,
+  })
   assert.equal(sessions.list().length, 1)
   assert.equal(sessions.list({ kind: 'chat' }).length, 1)
   assert.equal(sessions.get('default')?.kind, 'chat')
@@ -84,8 +97,7 @@ try {
     ...defaultSessionWithoutRole,
     systemContext: undefined,
   })
-  seedDefaultChatData(db, {
-    now: 1001,
+  repairLegacyDefaultChatSession(db, {
     systemContext: defaultRoleSystemContext,
   })
   assert.deepEqual(sessions.get('default')?.systemContext, defaultRoleSystemContext)

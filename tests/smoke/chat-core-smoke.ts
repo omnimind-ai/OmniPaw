@@ -29,7 +29,6 @@ import {
   ChatSessionRepo,
   CompanionMemoryRepo,
 } from '../../core/db/repos'
-import { seedDefaultChatData } from '../../core/db/seed'
 import {
   CompanionMemoryPolicyService,
   CompanionMemoryService,
@@ -48,7 +47,6 @@ const client = new DatabaseClient({ path: join(tempDir, 'smoke.sqlite3') })
 
 try {
   const db = client.connect()
-  seedDefaultChatData(db, { now: 1000 })
   testSemanticMemoryCandidateValidation()
 
   const attachmentRepo = new AttachmentRepo(db)
@@ -57,6 +55,15 @@ try {
     rootDir: join(tempDir, 'attachments'),
   })
   const sessionRepo = new ChatSessionRepo(db)
+  sessionRepo.save({
+    id: 'default',
+    title: 'Smoke test session',
+    kind: 'chat',
+    status: 'active',
+    messageCount: 0,
+    createdAt: 1000,
+    updatedAt: 1000,
+  })
   const messageRepo = new ChatMessageRepo(db)
   const textUpload = await attachments.upload({
     name: 'note.txt',
