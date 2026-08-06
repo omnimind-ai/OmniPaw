@@ -128,15 +128,15 @@ export class TerminalService {
     return this.options.supervisor.get(processId)
   }
 
-  killProcess(processId: string): boolean {
+  killProcess(processId: string): Promise<boolean> {
     return this.options.supervisor.kill(processId)
   }
 
-  cleanupSession(sessionId: string): number {
+  cleanupSession(sessionId: string): Promise<number> {
     return this.options.supervisor.cleanupSession(sessionId)
   }
 
-  dispose(): number {
+  dispose(): Promise<number> {
     return this.options.supervisor.dispose()
   }
 

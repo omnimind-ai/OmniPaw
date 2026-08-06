@@ -35,11 +35,11 @@ export function registerTerminalProcessIpcHandlers(options: IpcHandlerOptions): 
     options,
     IPC_CHANNELS.terminalProcess.kill,
     (_event, request: KillLocalProcessRequest | string) =>
-      localResult<KillLocalProcessResponse>(() => {
+      localResult<KillLocalProcessResponse>(async () => {
         const processId = typeof request === 'string' ? request : request.processId
         return {
           processId,
-          killed: runtime.terminalService.killProcess(processId),
+          killed: await runtime.terminalService.killProcess(processId),
         }
       })
   )

@@ -123,7 +123,7 @@ export interface CoreRuntime {
   omniInferProcessController?: OmniInferProcessController
   omniInferLogsDir?: string
   prepareOmniInferStartup: () => Promise<boolean>
-  dispose: () => void
+  dispose: () => Promise<void>
 }
 
 export function createCoreRuntime(options: CoreRuntimeOptions): CoreRuntime {
@@ -516,6 +516,35 @@ export function createCoreRuntime(options: CoreRuntimeOptions): CoreRuntime {
 
   coreLogger.info('Core initialization complete.', { durationMs: Date.now() - startedAt })
 
+  let disposePromise: Promise<void> | undefined
+  const dispose = (): Promise<void> => {
+    if (disposePromise) return disposePromise
+    disposePromise = (async () => {
+      observationManager.dispose('app_exit')
+      catAppearanceManager.dispose()
+      cronManager.stop()
+      runManager.abortAll('app_exit')
+      const runFinishedAt = Date.now()
+      for (const run of runRepo.list({ statuses: ['queued', 'running'], limit: 500 })) {
+        runRepo.updateStatus(
+          run.id,
+          'aborted',
+          { abortReason: 'app_exit', finishedAt: runFinishedAt },
+          runFinishedAt
+        )
+      }
+      try {
+        await terminalService.dispose()
+      } catch (error) {
+        coreLogger.warn('Local process cleanup during core disposal failed.', { error })
+      }
+      omniInferModelDownloads.dispose()
+      omniInferRuntimeService?.dispose()
+      dbClient.close()
+    })()
+    return disposePromise
+  }
+
   return {
     attachmentService,
     agentWorkspaceService,
@@ -541,25 +570,7 @@ export function createCoreRuntime(options: CoreRuntimeOptions): CoreRuntime {
     omniInferProcessController: options.omniInferProcessController,
     omniInferLogsDir: options.omniInferLogsDir,
     prepareOmniInferStartup: () => omniInferStartupPreparation,
-    dispose: () => {
-      observationManager.dispose('app_exit')
-      catAppearanceManager.dispose()
-      cronManager.stop()
-      runManager.abortAll('app_exit')
-      const runFinishedAt = Date.now()
-      for (const run of runRepo.list({ statuses: ['queued', 'running'], limit: 500 })) {
-        runRepo.updateStatus(
-          run.id,
-          'aborted',
-          { abortReason: 'app_exit', finishedAt: runFinishedAt },
-          runFinishedAt
-        )
-      }
-      terminalService.dispose()
-      omniInferModelDownloads.dispose()
-      omniInferRuntimeService?.dispose()
-      dbClient.close()
-    },
+    dispose,
   }
 }
 

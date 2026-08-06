@@ -104,15 +104,37 @@ try {
   assert.equal(truncationResult.truncated, true)
   assert.equal(truncationResult.stdout.length <= truncationResult.plan.maxOutputChars, true)
 
+  const treeChildPidPath = join(status.filesPath, 'tree-child.pid')
+  const descendantCode = 'setInterval(() => {}, 1000)'
+  const parentCode = [
+    "const { spawn } = require('node:child_process')",
+    "const { writeFileSync } = require('node:fs')",
+    `const child = spawn(process.execPath, ['-e', ${JSON.stringify(descendantCode)}], { stdio: 'ignore' })`,
+    `writeFileSync(${JSON.stringify(treeChildPidPath)}, String(child.pid))`,
+    'setInterval(() => {}, 1000)',
+  ].join(';')
+  const encodedParentCode = Buffer.from(parentCode, 'utf8').toString('base64')
   const backgroundResult = await terminal.execute({
     sessionId: 'session-1',
     profile: 'power',
-    command: `node -e "setTimeout(() => {}, 1000)"`,
+    command: `node -e "eval(Buffer.from('${encodedParentCode}','base64').toString('utf8'))"`,
     background: true,
   })
   assert.equal(backgroundResult.process.background, true)
   assert.equal(terminal.listProcesses({ sessionId: 'session-1' }).length > 0, true)
-  assert.equal(terminal.killProcess(backgroundResult.process.id), true)
+  await waitFor(async () => {
+    const value = await readFile(treeChildPidPath, 'utf8').catch(() => '')
+    return /^\d+$/.test(value.trim())
+  })
+  const treeChildPid = Number((await readFile(treeChildPidPath, 'utf8')).trim())
+  const terminationCountBefore = terminatedProcessIds.length
+  const terminationResults = await Promise.all([
+    terminal.killProcess(backgroundResult.process.id),
+    terminal.killProcess(backgroundResult.process.id),
+  ])
+  assert.deepEqual(terminationResults, [true, true])
+  assert.equal(terminatedProcessIds.length, terminationCountBefore + 1)
+  await waitFor(() => !isProcessAlive(treeChildPid))
 
   const sessionOneBackground = await terminal.execute({
     sessionId: 'session-1',
@@ -128,7 +150,7 @@ try {
   })
   assert.equal(sessionOneBackground.process.status, 'running')
   assert.equal(sessionTwoBackground.process.status, 'running')
-  assert.equal(terminal.cleanupSession('session-1') >= 1, true)
+  assert.equal((await terminal.cleanupSession('session-1')) >= 1, true)
   assert.equal(terminal.listProcesses({ sessionId: 'session-1' }).length, 0)
   assert.equal(terminal.listProcesses({ sessionId: 'session-2' }).length, 1)
 
@@ -239,7 +261,7 @@ try {
   const binary = await workspace.readFile({ sessionId: 'session-1', path: 'binary.bin' })
   assert.equal(binary.binary, true)
 
-  assert.equal(terminal.dispose() >= 1, true)
+  assert.equal((await terminal.dispose()) >= 1, true)
   assert.equal(terminal.listProcesses().length, 0)
   assert.equal(terminatedProcessIds.length >= 4, true)
   await workspace.cleanupWorkspace('session-1')
@@ -247,4 +269,26 @@ try {
 } finally {
   delete process.env.OMNIPAW_SECRET_TEST
   rmSync(tempDir, { recursive: true, force: true })
+}
+
+async function waitFor(
+  predicate: () => boolean | Promise<boolean>,
+  timeoutMs = 5_000
+): Promise<void> {
+  const startedAt = Date.now()
+  while (!(await predicate())) {
+    if (Date.now() - startedAt >= timeoutMs) {
+      throw new Error(`Timed out waiting for local process state after ${timeoutMs}ms.`)
+    }
+    await new Promise((resolve) => setTimeout(resolve, 25))
+  }
+}
+
+function isProcessAlive(pid: number): boolean {
+  try {
+    process.kill(pid, 0)
+    return true
+  } catch {
+    return false
+  }
 }

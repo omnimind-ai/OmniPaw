@@ -37,7 +37,12 @@ export interface ProcessSupervisorOptions {
 
 export interface ProcessTreeController {
   detached: boolean
-  terminate(child: ChildProcess): { terminated: boolean; signal: string }
+  terminate(child: ChildProcess): Promise<{ terminated: boolean; signal: string }>
+}
+
+interface ProcessExit {
+  exitCode: number | null
+  signal: string | null
 }
 
 interface ProcessRecord {
@@ -47,7 +52,14 @@ interface ProcessRecord {
   stderr: string
   foreground: boolean
   lifetimeTimer?: NodeJS.Timeout
+  closed: Promise<ProcessExit>
+  resolveClosed: (exit: ProcessExit) => void
+  closedSettled: boolean
+  terminationStatus?: LocalProcessStatus
+  terminationPromise?: Promise<boolean>
 }
+
+const PROCESS_CLOSE_TIMEOUT_MS = 5_000
 
 export class ProcessSupervisor {
   private readonly processes = new Map<string, ProcessRecord>()
@@ -77,7 +89,7 @@ export class ProcessSupervisor {
     return record ? { ...record.summary } : null
   }
 
-  kill(processId: string): boolean {
+  async kill(processId: string): Promise<boolean> {
     const record = this.processes.get(processId)
     if (!record) {
       return false
@@ -85,15 +97,15 @@ export class ProcessSupervisor {
     return this.terminateRecord(record, 'killed')
   }
 
-  cleanupSession(sessionId: string): number {
+  async cleanupSession(sessionId: string): Promise<number> {
     const records = [...this.processes.values()].filter(
       (record) => record.summary.sessionId === sessionId
     )
-    let terminated = 0
+    const results = await Promise.all(
+      records.map((record) => this.terminateRecord(record, 'killed'))
+    )
+    const terminated = results.filter(Boolean).length
     for (const record of records) {
-      if (this.terminateRecord(record, 'killed')) {
-        terminated += 1
-      }
       if (record.summary.status !== 'running') {
         this.processes.delete(record.summary.id)
       }
@@ -102,12 +114,13 @@ export class ProcessSupervisor {
     return terminated
   }
 
-  dispose(): number {
-    let terminated = 0
-    for (const record of this.processes.values()) {
-      if (this.terminateRecord(record, 'killed')) {
-        terminated += 1
-      }
+  async dispose(): Promise<number> {
+    const records = [...this.processes.values()]
+    const results = await Promise.all(
+      records.map((record) => this.terminateRecord(record, 'killed'))
+    )
+    const terminated = results.filter(Boolean).length
+    for (const record of records) {
       if (record.lifetimeTimer) {
         clearTimeout(record.lifetimeTimer)
         record.lifetimeTimer = undefined
@@ -125,55 +138,34 @@ export class ProcessSupervisor {
     let timedOut = false
     const abort = () => {
       aborted = true
-      this.terminateRecord(record, 'killed')
+      void this.terminateRecord(record, 'killed')
     }
 
     try {
-      return await new Promise<ProcessExecutionResult>((resolve) => {
-        timeout = setTimeout(() => {
-          timedOut = true
-          this.terminateRecord(record, 'timed-out')
-        }, input.timeoutMs)
+      timeout = setTimeout(() => {
+        timedOut = true
+        void this.terminateRecord(record, 'timed-out')
+      }, input.timeoutMs)
 
-        if (input.signal) {
-          if (input.signal.aborted) {
-            abort()
-          } else {
-            input.signal.addEventListener('abort', abort, { once: true })
-          }
+      if (input.signal) {
+        if (input.signal.aborted) {
+          abort()
+        } else {
+          input.signal.addEventListener('abort', abort, { once: true })
         }
+      }
 
-        record.child?.on('close', (exitCode, signal) => {
-          if (record.summary.status === 'running') {
-            const status: LocalProcessStatus = timedOut
-              ? 'timed-out'
-              : aborted
-                ? 'killed'
-                : exitCode === 0
-                  ? 'exited'
-                  : 'failed'
-            this.finishRecord(record, status, { exitCode, signal })
-          } else {
-            record.summary = {
-              ...record.summary,
-              exitCode: record.summary.exitCode ?? exitCode,
-              signal: record.summary.signal ?? signal,
-              stdoutTail: record.stdout,
-              stderrTail: record.stderr,
-            }
-          }
-          resolve({
-            process: { ...record.summary },
-            stdout: record.stdout,
-            stderr: record.stderr,
-            exitCode,
-            signal,
-            timedOut,
-            aborted,
-            truncated: record.summary.truncated,
-          })
-        })
-      })
+      const { exitCode, signal } = await record.closed
+      return {
+        process: { ...record.summary },
+        stdout: record.stdout,
+        stderr: record.stderr,
+        exitCode,
+        signal: record.summary.signal ?? signal,
+        timedOut,
+        aborted,
+        truncated: record.summary.truncated,
+      }
     } finally {
       if (timeout) clearTimeout(timeout)
       input.signal?.removeEventListener('abort', abort)
@@ -185,13 +177,9 @@ export class ProcessSupervisor {
     const record = this.startRecord(input, true)
     record.lifetimeTimer = setTimeout(() => {
       if (record.summary.status === 'running') {
-        this.terminateRecord(record, 'timed-out')
+        void this.terminateRecord(record, 'timed-out')
       }
     }, this.options.backgroundMaxLifetimeMs())
-    record.child?.on('close', (exitCode, signal) => {
-      if (record.summary.status !== 'running') return
-      this.finishRecord(record, exitCode === 0 ? 'exited' : 'failed', { exitCode, signal })
-    })
     return {
       process: { ...record.summary },
       stdout: '',
@@ -207,10 +195,17 @@ export class ProcessSupervisor {
   private startRecord(input: ProcessExecutionRequest, background: boolean): ProcessRecord {
     const now = Date.now()
     const processId = crypto.randomUUID()
+    let resolveClosed: (exit: ProcessExit) => void = () => {}
+    const closed = new Promise<ProcessExit>((resolve) => {
+      resolveClosed = resolve
+    })
     const record: ProcessRecord = {
       stdout: '',
       stderr: '',
       foreground: !background,
+      closed,
+      resolveClosed,
+      closedSettled: false,
       summary: {
         id: processId,
         sessionId: input.sessionId,
@@ -229,7 +224,7 @@ export class ProcessSupervisor {
     }
     this.processes.set(processId, record)
     try {
-      record.child = spawn(input.command, {
+      const child = spawn(input.command, {
         cwd: input.cwd,
         env: input.env,
         shell: true,
@@ -237,14 +232,20 @@ export class ProcessSupervisor {
         detached: this.options.processTree?.detached ?? false,
         windowsHide: true,
       })
-      record.child.stdout?.on('data', (chunk: Buffer) => {
+      record.child = child
+      child.stdout?.on('data', (chunk: Buffer) => {
         appendOutput(record, 'stdout', chunk.toString('utf8'), input.maxOutputChars)
       })
-      record.child.stderr?.on('data', (chunk: Buffer) => {
+      child.stderr?.on('data', (chunk: Buffer) => {
         appendOutput(record, 'stderr', chunk.toString('utf8'), input.maxOutputChars)
       })
-      record.child.on('error', (error) => {
-        this.finishRecord(record, 'failed', {})
+      child.once('close', (exitCode, signal) => {
+        this.settleRecordClose(record, { exitCode, signal })
+      })
+      child.on('error', (error) => {
+        if (!child.pid) {
+          this.settleRecordClose(record, { exitCode: null, signal: null })
+        }
         this.logger?.warn('Local process failed to start.', {
           processId,
           sessionId: input.sessionId,
@@ -293,18 +294,67 @@ export class ProcessSupervisor {
     })
   }
 
-  private terminateRecord(record: ProcessRecord, status: LocalProcessStatus): boolean {
+  private settleRecordClose(record: ProcessRecord, exit: ProcessExit): void {
+    if (record.closedSettled) return
+    record.closedSettled = true
+    const status =
+      record.terminationStatus ?? (exit.exitCode === 0 ? ('exited' as const) : ('failed' as const))
+    this.finishRecord(record, status, {
+      exitCode: exit.exitCode,
+      signal: exit.signal ?? (record.terminationStatus ? 'SIGKILL' : null),
+    })
+    record.resolveClosed(exit)
+  }
+
+  private terminateRecord(record: ProcessRecord, status: LocalProcessStatus): Promise<boolean> {
+    if (record.terminationPromise) {
+      return record.terminationPromise
+    }
     if (record.summary.status !== 'running' || !record.child) {
-      return false
+      return Promise.resolve(false)
     }
-    const termination = this.options.processTree
-      ? this.options.processTree.terminate(record.child)
-      : terminateChild(record.child)
-    if (!termination.terminated) {
-      return false
-    }
-    this.finishRecord(record, status, { signal: termination.signal })
-    return true
+
+    record.terminationStatus = status
+    const child = record.child
+    const terminationPromise = (async () => {
+      let termination: { terminated: boolean; signal: string }
+      try {
+        termination = this.options.processTree
+          ? await this.options.processTree.terminate(child)
+          : terminateChild(child, 'SIGTERM')
+      } catch (error) {
+        this.logger?.warn('Local process tree termination failed.', {
+          processId: record.summary.id,
+          sessionId: record.summary.sessionId,
+          error,
+        })
+        termination = terminateChild(child, 'SIGKILL')
+      }
+
+      if (!termination.terminated) {
+        record.terminationStatus = undefined
+        record.terminationPromise = undefined
+        return false
+      }
+
+      const closed = await waitForPromise(record.closed, PROCESS_CLOSE_TIMEOUT_MS)
+      if (!closed) {
+        terminateChild(child, 'SIGKILL')
+        child.stdout?.destroy()
+        child.stderr?.destroy()
+        this.settleRecordClose(record, {
+          exitCode: child.exitCode,
+          signal: termination.signal,
+        })
+        this.logger?.warn('Local process close event exceeded the cleanup timeout.', {
+          processId: record.summary.id,
+          sessionId: record.summary.sessionId,
+        })
+      }
+      return true
+    })()
+    record.terminationPromise = terminationPromise
+    return terminationPromise
   }
 
   private ensureProcessCapacity(background: boolean): void {
@@ -324,14 +374,31 @@ export class ProcessSupervisor {
   }
 }
 
-function terminateChild(child: ChildProcess): { terminated: boolean; signal: string } {
-  if (child.killed || child.exitCode !== null) {
-    return { terminated: false, signal: 'SIGTERM' }
+function terminateChild(
+  child: ChildProcess,
+  signal: NodeJS.Signals
+): { terminated: boolean; signal: string } {
+  if (child.exitCode !== null) {
+    return { terminated: false, signal }
   }
   try {
-    return { terminated: child.kill('SIGTERM'), signal: 'SIGTERM' }
+    return { terminated: child.kill(signal), signal }
   } catch {
-    return { terminated: false, signal: 'SIGTERM' }
+    return { terminated: false, signal }
+  }
+}
+
+async function waitForPromise<T>(promise: Promise<T>, timeoutMs: number): Promise<boolean> {
+  let timeout: NodeJS.Timeout | undefined
+  try {
+    return await Promise.race([
+      promise.then(() => true),
+      new Promise<boolean>((resolve) => {
+        timeout = setTimeout(() => resolve(false), timeoutMs)
+      }),
+    ])
+  } finally {
+    if (timeout) clearTimeout(timeout)
   }
 }
 

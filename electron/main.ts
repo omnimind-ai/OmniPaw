@@ -97,9 +97,12 @@ let catNotificationController: CatNotificationController | undefined
 let shortcutController: ShortcutController | undefined
 let omniInferProcess: OmniInferProcess | undefined
 let isQuitting = false
+let shutdownPromise: Promise<void> | undefined
 let catAppearanceAssetProtocolRegistered = false
 let backgroundAssetProtocolRegistered = false
 const ZOOM_STEP = 0.05
+const OMNIINFER_SHUTDOWN_TIMEOUT_MS = 3_500
+const CORE_DISPOSE_TIMEOUT_MS = 7_000
 
 protocol.registerSchemesAsPrivileged([
   {
@@ -977,20 +980,37 @@ app.on('before-quit', (event) => {
   catNotificationController?.destroy()
   shortcutController?.destroy()
   closeCatWindow()
-  const omniInferShutdown = runtime?.omniInferRuntimeService?.shutdown()
-  if (omniInferShutdown) {
-    event.preventDefault()
-    Promise.race([omniInferShutdown, new Promise<void>((resolve) => setTimeout(resolve, 3_500))])
-      .catch((error) => lifecycleLogger.warn('OmniInfer shutdown errored.', { error }))
-      .finally(() => {
-        runtime?.dispose()
-        trayController?.destroy()
-        app.exit(0)
+  event.preventDefault()
+  if (shutdownPromise) return
+
+  shutdownPromise = (async () => {
+    const omniInferShutdown = runtime?.omniInferRuntimeService?.shutdown()
+    if (omniInferShutdown) {
+      const completed = await settleWithin(omniInferShutdown, OMNIINFER_SHUTDOWN_TIMEOUT_MS).catch(
+        (error) => {
+          lifecycleLogger.warn('OmniInfer shutdown errored.', { error })
+          return true
+        }
+      )
+      if (!completed) {
+        lifecycleLogger.warn('OmniInfer shutdown exceeded its time limit.')
+      }
+    }
+
+    const coreDispose = runtime?.dispose()
+    if (coreDispose) {
+      const completed = await settleWithin(coreDispose, CORE_DISPOSE_TIMEOUT_MS).catch((error) => {
+        lifecycleLogger.warn('Core disposal errored.', { error })
+        return true
       })
-    return
-  }
-  runtime?.dispose()
-  trayController?.destroy()
+      if (!completed) {
+        lifecycleLogger.warn('Core disposal exceeded its time limit.')
+      }
+    }
+  })().finally(() => {
+    trayController?.destroy()
+    app.exit(0)
+  })
 })
 
 app.on('window-all-closed', () => {
@@ -1000,3 +1020,17 @@ app.on('window-all-closed', () => {
   }
   app.quit()
 })
+
+async function settleWithin(operation: Promise<unknown>, timeoutMs: number): Promise<boolean> {
+  let timeout: NodeJS.Timeout | undefined
+  try {
+    return await Promise.race([
+      operation.then(() => true),
+      new Promise<boolean>((resolve) => {
+        timeout = setTimeout(() => resolve(false), timeoutMs)
+      }),
+    ])
+  } finally {
+    if (timeout) clearTimeout(timeout)
+  }
+}

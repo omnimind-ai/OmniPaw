@@ -1,5 +1,8 @@
-import { type ChildProcess, spawnSync } from 'node:child_process'
+import { type ChildProcess, spawn } from 'node:child_process'
 import type { ProcessTreeController } from '@core/agent/terminal'
+
+const POSIX_TERMINATION_GRACE_MS = 500
+const TASKKILL_TIMEOUT_MS = 5_000
 
 export function createLocalProcessTreeController(
   platform: NodeJS.Platform = process.platform
@@ -10,38 +13,84 @@ export function createLocalProcessTreeController(
   }
 }
 
-function terminateProcessTree(
+async function terminateProcessTree(
   child: ChildProcess,
   platform: NodeJS.Platform
-): { terminated: boolean; signal: string } {
+): Promise<{ terminated: boolean; signal: string }> {
   const pid = child.pid
   if (!pid || child.exitCode !== null) {
     return { terminated: false, signal: 'SIGKILL' }
   }
 
   if (platform === 'win32') {
-    const result = spawnSync('taskkill.exe', ['/PID', String(pid), '/T', '/F'], {
+    if (await runTaskkill(pid)) {
+      return { terminated: true, signal: 'SIGKILL' }
+    }
+    return terminateSingleProcess(child, 'SIGKILL')
+  }
+
+  if (!signalProcessGroup(pid, 'SIGTERM')) {
+    return terminateSingleProcess(child, 'SIGTERM')
+  }
+  await delay(POSIX_TERMINATION_GRACE_MS)
+  if (processGroupExists(pid) && signalProcessGroup(pid, 'SIGKILL')) {
+    return { terminated: true, signal: 'SIGKILL' }
+  }
+  return { terminated: true, signal: 'SIGTERM' }
+}
+
+function runTaskkill(pid: number): Promise<boolean> {
+  return new Promise((resolve) => {
+    const killer = spawn('taskkill.exe', ['/PID', String(pid), '/T', '/F'], {
+      shell: false,
       stdio: 'ignore',
       windowsHide: true,
     })
-    if (result.status === 0) {
-      return { terminated: true, signal: 'SIGKILL' }
+    let settled = false
+    const finish = (succeeded: boolean) => {
+      if (settled) return
+      settled = true
+      clearTimeout(timeout)
+      resolve(succeeded)
     }
-    return terminateSingleProcess(child)
-  }
+    const timeout = setTimeout(() => {
+      killer.kill()
+      finish(false)
+    }, TASKKILL_TIMEOUT_MS)
+    killer.once('error', () => finish(false))
+    killer.once('close', (exitCode) => finish(exitCode === 0))
+  })
+}
 
+function signalProcessGroup(pid: number, signal: NodeJS.Signals): boolean {
   try {
-    process.kill(-pid, 'SIGKILL')
-    return { terminated: true, signal: 'SIGKILL' }
+    process.kill(-pid, signal)
+    return true
   } catch {
-    return terminateSingleProcess(child)
+    return false
   }
 }
 
-function terminateSingleProcess(child: ChildProcess): { terminated: boolean; signal: string } {
+function processGroupExists(pid: number): boolean {
   try {
-    return { terminated: child.kill('SIGKILL'), signal: 'SIGKILL' }
+    process.kill(-pid, 0)
+    return true
   } catch {
-    return { terminated: false, signal: 'SIGKILL' }
+    return false
   }
+}
+
+function terminateSingleProcess(
+  child: ChildProcess,
+  signal: NodeJS.Signals
+): { terminated: boolean; signal: string } {
+  try {
+    return { terminated: child.kill(signal), signal }
+  } catch {
+    return { terminated: false, signal }
+  }
+}
+
+function delay(durationMs: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, durationMs))
 }

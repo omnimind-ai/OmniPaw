@@ -350,7 +350,7 @@ export class ChatService {
         runFinishedAt
       )
     }
-    const terminatedProcesses = this.options.terminalService?.cleanupSession(sessionId) ?? 0
+    const terminatedProcesses = (await this.options.terminalService?.cleanupSession(sessionId)) ?? 0
     const deleted = this.options.sessions.markDeleted(sessionId)
     if (deleted) {
       this.options.contextCompaction?.hideForSession(sessionId)
