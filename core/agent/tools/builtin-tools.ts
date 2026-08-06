@@ -90,7 +90,7 @@ export function createBuiltinTools(options: BuiltinToolOptions): AgentTool[] {
         kind: 'workspace',
       },
       resolveRisk: resolveWorkspaceFileRisk,
-      approvalPlan: createWorkspaceFileApprovalPlan,
+      approvalPlan: (args, context) => createWorkspaceFileApprovalPlan(args, context, options),
       execute: createWorkspaceFileExecutor(options),
     })
   }
@@ -611,18 +611,20 @@ function createScreenObserveExecutor(options: BuiltinToolOptions): AgentTool['ex
 }
 
 function createWorkspaceFileExecutor(options: BuiltinToolOptions): AgentTool['execute'] {
-  return async (_toolCallId, args, signal) => {
+  return async (_toolCallId, args, signal, _onUpdate, context) => {
     throwIfAborted(signal)
     if (!options.workspaceService) {
       throw new Error('Workspace file service is not available.')
     }
     const workspaceArgs = asWorkspaceFileArgs(args)
+    const access = workspaceFileAccessContext(context?.policyProfile)
     if (workspaceArgs.action === 'list') {
       const response = await options.workspaceService.listFiles({
         sessionId: options.sessionId,
         path: workspaceArgs.path,
         recursive: workspaceArgs.recursive,
         maxEntries: workspaceArgs.maxEntries,
+        access,
       })
       return jsonToolResult(response)
     }
@@ -635,6 +637,7 @@ function createWorkspaceFileExecutor(options: BuiltinToolOptions): AgentTool['ex
           workspaceArgs.maxBytes ?? options.toolSettings?.().workspace.maxToolResultChars ?? 20_000,
           options.toolSettings?.().workspace.maxToolResultChars ?? 20_000
         ),
+        access,
       })
       return jsonToolResult(response)
     }
@@ -645,6 +648,7 @@ function createWorkspaceFileExecutor(options: BuiltinToolOptions): AgentTool['ex
         path: workspaceArgs.path,
         content: workspaceArgs.content ?? '',
         append: workspaceArgs.append,
+        access,
       })
       return jsonToolResult({ ok: true, action: 'write', entry })
     }
@@ -656,6 +660,7 @@ function createWorkspaceFileExecutor(options: BuiltinToolOptions): AgentTool['ex
         path: workspaceArgs.path,
         maxResults: workspaceArgs.maxResults,
         contextChars: workspaceArgs.contextChars,
+        access,
       })
       return jsonToolResult(response)
     }
@@ -667,6 +672,7 @@ function createWorkspaceFileExecutor(options: BuiltinToolOptions): AgentTool['ex
         oldText: workspaceArgs.oldText,
         newText: workspaceArgs.newText,
         replaceAll: workspaceArgs.replaceAll,
+        access,
       })
       return jsonToolResult({ ok: true, action: 'patch', entry })
     }
@@ -706,22 +712,37 @@ function resolveWorkspaceFileRisk(args: unknown): ToolRisk {
   return action === 'write' || action === 'patch' ? 'write' : 'read'
 }
 
-function createWorkspaceFileApprovalPlan(args: unknown) {
+async function createWorkspaceFileApprovalPlan(
+  args: unknown,
+  context: { policyProfile: ToolProfile },
+  options: BuiltinToolOptions
+) {
   const workspaceArgs = asWorkspaceFileArgs(args)
   if (workspaceArgs.action !== 'write' && workspaceArgs.action !== 'patch') {
     return undefined
   }
+  const scope = await options.workspaceService?.resolveAccessScope({
+    sessionId: options.sessionId,
+    path: workspaceArgs.path ?? '',
+    requirement: workspaceArgs.action === 'patch' ? 'read-write' : 'write',
+    access: workspaceFileAccessContext(context.policyProfile),
+  })
   return {
     kind: 'workspace' as const,
     action: workspaceArgs.action,
     targetPath: workspaceArgs.path ?? '',
-    scope: 'managed-workspace' as const,
+    scope: scope ?? ('managed-workspace' as const),
     sizeBytes:
       workspaceArgs.action === 'write'
         ? Buffer.byteLength(workspaceArgs.content ?? '', 'utf8')
         : undefined,
     writeScope: workspaceArgs.action === 'patch' ? 'replace text range' : 'file content',
   }
+}
+
+function workspaceFileAccessContext(profile: ToolProfile | undefined) {
+  if (profile !== 'assistant' && profile !== 'power') return undefined
+  return { profile }
 }
 
 function asRecord(value: unknown, toolName: string): Record<string, unknown> {

@@ -9,6 +9,10 @@ export type WorkspaceRootStrategy = 'managed-user-data'
 export type ExternalRootAccessMode = 'read' | 'write' | 'read-write'
 export type ExternalRootGrantScope = 'session' | 'profile' | 'global'
 
+/**
+ * Grants `workspace_file` access to one absolute directory. Session grants require `sessionId`,
+ * profile grants require `profile`, and global grants apply to every full-access tool profile.
+ */
 export interface ExternalRootGrant {
   id: string
   path: string
@@ -23,7 +27,6 @@ export interface ExternalRootGrant {
 
 export interface LocalAgentWorkspaceSettings {
   rootStrategy: WorkspaceRootStrategy
-  retentionDays: number
   cleanupOnSessionDelete: boolean
   maxFileBytes: number
   maxReadBytes: number

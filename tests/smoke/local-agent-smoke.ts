@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import type { ChildProcess } from 'node:child_process'
 import { mkdtempSync, rmSync } from 'node:fs'
-import { readFile, writeFile } from 'node:fs/promises'
+import { mkdir, readFile, symlink, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { ProcessSupervisor, TerminalService } from '../../core/agent/terminal'
@@ -44,6 +44,8 @@ try {
   const workspace = new AgentWorkspaceService({
     userDataPath: tempDir,
     settings: () => config.tools.workspace,
+    isFullAccessProfile: (profile) =>
+      profile !== 'minimal' && config.tools.terminal[profile].fullAccess,
   })
   const terminatedProcessIds: number[] = []
   const processTree = createLocalProcessTreeController()
@@ -90,6 +92,147 @@ try {
         sessionId: 'session-1',
         path: 'too-large.txt',
         content: 'x'.repeat(config.tools.workspace.maxWriteBytes + 1),
+      }),
+    AgentWorkspaceError
+  )
+
+  const externalReadRoot = join(tempDir, 'external-read')
+  const externalWriteRoot = join(tempDir, 'external-read-write')
+  const outsideGrantRoot = join(tempDir, 'outside-grant')
+  await Promise.all([mkdir(externalReadRoot), mkdir(externalWriteRoot), mkdir(outsideGrantRoot)])
+  const externalReadPath = join(externalReadRoot, 'read-only.txt')
+  const externalWritePath = join(externalWriteRoot, 'editable.txt')
+  const outsideSecretPath = join(outsideGrantRoot, 'outside.txt')
+  await Promise.all([
+    writeFile(externalReadPath, 'authorized read'),
+    writeFile(externalWritePath, 'before patch'),
+    writeFile(outsideSecretPath, 'outside grant'),
+    writeFile(join(externalReadRoot, '.env'), 'SECRET=1'),
+  ])
+  await symlink(
+    outsideGrantRoot,
+    join(externalWriteRoot, 'escape-link'),
+    process.platform === 'win32' ? 'junction' : 'dir'
+  )
+  config.tools.workspace.externalRoots = [
+    {
+      id: 'session-read',
+      path: externalReadRoot,
+      access: 'read',
+      scope: 'session',
+      sessionId: 'session-1',
+      enabled: true,
+      createdAt: 1,
+      updatedAt: 1,
+    },
+    {
+      id: 'power-read-write',
+      path: externalWriteRoot,
+      access: 'read-write',
+      scope: 'profile',
+      profile: 'power',
+      enabled: true,
+      createdAt: 1,
+      updatedAt: 1,
+    },
+    {
+      id: 'global-read',
+      path: outsideGrantRoot,
+      access: 'read',
+      scope: 'global',
+      enabled: true,
+      createdAt: 1,
+      updatedAt: 1,
+    },
+  ]
+  const powerExternalAccess = { profile: 'power' as const }
+  const externalRead = await workspace.readFile({
+    sessionId: 'session-1',
+    path: externalReadPath,
+    access: powerExternalAccess,
+  })
+  assert.equal(externalRead.content, 'authorized read')
+  const globalRead = await workspace.readFile({
+    sessionId: 'another-session',
+    path: outsideSecretPath,
+    access: powerExternalAccess,
+  })
+  assert.equal(globalRead.content, 'outside grant')
+  await assert.rejects(
+    () =>
+      workspace.writeFile({
+        sessionId: 'session-1',
+        path: join(externalReadRoot, 'denied.txt'),
+        content: 'denied',
+        access: powerExternalAccess,
+      }),
+    AgentWorkspaceError
+  )
+  await assert.rejects(
+    () =>
+      workspace.readFile({
+        sessionId: 'another-session',
+        path: externalReadPath,
+        access: powerExternalAccess,
+      }),
+    AgentWorkspaceError
+  )
+  config.tools.terminal.power.fullAccess = false
+  await assert.rejects(
+    () =>
+      workspace.readFile({
+        sessionId: 'session-1',
+        path: externalReadPath,
+        access: powerExternalAccess,
+      }),
+    AgentWorkspaceError
+  )
+  config.tools.terminal.power.fullAccess = true
+  await assert.rejects(
+    () =>
+      workspace.readFile({
+        sessionId: 'session-1',
+        path: externalWritePath,
+        access: { profile: 'assistant' },
+      }),
+    AgentWorkspaceError
+  )
+  await assert.rejects(
+    () =>
+      workspace.readFile({
+        sessionId: 'session-1',
+        path: join(externalReadRoot, '.env'),
+        access: powerExternalAccess,
+      }),
+    AgentWorkspaceError
+  )
+  await workspace.writeFile({
+    sessionId: 'session-1',
+    path: externalWritePath,
+    content: 'before patch',
+    access: powerExternalAccess,
+  })
+  await workspace.patchFile({
+    sessionId: 'session-1',
+    path: externalWritePath,
+    oldText: 'before',
+    newText: 'after',
+    access: powerExternalAccess,
+  })
+  assert.equal(await readFile(externalWritePath, 'utf8'), 'after patch')
+  const externalSearch = await workspace.searchFiles({
+    sessionId: 'session-1',
+    path: externalWriteRoot,
+    query: 'after',
+    access: powerExternalAccess,
+  })
+  assert.equal(externalSearch.matches[0]?.path, externalWritePath.replace(/\\/g, '/'))
+  await assert.rejects(
+    () =>
+      workspace.readFile({
+        sessionId: 'session-1',
+        path: join(externalWriteRoot, 'escape-link', 'outside.txt'),
+        access: powerExternalAccess,
       }),
     AgentWorkspaceError
   )
@@ -203,8 +346,34 @@ try {
     tools.filter((tool) => ['workspace_file', 'terminal_exec'].includes(tool.name)).length,
     2
   )
+  const workspaceTool = tools.find((tool) => tool.name === 'workspace_file')
+  const externalApprovalPlan = await workspaceTool?.approvalPlan?.(
+    { action: 'write', path: externalWritePath, content: 'tool write' },
+    { sessionId: 'session-1', runId: 'run-1', policyProfile: 'power' }
+  )
+  assert.equal(externalApprovalPlan?.kind, 'workspace')
+  assert.equal(
+    externalApprovalPlan?.kind === 'workspace' ? externalApprovalPlan.scope : undefined,
+    'external-root'
+  )
 
   const executor = new ToolExecutor()
+  const externalToolRead = await executor.execute({
+    toolCall: {
+      id: 'tool-external-read',
+      type: 'function',
+      function: {
+        name: 'workspace_file',
+        arguments: JSON.stringify({ action: 'read', path: externalReadPath }),
+      },
+    },
+    tools,
+    policy: defaultToolPolicy('power'),
+    sessionId: 'session-1',
+    runId: 'run-1',
+  })
+  assert.equal(externalToolRead.result.status, 'complete')
+  assert.match(externalToolRead.result.resultText, /authorized read/)
   let approvalRequested = false
   const writeCall: ProviderToolCall = {
     id: 'tool-1',

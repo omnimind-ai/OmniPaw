@@ -1,3 +1,4 @@
+import { isAbsolute } from 'node:path'
 import { redactSensitiveText } from '@core/logging/redaction'
 import {
   BUILTIN_COMPANION_ROLE_PRESET_CATALOG,
@@ -166,7 +167,6 @@ export const defaultConfig: DesktopSettingsConfig = {
     enabledByName: {},
     workspace: {
       rootStrategy: 'managed-user-data',
-      retentionDays: 30,
       cleanupOnSessionDelete: false,
       maxFileBytes: 10 * 1024 * 1024,
       maxReadBytes: 512 * 1024,
@@ -1880,7 +1880,6 @@ function validateWorkspaceSettings(
       code: 'invalid_enum',
     })
   }
-  validateIntegerRange(settings.retentionDays, `${path}.retentionDays`, 1, 3650, issues)
   if (typeof settings.cleanupOnSessionDelete !== 'boolean') {
     issues.push({
       path: `${path}.cleanupOnSessionDelete`,
@@ -1946,11 +1945,17 @@ function validateExternalRootGrant(
     issues.push({ path, message: 'External root grant must be an object.', code: 'invalid_type' })
     return
   }
-  if (!grant.id) {
+  if (!isNonEmptyString(grant.id)) {
     issues.push({ path: `${path}.id`, message: 'Grant ID is required.', code: 'required' })
   }
-  if (!grant.path) {
+  if (!isNonEmptyString(grant.path)) {
     issues.push({ path: `${path}.path`, message: 'Grant path is required.', code: 'required' })
+  } else if (!isAbsolute(grant.path)) {
+    issues.push({
+      path: `${path}.path`,
+      message: 'Grant path must be absolute.',
+      code: 'invalid_format',
+    })
   }
   if (!['read', 'write', 'read-write'].includes(grant.access)) {
     issues.push({
@@ -1964,6 +1969,20 @@ function validateExternalRootGrant(
       path: `${path}.scope`,
       message: 'Grant scope must be session, profile, or global.',
       code: 'invalid_enum',
+    })
+  }
+  if (grant.scope === 'session' && !isNonEmptyString(grant.sessionId)) {
+    issues.push({
+      path: `${path}.sessionId`,
+      message: 'Session-scoped grants require a session ID.',
+      code: 'required',
+    })
+  }
+  if (grant.scope === 'profile' && !isToolProfile(grant.profile)) {
+    issues.push({
+      path: `${path}.profile`,
+      message: 'Profile-scoped grants require a valid tool profile.',
+      code: 'required',
     })
   }
   if (typeof grant.enabled !== 'boolean') {
@@ -2879,7 +2898,6 @@ function normalizeWorkspaceSettings(rawValue: unknown): LocalAgentWorkspaceSetti
     rootStrategy: isWorkspaceRootStrategy(rawValue.rootStrategy)
       ? rawValue.rootStrategy
       : defaults.rootStrategy,
-    retentionDays: integerOrDefault(rawValue.retentionDays, defaults.retentionDays),
     cleanupOnSessionDelete:
       typeof rawValue.cleanupOnSessionDelete === 'boolean'
         ? rawValue.cleanupOnSessionDelete

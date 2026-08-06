@@ -1887,7 +1887,6 @@ function fallbackSettingsConfig(): BridgeDesktopSettingsConfig {
       enabledByName: {},
       workspace: {
         rootStrategy: 'managed-user-data',
-        retentionDays: 30,
         cleanupOnSessionDelete: false,
         maxFileBytes: 10 * 1024 * 1024,
         maxReadBytes: 512 * 1024,

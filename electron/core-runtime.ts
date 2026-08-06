@@ -157,6 +157,8 @@ export function createCoreRuntime(options: CoreRuntimeOptions): CoreRuntime {
   const agentWorkspaceService = new AgentWorkspaceService({
     dataRootPath: dataPaths.root,
     settings: () => configStore.get().tools.workspace,
+    isFullAccessProfile: (profile) =>
+      profile !== 'minimal' && configStore.get().tools.terminal[profile].fullAccess,
     logger: coreLogger.child({ scope: 'agent.workspace' }),
   })
   const processSupervisor = new ProcessSupervisor({

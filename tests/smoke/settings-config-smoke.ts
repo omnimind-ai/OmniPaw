@@ -55,6 +55,20 @@ try {
         calculator: false,
         stale_tool: false,
       },
+      workspace: {
+        retentionDays: 7,
+        externalRoots: [
+          {
+            id: 'global-read',
+            path: tempDir,
+            access: 'read',
+            scope: 'global',
+            enabled: true,
+            createdAt: 1,
+            updatedAt: 1,
+          },
+        ],
+      },
     },
     scheduledTasks: {
       enabled: true,
@@ -89,8 +103,10 @@ try {
   assert.equal(normalized.tools.agentToolProfile, 'assistant')
   assert.equal(normalized.tools.maxAgentSteps, 6)
   assert.equal('enabled' in normalized.tools.workspace, false)
+  assert.equal('retentionDays' in normalized.tools.workspace, false)
   assert.equal(normalized.tools.workspace.rootStrategy, 'managed-user-data')
   assert.equal(normalized.tools.workspace.maxReadBytes, 512 * 1024)
+  assert.equal(normalized.tools.workspace.externalRoots[0]?.id, 'global-read')
   assert.equal('enabled' in normalized.tools.terminal, false)
   assert.equal('sandbox' in normalized.tools.terminal, false)
   assert.equal('approval' in normalized.tools.terminal.assistant, false)
@@ -555,6 +571,30 @@ try {
             defaultModelId: 'missing-model',
             fallbackModelIds: [],
             streaming: true,
+          },
+        },
+      }),
+    ConfigValidationError
+  )
+  assert.throws(
+    () =>
+      normalizeConfig({
+        ...cloneDefaultConfig(),
+        tools: {
+          ...cloneDefaultConfig().tools,
+          workspace: {
+            ...cloneDefaultConfig().tools.workspace,
+            externalRoots: [
+              {
+                id: 'relative-root',
+                path: 'relative/path',
+                access: 'read',
+                scope: 'session',
+                enabled: true,
+                createdAt: 1,
+                updatedAt: 1,
+              },
+            ],
           },
         },
       }),

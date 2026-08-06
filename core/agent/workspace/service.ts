@@ -11,13 +11,16 @@ import {
   stat,
   writeFile,
 } from 'node:fs/promises'
-import { basename, dirname, join, relative, resolve, sep } from 'node:path'
+import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path'
 import type { Logger } from '@core/logging'
 import { resolveOmniPawDataRoot } from '@core/utils/data-paths'
+import type { ToolProfile } from '@shared/types/chat'
 import type {
   AgentWorkspaceFileEntry,
   AgentWorkspaceStatus,
   DeleteWorkspaceFileResponse,
+  ExternalRootAccessMode,
+  ExternalRootGrant,
   ListWorkspaceFilesResponse,
   LocalAgentOperationError,
   LocalAgentWorkspaceSettings,
@@ -29,7 +32,12 @@ export interface AgentWorkspaceServiceOptions {
   dataRootPath?: string
   rootPath?: string
   settings: () => LocalAgentWorkspaceSettings
+  isFullAccessProfile?: (profile: ToolProfile) => boolean
   logger?: Logger
+}
+
+export interface WorkspaceFileAccessContext {
+  profile: ToolProfile
 }
 
 export interface WorkspaceFileWriteRequest {
@@ -37,6 +45,7 @@ export interface WorkspaceFileWriteRequest {
   path: string
   content: string
   append?: boolean
+  access?: WorkspaceFileAccessContext
 }
 
 export interface WorkspaceFileSearchRequest {
@@ -45,6 +54,7 @@ export interface WorkspaceFileSearchRequest {
   path?: string
   maxResults?: number
   contextChars?: number
+  access?: WorkspaceFileAccessContext
 }
 
 export interface WorkspaceFilePatchRequest {
@@ -53,6 +63,7 @@ export interface WorkspaceFilePatchRequest {
   oldText?: string
   newText?: string
   replaceAll?: boolean
+  access?: WorkspaceFileAccessContext
 }
 
 interface WorkspacePaths {
@@ -66,10 +77,14 @@ interface WorkspacePaths {
 }
 
 interface ResolvedPath {
-  relativePath: string
+  displayPath: string
+  rootRelativePath: string
   absolutePath: string
   rootPath: string
+  scope: 'managed-workspace' | 'external-root'
 }
+
+export type WorkspaceAccessRequirement = 'read' | 'write' | 'read-write'
 
 export class AgentWorkspaceError extends Error implements LocalAgentOperationError {
   readonly code: LocalAgentOperationError['code']
@@ -147,9 +162,10 @@ export class AgentWorkspaceService {
     path?: string
     recursive?: boolean
     maxEntries?: number
+    access?: WorkspaceFileAccessContext
   }): Promise<ListWorkspaceFilesResponse> {
     const workspace = await this.ensureWorkspace(input.sessionId)
-    const target = await this.resolveExistingPath(workspace, input.path ?? '')
+    const target = await this.resolveExistingPath(workspace, input.path ?? '', 'read', input.access)
     const targetStats = await lstat(target.absolutePath)
     if (!targetStats.isDirectory()) {
       throw new AgentWorkspaceError('invalid_request', 'Workspace list target must be a directory.')
@@ -157,13 +173,15 @@ export class AgentWorkspaceService {
 
     const maxEntries = Math.max(1, Math.min(Math.floor(input.maxEntries ?? 200), 1000))
     const entries: AgentWorkspaceFileEntry[] = []
-    await collectEntries(target.absolutePath, workspace.files, entries, {
+    await collectEntries(target.absolutePath, target.rootPath, entries, {
       recursive: input.recursive === true,
       maxEntries,
+      scope: target.scope,
+      settings: this.settings(),
     })
     return {
       sessionId: input.sessionId,
-      path: target.relativePath,
+      path: target.displayPath,
       entries,
       truncated: entries.length >= maxEntries,
     }
@@ -173,9 +191,10 @@ export class AgentWorkspaceService {
     sessionId: string
     path: string
     maxBytes?: number
+    access?: WorkspaceFileAccessContext
   }): Promise<ReadWorkspaceFileResponse> {
     const workspace = await this.ensureWorkspace(input.sessionId)
-    const target = await this.resolveExistingPath(workspace, input.path)
+    const target = await this.resolveExistingPath(workspace, input.path, 'read', input.access)
     const targetStats = await lstat(target.absolutePath)
     if (!targetStats.isFile()) {
       throw new AgentWorkspaceError('invalid_request', 'Workspace read target must be a file.')
@@ -200,7 +219,7 @@ export class AgentWorkspaceService {
     const binary = looksBinary(slice)
     return {
       sessionId: input.sessionId,
-      path: target.relativePath,
+      path: target.displayPath,
       content: binary ? '' : slice.toString('utf8'),
       sizeBytes: targetStats.size,
       truncated,
@@ -210,7 +229,7 @@ export class AgentWorkspaceService {
 
   async writeFile(input: WorkspaceFileWriteRequest): Promise<AgentWorkspaceFileEntry> {
     const workspace = await this.ensureWorkspace(input.sessionId)
-    const target = await this.resolveWritablePath(workspace, input.path)
+    const target = await this.resolveWritablePath(workspace, input.path, 'write', input.access)
     const buffer = Buffer.from(input.content, 'utf8')
     if (buffer.length > this.settings().maxWriteBytes) {
       throw new AgentWorkspaceError(
@@ -224,7 +243,7 @@ export class AgentWorkspaceService {
     } else {
       await writeFile(target.absolutePath, buffer)
     }
-    return entryFor(target.absolutePath, target.rootPath)
+    return entryFor(target.absolutePath, target.rootPath, target.scope)
   }
 
   async searchFiles(input: WorkspaceFileSearchRequest): Promise<{
@@ -237,7 +256,7 @@ export class AgentWorkspaceService {
       throw new AgentWorkspaceError('invalid_request', 'Workspace search requires a query.')
     }
     const workspace = await this.ensureWorkspace(input.sessionId)
-    const target = await this.resolveExistingPath(workspace, input.path ?? '')
+    const target = await this.resolveExistingPath(workspace, input.path ?? '', 'read', input.access)
     const maxResults = Math.max(
       1,
       Math.min(
@@ -247,11 +266,12 @@ export class AgentWorkspaceService {
     )
     const contextChars = Math.max(20, Math.min(Math.floor(input.contextChars ?? 120), 500))
     const matches: Array<{ path: string; line: number; snippet: string }> = []
-    await searchPath(target.absolutePath, workspace.files, query, matches, {
+    await searchPath(target.absolutePath, target.rootPath, query, matches, {
       maxResults,
       contextChars,
       maxFileBytes: this.settings().maxReadBytes,
       settings: this.settings(),
+      scope: target.scope,
     })
     return {
       query,
@@ -269,28 +289,47 @@ export class AgentWorkspaceService {
         'Workspace patch requires oldText and newText.'
       )
     }
-    const current = await this.readFile({
-      sessionId: input.sessionId,
-      path: input.path,
-      maxBytes: this.settings().maxReadBytes,
-    })
-    if (current.binary) {
+    const workspace = await this.ensureWorkspace(input.sessionId)
+    const target = await this.resolveExistingPath(workspace, input.path, 'read-write', input.access)
+    const targetStats = await lstat(target.absolutePath)
+    if (!targetStats.isFile()) {
+      throw new AgentWorkspaceError('invalid_request', 'Workspace patch target must be a file.')
+    }
+    if (targetStats.size > this.settings().maxReadBytes) {
+      throw new AgentWorkspaceError(
+        'file_too_large',
+        'Workspace patch target exceeds the configured read size limit.'
+      )
+    }
+    const currentBuffer = await readFile(target.absolutePath)
+    if (looksBinary(currentBuffer)) {
       throw new AgentWorkspaceError(
         'invalid_request',
         'Workspace patch target must be a text file.'
       )
     }
-    if (!current.content.includes(oldText)) {
+    const currentContent = currentBuffer.toString('utf8')
+    if (!currentContent.includes(oldText)) {
       throw new AgentWorkspaceError('invalid_request', 'Workspace patch oldText was not found.')
     }
     const nextContent = input.replaceAll
-      ? current.content.split(oldText).join(newText)
-      : current.content.replace(oldText, newText)
-    return this.writeFile({
-      sessionId: input.sessionId,
-      path: input.path,
-      content: nextContent,
-    })
+      ? currentContent.split(oldText).join(newText)
+      : currentContent.replace(oldText, newText)
+    const nextBuffer = Buffer.from(nextContent, 'utf8')
+    if (nextBuffer.length > this.settings().maxWriteBytes) {
+      throw new AgentWorkspaceError(
+        'file_too_large',
+        'Workspace patch result exceeds the configured write size limit.'
+      )
+    }
+    const writableTarget = await this.resolveWritablePath(
+      workspace,
+      input.path,
+      'read-write',
+      input.access
+    )
+    await writeFile(writableTarget.absolutePath, nextBuffer)
+    return entryFor(writableTarget.absolutePath, writableTarget.rootPath, writableTarget.scope)
   }
 
   async exportFile(input: {
@@ -308,7 +347,7 @@ export class AgentWorkspaceService {
     await copyFile(source.absolutePath, input.destinationPath, constants.COPYFILE_FICLONE)
     return {
       sessionId: input.sessionId,
-      path: source.relativePath,
+      path: source.displayPath,
       destinationPath: input.destinationPath,
     }
   }
@@ -319,13 +358,13 @@ export class AgentWorkspaceService {
   }): Promise<DeleteWorkspaceFileResponse> {
     const workspace = await this.ensureWorkspace(input.sessionId)
     const target = await this.resolveExistingPath(workspace, input.path)
-    if (!target.relativePath) {
+    if (!target.rootRelativePath) {
       throw new AgentWorkspaceError('path_denied', 'Workspace root cannot be deleted as a file.')
     }
     await rm(target.absolutePath, { recursive: true, force: true })
     return {
       sessionId: input.sessionId,
-      path: target.relativePath,
+      path: target.displayPath,
       deleted: true,
     }
   }
@@ -338,7 +377,7 @@ export class AgentWorkspaceService {
     const target = await this.resolveExistingPath(workspace, input.path)
     return {
       sessionId: input.sessionId,
-      path: target.relativePath,
+      path: target.displayPath,
       absolutePath: target.absolutePath,
     }
   }
@@ -370,44 +409,75 @@ export class AgentWorkspaceService {
     return this.ensureWorkspace(sessionId)
   }
 
+  async resolveAccessScope(input: {
+    sessionId: string
+    path: string
+    requirement: WorkspaceAccessRequirement
+    access?: WorkspaceFileAccessContext
+  }): Promise<'managed-workspace' | 'external-root'> {
+    const workspace = await this.ensureWorkspace(input.sessionId)
+    const target = await this.resolveRequestedPath(
+      workspace,
+      input.path,
+      input.requirement,
+      input.access
+    )
+    return target.scope
+  }
+
   private async resolveExistingPath(
     workspace: WorkspacePaths,
-    relativePath: string
+    inputPath: string,
+    requirement: WorkspaceAccessRequirement = 'read',
+    accessContext?: WorkspaceFileAccessContext
   ): Promise<ResolvedPath> {
-    const target = this.resolveWorkspacePath(workspace, relativePath)
+    const target = await this.resolveRequestedPath(workspace, inputPath, requirement, accessContext)
     await assertExists(target.absolutePath)
-    const [rootReal, targetReal, linkStats] = await Promise.all([
-      realpath(workspace.files),
+    const [targetReal, linkStats] = await Promise.all([
       realpath(target.absolutePath),
       lstat(target.absolutePath),
     ])
-    if (linkStats.isSymbolicLink() || !isInside(targetReal, rootReal)) {
+    if (linkStats.isSymbolicLink() || !isInside(targetReal, target.rootPath)) {
       throw new AgentWorkspaceError(
         'path_denied',
-        'Workspace path resolves outside the managed workspace.'
+        'Workspace path resolves outside its authorized root.'
       )
     }
+    const rootRelativePath = normalizeOutputPath(relative(target.rootPath, targetReal))
+    assertNotSensitive(rootRelativePath, this.settings())
     return {
       ...target,
+      displayPath:
+        target.scope === 'external-root' ? normalizeOutputPath(targetReal) : rootRelativePath,
+      rootRelativePath,
       absolutePath: targetReal,
-      rootPath: rootReal,
     }
   }
 
   private async resolveWritablePath(
     workspace: WorkspacePaths,
-    relativePath: string
+    inputPath: string,
+    requirement: WorkspaceAccessRequirement = 'write',
+    accessContext?: WorkspaceFileAccessContext
   ): Promise<ResolvedPath> {
-    const target = this.resolveWorkspacePath(workspace, relativePath)
-    await mkdir(dirname(target.absolutePath), { recursive: true })
-    const [rootReal, parentReal] = await Promise.all([
-      realpath(workspace.files),
-      realpath(dirname(target.absolutePath)),
-    ])
-    if (!isInside(parentReal, rootReal)) {
+    const target = await this.resolveRequestedPath(workspace, inputPath, requirement, accessContext)
+    const existingAncestor = await findExistingAncestor(
+      dirname(target.absolutePath),
+      target.rootPath
+    )
+    const existingAncestorReal = await realpath(existingAncestor)
+    if (!isInside(existingAncestorReal, target.rootPath)) {
       throw new AgentWorkspaceError(
         'path_denied',
-        'Workspace write path resolves outside the managed workspace.'
+        'Workspace write path leaves its authorized root.'
+      )
+    }
+    await mkdir(dirname(target.absolutePath), { recursive: true })
+    const parentReal = await realpath(dirname(target.absolutePath))
+    if (!isInside(parentReal, target.rootPath)) {
+      throw new AgentWorkspaceError(
+        'path_denied',
+        'Workspace write path resolves outside its authorized root.'
       )
     }
 
@@ -426,10 +496,10 @@ export class AgentWorkspaceService {
         )
       }
       const targetReal = await realpath(target.absolutePath)
-      if (!isInside(targetReal, rootReal)) {
+      if (!isInside(targetReal, target.rootPath)) {
         throw new AgentWorkspaceError(
           'path_denied',
-          'Workspace write path resolves outside the managed workspace.'
+          'Workspace write path resolves outside its authorized root.'
         )
       }
     } catch (error) {
@@ -443,7 +513,63 @@ export class AgentWorkspaceService {
 
     return {
       ...target,
+      displayPath:
+        target.scope === 'external-root'
+          ? normalizeOutputPath(target.absolutePath)
+          : target.rootRelativePath,
+    }
+  }
+
+  private async resolveRequestedPath(
+    workspace: WorkspacePaths,
+    inputPath: string,
+    requirement: WorkspaceAccessRequirement,
+    accessContext?: WorkspaceFileAccessContext
+  ): Promise<ResolvedPath> {
+    if (typeof inputPath !== 'string') {
+      throw new AgentWorkspaceError('invalid_request', 'Workspace path must be a string.')
+    }
+    if (inputPath.includes('\0')) {
+      throw new AgentWorkspaceError('path_denied', 'Workspace path contains an invalid character.')
+    }
+    if (!isAbsolute(inputPath)) {
+      const target = this.resolveWorkspacePath(workspace, inputPath)
+      return {
+        ...target,
+        rootPath: await realpath(workspace.files),
+      }
+    }
+
+    const grant = selectExternalRootGrant(
+      this.settings().externalRoots,
+      inputPath,
+      workspace.sessionId,
+      requirement,
+      accessContext,
+      accessContext ? this.options.isFullAccessProfile?.(accessContext.profile) === true : false
+    )
+    const grantRoot = resolve(grant.path)
+    const grantStats = await lstat(grantRoot).catch(() => undefined)
+    if (!grantStats?.isDirectory() || grantStats.isSymbolicLink()) {
+      throw new AgentWorkspaceError(
+        'path_denied',
+        'External root must be an existing regular directory.'
+      )
+    }
+    const rootReal = await realpath(grantRoot)
+    const absolutePath = resolve(inputPath)
+    if (!isInside(absolutePath, grantRoot)) {
+      throw new AgentWorkspaceError('path_denied', 'External path leaves its authorized root.')
+    }
+    const rootRelativePath = normalizeOutputPath(relative(grantRoot, absolutePath))
+    assertNotSensitive(rootRelativePath, this.settings())
+    assertNotSensitive(normalizeOutputPath(absolutePath), this.settings())
+    return {
+      displayPath: normalizeOutputPath(absolutePath),
+      rootRelativePath,
+      absolutePath,
       rootPath: rootReal,
+      scope: 'external-root',
     }
   }
 
@@ -458,9 +584,11 @@ export class AgentWorkspaceService {
       )
     }
     return {
-      relativePath: normalized,
+      displayPath: normalized,
+      rootRelativePath: normalized,
       absolutePath,
       rootPath: workspace.files,
+      scope: 'managed-workspace',
     }
   }
 
@@ -473,17 +601,24 @@ async function collectEntries(
   directory: string,
   root: string,
   entries: AgentWorkspaceFileEntry[],
-  options: { recursive: boolean; maxEntries: number }
+  options: {
+    recursive: boolean
+    maxEntries: number
+    scope: 'managed-workspace' | 'external-root'
+    settings: LocalAgentWorkspaceSettings
+  }
 ): Promise<void> {
   if (entries.length >= options.maxEntries) return
   const children = await readdir(directory, { withFileTypes: true })
   for (const child of children) {
     if (entries.length >= options.maxEntries) return
     const childPath = join(directory, child.name)
+    const childRelativePath = relative(root, childPath)
+    if (isSensitivePath(childRelativePath, options.settings)) continue
     const childStats = await lstat(childPath)
     if (childStats.isSymbolicLink()) continue
     if (childStats.isFile() || childStats.isDirectory()) {
-      entries.push(await entryFor(childPath, root))
+      entries.push(await entryFor(childPath, root, options.scope))
     }
     if (options.recursive && childStats.isDirectory()) {
       await collectEntries(childPath, root, entries, options)
@@ -529,6 +664,7 @@ async function searchPath(
     contextChars: number
     maxFileBytes: number
     settings: LocalAgentWorkspaceSettings
+    scope: 'managed-workspace' | 'external-root'
   }
 ): Promise<void> {
   if (matches.length >= options.maxResults) return
@@ -555,7 +691,10 @@ async function searchPath(
     const found = haystack.indexOf(needle, index)
     if (found < 0) break
     matches.push({
-      path: normalizeOutputPath(relativePath),
+      path:
+        options.scope === 'external-root'
+          ? normalizeOutputPath(targetPath)
+          : normalizeOutputPath(relativePath),
       line: lineForIndex(text, found),
       snippet: snippet(text, found, query.length, options.contextChars),
     })
@@ -563,11 +702,18 @@ async function searchPath(
   }
 }
 
-async function entryFor(absolutePath: string, root: string): Promise<AgentWorkspaceFileEntry> {
+async function entryFor(
+  absolutePath: string,
+  root: string,
+  scope: 'managed-workspace' | 'external-root'
+): Promise<AgentWorkspaceFileEntry> {
   const item = await lstat(absolutePath)
   return {
     name: basename(absolutePath),
-    path: normalizeOutputPath(relative(root, absolutePath)),
+    path:
+      scope === 'external-root'
+        ? normalizeOutputPath(absolutePath)
+        : normalizeOutputPath(relative(root, absolutePath)),
     kind: item.isDirectory() ? 'directory' : 'file',
     sizeBytes: item.isDirectory() ? 0 : item.size,
     updatedAt: item.mtimeMs,
@@ -642,6 +788,84 @@ async function assertExists(path: string): Promise<void> {
   } catch {
     throw new AgentWorkspaceError('workspace_not_found', 'Workspace path was not found.')
   }
+}
+
+function selectExternalRootGrant(
+  grants: ExternalRootGrant[],
+  inputPath: string,
+  sessionId: string,
+  requirement: WorkspaceAccessRequirement,
+  accessContext: WorkspaceFileAccessContext | undefined,
+  fullAccess: boolean
+): ExternalRootGrant {
+  if (!accessContext || !fullAccess) {
+    throw new AgentWorkspaceError(
+      'path_denied',
+      'External paths require an explicitly authorized full-access profile.'
+    )
+  }
+  const target = resolve(inputPath)
+  const candidates = grants
+    .filter((grant) => {
+      if (!grant.enabled || !isAbsolute(grant.path)) return false
+      if (!grantScopeMatches(grant, sessionId, accessContext.profile)) return false
+      if (!grantAllows(grant.access, requirement)) return false
+      return isInside(target, resolve(grant.path))
+    })
+    .sort((left, right) => resolve(right.path).length - resolve(left.path).length)
+  const grant = candidates[0]
+  if (!grant) {
+    throw new AgentWorkspaceError(
+      'path_denied',
+      'External path is outside the enabled grants for this session and profile.'
+    )
+  }
+  return grant
+}
+
+function grantScopeMatches(
+  grant: ExternalRootGrant,
+  sessionId: string,
+  profile: ToolProfile
+): boolean {
+  if (grant.scope === 'session') return grant.sessionId === sessionId
+  if (grant.scope === 'profile') return grant.profile === profile
+  return grant.scope === 'global'
+}
+
+function grantAllows(
+  access: ExternalRootAccessMode,
+  requirement: WorkspaceAccessRequirement
+): boolean {
+  if (requirement === 'read-write') return access === 'read-write'
+  if (requirement === 'read') return access === 'read' || access === 'read-write'
+  return access === 'write' || access === 'read-write'
+}
+
+async function findExistingAncestor(startPath: string, root: string): Promise<string> {
+  let current = startPath
+  while (isInside(current, root)) {
+    try {
+      const stats = await lstat(current)
+      if (stats.isSymbolicLink()) {
+        throw new AgentWorkspaceError(
+          'path_denied',
+          'Workspace write parent cannot be a symbolic link.'
+        )
+      }
+      if (!stats.isDirectory()) {
+        throw new AgentWorkspaceError('path_denied', 'Workspace write parent must be a directory.')
+      }
+      return current
+    } catch (error) {
+      if (error instanceof AgentWorkspaceError) throw error
+      if (!isMissingFileError(error)) throw error
+    }
+    const parent = dirname(current)
+    if (parent === current) break
+    current = parent
+  }
+  throw new AgentWorkspaceError('path_denied', 'Workspace write path has no authorized parent.')
 }
 
 function isInside(candidate: string, root: string): boolean {
