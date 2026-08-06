@@ -245,11 +245,6 @@ export function useCatPanelChatController() {
         }
       })
 
-      if (!sessions.value.length) {
-        const created = await createCatSession({ activate: false })
-        upsertSession(created)
-      }
-
       const syncedSessionId = await getSyncedActiveSessionId()
       const initialSession =
         (syncedSessionId && sessions.value.find((session) => session.id === syncedSessionId)) ||
