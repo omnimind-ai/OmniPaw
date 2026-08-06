@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import type { ChildProcess } from 'node:child_process'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { readFile, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
@@ -15,6 +16,30 @@ import { createLocalProcessTreeController } from '../../electron/local-process-t
 const tempDir = mkdtempSync(join(tmpdir(), 'omnipaw-local-agent-smoke-'))
 
 try {
+  const macSignals: Array<{ pid: number; signal: NodeJS.Signals | 0 }> = []
+  const macWaits: number[] = []
+  const macProcessTree = createLocalProcessTreeController('darwin', {
+    signalProcess: (pid, signal) => {
+      macSignals.push({ pid, signal })
+      return true
+    },
+    wait: async (durationMs) => {
+      macWaits.push(durationMs)
+    },
+  })
+  const macTermination = await macProcessTree.terminate({
+    pid: 42_424,
+    exitCode: null,
+  } as ChildProcess)
+  assert.equal(macProcessTree.detached, true)
+  assert.deepEqual(macWaits, [500])
+  assert.deepEqual(macSignals, [
+    { pid: -42_424, signal: 'SIGTERM' },
+    { pid: -42_424, signal: 0 },
+    { pid: -42_424, signal: 'SIGKILL' },
+  ])
+  assert.deepEqual(macTermination, { terminated: true, signal: 'SIGKILL' })
+
   const config = cloneDefaultConfig()
   const workspace = new AgentWorkspaceService({
     userDataPath: tempDir,
