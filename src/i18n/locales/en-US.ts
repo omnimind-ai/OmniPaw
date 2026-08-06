@@ -139,6 +139,10 @@ export default {
         opening: 'Opening',
         openGithub: 'Open GitHub',
         openReleases: 'View download',
+        downloadUpdate: 'Download update',
+        downloadingUpdate: 'Downloading',
+        retryDownload: 'Retry download',
+        restartToInstall: 'Restart and install',
         close: 'Close',
       },
       messages: {
@@ -164,6 +168,11 @@ export default {
         releaseDate: 'Release date',
         changelog: 'What changed',
         noChangelog: 'No release notes are available for this version.',
+        downloading: 'Downloading update',
+        downloadProgress: '{transferred} / {total} at {speed}/s',
+        downloaded: 'The update is ready. Restart OmniPaw to install it.',
+        installing: 'Starting the installer.',
+        downloadFailed: 'Update download failed:',
       },
     },
     shortcut: {

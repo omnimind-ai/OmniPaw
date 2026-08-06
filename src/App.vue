@@ -240,6 +240,7 @@ const uninstallDebugApi = installDebugApi()
 
 onMounted(() => {
   void initializeStartupState()
+  void updateStore.initialize().catch(() => undefined)
   void updateStore.checkForUpdates().catch(() => undefined)
   stopCatSubscription = appBridge.chat.onStreamEvent?.(syncCatWindow)
   stopOpenChatSubscription = appBridge.app.onOpenChatSession?.((request) => {
@@ -266,6 +267,7 @@ watch(
 )
 
 onBeforeUnmount(() => {
+  updateStore.dispose()
   uninstallDebugApi?.()
   stopCatSubscription?.()
   stopOpenChatSubscription?.()

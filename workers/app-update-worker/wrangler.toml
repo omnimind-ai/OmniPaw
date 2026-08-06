@@ -2,5 +2,9 @@ name = "omnipaw-app-update-worker"
 main = "worker.js"
 compatibility_date = "2026-07-31"
 
+[[r2_buckets]]
+binding = "UPDATE_ASSETS"
+bucket_name = "omnipaw-app-updates"
+
 [observability]
 enabled = true

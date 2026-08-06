@@ -208,6 +208,103 @@ jobs:
           compression-level: 0
           retention-days: 7
 
+      - name: Validate Windows updater files
+        if: matrix.platform == 'windows'
+        shell: bash
+        env:
+          INSTALLER_PATH: ${{ steps.asset.outputs.artifact_path }}
+        run: |
+          set -euo pipefail
+
+          for file in "${INSTALLER_PATH}" "${INSTALLER_PATH}.blockmap" release/latest.yml; do
+            if [[ ! -f "${file}" ]]; then
+              find release -maxdepth 2 -type f -print || true
+              echo "::error::Updater file was not created: ${file}"
+              exit 1
+            fi
+          done
+
+      - name: Upload Windows updater files
+        if: matrix.platform == 'windows'
+        uses: actions/upload-artifact@v7
+        with:
+          name: omnipaw-updater-${{ needs.validate.outputs.version }}-${{ matrix.artifact_label }}
+          path: |
+            ${{ steps.asset.outputs.artifact_path }}
+            ${{ steps.asset.outputs.artifact_path }}.blockmap
+            release/latest.yml
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 7
+
+  publish-update-assets:
+    name: Publish ${{ matrix.variant }} updater files
+    needs:
+      - validate
+      - build-release
+    runs-on: ubuntu-latest
+    permissions:
+      actions: read
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - artifact_label: windows-x64-full
+            variant: full
+          - artifact_label: windows-x64-slim
+            variant: slim
+    env:
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.CLOUDFLARE_R2_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.CLOUDFLARE_R2_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION: auto
+      AWS_EC2_METADATA_DISABLED: 'true'
+      UPDATE_BUCKET: omnipaw-app-updates
+
+    steps:
+      - name: Download updater files
+        uses: actions/download-artifact@v8
+        with:
+          name: omnipaw-updater-${{ needs.validate.outputs.version }}-${{ matrix.artifact_label }}
+          path: updater-assets
+
+      - name: Upload updater files to Cloudflare R2
+        shell: bash
+        env:
+          UPDATE_VARIANT: ${{ matrix.variant }}
+        run: |
+          set -euo pipefail
+
+          mapfile -t installers < <(find updater-assets -maxdepth 1 -type f -name '*.exe')
+          mapfile -t blockmaps < <(find updater-assets -maxdepth 1 -type f -name '*.blockmap')
+          mapfile -t metadata < <(find updater-assets -maxdepth 1 -type f -name 'latest.yml')
+          if (( ${#installers[@]} != 1 || ${#blockmaps[@]} != 1 || ${#metadata[@]} != 1 )); then
+            find updater-assets -maxdepth 2 -type f -print || true
+            echo "::error::Expected one installer, one blockmap, and one latest.yml file."
+            exit 1
+          fi
+
+          prefix="artifacts/stable/windows/x64/${UPDATE_VARIANT}"
+          endpoint="https://${CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com"
+          installer_name="$(basename "${installers[0]}")"
+          blockmap_name="$(basename "${blockmaps[0]}")"
+          aws s3 cp "${installers[0]}" \
+            "s3://${UPDATE_BUCKET}/${prefix}/${installer_name}" \
+            --endpoint-url "${endpoint}" \
+            --content-type "application/vnd.microsoft.portable-executable" \
+            --only-show-errors
+          aws s3 cp "${blockmaps[0]}" \
+            "s3://${UPDATE_BUCKET}/${prefix}/${blockmap_name}" \
+            --endpoint-url "${endpoint}" \
+            --content-type "application/octet-stream" \
+            --only-show-errors
+          aws s3 cp "${metadata[0]}" \
+            "s3://${UPDATE_BUCKET}/${prefix}/latest.yml" \
+            --endpoint-url "${endpoint}" \
+            --content-type "text/yaml; charset=utf-8" \
+            --only-show-errors
+
   create-release:
     name: Create GitHub Release
     needs:
@@ -333,3 +430,36 @@ jobs:
               --notes-file release_notes.md \
               --latest
           fi
+
+  publish-update-metadata:
+    name: Publish update metadata
+    needs:
+      - validate
+      - publish-update-assets
+      - create-release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    env:
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      AWS_ACCESS_KEY_ID: ${{ secrets.CLOUDFLARE_R2_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.CLOUDFLARE_R2_SECRET_ACCESS_KEY }}
+      AWS_DEFAULT_REGION: auto
+      AWS_EC2_METADATA_DISABLED: 'true'
+      UPDATE_BUCKET: omnipaw-app-updates
+
+    steps:
+      - name: Check out tagged revision
+        uses: actions/checkout@v7
+
+      - name: Publish version information after updater files
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          endpoint="https://${CLOUDFLARE_ACCOUNT_ID}.r2.cloudflarestorage.com"
+          aws s3 cp workers/app-update-worker/version.json \
+            "s3://${UPDATE_BUCKET}/metadata/version.json" \
+            --endpoint-url "${endpoint}" \
+            --content-type "application/json; charset=utf-8" \
+            --only-show-errors

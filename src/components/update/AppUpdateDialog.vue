@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { DownloadIcon } from '@lucide/vue'
+import { DownloadIcon, RotateCwIcon } from '@lucide/vue'
 import { storeToRefs } from 'pinia'
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
@@ -13,6 +13,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog'
+import { Progress } from '@/components/ui/progress'
 import { useAppUpdateStore } from '@/stores/update'
 
 const GITHUB_URL = 'https://github.com/Saramanda9988/OpenOmniClaw-electron'
@@ -20,7 +21,12 @@ const GITHUB_RELEASES_URL = `${GITHUB_URL}/releases/latest`
 
 const { t } = useI18n()
 const updateStore = useAppUpdateStore()
-const { dialogOpen, updateInfo } = storeToRefs(updateStore)
+const { dialogOpen, updateInfo, updateState } = storeToRefs(updateStore)
+
+const downloadPercent = computed(() => Math.round(updateState.value.progress?.percent ?? 0))
+const isDownloading = computed(() => updateState.value.phase === 'downloading')
+const isDownloaded = computed(() => updateState.value.phase === 'downloaded')
+const isInstalling = computed(() => updateState.value.phase === 'installing')
 
 const updateDownloadUrl = computed(() => {
   const candidate = updateInfo.value?.downloads.github
@@ -47,6 +53,30 @@ const updateDownloadUrl = computed(() => {
 
 function openReleases() {
   window.open(updateDownloadUrl.value, '_blank', 'noopener,noreferrer')
+}
+
+function downloadUpdate() {
+  void updateStore.downloadUpdate().catch(() => undefined)
+}
+
+function restartToInstallUpdate() {
+  void updateStore.restartToInstallUpdate().catch(() => undefined)
+}
+
+function formatBytes(value: number | undefined): string {
+  const bytes = Number.isFinite(value) && Number(value) > 0 ? Number(value) : 0
+  if (bytes < 1024) {
+    return `${bytes} B`
+  }
+
+  const units = ['KB', 'MB', 'GB']
+  let amount = bytes / 1024
+  let unitIndex = 0
+  while (amount >= 1024 && unitIndex < units.length - 1) {
+    amount /= 1024
+    unitIndex += 1
+  }
+  return `${amount.toFixed(amount >= 10 ? 1 : 2)} ${units[unitIndex]}`
 }
 </script>
 
@@ -114,6 +144,47 @@ function openReleases() {
             {{ t('settings.about.updateDialog.noChangelog') }}
           </p>
         </section>
+
+        <section
+          v-if="updateState.supported && (isDownloading || isDownloaded || isInstalling || updateState.error)"
+          class="space-y-2 rounded-lg border p-4"
+          aria-live="polite"
+        >
+          <template v-if="isDownloading">
+            <div class="flex items-center justify-between gap-4 text-sm">
+              <span class="font-medium">{{ t('settings.about.updateDialog.downloading') }}</span>
+              <span class="font-mono text-muted-foreground">{{ downloadPercent }}%</span>
+            </div>
+            <Progress :model-value="downloadPercent" />
+            <p class="text-xs text-muted-foreground">
+              {{
+                t('settings.about.updateDialog.downloadProgress', {
+                  transferred: formatBytes(updateState.progress?.transferred),
+                  total: formatBytes(updateState.progress?.total),
+                  speed: formatBytes(updateState.progress?.bytesPerSecond),
+                })
+              }}
+            </p>
+          </template>
+          <p
+            v-else-if="isDownloaded"
+            class="text-sm"
+          >
+            {{ t('settings.about.updateDialog.downloaded') }}
+          </p>
+          <p
+            v-else-if="isInstalling"
+            class="text-sm"
+          >
+            {{ t('settings.about.updateDialog.installing') }}
+          </p>
+          <p
+            v-else-if="updateState.error"
+            class="text-sm text-destructive"
+          >
+            {{ t('settings.about.updateDialog.downloadFailed') }} {{ updateState.error }}
+          </p>
+        </section>
       </div>
 
       <DialogFooter>
@@ -123,9 +194,33 @@ function openReleases() {
         >
           {{ t('settings.about.buttons.close') }}
         </Button>
-        <Button @click="openReleases">
+        <Button
+          v-if="!updateState.supported"
+          @click="openReleases"
+        >
           <DownloadIcon data-icon="inline-start" />
           {{ t('settings.about.buttons.openReleases') }}
+        </Button>
+        <Button
+          v-else-if="isDownloaded"
+          @click="restartToInstallUpdate"
+        >
+          <RotateCwIcon data-icon="inline-start" />
+          {{ t('settings.about.buttons.restartToInstall') }}
+        </Button>
+        <Button
+          v-else
+          :disabled="isDownloading || isInstalling"
+          @click="downloadUpdate"
+        >
+          <DownloadIcon data-icon="inline-start" />
+          {{
+            isDownloading
+              ? t('settings.about.buttons.downloadingUpdate')
+              : updateState.error
+                ? t('settings.about.buttons.retryDownload')
+                : t('settings.about.buttons.downloadUpdate')
+          }}
         </Button>
       </DialogFooter>
     </DialogContent>

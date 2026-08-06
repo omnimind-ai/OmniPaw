@@ -6,15 +6,29 @@ const MAX_CHANGELOG_LINES = 100
 const MAX_CHANGELOG_LINE_LENGTH = 2_000
 const MAX_DOWNLOADS = 10
 
-const versionInfo = validateVersionDocument(versionDocument)
+const bundledVersionInfo = validateVersionDocument(versionDocument)
+const VERSION_METADATA_KEY = 'metadata/version.json'
+const MAX_VERSION_METADATA_BYTES = 64 * 1024
 
 export default {
-  fetch(request) {
-    return handleRequest(request)
+  async fetch(request, env = {}) {
+    try {
+      return await handleRequest(request, env)
+    } catch (error) {
+      console.error('Update Worker request failed.', error)
+      const status = error instanceof HttpError ? error.status : 500
+      return jsonResponse(
+        {
+          ok: false,
+          error: status === 500 ? 'Internal server error.' : errorToMessage(error),
+        },
+        status
+      )
+    }
   },
 }
 
-export function handleRequest(request) {
+export async function handleRequest(request, env = {}) {
   const url = new URL(request.url)
   const pathname = normalizePath(url.pathname)
 
@@ -23,6 +37,15 @@ export function handleRequest(request) {
       status: 204,
       headers: responseHeaders(),
     })
+  }
+
+  if (pathname.startsWith('/artifacts/')) {
+    if (request.method !== 'GET' && request.method !== 'HEAD') {
+      return jsonResponse({ ok: false, error: 'Method not allowed.' }, 405, {
+        Allow: 'GET, HEAD, OPTIONS',
+      })
+    }
+    return handleArtifactRequest(request, pathname, env)
   }
 
   if (request.method !== 'GET') {
@@ -35,12 +58,12 @@ export function handleRequest(request) {
     return jsonResponse({
       ok: true,
       service: 'omnipaw-app-update-worker',
-      endpoints: ['/updates'],
+      endpoints: ['/updates', '/artifacts/*'],
     })
   }
 
   if (pathname === '/updates') {
-    return handleUpdateCheck(url)
+    return handleUpdateCheck(url, env)
   }
 
   return jsonResponse({ ok: false, error: 'Route not found.' }, 404)
@@ -59,7 +82,7 @@ export function compareVersions(leftRaw, rightRaw) {
   return 0
 }
 
-function handleUpdateCheck(url) {
+async function handleUpdateCheck(url, env) {
   const currentVersion = normalizeVersion(url.searchParams.get('currentVersion'))
   if (!currentVersion) {
     return jsonResponse(
@@ -71,6 +94,7 @@ function handleUpdateCheck(url) {
     )
   }
 
+  const versionInfo = await resolveVersionInfo(env)
   const latestVersion = versionInfo.version
   return jsonResponse({
     ok: true,
@@ -80,6 +104,159 @@ function handleUpdateCheck(url) {
     checkedAt: Date.now(),
     release: versionInfo,
   })
+}
+
+async function resolveVersionInfo(env) {
+  const bucket = env?.UPDATE_ASSETS
+  if (!bucket) {
+    return bundledVersionInfo
+  }
+
+  const object = await bucket.get(VERSION_METADATA_KEY)
+  if (!object) {
+    throw new HttpError(503, 'Version metadata is unavailable.')
+  }
+  if (Number(object.size) > MAX_VERSION_METADATA_BYTES) {
+    throw new TypeError('Stored version metadata is too large.')
+  }
+
+  const text = await object.text()
+  if (new TextEncoder().encode(text).byteLength > MAX_VERSION_METADATA_BYTES) {
+    throw new TypeError('Stored version metadata is too large.')
+  }
+  return validateVersionDocument(JSON.parse(text))
+}
+
+async function handleArtifactRequest(request, pathname, env) {
+  const bucket = env?.UPDATE_ASSETS
+  if (!bucket) {
+    return jsonResponse({ ok: false, error: 'Artifact storage is unavailable.' }, 503)
+  }
+
+  const key = normalizeArtifactKey(pathname)
+  if (!key) {
+    return jsonResponse({ ok: false, error: 'Invalid artifact path.' }, 400)
+  }
+
+  const storedObject = await bucket.head(key)
+  if (!storedObject) {
+    return jsonResponse({ ok: false, error: 'Artifact not found.' }, 404)
+  }
+
+  const range = parseByteRange(request.headers.get('Range'), storedObject.size)
+  if (range === null) {
+    return new Response(null, {
+      status: 416,
+      headers: artifactResponseHeaders(storedObject, key, {
+        'Content-Range': `bytes */${storedObject.size}`,
+      }),
+    })
+  }
+
+  const object =
+    request.method === 'HEAD'
+      ? storedObject
+      : await bucket.get(key, range ? { range: { offset: range.start, length: range.length } } : {})
+  if (!object) {
+    return jsonResponse({ ok: false, error: 'Artifact not found.' }, 404)
+  }
+
+  const additionalHeaders = range
+    ? {
+        'Content-Length': String(range.length),
+        'Content-Range': `bytes ${range.start}-${range.end}/${storedObject.size}`,
+      }
+    : { 'Content-Length': String(storedObject.size) }
+
+  return new Response(request.method === 'HEAD' ? null : object.body, {
+    status: range ? 206 : 200,
+    headers: artifactResponseHeaders(object, key, additionalHeaders),
+  })
+}
+
+function normalizeArtifactKey(pathname) {
+  try {
+    const key = decodeURIComponent(pathname.replace(/^\/+/, ''))
+    const segments = key.split('/')
+    if (
+      segments[0] !== 'artifacts' ||
+      segments.length < 3 ||
+      segments.some((segment) => !segment || segment === '.' || segment === '..')
+    ) {
+      return ''
+    }
+    return segments.join('/')
+  } catch {
+    return ''
+  }
+}
+
+function parseByteRange(header, size) {
+  if (!header) {
+    return undefined
+  }
+  if (!Number.isSafeInteger(size) || size < 1) {
+    return null
+  }
+
+  const match = /^bytes=(\d*)-(\d*)$/.exec(header.trim())
+  if (!match || (!match[1] && !match[2])) {
+    return null
+  }
+
+  if (!match[1]) {
+    const suffixLength = Number(match[2])
+    if (!Number.isSafeInteger(suffixLength) || suffixLength < 1) {
+      return null
+    }
+    const length = Math.min(suffixLength, size)
+    return { start: size - length, end: size - 1, length }
+  }
+
+  const start = Number(match[1])
+  const requestedEnd = match[2] ? Number(match[2]) : size - 1
+  if (
+    !Number.isSafeInteger(start) ||
+    !Number.isSafeInteger(requestedEnd) ||
+    start < 0 ||
+    requestedEnd < start ||
+    start >= size
+  ) {
+    return null
+  }
+  const end = Math.min(requestedEnd, size - 1)
+  return { start, end, length: end - start + 1 }
+}
+
+function artifactResponseHeaders(object, key, additionalHeaders = {}) {
+  const headers = new Headers()
+  object.writeHttpMetadata?.(headers)
+  if (!headers.has('Content-Type')) {
+    headers.set('Content-Type', inferContentType(key))
+  }
+  if (object.httpEtag) {
+    headers.set('ETag', object.httpEtag)
+  }
+  headers.set('Accept-Ranges', 'bytes')
+  headers.set('Access-Control-Allow-Origin', '*')
+  headers.set('Access-Control-Expose-Headers', 'Accept-Ranges, Content-Length, Content-Range, ETag')
+  headers.set(
+    'Cache-Control',
+    key.endsWith('/latest.yml') ? 'no-store' : 'public, max-age=31536000, immutable'
+  )
+  headers.set('X-Content-Type-Options', 'nosniff')
+  for (const [name, value] of Object.entries(additionalHeaders)) {
+    headers.set(name, value)
+  }
+  return headers
+}
+
+function inferContentType(key) {
+  if (key.endsWith('.yml') || key.endsWith('.yaml')) return 'text/yaml; charset=utf-8'
+  if (key.endsWith('.json')) return 'application/json; charset=utf-8'
+  if (key.endsWith('.blockmap')) return 'application/octet-stream'
+  if (key.endsWith('.exe')) return 'application/vnd.microsoft.portable-executable'
+  return 'application/octet-stream'
 }
 
 function validateVersionDocument(input) {
@@ -169,13 +346,24 @@ function jsonResponse(body, status = 200, additionalHeaders = {}) {
 
 function responseHeaders(additionalHeaders = {}) {
   return {
-    'Access-Control-Allow-Headers': 'Content-Type',
-    'Access-Control-Allow-Methods': 'GET, OPTIONS',
+    'Access-Control-Allow-Headers': 'Content-Type, Range',
+    'Access-Control-Allow-Methods': 'GET, HEAD, OPTIONS',
     'Access-Control-Allow-Origin': '*',
     'Cache-Control': 'no-store',
     'Content-Type': 'application/json; charset=utf-8',
     'X-Content-Type-Options': 'nosniff',
     ...additionalHeaders,
+  }
+}
+
+function errorToMessage(error) {
+  return error instanceof Error ? error.message : String(error)
+}
+
+class HttpError extends Error {
+  constructor(status, message) {
+    super(message)
+    this.status = status
   }
 }
 

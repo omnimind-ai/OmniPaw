@@ -1078,7 +1078,15 @@ const fallbackBridge: OmniPawBridge = {
       omniInferPackaged: __OMNIINFER_PACKAGED__,
       platform: 'win32',
     }),
+    getUpdateState: async () => ({
+      supported: false,
+      phase: 'idle',
+      currentVersion: __APP_VERSION__,
+    }),
     checkForUpdates: () => Promise.reject(new Error('检查更新仅在 Electron 应用中可用。')),
+    downloadUpdate: () => Promise.reject(new Error('应用内更新仅在受支持的安装包中可用。')),
+    restartToInstallUpdate: () => Promise.reject(new Error('应用内更新仅在受支持的安装包中可用。')),
+    onUpdateStateChanged: () => () => {},
     openSettingsDirectory: async () => ({
       opened: false,
     }),

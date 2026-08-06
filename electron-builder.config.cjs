@@ -14,6 +14,12 @@ const macBundleVersion = process.env.OMNIPAW_MAC_BUNDLE_VERSION?.trim()
 const macBundleShortVersion = process.env.OMNIPAW_MAC_BUNDLE_SHORT_VERSION?.trim()
 const artifactSuffix = process.env.OMNIPAW_ARTIFACT_SUFFIX?.trim() || ''
 const requireMacSigning = parseBooleanEnv('OMNIPAW_REQUIRE_MAC_SIGNING', false)
+const updateArtifactsBaseUrl =
+  process.env.OMNIPAW_UPDATE_ARTIFACTS_URL?.trim() ||
+  'https://omnipaw-app-update-worker.dx390264.workers.dev/artifacts/stable'
+const updateFeedUrl =
+  process.env.OMNIPAW_UPDATE_FEED_URL?.trim() ||
+  `${updateArtifactsBaseUrl.replace(/\/+$/, '')}/windows/x64/${bundleOmniInfer ? 'full' : 'slim'}`
 
 const extraResources = []
 if (bundleOmniInfer) {
@@ -44,6 +50,13 @@ module.exports = {
     },
   ],
   extraResources,
+  publish: [
+    {
+      provider: 'generic',
+      url: updateFeedUrl,
+      useMultipleRangeRequest: false,
+    },
+  ],
   asarUnpack: ['**/*.node'],
   win: {
     target: 'nsis',
@@ -68,6 +81,7 @@ module.exports = {
   nsis: {
     oneClick: false,
     allowToChangeInstallationDirectory: true,
+    differentialPackage: true,
   },
 }
 

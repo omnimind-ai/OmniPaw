@@ -36,7 +36,7 @@ function readGitCommit(): string {
 export default defineConfig({
   main: {
     define: buildDefines,
-    plugins: [externalizeDepsPlugin({ exclude: ['electron-log'] })],
+    plugins: [externalizeDepsPlugin({ exclude: ['electron-log', 'electron-updater'] })],
     build: {
       rollupOptions: {
         output: {

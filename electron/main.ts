@@ -23,6 +23,7 @@ import type {
   SettingsChangeReason,
 } from '@shared/types/settings'
 import type { ShortcutAction, ShortcutStatusChangedEvent } from '@shared/types/shortcuts'
+import type { AppUpdateState } from '@shared/types/update'
 import { app, BrowserWindow, Menu, type MenuItemConstructorOptions, protocol } from 'electron'
 import {
   closeCatWindow,
@@ -59,6 +60,7 @@ import { prepareOmniInferDataDirectories } from './omniinfer/data-directories'
 import { OmniInferProcess } from './omniinfer/process'
 import { createShortcutController, type ShortcutController } from './shortcut-controller'
 import { createTrayController, type TrayController } from './tray'
+import { AppUpdateController } from './update-controller'
 
 const appDataPath = app.getPath('appData')
 const dataRootPath = resolveApplicationDataRoot({
@@ -95,6 +97,7 @@ let mainWindowController: MainWindowController | undefined
 let trayController: TrayController | undefined
 let catNotificationController: CatNotificationController | undefined
 let shortcutController: ShortcutController | undefined
+let updateController: AppUpdateController | undefined
 let omniInferProcess: OmniInferProcess | undefined
 let isQuitting = false
 let catAppearanceAssetProtocolRegistered = false
@@ -215,6 +218,7 @@ function quitApp(): void {
   markQuitting()
   catNotificationController?.destroy()
   shortcutController?.destroy()
+  updateController?.destroy()
   closeCatWindow()
   trayController?.destroy()
   app.quit()
@@ -267,6 +271,14 @@ function openMainChatSession(sessionId: string, kind?: OpenChatSessionRequest['k
   } else {
     send()
   }
+}
+
+function broadcastAppUpdateState(state: AppUpdateState): void {
+  const window = mainWindowController?.getWindow()
+  if (!window || window.isDestroyed()) {
+    return
+  }
+  window.webContents.send(IPC_CHANNELS.app.updateStateChanged, state)
 }
 
 function updateTrayMenu(): void {
@@ -882,6 +894,16 @@ app
       omniInferLogsDir,
     })
     createControllers()
+    const appUpdateController = new AppUpdateController({
+      currentVersion: appVersion,
+      isPackaged: app.isPackaged,
+      omniInferPackaged,
+      platform: process.platform,
+      arch: process.arch,
+      logger: mainLogger.child({ scope: 'update' }),
+      onStateChanged: broadcastAppUpdateState,
+    })
+    updateController = appUpdateController
     setCatWindowLogger(mainLogger.child({ scope: 'cat' }))
     setCatSessionIdResolver(resolveRuntimeCatSessionId)
     shortcutController = createShortcutController({
@@ -937,6 +959,7 @@ app
       platform: process.platform,
       runtime,
       shortcutController,
+      updateController: appUpdateController,
       onSettingsChanged: broadcastSettingsChanged,
       openChatSession: openMainChatSession,
     })
@@ -976,6 +999,7 @@ app.on('before-quit', (event) => {
   markQuitting()
   catNotificationController?.destroy()
   shortcutController?.destroy()
+  updateController?.destroy()
   closeCatWindow()
   const omniInferShutdown = runtime?.omniInferRuntimeService?.shutdown()
   if (omniInferShutdown) {

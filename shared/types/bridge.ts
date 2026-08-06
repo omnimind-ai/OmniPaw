@@ -221,7 +221,7 @@ import type {
   SkillReadResult,
 } from './skill'
 import type { ManagedToolInfo, SetToolEnabledRequest, SetToolEnabledResponse } from './tool'
-import type { UpdateCheckResult } from './update'
+import type { AppUpdateState, UpdateCheckResult } from './update'
 import type { DesktopWindowState, DesktopWindowStateChangedEvent } from './window'
 
 export type Unsubscribe = () => void
@@ -391,7 +391,11 @@ export interface TestProviderRegistryRequest extends Omit<TestProviderRequest, '
 export interface OmniPawBridge {
   app: {
     getInfo: () => Promise<AppInfo>
+    getUpdateState: () => Promise<AppUpdateState>
     checkForUpdates: () => Promise<UpdateCheckResult>
+    downloadUpdate: () => Promise<AppUpdateState>
+    restartToInstallUpdate: () => Promise<void>
+    onUpdateStateChanged: (callback: (state: AppUpdateState) => void) => Unsubscribe
     openSettingsDirectory: () => Promise<OpenDirectoryResponse>
     openChatSession: (request: OpenChatSessionRequest | string) => Promise<void>
     onOpenChatSession: (callback: (request: OpenChatSessionRequest) => void) => Unsubscribe

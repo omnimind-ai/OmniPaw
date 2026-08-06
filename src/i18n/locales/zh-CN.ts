@@ -135,6 +135,10 @@ export default {
         opening: '打开中',
         openGithub: '打开 GitHub',
         openReleases: '前往下载',
+        downloadUpdate: '下载更新',
+        downloadingUpdate: '下载中',
+        retryDownload: '重新下载',
+        restartToInstall: '重启并安装',
         close: '关闭',
       },
       messages: {
@@ -159,6 +163,11 @@ export default {
         releaseDate: '发布日期',
         changelog: '更新内容',
         noChangelog: '此版本暂未提供更新内容。',
+        downloading: '正在下载更新',
+        downloadProgress: '{transferred} / {total}，{speed}/秒',
+        downloaded: '更新已经下载完成，重启 OmniPaw 后将开始安装。',
+        installing: '正在启动安装程序。',
+        downloadFailed: '更新下载失败：',
       },
     },
     shortcut: {
