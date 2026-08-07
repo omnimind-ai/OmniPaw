@@ -67,6 +67,13 @@ export default {
         title: 'Show model reasoning',
         description: 'Hide model reasoning and thinking blocks in conversations when disabled.',
       },
+      streamingResponse: {
+        title: 'Stream responses',
+        description:
+          'Show model replies as they are generated. Turn this off to wait for the complete response.',
+        saved: 'Streaming response setting saved.',
+        saveFailed: 'Failed to save the streaming response setting.',
+      },
       background: {
         title: 'Window background',
         description:
@@ -1416,16 +1423,6 @@ export default {
       saveButton: 'Save',
       deleteButton: 'Delete',
       cancelButton: 'Cancel',
-      response: {
-        title: 'Response Delivery',
-        streaming: {
-          title: 'Stream Responses',
-          description:
-            'Show model replies as they are generated. Turn this off to wait for the complete response.',
-          saved: 'Response delivery saved.',
-          saveFailed: 'Failed to save response delivery.',
-        },
-      },
       basic: {
         tab: 'Basic Settings',
         name: 'Name',

@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ImageIcon, MessagesSquareIcon, SlidersHorizontalIcon, Trash2Icon } from '@lucide/vue'
+import { storeToRefs } from 'pinia'
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type {
@@ -23,6 +24,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
+import { useProviderStore } from '@/stores/provider'
 import { errorToText, useToast } from '@/utils/toast'
 
 const props = defineProps<{
@@ -31,6 +33,13 @@ const props = defineProps<{
 
 const { t } = useI18n()
 const toast = useToast()
+const providerStore = useProviderStore()
+const {
+  registrySettings,
+  loading: providerLoading,
+  saving: providerSaving,
+  persistenceAvailable: providerPersistenceAvailable,
+} = storeToRefs(providerStore)
 
 const language = computed({
   get: () => props.draft.app.language,
@@ -172,6 +181,21 @@ function clearBackgroundImage(): void {
   props.draft.app.background.enabled = false
   props.draft.app.background.image = undefined
 }
+
+async function handleStreamingChange(streaming: boolean): Promise<void> {
+  if (providerLoading.value || providerSaving.value || !providerPersistenceAvailable.value) {
+    return
+  }
+
+  try {
+    await providerStore.setStreaming(streaming)
+    toast.success(t('settings.general.streamingResponse.saved'))
+  } catch (error) {
+    toast.error(error, {
+      description: t('settings.general.streamingResponse.saveFailed'),
+    })
+  }
+}
 </script>
 
 <template>
@@ -283,6 +307,21 @@ function clearBackgroundImage(): void {
             id="settings-show-reasoning"
             v-model="showReasoningContent"
             :aria-label="t('settings.general.showReasoning.title')"
+          />
+        </SettingEntry>
+
+        <SettingEntry
+          control-id="settings-streaming-response"
+          :title="t('settings.general.streamingResponse.title')"
+          :description="t('settings.general.streamingResponse.description')"
+          :disabled="providerLoading || providerSaving || !providerPersistenceAvailable"
+        >
+          <Switch
+            id="settings-streaming-response"
+            :model-value="registrySettings.streaming"
+            :disabled="providerLoading || providerSaving || !providerPersistenceAvailable"
+            :aria-label="t('settings.general.streamingResponse.title')"
+            @update:model-value="handleStreamingChange"
           />
         </SettingEntry>
       </FieldGroup>

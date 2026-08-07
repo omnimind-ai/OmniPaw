@@ -66,6 +66,12 @@ export default {
         title: '显示模型思考内容',
         description: '关闭后对话中隐藏模型推理和思考内容块。',
       },
+      streamingResponse: {
+        title: '流式响应',
+        description: '开启后，模型回复会在生成过程中逐步显示；关闭后，应用会等待完整回复再显示。',
+        saved: '流式响应设置保存成功。',
+        saveFailed: '流式响应设置保存失败。',
+      },
       background: {
         title: '窗口背景',
         description: '将本地图片复制到应用受控目录作为主窗口背景，并按图片比例限制窗口缩放。',
@@ -1333,15 +1339,6 @@ export default {
       saveButton: '保存',
       deleteButton: '删除',
       cancelButton: '取消',
-      response: {
-        title: '响应方式',
-        streaming: {
-          title: '流式响应',
-          description: '开启后，模型回复会在生成过程中逐步显示；关闭后，应用会等待完整回复再显示。',
-          saved: '响应方式保存成功。',
-          saveFailed: '响应方式保存失败。',
-        },
-      },
       basic: {
         tab: '基础配置',
         name: '名称',
