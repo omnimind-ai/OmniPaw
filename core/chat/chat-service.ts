@@ -380,8 +380,13 @@ export class ChatService {
   listMessages(request: ListMessagesRequest | string): ChatMessage[] {
     const sessionId = typeof request === 'string' ? request : request.sessionId
     const limit = typeof request === 'string' ? undefined : request.limit
+    const beforeMessageId = typeof request === 'string' ? undefined : request.beforeMessageId
+    const beforeMessage = beforeMessageId ? this.options.messages.get(beforeMessageId) : undefined
+    if (beforeMessageId && (!beforeMessage || beforeMessage.sessionId !== sessionId)) {
+      throw new Error(`Message pagination cursor was not found in session ${sessionId}.`)
+    }
     return this.options.messages
-      .listBySession(sessionId, { limit })
+      .listBySession(sessionId, { limit, beforeCreatedAt: beforeMessage?.createdAt })
       .map((message) => this.sessionSummary.attachRunContextUsage(message))
   }
 

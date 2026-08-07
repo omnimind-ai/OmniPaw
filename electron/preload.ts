@@ -73,6 +73,7 @@ import type {
   OpenAICodexOAuthProviderRequest,
   RefreshProviderModelsRequest,
   SaveProviderRequest,
+  SetProviderStreamingRequest,
   SetSessionModelRequest,
   TestProviderRequest,
 } from '@shared/types/provider'
@@ -490,6 +491,8 @@ const bridge: OmniPawBridge = {
       ipcRenderer.invoke(IPC_CHANNELS.provider.setEmbeddingModel, request),
     setObservationModels: (request: SetObservationProviderModelsRequest) =>
       ipcRenderer.invoke(IPC_CHANNELS.provider.setObservationModels, request),
+    setStreaming: (request: SetProviderStreamingRequest | boolean) =>
+      ipcRenderer.invoke(IPC_CHANNELS.provider.setStreaming, request),
     test: (...args: [request: TestProviderRequest] | [providerId: string, modelId?: string]) => {
       const request =
         typeof args[0] === 'string'

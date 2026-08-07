@@ -333,6 +333,27 @@ export class ProviderManager {
     return this.requireRegistryStore().status()
   }
 
+  resolveStreaming(requested?: boolean): boolean {
+    const globallyEnabled = this.registryStore
+      ? this.registryStore.get().settings.streaming
+      : this.requireConfigStore().get().providers.settings.streaming
+    return globallyEnabled && requested !== false
+  }
+
+  setStreaming(streaming: boolean): ProviderRegistryMutationResult {
+    const registry = this.requireRegistryStore().get()
+    return this.registryResult(
+      this.saveRegistry({
+        ...registry,
+        settings: {
+          ...registry.settings,
+          streaming,
+        },
+      }),
+      { ok: true }
+    )
+  }
+
   async createFromPreset(presetId: string): Promise<ProviderConfig> {
     this.logger?.info('Creating provider from preset.', { presetId })
     const preset = providerPresets.find((item) => item.id === presetId)

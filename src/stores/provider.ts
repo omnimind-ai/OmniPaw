@@ -361,10 +361,13 @@ export const useProviderStore = defineStore('provider', () => {
   }
 
   async function setStreaming(streaming: boolean): Promise<void> {
-    await saveRegistrySettings({
-      ...registrySettings.value,
-      streaming,
-    })
+    await saveRegistrySettings(
+      {
+        ...registrySettings.value,
+        streaming,
+      },
+      async () => providerBridge().setStreaming?.({ streaming })
+    )
   }
 
   async function listModels(providerId: string): Promise<ProviderModel[]> {

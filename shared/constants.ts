@@ -170,6 +170,7 @@ export const IPC_CHANNELS = {
     setTitleModel: 'provider:set-title-model',
     setEmbeddingModel: 'provider:set-embedding-model',
     setObservationModels: 'provider:set-observation-models',
+    setStreaming: 'provider:set-streaming',
     test: 'provider:test',
     listModels: 'provider:list-models',
     refreshModels: 'provider:refresh-models',

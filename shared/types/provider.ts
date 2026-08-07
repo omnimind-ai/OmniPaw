@@ -235,6 +235,10 @@ export interface SetProviderFallbackModelsRequest {
   models: ProviderModelRef[]
 }
 
+export interface SetProviderStreamingRequest {
+  streaming: boolean
+}
+
 export interface SetProviderTitleModelRequest extends Partial<ProviderModelRef> {}
 
 export interface SetProviderEmbeddingModelRequest extends Partial<ProviderModelRef> {}

@@ -54,6 +54,7 @@ export interface AgentRunInput {
   provider: ProviderConfig
   model: ProviderModel
   signal: AbortSignal
+  streaming?: boolean
   mode?: ChatRunMode
   toolProfile?: ToolProfile
   maxSteps?: number

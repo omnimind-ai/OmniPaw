@@ -98,6 +98,7 @@ export type ChatCompletionChunk =
 export interface ChatCompletionRequest {
   modelId: string
   messages: ProviderMessage[]
+  streaming?: boolean
   temperature?: number
   topP?: number
   maxOutputTokens?: number

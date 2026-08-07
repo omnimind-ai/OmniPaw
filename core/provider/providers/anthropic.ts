@@ -81,7 +81,10 @@ export class AnthropicCompatibleProvider implements BaseProvider {
     try {
       const response = await this.fetchImpl(this.endpoint('messages'), {
         method: 'POST',
-        headers: this.buildHeaders('text/event-stream', true),
+        headers: this.buildHeaders(
+          request.streaming === false ? 'application/json' : 'text/event-stream',
+          true
+        ),
         body: JSON.stringify(this.buildChatBody(request)),
         signal: request.abortSignal,
       })
@@ -442,7 +445,7 @@ export class AnthropicCompatibleProvider implements BaseProvider {
       model: request.modelId,
       messages: prepared.messages,
       max_tokens: request.maxOutputTokens ?? configuredMaxTokens ?? DEFAULT_MAX_OUTPUT_TOKENS,
-      stream: true,
+      stream: request.streaming !== false,
     }
 
     if (prepared.system.length) {

@@ -162,6 +162,9 @@ export class ChatRunOrchestrator {
       attachments: this.options.attachments,
       fallbackReason,
     })
+    const streaming =
+      this.options.providers.resolveStreaming?.(request.enableStreaming) ??
+      request.enableStreaming !== false
 
     this.options.messages.save(userMessage)
     this.options.messages.save(assistantMessage)
@@ -191,6 +194,7 @@ export class ChatRunOrchestrator {
       provider,
       model,
       signal,
+      streaming,
       mode,
       toolProfile,
       maxSteps: request.maxSteps ?? this.options.maxAgentSteps?.(),
@@ -360,6 +364,10 @@ export class ChatRunOrchestrator {
           provider,
           model,
           signal,
+          streaming:
+            recoveredRun.requestSnapshot?.streaming ??
+            this.options.providers.resolveStreaming?.() ??
+            true,
           mode: recoveredRun.requestSnapshot?.mode,
           toolProfile: recoveredRun.requestSnapshot?.toolProfile,
           maxSteps: recoveredRun.requestSnapshot?.maxSteps,

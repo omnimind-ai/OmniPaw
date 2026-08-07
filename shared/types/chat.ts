@@ -472,6 +472,7 @@ export interface ProviderRequestSnapshot {
   api: string
   baseUrlHost?: string
   model: string
+  streaming?: boolean
   mode?: ChatRunMode
   contextPolicyMode?: ContextPolicy['mode']
   toolProfile?: ToolProfile
@@ -576,6 +577,7 @@ export interface SendMessageRequest {
   mode?: ChatRunMode
   toolProfile?: ToolProfile
   maxSteps?: number
+  enableStreaming?: boolean
   idempotencyKey?: string
   metadata?: Record<string, unknown>
   transientImageInputs?: TransientChatImageInput[]

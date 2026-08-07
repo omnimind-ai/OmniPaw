@@ -199,6 +199,7 @@ import type {
   ProviderType,
   RefreshProviderModelsRequest,
   SaveProviderRequest,
+  SetProviderStreamingRequest,
   SetSessionModelRequest,
   TestProviderRequest,
 } from './provider'
@@ -307,6 +308,7 @@ export type ProviderRegistryChangeReason =
   | 'title'
   | 'embedding'
   | 'observation'
+  | 'settings'
 
 export interface ProviderSelectionRef {
   providerId?: string
@@ -600,6 +602,9 @@ export interface OmniPawBridge {
     ) => Promise<ProviderRegistryMutationResult>
     setObservationModels: (
       request: SetObservationProviderModelsRequest
+    ) => Promise<ProviderRegistryMutationResult>
+    setStreaming: (
+      request: SetProviderStreamingRequest | boolean
     ) => Promise<ProviderRegistryMutationResult>
     test: (
       ...args: [request: TestProviderRequest] | [providerId: string, modelId?: string]

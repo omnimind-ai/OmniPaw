@@ -88,6 +88,7 @@ export class ScheduledTaskAgentExecutor implements ScheduledTaskExecutor {
       agentTools,
       policy,
       signal: input.signal,
+      streaming: this.options.providers.resolveStreaming?.() ?? true,
     })
     const text = finalText.trim()
     if (!text) {
@@ -120,6 +121,7 @@ export class ScheduledTaskAgentExecutor implements ScheduledTaskExecutor {
     agentTools: AgentTool[]
     policy: ReturnType<typeof defaultToolPolicy>
     signal: AbortSignal
+    streaming: boolean
   }): Promise<string> {
     const messages = [...input.providerMessages]
     let finalText = ''
@@ -130,6 +132,7 @@ export class ScheduledTaskAgentExecutor implements ScheduledTaskExecutor {
       for await (const chunk of input.client.streamChat({
         modelId: input.model.remoteId || input.model.id,
         messages,
+        streaming: input.streaming,
         maxOutputTokens: input.model.maxOutputTokens,
         tools: input.providerTools.length ? input.providerTools : undefined,
         abortSignal: input.signal,

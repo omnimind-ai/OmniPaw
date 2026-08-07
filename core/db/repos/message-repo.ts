@@ -53,12 +53,15 @@ export class ChatMessageRepo {
       filters.push('created_at < @beforeCreatedAt')
     }
     const limit = options.limit ? 'LIMIT @limit' : ''
-    return this.db
+    const order = options.limit
+      ? 'ORDER BY created_at DESC, id DESC'
+      : 'ORDER BY created_at ASC, id ASC'
+    const messages = this.db
       .prepare(
         `
           SELECT * FROM chat_messages
           WHERE ${filters.join(' AND ')}
-          ORDER BY created_at ASC
+          ${order}
           ${limit}
         `
       )
@@ -68,6 +71,7 @@ export class ChatMessageRepo {
         limit: options.limit,
       })
       .map((row) => mapMessage(row as MessageRow))
+    return options.limit ? messages.reverse() : messages
   }
 
   get(id: string): ChatMessage | undefined {

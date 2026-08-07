@@ -144,6 +144,13 @@ try {
   assert.equal(empty.settings.defaultModelId, undefined)
   assert.deepEqual(empty.settings.fallbackModelRefs, [])
   assert.match(readFileSync(registryStore.registryPath, 'utf8'), /"sources": \[\]/)
+  assert.equal(providers.resolveStreaming(), true)
+  assert.equal(providers.resolveStreaming(false), false)
+  providers.setStreaming(false)
+  assert.equal(providers.resolveStreaming(), false)
+  assert.equal(providers.resolveStreaming(true), false)
+  providers.setStreaming(true)
+  assert.equal(providers.resolveStreaming(), true)
 
   const openAiPreset = await providers.createFromPreset('openai-compatible')
   assert.equal(openAiPreset.models.length, 0)

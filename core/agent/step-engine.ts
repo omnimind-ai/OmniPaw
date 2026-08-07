@@ -41,6 +41,7 @@ export class AgentStepEngine {
           for await (const chunk of this.client.streamChat({
             modelId: input.model.remoteId || input.model.id,
             messages: state.providerMessages,
+            streaming: input.streaming !== false,
             maxOutputTokens: input.model.maxOutputTokens,
             tools: state.activeProviderTools.length ? state.activeProviderTools : undefined,
             abortSignal: input.signal,

@@ -61,6 +61,7 @@ export async function prepareAgentRun(
       api: input.provider.api ?? 'openai-chat-completions',
       baseUrlHost: hostFromUrl(input.provider.baseUrl),
       model: input.model.remoteId ?? input.model.id,
+      streaming: input.streaming !== false,
       mode,
       toolProfile,
       availableTools: agentTools.map((tool) => tool.providerName ?? tool.name),
@@ -108,6 +109,7 @@ export async function prepareAgentRun(
   const providerTools = providerToolsFromAgentTools(agentTools)
   const snapshot = {
     ...context.snapshot,
+    streaming: input.streaming !== false,
     messageCount: providerMessages.length,
     mode,
     toolProfile,

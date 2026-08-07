@@ -16,6 +16,7 @@ await testToolCallAggregation()
 await testToolCallArgumentIndexDrift()
 await testTextDeltaAndUsageFinal()
 await testJsonChatCompletionFallback()
+await testNonStreamingProviderResponses()
 await testEmptySseFails()
 await testOpenAIIncompleteStreamFails()
 await testAnthropicIncompleteStreamFails()
@@ -682,6 +683,122 @@ async function testJsonChatCompletionFallback(): Promise<void> {
     cachedInput: undefined,
     reasoning: undefined,
   })
+}
+
+async function testNonStreamingProviderResponses(): Promise<void> {
+  let openAiBody: Record<string, unknown> | undefined
+  let openAiAccept: string | null = null
+  const openAi = new OpenAICompatibleProvider({
+    id: 'openai-non-streaming',
+    baseUrl: 'https://example.test/v1',
+    fetch: (async (_input, init) => {
+      openAiBody = JSON.parse(String(init?.body)) as Record<string, unknown>
+      openAiAccept = new Headers(init?.headers).get('Accept')
+      return Response.json({
+        choices: [{ message: { content: 'OpenAI complete reply.' }, finish_reason: 'stop' }],
+        usage: { prompt_tokens: 2, completion_tokens: 3, total_tokens: 5 },
+      })
+    }) as typeof fetch,
+  })
+  const openAiChunks = await collect(
+    openAi.streamChat({
+      modelId: 'model-a',
+      messages: [{ role: 'user', content: 'hello' }],
+      streaming: false,
+    })
+  )
+  assert.equal(openAiBody?.stream, false)
+  assert.equal('stream_options' in (openAiBody ?? {}), false)
+  assert.equal(openAiAccept, 'application/json')
+  assert.equal(
+    openAiChunks[0]?.type === 'delta' ? openAiChunks[0].content : undefined,
+    'OpenAI complete reply.'
+  )
+
+  let anthropicBody: Record<string, unknown> | undefined
+  let anthropicAccept: string | null = null
+  const anthropic = new AnthropicCompatibleProvider({
+    id: 'anthropic-non-streaming',
+    baseUrl: 'https://anthropic.example',
+    fetch: (async (_input, init) => {
+      anthropicBody = JSON.parse(String(init?.body)) as Record<string, unknown>
+      anthropicAccept = new Headers(init?.headers).get('Accept')
+      return Response.json({
+        content: [{ type: 'text', text: 'Anthropic complete reply.' }],
+        stop_reason: 'end_turn',
+        usage: { input_tokens: 4, output_tokens: 2 },
+      })
+    }) as typeof fetch,
+  })
+  const anthropicChunks = await collect(
+    anthropic.streamChat({
+      modelId: 'claude-test',
+      messages: [{ role: 'user', content: 'hello' }],
+      streaming: false,
+    })
+  )
+  assert.equal(anthropicBody?.stream, false)
+  assert.equal(anthropicAccept, 'application/json')
+  assert.equal(
+    anthropicChunks[0]?.type === 'delta' ? anthropicChunks[0].content : undefined,
+    'Anthropic complete reply.'
+  )
+
+  let codexBody: Record<string, unknown> | undefined
+  let codexAccept: string | null = null
+  const codex = new OpenAICodexProvider({
+    id: 'codex-non-streaming',
+    baseUrl: 'https://chatgpt.com/backend-api',
+    apiKey: 'codex-token',
+    fetch: (async (_input, init) => {
+      codexBody = JSON.parse(String(init?.body)) as Record<string, unknown>
+      codexAccept = new Headers(init?.headers).get('Accept')
+      return Response.json({
+        status: 'completed',
+        output: [
+          {
+            type: 'reasoning',
+            summary: [{ type: 'summary_text', text: 'Codex reasoning.' }],
+            encrypted_content: 'signature',
+          },
+          {
+            type: 'message',
+            content: [{ type: 'output_text', text: 'Codex complete reply.' }],
+          },
+          {
+            type: 'function_call',
+            id: 'item_1',
+            call_id: 'call_1',
+            name: 'lookup',
+            arguments: '{"id":1}',
+          },
+        ],
+        usage: { input_tokens: 6, output_tokens: 4, total_tokens: 10 },
+      })
+    }) as typeof fetch,
+  })
+  const codexChunks = await collect(
+    codex.streamChat({
+      modelId: 'gpt-5.4',
+      messages: [{ role: 'user', content: 'hello' }],
+      streaming: false,
+    })
+  )
+  assert.equal(codexBody?.stream, false)
+  assert.equal(codexAccept, 'application/json')
+  assert.deepEqual(
+    codexChunks.map((chunk) => chunk.type),
+    ['delta', 'delta', 'tool_call_final', 'final']
+  )
+  assert.equal(
+    codexChunks[0]?.type === 'delta' ? codexChunks[0].reasoning : undefined,
+    'Codex reasoning.'
+  )
+  assert.equal(
+    codexChunks[1]?.type === 'delta' ? codexChunks[1].content : undefined,
+    'Codex complete reply.'
+  )
+  assert.equal(codexChunks[2]?.type, 'tool_call_final')
 }
 
 async function testEmptySseFails(): Promise<void> {

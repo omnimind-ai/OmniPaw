@@ -86,6 +86,7 @@ export class SessionTitleGenerator {
         client.streamChat({
           modelId: model.remoteId || model.id,
           messages: buildTitlePrompt(userPrompt, model.compat?.supportsSystemRole !== false),
+          streaming: this.options.providers.resolveStreaming?.() ?? true,
           temperature: 0.2,
           maxOutputTokens: TITLE_GENERATION_MAX_OUTPUT_TOKENS,
           abortSignal: abort.signal,

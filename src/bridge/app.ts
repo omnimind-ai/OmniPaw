@@ -1587,6 +1587,8 @@ const fallbackBridge: OmniPawBridge = {
       rejectFallbackPersistence<BridgeProviderRegistryMutationResult>(
         'provider.setObservationModels'
       ),
+    setStreaming: () =>
+      rejectFallbackPersistence<BridgeProviderRegistryMutationResult>('provider.setStreaming'),
     listModels: async () => [],
     refreshModels: () => rejectFallbackPersistence<BridgeProviderModel[]>('provider.refreshModels'),
     test: () => rejectFallbackPersistence<{ ok: boolean; error?: unknown }>('provider.test'),

@@ -24,6 +24,7 @@ import type {
   ProviderModel,
   RefreshProviderModelsRequest,
   SaveProviderRequest,
+  SetProviderStreamingRequest,
   SetSessionModelRequest,
   TestProviderRequest,
 } from '@shared/types/provider'
@@ -182,6 +183,17 @@ export function registerProviderIpcHandlers(options: IpcHandlerOptions): void {
     async (event, request: SetObservationProviderModelsRequest) => {
       const result = await callRegistryMutation(runtime, 'setObservationModels', request)
       emitProviderChanged(event, runtime, 'observation', result)
+      return result
+    }
+  )
+  registerLoggedIpcHandler(
+    options,
+    IPC_CHANNELS.provider.setStreaming,
+    async (event, request: SetProviderStreamingRequest | boolean) => {
+      const result = runtime.providerManager.setStreaming(
+        typeof request === 'boolean' ? request : request.streaming
+      )
+      emitProviderChanged(event, runtime, 'settings', result)
       return result
     }
   )

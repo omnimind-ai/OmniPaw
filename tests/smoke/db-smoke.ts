@@ -235,6 +235,16 @@ try {
   }
   messages.save(userMessage)
   messages.save(assistantMessage)
+  assert.deepEqual(
+    messages.listBySession(session.id, { limit: 1 }).map((message) => message.id),
+    [assistantMessage.id]
+  )
+  assert.deepEqual(
+    messages
+      .listBySession(session.id, { limit: 1, beforeCreatedAt: assistantMessage.createdAt })
+      .map((message) => message.id),
+    [userMessage.id]
+  )
   messages.replaceAttachmentLinks(userMessage.id, [
     {
       messageId: userMessage.id,

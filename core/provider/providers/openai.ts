@@ -112,7 +112,10 @@ export class OpenAICompatibleProvider implements BaseProvider {
     try {
       const response = await this.fetchImpl(this.url('/chat/completions'), {
         method: 'POST',
-        headers: this.buildHeaders(true),
+        headers: this.buildHeaders(
+          true,
+          request.streaming === false ? 'application/json' : 'text/event-stream'
+        ),
         body: JSON.stringify(this.buildChatBody(request)),
         signal: request.abortSignal,
       })
@@ -356,12 +359,18 @@ export class OpenAICompatibleProvider implements BaseProvider {
   }
 
   private buildChatBody(request: ChatCompletionRequest): Record<string, unknown> {
+    const streaming = request.streaming !== false
     const body: Record<string, unknown> = {
       ...this.extraBody,
       model: request.modelId,
       messages: request.messages.map(toOpenAIMessage),
-      stream: true,
-      stream_options: { include_usage: true },
+      stream: streaming,
+    }
+
+    if (streaming) {
+      body.stream_options = { include_usage: true }
+    } else {
+      delete body.stream_options
     }
 
     if (request.temperature !== undefined) {

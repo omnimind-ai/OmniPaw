@@ -74,13 +74,18 @@ export class OpenAICodexProvider implements BaseProvider {
       const credential = await this.resolveCredential()
       const response = await this.fetchImpl(resolveCodexUrl(this.baseUrl), {
         method: 'POST',
-        headers: this.buildHeaders(credential),
+        headers: this.buildHeaders(credential, request.streaming !== false),
         body: JSON.stringify(this.buildBody(request)),
         signal: request.abortSignal,
       })
 
       if (!response.ok) {
         throwProviderError(await parseCodexError(response))
+      }
+
+      if (isJsonResponse(response)) {
+        yield* parseCodexResponse(response)
+        return
       }
 
       if (!response.body) {
@@ -304,7 +309,7 @@ export class OpenAICodexProvider implements BaseProvider {
       ...this.extraBody,
       model: request.modelId,
       store: false,
-      stream: true,
+      stream: request.streaming !== false,
       input: request.messages
         .filter((message) => message.role !== 'system')
         .flatMap(toResponsesMessage),
@@ -338,7 +343,7 @@ export class OpenAICodexProvider implements BaseProvider {
     return body
   }
 
-  private buildHeaders(credential: OpenAICodexOAuthCredential): Headers {
+  private buildHeaders(credential: OpenAICodexOAuthCredential, streaming = true): Headers {
     const headers = new Headers(this.headers)
     const authHeader = this.authHeader?.trim() || 'Authorization'
     headers.set(
@@ -354,7 +359,7 @@ export class OpenAICodexProvider implements BaseProvider {
     headers.set('OpenAI-Beta', 'responses=experimental')
     headers.set('originator', 'pi')
     headers.set('User-Agent', 'pi (omnipaw-electron)')
-    headers.set('Accept', 'text/event-stream')
+    headers.set('Accept', streaming ? 'text/event-stream' : 'application/json')
     headers.set('Content-Type', 'application/json')
     return headers
   }
@@ -547,6 +552,122 @@ function toProviderToolCallId(toolCall: PendingFunctionCall): string {
   return [toolCall.callId, toolCall.id].filter(Boolean).join('|') || `call_${toolCall.index}`
 }
 
+async function* parseCodexResponse(response: Response): AsyncIterable<ChatCompletionChunk> {
+  const payload = await response.json().catch((error: unknown) => {
+    throwProviderError(
+      {
+        code: 'provider_bad_request',
+        message: 'OpenAI Codex returned malformed response JSON.',
+        retryable: false,
+        providerStatus: response.status,
+      },
+      error
+    )
+  })
+  if (!isRecord(payload)) {
+    throwProviderError({
+      code: 'provider_bad_request',
+      message: 'OpenAI Codex returned malformed response JSON.',
+      retryable: false,
+      providerStatus: response.status,
+    })
+  }
+
+  const status = stringValue(payload.status)
+  if (status === 'failed' || status === 'cancelled') {
+    const error = isRecord(payload.error) ? payload.error : undefined
+    throwProviderError({
+      code: 'provider_bad_request',
+      message: stringValue(error?.message) || 'OpenAI Codex response failed.',
+      retryable: false,
+      providerStatus: response.status,
+    })
+  }
+
+  const toolCalls: ProviderToolCall[] = []
+  let sawOutput = false
+  let toolIndex = 0
+  for (const item of Array.isArray(payload.output) ? payload.output : []) {
+    if (!isRecord(item)) {
+      continue
+    }
+    if (item.type === 'message') {
+      for (const part of Array.isArray(item.content) ? item.content : []) {
+        if (!isRecord(part) || part.type !== 'output_text') {
+          continue
+        }
+        const content = stringValue(part.text)
+        if (content) {
+          sawOutput = true
+          yield { type: 'delta', content, done: false, raw: payload }
+        }
+      }
+      continue
+    }
+    if (item.type === 'reasoning') {
+      const reasoning = (Array.isArray(item.summary) ? item.summary : [])
+        .filter(isRecord)
+        .map((part) => stringValue(part.text))
+        .filter(Boolean)
+        .join('')
+      const reasoningSignature = stringValue(item.encrypted_content) || undefined
+      if (reasoning || reasoningSignature) {
+        sawOutput = sawOutput || Boolean(reasoning)
+        yield {
+          type: 'delta',
+          reasoning: reasoning || undefined,
+          reasoningSignature,
+          done: false,
+          raw: payload,
+        }
+      }
+      continue
+    }
+    if (item.type === 'function_call') {
+      const pending: PendingFunctionCall = {
+        index: toolIndex++,
+        id: stringValue(item.id) || undefined,
+        callId: stringValue(item.call_id) || undefined,
+        name: stringValue(item.name),
+        arguments: stringValue(item.arguments),
+      }
+      if (!pending.name) {
+        throwProviderError({
+          code: 'provider_bad_request',
+          message: 'OpenAI Codex returned a function call without a name.',
+          retryable: false,
+          providerStatus: response.status,
+        })
+      }
+      sawOutput = true
+      toolCalls.push(toProviderToolCall(pending))
+    }
+  }
+
+  const usage = parseResponsesUsage(payload.usage)
+  let finishReason = mapStopReason(status)
+  if (toolCalls.length) {
+    finishReason = 'tool_calls'
+    yield {
+      type: 'tool_call_final',
+      toolCalls,
+      done: false,
+      finishReason,
+      usage,
+      raw: payload,
+    }
+  }
+  if (!sawOutput && !usage && !finishReason) {
+    throwProviderError({
+      code: 'provider_bad_request',
+      message: 'OpenAI Codex returned an empty response.',
+      retryable: false,
+      providerStatus: response.status,
+    })
+  }
+  yield { type: 'final', done: true, finishReason, usage, raw: payload }
+}
+
 function parseResponsesUsage(value: unknown): TokenUsage | undefined {
   if (!isRecord(value)) {
     return undefined
@@ -562,6 +683,10 @@ function parseResponsesUsage(value: unknown): TokenUsage | undefined {
     reasoning: numberValue(outputDetails?.reasoning_tokens),
     total: numberValue(value.total_tokens),
   }
+}
+
+function isJsonResponse(response: Response): boolean {
+  return response.headers.get('content-type')?.toLowerCase().includes('application/json') ?? false
 }
 
 function mapStopReason(status: string): string | undefined {

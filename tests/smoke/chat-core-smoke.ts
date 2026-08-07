@@ -166,7 +166,12 @@ try {
     settings: () => lifecycleConfig.tools.workspace,
   })
   const cleanedProcessSessions: string[] = []
-  const providerRequests: Array<{ providerId: string; messages: unknown[] }> = []
+  let providerStreaming = true
+  const providerRequests: Array<{
+    providerId: string
+    messages: unknown[]
+    streaming?: boolean
+  }> = []
   const sessionModelService = new ChatService({
     sessions: sessionRepo,
     messages: messageRepo,
@@ -188,12 +193,14 @@ try {
         provider: kimiProvider,
         modelId: 'kimi',
       }),
+      resolveStreaming: (requested?: boolean) => providerStreaming && requested !== false,
       createProviderClient: async (providerId: string) => ({
         id: providerId,
         streamChat: async function* (request) {
           providerRequests.push({
             providerId,
             messages: request.messages,
+            streaming: request.streaming,
           })
           yield { type: 'delta' as const, content: 'internal vision result', done: false as const }
           yield {
@@ -230,6 +237,63 @@ try {
     }),
     maxAgentSteps: () => 9,
   })
+  const paginationSession = await sessionModelService.createSession({
+    title: 'Pagination smoke',
+    providerId: kimiProvider.id,
+    modelId: 'kimi',
+  })
+  for (let index = 1; index <= 5; index += 1) {
+    messageRepo.save({
+      id: `pagination-${index}`,
+      sessionId: paginationSession.id,
+      role: index % 2 ? 'user' : 'assistant',
+      status: 'complete',
+      parts: [{ type: 'plain', text: `Page message ${index}` }],
+      createdAt: 10_000 + index,
+      updatedAt: 10_000 + index,
+    })
+  }
+  assert.deepEqual(
+    sessionModelService
+      .listMessages({ sessionId: paginationSession.id, limit: 2 })
+      .map((message) => message.id),
+    ['pagination-4', 'pagination-5']
+  )
+  assert.deepEqual(
+    sessionModelService
+      .listMessages({
+        sessionId: paginationSession.id,
+        limit: 2,
+        beforeMessageId: 'pagination-4',
+      })
+      .map((message) => message.id),
+    ['pagination-2', 'pagination-3']
+  )
+  assert.throws(
+    () =>
+      sessionModelService.listMessages({
+        sessionId: paginationSession.id,
+        beforeMessageId: 'missing-pagination-cursor',
+      }),
+    /pagination cursor/
+  )
+
+  providerStreaming = false
+  const nonStreamingSend = await sessionModelService.sendInternalMessage(
+    {
+      sessionId: paginationSession.id,
+      content: 'Return one complete response.',
+      providerId: kimiProvider.id,
+      modelId: 'kimi',
+      enableStreaming: true,
+      mode: 'fast_chat',
+      maxSteps: 1,
+    },
+    { send() {} }
+  )
+  await nonStreamingSend.terminalEvent
+  assert.equal(providerRequests.at(-1)?.streaming, false)
+  providerStreaming = true
   const selectedSession = await sessionModelService.createSession({
     providerId: kimiProvider.id,
     modelId: 'kimi',
