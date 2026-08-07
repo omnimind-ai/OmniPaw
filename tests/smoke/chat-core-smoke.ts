@@ -10,6 +10,7 @@ import type { AgentTool } from '../../core/agent/tools/types'
 import { AgentWorkspaceService } from '../../core/agent/workspace'
 import { AttachmentService } from '../../core/chat/attachment-service'
 import { ChatService, ChatSessionKindMismatchError } from '../../core/chat/chat-service'
+import { partsToProviderContent } from '../../core/chat/context/attachments'
 import { ContextCompactionService } from '../../core/chat/context-compaction'
 import { ContextBuilder } from '../../core/chat/context-manager'
 import { RunManager } from '../../core/chat/run-manager'
@@ -100,6 +101,29 @@ try {
   })
   assert.equal(docUpload.attachment.kind, 'file')
   assert.equal(docUpload.attachment.extractedTextStatus, 'none')
+
+  await assert.rejects(
+    attachments.upload({
+      name: 'sample.pdf',
+      mimeType: 'application/pdf',
+      bytes: new TextEncoder().encode('%PDF-1.4').buffer,
+    }),
+    /PDF attachments are not supported/
+  )
+
+  const audioUpload = await attachments.upload({
+    name: 'sample.wav',
+    mimeType: 'audio/wav',
+    bytes: Uint8Array.from([82, 73, 70, 70, 87, 65, 86, 69]).buffer,
+  })
+  assert.equal(audioUpload.attachment.kind, 'audio')
+
+  const videoUpload = await attachments.upload({
+    name: 'sample.mp4',
+    mimeType: 'video/mp4',
+    bytes: Uint8Array.from([0, 0, 0, 8, 102, 116, 121, 112]).buffer,
+  })
+  assert.equal(videoUpload.attachment.kind, 'video')
 
   const provider: ProviderConfig = {
     id: 'openai-compatible',
@@ -1085,6 +1109,18 @@ try {
   assert.equal(context.snapshot.imageInputCount, 1)
   assert.match(JSON.stringify(context.messages), /image_url/)
   assert.match(JSON.stringify(context.messages), /hello from file/)
+  assert.ok((context.snapshot.contextUsage?.selectedUnitCount ?? 0) > 0)
+  assert.equal(context.snapshot.contextUsage?.selectedMessageCount, 1)
+
+  const audioContent = await partsToProviderContent(
+    attachments,
+    [{ type: 'record', attachmentId: audioUpload.attachment.id, filename: 'sample.wav' }],
+    { ...model, input: ['text', 'audio'] },
+    true,
+    false
+  )
+  assert.match(JSON.stringify(audioContent), /input_audio/)
+  assert.match(JSON.stringify(audioContent), /"format":"wav"/)
 
   const config = cloneDefaultConfig()
   const workspace = new AgentWorkspaceService({

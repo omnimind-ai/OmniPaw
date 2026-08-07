@@ -5,7 +5,6 @@ import type { ToolProfile } from './chat'
  * disables terminal execution because the desktop runtime has no process-level network sandbox.
  */
 export type LocalNetworkPolicy = 'ask' | 'allow' | 'deny'
-export type WorkspaceRootStrategy = 'managed-user-data'
 export type ExternalRootAccessMode = 'read' | 'write' | 'read-write'
 export type ExternalRootGrantScope = 'session' | 'profile' | 'global'
 
@@ -26,7 +25,6 @@ export interface ExternalRootGrant {
 }
 
 export interface LocalAgentWorkspaceSettings {
-  rootStrategy: WorkspaceRootStrategy
   cleanupOnSessionDelete: boolean
   maxFileBytes: number
   maxReadBytes: number
@@ -112,7 +110,6 @@ export interface AgentWorkspaceStatus {
   createdAt: number
   updatedAt: number
   policy: {
-    rootStrategy: WorkspaceRootStrategy
     maxFileBytes: number
     maxReadBytes: number
   }

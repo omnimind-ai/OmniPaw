@@ -165,8 +165,8 @@ export class ChatRunOrchestrator {
       fallbackReason,
     })
     const streaming =
-      this.options.providers.resolveStreaming?.(request.enableStreaming) ??
-      request.enableStreaming !== false
+      this.options.providers.resolveStreaming?.(request.enableStreaming, model.supportsStreaming) ??
+      (request.enableStreaming !== false && model.supportsStreaming !== false)
 
     if (continuationMessage) {
       this.supersedeMessagesAfter(continuationMessage)
@@ -406,9 +406,9 @@ export class ChatRunOrchestrator {
           model,
           signal,
           streaming:
-            recoveredRun.requestSnapshot?.streaming ??
-            this.options.providers.resolveStreaming?.() ??
-            true,
+            (recoveredRun.requestSnapshot?.streaming ?? true) &&
+            (this.options.providers.resolveStreaming?.(undefined, model.supportsStreaming) ??
+              model.supportsStreaming !== false),
           mode: recoveredRun.requestSnapshot?.mode,
           toolProfile: recoveredRun.requestSnapshot?.toolProfile,
           maxSteps: recoveredRun.requestSnapshot?.maxSteps,

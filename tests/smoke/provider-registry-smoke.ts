@@ -146,6 +146,7 @@ try {
   assert.match(readFileSync(registryStore.registryPath, 'utf8'), /"sources": \[\]/)
   assert.equal(providers.resolveStreaming(), true)
   assert.equal(providers.resolveStreaming(false), false)
+  assert.equal(providers.resolveStreaming(true, false), false)
   providers.setStreaming(false)
   assert.equal(providers.resolveStreaming(), false)
   assert.equal(providers.resolveStreaming(true), false)

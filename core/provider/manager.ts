@@ -329,11 +329,11 @@ export class ProviderManager {
     return this.requireRegistryStore().status()
   }
 
-  resolveStreaming(requested?: boolean): boolean {
+  resolveStreaming(requested?: boolean, modelSupportsStreaming?: boolean): boolean {
     const globallyEnabled = this.registryStore
       ? this.registryStore.get().settings.streaming
       : this.requireConfigStore().get().providers.settings.streaming
-    return globallyEnabled && requested !== false
+    return globallyEnabled && requested !== false && modelSupportsStreaming !== false
   }
 
   setStreaming(streaming: boolean): ProviderRegistryMutationResult {

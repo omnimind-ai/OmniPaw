@@ -104,7 +104,7 @@ try {
   assert.equal(normalized.tools.maxAgentSteps, 6)
   assert.equal('enabled' in normalized.tools.workspace, false)
   assert.equal('retentionDays' in normalized.tools.workspace, false)
-  assert.equal(normalized.tools.workspace.rootStrategy, 'managed-user-data')
+  assert.equal('rootStrategy' in normalized.tools.workspace, false)
   assert.equal(normalized.tools.workspace.maxReadBytes, 512 * 1024)
   assert.equal(normalized.tools.workspace.externalRoots[0]?.id, 'global-read')
   assert.equal('enabled' in normalized.tools.terminal, false)

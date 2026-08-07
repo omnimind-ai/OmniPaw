@@ -24,7 +24,6 @@ import type {
   LocalAgentTerminalSettings,
   LocalAgentWorkspaceSettings,
   LocalNetworkPolicy,
-  WorkspaceRootStrategy,
 } from '@shared/types/local-agent'
 import {
   CURRENT_DESKTOP_SETTINGS_VERSION,
@@ -166,7 +165,6 @@ export const defaultConfig: DesktopSettingsConfig = {
     maxAgentSteps: 6,
     enabledByName: {},
     workspace: {
-      rootStrategy: 'managed-user-data',
       cleanupOnSessionDelete: false,
       maxFileBytes: 10 * 1024 * 1024,
       maxReadBytes: 512 * 1024,
@@ -1873,13 +1871,6 @@ function validateWorkspaceSettings(
     })
     return
   }
-  if (!isWorkspaceRootStrategy(settings.rootStrategy)) {
-    issues.push({
-      path: `${path}.rootStrategy`,
-      message: 'Workspace root strategy is invalid.',
-      code: 'invalid_enum',
-    })
-  }
   if (typeof settings.cleanupOnSessionDelete !== 'boolean') {
     issues.push({
       path: `${path}.cleanupOnSessionDelete`,
@@ -2895,9 +2886,6 @@ function normalizeWorkspaceSettings(rawValue: unknown): LocalAgentWorkspaceSetti
   }
 
   return {
-    rootStrategy: isWorkspaceRootStrategy(rawValue.rootStrategy)
-      ? rawValue.rootStrategy
-      : defaults.rootStrategy,
     cleanupOnSessionDelete:
       typeof rawValue.cleanupOnSessionDelete === 'boolean'
         ? rawValue.cleanupOnSessionDelete
@@ -3101,10 +3089,6 @@ function validateIntegerRange(
 
 function isNonEmptyString(value: unknown): value is string {
   return typeof value === 'string' && value.length > 0
-}
-
-function isWorkspaceRootStrategy(value: unknown): value is WorkspaceRootStrategy {
-  return value === 'managed-user-data'
 }
 
 function isNetworkPolicy(value: unknown): value is LocalNetworkPolicy {

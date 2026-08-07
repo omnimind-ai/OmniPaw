@@ -31,8 +31,13 @@ import {
   moodFromScore,
 } from '@shared/types/cat-pet'
 import type {
+  AbortRunResponse,
+  Attachment,
   ChatRun,
+  ChatSession,
+  EditMessageResponse,
   ListRunsRequest,
+  SendMessageResponse,
   SubscribeRunRequest,
   SubscribeRunResponse,
 } from '@shared/types/chat'
@@ -152,6 +157,10 @@ export interface BridgeContextUsageMetadata {
   percentage?: number
   percent?: number
   usagePercent?: number
+  selectedUnitCount?: number
+  droppedUnitCount?: number
+  selectedMessageCount?: number
+  droppedMessageCount?: number
   source?: BridgeContextUsageSource
   usageSource?: BridgeContextUsageSource
   updatedAt?: number
@@ -181,7 +190,6 @@ export interface BridgeDesktopSettingsConfig {
     compactSkillDescriptions: boolean
     shortcuts: DesktopShortcutSettings
     memory: DesktopMemorySettings
-    dataDir?: string
   }
   providers: {
     sources: Array<
@@ -391,9 +399,7 @@ export interface BridgeSendMessageRequest {
   modelId?: string
   mode?: BridgeChatRunMode
   toolProfile?: BridgeToolProfile
-  tool_profile?: BridgeToolProfile
   maxSteps?: number
-  max_steps?: number
   enableStreaming?: boolean
   idempotencyKey?: string
   continueFromMessageId?: string
@@ -893,6 +899,14 @@ function rejectFallbackPersistence<T>(operation: string): Promise<T> {
   return Promise.reject(new Error(`${fallbackBridgePersistenceMessage} (${operation})`))
 }
 
+function getFallbackPlatform(): string {
+  if (typeof navigator === 'undefined') return 'linux'
+  const platform = `${navigator.platform || ''} ${navigator.userAgent || ''}`
+  if (/mac|iphone|ipad|ipod/i.test(platform)) return 'darwin'
+  if (/win/i.test(platform)) return 'win32'
+  return 'linux'
+}
+
 let fallbackCatVisible = false
 let fallbackCatState: CatWindowState = 'hidden'
 let fallbackCatPanelVisible = false
@@ -1076,7 +1090,7 @@ const fallbackBridge: OmniPawBridge = {
       commit: __GIT_COMMIT__,
       isPackaged: false,
       omniInferPackaged: __OMNIINFER_PACKAGED__,
-      platform: 'win32',
+      platform: getFallbackPlatform(),
     }),
     checkForUpdates: () => Promise.reject(new Error('检查更新仅在 Electron 应用中可用。')),
     openSettingsDirectory: async () => ({
@@ -1088,17 +1102,17 @@ const fallbackBridge: OmniPawBridge = {
   },
   window: {
     getState: async () => ({
-      platform: 'win32',
+      platform: getFallbackPlatform(),
       isMaximized: false,
       isMaximizable: true,
     }),
     minimize: async () => ({
-      platform: 'win32',
+      platform: getFallbackPlatform(),
       isMaximized: false,
       isMaximizable: true,
     }),
     toggleMaximize: async () => ({
-      platform: 'win32',
+      platform: getFallbackPlatform(),
       isMaximized: false,
       isMaximizable: true,
     }),
@@ -1434,83 +1448,27 @@ const fallbackBridge: OmniPawBridge = {
       (await fallbackBridge.chat.listSessions({ kind: 'all' })).find(
         (session) => session.id === sessionId
       ) ?? null,
-    createSession: async (request) => {
-      const now = Date.now()
-
-      return {
-        id: crypto.randomUUID(),
-        title:
-          request?.title ||
-          (request?.kind === 'cat'
-            ? '小猫会话'
-            : request?.kind === 'vision'
-              ? '主动视觉'
-              : '新会话'),
-        kind: request?.kind === 'cat' || request?.kind === 'vision' ? request.kind : 'chat',
-        status: 'active',
-        defaultProviderId: request?.providerId || 'omniinfer-local',
-        defaultModelId: request?.modelId || 'local-small-model',
-        createdAt: now,
-        updatedAt: now,
-      }
-    },
-    updateSession: async (sessionId, patch) => ({
-      id: sessionId,
-      title: patch.title || '新会话',
-      status: 'active',
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-      ...patch,
-    }),
-    updateSessionTitle: async (sessionId, title) => ({
-      id: sessionId,
-      title,
-      status: 'active',
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-    }),
-    deleteSession: async () => ({ deleted: true }),
+    createSession: () => rejectFallbackPersistence<ChatSession>('chat.createSession'),
+    updateSession: () => rejectFallbackPersistence<ChatSession>('chat.updateSession'),
+    updateSessionTitle: () => rejectFallbackPersistence<ChatSession>('chat.updateSessionTitle'),
+    deleteSession: () => rejectFallbackPersistence<{ deleted: boolean }>('chat.deleteSession'),
     listMessages: async () => [],
     listRuns: async () => [],
     subscribeRun: () => rejectFallbackPersistence<SubscribeRunResponse>('chat.subscribeRun'),
-    sendMessage: async () => ({
-      runId: crypto.randomUUID(),
-      userMessageId: crypto.randomUUID(),
-      assistantMessageId: crypto.randomUUID(),
-      messageId: crypto.randomUUID(),
-      accepted: true,
-    }),
-    abortRun: async () => {},
+    sendMessage: () => rejectFallbackPersistence<SendMessageResponse>('chat.sendMessage'),
+    abortRun: () => rejectFallbackPersistence<AbortRunResponse>('chat.abortRun'),
     approveToolCall: () =>
       rejectFallbackPersistence<BridgeToolApprovalResponse>('chat.approveToolCall'),
-    editMessage: async () => ({ needsRegenerate: true, truncatedAfterMessage: true }),
-    regenerateMessage: async () => ({
-      runId: crypto.randomUUID(),
-      assistantMessageId: crypto.randomUUID(),
-      accepted: true,
-    }),
+    editMessage: () => rejectFallbackPersistence<EditMessageResponse>('chat.editMessage'),
+    regenerateMessage: () =>
+      rejectFallbackPersistence<SendMessageResponse>('chat.regenerateMessage'),
     onSessionChanged: () => () => {},
     onStreamEvent: () => () => {},
     onToken: () => () => {},
     onDone: () => () => {},
   },
   attachment: {
-    upload: async ({ name, type, size }) => ({
-      id: crypto.randomUUID(),
-      kind: type.startsWith('image/')
-        ? 'image'
-        : type.startsWith('audio/')
-          ? 'audio'
-          : type.startsWith('video/')
-            ? 'video'
-            : 'file',
-      originalName: name,
-      filename: name,
-      mimeType: type,
-      sizeBytes: size,
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-    }),
+    upload: () => rejectFallbackPersistence<Attachment>('attachment.upload'),
     getPreviewUrl: async () => '',
   },
   provider: {
@@ -1888,7 +1846,6 @@ function fallbackSettingsConfig(): BridgeDesktopSettingsConfig {
       maxAgentSteps: 6,
       enabledByName: {},
       workspace: {
-        rootStrategy: 'managed-user-data',
         cleanupOnSessionDelete: false,
         maxFileBytes: 10 * 1024 * 1024,
         maxReadBytes: 512 * 1024,

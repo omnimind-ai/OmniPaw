@@ -101,8 +101,6 @@ export interface FilePart {
   attachmentId?: ID
   attachment_id?: ID
   filename?: string
-  extractedTextId?: ID
-  extracted_text_id?: ID
   embedded_file?: {
     url?: string
     filename?: string
@@ -372,13 +370,10 @@ export interface ChatMessage {
   role: MessageRole
   status: MessageStatus
   parts: ChatMessagePart[]
-  parentMessageId?: ID
-  rootMessageId?: ID
   checkpointId?: ID
   runId?: ID
   providerId?: ID
   modelId?: string
-  providerMessageId?: string
   error?: ChatError
   usage?: TokenUsage
   metadata?: Record<string, unknown>
@@ -389,7 +384,6 @@ export interface ChatMessage {
   content?: string
   toolCalls?: ToolCallDisplay[]
   toolCallId?: string
-  tokenCount?: number
 }
 
 export interface Attachment {

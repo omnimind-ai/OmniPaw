@@ -178,14 +178,32 @@ function normalizeRendererSendMessageRequest(request: unknown): SendMessageReque
     transientCurrentMessageParts: _transientCurrentMessageParts,
     checkpointId: _checkpointId,
     continueFromMessageId: _continueFromMessageId,
+    toolProfile: _toolProfile,
+    tool_profile: _legacyToolProfile,
+    maxSteps: _maxSteps,
+    max_steps: _legacyMaxSteps,
     ...safeRequest
   } = request
   const continueFromMessageId =
     typeof _continueFromMessageId === 'string' ? _continueFromMessageId.trim() : ''
+  const toolProfile = normalizeToolProfile(_toolProfile ?? _legacyToolProfile)
+  const maxSteps = normalizePositiveInteger(_maxSteps ?? _legacyMaxSteps)
   return {
     ...(safeRequest as unknown as SendMessageRequest),
     ...(continueFromMessageId ? { continueFromMessageId } : {}),
+    ...(toolProfile ? { toolProfile } : {}),
+    ...(maxSteps ? { maxSteps } : {}),
   }
+}
+
+function normalizeToolProfile(value: unknown): SendMessageRequest['toolProfile'] | undefined {
+  return value === 'minimal' || value === 'assistant' || value === 'power' ? value : undefined
+}
+
+function normalizePositiveInteger(value: unknown): number | undefined {
+  return typeof value === 'number' && Number.isFinite(value) && value > 0
+    ? Math.floor(value)
+    : undefined
 }
 
 function normalizeListSessionKind(kind: unknown): ListSessionsRequest['kind'] | undefined {

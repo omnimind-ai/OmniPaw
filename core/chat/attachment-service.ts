@@ -52,14 +52,13 @@ export class AttachmentService {
 
     const now = Date.now()
     const originalName = basename(request.name || 'attachment')
-    const mimeType = request.mimeType || inferMimeType(originalName)
+    const mimeType =
+      !request.mimeType || request.mimeType === 'application/octet-stream'
+        ? inferMimeType(originalName)
+        : request.mimeType
 
-    // TODO：目前先禁止上传 PDF、音频和视频文件，因为它们可能需要特殊处理（如生成预览图、提取元数据等），后续可以根据需要添加支持
     if (isPdfFile(originalName, mimeType)) {
-      throw new Error('PDF attachments are not supported yet.')
-    }
-    if (isAudioVideoFile(originalName, mimeType)) {
-      throw new Error('Audio and video attachments are not supported yet.')
+      throw new Error('PDF attachments are not supported.')
     }
 
     const kind = inferKind(mimeType, originalName)
@@ -165,6 +164,11 @@ export class AttachmentService {
     const bytes = await readFile(attachment.storagePath)
     return `data:${attachment.mimeType};base64,${bytes.toString('base64')}`
   }
+
+  async materializeBase64(attachment: InternalAttachmentRecord): Promise<string> {
+    const bytes = await readFile(attachment.storagePath)
+    return bytes.toString('base64')
+  }
 }
 
 export function attachmentIdFromPart(part: ChatMessagePart): string | undefined {
@@ -202,14 +206,6 @@ function isPdfFile(name: string, mimeType: string): boolean {
   return mimeType === 'application/pdf' || /\.pdf$/i.test(name)
 }
 
-function isAudioVideoFile(name: string, mimeType: string): boolean {
-  return (
-    mimeType.startsWith('audio/') ||
-    mimeType.startsWith('video/') ||
-    /\.(aac|avi|flac|m4a|m4v|mkv|mov|mp3|mp4|mpeg|mpg|oga|ogg|opus|wav|webm|wmv)$/i.test(name)
-  )
-}
-
 function inferMimeType(name: string): string {
   const ext = extname(name).toLowerCase()
   if (ext === '.png') return 'image/png'
@@ -218,7 +214,14 @@ function inferMimeType(name: string): string {
   if (ext === '.webp') return 'image/webp'
   if (ext === '.mp3') return 'audio/mpeg'
   if (ext === '.wav') return 'audio/wav'
+  if (ext === '.m4a') return 'audio/mp4'
+  if (ext === '.aac') return 'audio/aac'
+  if (ext === '.flac') return 'audio/flac'
+  if (ext === '.ogg' || ext === '.oga' || ext === '.opus') return 'audio/ogg'
   if (ext === '.mp4') return 'video/mp4'
+  if (ext === '.mov') return 'video/quicktime'
+  if (ext === '.webm') return 'video/webm'
+  if (ext === '.pdf') return 'application/pdf'
   if (ext === '.json') return 'application/json'
   if (ext === '.md') return 'text/markdown'
   if (ext === '.csv') return 'text/csv'
@@ -235,6 +238,9 @@ function safeExtension(name: string, mimeType: string): string {
   if (ext) return ext
   if (mimeType === 'image/png') return '.png'
   if (mimeType === 'image/jpeg') return '.jpg'
+  if (mimeType === 'audio/mpeg') return '.mp3'
+  if (mimeType === 'audio/wav' || mimeType === 'audio/x-wav') return '.wav'
+  if (mimeType === 'video/mp4') return '.mp4'
   if (mimeType === 'text/plain') return '.txt'
   return '.bin'
 }

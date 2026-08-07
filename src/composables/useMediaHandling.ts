@@ -102,19 +102,35 @@ export function useMediaHandling() {
     }
   }
 
-  // TODO: 这个函数目前和 processAndUploadImage 没有区别，后续可以根据需要添加针对非图片文件的特殊处理逻辑
   async function uploadStagedFile(file: File) {
-    if (isPdfFile(file.name, file.type)) {
+    if (isImageFile(file)) {
+      await processAndUploadImage(file)
+      return
+    }
+    await processAndUploadFile(file)
+  }
+
+  async function processAndUploadImage(file: File) {
+    if (!isImageFile(file)) {
+      addFailedUploadItem(file, '图片处理器收到的文件类型无效。')
+      return
+    }
+    await uploadPreparedFile(file)
+  }
+
+  async function processAndUploadFile(file: File) {
+    if (isImageFile(file)) {
+      addFailedUploadItem(file, '非图片处理器收到的文件类型无效。')
+      return
+    }
+    if (isPdfFile(file)) {
       addFailedUploadItem(file, '当前暂不支持 PDF 附件。')
       return
     }
+    await uploadPreparedFile(file)
+  }
 
-    const unsupportedMediaType = unsupportedAudioVideoType(file.name, file.type)
-    if (unsupportedMediaType) {
-      addFailedUploadItem(file, `当前暂不支持${unsupportedMediaType}附件。`)
-      return
-    }
-
+  async function uploadPreparedFile(file: File) {
     if (file.size > ATTACHMENT_LIMITS.maxFileBytes) {
       addFailedUploadItem(file, `单个附件不能超过 ${formatBytes(ATTACHMENT_LIMITS.maxFileBytes)}。`)
       return
@@ -209,14 +225,6 @@ export function useMediaHandling() {
     }
   }
 
-  async function processAndUploadImage(file: File) {
-    await uploadStagedFile(file)
-  }
-
-  async function processAndUploadFile(file: File) {
-    await uploadStagedFile(file)
-  }
-
   async function handlePaste(event: ClipboardEvent) {
     const items = event.clipboardData?.items
     if (!items) return
@@ -309,8 +317,12 @@ export function useMediaHandling() {
     stagedAudioUrl.value = ''
     if (revokeUrls) {
       const urls = new Set<string>()
-      stagedFiles.value.forEach((file) => urls.add(file.url))
-      stagedUploadItems.value.forEach((item) => urls.add(item.url))
+      stagedFiles.value.forEach((file) => {
+        urls.add(file.url)
+      })
+      stagedUploadItems.value.forEach((item) => {
+        urls.add(item.url)
+      })
       urls.forEach(revokeUrl)
     }
     stagedFiles.value = []
@@ -444,24 +456,12 @@ function mapAttachmentKind(kind?: string, mimeType?: string): StagedAttachmentTy
   return 'file'
 }
 
-function isPdfFile(name?: string, mimeType?: string): boolean {
-  return mimeType === 'application/pdf' || /\.pdf$/i.test(name || '')
+function isImageFile(file: File): boolean {
+  return file.type.startsWith('image/') || /\.(gif|jpe?g|png|webp)$/i.test(file.name)
 }
 
-function unsupportedAudioVideoType(name?: string, mimeType?: string): '音频' | '视频' | '' {
-  if (
-    mimeType?.startsWith('audio/') ||
-    /\.(aac|flac|m4a|mp3|oga|ogg|opus|wav)$/i.test(name || '')
-  ) {
-    return '音频'
-  }
-  if (
-    mimeType?.startsWith('video/') ||
-    /\.(avi|m4v|mkv|mov|mp4|mpeg|mpg|webm|wmv)$/i.test(name || '')
-  ) {
-    return '视频'
-  }
-  return ''
+function isPdfFile(file: File): boolean {
+  return file.type === 'application/pdf' || /\.pdf$/i.test(file.name)
 }
 
 function createPreviewUrl(file: File) {

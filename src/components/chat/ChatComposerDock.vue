@@ -122,6 +122,7 @@ const {
       ref="fileInput"
       class="sr-only"
       type="file"
+      accept="image/*,text/*,application/json,audio/*,video/*,.doc,.docx,.xls,.xlsx,.ppt,.pptx"
       multiple
       @change="handleFileInputChange"
     >

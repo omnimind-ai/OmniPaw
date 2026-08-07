@@ -15,9 +15,7 @@ export async function partsToProviderContent(
     workspaceDocumentAttachments?: WorkspaceStagedAttachmentMetadata[]
   } = {}
 ): Promise<ProviderMessage['content']> {
-  const content: Array<
-    { type: 'text'; text: string } | { type: 'image_url'; image_url: { url: string } }
-  > = []
+  const content: Exclude<ProviderMessage['content'], string> = []
 
   for (const part of parts) {
     const record = part as Record<string, unknown>
@@ -60,6 +58,24 @@ export async function partsToProviderContent(
         type: 'image_url',
         image_url: {
           url: await attachments.materializeImageDataUrl(attachment),
+        },
+      })
+      continue
+    }
+
+    const audioFormat = providerAudioFormat(attachment.mimeType, attachment.originalName)
+    if (
+      includeAttachmentPayloads &&
+      !neverIncludeAttachments &&
+      attachment.kind === 'audio' &&
+      audioFormat &&
+      (model.input ?? ['text']).includes('audio')
+    ) {
+      content.push({
+        type: 'input_audio',
+        input_audio: {
+          data: await attachments.materializeBase64(attachment),
+          format: audioFormat,
         },
       })
       continue
@@ -114,6 +130,14 @@ export async function partsToProviderContent(
   }
 
   return content
+}
+
+function providerAudioFormat(mimeType: string, filename: string): 'mp3' | 'wav' | undefined {
+  if (mimeType === 'audio/mpeg' || /\.mp3$/i.test(filename)) return 'mp3'
+  if (mimeType === 'audio/wav' || mimeType === 'audio/x-wav' || /\.wav$/i.test(filename)) {
+    return 'wav'
+  }
+  return undefined
 }
 
 export function countAttachmentParts(parts: ChatMessagePart[]): number {

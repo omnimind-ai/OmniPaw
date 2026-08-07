@@ -103,7 +103,6 @@ export interface DesktopBaseSettings {
   background: DesktopAppBackgroundSettings
   compactSkillDescriptions: boolean
   shortcuts: DesktopShortcutSettings
-  dataDir?: string
 }
 
 export interface DesktopChatContextSettings {

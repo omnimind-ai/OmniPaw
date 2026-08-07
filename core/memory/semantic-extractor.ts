@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto'
 import { normalizeProviderError } from '@core/provider/errors'
 import type { ProviderManager } from '@core/provider/manager'
-import type { ChatMessage, ChatRun, ChatSession, MessageRole } from '@shared/types/chat'
+import type { ChatMessage, ChatRun, ChatSession } from '@shared/types/chat'
 import type {
   CompanionMemoryAttribution,
   CompanionMemoryExtractionDiagnostics,
@@ -42,6 +42,9 @@ export class CompanionMemorySemanticExtractor {
     const startedAt = Date.now()
     const resolved = await this.providers.resolveDefaultProvider(input.run.sessionId)
     const client = await this.providers.createProviderClient(resolved.provider.id)
+    const model = resolved.provider.models?.find(
+      (candidate) => candidate.id === resolved.modelId || candidate.remoteId === resolved.modelId
+    )
     const timeoutMs = Math.max(3_000, Math.min(input.timeoutMs ?? 20_000, 60_000))
     const controller = new AbortController()
     const timeout = setTimeout(() => controller.abort(), timeoutMs)
@@ -51,6 +54,7 @@ export class CompanionMemorySemanticExtractor {
           modelId: resolved.modelId,
           maxOutputTokens: 1200,
           temperature: 0,
+          streaming: this.providers.resolveStreaming(undefined, model?.supportsStreaming),
           abortSignal: controller.signal,
           messages: [
             {

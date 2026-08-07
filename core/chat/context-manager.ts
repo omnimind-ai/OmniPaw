@@ -74,6 +74,8 @@ export class ContextBuilder {
     )
     const imageInputCount = countProviderImageInputs(providerMessages)
     const estimatedInputTokens = estimateTokens(providerMessages)
+    const selectedMessageIds = uniqueMessageIds(selection.selected)
+    const droppedMessageIds = uniqueMessageIds(selection.dropped)
 
     return {
       messages: providerMessages,
@@ -87,7 +89,13 @@ export class ContextBuilder {
           usableInputTokens: budget.maxInputTokens,
           reservedOutputTokens: budget.reservedOutputTokens,
         },
-        contextUsage: buildContextUsage(estimatedInputTokens, budget),
+        contextUsage: {
+          ...buildContextUsage(estimatedInputTokens, budget),
+          selectedUnitCount: selection.selected.length,
+          droppedUnitCount: selection.dropped.length,
+          selectedMessageCount: selectedMessageIds.size,
+          droppedMessageCount: droppedMessageIds.size,
+        },
         contextUnits: contextUnitStats(selection.selected, selection.dropped),
         selectedCounts: countUnits(selection.selected),
         droppedCounts: countUnits(selection.dropped),
@@ -285,6 +293,10 @@ export class ContextBuilder {
     }
     return parts
   }
+}
+
+function uniqueMessageIds(units: ContextUnit[]): Set<string> {
+  return new Set(units.flatMap((unit) => (unit.messageId ? [unit.messageId] : [])))
 }
 
 export class ContextManager extends ContextBuilder {

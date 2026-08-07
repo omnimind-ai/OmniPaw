@@ -88,7 +88,9 @@ export class ScheduledTaskAgentExecutor implements ScheduledTaskExecutor {
       agentTools,
       policy,
       signal: input.signal,
-      streaming: this.options.providers.resolveStreaming?.() ?? true,
+      streaming:
+        this.options.providers.resolveStreaming?.(undefined, model.supportsStreaming) ??
+        model.supportsStreaming !== false,
     })
     const text = finalText.trim()
     if (!text) {

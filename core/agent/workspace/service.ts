@@ -150,7 +150,6 @@ export class AgentWorkspaceService {
       createdAt: rootStats.birthtimeMs,
       updatedAt: Math.max(rootStats.mtimeMs, usage.updatedAt),
       policy: {
-        rootStrategy: this.settings().rootStrategy,
         maxFileBytes: this.settings().maxFileBytes,
         maxReadBytes: this.settings().maxReadBytes,
       },
