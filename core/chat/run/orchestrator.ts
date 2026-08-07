@@ -148,6 +148,7 @@ export class ChatRunOrchestrator {
     }
 
     const session = this.requireSession(request.sessionId)
+    const continuationMessage = this.resolveContinuationMessage(request)
     const { provider, model, fallbackReason } = await resolveProviderAndModel(
       this.options.providers,
       session,
@@ -160,18 +161,25 @@ export class ChatRunOrchestrator {
       provider,
       model,
       attachments: this.options.attachments,
+      existingUserMessage: continuationMessage,
       fallbackReason,
     })
     const streaming =
       this.options.providers.resolveStreaming?.(request.enableStreaming) ??
       request.enableStreaming !== false
 
-    this.options.messages.save(userMessage)
+    if (continuationMessage) {
+      this.supersedeMessagesAfter(continuationMessage)
+    } else {
+      this.options.messages.save(userMessage)
+    }
     this.options.messages.save(assistantMessage)
-    this.options.messages.replaceAttachmentLinks(
-      userMessage.id,
-      attachmentLinks.map((link) => ({ ...link, messageId: userMessage.id }))
-    )
+    if (!continuationMessage) {
+      this.options.messages.replaceAttachmentLinks(
+        userMessage.id,
+        attachmentLinks.map((link) => ({ ...link, messageId: userMessage.id }))
+      )
+    }
     this.options.runs.save(run)
     const signal = this.options.runManager.start(run.id, target)
     const terminalEvent = this.options.runManager.waitForTerminalEvent(run.id, options.signal)
@@ -213,6 +221,7 @@ export class ChatRunOrchestrator {
       modelId: model.id,
       fallbackReason,
       attachmentCount: attachmentLinks.length,
+      continuation: Boolean(continuationMessage),
       mode,
       toolProfile,
     })
@@ -290,6 +299,38 @@ export class ChatRunOrchestrator {
       throw new Error(`Session not found: ${sessionId}`)
     }
     return session
+  }
+
+  private resolveContinuationMessage(request: SendMessageRequest): ChatMessage | undefined {
+    const messageId = request.continueFromMessageId?.trim()
+    if (!messageId) {
+      return undefined
+    }
+    const message = this.options.messages.get(messageId)
+    if (
+      !message ||
+      message.sessionId !== request.sessionId ||
+      message.role !== 'user' ||
+      message.status !== 'complete'
+    ) {
+      throw new Error('Continuation user message not found.')
+    }
+    return message
+  }
+
+  private supersedeMessagesAfter(source: ChatMessage): void {
+    const messages = this.options.messages.listBySession(source.sessionId)
+    const sourceIndex = messages.findIndex((message) => message.id === source.id)
+    if (sourceIndex < 0) {
+      throw new Error('Continuation user message not found.')
+    }
+    for (const message of messages.slice(sourceIndex + 1)) {
+      if (message.status === 'deleted' || message.status === 'superseded') {
+        continue
+      }
+      this.options.messages.updateStatus(message.id, 'superseded')
+      this.options.contextCompaction?.markStaleByMessage(message)
+    }
   }
 
   private async recoverResidualRun(

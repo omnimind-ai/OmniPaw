@@ -483,6 +483,31 @@ try {
     true
   )
 
+  let providerTestShouldFail = false
+  providers.createProviderClient = async (providerId: string) =>
+    ({
+      id: providerId,
+      async *streamChat() {},
+      async test() {
+        if (providerTestShouldFail) {
+          throw new Error('Provider test failure')
+        }
+      },
+    }) as never
+  const successfulProviderTest = await providers.test('omniinfer-local', 'local-small-model')
+  assert.equal(successfulProviderTest.ok, true)
+  assert.equal(successfulProviderTest.modelId, 'local-small-model')
+  assert.equal(Number.isFinite(successfulProviderTest.latencyMs), true)
+  assert.ok((successfulProviderTest.latencyMs ?? -1) >= 0)
+
+  providerTestShouldFail = true
+  const failedProviderTest = await providers.test('omniinfer-local', 'local-small-model')
+  assert.equal(failedProviderTest.ok, false)
+  assert.equal(failedProviderTest.modelId, 'local-small-model')
+  assert.equal(Number.isFinite(failedProviderTest.latencyMs), true)
+  assert.ok((failedProviderTest.latencyMs ?? -1) >= 0)
+  assert.equal(failedProviderTest.error?.message, 'Provider test failure')
+
   console.log('Provider registry smoke check passed')
 } finally {
   rmSync(tempDir, { recursive: true, force: true })

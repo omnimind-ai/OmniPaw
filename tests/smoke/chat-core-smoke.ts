@@ -278,6 +278,88 @@ try {
     /pagination cursor/
   )
 
+  const continuationSession = await sessionModelService.createSession({
+    providerId: kimiProvider.id,
+    modelId: 'kimi',
+  })
+  const firstContinuationSend = await sessionModelService.sendInternalMessage(
+    {
+      sessionId: continuationSession.id,
+      content: 'Original branch prompt.',
+      providerId: kimiProvider.id,
+      modelId: 'kimi',
+      mode: 'fast_chat',
+      maxSteps: 1,
+    },
+    { send() {} }
+  )
+  await firstContinuationSend.terminalEvent
+  const laterContinuationSend = await sessionModelService.sendInternalMessage(
+    {
+      sessionId: continuationSession.id,
+      content: 'Later branch prompt.',
+      providerId: kimiProvider.id,
+      modelId: 'kimi',
+      mode: 'fast_chat',
+      maxSteps: 1,
+    },
+    { send() {} }
+  )
+  await laterContinuationSend.terminalEvent
+  const continuationMessagesBefore = messageRepo.listBySession(continuationSession.id)
+  const continuationSource = continuationMessagesBefore.find(
+    (message) => message.id === firstContinuationSend.userMessageId
+  )
+  assert.ok(continuationSource)
+  const continuationUserCountBefore = continuationMessagesBefore.filter(
+    (message) => message.role === 'user'
+  ).length
+  sessionModelService.editMessage({
+    sessionId: continuationSession.id,
+    messageId: continuationSource.id,
+    parts: [{ type: 'plain', text: 'Edited branch prompt.' }],
+  })
+  const continuedSend = await sessionModelService.sendInternalMessage(
+    {
+      sessionId: continuationSession.id,
+      continueFromMessageId: continuationSource.id,
+      providerId: kimiProvider.id,
+      modelId: 'kimi',
+      mode: 'fast_chat',
+      maxSteps: 1,
+    },
+    { send() {} }
+  )
+  await continuedSend.terminalEvent
+  assert.equal(continuedSend.userMessageId, continuationSource.id)
+  assert.equal(runRepo.get(continuedSend.runId)?.userMessageId, continuationSource.id)
+  const continuationMessagesAfter = messageRepo.listBySession(continuationSession.id)
+  assert.equal(
+    continuationMessagesAfter.filter((message) => message.role === 'user').length,
+    continuationUserCountBefore
+  )
+  assert.equal(messageRepo.get(laterContinuationSend.userMessageId)?.status, 'superseded')
+  assert.equal(messageRepo.get(laterContinuationSend.assistantMessageId)?.status, 'superseded')
+  const continuedProviderMessages = JSON.stringify(providerRequests.at(-1)?.messages)
+  assert.equal(continuedProviderMessages.includes('Edited branch prompt.'), true)
+  assert.equal(continuedProviderMessages.includes('Original branch prompt.'), false)
+  assert.equal(continuedProviderMessages.includes('Later branch prompt.'), false)
+  await assert.rejects(
+    () =>
+      sessionModelService.sendInternalMessage(
+        {
+          sessionId: continuationSession.id,
+          continueFromMessageId: 'pagination-1',
+          providerId: kimiProvider.id,
+          modelId: 'kimi',
+          mode: 'fast_chat',
+          maxSteps: 1,
+        },
+        { send() {} }
+      ),
+    /Continuation user message/
+  )
+
   providerStreaming = false
   const nonStreamingSend = await sessionModelService.sendInternalMessage(
     {

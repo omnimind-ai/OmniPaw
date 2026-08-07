@@ -148,8 +148,6 @@ interface SendMessageStreamOptions {
   maxSteps?: number
   userRecord?: ChatRecord
   botRecord: ChatRecord
-  skipUserHistory?: boolean
-  llmCheckpointId?: string | null
 }
 
 interface ContinueEditedMessageOptions {
@@ -333,8 +331,6 @@ export function useMessages(options: UseMessagesOptions) {
     maxSteps,
     botRecord,
     userRecord,
-    skipUserHistory = false,
-    llmCheckpointId = null,
   }: SendMessageStreamOptions) {
     await startBridgeStream(
       sessionId,
@@ -347,9 +343,7 @@ export function useMessages(options: UseMessagesOptions) {
       selectedModel,
       mode,
       toolProfile,
-      maxSteps,
-      skipUserHistory,
-      llmCheckpointId
+      maxSteps
     )
   }
 
@@ -424,8 +418,7 @@ export function useMessages(options: UseMessagesOptions) {
       mode,
       toolProfile,
       maxSteps,
-      true,
-      sourceRecord.checkpointId || sourceRecord.llm_checkpoint_id || null
+      String(sourceRecord.id)
     )
   }
 
@@ -646,8 +639,7 @@ export function useMessages(options: UseMessagesOptions) {
     mode?: string,
     toolProfile?: BridgeToolProfile,
     maxSteps?: number,
-    skipUserHistory = false,
-    llmCheckpointId: string | null = null
+    continueFromMessageId?: string
   ) {
     let runId: string | undefined
     const pendingEvents: BridgeStreamEvent[] = []
@@ -686,8 +678,7 @@ export function useMessages(options: UseMessagesOptions) {
         toolProfile: toolProfile || undefined,
         maxSteps,
         idempotencyKey: messageId,
-        checkpointId: llmCheckpointId,
-        ...(skipUserHistory ? { metadata: { skipUserHistory: true } } : {}),
+        continueFromMessageId,
       })
 
       runId = response.runId

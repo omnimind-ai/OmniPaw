@@ -176,9 +176,16 @@ function normalizeRendererSendMessageRequest(request: unknown): SendMessageReque
     transientImageInputs: _transientImageInputs,
     transientSystemInstructions: _transientSystemInstructions,
     transientCurrentMessageParts: _transientCurrentMessageParts,
+    checkpointId: _checkpointId,
+    continueFromMessageId: _continueFromMessageId,
     ...safeRequest
-  } = request as unknown as SendMessageRequest
-  return safeRequest
+  } = request
+  const continueFromMessageId =
+    typeof _continueFromMessageId === 'string' ? _continueFromMessageId.trim() : ''
+  return {
+    ...(safeRequest as unknown as SendMessageRequest),
+    ...(continueFromMessageId ? { continueFromMessageId } : {}),
+  }
 }
 
 function normalizeListSessionKind(kind: unknown): ListSessionsRequest['kind'] | undefined {

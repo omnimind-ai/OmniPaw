@@ -21,13 +21,14 @@ export function prepareSendRecords(input: {
   provider: ProviderConfig
   model: ProviderModel
   attachments: AttachmentService
+  existingUserMessage?: ChatMessage
   fallbackReason?: string
 }): PreparedSendRecords {
-  const parts = normalizeSendParts(input.request)
+  const parts = input.existingUserMessage?.parts ?? normalizeSendParts(input.request)
   const attachmentLinks = input.attachments.validateMessageParts(parts)
   const now = Date.now()
   const runId = crypto.randomUUID()
-  const userMessage: ChatMessage = {
+  const userMessage: ChatMessage = input.existingUserMessage ?? {
     id: crypto.randomUUID(),
     sessionId: input.session.id,
     role: 'user',

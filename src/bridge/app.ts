@@ -396,7 +396,7 @@ export interface BridgeSendMessageRequest {
   max_steps?: number
   enableStreaming?: boolean
   idempotencyKey?: string
-  checkpointId?: string | null
+  continueFromMessageId?: string
   metadata?: Record<string, unknown>
 }
 

@@ -14,6 +14,7 @@ import type {
   ProviderRegistrySettings,
   ProviderRegistrySource,
   ProviderRegistryStatus,
+  ProviderTestResult,
   ProviderType,
   SaveProviderRequest,
 } from '@shared/types/provider'
@@ -114,11 +115,6 @@ export interface ProviderManagerOptions {
   omniInferRuntimeService?: OmniInferRuntimeService
   omniInferInstalledModels?: InstalledModelRegistry
   openAICodexOAuthService?: OpenAICodexOAuthService
-}
-
-export interface ProviderTestResult {
-  ok: boolean
-  error?: ReturnType<typeof normalizeProviderError>
 }
 
 interface ProviderRegistryLoadResult {
@@ -812,22 +808,29 @@ export class ProviderManager {
     signal?: AbortSignal
   ): Promise<ProviderTestResult> {
     const startedAt = Date.now()
+    let resolvedModelId = modelId
     try {
       const provider = await this.createProviderClient(providerId)
-      const resolvedModelId = modelId ?? (await this.defaultModelId(providerId))
+      resolvedModelId ??= await this.defaultModelId(providerId)
       await provider.test?.(resolvedModelId, signal)
+      const latencyMs = Date.now() - startedAt
       this.logger?.info('Provider test succeeded.', {
         providerId,
         modelId: resolvedModelId,
-        durationMs: Date.now() - startedAt,
+        durationMs: latencyMs,
       })
-      return { ok: true }
+      return {
+        ok: true,
+        latencyMs,
+        ...(resolvedModelId ? { modelId: resolvedModelId } : {}),
+      }
     } catch (error) {
       const normalized = normalizeProviderError(error)
+      const latencyMs = Date.now() - startedAt
       this.logger?.warn('Provider test failed.', {
         providerId,
-        modelId,
-        durationMs: Date.now() - startedAt,
+        modelId: resolvedModelId,
+        durationMs: latencyMs,
         errorCode: normalized.code,
         retryable: normalized.retryable,
         error: safeProviderError(normalized),
@@ -835,6 +838,8 @@ export class ProviderManager {
       return {
         ok: false,
         error: normalized,
+        latencyMs,
+        ...(resolvedModelId ? { modelId: resolvedModelId } : {}),
       }
     }
   }

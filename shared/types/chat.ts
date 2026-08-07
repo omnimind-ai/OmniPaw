@@ -579,6 +579,7 @@ export interface SendMessageRequest {
   maxSteps?: number
   enableStreaming?: boolean
   idempotencyKey?: string
+  continueFromMessageId?: ID
   metadata?: Record<string, unknown>
   transientImageInputs?: TransientChatImageInput[]
   transientSystemInstructions?: TransientChatInstruction[]
