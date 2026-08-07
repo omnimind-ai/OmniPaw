@@ -1416,6 +1416,16 @@ export default {
       saveButton: 'Save',
       deleteButton: 'Delete',
       cancelButton: 'Cancel',
+      response: {
+        title: 'Response Delivery',
+        streaming: {
+          title: 'Stream Responses',
+          description:
+            'Show model replies as they are generated. Turn this off to wait for the complete response.',
+          saved: 'Response delivery saved.',
+          saveFailed: 'Failed to save response delivery.',
+        },
+      },
       basic: {
         tab: 'Basic Settings',
         name: 'Name',

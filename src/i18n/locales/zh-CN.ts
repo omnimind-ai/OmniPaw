@@ -1333,6 +1333,15 @@ export default {
       saveButton: '保存',
       deleteButton: '删除',
       cancelButton: '取消',
+      response: {
+        title: '响应方式',
+        streaming: {
+          title: '流式响应',
+          description: '开启后，模型回复会在生成过程中逐步显示；关闭后，应用会等待完整回复再显示。',
+          saved: '响应方式保存成功。',
+          saveFailed: '响应方式保存失败。',
+        },
+      },
       basic: {
         tab: '基础配置',
         name: '名称',

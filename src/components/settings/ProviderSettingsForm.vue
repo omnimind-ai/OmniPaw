@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { PlugIcon } from '@lucide/vue'
+import { PlugIcon, RadioTowerIcon } from '@lucide/vue'
 import { storeToRefs } from 'pinia'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { BridgeOpenAICodexOAuthStatus, BridgeProviderPreset } from '@/bridge/app'
+import SettingEntry from '@/components/settings/common/SettingEntry.vue'
 import SettingsSection from '@/components/settings/common/SettingsSection.vue'
 import ProviderAdvancedTab from '@/components/settings/provider-settings/ProviderAdvancedTab.vue'
 import ProviderBasicTab from '@/components/settings/provider-settings/ProviderBasicTab.vue'
@@ -17,6 +18,8 @@ import type {
 } from '@/components/settings/provider-settings/types'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { FieldGroup } from '@/components/ui/field'
+import { Switch } from '@/components/ui/switch'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { useProviderAutosave } from '@/composables/useProviderAutosave'
 import { useProviderDraft } from '@/composables/useProviderDraft'
@@ -29,8 +32,15 @@ const { t } = useI18n()
 const providerStore = useProviderStore()
 const omniInferStore = useOmniInferStore()
 const toast = useToast()
-const { rawProviders, loading, saving, providerPresets, presetsLoading, persistenceAvailable } =
-  storeToRefs(providerStore)
+const {
+  rawProviders,
+  loading,
+  saving,
+  providerPresets,
+  presetsLoading,
+  persistenceAvailable,
+  registrySettings,
+} = storeToRefs(providerStore)
 
 const activeProviderId = ref('')
 const originalProviderId = ref('')
@@ -395,11 +405,49 @@ async function handleOpenAICodexOAuthLogout() {
   }
 }
 
+async function handleStreamingChange(streaming: boolean): Promise<void> {
+  if (loading.value || saving.value || !persistenceAvailable.value) return
+
+  try {
+    await providerStore.setStreaming(streaming)
+    toast.success(t('settings.provider.response.streaming.saved'))
+  } catch (error) {
+    toast.error(error, {
+      description: t('settings.provider.response.streaming.saveFailed'),
+    })
+  }
+}
+
 function clearMessages() {}
 </script>
 
 <template>
-  <div class="flex min-h-0 w-full flex-1 flex-col gap-4 lg:flex-row">
+  <div
+    class="flex min-h-0 w-full flex-1 flex-col gap-4 lg:grid lg:grid-cols-[auto_minmax(0,1fr)] lg:grid-rows-[auto_minmax(0,1fr)]"
+  >
+    <SettingsSection
+      :title="t('settings.provider.response.title')"
+      :icon="RadioTowerIcon"
+      class="w-full lg:col-span-2"
+    >
+      <FieldGroup class="gap-0">
+        <SettingEntry
+          control-id="provider-streaming"
+          :title="t('settings.provider.response.streaming.title')"
+          :description="t('settings.provider.response.streaming.description')"
+          :disabled="loading || saving || !persistenceAvailable"
+        >
+          <Switch
+            id="provider-streaming"
+            :model-value="registrySettings.streaming"
+            :disabled="loading || saving || !persistenceAvailable"
+            :aria-label="t('settings.provider.response.streaming.title')"
+            @update:model-value="handleStreamingChange"
+          />
+        </SettingEntry>
+      </FieldGroup>
+    </SettingsSection>
+
     <ProviderSelectorSidebar
       v-model:search-query="providerSearchQuery"
       :active-provider-id="activeProviderId"
