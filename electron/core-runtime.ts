@@ -399,6 +399,9 @@ export function createCoreRuntime(options: CoreRuntimeOptions): CoreRuntime {
     tempDir: dataPaths.observationTemp,
   })
   void desktopCapture.cleanupAll()
+  void desktopCapture.prepare().catch((error) => {
+    coreLogger.warn('Desktop capture source warmup did not complete.', { error })
+  })
   const contextBuilder = new ContextBuilder(attachmentService, {
     summaries: contextSummaryRepo,
     contextDefaults: () => configStore.get().app.chatContext,

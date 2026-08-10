@@ -11,6 +11,7 @@ import type {
 } from '@shared/types/observation'
 import type { UtilityProcess } from 'electron'
 import { app, desktopCapturer, screen, shell, systemPreferences, utilityProcess } from 'electron'
+import { retryNonEmptyResult } from './desktop-capture-source-retry'
 
 export interface ElectronDesktopCaptureAdapterOptions {
   tempDir: string
@@ -33,12 +34,19 @@ interface PendingEncode {
   reject: (error: Error) => void
 }
 
+type CaptureSourceType = 'screen' | 'window'
+
+const windowsSourceRetryDelaysMs = [
+  250, 500, 1_000, 2_000, 4_000, 4_000, 4_000, 4_000, 4_000, 4_000, 4_000, 4_000,
+] as const
+
 export class ElectronDesktopCaptureAdapter implements DesktopCaptureAdapter {
   private readonly tempDir: string
   private readonly thumbnailSize: { width: number; height: number }
   private encoderProcess: UtilityProcess | undefined
   private encoderReady: Promise<UtilityProcess> | undefined
   private readonly pendingEncodes = new Map<string, PendingEncode>()
+  private readonly sourceReadiness = new Map<CaptureSourceType, Promise<void>>()
   private disposed = false
 
   constructor(options: ElectronDesktopCaptureAdapterOptions) {
@@ -83,6 +91,13 @@ export class ElectronDesktopCaptureAdapter implements DesktopCaptureAdapter {
       await openMacScreenRecordingSettings()
     }
     return status
+  }
+
+  async prepare(): Promise<void> {
+    if (process.platform !== 'win32') {
+      return
+    }
+    await this.waitForSourceAvailability('screen')
   }
 
   async capture(request: ObservationCaptureRequest): Promise<ObservationCapturedFrame> {
@@ -186,14 +201,29 @@ export class ElectronDesktopCaptureAdapter implements DesktopCaptureAdapter {
     }
     this.encoderProcess = undefined
     this.encoderReady = undefined
+    this.sourceReadiness.clear()
   }
 
   private async resolveSource(request: ObservationCaptureRequest) {
-    const sources = await desktopCapturer.getSources({
-      types: request.scope === 'selected_window' ? ['window'] : ['screen'],
+    const sourceType: CaptureSourceType = request.scope === 'selected_window' ? 'window' : 'screen'
+    if (process.platform === 'win32') {
+      await this.waitForSourceAvailability(sourceType)
+    }
+
+    let sources = await desktopCapturer.getSources({
+      types: [sourceType],
       thumbnailSize: this.thumbnailSize,
       fetchWindowIcons: false,
     })
+    if (process.platform === 'win32' && sources.length === 0) {
+      this.sourceReadiness.delete(sourceType)
+      await this.waitForSourceAvailability(sourceType)
+      sources = await desktopCapturer.getSources({
+        types: [sourceType],
+        thumbnailSize: this.thumbnailSize,
+        fetchWindowIcons: false,
+      })
+    }
     if (request.sourceId) {
       return sources.find((source) => source.id === request.sourceId) ?? null
     }
@@ -209,6 +239,38 @@ export class ElectronDesktopCaptureAdapter implements DesktopCaptureAdapter {
     }
 
     return sources[0] ?? null
+  }
+
+  private waitForSourceAvailability(sourceType: CaptureSourceType): Promise<void> {
+    const current = this.sourceReadiness.get(sourceType)
+    if (current) {
+      return current
+    }
+
+    const readiness = retryNonEmptyResult(
+      async () => {
+        if (this.disposed) {
+          throw new Error('desktop capture adapter disposed')
+        }
+        return desktopCapturer.getSources({
+          types: [sourceType],
+          thumbnailSize: { width: 1, height: 1 },
+          fetchWindowIcons: false,
+        })
+      },
+      { delaysMs: windowsSourceRetryDelaysMs }
+    ).then((sources) => {
+      if (sources.length === 0) {
+        throw new Error(`No available desktop capture ${sourceType} source after retry.`)
+      }
+    })
+    this.sourceReadiness.set(sourceType, readiness)
+    void readiness.catch(() => {
+      if (this.sourceReadiness.get(sourceType) === readiness) {
+        this.sourceReadiness.delete(sourceType)
+      }
+    })
+    return readiness
   }
 
   private async ensureEncoder(): Promise<UtilityProcess> {
