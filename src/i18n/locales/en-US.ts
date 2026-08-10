@@ -970,10 +970,6 @@ export default {
         title: 'Allow external providers',
         description: 'When disabled, external providers are rejected before screenshot.',
       },
-      localOnly: {
-        title: 'Local execution only',
-        description: 'When enabled, prevents external vision or reaction models.',
-      },
       dailyLimit: {
         title: 'Daily screenshot limit',
         description: 'Observation stops after limit is reached for the day.',

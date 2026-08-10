@@ -223,7 +223,6 @@ export const defaultConfig: DesktopSettingsConfig = {
     defaultScope: 'primary_display',
     screenshotRetention: 'ephemeral',
     allowRemoteProviders: false,
-    localOnly: true,
     dailyCaptureLimit: 200,
     consecutiveFailureLimit: 3,
     notificationCooldownMs: 90_000,
@@ -2248,13 +2247,6 @@ function validateObservation(
       code: 'invalid_type',
     })
   }
-  if (typeof settings.localOnly !== 'boolean') {
-    issues.push({
-      path: 'observation.localOnly',
-      message: 'Observation local-only setting must be boolean.',
-      code: 'invalid_type',
-    })
-  }
 }
 
 function throwValidationError(issues: SettingsValidationIssue[]): never {
@@ -2857,7 +2849,6 @@ function normalizeObservationSettings(rawValue: unknown): DesktopObservationSett
       typeof rawValue.allowRemoteProviders === 'boolean'
         ? rawValue.allowRemoteProviders
         : defaults.allowRemoteProviders,
-    localOnly: typeof rawValue.localOnly === 'boolean' ? rawValue.localOnly : defaults.localOnly,
     dailyCaptureLimit: integerOrDefault(rawValue.dailyCaptureLimit, defaults.dailyCaptureLimit),
     consecutiveFailureLimit: integerOrDefault(
       rawValue.consecutiveFailureLimit,

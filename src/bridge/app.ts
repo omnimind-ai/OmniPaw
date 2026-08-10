@@ -231,7 +231,6 @@ export interface BridgeDesktopSettingsConfig {
     defaultScope: BridgeObservationScope
     screenshotRetention: BridgeObservationScreenshotRetention
     allowRemoteProviders: boolean
-    localOnly: boolean
     dailyCaptureLimit: number
     consecutiveFailureLimit: number
     notificationCooldownMs: number
@@ -1904,7 +1903,6 @@ function fallbackSettingsConfig(): BridgeDesktopSettingsConfig {
       defaultScope: 'primary_display',
       screenshotRetention: 'ephemeral',
       allowRemoteProviders: false,
-      localOnly: true,
       dailyCaptureLimit: 200,
       consecutiveFailureLimit: 3,
       notificationCooldownMs: 90_000,

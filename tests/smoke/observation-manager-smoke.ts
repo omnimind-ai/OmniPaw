@@ -91,7 +91,6 @@ const baseSettings: DesktopObservationSettings = {
   defaultScope: 'primary_display',
   screenshotRetention: 'ephemeral',
   allowRemoteProviders: false,
-  localOnly: true,
   dailyCaptureLimit: 20,
   consecutiveFailureLimit: 2,
   notificationCooldownMs: 1_000,
@@ -393,7 +392,6 @@ try {
     ...baseSettings,
     captureProbability: 1,
     allowRemoteProviders: false,
-    localOnly: true,
   }
   const beforeRemotePolicyCaptureCount = captureCount
   await assert.rejects(
@@ -407,7 +405,6 @@ try {
     ...baseSettings,
     captureProbability: 1,
     allowRemoteProviders: false,
-    localOnly: true,
   }
   providersReady = false
   const beforeUnavailableProviderCaptureCount = captureCount
@@ -427,7 +424,6 @@ try {
     ...baseSettings,
     captureProbability: 1,
     allowRemoteProviders: true,
-    localOnly: false,
   }
   const singleState = await manager.start({ visionSessionId })
   assert.equal(singleState.activeRuns[0]?.modelChainMode, 'single_multimodal')

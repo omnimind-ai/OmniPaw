@@ -342,18 +342,6 @@ function clampInteger(value: string | number, min: number, max = Number.MAX_SAFE
         </SettingEntry>
 
         <SettingEntry
-          control-id="observation-local-only"
-          :title="t('settings.observation.localOnly.title')"
-          :description="t('settings.observation.localOnly.description')"
-        >
-          <Switch
-            id="observation-local-only"
-            v-model="observation.localOnly"
-            :aria-label="t('settings.observation.localOnly.title')"
-          />
-        </SettingEntry>
-
-        <SettingEntry
           control-id="observation-daily-limit"
           :title="t('settings.observation.dailyLimit.title')"
           :description="t('settings.observation.dailyLimit.description')"

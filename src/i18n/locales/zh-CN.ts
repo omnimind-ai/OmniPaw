@@ -902,10 +902,6 @@ export default {
         title: '允许外部 Provider',
         description: '关闭时，外部 Provider 会在截图前被拒绝。',
       },
-      localOnly: {
-        title: '仅本地执行',
-        description: '开启时会阻止外部视觉或 reaction 模型。',
-      },
       dailyLimit: {
         title: '每日截图上限',
         description: '达到上限后当天不再执行观察。',

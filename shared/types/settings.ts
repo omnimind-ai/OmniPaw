@@ -185,7 +185,6 @@ export interface DesktopObservationSettings {
   defaultScope: ObservationScope
   screenshotRetention: ObservationScreenshotRetention
   allowRemoteProviders: boolean
-  localOnly: boolean
   dailyCaptureLimit: number
   consecutiveFailureLimit: number
   notificationCooldownMs: number

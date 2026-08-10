@@ -131,7 +131,6 @@ try {
   assert.equal(normalized.observation.defaultScope, 'selected_window')
   assert.equal(normalized.observation.screenshotRetention, 'persist')
   assert.equal(normalized.observation.allowRemoteProviders, false)
-  assert.equal(normalized.observation.localOnly, true)
   assert.equal(normalized.observation.dailyCaptureLimit, 12)
   assert.equal(normalized.observation.consecutiveFailureLimit, 4)
   assert.equal(normalized.observation.notificationCooldownMs, 45_000)
@@ -524,7 +523,6 @@ try {
   const defaultObservation = cloneDefaultConfig().observation
   assert.equal(defaultObservation.screenshotRetention, 'ephemeral')
   assert.equal(defaultObservation.allowRemoteProviders, false)
-  assert.equal(defaultObservation.localOnly, true)
   assert.equal(defaultObservation.reactionNudgeAfterSilentCaptures, 3)
   assert.equal(defaultObservation.reactionNudgeProbability, 0.35)
   assert.equal('enabled' in defaultObservation, false)

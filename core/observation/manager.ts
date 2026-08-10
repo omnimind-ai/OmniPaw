@@ -981,7 +981,7 @@ export class ObservationManager {
     })
     const models = [resolved.vision, resolved.reaction].filter(Boolean) as ResolvedModel[]
     const external = models.some((item) => isExternalProvider(item.provider))
-    if ((settings.localOnly || !settings.allowRemoteProviders) && external) {
+    if (!settings.allowRemoteProviders && external) {
       throw this.observationError('privacy_policy', '当前主动视觉策略禁止使用外部 Provider。', true)
     }
     const checkedProviderIds = new Set<string>()
