@@ -3,6 +3,7 @@ import type { TerminalService } from '@core/agent/terminal'
 import type { ToolResolutionInput } from '@core/agent/tools/registry'
 import { ToolRegistry } from '@core/agent/tools/registry'
 import type { AgentTool } from '@core/agent/tools/types'
+import type { WebSearchRuntimeConfig } from '@core/agent/tools/web-search'
 import type { AgentWorkspaceService } from '@core/agent/workspace'
 import type { CronManager } from '@core/cron/cron-manager'
 import type { AttachmentRepo, ChatMessageRepo, ChatRunRepo, ChatSessionRepo } from '@core/db/repos'
@@ -74,6 +75,7 @@ export interface ChatServiceOptions {
   workspaceService?: AgentWorkspaceService
   terminalService?: TerminalService
   toolSettings?: () => DesktopToolSettings
+  webSearchSettings?: () => WebSearchRuntimeConfig | undefined
   cronManager?: () => CronManager
   observationManager?: () => ObservationManager | undefined
   skills?: SkillManager
@@ -165,6 +167,7 @@ export class ChatService {
           workspaceService: options.workspaceService,
           terminalService: options.terminalService,
           toolSettings: options.toolSettings,
+          webSearchSettings: options.webSearchSettings,
           disabledToolNames: options.disabledToolNames,
           mcpTools: options.mcpTools,
         }),

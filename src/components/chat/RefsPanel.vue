@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { ExternalLinkIcon, XIcon } from '@lucide/vue'
+import { useI18n } from 'vue-i18n'
 
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
-import type { RefItem } from './chat-display'
+import { type RefItem, refHostname } from './chat-display'
 
 defineProps<{
   open: boolean
@@ -13,6 +14,8 @@ defineProps<{
 const emit = defineEmits<{
   'update:open': [open: boolean]
 }>()
+
+const { t } = useI18n()
 </script>
 
 <template>
@@ -22,7 +25,7 @@ const emit = defineEmits<{
   >
     <SheetContent class="flex flex-col gap-4">
       <SheetHeader>
-        <SheetTitle>引用来源</SheetTitle>
+        <SheetTitle>{{ t('chat.references.title') }}</SheetTitle>
       </SheetHeader>
 
       <div class="flex min-h-0 flex-1 flex-col gap-3 overflow-auto">
@@ -32,7 +35,13 @@ const emit = defineEmits<{
           class="flex flex-col gap-2 rounded-md border p-3"
         >
           <div class="flex items-start justify-between gap-2">
-            <div class="min-w-0">
+            <img
+              v-if="refItem.favicon"
+              :src="refItem.favicon"
+              alt=""
+              class="size-8 shrink-0 rounded-md border bg-background object-cover"
+            >
+            <div class="min-w-0 flex-1">
               <h3 class="truncate text-sm font-medium">
                 {{ refItem.title || refItem.url || refItem.id }}
               </h3>
@@ -40,7 +49,7 @@ const emit = defineEmits<{
                 v-if="refItem.url"
                 class="truncate text-xs text-muted-foreground"
               >
-                {{ refItem.url }}
+                {{ refHostname(refItem.url) || refItem.url }}
               </p>
             </div>
             <a
@@ -51,7 +60,7 @@ const emit = defineEmits<{
               class="shrink-0"
             >
               <ExternalLinkIcon aria-hidden="true" />
-              <span class="sr-only">打开引用来源</span>
+              <span class="sr-only">{{ t('chat.references.open') }}</span>
             </a>
           </div>
           <p
@@ -66,7 +75,7 @@ const emit = defineEmits<{
           v-if="!refs.length"
           class="flex flex-1 items-center justify-center rounded-md border border-dashed p-6 text-sm text-muted-foreground"
         >
-          当前消息没有引用来源。
+          {{ t('chat.references.empty') }}
         </div>
       </div>
 
@@ -76,7 +85,7 @@ const emit = defineEmits<{
         @click="emit('update:open', false)"
       >
         <XIcon data-icon="inline-start" />
-        关闭
+        {{ t('chat.references.close') }}
       </Button>
     </SheetContent>
   </Sheet>

@@ -12,6 +12,7 @@ import {
   FilePenLineIcon,
   FileSearchIcon,
   FileTextIcon,
+  GlobeIcon,
   PaperclipIcon,
   PlayIcon,
   SearchIcon,
@@ -125,6 +126,7 @@ const statusIcon = computed(() => {
 function toolIcon(name: string): Component {
   if (name === 'system_time') return ClockIcon
   if (name === 'calculator') return CalculatorIcon
+  if (name === 'web_search') return GlobeIcon
   if (name === 'attachment_text_read') return PaperclipIcon
   if (name === 'attachment_text_search') return SearchIcon
   if (name === 'memory_search') return BrainIcon

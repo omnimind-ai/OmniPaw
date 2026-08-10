@@ -26,6 +26,7 @@ export const TOOL_PROFILE_ALLOWLIST: Record<ToolProfile, string[]> = {
   assistant: [
     'system_time',
     'calculator',
+    'web_search',
     'attachment_text_read',
     'attachment_text_search',
     'memory_search',
@@ -41,6 +42,7 @@ export const TOOL_PROFILE_ALLOWLIST: Record<ToolProfile, string[]> = {
   power: [
     'system_time',
     'calculator',
+    'web_search',
     'attachment_text_read',
     'attachment_text_search',
     'memory_search',
@@ -64,6 +66,7 @@ export const DEFAULT_TOOL_APPROVAL_RISKS: Record<ToolProfile, ToolRisk[]> = {
 export const BUILTIN_TOOL_ORDER = [
   'system_time',
   'calculator',
+  'web_search',
   'attachment_text_read',
   'attachment_text_search',
   'memory_search',
@@ -113,6 +116,33 @@ export const BUILTIN_TOOL_CATALOG = {
           type: 'array',
           items: { type: 'number' },
         },
+      },
+      additionalProperties: false,
+    },
+  },
+  web_search: {
+    name: 'web_search',
+    label: BUILTIN_TOOL_PROMPTS.webSearch.label,
+    description: BUILTIN_TOOL_PROMPTS.webSearch.description,
+    risk: 'network',
+    source: 'builtin',
+    profiles: LOCAL_TOOL_PROFILES,
+    parameters: {
+      type: 'object',
+      required: ['query'],
+      properties: {
+        query: {
+          type: 'string',
+          description: BUILTIN_TOOL_PROMPTS.webSearch.queryDescription,
+        },
+        maxResults: { type: 'integer', minimum: 1, maximum: 10, default: 5 },
+        topic: { type: 'string', enum: ['general', 'news'], default: 'general' },
+        days: { type: 'integer', minimum: 1, maximum: 30 },
+        timeRange: { type: 'string', enum: ['day', 'week', 'month', 'year'] },
+        country: { type: 'string', description: 'Optional two-letter country code.' },
+        language: { type: 'string', description: 'Optional search language code.' },
+        includeDomains: { type: 'array', items: { type: 'string' }, maxItems: 100 },
+        excludeDomains: { type: 'array', items: { type: 'string' }, maxItems: 100 },
       },
       additionalProperties: false,
     },

@@ -7,6 +7,7 @@ import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 import { cn } from '@/lib/utils'
 import { copyToClipboard } from '@/utils/clipboard'
 import { escapeHtml, getShikiHighlighter, renderShikiCode } from '@/utils/shiki.js'
+import { type RefItem, refHostname } from '../chat-display'
 import 'katex/dist/katex.min.css'
 
 const props = withDefaults(
@@ -15,11 +16,13 @@ const props = withDefaults(
     user?: boolean
     compact?: boolean
     muted?: boolean
+    refs?: RefItem[]
   }>(),
   {
     user: false,
     compact: false,
     muted: false,
+    refs: () => [],
   }
 )
 
@@ -58,7 +61,7 @@ const rootClasses = computed(() =>
 )
 
 watch(
-  () => props.content,
+  [() => props.content, () => props.refs],
   async () => {
     const version = renderVersion.value + 1
     renderVersion.value = version
@@ -71,7 +74,7 @@ watch(
     await nextTick()
     void highlightCodeBlocks(version)
   },
-  { immediate: true }
+  { immediate: true, deep: true }
 )
 
 onBeforeUnmount(() => {
@@ -91,6 +94,7 @@ function createMarkdownRenderer() {
   installMathRules(md)
   installTaskListRule(md)
   installWorkspaceFileRefRule(md)
+  installWebSearchRefRule(md)
 
   md.renderer.rules.table_open = () => '<div class="chat-markdown__table"><table>'
   md.renderer.rules.table_close = () => '</table></div>'
@@ -604,6 +608,50 @@ function renderWorkspaceFileRef(path: string, lineStart?: number, lineEnd?: numb
     `</span>`
   )
 }
+
+function installWebSearchRefRule(md: MarkdownIt) {
+  md.inline.ruler.before('html_inline', 'chat_web_search_ref', webSearchRefRule)
+  md.renderer.rules.chat_web_search_ref = (tokens: MarkdownIt.Token[], index: number) => {
+    const id = String((tokens[index]?.meta as { id?: string } | undefined)?.id || '')
+    return renderWebSearchRef(id)
+  }
+}
+
+function webSearchRefRule(state: MarkdownIt.StateInline, silent: boolean) {
+  const start = state.pos
+  const source = state.src
+  if (source.slice(start, start + 5).toLowerCase() !== '<ref>') return false
+
+  const close = source.toLowerCase().indexOf('</ref>', start + 5)
+  if (close < 0 || close + 6 > state.posMax) return false
+  const id = source.slice(start + 5, close).trim()
+  if (!id || id.length > 128 || /[<>\r\n]/.test(id)) return false
+
+  if (!silent) {
+    const token = state.push('chat_web_search_ref', '', 0)
+    token.meta = { id }
+  }
+  state.pos = close + 6
+  return true
+}
+
+function renderWebSearchRef(id: string) {
+  const refItem = props.refs.find((item) => item.id === id)
+  const safeId = escapeHtml(id)
+  if (!refItem?.url) {
+    return `<sup class="chat-web-ref chat-web-ref--pending" title="${safeId}">[${safeId}]</sup>`
+  }
+
+  const hostname = refHostname(refItem.url) || refItem.title || id
+  const title = escapeHtml(refItem.title || hostname)
+  const href = escapeHtml(refItem.url)
+  return (
+    `<a class="chat-web-ref" href="${href}" target="_blank" rel="noopener noreferrer"` +
+    ` aria-label="${title}" title="${title}">` +
+    `<span class="chat-web-ref__icon" aria-hidden="true"></span>` +
+    `<span>${escapeHtml(hostname)}</span></a>`
+  )
+}
 </script>
 
 <template>
@@ -685,6 +733,53 @@ function renderWorkspaceFileRef(path: string, lineStart?: number, lineEnd?: numb
   font-variant-numeric: tabular-nums;
   font-size: 0.85em;
   color: var(--muted-foreground);
+}
+
+.chat-markdown :deep(.chat-web-ref) {
+  display: inline-flex;
+  max-width: 12rem;
+  align-items: center;
+  gap: 0.25em;
+  margin: 0 0.12em;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--muted) 78%, transparent);
+  padding: 0.04em 0.48em;
+  color: var(--muted-foreground);
+  font-size: 0.78em;
+  font-weight: 550;
+  line-height: 1.45;
+  text-decoration: none;
+  vertical-align: 0.08em;
+}
+
+.chat-markdown :deep(.chat-web-ref:hover),
+.chat-markdown :deep(.chat-web-ref:focus-visible) {
+  border-color: var(--ring);
+  background: var(--accent);
+  color: var(--accent-foreground);
+  outline: none;
+}
+
+.chat-markdown :deep(.chat-web-ref--pending) {
+  border-style: dashed;
+  cursor: default;
+}
+
+.chat-markdown :deep(.chat-web-ref__icon) {
+  display: inline-block;
+  width: 0.85em;
+  height: 0.85em;
+  flex: none;
+  background-color: currentColor;
+  -webkit-mask-image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3Cpath d='M2 12h20M12 2a15.3 15.3 0 0 1 0 20M12 2a15.3 15.3 0 0 0 0 20'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3Cpath d='M2 12h20M12 2a15.3 15.3 0 0 1 0 20M12 2a15.3 15.3 0 0 0 0 20'/%3E%3C/svg%3E");
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  mask-position: center;
+  -webkit-mask-size: contain;
+  mask-size: contain;
 }
 
 .chat-markdown :deep(h1),

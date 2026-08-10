@@ -42,6 +42,7 @@ import {
   resolveModelsDir,
   syncOmniInferProviderModels,
 } from '@core/omniinfer'
+import { decryptCredentialValue, encryptCredentialValue } from '@core/provider/credentials'
 import { ProviderManager } from '@core/provider/manager'
 import { OpenAICodexOAuthService } from '@core/provider/openai-codex-oauth'
 import { ProviderRegistryValidationError } from '@core/provider/registry-schema'
@@ -49,6 +50,7 @@ import { ProviderRegistryStore } from '@core/provider/registry-store'
 import { CatAppearanceManager, CatPetManager, CompanionRoleService } from '@core/role'
 import { SkillManager, SkillValidationError } from '@core/skill'
 import { resolveOmniPawDataPaths } from '@core/utils/data-paths'
+import { WebSearchManager, WebSearchStore } from '@core/web-search'
 import { SYSTEM_SESSION_IDS } from '@shared/constants'
 import type { CatAppearanceAssetKey, CatAppearanceChangedEvent } from '@shared/types/cat-appearance'
 import type { CatPetChangedEvent, CatPetGiftUnlock } from '@shared/types/cat-pet'
@@ -116,6 +118,7 @@ export interface CoreRuntime {
   skillManager: SkillManager
   terminalService: TerminalService
   toolManagementService: ToolManagementService
+  webSearchManager: WebSearchManager
   omniInferRuntimeService?: OmniInferRuntimeService
   omniInferInstalledModels?: InstalledModelRegistry
   omniInferModelCatalog?: OmniInferModelCatalogService
@@ -154,6 +157,14 @@ export function createCoreRuntime(options: CoreRuntimeOptions): CoreRuntime {
     logger: coreLogger.child({ scope: 'config' }),
   })
   loadStartupConfig(configStore, options.lifecycleLogger)
+  const webSearchManager = new WebSearchManager({
+    store: new WebSearchStore({
+      dataRootPath: dataPaths.root,
+      encrypt: encryptCredentialValue,
+      decrypt: decryptCredentialValue,
+    }),
+  })
+  loadStartupWebSearch(webSearchManager, options.lifecycleLogger)
   const agentWorkspaceService = new AgentWorkspaceService({
     dataRootPath: dataPaths.root,
     settings: () => configStore.get().tools.workspace,
@@ -476,6 +487,7 @@ export function createCoreRuntime(options: CoreRuntimeOptions): CoreRuntime {
     workspaceService: agentWorkspaceService,
     terminalService,
     toolSettings: () => configStore.get().tools,
+    webSearchSettings: () => webSearchManager.runtimeSettings(),
     cronManager: () => cronManager,
     observationManager: () => observationManager,
     logger: coreLogger.child({ scope: 'chat' }),
@@ -508,6 +520,7 @@ export function createCoreRuntime(options: CoreRuntimeOptions): CoreRuntime {
         workspaceService: agentWorkspaceService,
         terminalService,
         toolSettings: () => configStore.get().tools,
+        webSearchSettings: () => webSearchManager.runtimeSettings(),
         disabledToolNames: () => toolManagementService.getDisabledToolNames(),
         mcpTools: () => mcpServerManager.getAgentTools(),
       }),
@@ -567,6 +580,7 @@ export function createCoreRuntime(options: CoreRuntimeOptions): CoreRuntime {
     skillManager,
     terminalService,
     toolManagementService,
+    webSearchManager,
     omniInferRuntimeService,
     omniInferInstalledModels,
     omniInferModelCatalog,
@@ -675,6 +689,18 @@ function loadStartupConfig(
     }
     lifecycleLogger.error('Startup config load failed.', { error })
     throw error
+  }
+}
+
+function loadStartupWebSearch(manager: WebSearchManager, lifecycleLogger: Logger): void {
+  try {
+    const settings = manager.load()
+    lifecycleLogger.info('Web Search settings loaded.', {
+      enabled: settings.enabled,
+      provider: settings.provider,
+    })
+  } catch (error) {
+    lifecycleLogger.warn('Web Search settings could not be loaded.', { error })
   }
 }
 

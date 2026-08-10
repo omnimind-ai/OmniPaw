@@ -31,6 +31,7 @@ async function runSmoke(): Promise<void> {
   await testAgentRunnerRetriesIncompleteEmptyStream()
   await testAgentRunnerRejectsIncompletePartialStream()
   await testAgentRunnerToolLoop()
+  await testAgentRunnerWebSearchReferences()
   await testAgentRunnerToolLoopPreservesReasoningContent()
   await testAgentRunnerTreatsModelToolFalseAsUnknown()
   await testAgentRunnerToolUnsupportedFallback()
@@ -184,6 +185,81 @@ async function testAgentRunnerToolLoop(): Promise<void> {
     ),
     true
   )
+}
+
+async function testAgentRunnerWebSearchReferences(): Promise<void> {
+  const webSearchTool: AgentTool = {
+    name: 'web_search',
+    label: 'Web search',
+    description: 'Search the web and return sources with stable ids.',
+    parameters: {
+      type: 'object',
+      required: ['query'],
+      properties: { query: { type: 'string' } },
+    },
+    risk: 'safe',
+    source: 'builtin',
+    profiles: ['assistant', 'power'],
+    execute: async () => ({
+      content: [
+        {
+          type: 'text',
+          text: JSON.stringify({
+            query: 'current release',
+            results: [
+              {
+                id: 'call_web.1',
+                title: 'Release notes',
+                url: 'https://example.com/releases',
+                snippet: 'Current release notes.',
+              },
+            ],
+          }),
+        },
+      ],
+    }),
+  }
+  const harness = createRunnerHarness(
+    [
+      [
+        {
+          type: 'tool_call_final',
+          done: false,
+          toolCalls: [toolCall('call_web', 'web_search', { query: 'current release' })],
+          finishReason: 'tool_calls',
+        },
+        { type: 'final', done: true, finishReason: 'tool_calls' },
+      ],
+      [
+        {
+          type: 'delta',
+          content: 'The current release is documented.<ref>call_web.1</ref>',
+          done: false,
+        },
+        { type: 'final', done: true, finishReason: 'stop' },
+      ],
+    ],
+    { tools: [webSearchTool] }
+  )
+
+  await harness.runner.run(harness.input({ toolProfile: 'assistant' }))
+
+  assert.match(
+    String(harness.providerRequests[0]?.messages.find((item) => item.role === 'system')?.content),
+    /<ref>result-id<\/ref>/
+  )
+  const assistant = harness.messageRepo.get('assistant-1')
+  const refPart = assistant?.parts.find((part) => part.type === 'ref')
+  assert.equal(refPart?.source, 'web_search')
+  assert.deepEqual(refPart?.refs, [
+    {
+      id: 'call_web.1',
+      title: 'Release notes',
+      url: 'https://example.com/releases',
+      snippet: 'Current release notes.',
+      favicon: undefined,
+    },
+  ])
 }
 
 async function testAgentRunnerToolLoopPreservesReasoningContent(): Promise<void> {

@@ -10,7 +10,6 @@ import {
   KeyboardIcon,
   PlugIcon,
   SearchIcon,
-  ServerIcon,
   SlidersHorizontalIcon,
   SparklesIcon,
   TerminalIcon,
@@ -44,6 +43,7 @@ export type SettingsTab =
   | 'display'
   | 'data'
   | 'tools'
+  | 'web-search'
   | 'memory'
   | 'skills'
   | 'schedule'
@@ -82,6 +82,7 @@ const settingsItems: SettingsNavItem[] = [
 const capabilityItems: SettingsNavItem[] = [
   { value: 'memory', labelKey: 'settings.sidebar.nav.memory', icon: BrainIcon },
   { value: 'tools', labelKey: 'settings.sidebar.nav.tools', icon: WrenchIcon },
+  { value: 'web-search', labelKey: 'settings.sidebar.nav.webSearch', icon: SearchIcon },
   { value: 'observation', labelKey: 'settings.sidebar.nav.observation', icon: EyeIcon },
   { value: 'skills', labelKey: 'settings.sidebar.nav.skills', icon: BookOpenIcon },
   { value: 'schedule', labelKey: 'settings.sidebar.nav.schedule', icon: CalendarClockIcon },
@@ -89,11 +90,6 @@ const capabilityItems: SettingsNavItem[] = [
 
 const aboutItems: SettingsNavItem[] = [
   { value: 'about', labelKey: 'settings.sidebar.nav.about', icon: InfoIcon },
-]
-
-const placeholderItems = [
-  { label: t('settings.sidebar.upcoming.webSearch'), icon: SearchIcon },
-  { label: t('settings.sidebar.upcoming.apiServer'), icon: ServerIcon },
 ]
 </script>
 

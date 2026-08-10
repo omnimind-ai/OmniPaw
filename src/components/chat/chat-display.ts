@@ -111,6 +111,7 @@ export interface RefItem {
   title?: string
   url?: string
   snippet?: string
+  favicon?: string
 }
 
 export function refsFromPart(part: MessagePart): RefItem[] {
@@ -121,9 +122,19 @@ export function refsFromPart(part: MessagePart): RefItem[] {
     .map((ref, index) => ({
       id: String(ref.id || ref.url || `ref-${index}`),
       title: typeof ref.title === 'string' ? ref.title : undefined,
-      url: typeof ref.url === 'string' ? ref.url : undefined,
+      url: safeExternalUrl(ref.url),
       snippet: typeof ref.snippet === 'string' ? ref.snippet : undefined,
+      favicon: safeExternalUrl(ref.favicon),
     }))
+}
+
+export function refHostname(value?: string): string {
+  if (!value) return ''
+  try {
+    return new URL(value).hostname.replace(/^www\./i, '')
+  } catch {
+    return ''
+  }
 }
 
 export function toolCalls(part: MessagePart): ToolCall[] {
@@ -187,6 +198,14 @@ function builtinToolCallSummary(toolCall: ToolCall, t?: ToolCallTranslate): stri
         pendingKey: 'attachmentSearchPending',
         countedFallback: '搜索了 {count} 处附件文本',
         pendingFallback: '搜索附件文本',
+      })
+    case 'web_search':
+      return countedSummary(t, {
+        count: resultCount(result, [], ['results']),
+        countedKey: 'webSearch',
+        pendingKey: 'webSearchPending',
+        countedFallback: '搜索了 {count} 个网页来源',
+        pendingFallback: '搜索网络',
       })
     case 'memory_search':
       return countedSummary(t, {
@@ -386,6 +405,19 @@ function finiteCount(value: unknown): number | undefined {
 
 function stringValue(value: unknown): string {
   return typeof value === 'string' ? value.trim() : ''
+}
+
+function safeExternalUrl(value: unknown): string | undefined {
+  const candidate = stringValue(value)
+  if (!candidate) return undefined
+  try {
+    const parsed = new URL(candidate)
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:'
+      ? parsed.toString()
+      : undefined
+  } catch {
+    return undefined
+  }
 }
 
 function interpolate(template: string, values: Record<string, unknown>): string {

@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import { ExternalLinkIcon, FileDownIcon, ReplyIcon } from '@lucide/vue'
 import { computed, ref } from 'vue'
+import { useI18n } from 'vue-i18n'
 
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import type { MessagePart } from '@/composables/useMessages'
 import { cn } from '@/lib/utils'
+import type { RefItem } from '../chat-display'
 import {
   attachmentIcon,
   attachmentLabel,
@@ -27,10 +29,12 @@ const props = withDefaults(
     part: MessagePart
     user?: boolean
     compactAttachment?: boolean
+    messageRefs?: RefItem[]
   }>(),
   {
     user: false,
     compactAttachment: false,
+    messageRefs: () => [],
   }
 )
 
@@ -44,6 +48,7 @@ const emit = defineEmits<{
 const url = computed(() => partUrl(props.part))
 const refs = computed(() => refsFromPart(props.part))
 const viewerOpen = ref(false)
+const { t } = useI18n()
 
 const attachmentTileClass = computed(() =>
   cn(
@@ -68,6 +73,7 @@ function openImageViewer() {
     v-if="part.type === 'plain'"
     :content="part.text || ''"
     :user="user"
+    :refs="messageRefs"
     @copy-code="emit('copyCode', $event)"
     @open-workspace-file="emit('openWorkspaceFile', $event)"
   />
@@ -179,7 +185,7 @@ function openImageViewer() {
   >
     <div class="flex items-center justify-between gap-2">
       <p class="text-sm font-medium">
-        引用来源
+        {{ t('chat.references.title') }}
       </p>
       <Button
         type="button"
@@ -188,7 +194,7 @@ function openImageViewer() {
         @click="emit('openRefs', refs)"
       >
         <ExternalLinkIcon data-icon="inline-start" />
-        查看
+        {{ t('chat.references.view') }}
       </Button>
     </div>
     <button

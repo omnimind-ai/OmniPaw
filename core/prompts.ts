@@ -380,6 +380,9 @@ export const TOOL_INVENTORY_PROMPTS = {
   },
 }
 
+export const WEB_SEARCH_CITATION_PROMPT =
+  'When web_search results support the answer, cite each used result immediately after the supported sentence with the exact tag <ref>result-id</ref>. Use only result ids returned by web_search and never invent a citation.'
+
 export const SCHEDULED_TASK_PROMPTS = {
   instruction(input: { taskId: string; runId: string; runReason: string; note: string }): string {
     return [
@@ -414,6 +417,12 @@ export const BUILTIN_TOOL_PROMPTS = {
   attachmentTextSearch: {
     label: 'Search attachment text',
     description: 'Search extracted text from attachments uploaded in the current chat session.',
+  },
+  webSearch: {
+    label: 'Web search',
+    description:
+      'Search the current web with the provider selected in desktop settings. Results contain stable ids. Cite every result used in the answer with the exact tag <ref>result-id</ref> immediately after the supported sentence.',
+    queryDescription: 'Search query describing the current information to find.',
   },
   memorySearch: {
     label: 'Search memory',

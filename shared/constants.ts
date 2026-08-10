@@ -201,6 +201,11 @@ export const IPC_CHANNELS = {
     list: 'tools:list',
     setEnabled: 'tools:set-enabled',
   },
+  webSearch: {
+    getSettings: 'web-search:get-settings',
+    saveSettings: 'web-search:save-settings',
+    test: 'web-search:test',
+  },
   workspace: {
     status: 'workspace:status',
     listFiles: 'workspace:list-files',

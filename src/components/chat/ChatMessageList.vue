@@ -24,6 +24,7 @@ import {
   isRecordErrored,
   recordErrorText,
   recordId,
+  refsFromPart,
 } from './chat-display'
 import MessageAttachmentGrid from './parts/MessageAttachmentGrid.vue'
 import MessageFilesChangedCard from './parts/MessageFilesChangedCard.vue'
@@ -178,6 +179,18 @@ function openRefs(refs: RefItem[]) {
   refsPanelOpen.value = true
 }
 
+function refsForRecord(record: ChatRecord): RefItem[] {
+  const seen = new Set<string>()
+  return blocks(record)
+    .flatMap((block) => block.parts)
+    .flatMap(refsFromPart)
+    .filter((item) => {
+      if (seen.has(item.id)) return false
+      seen.add(item.id)
+      return true
+    })
+}
+
 function messageClass(record: ChatRecord, index: number) {
   const user = props.isUserMessage(record)
   return cn(
@@ -303,6 +316,7 @@ function fileChangesFor(record: ChatRecord) {
                 :key="`${recordId(record)}-part-${segmentIndex}-${part.type}-${partIndex}`"
                 :part="part"
                 :user="isUserMessage(record)"
+                :message-refs="refsForRecord(record)"
                 @jump-message="emit('jumpMessage', $event)"
                 @open-refs="openRefs"
                 @copy-code="emit('copyCode', $event)"

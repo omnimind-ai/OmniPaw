@@ -223,6 +223,12 @@ import type {
 } from './skill'
 import type { ManagedToolInfo, SetToolEnabledRequest, SetToolEnabledResponse } from './tool'
 import type { UpdateCheckResult } from './update'
+import type {
+  SaveWebSearchSettingsRequest,
+  TestWebSearchRequest,
+  TestWebSearchResponse,
+  WebSearchSettings,
+} from './web-search'
 import type { DesktopWindowState, DesktopWindowStateChangedEvent } from './window'
 
 export type Unsubscribe = () => void
@@ -643,6 +649,11 @@ export interface OmniPawBridge {
   tools: {
     list: () => Promise<ManagedToolInfo[]>
     setEnabled: (request: SetToolEnabledRequest) => Promise<SetToolEnabledResponse>
+  }
+  webSearch: {
+    getSettings: () => Promise<WebSearchSettings>
+    saveSettings: (request: SaveWebSearchSettingsRequest) => Promise<WebSearchSettings>
+    test: (request: TestWebSearchRequest) => Promise<TestWebSearchResponse>
   }
   workspace: {
     status: (request: AgentWorkspaceStatusRequest | string) => Promise<AgentWorkspaceStatus>

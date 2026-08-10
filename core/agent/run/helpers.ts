@@ -1,4 +1,4 @@
-import { TOOL_INVENTORY_PROMPTS } from '@core/prompts'
+import { TOOL_INVENTORY_PROMPTS, WEB_SEARCH_CITATION_PROMPT } from '@core/prompts'
 import type { ChatError, ProviderMessage, ProviderToolCall } from '@core/provider/base-provider'
 import type { ChatMessagePart } from '@shared/types/chat'
 import type { ProviderConfig, ProviderModel } from '@shared/types/provider'
@@ -121,12 +121,14 @@ export function injectToolInventory(
     const next = [...messages]
     const systemIndex = next.findIndex((message) => message.role === 'system')
     if (systemIndex >= 0) {
-      const system = next[systemIndex]!
-      next[systemIndex] = {
-        ...system,
-        content: appendTextContent(system.content, prompt),
+      const system = next[systemIndex]
+      if (system) {
+        next[systemIndex] = {
+          ...system,
+          content: appendTextContent(system.content, prompt),
+        }
+        return next
       }
-      return next
     }
     return [{ role: 'system', content: prompt }, ...next]
   }
@@ -134,12 +136,14 @@ export function injectToolInventory(
   const next = [...messages]
   const userIndex = next.findIndex((message) => message.role === 'user')
   if (userIndex >= 0) {
-    const user = next[userIndex]!
-    next[userIndex] = {
-      ...user,
-      content: prependTextContent(user.content, prompt),
+    const user = next[userIndex]
+    if (user) {
+      next[userIndex] = {
+        ...user,
+        content: prependTextContent(user.content, prompt),
+      }
+      return next
     }
-    return next
   }
 
   return [{ role: 'user', content: prompt }, ...next]
@@ -200,7 +204,10 @@ function buildToolInventoryPrompt(tools: AgentTool[]): string | undefined {
     lines.push(TOOL_INVENTORY_PROMPTS.omittedTools(omittedCount))
   }
 
-  return TOOL_INVENTORY_PROMPTS.inventory(lines)
+  const inventory = TOOL_INVENTORY_PROMPTS.inventory(lines)
+  return tools.some((tool) => (tool.providerName ?? tool.name) === 'web_search')
+    ? `${inventory}\n${WEB_SEARCH_CITATION_PROMPT}`
+    : inventory
 }
 
 function appendTextContent(

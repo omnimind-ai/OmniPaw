@@ -17,6 +17,7 @@ import type { DesktopToolSettings } from '@shared/types/settings'
 import { BUILTIN_TOOL_CATALOG, BUILTIN_TOOL_ORDER, type BuiltinToolDefinition } from './catalog'
 import type { ToolPolicy } from './policy'
 import type { AgentTool, ToolProfile, ToolRisk } from './types'
+import { createWebSearchExecutor, type WebSearchRuntimeConfig } from './web-search'
 
 export interface BuiltinToolOptions {
   messages: ChatMessageRepo
@@ -30,6 +31,7 @@ export interface BuiltinToolOptions {
   workspaceService?: AgentWorkspaceService
   terminalService?: TerminalService
   toolSettings?: () => DesktopToolSettings
+  webSearchSettings?: () => WebSearchRuntimeConfig | undefined
   maxResultChars?: number
 }
 
@@ -46,6 +48,12 @@ export function createBuiltinTools(options: BuiltinToolOptions): AgentTool[] {
       execute: createAttachmentTextSearchExecutor(options),
     },
   ]
+  if (options.webSearchSettings?.()) {
+    tools.splice(2, 0, {
+      ...BUILTIN_TOOL_CATALOG.web_search,
+      execute: createWebSearchExecutor(options.webSearchSettings),
+    })
+  }
   if (options.memoryService?.canSearchForSession(options.sessionId)) {
     tools.push({
       ...BUILTIN_TOOL_CATALOG.memory_search,

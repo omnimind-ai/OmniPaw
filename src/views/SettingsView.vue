@@ -15,6 +15,7 @@ import ProviderSettingsForm from '@/components/settings/ProviderSettingsForm.vue
 import ScheduledTaskSettingsForm from '@/components/settings/ScheduledTaskSettingsForm.vue'
 import ShortcutSettingsForm from '@/components/settings/ShortcutSettingsForm.vue'
 import SkillSettingsForm from '@/components/settings/SkillSettingsForm.vue'
+import WebSearchSettingsForm from '@/components/settings/WebSearchSettingsForm.vue'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { SidebarTrigger } from '@/components/ui/sidebar'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -170,6 +171,7 @@ function normalizeSettingsTab(value: unknown): SettingsTab | undefined {
     tab === 'display' ||
     tab === 'data' ||
     tab === 'tools' ||
+    tab === 'web-search' ||
     tab === 'memory' ||
     tab === 'skills' ||
     tab === 'schedule' ||
@@ -291,6 +293,8 @@ function normalizeSettingsTab(value: unknown): SettingsTab | undefined {
             v-else-if="activeTab === 'observation'"
             :draft="draft"
           />
+
+          <WebSearchSettingsForm v-else-if="activeTab === 'web-search'" />
 
           <AboutSettingsForm v-else-if="activeTab === 'about'" />
         </template>

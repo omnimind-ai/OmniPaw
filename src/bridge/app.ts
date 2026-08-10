@@ -1610,6 +1610,24 @@ const fallbackBridge: OmniPawBridge = {
         'tools.setEnabled'
       ),
   },
+  webSearch: {
+    getSettings: async () => ({
+      enabled: false,
+      provider: 'tavily',
+      maxResults: 5,
+      searchDepth: 'basic',
+      configuredProviders: {
+        tavily: false,
+        bocha: false,
+        brave: false,
+        firecrawl: false,
+        baidu: false,
+        exa: false,
+      },
+    }),
+    saveSettings: () => rejectFallbackPersistence('webSearch.saveSettings'),
+    test: () => rejectFallbackPersistence('webSearch.test'),
+  },
   workspace: {
     status: () => rejectFallbackPersistence<AgentWorkspaceStatus>('workspace.status'),
     listFiles: () => rejectFallbackPersistence<ListWorkspaceFilesResponse>('workspace.listFiles'),

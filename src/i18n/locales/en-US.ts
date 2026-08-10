@@ -14,13 +14,13 @@ export default {
         agent: 'Agent capabilities',
         memory: 'Memory',
         tools: 'Tools',
+        webSearch: 'Web Search',
         observation: 'Vision observation',
         skills: 'Skills',
         schedule: 'Scheduled tasks',
         about: 'About',
       },
       upcoming: {
-        webSearch: 'Web Search',
         apiServer: 'API Server',
       },
     },
@@ -29,6 +29,64 @@ export default {
         placeholder: 'Search',
         label: 'Search',
         clearLabel: 'Clear search',
+      },
+    },
+    webSearch: {
+      title: 'Web Search',
+      enabled: {
+        title: 'Enable Web Search',
+        description: 'Give the agent live web retrieval with accessible source citations.',
+      },
+      provider: {
+        title: 'Search provider',
+        description:
+          'Each search uses the selected provider. Keys saved for other providers remain available.',
+        placeholder: 'Select a search provider',
+      },
+      providers: {
+        tavily: 'Tavily',
+        bocha: 'Bocha',
+        brave: 'Brave Search',
+        firecrawl: 'Firecrawl',
+        baidu: 'Baidu AI Search',
+        exa: 'Exa',
+      },
+      credential: {
+        title: 'Credential',
+        apiKey: 'API key',
+        description:
+          'Leave empty to keep the saved key for this provider. Enter a value to replace it.',
+        placeholder: 'Enter API key',
+        savedPlaceholder: 'Saved; enter a new value to replace it',
+        configured: 'Configured',
+        missing: 'Required',
+        security:
+          'The Electron main process encrypts the key with system secure storage. The interface only receives configuration status.',
+      },
+      options: {
+        title: 'Search options',
+        maxResults: {
+          title: 'Results per search',
+          description: 'Limit each tool call to between 1 and 10 sources.',
+        },
+        searchDepth: {
+          title: 'Tavily search depth',
+          description:
+            'Advanced search usually improves relevance and consumes more Tavily credits.',
+          basic: 'Basic',
+          advanced: 'Advanced',
+        },
+      },
+      save: 'Save settings',
+      saving: 'Saving',
+      saved: 'Web Search settings saved.',
+      test: 'Test connection',
+      testing: 'Testing',
+      testSucceeded: 'Search provider connected and returned {count} result.',
+      errors: {
+        loadFailed: 'Failed to load Web Search settings.',
+        saveFailed: 'Failed to save Web Search settings.',
+        testFailed: 'Web Search connection test failed.',
       },
     },
     general: {
@@ -1762,6 +1820,8 @@ export default {
         attachmentReadPending: 'Reading attachments',
         attachmentSearch: 'Searched {count} attachment match(es)',
         attachmentSearchPending: 'Searching attachment text',
+        webSearch: 'Searched {count} web source(s)',
+        webSearchPending: 'Searching the web',
         memorySearch: 'Viewed {count} memory item(s)',
         memorySearchPending: 'Viewing memories',
         memoryCreate: 'Saved {count} memory item(s)',
@@ -1788,6 +1848,13 @@ export default {
         workspaceListPending: 'Viewing file list',
         terminalExec: 'Ran a command',
       },
+    },
+    references: {
+      title: 'Sources',
+      view: 'View',
+      open: 'Open source',
+      empty: 'This message has no cited sources.',
+      close: 'Close',
     },
     fileChanges: {
       title: 'Edited {count} file(s)',

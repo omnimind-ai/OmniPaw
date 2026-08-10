@@ -149,6 +149,7 @@ function normalizeSettingsTab(value: unknown): SettingsTab | undefined {
     tab === 'display' ||
     tab === 'data' ||
     tab === 'tools' ||
+    tab === 'web-search' ||
     tab === 'memory' ||
     tab === 'skills' ||
     tab === 'schedule' ||

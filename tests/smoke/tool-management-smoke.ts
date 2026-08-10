@@ -29,6 +29,17 @@ try {
   assert.equal(
     initialTools.some(
       (tool) =>
+        tool.name === 'web_search' &&
+        tool.risk === 'network' &&
+        tool.profiles.includes('assistant') &&
+        tool.profiles.includes('power') &&
+        !tool.profiles.includes('minimal')
+    ),
+    true
+  )
+  assert.equal(
+    initialTools.some(
+      (tool) =>
         tool.name === 'memory_search' &&
         tool.risk === 'read' &&
         tool.profiles.includes('assistant') &&
@@ -84,6 +95,38 @@ try {
   )
   assert.equal(
     providerToolsFromAgentTools(resolved).some((tool) => tool.function.name === 'calculator'),
+    false
+  )
+
+  const webSearchRegistry = new ToolRegistry({
+    messages: {
+      listBySession: () => [],
+      listAttachmentLinks: () => [],
+    },
+    attachments: {
+      get: () => undefined,
+    },
+    webSearchSettings: () => ({
+      provider: 'tavily',
+      apiKey: 'encrypted-store-result',
+      maxResults: 5,
+      searchDepth: 'basic',
+    }),
+  })
+  const assistantTools = await webSearchRegistry.resolve({
+    sessionId: 'web-search-session',
+    policy: {
+      enabled: true,
+      profile: 'assistant',
+      requireApprovalForRisk: ['write', 'network', 'exec'],
+    },
+  })
+  assert.equal(
+    assistantTools.some((tool) => tool.name === 'web_search'),
+    true
+  )
+  assert.equal(
+    resolved.some((tool) => tool.name === 'web_search'),
     false
   )
 

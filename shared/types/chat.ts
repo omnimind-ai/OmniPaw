@@ -141,11 +141,13 @@ export interface ToolCallDisplay {
 
 export interface RefPart {
   type: 'ref'
+  source?: 'web_search' | string
   refs: Array<{
     id: string
     title?: string
     url?: string
     snippet?: string
+    favicon?: string
   }>
 }
 

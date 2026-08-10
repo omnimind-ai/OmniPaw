@@ -16,6 +16,7 @@ import { registerSkillIpcHandlers } from './skill'
 import { registerTerminalProcessIpcHandlers } from './terminal-process'
 import { registerToolIpcHandlers } from './tools'
 import type { IpcHandlerOptions } from './types'
+import { registerWebSearchIpcHandlers } from './web-search'
 import { registerWindowIpcHandlers } from './window'
 import { registerWorkspaceIpcHandlers } from './workspace'
 
@@ -35,6 +36,7 @@ export function registerIpcHandlers(options: IpcHandlerOptions): void {
   registerSkillIpcHandlers(options)
   registerCronIpcHandlers(options)
   registerToolIpcHandlers(options)
+  registerWebSearchIpcHandlers(options)
   registerWorkspaceIpcHandlers(options)
   registerTerminalProcessIpcHandlers(options)
   registerMcpIpcHandlers(options)

@@ -13,6 +13,7 @@ import { createBuiltinTools } from './builtin-tools'
 import { allowedToolNamesForProfile, type ToolPolicy } from './policy'
 import type { AgentTool } from './types'
 import { toProviderTool } from './types'
+import type { WebSearchRuntimeConfig } from './web-search'
 
 export interface ToolRegistryOptions {
   messages: ChatMessageRepo
@@ -24,6 +25,7 @@ export interface ToolRegistryOptions {
   workspaceService?: AgentWorkspaceService
   terminalService?: TerminalService
   toolSettings?: () => DesktopToolSettings
+  webSearchSettings?: () => WebSearchRuntimeConfig | undefined
   disabledToolNames?: () => Iterable<string>
   mcpTools?: (input: ToolResolutionInput) => AgentTool[] | Promise<AgentTool[]>
 }
@@ -54,6 +56,7 @@ export class ToolRegistry {
       workspaceService: this.options.workspaceService,
       terminalService: this.options.terminalService,
       toolSettings: this.options.toolSettings,
+      webSearchSettings: this.options.webSearchSettings,
     })
     const profileNames = new Set(allowedToolNamesForProfile(input.policy.profile as ToolProfile))
     const builtins = builtinTools.filter(

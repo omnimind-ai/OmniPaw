@@ -535,6 +535,11 @@ const bridge: OmniPawBridge = {
     list: () => ipcRenderer.invoke(IPC_CHANNELS.tools.list),
     setEnabled: (request) => ipcRenderer.invoke(IPC_CHANNELS.tools.setEnabled, request),
   },
+  webSearch: {
+    getSettings: () => ipcRenderer.invoke(IPC_CHANNELS.webSearch.getSettings),
+    saveSettings: (request) => ipcRenderer.invoke(IPC_CHANNELS.webSearch.saveSettings, request),
+    test: (request) => ipcRenderer.invoke(IPC_CHANNELS.webSearch.test, request),
+  },
   workspace: {
     status: (request) => invokeLocal<AgentWorkspaceStatus>(IPC_CHANNELS.workspace.status, request),
     listFiles: (request) =>

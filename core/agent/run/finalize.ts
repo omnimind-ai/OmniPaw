@@ -2,6 +2,7 @@ import type { Logger } from '@core/logging'
 import type { ChatError, TokenUsage } from '@core/provider/base-provider'
 import { normalizeProviderError } from '@core/provider/errors'
 import type { AgentRunInput, AgentRunnerOptions } from '../agent-runner'
+import { synchronizeWebSearchRefPart } from '../tools/web-search'
 import { appendTextPart } from './helpers'
 import type { AgentRunState } from './state'
 
@@ -14,6 +15,7 @@ export class AgentRunFinalizer {
   completeRun(state: AgentRunState, usage?: TokenUsage): void {
     const { run } = state.input
     this.applyUsageToSnapshot(state, usage)
+    synchronizeWebSearchRefPart(state.assistantParts)
     this.options.messages.updateParts(run.assistantMessageId, state.assistantParts, {
       status: 'complete',
       usage,
@@ -41,6 +43,7 @@ export class AgentRunFinalizer {
     const { run } = state.input
     const message = `Reached maximum agent steps (${state.maxSteps}) before a final answer.`
     appendTextPart(state.assistantParts, message)
+    synchronizeWebSearchRefPart(state.assistantParts)
     this.options.messages.updateParts(run.assistantMessageId, state.assistantParts, {
       status: 'complete',
       metadata: this.contextUsageMetadata(state),
