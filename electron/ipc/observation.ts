@@ -97,6 +97,6 @@ function normalizeTriggerRequest(request: unknown): TriggerObservationRequest {
     ...(typeof request.visionSessionId === 'string'
       ? { visionSessionId: request.visionSessionId }
       : {}),
-    ...(request.devForceReaction === true ? { devForceReaction: true } : {}),
+    ...(request.forceReaction === true ? { forceReaction: true } : {}),
   }
 }

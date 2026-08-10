@@ -602,7 +602,7 @@ async function triggerDevObservationReactionFromTray(): Promise<void> {
 
   await runtime.observationManager.trigger({
     ...(run ? { runId: run.id } : {}),
-    devForceReaction: true,
+    forceReaction: true,
   })
 }
 

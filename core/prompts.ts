@@ -36,7 +36,7 @@ interface ObservationReactionPromptContext {
   nudgeActive?: boolean
   nudgeProbability?: number
   nudgeThreshold?: number
-  devForceReaction?: boolean
+  forceReaction?: boolean
 }
 
 const OBSERVATION_REACTION_POLICY = [
@@ -60,31 +60,39 @@ const OBSERVATION_REACTION_POLICY = [
   '- 没有明确价值、证据不足或可能打扰：使用 silent。',
 ].join('\n')
 
-const OBSERVATION_REACTION_OUTPUT_SCHEMA = [
-  '# 输出格式',
-  '只返回合法 JSON，不要输出 Markdown 或解释。',
-  '字段要求：',
-  '- text：简短中文 reaction；silent 时为空字符串。',
-  '- mode：ambient、chat、ask 或 silent。ambient/chat 表示短反应；ask 表示需要用户回应；silent 表示不打扰。',
-  '- reason：简短说明依据和决策原因，避免复述敏感细节。',
-  '',
-  '{"text":"简短中文 reaction；silent 时为空","mode":"ambient|chat|ask|silent","reason":"简短说明为什么反应或静默"}',
-].join('\n')
+function observationReactionOutputSchema(forceReaction = false): string {
+  return [
+    '# 输出格式',
+    '只返回合法 JSON，不要输出 Markdown 或解释。',
+    '字段要求：',
+    forceReaction
+      ? '- text：必须提供一条简短中文 reaction，不能为空。'
+      : '- text：简短中文 reaction；silent 时为空字符串。',
+    forceReaction
+      ? '- mode：只能是 ambient、chat 或 ask，禁止使用 silent。ambient/chat 表示短反应；ask 表示需要用户回应。'
+      : '- mode：ambient、chat、ask 或 silent。ambient/chat 表示短反应；ask 表示需要用户回应；silent 表示不打扰。',
+    '- reason：简短说明依据和决策原因，避免复述敏感细节。',
+    '',
+    forceReaction
+      ? '{"text":"简短中文 reaction","mode":"ambient|chat|ask","reason":"简短说明反应依据"}'
+      : '{"text":"简短中文 reaction；silent 时为空","mode":"ambient|chat|ask|silent","reason":"简短说明为什么反应或静默"}',
+  ].join('\n')
+}
 
 function observationReactionRuntimeContext(input?: ObservationReactionPromptContext): string {
   const silentCount = Math.max(0, Math.floor(input?.consecutiveNoVisibleReactions ?? 0))
   const nudgeThreshold = Math.max(1, Math.floor(input?.nudgeThreshold ?? 3))
   const nudgeProbability = Math.round(Math.max(0, Math.min(1, input?.nudgeProbability ?? 0)) * 100)
   const nudgeLabel = input?.nudgeActive ? '已启用' : '未启用'
-  const devForceLine = input?.devForceReaction
-    ? '- 开发验证已启用：本次观察用于测试小猫气泡链路；只要不违反隐私、安全、专注和低打扰原则，优先输出一条短 ambient reaction，不要选择 silent。'
+  const forceReactionLine = input?.forceReaction
+    ? '- 用户主动要求测试可见回应：本次必须输出一条非空的短 reaction，禁止选择 silent。本条要求优先于常规静默策略；遇到隐私、安全或专注场景时，使用不提及屏幕细节的中性陪伴短句。'
     : undefined
 
   return [
     '# 运行态节奏',
     `- 连续 ${silentCount} 次观察没有产生可见 reaction。`,
     `- 连续静默达到 ${nudgeThreshold} 次后，会按概率提高主动寒暄倾向；本次倾向：${nudgeLabel}（当前概率 ${nudgeProbability}%）。`,
-    devForceLine,
+    forceReactionLine,
     '- 如果本次倾向已启用，可以更积极地选择一句短问候、陪伴式评论或轻量提问；但仍不能突破隐私、安全、专注和低打扰原则。',
     '- 如果本次倾向未启用，按常规阈值判断。',
   ]
@@ -114,7 +122,7 @@ ${observationReactionRuntimeContext(input.reactionContext)}
 
 ${OBSERVATION_REACTION_POLICY}
 
-${OBSERVATION_REACTION_OUTPUT_SCHEMA}`
+${observationReactionOutputSchema(input.reactionContext?.forceReaction)}`
   },
   singleModelReactionSystem:
     '你是OmniPaw的桌面截图观察与 reaction 决策模型。你需要先客观判断用户可能正在做什么和当前有哪些主要窗口，再决定是否给出一次轻量、上下文相关、对用户有价值的反应。不要泄漏、抄写或复述任何敏感信息、密钥、隐私内容、完整聊天内容、账号、路径、代码片段或长段 OCR 文本；可以概括不敏感的文字和界面标题。必须只返回合法 JSON，不要输出 Markdown 或解释。',
@@ -134,7 +142,7 @@ ${observationReactionRuntimeContext(input.reactionContext)}
 
 ${OBSERVATION_REACTION_POLICY}
 
-${OBSERVATION_REACTION_OUTPUT_SCHEMA}`
+${observationReactionOutputSchema(input.reactionContext?.forceReaction)}`
   },
 }
 

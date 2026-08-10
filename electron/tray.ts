@@ -98,7 +98,7 @@ export function createTrayController(options: TrayControllerOptions): TrayContro
         click: () => options.devActions?.debugUnlockNextGift(),
       },
       {
-        label: '模型测气泡',
+        label: '观察并测试回应',
         click: () => options.devActions?.triggerObservationReaction(),
       },
       {

@@ -120,6 +120,14 @@ async function toggleRuntime(enabled: boolean): Promise<void> {
   }
 }
 
+async function observeAndTestReaction(): Promise<void> {
+  try {
+    await observationStore.trigger({ forceReaction: true })
+  } catch (error) {
+    toast.error(errorToText(error, t('settings.observation.errors.triggerFailed')))
+  }
+}
+
 function clampInteger(value: string | number, min: number, max = Number.MAX_SAFE_INTEGER): number {
   const next = Math.round(Number(value))
   if (!Number.isFinite(next)) return min
@@ -156,7 +164,7 @@ function clampInteger(value: string | number, min: number, max = Number.MAX_SAFE
               variant="outline"
               size="sm"
               :disabled="!runtime.active || observationStore.running"
-              @click="observationStore.trigger()"
+              @click="observeAndTestReaction"
             >
               {{ t('settings.observation.immediateObserve') }}
             </Button>

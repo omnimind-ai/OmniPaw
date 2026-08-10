@@ -183,7 +183,6 @@ const manager = new ObservationManager({
   onReaction: (event) => {
     reactions.push(event)
   },
-  devMode: true,
   random: () => 0.99,
 })
 
@@ -360,17 +359,18 @@ try {
     minCaptureIntervalMs: 0,
     notificationCooldownMs: 60_000,
   }
-  chatService.reset('{"mode":"ambient","text":"Dev bubble test.","reason":"dev"}')
+  chatService.reset('{"mode":"silent","text":"","reason":"focused settings"}')
   await manager.start({ visionSessionId })
-  await manager.trigger({ visionSessionId, devForceReaction: true })
-  const devReactionPrompt = chatService.calls[1]?.transientCurrentMessageParts?.[0]
-  assert.equal(devReactionPrompt?.type, 'plain')
-  assert.match((devReactionPrompt as { text?: string }).text ?? '', /开发验证已启用/)
+  await manager.trigger({ visionSessionId, forceReaction: true })
+  const forcedReactionPrompt = chatService.calls[1]?.transientCurrentMessageParts?.[0]
+  assert.equal(forcedReactionPrompt?.type, 'plain')
+  assert.match((forcedReactionPrompt as { text?: string }).text ?? '', /本次必须输出一条非空/)
   assert.equal(reactions.length, 3)
-  await manager.trigger({ visionSessionId, devForceReaction: true })
+  assert.equal(reactions[2]?.text, '主动视觉回应测试完成，我会继续陪着你。')
+  await manager.trigger({ visionSessionId, forceReaction: true })
   assert.equal(reactions.length, 4)
-  const devRun = (await manager.status(visionSessionId)).activeRuns[0]
-  assert.equal(devRun?.lastDecision?.notificationSuppressed, false)
+  const forcedRun = (await manager.status(visionSessionId)).activeRuns[0]
+  assert.equal(forcedRun?.lastDecision?.notificationSuppressed, false)
   await manager.stop({ visionSessionId })
 
   settings = { ...baseSettings, captureProbability: 1, minCaptureIntervalMs: 5_000 }

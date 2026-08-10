@@ -43,7 +43,6 @@ export interface ObservationManagerOptions {
   onReaction?: (event: ObservationReactionEvent) => void
   logger?: Logger
   random?: () => number
-  devMode?: boolean | (() => boolean)
 }
 
 interface ActiveRunState {
@@ -83,12 +82,13 @@ interface ReactionPromptContext {
   nudgeActive: boolean
   nudgeProbability: number
   nudgeThreshold: number
-  devForceReaction: boolean
+  forceReaction: boolean
 }
 
 const visionTitle = VISION_SESSION_TITLE
 const captureMarkerText =
   '[Vision capture: screenshot was used only for the current run and was not retained.]'
+const forcedReactionFallbackText = '主动视觉回应测试完成，我会继续陪着你。'
 
 export class ObservationManager {
   private readonly capture: DesktopCaptureAdapter
@@ -232,15 +232,8 @@ export class ObservationManager {
     if (!state) {
       throw this.observationError('run_not_found', '没有正在运行的主动视觉。', true)
     }
-    if (request.devForceReaction && !this.isDevMode()) {
-      throw this.observationError(
-        'invalid_request',
-        '开发测试 reaction 只能在 dev 运行态使用。',
-        true
-      )
-    }
     await this.executeCapture(state, 'manual', {
-      devForceReaction: request.devForceReaction === true,
+      forceReaction: request.forceReaction === true,
     })
     return this.status()
   }
@@ -313,7 +306,7 @@ export class ObservationManager {
   private skipReasonForEvaluation(
     state: ActiveRunState,
     manual: boolean,
-    options: { devForceReaction?: boolean } = {}
+    options: { forceReaction?: boolean } = {}
   ): ObservationRun['rule']['skippedReason'] | undefined {
     const run = state.run
     if (state.busy) {
@@ -324,7 +317,7 @@ export class ObservationManager {
       return 'daily_limit'
     }
     if (
-      !(options.devForceReaction && this.isDevMode()) &&
+      !options.forceReaction &&
       run.rule.lastAcceptedAt &&
       Date.now() - run.rule.lastAcceptedAt < this.options.settings().minCaptureIntervalMs
     ) {
@@ -339,7 +332,7 @@ export class ObservationManager {
   private async executeCapture(
     state: ActiveRunState,
     source: 'timer' | 'manual',
-    options: { devForceReaction?: boolean } = {}
+    options: { forceReaction?: boolean } = {}
   ): Promise<void> {
     const run = state.run
     if (run.status !== 'active') {
@@ -442,7 +435,7 @@ export class ObservationManager {
   private async performObservation(
     state: ActiveRunState,
     signal: AbortSignal,
-    options: { devForceReaction?: boolean } = {}
+    options: { forceReaction?: boolean } = {}
   ): Promise<ObservationTickResult> {
     await this.assertModelPolicyBeforeCapture()
     const resolved = await this.resolveModelChain(state.run)
@@ -499,7 +492,7 @@ export class ObservationManager {
     const text = terminal.type === 'final' ? textFromParts(terminal.message.parts) : ''
     const candidate = parseCandidate(text)
     const decision = this.gateDecision(run, candidate, frame, terminal, {
-      bypassCooldown: reactionContext.devForceReaction,
+      forceReaction: reactionContext.forceReaction,
     })
     return {
       frame: {
@@ -574,7 +567,7 @@ export class ObservationManager {
       summary,
     }
     const decision = this.gateDecision(run, candidate, frame, reactionTerminal, {
-      bypassCooldown: reactionContext.devForceReaction,
+      forceReaction: reactionContext.forceReaction,
     })
     return {
       frame: {
@@ -762,19 +755,23 @@ export class ObservationManager {
     candidate: ObservationReactionCandidate,
     frame: ObservationCaptureMetadata,
     terminal: ChatRunTerminalEvent,
-    options: { bypassCooldown?: boolean } = {}
+    options: { forceReaction?: boolean } = {}
   ): ObservationReactionDecision {
     const now = Date.now()
-    const text = sanitizeReactionText(candidate.text)
+    let text = sanitizeReactionText(candidate.text)
     let decision = normalizeDecision(candidate.decision)
     let suppressionReason: ObservationReactionDecision['suppressionReason']
+    if (options.forceReaction && (decision === 'silent' || !text)) {
+      decision = 'notify'
+      text ||= forcedReactionFallbackText
+    }
     if (!text && decision !== 'silent') {
       decision = 'silent'
       suppressionReason = 'empty_text'
     }
     const cooldownMs = this.options.settings().notificationCooldownMs
     if (
-      !options.bypassCooldown &&
+      !options.forceReaction &&
       decision !== 'silent' &&
       run.notification.lastNotificationAt &&
       now - run.notification.lastNotificationAt < cooldownMs
@@ -824,14 +821,14 @@ export class ObservationManager {
 
   private reactionPromptContext(
     state: ActiveRunState,
-    options: { devForceReaction?: boolean } = {}
+    options: { forceReaction?: boolean } = {}
   ): ReactionPromptContext {
     const settings = this.options.settings()
     const threshold = Math.max(1, Math.floor(settings.reactionNudgeAfterSilentCaptures ?? 3))
     const baseProbability = clampProbability(settings.reactionNudgeProbability ?? 0.35)
     const silentCount = state.consecutiveNoVisibleReactions
     const nudgeStep = silentCount - threshold + 1
-    const forced = options.devForceReaction === true && this.isDevMode()
+    const forced = options.forceReaction === true
     const nudgeProbability = forced
       ? 1
       : nudgeStep > 0
@@ -843,7 +840,7 @@ export class ObservationManager {
       nudgeActive: forced || (nudgeProbability > 0 && this.random() < nudgeProbability),
       nudgeProbability,
       nudgeThreshold: threshold,
-      devForceReaction: forced,
+      forceReaction: forced,
     }
   }
 
@@ -854,11 +851,6 @@ export class ObservationManager {
     const visible =
       decision.decision !== 'silent' && !decision.notificationSuppressed && Boolean(decision.text)
     state.consecutiveNoVisibleReactions = visible ? 0 : state.consecutiveNoVisibleReactions + 1
-  }
-
-  private isDevMode(): boolean {
-    const devMode = this.options.devMode
-    return typeof devMode === 'function' ? devMode() : devMode === true
   }
 
   private async resolveModelChain(run: ObservationRun): Promise<ResolvedChain> {
