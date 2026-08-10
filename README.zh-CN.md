@@ -23,6 +23,34 @@ OmniPaw 是一只本地优先的 AI 桌面宠物。它常驻在你的桌面，�
 - **与你一起工作** - 支持较完整的agent harness、计划提醒、工作任务，无需离开当前工作环境
 - **藏在陪伴背后的 Agent 能力** - 通过 Skills、MCP、本地工作区、终端进程与工具权限扩展桌宠能完成的事情
 
+## 认识内置伙伴
+
+OmniPaw 内置三位伙伴，每位伙伴都有独特的性格、故事和陪伴方式。
+
+<table>
+  <tr>
+    <td width="33.33%" align="center" valign="middle">
+      <img src="public/xiaowan.gif" alt="温柔的蓝色精灵兔小万" height="160" />
+    </td>
+    <td width="33.33%" align="center" valign="middle">
+      <img src="public/xiaozhi.gif" alt="活力充沛的橙色精灵犬小智" height="160" />
+    </td>
+    <td width="33.33%" align="center" valign="middle">
+      <img src="public/nori.gif" alt="迷你星图领航员 Nori Quill" height="180" />
+    </td>
+  </tr>
+  <tr>
+    <td align="center"><strong>小万</strong></td>
+    <td align="center"><strong>小智</strong></td>
+    <td align="center"><strong>Nori Quill</strong></td>
+  </tr>
+  <tr>
+    <td valign="top">来自万象原野的淡蓝色精灵小兔。小万温柔、沉静而细心，擅长陪你整理思绪，也愿意安静地守候在身边。</td>
+    <td valign="top">来自万象原野的橘黄色精灵小狗。小智把每项新任务都看作一场小小的探险，用好奇、鼓励和活力点亮桌面时光。</td>
+    <td valign="top">来自星图工坊的迷你领航员。Nori 擅长整理零散线索，把复杂任务绘成清晰航线，并在你专注时静静陪伴。</td>
+  </tr>
+</table>
+
 ## 截图
 
 <p align="center">

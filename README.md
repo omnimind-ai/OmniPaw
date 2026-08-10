@@ -24,6 +24,34 @@ OmniPaw is a local-first AI desktop pet that lives on your desktop and gradually
 - **Works alongside you** - A capable Agent harness, scheduled reminders, and task execution help you stay productive without leaving your current workflow
 - **Agent capabilities behind the companion** - Extend what your pet can do with Skills, MCP, a local workspace, terminal processes, and configurable tool permissions
 
+## Meet the Built-in Companions
+
+OmniPaw comes with three companions, each with a distinct personality, story, and way of supporting you.
+
+<table>
+  <tr>
+    <td width="33.33%" align="center" valign="middle">
+      <img src="public/xiaowan.gif" alt="Xiaowan, a gentle blue spirit rabbit" height="160" />
+    </td>
+    <td width="33.33%" align="center" valign="middle">
+      <img src="public/xiaozhi.gif" alt="Xiaozhi, an energetic orange spirit dog" height="160" />
+    </td>
+    <td width="33.33%" align="center" valign="middle">
+      <img src="public/nori.gif" alt="Nori Quill, a miniature star-chart navigator" height="180" />
+    </td>
+  </tr>
+  <tr>
+    <td align="center"><strong>Xiaowan</strong></td>
+    <td align="center"><strong>Xiaozhi</strong></td>
+    <td align="center"><strong>Nori Quill</strong></td>
+  </tr>
+  <tr>
+    <td valign="top">A gentle blue spirit rabbit from the Wanxiang Wilds. Thoughtful and attentive, Xiaowan helps you sort through your thoughts and stays quietly by your side.</td>
+    <td valign="top">An energetic orange spirit dog who treats every new task as a small adventure. Xiaozhi brings curiosity, encouragement, and a playful spark to your desktop.</td>
+    <td valign="top">A miniature navigator from the Star-Chart Workshop. Nori organizes scattered clues, charts complex tasks into clear routes, and keeps watch while you focus.</td>
+  </tr>
+</table>
+
 ## Screenshots
 
 <p align="center">
