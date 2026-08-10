@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict'
+import type { InstalledModelRegistry } from '../../core/omniinfer/installed-models'
+import type { OmniInferRuntimeService } from '../../core/omniinfer/runtime-service'
 import type { ChatCompletionChunk, ChatCompletionRequest } from '../../core/provider/base-provider'
 import { ProviderError } from '../../core/provider/base-provider'
 import {
@@ -6,6 +8,7 @@ import {
   OPENAI_COMPATIBLE_FALLBACK_CONTEXT_WINDOW,
 } from '../../core/provider/models-dev-metadata'
 import { AnthropicCompatibleProvider } from '../../core/provider/providers/anthropic'
+import { OmniInferProvider } from '../../core/provider/providers/omniinfer'
 import { OpenAICompatibleProvider } from '../../core/provider/providers/openai'
 import { OpenAICodexProvider } from '../../core/provider/providers/openai-codex'
 
@@ -25,8 +28,55 @@ await testMalformedStreamJson()
 await testListModelsUsesConfiguredAuthHeader()
 await testListModelsParsesSsePayload()
 await testOpenAICodexOAuthResponsesStream()
+await testOmniInferAvailabilityGuard()
 
 console.log('Provider stream smoke check passed')
+
+async function testOmniInferAvailabilityGuard(): Promise<void> {
+  let ensureModelLoadedCount = 0
+  let requestCount = 0
+  const provider = new OmniInferProvider({
+    id: 'omniinfer-test',
+    baseUrl: 'http://127.0.0.1:19157/v1',
+    runtimeService: {
+      async probeGateway() {
+        return false
+      },
+      async ensureModelLoaded() {
+        ensureModelLoadedCount += 1
+      },
+    } as unknown as OmniInferRuntimeService,
+    installedModels: {
+      resolveModelPath() {
+        return 'D:\\models\\vision.gguf'
+      },
+      list() {
+        return []
+      },
+    } as unknown as InstalledModelRegistry,
+    fetch: (async () => {
+      requestCount += 1
+      throw new Error('The request should be blocked by the availability guard.')
+    }) as typeof fetch,
+  })
+
+  await assert.rejects(
+    () =>
+      collect(
+        provider.streamChat({
+          modelId: 'vision-model',
+          messages: [{ role: 'user', content: 'describe image' }],
+        })
+      ),
+    (error) =>
+      error instanceof ProviderError &&
+      error.chatError.code === 'network' &&
+      error.chatError.retryable === false &&
+      /OmniInfer 尚未启动/.test(error.message)
+  )
+  assert.equal(ensureModelLoadedCount, 0)
+  assert.equal(requestCount, 0)
+}
 
 async function testAnthropicPayloadAndStream(): Promise<void> {
   let requestHeaders: Headers

@@ -24,7 +24,20 @@ export class OmniInferProvider extends OpenAICompatibleProvider {
     this.installedModels = options.installedModels
   }
 
+  async assertAvailable(): Promise<void> {
+    if (await this.runtimeService.probeGateway()) {
+      return
+    }
+
+    throw new ProviderError({
+      code: 'network',
+      message: 'OmniInfer 尚未启动，请先在 Provider 设置中启动 OmniInfer。',
+      retryable: false,
+    })
+  }
+
   override async *streamChat(request: ChatCompletionRequest): AsyncIterable<ChatCompletionChunk> {
+    await this.assertAvailable()
     const absolutePath = this.installedModels.resolveModelPath(request.modelId) ?? request.modelId
     const record = this.installedModels
       .list()
@@ -47,6 +60,29 @@ export class OmniInferProvider extends OpenAICompatibleProvider {
       ...request,
       modelId: absolutePath,
     })
+  }
+
+  override async test(modelId?: string, _signal?: AbortSignal): Promise<void> {
+    await this.assertAvailable()
+    if (!modelId) {
+      return
+    }
+
+    const absolutePath = this.installedModels.resolveModelPath(modelId) ?? modelId
+    const record = this.installedModels
+      .list()
+      .find(
+        (entry) => entry.id === modelId || normalizePath(entry.path) === normalizePath(absolutePath)
+      )
+    try {
+      await this.runtimeService.ensureModelLoaded(
+        absolutePath,
+        record?.contextLength !== undefined ? { contextLength: record.contextLength } : undefined,
+        record?.mmprojPath
+      )
+    } catch (error) {
+      throw mapControlError(error)
+    }
   }
 
   override async listModels(_signal?: AbortSignal): Promise<ProviderModelCandidate[]> {
@@ -83,7 +119,7 @@ function mapControlError(error: unknown): ProviderError {
         {
           code: 'network',
           message: error.message,
-          retryable: true,
+          retryable: false,
           providerStatus: error.status,
         },
         error

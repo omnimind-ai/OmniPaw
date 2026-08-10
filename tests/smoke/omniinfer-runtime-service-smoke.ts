@@ -174,6 +174,7 @@ try {
   assert.equal(recovered.process.state, 'running')
   assert.equal(recovered.server.online, true)
   assert.equal(recovered.backends[0]?.id, 'llama.cpp-cuda')
+  assert.equal(await service.probeGateway(), true)
 } finally {
   service.dispose()
 }

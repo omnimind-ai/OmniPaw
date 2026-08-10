@@ -861,7 +861,7 @@ export class ProviderManager {
     }
 
     try {
-      const client = await this.createProviderClient(providerId)
+      const client = await this.buildProviderClient(providerId, false)
       const remoteModels = (await client.listModels?.(signal)) ?? []
       const merged = mergeModels(providerId, await this.listModels(providerId), remoteModels)
       this.replaceProviderModels(providerId, merged)
@@ -1039,6 +1039,13 @@ export class ProviderManager {
   }
 
   async createProviderClient(providerId: string): Promise<BaseProvider> {
+    return this.buildProviderClient(providerId, true)
+  }
+
+  private async buildProviderClient(
+    providerId: string,
+    verifyAvailability: boolean
+  ): Promise<BaseProvider> {
     const provider = await this.requireRecord(providerId)
     const credential = resolveCredential({
       providerId: provider.id,
@@ -1061,7 +1068,7 @@ export class ProviderManager {
         kind: 'omniinfer',
       })
       this.omniInferRuntimeService.setBaseUrl(provider.baseUrl)
-      return new OmniInferProvider({
+      const client = new OmniInferProvider({
         id: provider.id,
         baseUrl: provider.baseUrl,
         apiKey: credential?.value,
@@ -1072,6 +1079,10 @@ export class ProviderManager {
         runtimeService: this.omniInferRuntimeService,
         installedModels: this.omniInferInstalledModels,
       })
+      if (verifyAvailability) {
+        await client.assertAvailable()
+      }
+      return client
     }
 
     if (provider.api === 'openai-codex-responses' || provider.type === 'openai-codex') {

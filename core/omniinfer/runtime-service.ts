@@ -341,6 +341,10 @@ export class OmniInferRuntimeService {
     return promise
   }
 
+  async probeGateway(): Promise<boolean> {
+    return (await this.refreshHealthOnce()) === 'online'
+  }
+
   async selectModelByPath(
     absolutePath: string,
     options?: OmniInferModelLoadOptions,

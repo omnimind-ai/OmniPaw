@@ -814,7 +814,7 @@ function resolveConfiguredCli(
       process.platform === 'win32' ? DEFAULT_CLI_NAMES_WINDOWS : DEFAULT_CLI_NAMES_POSIX
     for (const cliName of cliNames) {
       const candidate = join(absolute, cliName)
-      if (existsSync(candidate)) {
+      if (statSync(candidate, { throwIfNoEntry: false })?.isFile()) {
         return { installDir: absolute, cliPath: candidate }
       }
     }

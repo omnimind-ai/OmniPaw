@@ -60,6 +60,7 @@ export function locateOmniInferInstall(ctx: LocateInstallContext): LocateInstall
   if (!ctx.app.isPackaged) {
     const repoRoot = ctx.repoRoot ?? process.cwd()
     candidates.push(join(repoRoot, 'resources', 'omniinfer'))
+    candidates.push(...devInstallCandidates(repoRoot))
   }
 
   // Packaged: process.resourcesPath/omniinfer/
@@ -105,15 +106,39 @@ function resolveInstallCandidate(
 
     const cliNames =
       process.platform === 'win32' ? DEFAULT_CLI_NAMES_WINDOWS : DEFAULT_CLI_NAMES_POSIX
-    for (const cliName of cliNames) {
-      const cliPath = join(absolute, cliName)
-      searched.push(cliPath)
-      if (existsSync(cliPath)) {
-        return { installDir: absolute, cliPath }
+    for (const installDir of [absolute, join(absolute, 'OmniInfer')]) {
+      for (const cliName of cliNames) {
+        const cliPath = join(installDir, cliName)
+        searched.push(cliPath)
+        if (isFile(cliPath)) {
+          return { installDir, cliPath }
+        }
       }
     }
   } catch {
     return undefined
   }
   return undefined
+}
+
+function isFile(path: string): boolean {
+  try {
+    return statSync(path).isFile()
+  } catch {
+    return false
+  }
+}
+
+function devInstallCandidates(repoRoot: string): string[] {
+  const candidates: string[] = []
+  let current = resolve(repoRoot)
+
+  while (true) {
+    const parent = dirname(current)
+    if (parent === current) break
+    candidates.push(join(parent, 'OmniInfer'), join(parent, 'omniinfer'))
+    current = parent
+  }
+
+  return candidates
 }

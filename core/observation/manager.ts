@@ -984,6 +984,22 @@ export class ObservationManager {
     if ((settings.localOnly || !settings.allowRemoteProviders) && external) {
       throw this.observationError('privacy_policy', '当前主动视觉策略禁止使用外部 Provider。', true)
     }
+    const checkedProviderIds = new Set<string>()
+    for (const model of models) {
+      if (checkedProviderIds.has(model.provider.id)) continue
+      checkedProviderIds.add(model.provider.id)
+      try {
+        await this.providers.createProviderClient(model.provider.id)
+      } catch (error) {
+        throw this.observationError(
+          'provider_failed',
+          error instanceof Error
+            ? error.message
+            : `观察模型 Provider 当前不可用：${model.provider.name}`,
+          true
+        )
+      }
+    }
   }
 
   private async getOrCreateVisionSession(preferredId?: string) {

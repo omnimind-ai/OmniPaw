@@ -115,6 +115,7 @@ let cleanupCount = 0
 let permissionProbeCount = 0
 let captureShouldFail = false
 let changedCount = 0
+let providersReady = true
 const reactions: ObservationReactionEvent[] = []
 
 const capture: DesktopCaptureAdapter = {
@@ -167,6 +168,12 @@ const manager = new ObservationManager({
     }),
     get: async (providerId: string) =>
       providerRecords.find((provider) => provider.id === providerId),
+    createProviderClient: async () => {
+      if (!providersReady) {
+        throw new Error('OmniInfer 尚未启动，请先启动。')
+      }
+      return { id: 'observation-smoke', async *streamChat() {} }
+    },
   } as never,
   chatService: () => chatService as never,
   eventTarget: () => eventTarget,
@@ -394,6 +401,26 @@ try {
     (error) => error instanceof ObservationRuntimeError && error.details.code === 'privacy_policy'
   )
   assert.equal(captureCount, beforeRemotePolicyCaptureCount)
+
+  registry = registryWithRefs()
+  settings = {
+    ...baseSettings,
+    captureProbability: 1,
+    allowRemoteProviders: false,
+    localOnly: true,
+  }
+  providersReady = false
+  const beforeUnavailableProviderCaptureCount = captureCount
+  await assert.rejects(
+    () => manager.start({ visionSessionId }),
+    (error) =>
+      error instanceof ObservationRuntimeError &&
+      error.details.code === 'provider_failed' &&
+      error.details.message.includes('OmniInfer 尚未启动')
+  )
+  assert.equal(captureCount, beforeUnavailableProviderCaptureCount)
+  assert.equal((await manager.status()).runtime.active, false)
+  providersReady = true
 
   registry = registryWithRefs({ reactionProviderId: undefined })
   settings = {

@@ -104,6 +104,8 @@ try {
     missing: false,
   }
   let syncedModelsDir: string | undefined
+  let omniInferReady = true
+  let omniInferProbeCount = 0
   const providers = new ProviderManager({
     configStore,
     registryStore,
@@ -121,6 +123,10 @@ try {
       setInstallDir() {},
       setModelsDir(dir: string | undefined) {
         syncedModelsDir = dir
+      },
+      async probeGateway() {
+        omniInferProbeCount += 1
+        return omniInferReady
       },
       async ensureModelLoaded() {},
     } as unknown as OmniInferRuntimeService,
@@ -163,6 +169,17 @@ try {
   assert.equal(firstLocalPreset.models[0]?.id, 'local-small-model')
   assert.equal(secondLocalPreset.id, 'omniinfer-local_1')
   assert.equal(secondLocalPreset.models[0]?.id, 'local-small-model')
+  await providers.createProviderClient(firstLocalPreset.id)
+  assert.equal(omniInferProbeCount, 1)
+  omniInferReady = false
+  await assert.rejects(
+    () => providers.createProviderClient(firstLocalPreset.id),
+    (error) => error instanceof Error && /OmniInfer 尚未启动/.test(error.message)
+  )
+  assert.equal(omniInferProbeCount, 2)
+  await providers.createProviderClient(openAiPreset.id)
+  assert.equal(omniInferProbeCount, 2)
+  omniInferReady = true
 
   const customModelsDir = join(tempDir, 'custom-models')
   await providers.save({
