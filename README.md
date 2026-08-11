@@ -86,6 +86,18 @@ OmniPaw comes with three companions, each with a distinct personality, story, an
   </tr>
 </table>
 
+<p align="center">
+  <img src="public/photo-short-cut.png" alt="Quick actions for sending a screenshot to OmniPaw" width="64%" />
+  <br />
+  <strong>Quick Screenshot Actions</strong>
+</p>
+
+<p align="center">
+  <img src="public/websearch.png" alt="OmniPaw web search response with source citations" width="100%" />
+  <br />
+  <strong>Web Search with Source Citations</strong>
+</p>
+
 ## Tech Stack
 
 | Layer | Technology |

@@ -62,7 +62,7 @@ assert.match(main, /resolveCatDockTargetX\(workArea, dockSide, catVisualAreas\[d
 assert.match(main, /function setCatHitGeometry/)
 assert.match(main, /resolveCatVisibleBounds\(catBounds, catVisualAreas\[dockSide\]\)/)
 assert.match(main, /function repositionCatPanelWindow/)
-assert.match(main, /const catPanelGap = 4/)
+assert.match(main, /const catPanelGap = 12/)
 assert.match(main, /const catBubbleGap = 2/)
 assert.match(main, /catTopmostWatchdogMs/)
 assert.match(electronMain, /scheme: CAT_APPEARANCE_ASSET_PROTOCOL[\s\S]*?corsEnabled: true/)

@@ -90,7 +90,7 @@ const catBubbleSize = {
   height: 116,
 }
 
-const catPanelGap = 4
+const catPanelGap = 12
 const catBubbleGap = 2
 const catPanelCardInset = 20
 const catBubbleCardInset = 14
