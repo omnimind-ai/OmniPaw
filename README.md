@@ -72,6 +72,18 @@ OmniPaw comes with three companions, each with a distinct personality, story, an
     <td align="center"><strong>Chat with Your Desktop Pet</strong></td>
     <td align="center"><strong>Relationship and Status</strong></td>
   </tr>
+    <tr>
+    <td width="36%" valign="middle">
+      <img src="public/photo-short-cut.png" alt="Quick actions for sending a screenshot to OmniPaw" />
+    </td>
+    <td width="64%" valign="middle">
+      <img src="public/websearch.png" alt="OmniPaw web search response with source citations" />
+    </td>
+  </tr>
+  <tr>
+    <td align="center"><strong>Quick Screenshot Actions</strong></td>
+    <td align="center"><strong>Web Search with Source Citations</strong></td>
+  </tr>
   <tr>
     <td width="50%">
       <img src="public/version.png" alt="OmniPaw desktop pet observing the screen and responding with a notification bubble" />
@@ -85,18 +97,6 @@ OmniPaw comes with three companions, each with a distinct personality, story, an
     <td align="center"><strong>Scheduled Tasks and Tool Calls</strong></td>
   </tr>
 </table>
-
-<p align="center">
-  <img src="public/photo-short-cut.png" alt="Quick actions for sending a screenshot to OmniPaw" width="64%" />
-  <br />
-  <strong>Quick Screenshot Actions</strong>
-</p>
-
-<p align="center">
-  <img src="public/websearch.png" alt="OmniPaw web search response with source citations" width="100%" />
-  <br />
-  <strong>Web Search with Source Citations</strong>
-</p>
 
 ## Tech Stack
 

@@ -85,17 +85,20 @@ OmniPaw 内置三位伙伴，每位伙伴都有独特的性格、故事和陪伴
   </tr>
 </table>
 
-<p align="center">
-  <img src="public/photo-short-cut.png" alt="将截图快捷发送给 OmniPaw" width="64%" />
-  <br />
-  <strong>截图后的快捷发送</strong>
-</p>
-
-<p align="center">
-  <img src="public/websearch.png" alt="OmniPaw Web Search 回答与来源引用" width="100%" />
-  <br />
-  <strong>Web Search 支持与来源引用</strong>
-</p>
+<table>
+  <tr>
+    <td width="36%" valign="middle">
+      <img src="public/photo-short-cut.png" alt="将截图快捷发送给 OmniPaw" />
+    </td>
+    <td width="64%" valign="middle">
+      <img src="public/websearch.png" alt="OmniPaw Web Search 回答与来源引用" />
+    </td>
+  </tr>
+  <tr>
+    <td align="center"><strong>截图后的快捷发送</strong></td>
+    <td align="center"><strong>Web Search 支持与来源引用</strong></td>
+  </tr>
+</table>
 
 ## 技术栈
 
