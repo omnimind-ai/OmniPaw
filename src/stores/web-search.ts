@@ -114,5 +114,8 @@ function publicDraft(value: WebSearchSettings | null): Omit<WebSearchSettings, '
 }
 
 function cloneSettings(value: WebSearchSettings): WebSearchSettings {
-  return structuredClone(value)
+  return {
+    ...value,
+    configuredProviders: { ...value.configuredProviders },
+  }
 }
