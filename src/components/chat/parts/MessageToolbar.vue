@@ -65,27 +65,6 @@ const hoverRevealClasses =
         {{ time }}
       </span>
       <Badge
-        v-if="streaming"
-        :class="hoverRevealClasses"
-        variant="outline"
-      >
-        生成中
-      </Badge>
-      <Badge
-        v-else-if="aborted"
-        :class="hoverRevealClasses"
-        variant="secondary"
-      >
-        已停止
-      </Badge>
-      <Badge
-        v-else-if="errored"
-        :class="hoverRevealClasses"
-        variant="destructive"
-      >
-        错误
-      </Badge>
-      <Badge
         v-if="checkpointId"
         :class="hoverRevealClasses"
         variant="outline"

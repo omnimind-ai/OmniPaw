@@ -2,12 +2,12 @@
 import DOMPurify from 'dompurify'
 import katex from 'katex'
 import MarkdownIt from 'markdown-it'
-import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 
 import { cn } from '@/lib/utils'
 import { copyToClipboard } from '@/utils/clipboard'
 import { escapeHtml, getShikiHighlighter, renderShikiCode } from '@/utils/shiki.js'
-import { type RefItem, refHostname } from '../chat-display'
+import { type RefItem, refFaviconSources, refHostname } from '../chat-display'
 import 'katex/dist/katex.min.css'
 
 const props = withDefaults(
@@ -78,9 +78,27 @@ watch(
 )
 
 onBeforeUnmount(() => {
+  rootEl.value?.removeEventListener('error', handleRenderedResourceError, true)
   codeBlocks.value = []
   mathBlocks.value = []
 })
+
+onMounted(() => {
+  rootEl.value?.addEventListener('error', handleRenderedResourceError, true)
+})
+
+function handleRenderedResourceError(event: Event) {
+  const image = event.target
+  if (!(image instanceof HTMLImageElement) || !image.matches('.chat-web-ref__image')) return
+
+  const fallback = image.dataset.refFaviconFallback
+  if (fallback && image.src !== fallback) {
+    image.dataset.refFaviconFallback = ''
+    image.src = fallback
+    return
+  }
+  image.hidden = true
+}
 
 function createMarkdownRenderer() {
   const md = new MarkdownIt({
@@ -308,6 +326,7 @@ function finalizeRenderedHtml(html: string) {
       'data-code-copy',
       'data-code-id',
       'data-math-id',
+      'data-ref-favicon-fallback',
       'data-ws-path',
       'data-ws-line-start',
       'data-ws-line-end',
@@ -645,10 +664,20 @@ function renderWebSearchRef(id: string) {
   const hostname = refHostname(refItem.url) || refItem.title || id
   const title = escapeHtml(refItem.title || hostname)
   const href = escapeHtml(refItem.url)
+  const faviconSources = refFaviconSources(refItem)
+  const favicon = faviconSources[0]
+  const faviconFallback = faviconSources.at(-1)
+  const faviconHtml = favicon
+    ? `<img class="chat-web-ref__image" src="${escapeHtml(favicon)}" alt="" referrerpolicy="no-referrer"` +
+      (faviconFallback && faviconFallback !== favicon
+        ? ` data-ref-favicon-fallback="${escapeHtml(faviconFallback)}"`
+        : '') +
+      '>'
+    : ''
   return (
     `<a class="chat-web-ref" href="${href}" target="_blank" rel="noopener noreferrer"` +
     ` aria-label="${title}" title="${title}">` +
-    `<span class="chat-web-ref__icon" aria-hidden="true"></span>` +
+    `<span class="chat-web-ref__icon" aria-hidden="true">${faviconHtml}</span>` +
     `<span>${escapeHtml(hostname)}</span></a>`
   )
 }
@@ -767,10 +796,19 @@ function renderWebSearchRef(id: string) {
 }
 
 .chat-markdown :deep(.chat-web-ref__icon) {
-  display: inline-block;
+  position: relative;
+  display: inline-flex;
   width: 0.85em;
   height: 0.85em;
   flex: none;
+  overflow: hidden;
+  border-radius: 999px;
+}
+
+.chat-markdown :deep(.chat-web-ref__icon::before) {
+  position: absolute;
+  inset: 0;
+  content: '';
   background-color: currentColor;
   -webkit-mask-image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3Cpath d='M2 12h20M12 2a15.3 15.3 0 0 1 0 20M12 2a15.3 15.3 0 0 0 0 20'/%3E%3C/svg%3E");
   mask-image: url("data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='10'/%3E%3Cpath d='M2 12h20M12 2a15.3 15.3 0 0 1 0 20M12 2a15.3 15.3 0 0 0 0 20'/%3E%3C/svg%3E");
@@ -780,6 +818,16 @@ function renderWebSearchRef(id: string) {
   mask-position: center;
   -webkit-mask-size: contain;
   mask-size: contain;
+}
+
+.chat-markdown :deep(.chat-web-ref__image) {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--background);
+  object-fit: cover;
 }
 
 .chat-markdown :deep(h1),

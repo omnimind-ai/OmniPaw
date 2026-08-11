@@ -5,6 +5,7 @@ import { useI18n } from 'vue-i18n'
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet'
 import { type RefItem, refHostname } from './chat-display'
+import SiteAvatar from './SiteAvatar.vue'
 
 defineProps<{
   open: boolean
@@ -35,12 +36,10 @@ const { t } = useI18n()
           class="flex flex-col gap-2 rounded-md border p-3"
         >
           <div class="flex items-start justify-between gap-2">
-            <img
-              v-if="refItem.favicon"
-              :src="refItem.favicon"
-              alt=""
-              class="size-8 shrink-0 rounded-md border bg-background object-cover"
-            >
+            <SiteAvatar
+              :ref-item="refItem"
+              size="lg"
+            />
             <div class="min-w-0 flex-1">
               <h3 class="truncate text-sm font-medium">
                 {{ refItem.title || refItem.url || refItem.id }}
@@ -52,16 +51,23 @@ const { t } = useI18n()
                 {{ refHostname(refItem.url) || refItem.url }}
               </p>
             </div>
-            <a
+            <Button
               v-if="refItem.url"
-              :href="refItem.url"
-              target="_blank"
-              rel="noreferrer"
+              type="button"
+              variant="ghost"
+              size="icon"
               class="shrink-0"
+              as-child
             >
-              <ExternalLinkIcon aria-hidden="true" />
-              <span class="sr-only">{{ t('chat.references.open') }}</span>
-            </a>
+              <a
+                :href="refItem.url"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <ExternalLinkIcon aria-hidden="true" />
+                <span class="sr-only">{{ t('chat.references.open') }}</span>
+              </a>
+            </Button>
           </div>
           <p
             v-if="refItem.snippet"

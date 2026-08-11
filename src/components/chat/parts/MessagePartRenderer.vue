@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ExternalLinkIcon, FileDownIcon, ReplyIcon } from '@lucide/vue'
+import { FileDownIcon, ReplyIcon } from '@lucide/vue'
 import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 
@@ -20,6 +20,7 @@ import {
   toolCalls,
   visionCaptureLabel,
 } from '../chat-display'
+import SiteAvatar from '../SiteAvatar.vue'
 import ImageViewerModal from './ImageViewerModal.vue'
 import MarkdownMessagePart from './MarkdownMessagePart.vue'
 import ToolCallCard from './ToolCallCard.vue'
@@ -40,7 +41,7 @@ const props = withDefaults(
 
 const emit = defineEmits<{
   jumpMessage: [messageId: string]
-  openRefs: [refs: Array<{ id: string; title?: string; url?: string; snippet?: string }>]
+  openRefs: [refs: RefItem[]]
   copyCode: [code: string]
   openWorkspaceFile: [payload: { path: string; lineStart?: number; lineEnd?: number }]
 }>()
@@ -179,40 +180,27 @@ function openImageViewer() {
     />
   </div>
 
-  <div
+  <Button
     v-else-if="part.type === 'ref' && refs.length"
-    class="flex flex-col gap-2 rounded-md border bg-background/70 p-3"
+    type="button"
+    variant="outline"
+    size="sm"
+    class="w-fit rounded-full"
+    @click="emit('openRefs', refs)"
   >
-    <div class="flex items-center justify-between gap-2">
-      <p class="text-sm font-medium">
-        {{ t('chat.references.title') }}
-      </p>
-      <Button
-        type="button"
-        variant="ghost"
+    <span class="flex items-center pl-1">
+      <SiteAvatar
+        v-for="refItem in refs.slice(0, 4)"
+        :key="refItem.id"
+        :ref-item="refItem"
         size="sm"
-        @click="emit('openRefs', refs)"
-      >
-        <ExternalLinkIcon data-icon="inline-start" />
-        {{ t('chat.references.view') }}
-      </Button>
-    </div>
-    <button
-      v-for="refItem in refs.slice(0, 3)"
-      :key="refItem.id"
-      type="button"
-      class="flex min-w-0 flex-col gap-1 rounded-md px-2 py-1 text-left hover:bg-accent"
-      @click="emit('openRefs', refs)"
-    >
-      <span class="truncate text-sm">{{ refItem.title || refItem.url || refItem.id }}</span>
-      <span
-        v-if="refItem.snippet"
-        class="line-clamp-2 text-xs text-muted-foreground"
-      >
-        {{ refItem.snippet }}
-      </span>
-    </button>
-  </div>
+        class="-ml-1.5 first:ml-0"
+      />
+    </span>
+    <span>
+      {{ t('chat.references.count', { count: refs.length }) }}
+    </span>
+  </Button>
 
   <pre
     v-else

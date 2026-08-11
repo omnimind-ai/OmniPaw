@@ -1755,6 +1755,7 @@ export default {
     references: {
       title: '引用来源',
       view: '查看',
+      count: '{count} 个来源',
       open: '打开引用来源',
       empty: '当前消息没有引用来源。',
       close: '关闭',

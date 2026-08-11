@@ -1852,6 +1852,7 @@ export default {
     references: {
       title: 'Sources',
       view: 'View',
+      count: '{count} sources',
       open: 'Open source',
       empty: 'This message has no cited sources.',
       close: 'Close',

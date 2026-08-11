@@ -137,6 +137,27 @@ export function refHostname(value?: string): string {
   }
 }
 
+export function refFaviconSources(refItem: RefItem): string[] {
+  const sources: string[] = []
+  const providedFavicon = safeExternalUrl(refItem.favicon)
+  if (providedFavicon) sources.push(asSecureImageUrl(providedFavicon))
+
+  const pageUrl = safeExternalUrl(refItem.url)
+  if (!pageUrl) return uniqueStrings(sources)
+
+  const parsed = new URL(pageUrl)
+  sources.push(new URL('/favicon.ico', parsed.origin).toString())
+  sources.push(
+    `https://www.google.com/s2/favicons?domain_url=${encodeURIComponent(parsed.origin)}&sz=64`
+  )
+  return uniqueStrings(sources.map(asSecureImageUrl))
+}
+
+export function refFallbackLabel(refItem: RefItem): string {
+  const hostname = refHostname(refItem.url)
+  return (hostname || refItem.title || refItem.id).trim().charAt(0).toUpperCase() || '·'
+}
+
 export function toolCalls(part: MessagePart): ToolCall[] {
   const calls = part.tool_calls || part.toolCalls || []
   return Array.isArray(calls) ? calls : []
@@ -418,6 +439,16 @@ function safeExternalUrl(value: unknown): string | undefined {
   } catch {
     return undefined
   }
+}
+
+function asSecureImageUrl(value: string): string {
+  const parsed = new URL(value)
+  if (parsed.protocol === 'http:') parsed.protocol = 'https:'
+  return parsed.toString()
+}
+
+function uniqueStrings(values: string[]): string[] {
+  return [...new Set(values.filter(Boolean))]
 }
 
 function interpolate(template: string, values: Record<string, unknown>): string {
