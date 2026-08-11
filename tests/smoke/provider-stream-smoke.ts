@@ -17,6 +17,7 @@ await testAnthropicJsonResponse()
 await testAnthropicListModelsAndBearerAuth()
 await testToolCallAggregation()
 await testToolCallArgumentIndexDrift()
+await testMissingToolCallIdCompatibility()
 await testTextDeltaAndUsageFinal()
 await testJsonChatCompletionFallback()
 await testNonStreamingProviderResponses()
@@ -660,6 +661,119 @@ async function testToolCallArgumentIndexDrift(): Promise<void> {
       },
     },
   ])
+}
+
+async function testMissingToolCallIdCompatibility(): Promise<void> {
+  const webSearchTools: ChatCompletionRequest['tools'] = [
+    {
+      type: 'function',
+      function: {
+        name: 'web_search',
+        parameters: {
+          type: 'object',
+          properties: { query: { type: 'string' } },
+          required: ['query'],
+          additionalProperties: false,
+        },
+      },
+    },
+  ]
+  const streamingProvider = new OpenAICompatibleProvider({
+    id: 'missing-stream-tool-id',
+    baseUrl: 'https://example.test/v1',
+    apiKey: 'test-key',
+    fetch: (async () =>
+      new Response(
+        sseStream([
+          {
+            choices: [
+              {
+                delta: {
+                  tool_calls: [
+                    {
+                      index: 0,
+                      type: 'function',
+                      function: {
+                        name: 'web_search',
+                        arguments: '{"query":"Sara',
+                      },
+                    },
+                  ],
+                },
+              },
+            ],
+          },
+          {
+            choices: [
+              {
+                delta: {
+                  tool_calls: [
+                    {
+                      index: 0,
+                      function: { arguments: 'manda"}' },
+                    },
+                  ],
+                },
+                finish_reason: 'tool_calls',
+              },
+            ],
+          },
+          '[DONE]',
+        ]),
+        { status: 200 }
+      )) as typeof fetch,
+  })
+
+  const streamingChunks = await collect(
+    streamingProvider.streamChat({
+      modelId: 'model-a',
+      messages: [{ role: 'user', content: 'Search.' }],
+      tools: webSearchTools,
+    })
+  )
+  const streamingFinal = streamingChunks.find((chunk) => chunk.type === 'tool_call_final')
+  assert.equal(streamingFinal?.type, 'tool_call_final')
+  const streamingToolCall =
+    streamingFinal?.type === 'tool_call_final' ? streamingFinal.toolCalls[0] : undefined
+  assert.match(streamingToolCall?.id ?? '', /^call_[a-f0-9]{32}$/)
+  assert.equal(streamingToolCall?.function.name, 'web_search')
+  assert.equal(streamingToolCall?.function.arguments, '{"query":"Saramanda"}')
+
+  const jsonProvider = new OpenAICompatibleProvider({
+    id: 'missing-json-tool-id',
+    baseUrl: 'https://example.test/v1',
+    apiKey: 'test-key',
+    fetch: (async () =>
+      Response.json({
+        choices: [
+          {
+            message: {
+              tool_calls: [
+                {
+                  type: 'function',
+                  function: { name: 'web_search', arguments: '{"query":"Saramanda"}' },
+                },
+              ],
+            },
+            finish_reason: 'tool_calls',
+          },
+        ],
+      })) as typeof fetch,
+  })
+
+  const jsonChunks = await collect(
+    jsonProvider.streamChat({
+      modelId: 'model-a',
+      messages: [{ role: 'user', content: 'Search.' }],
+      streaming: false,
+      tools: webSearchTools,
+    })
+  )
+  const jsonFinal = jsonChunks.find((chunk) => chunk.type === 'tool_call_final')
+  assert.equal(jsonFinal?.type, 'tool_call_final')
+  const jsonToolCall = jsonFinal?.type === 'tool_call_final' ? jsonFinal.toolCalls[0] : undefined
+  assert.match(jsonToolCall?.id ?? '', /^call_[a-f0-9]{32}$/)
+  assert.equal(jsonToolCall?.function.arguments, '{"query":"Saramanda"}')
 }
 
 async function testMalformedStreamJson(): Promise<void> {

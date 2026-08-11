@@ -1,3 +1,5 @@
+import { randomUUID } from 'node:crypto'
+
 import type {
   BaseProvider,
   ChatCompletionChunk,
@@ -712,11 +714,11 @@ function parseChatCompletionToolCalls(value: unknown): ProviderToolCall[] {
     if (!isRecord(item) || !isRecord(item.function)) {
       throwMalformedChatCompletionResponse()
     }
-    const id = stringValue(item.id)
+    const id = stringValue(item.id) || createLocalToolCallId()
     const name = stringValue(item.function.name)
     const args = stringValue(item.function.arguments)
     const type = stringValue(item.type) || 'function'
-    if (!id || type !== 'function' || !name) {
+    if (type !== 'function' || !name) {
       throwMalformedChatCompletionResponse()
     }
 
@@ -866,11 +868,6 @@ function buildFinalToolCalls(toolCallsByIndex: Map<number, PendingToolCall>): Pr
   }
 
   return entries.map(([index, toolCall]) => {
-    if (!toolCall.id) {
-      throwMalformedToolCallDelta(
-        `Provider finished with incomplete tool call at index ${index}: missing id.`
-      )
-    }
     if (!toolCall.name) {
       throwMalformedToolCallDelta(
         `Provider finished with incomplete tool call at index ${index}: missing function name.`
@@ -878,7 +875,7 @@ function buildFinalToolCalls(toolCallsByIndex: Map<number, PendingToolCall>): Pr
     }
 
     return {
-      id: toolCall.id,
+      id: toolCall.id || createLocalToolCallId(),
       type: toolCall.type ?? 'function',
       function: {
         name: toolCall.name,
@@ -886,6 +883,10 @@ function buildFinalToolCalls(toolCallsByIndex: Map<number, PendingToolCall>): Pr
       },
     }
   })
+}
+
+function createLocalToolCallId(): string {
+  return `call_${randomUUID().replaceAll('-', '')}`
 }
 
 function getPendingToolCall(
