@@ -50,20 +50,30 @@ export const useWebSearchStore = defineStore('web-search', () => {
   async function save(): Promise<WebSearchSettings> {
     ensureElectronBridge('保存网络搜索设置')
     if (!draft.value) throw new Error('Web Search settings have not been loaded.')
+    const savingDraft = cloneSettings(draft.value)
+    const savingApiKey = apiKey.value.trim()
     saving.value = true
     error.value = null
     try {
       const request: SaveWebSearchSettingsRequest = {
-        enabled: draft.value.enabled,
-        provider: draft.value.provider,
-        maxResults: draft.value.maxResults,
-        searchDepth: draft.value.searchDepth,
-        apiKey: apiKey.value.trim() || undefined,
+        enabled: savingDraft.enabled,
+        provider: savingDraft.provider,
+        maxResults: savingDraft.maxResults,
+        searchDepth: savingDraft.searchDepth,
+        apiKey: savingApiKey || undefined,
       }
       const saved = await appBridge.webSearch.saveSettings(request)
       settings.value = cloneSettings(saved)
-      draft.value = cloneSettings(saved)
-      apiKey.value = ''
+      if (samePublicSettings(draft.value, savingDraft)) {
+        draft.value = cloneSettings(saved)
+      } else if (draft.value) {
+        draft.value = {
+          ...draft.value,
+          configuredProviders: { ...saved.configuredProviders },
+          updatedAt: saved.updatedAt,
+        }
+      }
+      if (apiKey.value.trim() === savingApiKey) apiKey.value = ''
       return saved
     } catch (reason) {
       error.value = reason
@@ -118,4 +128,11 @@ function cloneSettings(value: WebSearchSettings): WebSearchSettings {
     ...value,
     configuredProviders: { ...value.configuredProviders },
   }
+}
+
+function samePublicSettings(
+  left: WebSearchSettings | null,
+  right: WebSearchSettings | null
+): boolean {
+  return JSON.stringify(publicDraft(left)) === JSON.stringify(publicDraft(right))
 }

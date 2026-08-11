@@ -52,16 +52,11 @@ export default {
         exa: 'Exa',
       },
       credential: {
-        title: 'Credential',
         apiKey: 'API key',
         description:
           'Leave empty to keep the saved key for this provider. Enter a value to replace it.',
         placeholder: 'Enter API key',
         savedPlaceholder: 'Saved; enter a new value to replace it',
-        configured: 'Configured',
-        missing: 'Required',
-        security:
-          'The Electron main process encrypts the key with system secure storage. The interface only receives configuration status.',
       },
       options: {
         title: 'Search options',
@@ -77,9 +72,6 @@ export default {
           advanced: 'Advanced',
         },
       },
-      save: 'Save settings',
-      saving: 'Saving',
-      saved: 'Web Search settings saved.',
       test: 'Test connection',
       testing: 'Testing',
       testSucceeded: 'Search provider connected and returned {count} result.',
