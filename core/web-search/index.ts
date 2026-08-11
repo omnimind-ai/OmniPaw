@@ -1,2 +1,6 @@
+export * from './base-provider'
+export * from './errors'
 export * from './manager'
+export * from './provider-registry'
+export * from './search'
 export * from './store'

@@ -3,7 +3,6 @@ import type { TerminalService } from '@core/agent/terminal'
 import type { ToolResolutionInput } from '@core/agent/tools/registry'
 import { ToolRegistry } from '@core/agent/tools/registry'
 import type { AgentTool } from '@core/agent/tools/types'
-import type { WebSearchRuntimeConfig } from '@core/agent/tools/web-search'
 import type { AgentWorkspaceService } from '@core/agent/workspace'
 import type { CronManager } from '@core/cron/cron-manager'
 import type { AttachmentRepo, ChatMessageRepo, ChatRunRepo, ChatSessionRepo } from '@core/db/repos'
@@ -12,6 +11,7 @@ import type { CompanionMemoryService } from '@core/memory/service'
 import type { ObservationManager } from '@core/observation'
 import type { ProviderManager } from '@core/provider/manager'
 import type { SkillManager } from '@core/skill/skill-manager'
+import type { WebSearchRuntimeConfig } from '@core/web-search'
 import type {
   AbortRunRequest,
   AbortRunResponse,

@@ -1,10 +1,11 @@
-import { searchWeb, type WebSearchRuntimeConfig } from '@core/agent/tools/web-search'
 import type {
   SaveWebSearchSettingsRequest,
   TestWebSearchRequest,
   TestWebSearchResponse,
   WebSearchSettings,
 } from '@shared/types/web-search'
+import { WebSearchProviderError } from './errors'
+import { searchWeb, type WebSearchRuntimeConfig } from './search'
 import type { WebSearchStore } from './store'
 
 export interface WebSearchManagerOptions {
@@ -67,7 +68,7 @@ export class WebSearchManager {
         provider: request.provider,
         resultCount: 0,
         error: {
-          code: 'request_failed',
+          code: error instanceof WebSearchProviderError ? error.code : 'request_failed',
           message: error instanceof Error ? error.message : 'Web Search test failed.',
         },
       }

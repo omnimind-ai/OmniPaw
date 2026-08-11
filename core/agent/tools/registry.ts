@@ -7,13 +7,13 @@ import type { CompanionMemoryService } from '@core/memory/service'
 import type { ObservationManager } from '@core/observation'
 import type { ProviderTool } from '@core/provider/base-provider'
 import type { SkillManager } from '@core/skill/skill-manager'
+import type { WebSearchRuntimeConfig } from '@core/web-search'
 import type { ToolProfile } from '@shared/types/chat'
 import type { DesktopToolSettings } from '@shared/types/settings'
 import { createBuiltinTools } from './builtin-tools'
 import { allowedToolNamesForProfile, type ToolPolicy } from './policy'
 import type { AgentTool } from './types'
 import { toProviderTool } from './types'
-import type { WebSearchRuntimeConfig } from './web-search'
 
 export interface ToolRegistryOptions {
   messages: ChatMessageRepo

@@ -3,14 +3,20 @@ import { mkdtempSync, readFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 
-import { searchWeb, webSearchRefPartFromMessageParts } from '../../core/agent/tools/web-search'
-import { WebSearchStore } from '../../core/web-search'
+import { webSearchRefPartFromMessageParts } from '../../core/agent/tools/web-search'
+import {
+  defaultWebSearchProviderRegistry,
+  searchWeb,
+  WebSearchProviderError,
+  WebSearchStore,
+} from '../../core/web-search'
 import type { ChatMessagePart } from '../../shared/types/chat'
 import type { WebSearchProvider } from '../../shared/types/web-search'
 
 async function runSmoke(): Promise<void> {
   await testTavilySearchAndCitations()
   await testAllProviderAdapters()
+  await testProviderErrorContract()
   testEncryptedSettingsStore()
   console.log('Web search smoke check passed')
 }
@@ -119,6 +125,8 @@ async function testAllProviderAdapters(): Promise<void> {
     exa: { results: [{ title: 'E', url: 'https://exa.example', text: 'e' }] },
   }
 
+  assert.deepEqual(defaultWebSearchProviderRegistry.list(), Object.keys(fixtures))
+
   for (const provider of Object.keys(fixtures) as WebSearchProvider[]) {
     const requests: string[] = []
     const response = await searchWeb({
@@ -134,7 +142,38 @@ async function testAllProviderAdapters(): Promise<void> {
     assert.equal(response.provider, provider)
     assert.equal(response.results.length, 1)
     assert.match(response.results[0]?.url ?? '', /^https:/)
+
+    const client = defaultWebSearchProviderRegistry.create(provider, {
+      apiKey: 'secret',
+      fetch: (async () => jsonResponse(fixtures[provider])) as typeof fetch,
+    })
+    assert.equal(client.id, provider)
+    assert.equal(typeof client.search, 'function')
   }
+}
+
+async function testProviderErrorContract(): Promise<void> {
+  await assert.rejects(
+    searchWeb({
+      query: 'auth test',
+      toolCallId: 'call-auth',
+      runtime: {
+        provider: 'brave',
+        apiKey: 'rejected-key',
+        maxResults: 3,
+        searchDepth: 'basic',
+      },
+      fetchImpl: (async () => new Response('', { status: 401 })) as typeof fetch,
+    }),
+    (error: unknown) => {
+      assert.ok(error instanceof WebSearchProviderError)
+      assert.equal(error.code, 'provider_auth')
+      assert.equal(error.provider, 'brave')
+      assert.equal(error.retryable, false)
+      assert.equal(error.message.includes('rejected-key'), false)
+      return true
+    }
+  )
 }
 
 function testEncryptedSettingsStore(): void {

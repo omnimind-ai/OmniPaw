@@ -8,6 +8,7 @@ import type { CompanionMemoryService } from '@core/memory/service'
 import type { ObservationManager } from '@core/observation'
 import { ATTACHMENT_PROMPTS, SKILL_PROMPTS } from '@core/prompts'
 import type { SkillManager } from '@core/skill/skill-manager'
+import type { WebSearchRuntimeConfig } from '@core/web-search'
 import type {
   CompanionMemoryKind,
   CompanionMemoryProposalKind,
@@ -17,7 +18,7 @@ import type { DesktopToolSettings } from '@shared/types/settings'
 import { BUILTIN_TOOL_CATALOG, BUILTIN_TOOL_ORDER, type BuiltinToolDefinition } from './catalog'
 import type { ToolPolicy } from './policy'
 import type { AgentTool, ToolProfile, ToolRisk } from './types'
-import { createWebSearchExecutor, type WebSearchRuntimeConfig } from './web-search'
+import { createWebSearchExecutor } from './web-search'
 
 export interface BuiltinToolOptions {
   messages: ChatMessageRepo
