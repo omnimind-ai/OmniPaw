@@ -4,6 +4,7 @@ import { dirname, join } from 'node:path'
 import type { Logger } from '@core/logging'
 import { resolveOmniPawDataPaths } from '@core/utils/data-paths'
 import Database from 'better-sqlite3'
+import * as sqliteVec from 'sqlite-vec'
 import { migrations } from './migrations'
 
 export type DatabaseConnection = Database.Database
@@ -42,6 +43,9 @@ export class DatabaseClient {
       db.pragma('foreign_keys = ON')
       db.pragma('journal_mode = WAL')
       db.pragma('busy_timeout = 5000')
+      // sqlite-vec must be loaded before running migrations, since the
+      // companion-memory vector index relies on the vec0 virtual table.
+      sqliteVec.load(db)
       const appliedMigrations = runMigrations(db)
       this.connection = db
       this.logger?.info('Database ready.', {

@@ -18,16 +18,7 @@ import type {
   UpdateCompanionMemoryProposalRequest,
   UpdateCompanionMemoryRequest,
 } from '@shared/types/memory'
-import {
-  hashEmbeddingText,
-  localMemoryEmbedding,
-  localMemoryEmbeddingDimension,
-  localMemoryEmbeddingModel,
-  localMemoryEmbeddingProvider,
-  type MemoryEmbeddingMetadata,
-  type MemoryEmbeddingResult,
-  memoryEmbeddingText,
-} from '../../memory/embedding'
+import type { MemoryEmbeddingMetadata, MemoryEmbeddingResult } from '../../memory/embedding'
 import type { DatabaseConnection } from '../client'
 import { decodeJson, encodeJson } from '../json'
 
@@ -116,9 +107,17 @@ interface EmbeddingRow {
   model: string
   dimension: number
   content_hash: string
-  vector_json: string
   created_at: number
   updated_at: number
+}
+
+interface VecSearchRow extends MemoryItemRow {
+  distance: number
+}
+
+/** Encodes an embedding vector as the little-endian float32 BLOB expected by vec0. */
+function toVecBlob(vector: number[]): Buffer {
+  return Buffer.from(new Float32Array(vector).buffer)
 }
 
 export class CompanionMemoryRepo {
@@ -149,7 +148,6 @@ export class CompanionMemoryRepo {
     const save = this.db.transaction(() => {
       this.insertOrReplaceMemory(memory)
       this.replaceFts(memory)
-      this.replaceEmbedding(memory)
       for (const source of request.sources ?? []) {
         this.addSource({
           ...source,
@@ -295,7 +293,6 @@ export class CompanionMemoryRepo {
     }
     this.insertOrReplaceMemory(updated)
     this.replaceFts(updated)
-    this.replaceEmbedding(updated)
     return this.get(updated.id)
   }
 
@@ -314,6 +311,9 @@ export class CompanionMemoryRepo {
       const remove = this.db.transaction(() => {
         this.db.prepare('DELETE FROM companion_memory_fts WHERE memory_id = ?').run(memoryId)
         this.db.prepare('DELETE FROM companion_memory_embeddings WHERE memory_id = ?').run(memoryId)
+        this.db
+          .prepare('DELETE FROM companion_memory_embeddings_vec WHERE memory_id = ?')
+          .run(memoryId)
         this.db.prepare('DELETE FROM companion_memory_items WHERE id = ?').run(memoryId)
       })
       remove()
@@ -664,20 +664,46 @@ export class CompanionMemoryRepo {
         `
       )
       .all({ ...params, ...embeddingParams(embedding), limit })
-    return rows.map((row) => mapEmbedding(row as EmbeddingRow)).filter((row) => row.vector.length)
+    return rows.map((row) => mapEmbedding(row as EmbeddingRow))
   }
 
-  ensureEmbeddings(filters: CompanionMemoryFilters = {}): number {
-    const rows = this.listMissingEmbeddings(filters, {
-      provider: localMemoryEmbeddingProvider,
-      model: localMemoryEmbeddingModel,
-      dimension: localMemoryEmbeddingDimension,
-    })
-
-    for (const memory of rows) {
-      this.replaceEmbedding(memory)
+  ensureVectorTable(embedding: MemoryEmbeddingMetadata): void {
+    const row = this.db
+      .prepare('SELECT dimension FROM companion_memory_embedding_config WHERE id = 1')
+      .get() as { dimension: number } | undefined
+    if (row && row.dimension === embedding.dimension) {
+      return
     }
-    return rows.length
+    const rebuild = this.db.transaction(() => {
+      // The vec0 dimension is fixed at CREATE time, so switching the
+      // embedding model requires dropping the table and re-indexing every
+      // memory. Metadata rows are cleared because their vectors are gone.
+      this.db.exec('DROP TABLE IF EXISTS companion_memory_embeddings_vec')
+      this.db.prepare('DELETE FROM companion_memory_embeddings').run()
+      this.db.exec(
+        `CREATE VIRTUAL TABLE companion_memory_embeddings_vec USING vec0(
+          memory_id TEXT PRIMARY KEY,
+          embedding FLOAT[${embedding.dimension}] distance_metric=cosine
+        )`
+      )
+      this.db
+        .prepare(
+          `INSERT INTO companion_memory_embedding_config (id, dimension, provider, model, updated_at)
+           VALUES (1, @dimension, @provider, @model, @updatedAt)
+           ON CONFLICT(id) DO UPDATE SET
+             dimension = excluded.dimension,
+             provider = excluded.provider,
+             model = excluded.model,
+             updated_at = excluded.updated_at`
+        )
+        .run({
+          dimension: embedding.dimension,
+          provider: embedding.provider,
+          model: embedding.model,
+          updatedAt: Date.now(),
+        })
+    })
+    rebuild()
   }
 
   listMissingEmbeddings(
@@ -824,35 +850,72 @@ export class CompanionMemoryRepo {
       .run(memory.id, memory.subject ?? '', memory.content)
   }
 
-  replaceEmbedding(memory: CompanionMemoryItem, embedding?: MemoryEmbeddingResult): void {
-    this.db.prepare('DELETE FROM companion_memory_embeddings WHERE memory_id = ?').run(memory.id)
-    if (memory.status === 'deleted') {
-      return
-    }
+  replaceEmbedding(memory: CompanionMemoryItem, embedding: MemoryEmbeddingResult): void {
+    const save = this.db.transaction(() => {
+      this.db.prepare('DELETE FROM companion_memory_embeddings WHERE memory_id = ?').run(memory.id)
+      this.db
+        .prepare('DELETE FROM companion_memory_embeddings_vec WHERE memory_id = ?')
+        .run(memory.id)
+      if (memory.status === 'deleted') {
+        return
+      }
+      const now = Date.now()
+      this.db
+        .prepare(
+          `
+            INSERT INTO companion_memory_embeddings (
+              memory_id, provider, model, dimension, content_hash, created_at, updated_at
+            ) VALUES (
+              @memoryId, @provider, @model, @dimension, @contentHash, @createdAt, @updatedAt
+            )
+          `
+        )
+        .run({
+          memoryId: memory.id,
+          provider: embedding.provider,
+          model: embedding.model,
+          dimension: embedding.dimension,
+          contentHash: embedding.contentHash,
+          createdAt: now,
+          updatedAt: now,
+        })
+      this.db
+        .prepare('INSERT INTO companion_memory_embeddings_vec (memory_id, embedding) VALUES (?, ?)')
+        .run(memory.id, toVecBlob(embedding.vector))
+    })
+    save()
+  }
 
-    const text = memoryEmbeddingText(memory)
-    const result = embedding ?? localMemoryEmbedding(text)
-    const now = Date.now()
-    this.db
+  searchByVector(
+    query: number[],
+    filters: CompanionMemoryFilters = {},
+    options: { probe?: number; limit?: number } = {}
+  ): { memory: CompanionMemorySearchResult; distance: number }[] {
+    const { where, params } = this.buildFilter(filters, 'items')
+    const conditions = where.replace(/^WHERE\s+/, '')
+    const whereClause = conditions ? `WHERE ${conditions}` : ''
+    const probe = clampInteger(options.probe ?? 200, 1, 1000)
+    const limit = clampInteger(options.limit ?? filters.limit ?? 50, 1, 500)
+    const rows = this.db
       .prepare(
         `
-          INSERT INTO companion_memory_embeddings (
-            memory_id, provider, model, dimension, content_hash, vector_json, created_at, updated_at
-          ) VALUES (
-            @memoryId, @provider, @model, @dimension, @contentHash, @vectorJson, @createdAt, @updatedAt
-          )
+          SELECT items.*, candidates.distance AS distance
+          FROM (
+            SELECT memory_id, distance
+            FROM companion_memory_embeddings_vec
+            WHERE embedding MATCH :query AND k = :probe
+          ) candidates
+          JOIN companion_memory_items items ON items.id = candidates.memory_id
+          ${whereClause}
+          ORDER BY candidates.distance
+          LIMIT :limit
         `
       )
-      .run({
-        memoryId: memory.id,
-        provider: result.provider,
-        model: result.model,
-        dimension: result.dimension,
-        contentHash: result.contentHash || hashEmbeddingText(text),
-        vectorJson: encodeJson(result.vector) ?? '[]',
-        createdAt: now,
-        updatedAt: now,
-      })
+      .all({ ...params, query: toVecBlob(query), probe, limit })
+    return rows.map((row) => {
+      const memory = mapMemory(row as MemoryItemRow)
+      return { memory, distance: Number((row as VecSearchRow).distance) }
+    })
   }
 }
 
@@ -1003,7 +1066,9 @@ function mapEmbedding(row: EmbeddingRow): CompanionMemoryLocalEmbedding {
     model: row.model,
     dimension: row.dimension,
     contentHash: row.content_hash,
-    vector: decodeJson<number[]>(row.vector_json, []).filter(Number.isFinite),
+    // Vectors now live in the vec0 table; this metadata view no longer
+    // materializes them. Use searchByVector for nearest-neighbour queries.
+    vector: [],
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   }

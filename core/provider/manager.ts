@@ -767,11 +767,30 @@ export class ProviderManager {
   }
 
   async setEmbeddingModel(
-    _selection: Partial<ProviderModelRef> | undefined
+    selection: Partial<ProviderModelRef> | undefined
   ): Promise<ProviderRegistryMutationResult> {
     const registry = this.requireRegistryStore().get()
     const nextSettings = { ...registry.settings }
-    delete nextSettings.embeddingModelRef
+    if (!selection?.providerId || !selection.modelId) {
+      delete nextSettings.embeddingModelRef
+      return this.registryResult(this.saveRegistry({ ...registry, settings: nextSettings }), {
+        ok: true,
+      })
+    }
+
+    const selectedRef: ProviderModelRef = {
+      providerId: selection.providerId,
+      modelId: selection.modelId,
+    }
+    const model = findEnabledRegistryModel(registry, selectedRef.providerId, selectedRef.modelId)
+    if (!model) {
+      throw new ProviderSelectionError({
+        code: 'validation',
+        message: `Embedding model is not enabled or does not exist: ${selectedRef.providerId}/${selectedRef.modelId}.`,
+        retryable: false,
+      })
+    }
+    nextSettings.embeddingModelRef = selectedRef
     return this.registryResult(this.saveRegistry({ ...registry, settings: nextSettings }), {
       ok: true,
     })
@@ -1035,7 +1054,24 @@ export class ProviderManager {
   async resolveEmbeddingProvider(): Promise<
     { provider: ProviderRecord; model: ProviderModelRecord } | undefined
   > {
-    return undefined
+    if (!this.registryStore) {
+      return undefined
+    }
+    const registry = this.registryStore.get()
+    const embeddingModelRef = registry.settings.embeddingModelRef
+    if (!embeddingModelRef) {
+      return undefined
+    }
+    const resolved = resolveRegistrySelection(
+      registry,
+      embeddingModelRef.providerId,
+      embeddingModelRef.modelId
+    )
+    if (!resolved) {
+      return undefined
+    }
+    const model = resolved.provider.models?.find((item) => item.id === resolved.modelId)
+    return model ? { provider: resolved.provider, model } : undefined
   }
 
   async createProviderClient(providerId: string): Promise<BaseProvider> {

@@ -39,7 +39,6 @@ import type {
 } from '@shared/types/memory'
 import {
   createMemoryEmbeddingProvider,
-  embeddingCosine,
   type MemoryEmbeddingProvider,
   type MemoryEmbeddingResult,
   memoryEmbeddingText,
@@ -132,7 +131,7 @@ export class CompanionMemoryService {
   }
 
   create(request: CreateCompanionMemoryRequest): CompanionMemoryItem {
-    return this.options.repo.create({
+    const memory = this.options.repo.create({
       ...request,
       status: request.status ?? 'active',
       confidence: request.confidence ?? 1,
@@ -146,6 +145,8 @@ export class CompanionMemoryService {
             },
           ],
     })
+    this.indexMemoryInBackground(memory)
+    return memory
   }
 
   createForSession(sessionId: string, request: CreateCompanionMemoryRequest): CompanionMemoryItem {
@@ -160,7 +161,11 @@ export class CompanionMemoryService {
   }
 
   update(request: UpdateCompanionMemoryRequest): CompanionMemoryItem | undefined {
-    return this.options.repo.update(request)
+    const updated = this.options.repo.update(request)
+    if (updated) {
+      this.indexMemoryInBackground(updated)
+    }
+    return updated
   }
 
   archive(memoryId: string): CompanionMemoryItem | undefined {
@@ -340,6 +345,7 @@ export class CompanionMemoryService {
       const semantic = await this.trySemanticExtraction({ run, session, messages, startedAt })
       const candidates = semantic.used ? semantic.candidates : extractCandidates(messages)
       const createdIds: string[] = []
+      const createdMemories: CompanionMemoryItem[] = []
       const seen = new Set<string>()
       for (const candidate of candidates) {
         const content = cleanMemoryContent(candidate.content)
@@ -400,9 +406,16 @@ export class CompanionMemoryService {
           ],
         })
         createdIds.push(memory.id)
+        createdMemories.push(memory)
         this.linkCandidateMemory(memory.id, candidate, 'related')
         this.runMaintenanceForMemory(memory)
       }
+      void this.indexMemories(createdMemories).catch((error) => {
+        this.options.logger?.warn('Failed to index extracted companion memories.', {
+          runId: run.id,
+          error,
+        })
+      })
       this.options.repo.updateJob(job, {
         status: 'complete',
         createdMemoryIds: createdIds,
@@ -607,42 +620,25 @@ export class CompanionMemoryService {
   }): Promise<CompanionMemorySearchResult[]> {
     const queryEmbedding = await this.embeddingProvider.embedText(filters.query)
     await this.ensureEmbeddings(filters, filters.query, queryEmbedding)
-    const embeddings = this.options.repo.listEmbeddings(
+    const matches = this.options.repo.searchByVector(
+      queryEmbedding.vector,
       {
         sessionId: filters.sessionId,
         characterId: filters.characterId,
         minConfidence: filters.minConfidence,
-        limit: 1000,
         kinds: filters.kinds,
         scopes: filters.scopes,
       },
-      queryEmbedding
+      { probe: 200, limit: filters.limit }
     )
-    const scored = embeddings
-      .map((embedding) => ({
-        embedding,
-        vectorScore: embeddingCosine(queryEmbedding.vector, embedding.vector),
-      }))
-      .filter((item) => item.vectorScore > 0.03)
-      .sort(
-        (left, right) =>
-          right.vectorScore - left.vectorScore ||
-          right.embedding.updatedAt - left.embedding.updatedAt ||
-          left.embedding.memoryId.localeCompare(right.embedding.memoryId)
-      )
-      .slice(0, filters.limit)
-
     const results: CompanionMemorySearchResult[] = []
-    for (const item of scored) {
-      const memory = this.options.repo.get(item.embedding.memoryId)
-      if (!memory || memory.status !== 'active' || memory.confidence < filters.minConfidence) {
+    for (const match of matches) {
+      // vec0 cosine distance is 1 - similarity (0 = identical).
+      const vectorScore = 1 - match.distance
+      if (vectorScore <= 0.03) {
         continue
       }
-      results.push({
-        ...memory,
-        vectorScore: item.vectorScore,
-        retrievalSource: 'vector',
-      })
+      results.push({ ...match.memory, vectorScore, retrievalSource: 'vector' })
     }
     return results
   }
@@ -653,6 +649,7 @@ export class CompanionMemoryService {
     queryEmbedding?: MemoryEmbeddingResult
   ): Promise<number> {
     const embedding = queryEmbedding ?? (await this.embeddingProvider.embedText(query))
+    this.options.repo.ensureVectorTable(embedding)
     const missing = this.options.repo.listMissingEmbeddings(filters, embedding)
     if (!missing.length) {
       return 0
@@ -670,6 +667,43 @@ export class CompanionMemoryService {
       written += 1
     }
     return written
+  }
+
+  private indexMemoryInBackground(memory: CompanionMemoryItem): void {
+    void this.indexMemory(memory).catch((error) => {
+      this.options.logger?.warn('Failed to index companion memory embedding.', {
+        memoryId: memory.id,
+        error,
+      })
+    })
+  }
+
+  private async indexMemory(memory: CompanionMemoryItem): Promise<void> {
+    if (memory.status === 'deleted') {
+      return
+    }
+    const result = await this.embeddingProvider.embedText(memoryEmbeddingText(memory))
+    this.options.repo.ensureVectorTable(result)
+    this.options.repo.replaceEmbedding(memory, result)
+  }
+
+  private async indexMemories(memories: CompanionMemoryItem[]): Promise<void> {
+    const valid = memories.filter((memory) => memory.status !== 'deleted')
+    if (!valid.length) {
+      return
+    }
+    const texts = valid.map((memory) => memoryEmbeddingText(memory))
+    const results = await this.embeddingProvider.embedTexts(texts)
+    if (!results.length) {
+      return
+    }
+    this.options.repo.ensureVectorTable(results[0])
+    for (const [index, memory] of valid.entries()) {
+      const result = results[index]
+      if (result) {
+        this.options.repo.replaceEmbedding(memory, result)
+      }
+    }
   }
 
   private async trySemanticExtraction(input: {

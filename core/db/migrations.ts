@@ -337,7 +337,6 @@ export const migrations: Migration[] = [
         model TEXT NOT NULL,
         dimension INTEGER NOT NULL,
         content_hash TEXT NOT NULL,
-        vector_json TEXT NOT NULL,
         created_at INTEGER NOT NULL,
         updated_at INTEGER NOT NULL,
         FOREIGN KEY(memory_id) REFERENCES companion_memory_items(id) ON DELETE CASCADE
@@ -345,6 +344,17 @@ export const migrations: Migration[] = [
 
       CREATE INDEX IF NOT EXISTS idx_companion_memory_embeddings_model
         ON companion_memory_embeddings(provider, model, updated_at DESC);
+
+      -- Records the active dimension of the vec0 virtual table. The vec0
+      -- table itself is created at runtime, since its dimension depends on
+      -- the configured embedding provider. See CompanionMemoryRepo.ensureVectorTable.
+      CREATE TABLE IF NOT EXISTS companion_memory_embedding_config (
+        id INTEGER PRIMARY KEY CHECK (id = 1),
+        dimension INTEGER NOT NULL,
+        provider TEXT,
+        model TEXT,
+        updated_at INTEGER NOT NULL
+      );
     `,
   },
   {

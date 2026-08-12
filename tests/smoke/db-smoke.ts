@@ -24,6 +24,7 @@ import type {
   ChatSession,
   InternalAttachmentRecord,
 } from '../../core/db/types'
+import { localMemoryEmbedding, memoryEmbeddingText } from '../../core/memory/embedding'
 import { CatPetManager } from '../../core/role/growth/manager'
 import { SYSTEM_SESSION_IDS } from '../../shared/constants'
 
@@ -512,8 +513,17 @@ try {
       .items.some((item) => item.id === otherRoleMemory.id),
     false
   )
+  const memoryEmbedding = localMemoryEmbedding(memoryEmbeddingText(memory))
+  memories.ensureVectorTable(memoryEmbedding)
+  memories.replaceEmbedding(memory, memoryEmbedding)
   assert.equal(
     memories.listEmbeddings({ sessionId: session.id }).some((item) => item.memoryId === memory.id),
+    true
+  )
+  assert.equal(
+    memories
+      .searchByVector(memoryEmbedding.vector, { sessionId: session.id })
+      .some((item) => item.memory.id === memory.id),
     true
   )
   assert.equal(memories.search({ query: 'TypeScript smoke', limit: 5 }).items[0]?.id, memory.id)
