@@ -493,11 +493,21 @@ function createCatNotificationControllerForRuntime(): CatNotificationController 
     logger: mainLogger.child({ scope: 'cat.notification' }),
     getSessionKind: getRuntimeSessionKind,
     getAnchorBounds: getCatWindowBounds,
-    openCatPanel: (sessionId) => {
-      setActiveCatSessionId(sessionId, 'notification')
-      openCatPanelWindow({ sessionId, source: 'notification' })
-    },
+    openResult: openCronNotificationResult,
   })
+}
+
+function openCronNotificationResult(sessionId: string): void {
+  const kind = getRuntimeSessionKind(sessionId)
+  if (kind === 'cat') {
+    setActiveCatSessionId(sessionId, 'notification')
+    openCatPanelWindow({ sessionId, source: 'notification' })
+    return
+  }
+
+  if (kind === 'chat' || kind === 'vision') {
+    openMainChatSession(sessionId, kind)
+  }
 }
 
 function broadcastSettingsChanged(

@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
+import { resolveCronNotificationSessionId } from '../../electron/cron-notification'
 import {
   resolveCatDockTargetX,
   resolveCatVisibleBounds,
@@ -25,6 +26,7 @@ import {
   defaultCatContentArea,
 } from '../../shared/cat-window-layout'
 import { IPC_CHANNELS } from '../../shared/constants'
+import type { CronTask } from '../../shared/types/cron'
 
 const main = readFileSync('packages/desktop-pet/electron/controller.ts', 'utf8')
 const electronMain = readFileSync('electron/main.ts', 'utf8')
@@ -51,6 +53,39 @@ const viteConfig = readFileSync('electron.vite.config.ts', 'utf8')
 assert.equal(IPC_CHANNELS.cat.setHitArea, 'cat:set-hit-area')
 assert.equal(IPC_CHANNELS.cat.setInteractionState, 'cat:set-interaction-state')
 
+const notificationTask: CronTask = {
+  id: 'cron-notification-task',
+  name: 'Cron notification',
+  note: 'Show the result beside the cat.',
+  sourceSessionId: 'source-cat-session',
+  targetSessionId: 'target-chat-session',
+  schedule: { kind: 'at', runAt: Date.now() + 60_000 },
+  enabled: true,
+  state: 'idle',
+  nextRunAt: Date.now() + 60_000,
+  failureCount: 0,
+  createdAt: Date.now(),
+  updatedAt: Date.now(),
+}
+const sessionKinds = new Map<string, string>([
+  ['source-cat-session', 'cat'],
+  ['target-chat-session', 'chat'],
+])
+assert.equal(
+  resolveCronNotificationSessionId(notificationTask, (sessionId) => sessionKinds.get(sessionId)),
+  'target-chat-session'
+)
+sessionKinds.set('target-chat-session', 'cron')
+assert.equal(
+  resolveCronNotificationSessionId(notificationTask, (sessionId) => sessionKinds.get(sessionId)),
+  'source-cat-session'
+)
+sessionKinds.set('source-cat-session', 'cron')
+assert.equal(
+  resolveCronNotificationSessionId(notificationTask, (sessionId) => sessionKinds.get(sessionId)),
+  null
+)
+
 assert.match(main, /function createCatHitWindow/)
 assert.match(main, /catWindow\.setIgnoreMouseEvents\(true\)/)
 assert.match(main, /catHitWindow\.setIgnoreMouseEvents\(false\)/)
@@ -67,6 +102,8 @@ assert.match(main, /const catBubbleGap = 2/)
 assert.match(main, /catTopmostWatchdogMs/)
 assert.match(electronMain, /scheme: CAT_APPEARANCE_ASSET_PROTOCOL[\s\S]*?corsEnabled: true/)
 assert.match(electronMain, /'Access-Control-Allow-Origin': '\*'/)
+assert.match(electronMain, /openResult: openCronNotificationResult/)
+assert.match(electronMain, /openMainChatSession\(sessionId, kind\)/)
 assert.match(main, /event\.sender\.id === catWindow\.webContents\.id/)
 assert.match(main, /event\.sender\.id === catHitWindow\.webContents\.id/)
 assert.match(

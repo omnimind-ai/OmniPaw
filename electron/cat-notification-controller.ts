@@ -5,14 +5,15 @@ import type {
   CatNotificationActionRequest,
   CatNotificationEvent,
 } from '@shared/types/cat'
-import type { CronRun, CronTask, CronTaskChangedEvent } from '@shared/types/cron'
+import type { CronRun, CronTaskChangedEvent } from '@shared/types/cron'
 import { BrowserWindow, ipcMain, screen } from 'electron'
+import { resolveCronNotificationSessionId } from './cron-notification'
 
 interface CatNotificationControllerOptions {
   logger?: Logger
   getSessionKind: (sessionId: string) => string | undefined
   getAnchorBounds?: () => CatBounds | null
-  openCatPanel: (sessionId: string) => void
+  openResult: (sessionId: string) => void
   autoDismissMs?: number
 }
 
@@ -48,7 +49,7 @@ class CatNotificationController {
           return
         }
 
-        this.options.openCatPanel(sessionId)
+        this.options.openResult(sessionId)
         this.destroy()
       }
     )
@@ -79,7 +80,7 @@ class CatNotificationController {
       return null
     }
 
-    const sessionId = this.resolveCatSessionId(event.task)
+    const sessionId = resolveCronNotificationSessionId(event.task, this.options.getSessionKind)
     if (!sessionId) {
       return null
     }
@@ -95,20 +96,6 @@ class CatNotificationController {
       summaryPreview: summarizeRun(event.run),
       createdAt: Date.now(),
     }
-  }
-
-  private resolveCatSessionId(task: CronTask): string | null {
-    const targetKind = this.options.getSessionKind(task.targetSessionId)
-    if (targetKind === 'cat') {
-      return task.targetSessionId
-    }
-
-    const sourceKind = this.options.getSessionKind(task.sourceSessionId)
-    if (sourceKind === 'cat') {
-      return task.sourceSessionId
-    }
-
-    return null
   }
 
   private show(payload: CatNotificationEvent): void {
@@ -213,7 +200,7 @@ class CatNotificationController {
     }
 
     if (parsed.hostname === 'view') {
-      this.options.openCatPanel(payload.sessionId)
+      this.options.openResult(payload.sessionId)
       this.destroy()
       return true
     }
