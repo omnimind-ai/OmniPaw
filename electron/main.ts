@@ -27,11 +27,8 @@ import { app, BrowserWindow, Menu, type MenuItemConstructorOptions, protocol } f
 import {
   closeCatWindow,
   getActiveCatSessionId,
-  getCatWindowBounds,
-  openCatPanelWindow,
   registerCatWindowIpcHandlers,
   sendCatObservationReaction,
-  setActiveCatSessionId,
   setCatSessionIdResolver,
   setCatWindowLogger,
   showCatWindow,
@@ -41,10 +38,6 @@ import {
 } from '../packages/desktop-pet/electron/controller'
 import { createAppIconImage, resolveAppIconPath } from './app-icon'
 import { resolveApplicationDataRoot } from './application-data'
-import {
-  type CatNotificationController,
-  createCatNotificationController,
-} from './cat-notification-controller'
 import {
   type CoreRuntime,
   createCoreRuntime,
@@ -93,7 +86,6 @@ const lifecycleLogger = mainLogger.child({ scope: 'lifecycle' })
 let runtime: CoreRuntime | undefined
 let mainWindowController: MainWindowController | undefined
 let trayController: TrayController | undefined
-let catNotificationController: CatNotificationController | undefined
 let shortcutController: ShortcutController | undefined
 let omniInferProcess: OmniInferProcess | undefined
 let isQuitting = false
@@ -216,7 +208,6 @@ function markQuitting(): void {
 
 function quitApp(): void {
   markQuitting()
-  catNotificationController?.destroy()
   shortcutController?.destroy()
   closeCatWindow()
   trayController?.destroy()
@@ -451,11 +442,6 @@ function formatZoomPercent(value: number): string {
   return `${Math.round(value * 100)}%`
 }
 
-function getRuntimeSessionKind(sessionId: string): string | undefined {
-  const session = runtime?.sessionRepo.get(sessionId)
-  return typeof session?.kind === 'string' ? session.kind : undefined
-}
-
 function normalizeSessionId(value: string | null | undefined): string | null {
   if (typeof value !== 'string') {
     return null
@@ -485,28 +471,6 @@ async function resolveRuntimeCatSessionId(
   } catch (error) {
     mainLogger.warn('Unable to create cat session for cat window state.', { error })
     return null
-  }
-}
-
-function createCatNotificationControllerForRuntime(): CatNotificationController {
-  return createCatNotificationController({
-    logger: mainLogger.child({ scope: 'cat.notification' }),
-    getSessionKind: getRuntimeSessionKind,
-    getAnchorBounds: getCatWindowBounds,
-    openResult: openCronNotificationResult,
-  })
-}
-
-function openCronNotificationResult(sessionId: string): void {
-  const kind = getRuntimeSessionKind(sessionId)
-  if (kind === 'cat') {
-    setActiveCatSessionId(sessionId, 'notification')
-    openCatPanelWindow({ sessionId, source: 'notification' })
-    return
-  }
-
-  if (kind === 'chat' || kind === 'vision') {
-    openMainChatSession(sessionId, kind)
   }
 }
 
@@ -640,7 +604,40 @@ function broadcastCronChanged(event: CronTaskChangedEvent): void {
   for (const window of BrowserWindow.getAllWindows()) {
     window.webContents.send(IPC_CHANNELS.cron.changed, event)
   }
-  catNotificationController?.handleCronChanged(event)
+  showCronResultBubble(event)
+}
+
+function showCronResultBubble(event: CronTaskChangedEvent): void {
+  if (event.reason !== 'run_completed' && event.reason !== 'run_failed') {
+    return
+  }
+
+  const run = event.run
+  if (!run) {
+    return
+  }
+
+  const taskName = event.task?.name.trim() || '计划任务'
+  const text =
+    event.reason === 'run_completed'
+      ? run.resultSummary?.trim() || `${taskName}完成。`
+      : run.error?.message.trim() || `${taskName}执行失败。`
+
+  showCatWindow()
+  const bubble = showCatWindowBubble({
+    id: `cron:${run.id}`,
+    text,
+    kind: 'status',
+    autoDismissMs: 10_000,
+    source: 'cron',
+  })
+  if (!bubble) {
+    mainLogger.warn('Scheduled task result could not show in the cat bubble.', {
+      taskId: event.taskId,
+      runId: run.id,
+      status: run.status,
+    })
+  }
 }
 
 function broadcastObservationChanged(event: ObservationChangedEvent): void {
@@ -933,8 +930,6 @@ app
       onChanged: broadcastShortcutChanged,
     })
     shortcutController.apply(runtime.configStore.get().app.shortcuts)
-    catNotificationController = createCatNotificationControllerForRuntime()
-    catNotificationController.registerIpcHandlers()
     registerCatWindowIpcHandlers()
     registerIpcHandlers({
       appName: APP_NAME,
@@ -987,7 +982,6 @@ app
 app.on('before-quit', (event) => {
   lifecycleLogger.info('App before-quit.')
   markQuitting()
-  catNotificationController?.destroy()
   shortcutController?.destroy()
   closeCatWindow()
   event.preventDefault()

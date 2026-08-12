@@ -319,11 +319,6 @@ const bridge: OmniPawBridge = {
     clearDraft: (request) => ipcRenderer.invoke(IPC_CHANNELS.catPanel.clearDraft, request),
     onDraftChanged: (callback) => createUnsubscriber(IPC_CHANNELS.catPanel.draftChanged, callback),
   },
-  catNotification: {
-    onEvent: (callback) => createUnsubscriber(IPC_CHANNELS.catNotification.event, callback),
-    close: (request) => ipcRenderer.invoke(IPC_CHANNELS.catNotification.close, request),
-    viewResult: (request) => ipcRenderer.invoke(IPC_CHANNELS.catNotification.viewResult, request),
-  },
   catPet: {
     getState: () => ipcRenderer.invoke(IPC_CHANNELS.catPet.getState),
     getInventory: (request: CatPetInventoryRequest) =>

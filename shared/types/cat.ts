@@ -153,22 +153,3 @@ export interface CatDraftClearRequest {
   sessionId: ID
   attachmentIds?: ID[]
 }
-
-export type CatNotificationStatus = 'complete' | 'failed' | 'interrupted'
-
-export interface CatNotificationEvent {
-  id: ID
-  status: CatNotificationStatus
-  taskId: ID
-  runId?: ID
-  sessionId: ID
-  resultMessageId?: ID
-  title: string
-  summaryPreview: string
-  createdAt: UnixMs
-}
-
-export interface CatNotificationActionRequest {
-  notificationId?: ID
-  sessionId?: ID
-}

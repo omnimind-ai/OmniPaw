@@ -79,11 +79,6 @@ export const IPC_CHANNELS = {
     clearDraft: 'cat-panel:clear-draft',
     draftChanged: 'cat-panel:draft-changed',
   },
-  catNotification: {
-    event: 'cat-notification:event',
-    close: 'cat-notification:close',
-    viewResult: 'cat-notification:view-result',
-  },
   catPet: {
     getState: 'cat-pet:get-state',
     getInventory: 'cat-pet:get-inventory',

@@ -1309,7 +1309,7 @@ function showCatBubble(request: CatBubbleShowRequest | string): CatBubbleEvent |
     hideCatBubbleWindow({ reason: 'state-hidden', source: 'show-empty' })
     return null
   }
-  if (catPanelVisible && event.kind === 'status') {
+  if (catPanelVisible && event.kind === 'status' && event.source !== 'cron') {
     return null
   }
   if (activeCatBubbleEvent?.kind === 'observation' && event.kind === 'status') {
@@ -1323,9 +1323,12 @@ function showCatBubble(request: CatBubbleShowRequest | string): CatBubbleEvent |
     catWindow.showInactive()
   }
   window.setBounds(placement.bounds)
-  window.setIgnoreMouseEvents(event.kind !== 'observation' && event.kind !== 'gift', {
-    forward: true,
-  })
+  window.setIgnoreMouseEvents(
+    event.kind !== 'observation' && event.kind !== 'gift' && event.source !== 'cron',
+    {
+      forward: true,
+    }
+  )
 
   activeCatBubbleEvent = event
   catBubbleVisible = true

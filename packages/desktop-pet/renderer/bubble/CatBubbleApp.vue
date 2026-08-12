@@ -34,6 +34,8 @@ const visible = computed(() =>
 )
 const isObservation = computed(() => bubble.value?.kind === 'observation')
 const isGift = computed(() => bubble.value?.kind === 'gift' && Boolean(bubble.value.gift))
+const isCronResult = computed(() => bubble.value?.source === 'cron')
+const isDismissible = computed(() => isObservation.value || isGift.value || isCronResult.value)
 const bubbleText = computed(() => bubble.value?.text ?? '')
 const giftUnlock = computed<CatPetGiftUnlock | undefined>(() => bubble.value?.gift)
 const giftStoryLines = computed(() => {
@@ -64,7 +66,7 @@ const bubbleClass = computed(() =>
     isObservation.value || isGift.value
       ? 'cursor-pointer hover:bg-popover focus-visible:ring-2'
       : 'cursor-default',
-    isObservation.value || isGift.value ? 'pr-10' : ''
+    isDismissible.value ? 'pr-10' : ''
   )
 )
 
@@ -277,7 +279,7 @@ onBeforeUnmount(() => {
       </p>
 
       <button
-        v-if="isObservation || isGift"
+        v-if="isDismissible"
         type="button"
         class="absolute right-2 top-2 grid size-6 place-items-center rounded-md text-muted-foreground outline-none hover:bg-accent hover:text-accent-foreground focus-visible:ring-2"
         :aria-label="t(isGift ? 'catWindow.bubble.closeGift' : 'catWindow.bubble.closeBubble')"

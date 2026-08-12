@@ -13,8 +13,6 @@ import type {
   CatDragPayload,
   CatHitGeometry,
   CatInteractionState,
-  CatNotificationActionRequest,
-  CatNotificationEvent,
   CatPanelActiveSessionState,
   CatPanelOpenRequest,
   CatPanelPlacement,
@@ -465,11 +463,6 @@ export interface OmniPawBridge {
     stageDraftAttachments: (request: CatDraftStageRequest) => Promise<CatDraftState>
     clearDraft: (request: CatDraftClearRequest | string) => Promise<CatDraftState | null>
     onDraftChanged: (callback: (event: CatDraftChangedEvent) => void) => Unsubscribe
-  }
-  catNotification: {
-    onEvent: (callback: (event: CatNotificationEvent) => void) => Unsubscribe
-    close: (request?: CatNotificationActionRequest | string) => Promise<void>
-    viewResult: (request: CatNotificationActionRequest | string) => Promise<void>
   }
   catPet: {
     getState: () => Promise<CatPetState>

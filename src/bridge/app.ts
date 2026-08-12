@@ -1311,18 +1311,6 @@ const fallbackBridge: OmniPawBridge = {
     },
     onDraftChanged: () => () => {},
   },
-  catNotification: {
-    onEvent: () => () => {},
-    close: async () => {},
-    viewResult: async (request) => {
-      const sessionId = typeof request === 'string' ? undefined : request.sessionId
-      if (sessionId) {
-        fallbackActiveCatSessionId = sessionId
-        fallbackCatPanelVisible = true
-        fallbackCatPanelSide = 'right'
-      }
-    },
-  },
   catPet: {
     getState: async () => fallbackCatPetState(),
     getInventory: async (request): Promise<CatPetInventoryResponse> => ({
