@@ -122,7 +122,12 @@ const formClass = computed(() =>
     dragging.value && 'bg-accent/40'
   )
 )
-const textareaClass = computed(() => (props.compactAttachments ? 'min-h-16' : 'min-h-24'))
+const textareaClass = computed(() =>
+  cn(
+    'max-h-48 overflow-y-auto overscroll-contain',
+    props.compactAttachments ? 'min-h-16' : 'min-h-24'
+  )
+)
 const composerPlaceholder = computed(() => {
   if (dragging.value) return t('chat.composer.uploadDragPlaceholder')
   if (showAttachmentPresetPanel.value) return ''
