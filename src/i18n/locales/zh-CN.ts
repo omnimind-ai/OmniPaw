@@ -1053,9 +1053,7 @@ export default {
       noNote: '未填写。',
       policyModal: {
         title: '计划任务策略',
-        description: '管理本地计划任务运行、补跑策略和启动补跑限制。',
-        enabled: '启用计划任务',
-        enabledDescription: '关闭后不会自动运行或补跑，手动运行和管理仍可用。',
+        description: '管理本地计划任务的补跑策略和启动补跑限制。',
         misfirePolicy: '补跑策略',
         misfirePolicyDescription: '桌面端关闭期间错过的重复任务如何处理。',
         misfirePolicyPlaceholder: '选择补跑策略',

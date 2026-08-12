@@ -217,7 +217,6 @@ export interface BridgeDesktopSettingsConfig {
     terminal: LocalAgentTerminalSettings
   }
   scheduledTasks: {
-    enabled: boolean
     misfirePolicy: 'run_once' | 'skip'
     misfireGraceMs: number
     misfireStartupLimit: number
@@ -1907,7 +1906,6 @@ function fallbackSettingsConfig(): BridgeDesktopSettingsConfig {
       },
     },
     scheduledTasks: {
-      enabled: false,
       misfirePolicy: 'run_once',
       misfireGraceMs: 15 * 60 * 1000,
       misfireStartupLimit: 3,

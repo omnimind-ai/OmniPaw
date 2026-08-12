@@ -209,7 +209,6 @@ export const defaultConfig: DesktopSettingsConfig = {
     },
   },
   scheduledTasks: {
-    enabled: false,
     misfirePolicy: 'run_once',
     misfireGraceMs: 15 * 60 * 1000,
     misfireStartupLimit: 3,
@@ -2109,13 +2108,6 @@ function validateScheduledTasks(
   config: DesktopSettingsConfig,
   issues: SettingsValidationIssue[]
 ): void {
-  if (typeof config.scheduledTasks.enabled !== 'boolean') {
-    issues.push({
-      path: 'scheduledTasks.enabled',
-      message: 'Scheduled task enabled state must be boolean.',
-      code: 'invalid_type',
-    })
-  }
   if (!['run_once', 'skip'].includes(config.scheduledTasks.misfirePolicy)) {
     issues.push({
       path: 'scheduledTasks.misfirePolicy',

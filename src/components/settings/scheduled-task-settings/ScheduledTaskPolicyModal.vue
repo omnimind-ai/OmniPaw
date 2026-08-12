@@ -28,7 +28,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
-import { Switch } from '@/components/ui/switch'
 
 const { t } = useI18n()
 const open = defineModel<boolean>('open', { required: true })
@@ -64,21 +63,6 @@ const misfireStartupLimit = computed({
       </DialogHeader>
 
       <FieldGroup class="gap-0 rounded-md border">
-        <Field
-          orientation="responsive"
-          class="border-b px-4 py-3"
-        >
-          <FieldContent>
-            <FieldLabel for="scheduled-enabled">{{ t('settings.scheduledTask.policyModal.enabled') }}</FieldLabel>
-            <FieldDescription>{{ t('settings.scheduledTask.policyModal.enabledDescription') }}</FieldDescription>
-          </FieldContent>
-          <Switch
-            id="scheduled-enabled"
-            v-model="draft.scheduledTasks.enabled"
-            :aria-label="t('settings.scheduledTask.policyModal.enabled')"
-          />
-        </Field>
-
         <Field
           orientation="responsive"
           class="border-b px-4 py-3"

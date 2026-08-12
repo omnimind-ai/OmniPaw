@@ -1127,11 +1127,7 @@ export default {
       noNote: 'Not provided.',
       policyModal: {
         title: 'Scheduled task policy',
-        description:
-          'Manage local scheduled task execution, misfire policy, and startup misfire limits.',
-        enabled: 'Enable scheduled tasks',
-        enabledDescription:
-          'When disabled, tasks will not run automatically or on misfire; manual run and management still available.',
+        description: 'Manage local scheduled task misfire policy and startup misfire limits.',
         misfirePolicy: 'Misfire policy',
         misfirePolicyDescription:
           'How missed recurring tasks during desktop app shutdown are handled.',

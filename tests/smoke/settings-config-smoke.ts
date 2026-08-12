@@ -71,7 +71,7 @@ try {
       },
     },
     scheduledTasks: {
-      enabled: true,
+      enabled: false,
       tasks: [{ id: 'legacy-placeholder' }],
       misfireGraceMs: 120000,
     },
@@ -114,7 +114,7 @@ try {
   assert.equal('allowPty' in normalized.tools.terminal.assistant, false)
   assert.equal('allowPty' in normalized.tools.terminal.power, false)
   assert.equal(normalized.tools.terminal.power.fullAccess, true)
-  assert.equal(normalized.scheduledTasks.enabled, true)
+  assert.equal('enabled' in normalized.scheduledTasks, false)
   assert.equal(normalized.scheduledTasks.misfirePolicy, 'run_once')
   assert.equal(normalized.scheduledTasks.misfireGraceMs, 120000)
   assert.equal(normalized.scheduledTasks.misfireStartupLimit, 3)

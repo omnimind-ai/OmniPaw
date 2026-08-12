@@ -170,7 +170,6 @@ export interface DesktopToolSettings {
 export type ScheduledTaskMisfirePolicy = 'run_once' | 'skip'
 
 export interface DesktopScheduledTaskSettings {
-  enabled: boolean
   misfirePolicy: ScheduledTaskMisfirePolicy
   misfireGraceMs: number
   misfireStartupLimit: number

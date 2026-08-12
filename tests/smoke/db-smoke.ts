@@ -388,7 +388,6 @@ try {
       getOrCreateCronSession: () => getOrCreateSmokeCronSession(sessions),
     },
     settings: () => ({
-      enabled: false,
       misfirePolicy: 'run_once',
       misfireGraceMs: 60_000,
       misfireStartupLimit: 2,
@@ -414,10 +413,21 @@ try {
   }).task
   assert.equal(autoSessionTask.targetSessionId, SYSTEM_SESSION_IDS.cron)
   assert.equal(autoSessionTask.sourceSessionId, SYSTEM_SESSION_IDS.cron)
-  assert.equal((await manager.executeDue(2010)).length, 0)
+  const initialAutomaticRuns = await manager.executeDue(2010)
+  assert.equal(initialAutomaticRuns.length, 1)
+  assert.equal(initialAutomaticRuns[0]?.taskId, cronTask.id)
+  assert.equal(initialAutomaticRuns[0]?.status, 'complete')
+  const automaticRuns = await manager.executeDue(Date.now())
+  assert.ok(automaticRuns.some((run) => run.taskId === recentPast.id && run.status === 'complete'))
   const manual = await manager.runNow({ taskId: cronTask.id })
   assert.equal(manual.run.reason, 'manual')
   assert.equal(manual.run.status, 'complete')
+  const timerTask = manager.create({
+    name: 'Timer driven',
+    note: 'runs from the armed scheduler timer',
+    targetSessionId: session.id,
+    runAt: Date.now() + 50,
+  }).task
 
   cronTasks.save({
     id: 'cron-task-stale',
@@ -428,7 +438,7 @@ try {
     schedule: { kind: 'cron', cronExpression: '* * * * *' },
     enabled: true,
     state: 'running',
-    nextRunAt: 2100,
+    nextRunAt: Date.now() + 60_000,
     runningAt: 2000,
     failureCount: 0,
     createdAt: 2000,
@@ -440,7 +450,9 @@ try {
     startedAt: 2000,
   })
   manager.start()
+  await new Promise((resolve) => setTimeout(resolve, 150))
   manager.stop()
+  assert.equal(cronRuns.list({ taskId: timerTask.id })[0]?.status, 'complete')
   assert.equal(cronTasks.get('cron-task-stale')?.runningAt, undefined)
   assert.equal(cronRuns.get(staleRun.id)?.status, 'interrupted')
 

@@ -181,7 +181,7 @@ function clearSearch() {
           >
             <template #meta>
               <p class="text-sm text-muted-foreground">
-                {{ scheduleSummary(task.schedule) }} · {{ taskSessionLabel(task) }} · {{ t('settings.scheduledTask.detailFields.nextRun') }}
+                {{ scheduleSummary(task.schedule) }} · {{ t('settings.scheduledTask.detailFields.nextRun') }}
                 {{ formatTime(task.nextRunAt) }}
               </p>
               <p

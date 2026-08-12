@@ -97,9 +97,7 @@ export class CronManager {
     this.cleanupStaleRunning()
     this.handleStartupMisfires()
     this.armTimer()
-    this.options.logger?.info('Cron manager started.', {
-      enabled: this.options.settings().enabled,
-    })
+    this.options.logger?.info('Cron manager started.')
   }
 
   stop(): void {
@@ -117,7 +115,6 @@ export class CronManager {
       return
     }
     this.options.logger?.info('Cron manager settings reloaded.', {
-      enabled: this.options.settings().enabled,
       misfirePolicy: this.options.settings().misfirePolicy,
       misfireStartupLimit: this.options.settings().misfireStartupLimit,
     })
@@ -286,7 +283,7 @@ export class CronManager {
   }
 
   async executeDue(now = Date.now()): Promise<CronRun[]> {
-    if (!this.options.settings().enabled || this.stopped) {
+    if (this.stopped) {
       return []
     }
     const due = this.options.tasks.findDue(now)
@@ -451,7 +448,7 @@ export class CronManager {
   }
 
   private handleStartupMisfires(): void {
-    if (this.startupMisfireHandled || !this.options.settings().enabled) {
+    if (this.startupMisfireHandled) {
       return
     }
     this.startupMisfireHandled = true
@@ -533,7 +530,7 @@ export class CronManager {
 
   private armTimer(): void {
     this.clearTimer()
-    if (this.stopped || !this.options.settings().enabled) {
+    if (this.stopped) {
       return
     }
     const now = Date.now()
