@@ -11,6 +11,16 @@ export interface WorkspaceFileChange {
   toolCallId: string
 }
 
+export function workspaceFileChangesForFinishedTurn(
+  record: ChatRecord,
+  streaming: boolean
+): WorkspaceFileChange[] {
+  if (record.content?.type === 'user' || streaming || !isFinishedTurnStatus(record.status)) {
+    return []
+  }
+  return extractWorkspaceFileChanges(record)
+}
+
 export function extractWorkspaceFileChanges(record: ChatRecord): WorkspaceFileChange[] {
   const parts = Array.isArray(record.content?.message) ? record.content.message : []
   const byPath = new Map<string, WorkspaceFileChange>()
@@ -23,6 +33,10 @@ export function extractWorkspaceFileChanges(record: ChatRecord): WorkspaceFileCh
     }
   }
   return [...byPath.values()]
+}
+
+function isFinishedTurnStatus(status: ChatRecord['status']): boolean {
+  return status === 'complete' || status === 'error' || status === 'aborted'
 }
 
 function isToolCallPart(part: MessagePart): boolean {

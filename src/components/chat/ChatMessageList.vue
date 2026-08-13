@@ -14,7 +14,7 @@ import type {
   MessagePart,
 } from '@/composables/useMessages'
 import { cn } from '@/lib/utils'
-import { extractWorkspaceFileChanges } from '@/utils/chat-file-changes'
+import { workspaceFileChangesForFinishedTurn } from '@/utils/chat-file-changes'
 import type { RefItem } from './chat-display'
 import {
   contentText,
@@ -234,9 +234,8 @@ function messageErrorStatusClass(record: ChatRecord) {
   return cn(messageStatusClass(record), 'text-destructive')
 }
 
-function fileChangesFor(record: ChatRecord) {
-  if (props.isUserMessage(record)) return []
-  return extractWorkspaceFileChanges(record)
+function fileChangesFor(record: ChatRecord, index: number) {
+  return workspaceFileChangesForFinishedTurn(record, props.isMessageStreaming(record, index))
 }
 </script>
 
@@ -361,9 +360,9 @@ function fileChangesFor(record: ChatRecord) {
           </Marker>
 
           <MessageFilesChangedCard
-            v-if="!isUserMessage(record) && sessionId && fileChangesFor(record).length"
+            v-if="sessionId && fileChangesFor(record, recordIndex).length"
             :session-id="sessionId"
-            :changes="fileChangesFor(record)"
+            :changes="fileChangesFor(record, recordIndex)"
           />
         </template>
 
