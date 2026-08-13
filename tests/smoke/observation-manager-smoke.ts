@@ -297,6 +297,20 @@ try {
   assert.equal(reactions[0]?.visionSessionId, visionSessionId)
   assert.equal(reactions[0]?.decision, 'notify')
 
+  chatService.reset(
+    '分析里可能带有 {示例占位符}。随后返回：\n```json\n{"text":"该喝口水，让眼睛歇一小会儿吧。","mode":"ambient","reason":"轻量提醒"}\n```'
+  )
+  await manager.trigger({ visionSessionId, forceReaction: true })
+  assert.equal(reactions.length, 2)
+  assert.equal(reactions[1]?.text, '该喝口水，让眼睛歇一小会儿吧。')
+
+  chatService.reset(
+    `分析内容包含额外文字， {'text':'只展示这一段文字','mode':'ambient','reason':'轻量提醒'}`
+  )
+  await manager.trigger({ visionSessionId, forceReaction: true })
+  assert.equal(reactions.length, 3)
+  assert.equal(reactions[2]?.text, '只展示这一段文字')
+
   await assert.rejects(
     () => manager.trigger({ visionSessionId }),
     (error) =>
@@ -325,10 +339,10 @@ try {
   await manager.start({ visionSessionId })
   await manager.trigger({ visionSessionId })
   await waitFor(() => messages.listBySession(visionSessionId).length >= 8)
-  assert.equal(reactions.length, 2)
+  assert.equal(reactions.length, 4)
   await manager.trigger({ visionSessionId })
   await waitFor(() => messages.listBySession(visionSessionId).length >= 12)
-  assert.equal(reactions.length, 2)
+  assert.equal(reactions.length, 4)
   const cooldownRun = (await manager.status(visionSessionId)).activeRuns[0]
   assert.equal(cooldownRun?.lastDecision?.notificationSuppressed, true)
   assert.equal(cooldownRun?.lastDecision?.suppressionReason, 'cooldown')
@@ -350,7 +364,7 @@ try {
   const thirdReactionPrompt = chatService.calls[5]?.transientCurrentMessageParts?.[0]
   assert.equal(thirdReactionPrompt?.type, 'plain')
   assert.match((thirdReactionPrompt as { text?: string }).text ?? '', /本次倾向：已启用/)
-  assert.equal(reactions.length, 2)
+  assert.equal(reactions.length, 4)
   await manager.stop({ visionSessionId })
 
   settings = {
@@ -365,10 +379,10 @@ try {
   const forcedReactionPrompt = chatService.calls[1]?.transientCurrentMessageParts?.[0]
   assert.equal(forcedReactionPrompt?.type, 'plain')
   assert.match((forcedReactionPrompt as { text?: string }).text ?? '', /本次必须输出一条非空/)
-  assert.equal(reactions.length, 3)
-  assert.equal(reactions[2]?.text, '主动视觉回应测试完成，我会继续陪着你。')
+  assert.equal(reactions.length, 5)
+  assert.equal(reactions[4]?.text, '主动视觉回应测试完成，我会继续陪着你。')
   await manager.trigger({ visionSessionId, forceReaction: true })
-  assert.equal(reactions.length, 4)
+  assert.equal(reactions.length, 6)
   const forcedRun = (await manager.status(visionSessionId)).activeRuns[0]
   assert.equal(forcedRun?.lastDecision?.notificationSuppressed, false)
   await manager.stop({ visionSessionId })

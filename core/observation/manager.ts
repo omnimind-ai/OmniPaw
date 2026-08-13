@@ -1,21 +1,14 @@
 import type { AttachmentService } from '@core/chat/attachment-service'
 import { type ChatService, ChatSessionKindMismatchError } from '@core/chat/chat-service'
-import type { ChatRunEventTarget, ChatRunTerminalEvent } from '@core/chat/run-manager'
-import { VISION_SESSION_TITLE } from '@core/chat/session-defaults'
+import type { ChatRunEventTarget } from '@core/chat/run-manager'
 import type { Logger } from '@core/logging'
-import { OBSERVATION_PROMPTS } from '@core/prompts'
-import type { ProviderManager, ProviderModelRecord, ProviderRecord } from '@core/provider/manager'
-import type { ChatMessagePart, TransientChatInstruction } from '@shared/types/chat'
+import type { ProviderManager } from '@core/provider/manager'
 import type {
   ObservationCaptureMetadata,
   ObservationChangedEvent,
-  ObservationDecision,
   ObservationErrorCode,
   ObservationErrorInfo,
-  ObservationModelChain,
   ObservationPermissionStatus,
-  ObservationReactionCandidate,
-  ObservationReactionDecision,
   ObservationReactionEvent,
   ObservationRun,
   ObservationRuntimeState,
@@ -27,9 +20,23 @@ import type {
   StopObservationRequest,
   TriggerObservationRequest,
 } from '@shared/types/observation'
-import type { ProviderModelRef } from '@shared/types/provider'
 import type { DesktopObservationSettings } from '@shared/types/settings'
+import {
+  createObservationError,
+  isAbortError,
+  normalizeObservationError,
+  ObservationRuntimeError,
+  toObservationErrorInfo,
+} from './errors'
+import { ObservationModelChainResolver } from './model-chain'
+import {
+  createObservationReactionPromptContext,
+  nextNoVisibleReactionCount,
+} from './reaction-policy'
+import { type ObservationTurnResult, ObservationTurnRunner } from './turn-runner'
 import type { DesktopCaptureAdapter } from './types'
+
+export { ObservationRuntimeError } from './errors'
 
 export interface ObservationManagerOptions {
   capture: DesktopCaptureAdapter
@@ -55,46 +62,12 @@ interface ActiveRunState {
   consecutiveNoVisibleReactions: number
 }
 
-interface ResolvedModel {
-  provider: ProviderRecord
-  model: ProviderModelRecord
-}
-
-interface ResolvedChain {
-  chain: ObservationModelChain
-  vision: ResolvedModel
-  reaction?: ResolvedModel
-}
-
-interface ObservationTickResult {
-  frame: {
-    metadata: ObservationCaptureMetadata
-    dataUrl: string
-  }
-  terminal: ChatRunTerminalEvent
-  summary?: string
-  candidate: ObservationReactionCandidate
-  decision: ObservationReactionDecision
-}
-
-interface ReactionPromptContext {
-  consecutiveNoVisibleReactions: number
-  nudgeActive: boolean
-  nudgeProbability: number
-  nudgeThreshold: number
-  forceReaction: boolean
-}
-
-const visionTitle = VISION_SESSION_TITLE
-const captureMarkerText =
-  '[Vision capture: screenshot was used only for the current run and was not retained.]'
-const forcedReactionFallbackText = '主动视觉回应测试完成，我会继续陪着你。'
-
 export class ObservationManager {
   private readonly capture: DesktopCaptureAdapter
-  private readonly providers: ProviderManager
   private readonly logger?: Logger
   private readonly random: () => number
+  private readonly modelChain: ObservationModelChainResolver
+  private readonly turnRunner: ObservationTurnRunner
   private active: ActiveRunState | undefined
   private lastRun: ObservationRun | undefined
   private lastVisionSessionId: string | undefined
@@ -103,9 +76,14 @@ export class ObservationManager {
 
   constructor(private readonly options: ObservationManagerOptions) {
     this.capture = options.capture
-    this.providers = options.providers
     this.logger = options.logger
     this.random = options.random ?? Math.random
+    this.modelChain = new ObservationModelChainResolver(options.providers, options.settings)
+    this.turnRunner = new ObservationTurnRunner({
+      chatService: () => options.chatService?.(),
+      eventTarget: () => options.eventTarget?.(),
+      settings: options.settings,
+    })
   }
 
   async permissionStatus(): Promise<ObservationPermissionStatus> {
@@ -134,7 +112,7 @@ export class ObservationManager {
       )
     }
 
-    await this.assertModelPolicyBeforeCapture()
+    await this.modelChain.assertPolicyBeforeCapture()
     const session = await this.getOrCreateVisionSession(request.visionSessionId)
     if (this.active) {
       this.stopRun(this.active.run.id, 'user', false)
@@ -167,7 +145,7 @@ export class ObservationManager {
       failureCount: 0,
     }
 
-    const resolved = await this.resolveModelChain(run)
+    const resolved = await this.modelChain.resolve(run)
     run.visionModelRef = resolved.chain.visionModelRef
     run.reactionModelRef = resolved.chain.reactionModelRef
     run.modelChainMode = resolved.chain.mode
@@ -391,11 +369,14 @@ export class ObservationManager {
       run.failureCount = 0
       run.error = undefined
       await this.dispatchDecision(run, result)
-      this.updateNoVisibleReactionStreak(state, result.decision)
+      state.consecutiveNoVisibleReactions = nextNoVisibleReactionCount(
+        state.consecutiveNoVisibleReactions,
+        result.decision
+      )
       await this.emitChanged(source === 'timer' ? 'tick' : 'updated', run)
     } catch (error) {
       if (isAbortError(error)) {
-        run.error = this.toErrorInfo('aborted', '观察已停止。', false)
+        run.error = toObservationErrorInfo('aborted', '观察已停止。', false)
       } else {
         run.failureCount += 1
         run.error = normalizeObservationError(error)
@@ -436,270 +417,30 @@ export class ObservationManager {
     state: ActiveRunState,
     signal: AbortSignal,
     options: { forceReaction?: boolean } = {}
-  ): Promise<ObservationTickResult> {
-    await this.assertModelPolicyBeforeCapture()
-    const resolved = await this.resolveModelChain(state.run)
+  ): Promise<ObservationTurnResult> {
+    await this.modelChain.assertPolicyBeforeCapture(state.run)
+    const resolved = await this.modelChain.resolve(state.run)
     const frame = await this.captureFrame(state)
-    const reactionContext = this.reactionPromptContext(state, options)
+    const reactionContext = createObservationReactionPromptContext({
+      settings: this.options.settings(),
+      consecutiveNoVisibleReactions: state.consecutiveNoVisibleReactions,
+      forceReaction: options.forceReaction,
+      random: this.random,
+    })
     try {
-      const result =
-        resolved.chain.mode === 'split'
-          ? await this.performSplitObservation(state.run, resolved, frame, signal, reactionContext)
-          : await this.performSingleObservation(state.run, resolved, frame, signal, reactionContext)
-      return result
+      return await this.turnRunner.execute({
+        run: state.run,
+        resolved,
+        frame,
+        signal,
+        reactionContext,
+      })
     } finally {
       if (state.run.screenshotRetention === 'ephemeral') {
         await this.cleanupFrame(frame.captureId)
       }
     }
   }
-
-  private async performSingleObservation(
-    run: ObservationRun,
-    resolved: ResolvedChain,
-    frame: Awaited<ReturnType<DesktopCaptureAdapter['capture']>>,
-    signal: AbortSignal,
-    reactionContext: ReactionPromptContext
-  ): Promise<ObservationTickResult> {
-    const transientCurrentMessageParts: ChatMessagePart[] = [
-      {
-        type: 'plain',
-        text: OBSERVATION_PROMPTS.singleModelReactionUser({
-          sessionKind: 'vision',
-          sessionTitle: visionTitle,
-          reactionContext,
-        }),
-      },
-    ]
-    const parts = this.captureParts(frame, run.screenshotRetention)
-    const terminal = await this.sendVisionTurn({
-      run,
-      frame,
-      providerId: resolved.vision.provider.id,
-      modelId: resolved.vision.model.id,
-      parts,
-      transientSystemInstruction: OBSERVATION_PROMPTS.singleModelReactionSystem,
-      transientCurrentMessageParts,
-      signal,
-      metadata: {
-        source: 'observation',
-        observationRunId: run.id,
-        captureId: frame.captureId,
-        phase: 'single_multimodal',
-        screenshotRetention: run.screenshotRetention,
-      },
-    })
-    const text = terminal.type === 'final' ? textFromParts(terminal.message.parts) : ''
-    const candidate = parseCandidate(text)
-    const decision = this.gateDecision(run, candidate, frame, terminal, {
-      forceReaction: reactionContext.forceReaction,
-    })
-    return {
-      frame: {
-        metadata: captureMetadata(frame),
-        dataUrl: frame.dataUrl,
-      },
-      terminal,
-      candidate,
-      decision,
-    }
-  }
-
-  private async performSplitObservation(
-    run: ObservationRun,
-    resolved: ResolvedChain,
-    frame: Awaited<ReturnType<DesktopCaptureAdapter['capture']>>,
-    signal: AbortSignal,
-    reactionContext: ReactionPromptContext
-  ): Promise<ObservationTickResult> {
-    const visionTerminal = await this.sendVisionTurn({
-      run,
-      frame,
-      providerId: resolved.vision.provider.id,
-      modelId: resolved.vision.model.id,
-      parts: this.captureParts(frame, run.screenshotRetention),
-      transientSystemInstruction: OBSERVATION_PROMPTS.visionSummarySystem,
-      transientCurrentMessageParts: [
-        { type: 'plain', text: OBSERVATION_PROMPTS.visionSummaryUser },
-      ],
-      signal,
-      metadata: {
-        source: 'observation',
-        observationRunId: run.id,
-        captureId: frame.captureId,
-        phase: 'vision_summary',
-        screenshotRetention: run.screenshotRetention,
-      },
-    })
-    const summary =
-      visionTerminal.type === 'final' ? textFromParts(visionTerminal.message.parts) : ''
-    const reaction = resolved.reaction ?? resolved.vision
-    const reactionTerminal = await this.sendVisionTurn({
-      run,
-      providerId: reaction.provider.id,
-      modelId: reaction.model.id,
-      parts: [{ type: 'plain', text: '[主动视觉 reaction 决策]' }],
-      transientSystemInstruction: OBSERVATION_PROMPTS.splitReactionSystem,
-      transientCurrentMessageParts: [
-        {
-          type: 'plain',
-          text: OBSERVATION_PROMPTS.splitReactionUser({
-            sessionKind: 'vision',
-            sessionTitle: visionTitle,
-            summary,
-            reactionContext,
-          }),
-        },
-      ],
-      signal,
-      metadata: {
-        source: 'observation',
-        observationRunId: run.id,
-        captureId: frame.captureId,
-        phase: 'reaction_decision',
-        summaryMessageId: visionTerminal.type === 'final' ? visionTerminal.message.id : undefined,
-      },
-    })
-    const text =
-      reactionTerminal.type === 'final' ? textFromParts(reactionTerminal.message.parts) : ''
-    const candidate = {
-      ...parseCandidate(text),
-      summary,
-    }
-    const decision = this.gateDecision(run, candidate, frame, reactionTerminal, {
-      forceReaction: reactionContext.forceReaction,
-    })
-    return {
-      frame: {
-        metadata: captureMetadata(frame),
-        dataUrl: frame.dataUrl,
-      },
-      terminal: reactionTerminal,
-      summary,
-      candidate,
-      decision,
-    }
-  }
-
-  private async sendVisionTurn(input: {
-    run: ObservationRun
-    frame?: Awaited<ReturnType<DesktopCaptureAdapter['capture']>>
-    providerId: string
-    modelId: string
-    parts: ChatMessagePart[]
-    transientSystemInstruction: string
-    transientCurrentMessageParts: ChatMessagePart[]
-    signal: AbortSignal
-    metadata: Record<string, unknown>
-  }): Promise<ChatRunTerminalEvent> {
-    const chat = this.requireChatService()
-    const target = this.options.eventTarget?.()
-    if (!target) {
-      throw this.observationError('provider_failed', '主动视觉事件广播入口不可用。', true)
-    }
-    const response = await chat.sendInternalMessage(
-      {
-        sessionId: input.run.visionSessionId,
-        parts: input.parts,
-        providerId: input.providerId,
-        modelId: input.modelId,
-        mode: 'fast_chat',
-        toolProfile: 'minimal',
-        maxSteps: 1,
-        metadata: input.metadata,
-        transientSystemInstructions: this.transientSystemInstructions(
-          chat,
-          input.transientSystemInstruction
-        ),
-        transientCurrentMessageParts: input.transientCurrentMessageParts,
-        transientImageInputs:
-          input.frame && input.run.screenshotRetention === 'ephemeral'
-            ? [
-                {
-                  captureId: input.frame.captureId,
-                  dataUrl: input.frame.dataUrl,
-                  mimeType: input.frame.mimeType,
-                  width: input.frame.width,
-                  height: input.frame.height,
-                  createdAt: input.frame.createdAt,
-                },
-              ]
-            : undefined,
-      },
-      target,
-      input.signal
-    )
-    const terminal = await response.terminalEvent
-    if (terminal.type === 'error') {
-      throw this.observationError(
-        terminal.error.code === 'aborted' ? 'aborted' : 'provider_failed',
-        terminal.error.message,
-        terminal.error.retryable
-      )
-    }
-    return terminal
-  }
-
-  private captureParts(
-    frame: Awaited<ReturnType<DesktopCaptureAdapter['capture']>>,
-    retention: ObservationScreenshotRetention
-  ): ChatMessagePart[] {
-    const parts: ChatMessagePart[] = [
-      {
-        type: 'vision_capture',
-        captureId: frame.captureId,
-        scope: frame.scope,
-        sourceId: frame.sourceId,
-        sourceType: frame.sourceType,
-        mimeType: frame.mimeType,
-        width: frame.width,
-        height: frame.height,
-        retention,
-        createdAt: frame.createdAt,
-        marker: retention === 'ephemeral' ? captureMarkerText : undefined,
-      },
-    ]
-    if (retention === 'persist') {
-      const attachmentId = frame.attachmentId
-      if (attachmentId) {
-        parts.push({
-          type: 'image',
-          attachmentId,
-          attachment_id: attachmentId,
-          filename: `vision-capture-${frame.captureId}.png`,
-        })
-      }
-    }
-    return parts
-  }
-
-  private transientSystemInstructions(
-    chat: ChatService,
-    observationInstruction: string
-  ): TransientChatInstruction[] {
-    const instructions: TransientChatInstruction[] = []
-    const role =
-      typeof chat.buildDefaultSystemContext === 'function'
-        ? chat.buildDefaultSystemContext()?.role
-        : undefined
-    if (role?.text?.trim()) {
-      instructions.push({
-        id: 'observation:role',
-        kind: 'role',
-        source: role.refId ?? 'role.active',
-        refId: role.refId,
-        text: role.text,
-      })
-    }
-    instructions.push({
-      id: 'observation:runtime',
-      kind: 'runtime',
-      source: 'observation.runtime',
-      text: observationInstruction,
-    })
-    return instructions
-  }
-
   private async captureFrame(state: ActiveRunState) {
     let frame: Awaited<ReturnType<DesktopCaptureAdapter['capture']>>
     try {
@@ -750,51 +491,9 @@ export class ObservationManager {
     return uploaded.attachment.id
   }
 
-  private gateDecision(
-    run: ObservationRun,
-    candidate: ObservationReactionCandidate,
-    frame: ObservationCaptureMetadata,
-    terminal: ChatRunTerminalEvent,
-    options: { forceReaction?: boolean } = {}
-  ): ObservationReactionDecision {
-    const now = Date.now()
-    let text = sanitizeReactionText(candidate.text)
-    let decision = normalizeDecision(candidate.decision)
-    let suppressionReason: ObservationReactionDecision['suppressionReason']
-    if (options.forceReaction && (decision === 'silent' || !text)) {
-      decision = 'notify'
-      text ||= forcedReactionFallbackText
-    }
-    if (!text && decision !== 'silent') {
-      decision = 'silent'
-      suppressionReason = 'empty_text'
-    }
-    const cooldownMs = this.options.settings().notificationCooldownMs
-    if (
-      !options.forceReaction &&
-      decision !== 'silent' &&
-      run.notification.lastNotificationAt &&
-      now - run.notification.lastNotificationAt < cooldownMs
-    ) {
-      suppressionReason = 'cooldown'
-    }
-    return {
-      decision: suppressionReason ? 'silent' : decision,
-      text: suppressionReason || decision === 'silent' ? undefined : text,
-      reason: truncate(candidate.reason, 180),
-      summary: truncate(candidate.summary, 2_000),
-      captureId: frame.captureId,
-      runId: terminal.runId,
-      messageId: terminal.assistantMessageId,
-      notificationSuppressed: Boolean(suppressionReason),
-      suppressionReason,
-      createdAt: now,
-    }
-  }
-
   private async dispatchDecision(
     run: ObservationRun,
-    result: ObservationTickResult
+    result: ObservationTurnResult
   ): Promise<void> {
     const decision = result.decision
     if (decision.decision === 'silent' || !decision.text || decision.notificationSuppressed) {
@@ -817,181 +516,6 @@ export class ObservationManager {
       createdAt: decision.createdAt,
     }
     this.options.onReaction?.(event)
-  }
-
-  private reactionPromptContext(
-    state: ActiveRunState,
-    options: { forceReaction?: boolean } = {}
-  ): ReactionPromptContext {
-    const settings = this.options.settings()
-    const threshold = Math.max(1, Math.floor(settings.reactionNudgeAfterSilentCaptures ?? 3))
-    const baseProbability = clampProbability(settings.reactionNudgeProbability ?? 0.35)
-    const silentCount = state.consecutiveNoVisibleReactions
-    const nudgeStep = silentCount - threshold + 1
-    const forced = options.forceReaction === true
-    const nudgeProbability = forced
-      ? 1
-      : nudgeStep > 0
-        ? Math.min(1, baseProbability * nudgeStep)
-        : 0
-
-    return {
-      consecutiveNoVisibleReactions: silentCount,
-      nudgeActive: forced || (nudgeProbability > 0 && this.random() < nudgeProbability),
-      nudgeProbability,
-      nudgeThreshold: threshold,
-      forceReaction: forced,
-    }
-  }
-
-  private updateNoVisibleReactionStreak(
-    state: ActiveRunState,
-    decision: ObservationReactionDecision
-  ): void {
-    const visible =
-      decision.decision !== 'silent' && !decision.notificationSuppressed && Boolean(decision.text)
-    state.consecutiveNoVisibleReactions = visible ? 0 : state.consecutiveNoVisibleReactions + 1
-  }
-
-  private async resolveModelChain(run: ObservationRun): Promise<ResolvedChain> {
-    const registry = this.providers.loadRegistry().registry
-    const settings = registry.settings
-    const visionRef = run.visionModelRef ?? settings.observationVisionModelRef
-    const reactionRef = run.reactionModelRef ?? settings.observationReactionModelRef
-
-    const vision = visionRef ? await this.resolveEnabledModel(visionRef) : undefined
-    const reaction = reactionRef ? await this.resolveEnabledModel(reactionRef) : undefined
-
-    if (vision && !modelSupports(vision.model, 'image')) {
-      throw this.observationError('model_capability', '视觉观察模型需要支持图片输入。', true)
-    }
-    if (reaction && !modelSupports(reaction.model, 'text')) {
-      throw this.observationError(
-        'model_capability',
-        'Observation reaction 模型需要支持文本输入。',
-        true
-      )
-    }
-    if (vision && reaction) {
-      return this.toChain(vision, reaction, 'split')
-    }
-    if (vision) {
-      return this.toChain(vision, undefined, 'single_multimodal')
-    }
-    if (reaction?.model && modelSupports(reaction.model, 'image')) {
-      return this.toChain(reaction, undefined, 'single_multimodal')
-    }
-
-    const fallbackVision = await this.findVisionFallback()
-    if (!fallbackVision) {
-      throw this.observationError('no_vision_model', '需要配置支持图片输入的视觉模型。', true)
-    }
-    return reaction
-      ? this.toChain(fallbackVision, reaction, 'split')
-      : this.toChain(fallbackVision, undefined, 'single_multimodal')
-  }
-
-  private async findVisionFallback(): Promise<ResolvedModel | undefined> {
-    const registry = this.providers.loadRegistry().registry
-    const candidates: ProviderModelRef[] = []
-    if (registry.settings.defaultProviderId && registry.settings.defaultModelId) {
-      candidates.push({
-        providerId: registry.settings.defaultProviderId,
-        modelId: registry.settings.defaultModelId,
-      })
-    }
-    candidates.push(...registry.settings.fallbackModelRefs)
-    for (const source of registry.sources) {
-      for (const model of registry.models.filter((item) => item.providerId === source.id)) {
-        candidates.push({ providerId: source.id, modelId: model.id })
-      }
-    }
-    const seen = new Set<string>()
-    for (const ref of candidates) {
-      const key = `${ref.providerId}:${ref.modelId}`
-      if (seen.has(key)) continue
-      seen.add(key)
-      const resolved = await this.resolveEnabledModel(ref).catch(() => undefined)
-      if (resolved && modelSupports(resolved.model, 'image')) {
-        return resolved
-      }
-    }
-    return undefined
-  }
-
-  private async resolveEnabledModel(ref: ProviderModelRef): Promise<ResolvedModel> {
-    const provider = await this.providers.get(ref.providerId)
-    const model = provider?.models.find((item) => item.id === ref.modelId && item.enabled !== false)
-    if (!provider || provider.enabled === false || !model) {
-      throw this.observationError(
-        'model_capability',
-        `观察模型不可用：${ref.providerId}/${ref.modelId}`,
-        true
-      )
-    }
-    return {
-      provider: provider as ProviderRecord,
-      model: model as ProviderModelRecord,
-    }
-  }
-
-  private toChain(
-    vision: ResolvedModel,
-    reaction: ResolvedModel | undefined,
-    mode: ObservationModelChain['mode']
-  ): ResolvedChain {
-    const chain: ObservationModelChain = {
-      visionModelRef: { providerId: vision.provider.id, modelId: vision.model.id },
-      reactionModelRef: reaction
-        ? { providerId: reaction.provider.id, modelId: reaction.model.id }
-        : undefined,
-      mode,
-    }
-    return { chain, vision, reaction }
-  }
-
-  private async assertModelPolicyBeforeCapture(): Promise<void> {
-    const settings = this.options.settings()
-    const resolved = await this.resolveModelChain({
-      id: 'policy-check',
-      visionSessionId: 'policy-check',
-      status: 'active',
-      startedAt: Date.now(),
-      scope: settings.defaultScope,
-      screenshotRetention: settings.screenshotRetention,
-      rule: {
-        evaluationIntervalMs: settings.evaluationIntervalMs,
-        captureProbability: settings.captureProbability,
-        minCaptureIntervalMs: settings.minCaptureIntervalMs,
-        dailyCaptureLimit: settings.dailyCaptureLimit,
-        consecutiveFailureLimit: settings.consecutiveFailureLimit,
-        notificationCooldownMs: settings.notificationCooldownMs,
-        capturesToday: this.captureCountForToday(),
-      },
-      notification: { cooldownMs: settings.notificationCooldownMs },
-      failureCount: 0,
-    })
-    const models = [resolved.vision, resolved.reaction].filter(Boolean) as ResolvedModel[]
-    const external = models.some((item) => isExternalProvider(item.provider))
-    if (!settings.allowRemoteProviders && external) {
-      throw this.observationError('privacy_policy', '当前主动视觉策略禁止使用外部 Provider。', true)
-    }
-    const checkedProviderIds = new Set<string>()
-    for (const model of models) {
-      if (checkedProviderIds.has(model.provider.id)) continue
-      checkedProviderIds.add(model.provider.id)
-      try {
-        await this.providers.createProviderClient(model.provider.id)
-      } catch (error) {
-        throw this.observationError(
-          'provider_failed',
-          error instanceof Error
-            ? error.message
-            : `观察模型 Provider 当前不可用：${model.provider.name}`,
-          true
-        )
-      }
-    }
   }
 
   private async getOrCreateVisionSession(preferredId?: string) {
@@ -1157,25 +681,7 @@ export class ObservationManager {
     message: string,
     recoverable = false
   ): ObservationRuntimeError {
-    return new ObservationRuntimeError(this.toErrorInfo(code, message, recoverable))
-  }
-
-  private toErrorInfo(
-    code: ObservationErrorCode,
-    message: string,
-    recoverable = false
-  ): ObservationErrorInfo {
-    return { code, message, recoverable }
-  }
-}
-
-export class ObservationRuntimeError extends Error {
-  readonly details: ObservationErrorInfo
-
-  constructor(details: ObservationErrorInfo) {
-    super(details.message)
-    this.name = 'ObservationRuntimeError'
-    this.details = details
+    return createObservationError(code, message, recoverable)
   }
 }
 
@@ -1193,88 +699,11 @@ function captureMetadata(frame: ObservationCaptureMetadata): ObservationCaptureM
   }
 }
 
-function normalizeObservationError(error: unknown): ObservationErrorInfo {
-  if (error instanceof ObservationRuntimeError) {
-    return error.details
-  }
-  if (isAbortError(error)) {
-    return { code: 'aborted', message: '观察已停止。', recoverable: false }
-  }
-  return {
-    code: 'unknown',
-    message: error instanceof Error ? error.message : '主动视觉观察失败。',
-    recoverable: true,
-  }
-}
-
 function shouldProbeScreenPermission(permission: ObservationPermissionStatus): boolean {
   return (
     permission.platform === 'darwin' &&
     (permission.screen === 'not-determined' || permission.screen === 'denied')
   )
-}
-
-function modelSupports(model: ProviderModelRecord, input: 'text' | 'image'): boolean {
-  const inputs = model.input?.length ? model.input : ['text']
-  return inputs.includes(input)
-}
-
-function isExternalProvider(provider: ProviderRecord): boolean {
-  const baseUrl = provider.baseUrl || ''
-  if (!baseUrl) return false
-  try {
-    const host = new URL(baseUrl).hostname.toLowerCase()
-    return host !== 'localhost' && host !== '127.0.0.1' && host !== '::1'
-  } catch {
-    return true
-  }
-}
-
-function parseCandidate(raw: string): ObservationReactionCandidate {
-  const json = extractJson(raw)
-  if (json) {
-    try {
-      const parsed = JSON.parse(json) as Record<string, unknown>
-      const mode = parsed.mode ?? parsed.decision
-      return {
-        text: sanitizeReactionText(parsed.text),
-        decision: normalizeDecision(mode),
-        reason: typeof parsed.reason === 'string' ? parsed.reason : undefined,
-        summary: typeof parsed.summary === 'string' ? parsed.summary : undefined,
-      }
-    } catch {
-      // Fall through to plain text.
-    }
-  }
-  return { text: sanitizeReactionText(raw), decision: 'notify' }
-}
-
-function extractJson(value: string): string | undefined {
-  const trimmed = value.trim()
-  if (trimmed.startsWith('{') && trimmed.endsWith('}')) {
-    return trimmed
-  }
-  const start = trimmed.indexOf('{')
-  const end = trimmed.lastIndexOf('}')
-  return start >= 0 && end > start ? trimmed.slice(start, end + 1) : undefined
-}
-
-function sanitizeReactionText(value: unknown): string {
-  if (typeof value !== 'string') return ''
-  return (
-    truncate(
-      value
-        .replace(/\p{Cc}/gu, ' ')
-        .replace(/\s+/g, ' ')
-        .trim(),
-      240
-    ) ?? ''
-  )
-}
-
-function truncate(value: string | undefined, maxLength: number): string | undefined {
-  if (!value) return undefined
-  return value.length > maxLength ? value.slice(0, maxLength).trimEnd() : value
 }
 
 function normalizeScope(
@@ -1293,37 +722,8 @@ function normalizeScreenshotRetention(
   return value === 'ephemeral' || value === 'persist' ? value : fallback
 }
 
-function normalizeDecision(value: unknown): ObservationDecision {
-  if (value === 'ask') return 'ask'
-  if (value === 'notify' || value === 'ambient' || value === 'chat') return 'notify'
-  return 'silent'
-}
-
-function clampProbability(value: number): number {
-  if (!Number.isFinite(value)) return 0
-  return Math.min(1, Math.max(0, value))
-}
-
 function cloneRun(run: ObservationRun): ObservationRun {
   return structuredClone(run)
-}
-
-function isAbortError(error: unknown): boolean {
-  return (
-    (error instanceof DOMException && error.name === 'AbortError') ||
-    (error instanceof Error && error.name === 'AbortError')
-  )
-}
-
-function textFromParts(parts: ChatMessagePart[]): string {
-  return parts
-    .map((part) => {
-      const record = part as Record<string, unknown>
-      return part.type === 'plain' && typeof record.text === 'string' ? record.text : ''
-    })
-    .filter(Boolean)
-    .join('\n')
-    .trim()
 }
 
 function hasLegacyTargetSessionPayload(request: Record<string, unknown>): boolean {
