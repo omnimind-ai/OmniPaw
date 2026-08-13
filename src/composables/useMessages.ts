@@ -312,9 +312,17 @@ export function useMessages(options: UseMessagesOptions) {
     messagesBySession[sessionId].push(userRecord, botRecord)
 
     const sessionMessages = messagesBySession[sessionId]
+    const createdUserRecord = sessionMessages[sessionMessages.length - 2]
+    const createdBotRecord = sessionMessages[sessionMessages.length - 1]
+
+    // History loading hydrates attachment previews before rendering. Apply the
+    // same behavior to the optimistic user message so newly sent media does not
+    // remain a filename-only attachment until the session is loaded again.
+    void resolveRecordMedia([createdUserRecord])
+
     return {
-      userRecord: sessionMessages[sessionMessages.length - 2],
-      botRecord: sessionMessages[sessionMessages.length - 1],
+      userRecord: createdUserRecord,
+      botRecord: createdBotRecord,
     }
   }
 
