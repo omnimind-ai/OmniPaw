@@ -49,20 +49,50 @@ export function webSearchRefPartFromMessageParts(
   if (!citedIds.length) return undefined
 
   const results = webSearchResultsFromParts(parts)
+  const resolvedIds = new Set<string>()
   const refs = citedIds.flatMap((id) => {
-    const result = results.get(id)
-    return result ? [result] : []
+    const result = resolveCitedResult(id, results)
+    if (!result || resolvedIds.has(result.id)) return []
+    resolvedIds.add(result.id)
+    return [result]
   })
   return refs.length ? { type: 'ref', source: 'web_search', refs } : undefined
 }
 
+export function synchronizedWebSearchRefParts(
+  parts: readonly ChatMessagePart[]
+): ChatMessagePart[] {
+  const nextParts = parts.filter((part) => part.type !== 'ref' || part.source !== 'web_search')
+  const nextRefPart = webSearchRefPartFromMessageParts(nextParts)
+  return nextRefPart ? [...nextParts, nextRefPart] : nextParts
+}
+
 export function synchronizeWebSearchRefPart(parts: ChatMessagePart[]): void {
-  const nextRefPart = webSearchRefPartFromMessageParts(parts)
-  for (let index = parts.length - 1; index >= 0; index -= 1) {
-    const part = parts[index]
-    if (part?.type === 'ref' && part.source === 'web_search') parts.splice(index, 1)
-  }
-  if (nextRefPart) parts.push(nextRefPart)
+  parts.splice(0, parts.length, ...synchronizedWebSearchRefParts(parts))
+}
+
+function resolveCitedResult(
+  citedId: string,
+  results: ReadonlyMap<string, WebSearchResult>
+): WebSearchResult | undefined {
+  const exact = results.get(citedId)
+  if (exact) return exact
+
+  // Some models shorten opaque tool-call-derived prefixes while copying a citation.
+  // Recover by the result ordinal only when it identifies exactly one stored result.
+  const ordinal = referenceOrdinal(citedId)
+  if (ordinal === undefined) return undefined
+  const candidates = [...results.values()].filter(
+    (result) => referenceOrdinal(result.id) === ordinal
+  )
+  return candidates.length === 1 ? candidates[0] : undefined
+}
+
+function referenceOrdinal(id: string): number | undefined {
+  const match = id.match(/\.(\d+)$/)
+  if (!match) return undefined
+  const value = Number(match[1])
+  return Number.isSafeInteger(value) && value > 0 ? value : undefined
 }
 
 function citedReferenceIds(parts: readonly ChatMessagePart[]): string[] {

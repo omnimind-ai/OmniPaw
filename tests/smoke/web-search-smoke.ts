@@ -15,6 +15,7 @@ import type { WebSearchProvider } from '../../shared/types/web-search'
 
 async function runSmoke(): Promise<void> {
   await testTavilySearchAndCitations()
+  await testCompactCitationIds()
   await testAllProviderAdapters()
   await testProviderErrorContract()
   testEncryptedSettingsStore()
@@ -98,6 +99,52 @@ async function testTavilySearchAndCitations(): Promise<void> {
     webSearchRefPartFromMessageParts([{ type: 'plain', text: 'No citations.' }]),
     undefined
   )
+
+  const searchToolPart = parts[0]
+  assert.ok(searchToolPart)
+  const shortenedRefPart = webSearchRefPartFromMessageParts([
+    searchToolPart,
+    { type: 'plain', text: 'Documented.<ref>search_42.2</ref>' },
+  ])
+  assert.equal(shortenedRefPart?.refs[0]?.id, 'call_search_42.2')
+
+  const ambiguousRefPart = webSearchRefPartFromMessageParts([
+    searchToolPart,
+    {
+      type: 'tool_call',
+      tool_calls: [
+        {
+          id: 'call_other',
+          name: 'web_search',
+          status: 'complete',
+          result: JSON.stringify({
+            results: [{ id: 'call_other.2', title: 'Other', url: 'https://other.example' }],
+          }),
+        },
+      ],
+    },
+    { type: 'plain', text: 'Ambiguous.<ref>shortened.2</ref>' },
+  ])
+  assert.equal(ambiguousRefPart, undefined)
+}
+
+async function testCompactCitationIds(): Promise<void> {
+  const response = await searchWeb({
+    query: 'compact citation id',
+    toolCallId: 'call_a47eb0e7bb3b44c4bc89a52d0e1bea1f',
+    runtime: {
+      provider: 'tavily',
+      apiKey: 'test-key',
+      maxResults: 5,
+      searchDepth: 'basic',
+    },
+    fetchImpl: (async () =>
+      jsonResponse({
+        results: [{ title: 'Compact', url: 'https://compact.example', content: 'Result.' }],
+      })) as typeof fetch,
+  })
+
+  assert.equal(response.results[0]?.id, 'web_a52d0e1bea1f.1')
 }
 
 async function testAllProviderAdapters(): Promise<void> {

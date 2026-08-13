@@ -118,5 +118,6 @@ function safeHttpUrl(value: unknown): string | undefined {
 
 function normalizeReferencePrefix(toolCallId: string): string {
   const normalized = toolCallId.replace(/[^a-z0-9_-]/gi, '').slice(-24)
-  return normalized || 'web'
+  if (!normalized) return 'web'
+  return normalized.length <= 16 ? normalized : `web_${normalized.slice(-12)}`
 }

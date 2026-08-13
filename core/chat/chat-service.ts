@@ -3,6 +3,7 @@ import type { TerminalService } from '@core/agent/terminal'
 import type { ToolResolutionInput } from '@core/agent/tools/registry'
 import { ToolRegistry } from '@core/agent/tools/registry'
 import type { AgentTool } from '@core/agent/tools/types'
+import { synchronizedWebSearchRefParts } from '@core/agent/tools/web-search'
 import type { AgentWorkspaceService } from '@core/agent/workspace'
 import type { CronManager } from '@core/cron/cron-manager'
 import type { AttachmentRepo, ChatMessageRepo, ChatRunRepo, ChatSessionRepo } from '@core/db/repos'
@@ -391,6 +392,11 @@ export class ChatService {
     return this.options.messages
       .listBySession(sessionId, { limit, beforeCreatedAt: beforeMessage?.createdAt })
       .map((message) => this.sessionSummary.attachRunContextUsage(message))
+      .map((message) =>
+        message.role === 'assistant'
+          ? { ...message, parts: synchronizedWebSearchRefParts(message.parts) }
+          : message
+      )
   }
 
   listRuns(request: ListRunsRequest = {}) {

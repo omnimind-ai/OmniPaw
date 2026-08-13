@@ -302,6 +302,47 @@ try {
     /pagination cursor/
   )
 
+  const citationSession = await sessionModelService.createSession({
+    title: 'Citation compatibility smoke',
+    providerId: kimiProvider.id,
+    modelId: 'kimi',
+  })
+  messageRepo.save({
+    id: 'citation-compatibility-assistant',
+    sessionId: citationSession.id,
+    role: 'assistant',
+    status: 'complete',
+    parts: [
+      {
+        type: 'tool_call',
+        tool_calls: [
+          {
+            id: 'call_a47eb0e7bb3b44c4bc89a52d0e1bea1f',
+            name: 'web_search',
+            status: 'complete',
+            result: JSON.stringify({
+              results: [
+                {
+                  id: 'bb3b44c4bc89a52d0e1bea1f.1',
+                  title: 'Source',
+                  url: 'https://example.com/source',
+                },
+              ],
+            }),
+          },
+        ],
+      },
+      { type: 'plain', text: 'Summary.<ref>bb3b44c4bc89a52d0e1f.1</ref>' },
+    ],
+    createdAt: 20_000,
+    updatedAt: 20_000,
+  })
+  const hydratedCitationMessage = sessionModelService
+    .listMessages(citationSession.id)
+    .find((message) => message.id === 'citation-compatibility-assistant')
+  const hydratedCitationPart = hydratedCitationMessage?.parts.find((part) => part.type === 'ref')
+  assert.equal(hydratedCitationPart?.refs[0]?.id, 'bb3b44c4bc89a52d0e1bea1f.1')
+
   const continuationSession = await sessionModelService.createSession({
     providerId: kimiProvider.id,
     modelId: 'kimi',
