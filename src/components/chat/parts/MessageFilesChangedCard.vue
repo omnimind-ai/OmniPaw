@@ -23,14 +23,21 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { cn } from '@/lib/utils'
 import type { WorkspaceFileChange } from '@/utils/chat-file-changes'
 import { errorToText, useToast } from '@/utils/toast'
+import type { RefItem } from '../chat-display'
 import MarkdownMessagePart from './MarkdownMessagePart.vue'
 
 const VISIBLE_LIMIT = 6
 
-const props = defineProps<{
-  sessionId: string
-  changes: WorkspaceFileChange[]
-}>()
+const props = withDefaults(
+  defineProps<{
+    sessionId: string
+    changes: WorkspaceFileChange[]
+    refs?: RefItem[]
+  }>(),
+  {
+    refs: () => [],
+  }
+)
 
 const toast = useToast()
 const { t } = useI18n()
@@ -263,6 +270,7 @@ const previewIsMarkdown = computed(() => /\.(md|markdown|mdx)$/i.test(previewPat
           <MarkdownMessagePart
             v-else-if="previewIsMarkdown"
             :content="previewContent"
+            :refs="refs"
             compact
           />
           <pre

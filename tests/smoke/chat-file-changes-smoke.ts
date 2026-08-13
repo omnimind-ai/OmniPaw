@@ -52,6 +52,10 @@ for (const status of ['complete', 'error', 'aborted'] as const) {
 }
 
 const messageList = readFileSync('src/components/chat/ChatMessageList.vue', 'utf8')
+const fileChangesCard = readFileSync(
+  'src/components/chat/parts/MessageFilesChangedCard.vue',
+  'utf8'
+)
 const renderSegmentsPosition = messageList.indexOf(
   'v-for="(segment, segmentIndex) in renderSegments(record)"'
 )
@@ -62,5 +66,8 @@ assert.ok(
   'file summary must follow all message parts'
 )
 assert.match(messageList, /fileChangesFor\(record, recordIndex\)/)
+assert.match(messageList, /:refs="refsForRecord\(record\)"/)
+assert.match(fileChangesCard, /refs\?: RefItem\[\]/)
+assert.match(fileChangesCard, /<MarkdownMessagePart[\s\S]*?:refs="refs"[\s\S]*?compact/)
 
 process.stdout.write('Chat file changes smoke check passed\n')

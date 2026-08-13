@@ -363,6 +363,7 @@ function fileChangesFor(record: ChatRecord, index: number) {
             v-if="sessionId && fileChangesFor(record, recordIndex).length"
             :session-id="sessionId"
             :changes="fileChangesFor(record, recordIndex)"
+            :refs="refsForRecord(record)"
           />
         </template>
 
