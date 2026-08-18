@@ -87,6 +87,11 @@ const approvalPlan = computed(() => {
   if (!plan || typeof plan !== 'object') return undefined
   return plan
 })
+const terminalApprovalPlan = computed(() => {
+  const plan = approvalPlan.value
+  return plan?.kind === 'terminal' ? plan : undefined
+})
+const approvalCommand = computed(() => terminalApprovalPlan.value?.command.trim() || '')
 const detailRows = computed(() =>
   [
     [t('chat.toolCall.details.arguments'), props.toolCall.args ?? props.toolCall.arguments],
@@ -226,26 +231,47 @@ async function decideToolApproval(action: 'approve' | 'reject') {
 
       <div
         v-if="approvalPending"
-        class="flex flex-wrap items-center gap-1.5 pl-6"
+        class="flex min-w-0 flex-col items-stretch gap-2 pl-6"
       >
-        <Button
-          type="button"
-          size="xs"
-          :disabled="deciding"
-          @click="decideToolApproval('approve')"
+        <div
+          v-if="approvalCommand"
+          class="flex min-w-0 flex-col gap-1.5 rounded-lg border border-border/70 bg-muted/35 p-2.5"
         >
-          <PlayIcon data-icon="inline-start" />
-          {{ t('chat.toolCall.approval.approve') }}
-        </Button>
-        <Button
-          type="button"
-          variant="outline"
-          size="xs"
-          :disabled="deciding"
-          @click="decideToolApproval('reject')"
-        >
-          {{ t('chat.toolCall.approval.reject') }}
-        </Button>
+          <div class="flex min-w-0 flex-wrap items-center justify-between gap-x-3 gap-y-1">
+            <span class="text-[0.7rem] font-medium text-muted-foreground">
+              {{ t('chat.toolCall.approval.commandPreview') }}
+            </span>
+            <span
+              v-if="terminalApprovalPlan?.cwd"
+              class="min-w-0 truncate text-[0.65rem] text-muted-foreground/80"
+              :title="terminalApprovalPlan.cwd"
+            >
+              {{ t('chat.toolCall.approval.workingDirectory', { cwd: terminalApprovalPlan.cwd }) }}
+            </span>
+          </div>
+          <pre class="max-h-32 max-w-full overflow-auto whitespace-pre-wrap break-all rounded-md bg-background/85 px-3 py-2 font-mono text-xs leading-5 text-foreground shadow-inner">{{ approvalCommand }}</pre>
+        </div>
+
+        <div class="flex flex-wrap items-center gap-1.5">
+          <Button
+            type="button"
+            size="xs"
+            :disabled="deciding"
+            @click="decideToolApproval('approve')"
+          >
+            <PlayIcon data-icon="inline-start" />
+            {{ t('chat.toolCall.approval.approve') }}
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="xs"
+            :disabled="deciding"
+            @click="decideToolApproval('reject')"
+          >
+            {{ t('chat.toolCall.approval.reject') }}
+          </Button>
+        </div>
       </div>
 
       <CollapsibleContent v-if="detailRows.length">

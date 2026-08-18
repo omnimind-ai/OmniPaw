@@ -1722,6 +1722,8 @@ export default {
       approval: {
         approve: '授权并继续',
         reject: '拒绝',
+        commandPreview: '待执行命令',
+        workingDirectory: '工作目录：{cwd}',
         writeReason: '此工具会修改本地数据，授权后会继续执行当前回复。',
         networkReason: '此工具需要访问网络，授权后会继续执行当前回复。',
         execReason: '此工具需要执行本地命令，授权后会继续执行当前回复。',

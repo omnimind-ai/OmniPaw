@@ -1816,6 +1816,8 @@ export default {
       approval: {
         approve: 'Approve and continue',
         reject: 'Reject',
+        commandPreview: 'Command to execute',
+        workingDirectory: 'Working directory: {cwd}',
         writeReason: 'This tool modifies local data. Approving it will continue this reply.',
         networkReason: 'This tool needs network access. Approving it will continue this reply.',
         execReason: 'This tool runs a local command. Approving it will continue this reply.',
