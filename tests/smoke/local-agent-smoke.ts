@@ -12,6 +12,7 @@ import { AgentWorkspaceError, AgentWorkspaceService } from '../../core/agent/wor
 import { cloneDefaultConfig } from '../../core/config/schema'
 import type { ProviderToolCall } from '../../core/provider/base-provider'
 import { createLocalProcessTreeController } from '../../electron/local-process-tree'
+import { createPassthroughTerminalSandbox } from './terminal-sandbox-fixture'
 
 const tempDir = mkdtempSync(join(tmpdir(), 'omnipaw-local-agent-smoke-'))
 
@@ -65,6 +66,8 @@ try {
     workspace,
     supervisor,
     settings: () => config.tools.terminal,
+    workspaceSettings: () => config.tools.workspace,
+    sandbox: createPassthroughTerminalSandbox(),
   })
 
   const status = await workspace.getStatus('session-1')

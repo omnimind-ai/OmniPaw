@@ -32,12 +32,14 @@ import type {
   CleanupWorkspaceResponse,
   DeleteWorkspaceFileResponse,
   ExportWorkspaceFileResponse,
+  InstallTerminalSandboxResponse,
   KillLocalProcessResponse,
   ListWorkspaceFilesResponse,
   LocalAgentOperationError,
   LocalProcessSummary,
   ReadWorkspaceFileResponse,
   RevealWorkspaceFileResponse,
+  TerminalSandboxStatus,
 } from '@shared/types/local-agent'
 import type {
   ExportLogResponse,
@@ -557,6 +559,10 @@ const bridge: OmniPawBridge = {
       invokeLocal<LocalProcessSummary | null>(IPC_CHANNELS.terminalProcess.get, request),
     kill: (request) =>
       invokeLocal<KillLocalProcessResponse>(IPC_CHANNELS.terminalProcess.kill, request),
+    sandboxStatus: () =>
+      invokeLocal<TerminalSandboxStatus>(IPC_CHANNELS.terminalProcess.sandboxStatus),
+    installSandbox: () =>
+      invokeLocal<InstallTerminalSandboxResponse>(IPC_CHANNELS.terminalProcess.installSandbox),
   },
   mcp: {
     listServers: () => invokeMcp(IPC_CHANNELS.mcp.listServers),

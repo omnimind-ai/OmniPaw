@@ -60,6 +60,32 @@ export interface LocalAgentTerminalSettings {
   power: LocalPowerTerminalProfileSettings
 }
 
+export type TerminalSandboxPlatform = 'windows' | 'macos' | 'linux' | 'unsupported'
+
+export type TerminalSandboxState =
+  | 'ready'
+  | 'setup_required'
+  | 'dependency_missing'
+  | 'unsupported'
+  | 'error'
+
+export interface TerminalSandboxStatus {
+  platform: TerminalSandboxPlatform
+  state: TerminalSandboxState
+  supported: boolean
+  ready: boolean
+  installed: boolean
+  implementation: 'srt-windows' | 'seatbelt' | 'bubblewrap' | 'none'
+  warnings: string[]
+  errors: string[]
+  checkedAt: number
+}
+
+export interface InstallTerminalSandboxResponse {
+  cancelled: boolean
+  status: TerminalSandboxStatus
+}
+
 export type LocalToolApprovalPlan =
   | {
       kind: 'workspace'
@@ -91,6 +117,9 @@ export interface LocalAgentOperationError {
     | 'invalid_request'
     | 'process_not_found'
     | 'process_failed'
+    | 'terminal_sandbox_unavailable'
+    | 'terminal_sandbox_setup_required'
+    | 'terminal_sandbox_install_failed'
   message: string
   recoverable: boolean
 }

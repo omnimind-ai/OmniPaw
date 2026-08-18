@@ -2,12 +2,14 @@
 import DOMPurify from 'dompurify'
 import katex from 'katex'
 import MarkdownIt from 'markdown-it'
-import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import type { CSSProperties } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, shallowRef, useId, watch } from 'vue'
 
 import { cn } from '@/lib/utils'
 import { copyToClipboard } from '@/utils/clipboard'
 import { escapeHtml, getShikiHighlighter, renderShikiCode } from '@/utils/shiki.js'
 import { type RefItem, refFaviconSources, refHostname } from '../chat-display'
+import WebRefPreviewCard from './WebRefPreviewCard.vue'
 import 'katex/dist/katex.min.css'
 
 const props = withDefaults(
@@ -48,8 +50,17 @@ const renderedHtml = ref('')
 const codeBlocks = ref<CodeBlock[]>([])
 const mathBlocks = ref<MathBlock[]>([])
 const rootEl = ref<HTMLElement | null>(null)
+const activeWebRefId = ref('')
+const activeWebRefAnchor = shallowRef<HTMLAnchorElement | null>(null)
+const webRefPreviewOpen = ref(false)
+const webRefPreviewPosition = ref<CSSProperties>({})
+const webRefPreviewDescriptionId = `web-ref-preview-${useId()}`
+let webRefOpenTimer: number | undefined
+let webRefCloseTimer: number | undefined
 
 const markdown = createMarkdownRenderer()
+
+const activeWebRef = computed(() => props.refs.find((item) => item.id === activeWebRefId.value))
 
 const rootClasses = computed(() =>
   cn(
@@ -63,6 +74,7 @@ const rootClasses = computed(() =>
 watch(
   [() => props.content, () => props.refs],
   async () => {
+    hideWebRefPreview()
     const version = renderVersion.value + 1
     renderVersion.value = version
     codeBlocks.value = []
@@ -79,12 +91,17 @@ watch(
 
 onBeforeUnmount(() => {
   rootEl.value?.removeEventListener('error', handleRenderedResourceError, true)
+  window.removeEventListener('resize', updateWebRefPreviewPosition)
+  window.removeEventListener('scroll', updateWebRefPreviewPosition, true)
+  clearWebRefPreviewTimers()
   codeBlocks.value = []
   mathBlocks.value = []
 })
 
 onMounted(() => {
   rootEl.value?.addEventListener('error', handleRenderedResourceError, true)
+  window.addEventListener('resize', updateWebRefPreviewPosition, { passive: true })
+  window.addEventListener('scroll', updateWebRefPreviewPosition, { capture: true, passive: true })
 })
 
 function handleRenderedResourceError(event: Event) {
@@ -98,6 +115,130 @@ function handleRenderedResourceError(event: Event) {
     return
   }
   image.hidden = true
+}
+
+function webRefAnchorFromEvent(event: Event) {
+  const target = event.target
+  if (!(target instanceof Element)) return null
+  return target.closest<HTMLAnchorElement>('.chat-web-ref[data-web-ref-id]')
+}
+
+function handleWebRefPointerOver(event: PointerEvent) {
+  const anchor = webRefAnchorFromEvent(event)
+  if (!anchor || anchor.contains(event.relatedTarget as Node | null)) return
+  scheduleWebRefPreview(anchor, false)
+}
+
+function handleWebRefPointerOut(event: PointerEvent) {
+  const anchor = webRefAnchorFromEvent(event)
+  if (!anchor || anchor.contains(event.relatedTarget as Node | null)) return
+  scheduleWebRefPreviewClose()
+}
+
+function handleWebRefFocusIn(event: FocusEvent) {
+  const anchor = webRefAnchorFromEvent(event)
+  if (anchor) scheduleWebRefPreview(anchor, true)
+}
+
+function handleWebRefFocusOut(event: FocusEvent) {
+  const anchor = webRefAnchorFromEvent(event)
+  if (!anchor || anchor.contains(event.relatedTarget as Node | null)) return
+  scheduleWebRefPreviewClose()
+}
+
+function scheduleWebRefPreview(anchor: HTMLAnchorElement, immediate: boolean) {
+  clearWebRefPreviewCloseTimer()
+  if (webRefOpenTimer !== undefined) window.clearTimeout(webRefOpenTimer)
+
+  activeWebRefAnchor.value = anchor
+  activeWebRefId.value = anchor.dataset.webRefId || ''
+  updateWebRefPreviewPosition()
+
+  if (immediate || webRefPreviewOpen.value) {
+    webRefPreviewOpen.value = Boolean(activeWebRef.value)
+    return
+  }
+
+  webRefOpenTimer = window.setTimeout(() => {
+    webRefOpenTimer = undefined
+    webRefPreviewOpen.value = Boolean(activeWebRef.value && activeWebRefAnchor.value)
+  }, 180)
+}
+
+function scheduleWebRefPreviewClose() {
+  if (webRefOpenTimer !== undefined) {
+    window.clearTimeout(webRefOpenTimer)
+    webRefOpenTimer = undefined
+  }
+  clearWebRefPreviewCloseTimer()
+  webRefCloseTimer = window.setTimeout(hideWebRefPreview, 120)
+}
+
+function keepWebRefPreviewOpen() {
+  clearWebRefPreviewCloseTimer()
+}
+
+function hideWebRefPreview() {
+  clearWebRefPreviewTimers()
+  webRefPreviewOpen.value = false
+  activeWebRefAnchor.value = null
+  activeWebRefId.value = ''
+}
+
+function clearWebRefPreviewCloseTimer() {
+  if (webRefCloseTimer === undefined) return
+  window.clearTimeout(webRefCloseTimer)
+  webRefCloseTimer = undefined
+}
+
+function clearWebRefPreviewTimers() {
+  if (webRefOpenTimer !== undefined) window.clearTimeout(webRefOpenTimer)
+  clearWebRefPreviewCloseTimer()
+  webRefOpenTimer = undefined
+}
+
+function updateWebRefPreviewPosition() {
+  const anchor = activeWebRefAnchor.value
+  if (!anchor?.isConnected) {
+    if (webRefPreviewOpen.value) hideWebRefPreview()
+    return
+  }
+
+  const rect = anchor.getBoundingClientRect()
+  const viewportWidth = window.innerWidth
+  const viewportHeight = window.innerHeight
+  const viewportPadding = 12
+  const topBoundary = 32
+  const gap = 10
+  const width = Math.min(352, viewportWidth - viewportPadding * 2)
+  const left = clamp(
+    rect.left + rect.width / 2 - width / 2,
+    viewportPadding,
+    viewportWidth - width - viewportPadding
+  )
+  const spaceAbove = rect.top - topBoundary - gap
+  const spaceBelow = viewportHeight - rect.bottom - viewportPadding - gap
+  const showAbove = spaceAbove >= 148 || spaceAbove > spaceBelow
+  const availableHeight = Math.max(96, showAbove ? spaceAbove : spaceBelow)
+
+  webRefPreviewPosition.value = {
+    left: `${left}px`,
+    width: `${width}px`,
+    maxHeight: `${availableHeight}px`,
+    ...(showAbove
+      ? {
+          bottom: `${viewportHeight - rect.top + gap}px`,
+          '--preview-transform-origin': 'bottom center',
+        }
+      : {
+          top: `${rect.bottom + gap}px`,
+          '--preview-transform-origin': 'top center',
+        }),
+  }
+}
+
+function clamp(value: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, value))
 }
 
 function createMarkdownRenderer() {
@@ -327,6 +468,7 @@ function finalizeRenderedHtml(html: string) {
       'data-code-id',
       'data-math-id',
       'data-ref-favicon-fallback',
+      'data-web-ref-id',
       'data-ws-path',
       'data-ws-line-start',
       'data-ws-line-end',
@@ -676,7 +818,8 @@ function renderWebSearchRef(id: string) {
     : ''
   return (
     `<a class="chat-web-ref" href="${href}" target="_blank" rel="noopener noreferrer"` +
-    ` aria-label="${title}" title="${title}">` +
+    ` data-web-ref-id="${safeId}" aria-describedby="${webRefPreviewDescriptionId}"` +
+    ` aria-label="${title}">` +
     `<span class="chat-web-ref__icon" aria-hidden="true">${faviconHtml}</span>` +
     `<span>${escapeHtml(hostname)}</span></a>`
   )
@@ -692,6 +835,18 @@ function renderWebSearchRef(id: string) {
       class="chat-markdown__content"
       v-html="renderedHtml"
       @click="handleRenderedClick"
+      @focusin="handleWebRefFocusIn"
+      @focusout="handleWebRefFocusOut"
+      @pointerover="handleWebRefPointerOver"
+      @pointerout="handleWebRefPointerOut"
+    />
+    <WebRefPreviewCard
+      :description-id="webRefPreviewDescriptionId"
+      :open="webRefPreviewOpen"
+      :position="webRefPreviewPosition"
+      :ref-item="activeWebRef"
+      @pointer-enter="keepWebRefPreviewOpen"
+      @pointer-leave="scheduleWebRefPreviewClose"
     />
   </div>
 </template>

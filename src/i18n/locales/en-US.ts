@@ -680,6 +680,28 @@ export default {
     localAgent: {
       title: 'Local Agent capabilities',
       description: 'Configure workspace and terminal execution limits.',
+      sandbox: {
+        title: 'Terminal system sandbox',
+        description: 'Assistant-mode commands run inside an OS-enforced sandbox.',
+        implementation: 'Current implementation: {implementation}',
+        install: 'Install sandbox',
+        installing: 'Installing',
+        refresh: 'Refresh sandbox status',
+        status: {
+          checking: 'Checking',
+          ready: 'Ready',
+          setup_required: 'Setup required',
+          dependency_missing: 'Dependency missing',
+          unsupported: 'Unsupported',
+          error: 'Status error',
+        },
+        messages: {
+          checkFailed: 'Failed to check sandbox status.',
+          installSucceeded: 'Terminal sandbox installation completed.',
+          installCancelled: 'Terminal sandbox installation was cancelled.',
+          installFailed: 'Terminal sandbox installation failed.',
+        },
+      },
       maxSteps: {
         title: 'Agent max steps',
         description:

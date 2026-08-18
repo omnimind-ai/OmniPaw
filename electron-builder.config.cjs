@@ -44,7 +44,12 @@ module.exports = {
     },
   ],
   extraResources,
-  asarUnpack: ['**/*.node', '**/sqlite-vec-*/**'],
+  asarUnpack: [
+    '**/*.node',
+    '**/sqlite-vec-*/**',
+    '**/@anthropic-ai/sandbox-runtime/vendor/srt-win/**',
+    '**/@anthropic-ai/sandbox-runtime/vendor/seccomp/**',
+  ],
   win: {
     target: 'nsis',
     icon: 'resources/app-icon.ico',

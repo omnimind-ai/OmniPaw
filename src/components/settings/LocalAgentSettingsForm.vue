@@ -1,18 +1,54 @@
 <script setup lang="ts">
-import { TerminalIcon } from '@lucide/vue'
-import { computed } from 'vue'
+import { RefreshCwIcon, ShieldCheckIcon, TerminalIcon } from '@lucide/vue'
+import type { TerminalSandboxStatus } from '@shared/types/local-agent'
+import { computed, onMounted, ref, shallowRef } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { BridgeDesktopSettingsConfig } from '@/bridge/app'
+import { appBridge } from '@/bridge/app'
 import SettingEntry from '@/components/settings/common/SettingEntry.vue'
 import SettingsSection from '@/components/settings/common/SettingsSection.vue'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { FieldGroup } from '@/components/ui/field'
 import { Input } from '@/components/ui/input'
+import { errorToText, useToast } from '@/utils/toast'
 
 const props = defineProps<{
   draft: BridgeDesktopSettingsConfig
 }>()
 
 const { t } = useI18n()
+const toast = useToast()
+const sandboxStatus = shallowRef<TerminalSandboxStatus>()
+const sandboxChecking = ref(false)
+const sandboxInstalling = ref(false)
+
+const sandboxStatusLabel = computed(() => {
+  const state = sandboxStatus.value?.state
+  if (!state || sandboxChecking.value) return t('settings.localAgent.sandbox.status.checking')
+  return t(`settings.localAgent.sandbox.status.${state}`)
+})
+const sandboxStatusVariant = computed(() => {
+  if (sandboxStatus.value?.ready) return 'secondary' as const
+  if (sandboxStatus.value?.state === 'setup_required') return 'outline' as const
+  return 'destructive' as const
+})
+const sandboxDetail = computed(() => {
+  const current = sandboxStatus.value
+  if (!current) return t('settings.localAgent.sandbox.description')
+  return (
+    current.errors[0] ||
+    current.warnings[0] ||
+    t('settings.localAgent.sandbox.implementation', { implementation: current.implementation })
+  )
+})
+const canInstallSandbox = computed(
+  () => sandboxStatus.value?.platform === 'windows' && !sandboxStatus.value.ready
+)
+
+onMounted(() => {
+  void refreshSandboxStatus()
+})
 
 const workspaceMaxReadMb = computed({
   get: () => bytesToMb(props.draft.tools.workspace.maxReadBytes),
@@ -71,6 +107,34 @@ function clampInteger(value: string | number, min: number, max: number, fallback
   if (!Number.isFinite(next)) return fallback
   return Math.round(Math.min(max, Math.max(min, next)))
 }
+
+async function refreshSandboxStatus() {
+  sandboxChecking.value = true
+  try {
+    sandboxStatus.value = await appBridge.terminalProcess.sandboxStatus()
+  } catch (error) {
+    toast.error(errorToText(error, t('settings.localAgent.sandbox.messages.checkFailed')))
+  } finally {
+    sandboxChecking.value = false
+  }
+}
+
+async function installSandbox() {
+  sandboxInstalling.value = true
+  try {
+    const result = await appBridge.terminalProcess.installSandbox()
+    sandboxStatus.value = result.status
+    if (result.cancelled) {
+      toast.info(t('settings.localAgent.sandbox.messages.installCancelled'))
+    } else {
+      toast.success(t('settings.localAgent.sandbox.messages.installSucceeded'))
+    }
+  } catch (error) {
+    toast.error(errorToText(error, t('settings.localAgent.sandbox.messages.installFailed')))
+  } finally {
+    sandboxInstalling.value = false
+  }
+}
 </script>
 
 <template>
@@ -79,6 +143,33 @@ function clampInteger(value: string | number, min: number, max: number, fallback
     :icon="TerminalIcon"
   >
     <FieldGroup class="gap-0">
+      <SettingEntry
+        :title="t('settings.localAgent.sandbox.title')"
+        :description="sandboxDetail"
+      >
+        <Badge :variant="sandboxStatusVariant">
+          <ShieldCheckIcon />
+          {{ sandboxStatusLabel }}
+        </Badge>
+        <Button
+          v-if="canInstallSandbox"
+          size="sm"
+          :disabled="sandboxInstalling || sandboxChecking"
+          @click="installSandbox"
+        >
+          {{ sandboxInstalling ? t('settings.localAgent.sandbox.installing') : t('settings.localAgent.sandbox.install') }}
+        </Button>
+        <Button
+          size="icon-sm"
+          variant="ghost"
+          :aria-label="t('settings.localAgent.sandbox.refresh')"
+          :disabled="sandboxInstalling || sandboxChecking"
+          @click="refreshSandboxStatus"
+        >
+          <RefreshCwIcon :class="sandboxChecking && 'animate-spin'" />
+        </Button>
+      </SettingEntry>
+
       <SettingEntry
         control-id="local-agent-max-steps"
         :title="t('settings.localAgent.maxSteps.title')"

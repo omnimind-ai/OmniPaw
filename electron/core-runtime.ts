@@ -61,6 +61,7 @@ import type { DesktopSettingsConfig, SettingsChangeReason } from '@shared/types/
 import type { app } from 'electron'
 import { ElectronDesktopCaptureAdapter } from './desktop-capture-adapter'
 import { createLocalProcessTreeController } from './local-process-tree'
+import { SrtTerminalSandbox } from './terminal-sandbox'
 
 export type McpChangedEvent = Parameters<
   NonNullable<ConstructorParameters<typeof McpServerManager>[0]['onChanged']>
@@ -179,10 +180,15 @@ export function createCoreRuntime(options: CoreRuntimeOptions): CoreRuntime {
     processTree: createLocalProcessTreeController(),
     logger: coreLogger.child({ scope: 'agent.process' }),
   })
+  const terminalSandbox = new SrtTerminalSandbox({
+    logger: coreLogger.child({ scope: 'agent.terminal.sandbox' }),
+  })
   const terminalService = new TerminalService({
     workspace: agentWorkspaceService,
     supervisor: processSupervisor,
     settings: () => configStore.get().tools.terminal,
+    workspaceSettings: () => configStore.get().tools.workspace,
+    sandbox: terminalSandbox,
     logger: coreLogger.child({ scope: 'agent.terminal' }),
   })
 

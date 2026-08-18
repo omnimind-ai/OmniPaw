@@ -214,6 +214,8 @@ export const IPC_CHANNELS = {
     list: 'terminal-process:list',
     get: 'terminal-process:get',
     kill: 'terminal-process:kill',
+    sandboxStatus: 'terminal-process:sandbox-status',
+    installSandbox: 'terminal-process:install-sandbox',
   },
   mcp: {
     listServers: 'mcp:list-servers',

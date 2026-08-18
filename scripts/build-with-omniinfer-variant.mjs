@@ -28,6 +28,7 @@ const sequence = [
     : null,
   { pnpmArgs: ['rebuild:electron'] },
   { pnpmArgs: ['build'] },
+  { cmd: process.execPath, args: ['scripts/stage-runtime-deps.mjs'] },
   { pnpmArgs: ['exec', 'electron-builder', '--config', 'electron-builder.config.cjs'] },
 ].filter(Boolean)
 

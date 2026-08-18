@@ -56,12 +56,14 @@ import type {
   CleanupWorkspaceResponse,
   DeleteWorkspaceFileResponse,
   ExportWorkspaceFileResponse,
+  InstallTerminalSandboxResponse,
   KillLocalProcessResponse,
   ListWorkspaceFilesResponse,
   LocalAgentTerminalSettings,
   LocalAgentWorkspaceSettings,
   ReadWorkspaceFileResponse,
   RevealWorkspaceFileResponse,
+  TerminalSandboxStatus,
 } from '@shared/types/local-agent'
 import type {
   CompanionMemoryItem,
@@ -1631,6 +1633,19 @@ const fallbackBridge: OmniPawBridge = {
     list: async () => [],
     get: async () => null,
     kill: () => rejectFallbackPersistence<KillLocalProcessResponse>('terminalProcess.kill'),
+    sandboxStatus: async (): Promise<TerminalSandboxStatus> => ({
+      platform: 'unsupported',
+      state: 'unsupported',
+      supported: false,
+      ready: false,
+      installed: false,
+      implementation: 'none',
+      warnings: [],
+      errors: ['Terminal sandbox bridge is unavailable.'],
+      checkedAt: Date.now(),
+    }),
+    installSandbox: () =>
+      rejectFallbackPersistence<InstallTerminalSandboxResponse>('terminalProcess.installSandbox'),
   },
   omniinfer: {
     getStatus: async () => ({

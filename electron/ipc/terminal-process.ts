@@ -1,11 +1,13 @@
 import { IPC_CHANNELS } from '@shared/constants'
 import type {
   GetLocalProcessRequest,
+  InstallTerminalSandboxResponse,
   KillLocalProcessRequest,
   KillLocalProcessResponse,
   ListLocalProcessesRequest,
   LocalAgentOperationError,
   LocalProcessSummary,
+  TerminalSandboxStatus,
 } from '@shared/types/local-agent'
 import { registerLoggedIpcHandler } from './common'
 import type { IpcHandlerOptions } from './types'
@@ -43,19 +45,38 @@ export function registerTerminalProcessIpcHandlers(options: IpcHandlerOptions): 
         }
       })
   )
+  registerLoggedIpcHandler(options, IPC_CHANNELS.terminalProcess.sandboxStatus, () =>
+    localResult<TerminalSandboxStatus>(() => runtime.terminalService.getSandboxStatus())
+  )
+  registerLoggedIpcHandler(options, IPC_CHANNELS.terminalProcess.installSandbox, () =>
+    localResult<InstallTerminalSandboxResponse>(() => runtime.terminalService.installSandbox())
+  )
 }
 
 async function localResult<T>(operation: () => T | Promise<T>): Promise<LocalIpcResult<T>> {
   try {
     return { ok: true, value: await operation() }
   } catch (error) {
+    const code = terminalOperationErrorCode(error)
     return {
       ok: false,
       error: {
-        code: 'process_failed',
+        code,
         message: error instanceof Error ? error.message : 'Local process operation failed.',
         recoverable: true,
       },
     }
   }
+}
+
+function terminalOperationErrorCode(error: unknown): LocalAgentOperationError['code'] {
+  if (!error || typeof error !== 'object' || !('code' in error)) return 'process_failed'
+  if (
+    error.code === 'terminal_sandbox_unavailable' ||
+    error.code === 'terminal_sandbox_setup_required' ||
+    error.code === 'terminal_sandbox_install_failed'
+  ) {
+    return error.code
+  }
+  return 'process_failed'
 }

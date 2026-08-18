@@ -2,18 +2,24 @@ import { dirname, isAbsolute, resolve } from 'node:path'
 import type { Logger } from '@core/logging'
 import type { ToolProfile } from '@shared/types/chat'
 import type {
+  InstallTerminalSandboxResponse,
   LocalAgentTerminalSettings,
+  LocalAgentWorkspaceSettings,
   LocalNetworkPolicy,
   LocalProcessSummary,
   LocalToolApprovalPlan,
+  TerminalSandboxStatus,
 } from '@shared/types/local-agent'
 import type { AgentWorkspaceService } from '../workspace'
 import type { ProcessSupervisor } from './process-supervisor'
+import { TerminalSandboxError, type TerminalSandboxRunner } from './sandbox'
 
 export interface TerminalServiceOptions {
   workspace: AgentWorkspaceService
   supervisor: ProcessSupervisor
   settings: () => LocalAgentTerminalSettings
+  workspaceSettings: () => LocalAgentWorkspaceSettings
+  sandbox?: TerminalSandboxRunner
   logger?: Logger
 }
 
@@ -74,19 +80,28 @@ export class TerminalService {
   }> {
     const plan = await this.createPlan(input)
     const workspace = await this.options.workspace.getWorkspacePaths(input.sessionId)
-    const result = await this.options.supervisor.execute({
-      sessionId: input.sessionId,
-      runId: input.runId,
-      toolCallId: input.toolCallId,
-      workspaceId: workspace.id,
-      command: plan.command,
-      cwd: plan.cwd,
-      env: plan.env,
-      timeoutMs: plan.timeoutMs,
-      maxOutputChars: plan.maxOutputChars,
-      background: plan.background,
-      signal: input.signal,
-    })
+    const execute = (launch?: {
+      executable: string
+      args: string[]
+      env: Record<string, string>
+    }) =>
+      this.options.supervisor.execute({
+        sessionId: input.sessionId,
+        runId: input.runId,
+        toolCallId: input.toolCallId,
+        workspaceId: workspace.id,
+        command: plan.command,
+        cwd: plan.cwd,
+        env: plan.env,
+        timeoutMs: plan.timeoutMs,
+        maxOutputChars: plan.maxOutputChars,
+        background: plan.background,
+        signal: input.signal,
+        launch,
+      })
+    const result = plan.fullAccess
+      ? await execute()
+      : await this.executeSandboxed(input, plan, workspace, execute)
     this.logger?.info('Terminal command completed.', {
       sessionId: input.sessionId,
       runId: input.runId,
@@ -142,8 +157,37 @@ export class TerminalService {
     return this.options.supervisor.cleanupSession(sessionId)
   }
 
-  dispose(): Promise<number> {
-    return this.options.supervisor.dispose()
+  getSandboxStatus(): Promise<TerminalSandboxStatus> {
+    if (this.options.sandbox) {
+      return this.options.sandbox.getStatus()
+    }
+    return Promise.resolve({
+      platform: 'unsupported',
+      state: 'unsupported',
+      supported: false,
+      ready: false,
+      installed: false,
+      implementation: 'none',
+      warnings: [],
+      errors: ['Terminal sandbox runtime is unavailable.'],
+      checkedAt: Date.now(),
+    })
+  }
+
+  installSandbox(): Promise<InstallTerminalSandboxResponse> {
+    if (!this.options.sandbox) {
+      throw new TerminalSandboxError(
+        'terminal_sandbox_unavailable',
+        'Terminal sandbox runtime is unavailable.'
+      )
+    }
+    return this.options.sandbox.install()
+  }
+
+  async dispose(): Promise<number> {
+    const terminated = await this.options.supervisor.dispose()
+    await this.options.sandbox?.dispose()
+    return terminated
   }
 
   resolveNetworkPolicy(
@@ -179,7 +223,7 @@ export class TerminalService {
       throw new TerminalPolicyError('Background terminal execution is disabled for this profile.')
     }
     const network = restrictNetworkPolicy(profileSettings.network, input.network)
-    if (network === 'deny') {
+    if (fullAccess && network === 'deny') {
       throw new TerminalPolicyError('Terminal execution is disabled by the active network policy.')
     }
     const workspace = await this.options.workspace.getWorkspacePaths(input.sessionId)
@@ -233,6 +277,45 @@ export class TerminalService {
       return resolve(process.cwd(), requested)
     }
     return this.options.workspace.resolveCwd(input.sessionId, requested)
+  }
+
+  private async executeSandboxed<T>(
+    input: TerminalExecRequest,
+    plan: TerminalExecutionPlan,
+    workspace: Awaited<ReturnType<AgentWorkspaceService['getWorkspacePaths']>>,
+    execute: (launch: {
+      executable: string
+      args: string[]
+      env: Record<string, string>
+    }) => Promise<T>
+  ): Promise<T> {
+    const sandbox = this.options.sandbox
+    if (!sandbox) {
+      throw new TerminalSandboxError(
+        'terminal_sandbox_unavailable',
+        'A system-enforced terminal sandbox is required for this profile.'
+      )
+    }
+    if (plan.background) {
+      throw new TerminalPolicyError(
+        'Background terminal execution requires a full local access profile.'
+      )
+    }
+    return sandbox.run(
+      {
+        command: plan.command,
+        commandId: input.toolCallId ?? input.runId ?? crypto.randomUUID(),
+        cwd: plan.cwd,
+        env: plan.env,
+        workspaceRoot: workspace.root,
+        workspaceFiles: workspace.files,
+        workspaceTmp: workspace.tmp,
+        network: plan.network,
+        denyPatterns: this.options.workspaceSettings().denyPatterns,
+        signal: input.signal,
+      },
+      execute
+    )
   }
 }
 

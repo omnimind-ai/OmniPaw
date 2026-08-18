@@ -1,4 +1,4 @@
-import { cpSync, mkdirSync, realpathSync, rmSync } from 'node:fs'
+import { cpSync, existsSync, mkdirSync, readFileSync, realpathSync, rmSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { basename, dirname, join } from 'node:path'
 
@@ -24,6 +24,16 @@ const fileUriToPathPackageJson = require.resolve('file-uri-to-path/package.json'
 const sqliteVecMainFile = require.resolve('sqlite-vec')
 const sqliteVecPlatformBinary = require('sqlite-vec').getLoadablePath()
 const sqliteVecPlatformPackage = basename(dirname(sqliteVecPlatformBinary))
+const sandboxRuntimePackageJson = require.resolve('@anthropic-ai/sandbox-runtime/package.json')
+const sandboxRuntimeDependencies = [
+  '@pondwader/socks5-server',
+  'commander',
+  'node-forge',
+  'zod',
+].map((packageName) => [
+  packageName,
+  resolvePackageManifest(packageName, dirname(sandboxRuntimePackageJson)),
+])
 
 for (const [packageName, packageFile] of [
   ['better-sqlite3', betterSqlitePackageJson],
@@ -31,6 +41,8 @@ for (const [packageName, packageFile] of [
   ['file-uri-to-path', fileUriToPathPackageJson],
   ['sqlite-vec', sqliteVecMainFile],
   [sqliteVecPlatformPackage, sqliteVecPlatformBinary],
+  ['@anthropic-ai/sandbox-runtime', sandboxRuntimePackageJson],
+  ...sandboxRuntimeDependencies,
 ]) {
   stagePackage(packageName, packageFile)
 }
@@ -44,4 +56,21 @@ function stagePackage(packageName, packageJson) {
     force: true,
   })
   console.log(`Staged runtime dependency: ${packageName}`)
+}
+
+function resolvePackageManifest(packageName, fromDirectory) {
+  const entry = require.resolve(packageName, { paths: [fromDirectory] })
+  let current = dirname(entry)
+  while (true) {
+    const manifest = join(current, 'package.json')
+    if (existsSync(manifest)) {
+      const parsed = JSON.parse(readFileSync(manifest, 'utf8'))
+      if (parsed.name === packageName) return manifest
+    }
+    const parent = dirname(current)
+    if (parent === current) {
+      throw new Error(`Cannot locate package manifest for ${packageName}`)
+    }
+    current = parent
+  }
 }

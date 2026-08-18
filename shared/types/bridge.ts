@@ -103,6 +103,7 @@ import type {
   ExportWorkspaceFileRequest,
   ExportWorkspaceFileResponse,
   GetLocalProcessRequest,
+  InstallTerminalSandboxResponse,
   KillLocalProcessRequest,
   KillLocalProcessResponse,
   ListLocalProcessesRequest,
@@ -113,6 +114,7 @@ import type {
   ReadWorkspaceFileResponse,
   RevealWorkspaceFileRequest,
   RevealWorkspaceFileResponse,
+  TerminalSandboxStatus,
 } from './local-agent'
 import type {
   ExportLogResponse,
@@ -661,6 +663,8 @@ export interface OmniPawBridge {
     list: (request?: ListLocalProcessesRequest) => Promise<LocalProcessSummary[]>
     get: (request: GetLocalProcessRequest | string) => Promise<LocalProcessSummary | null>
     kill: (request: KillLocalProcessRequest | string) => Promise<KillLocalProcessResponse>
+    sandboxStatus: () => Promise<TerminalSandboxStatus>
+    installSandbox: () => Promise<InstallTerminalSandboxResponse>
   }
   mcp: {
     listServers: () => Promise<McpServerListResponse>

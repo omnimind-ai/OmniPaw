@@ -335,6 +335,9 @@ function isLocalPolicyDeniedError(error: unknown): boolean {
     error !== null &&
     'code' in error &&
     (error.code === 'terminal_policy_denied' ||
+      error.code === 'terminal_sandbox_unavailable' ||
+      error.code === 'terminal_sandbox_setup_required' ||
+      error.code === 'terminal_sandbox_install_failed' ||
       error.code === 'path_denied' ||
       error.code === 'sensitive_path_denied')
   )

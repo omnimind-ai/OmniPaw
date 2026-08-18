@@ -14,8 +14,8 @@
     "test": "pnpm test:smoke && pnpm test:update-worker",
     "test:smoke": "node scripts/run-smoke-tests.mjs",
     "test:update-worker": "pnpm --filter @omnipaw/app-update-worker test",
-    "pack": "pnpm rebuild:electron && pnpm build && electron-builder --config electron-builder.config.cjs --dir",
-    "dist": "pnpm rebuild:electron && pnpm build && electron-builder --config electron-builder.config.cjs",
+    "pack": "pnpm rebuild:electron && pnpm build && node scripts/stage-runtime-deps.mjs && electron-builder --config electron-builder.config.cjs --dir",
+    "dist": "pnpm rebuild:electron && pnpm build && node scripts/stage-runtime-deps.mjs && electron-builder --config electron-builder.config.cjs",
     "build:full": "node scripts/build-with-omniinfer-variant.mjs full",
     "build:slim": "node scripts/build-with-omniinfer-variant.mjs slim",
     "lint": "pnpm typecheck && biome check --write .",
@@ -33,6 +33,7 @@
   "license": "ISC",
   "packageManager": "pnpm@10.32.0",
   "dependencies": {
+    "@anthropic-ai/sandbox-runtime": "^0.0.73",
     "@lucide/vue": "^1.24.0",
     "@vueuse/core": "^14.3.0",
     "axios": "^1.16.1",
@@ -99,7 +100,9 @@
     ],
     "asarUnpack": [
       "**/*.node",
-      "**/sqlite-vec-*/**"
+      "**/sqlite-vec-*/**",
+      "**/@anthropic-ai/sandbox-runtime/vendor/srt-win/**",
+      "**/@anthropic-ai/sandbox-runtime/vendor/seccomp/**"
     ],
     "win": {
       "target": "nsis",

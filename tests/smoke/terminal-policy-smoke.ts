@@ -11,6 +11,7 @@ import { ToolExecutor } from '../../core/agent/tools/executor'
 import { defaultToolPolicy } from '../../core/agent/tools/policy'
 import { AgentWorkspaceService } from '../../core/agent/workspace'
 import { cloneDefaultConfig, normalizeConfig } from '../../core/config/schema'
+import { createPassthroughTerminalSandbox } from './terminal-sandbox-fixture'
 
 const tempDir = mkdtempSync(join(tmpdir(), 'omnipaw-terminal-policy-smoke-'))
 
@@ -29,6 +30,8 @@ try {
     workspace,
     supervisor,
     settings: () => config.tools.terminal,
+    workspaceSettings: () => config.tools.workspace,
+    sandbox: createPassthroughTerminalSandbox(),
   })
 
   const terminalDefinition = listBuiltinToolDefinitions().find(
@@ -141,14 +144,12 @@ try {
   assert.equal(fullAccessPowerPlan.accessScope, 'full-local-access')
 
   config.tools.terminal.assistant.network = 'deny'
-  await assert.rejects(
-    terminal.createApprovalPlan({
-      sessionId: 'policy-session',
-      profile: 'assistant',
-      command: 'echo denied-network',
-    }),
-    isTerminalPolicyError('disabled by the active network policy')
-  )
+  const offlinePlan = await terminal.createApprovalPlan({
+    sessionId: 'policy-session',
+    profile: 'assistant',
+    command: 'echo denied-network',
+  })
+  assert.equal(offlinePlan.network, 'deny')
 
   config.tools.terminal.assistant.network = 'ask'
   assert.equal(

@@ -640,6 +640,28 @@ export default {
     localAgent: {
       title: '本地 Agent 能力',
       description: '配置 workspace 和 terminal 的运行限制。',
+      sandbox: {
+        title: 'Terminal 系统沙箱',
+        description: '助手模式的命令在操作系统强制隔离环境中执行。',
+        implementation: '当前实现：{implementation}',
+        install: '安装沙箱',
+        installing: '正在安装',
+        refresh: '刷新沙箱状态',
+        status: {
+          checking: '正在检查',
+          ready: '可用',
+          setup_required: '需要安装',
+          dependency_missing: '缺少系统组件',
+          unsupported: '系统暂不支持',
+          error: '状态异常',
+        },
+        messages: {
+          checkFailed: '沙箱状态检查失败。',
+          installSucceeded: 'Terminal 沙箱安装完成。',
+          installCancelled: '已取消 Terminal 沙箱安装。',
+          installFailed: 'Terminal 沙箱安装失败。',
+        },
+      },
       maxSteps: {
         title: 'Agent 最大步骤',
         description: '单次回复中模型可连续调用工具的最大轮数，过高会增加延迟和成本。',

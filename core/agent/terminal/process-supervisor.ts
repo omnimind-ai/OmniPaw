@@ -1,4 +1,4 @@
-import { type ChildProcess, spawn } from 'node:child_process'
+import { type ChildProcess, type SpawnOptions, spawn } from 'node:child_process'
 import type { Logger } from '@core/logging'
 import type { LocalProcessStatus, LocalProcessSummary } from '@shared/types/local-agent'
 
@@ -14,6 +14,11 @@ export interface ProcessExecutionRequest {
   maxOutputChars: number
   background: boolean
   signal?: AbortSignal
+  launch?: {
+    executable: string
+    args: string[]
+    env: Record<string, string>
+  }
 }
 
 export interface ProcessExecutionResult {
@@ -224,14 +229,17 @@ export class ProcessSupervisor {
     }
     this.processes.set(processId, record)
     try {
-      const child = spawn(input.command, {
+      const spawnOptions: SpawnOptions = {
         cwd: input.cwd,
-        env: input.env,
-        shell: true,
+        env: input.launch?.env ?? input.env,
+        shell: !input.launch,
         stdio: ['ignore', 'pipe', 'pipe'],
         detached: this.options.processTree?.detached ?? false,
         windowsHide: true,
-      })
+      }
+      const child: ChildProcess = input.launch
+        ? spawn(input.launch.executable, input.launch.args, spawnOptions)
+        : spawn(input.command, spawnOptions)
       record.child = child
       child.stdout?.on('data', (chunk: Buffer) => {
         appendOutput(record, 'stdout', chunk.toString('utf8'), input.maxOutputChars)
