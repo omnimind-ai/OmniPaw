@@ -109,17 +109,15 @@ function renderSegments(record: ChatRecord): MessageRenderSegment[] {
   return segments
 }
 
-function hasDisplayBlocks(record: ChatRecord) {
-  return renderSegments(record).length > 0
-}
-
 function errorText(record: ChatRecord) {
   return recordErrorText(record)
 }
 
-function showThinkingFallback(record: ChatRecord, index: number) {
+function showThinkingIndicator(record: ChatRecord, index: number) {
   return (
-    !hasDisplayBlocks(record) && !isRecordErrored(record) && props.isMessageStreaming(record, index)
+    !props.isUserMessage(record) &&
+    !isRecordErrored(record) &&
+    props.isMessageStreaming(record, index)
   )
 }
 
@@ -350,7 +348,7 @@ function fileChangesFor(record: ChatRecord, index: number) {
           </Marker>
 
           <Marker
-            v-else-if="showThinkingFallback(record, recordIndex)"
+            v-if="showThinkingIndicator(record, recordIndex)"
             role="status"
             class="px-1 py-1"
           >
