@@ -1,6 +1,6 @@
 import { existsSync } from 'node:fs'
 import { homedir } from 'node:os'
-import { delimiter, isAbsolute, join, normalize, sep } from 'node:path'
+import { delimiter, isAbsolute, join, normalize, relative, sep } from 'node:path'
 import {
   checkWindowsDependenciesAsync,
   checkWindowsSandboxStatusAsync,
@@ -22,6 +22,11 @@ import type {
   TerminalSandboxPlatform,
   TerminalSandboxStatus,
 } from '@shared/types/local-agent'
+import type { UtilityProcess } from 'electron'
+import type {
+  TerminalSandboxWorkerRequest,
+  TerminalSandboxWorkerResponse,
+} from './terminal-sandbox-protocol'
 
 interface SrtTerminalSandboxOptions {
   logger?: Logger
@@ -29,11 +34,13 @@ interface SrtTerminalSandboxOptions {
 
 export class SrtTerminalSandbox implements TerminalSandboxRunner {
   private readonly logger?: Logger
+  private readonly broker: TerminalSandboxBroker
   private tail: Promise<void> = Promise.resolve()
   private cleanupFailed = false
 
   constructor(options: SrtTerminalSandboxOptions = {}) {
     this.logger = options.logger
+    this.broker = new TerminalSandboxBroker(options.logger)
   }
 
   async getStatus(): Promise<TerminalSandboxStatus> {
@@ -159,35 +166,30 @@ export class SrtTerminalSandbox implements TerminalSandboxRunner {
       const runtimeConfig = buildRuntimeConfig(input)
       let outcome: { ok: true; value: T } | { ok: false; error: unknown }
       try {
-        await SandboxManager.initialize(
+        const preparationStartedAt = Date.now()
+        this.logger?.info('Terminal sandbox preparation started.', {
+          platform: sandboxPlatform(),
+          network: input.network,
+        })
+        const launch = await this.broker.prepare({
           runtimeConfig,
-          input.network === 'deny' ? undefined : async () => true
-        )
+          allowNetwork: input.network !== 'deny',
+          command: input.command,
+          commandId: input.commandId,
+          cwd: input.cwd,
+        })
         throwIfAborted(input.signal)
-        const wrapped = await SandboxManager.wrapWithSandboxArgv(
-          input.command,
-          undefined,
-          undefined,
-          input.signal,
-          input.cwd,
-          {
-            commandId: input.commandId,
-            commandText: input.command,
-          }
-        )
-        const launch: TerminalSandboxLaunch = {
-          executable: wrapped.argv[0],
-          args: wrapped.argv.slice(1),
-          env: process.platform === 'win32' ? normalizeEnvironment(wrapped.env) : { ...input.env },
-        }
-        if (!launch.executable) {
-          throw new Error('Terminal sandbox returned an empty executable.')
-        }
+        const normalizedLaunch: TerminalSandboxLaunch =
+          process.platform === 'win32' ? launch : { ...launch, env: { ...input.env } }
+        this.logger?.info('Terminal sandbox preparation completed.', {
+          platform: sandboxPlatform(),
+          durationMs: Date.now() - preparationStartedAt,
+        })
         this.logger?.info('Sandboxed terminal command started.', {
           platform: sandboxPlatform(),
           network: input.network,
         })
-        outcome = { ok: true, value: await execute(launch) }
+        outcome = { ok: true, value: await execute(normalizedLaunch) }
       } catch (error) {
         outcome = {
           ok: false,
@@ -202,12 +204,21 @@ export class SrtTerminalSandbox implements TerminalSandboxRunner {
         }
       }
 
-      const cleanupError = await cleanupSandboxRuntime()
+      const cleanupStartedAt = Date.now()
+      const cleanupError = await this.broker.cleanup().then(
+        () => undefined,
+        (error) => error
+      )
       if (cleanupError) {
         this.cleanupFailed = true
         this.logger?.error('Terminal sandbox cleanup failed.', {
           platform: sandboxPlatform(),
           errorCode: sandboxErrorCode(cleanupError),
+        })
+      } else {
+        this.logger?.info('Terminal sandbox cleanup completed.', {
+          platform: sandboxPlatform(),
+          durationMs: Date.now() - cleanupStartedAt,
         })
       }
       if (!outcome.ok) throw outcome.error
@@ -224,8 +235,9 @@ export class SrtTerminalSandbox implements TerminalSandboxRunner {
 
   async dispose(): Promise<void> {
     await this.tail.catch(() => undefined)
-    const cleanupError = await cleanupSandboxRuntime()
-    if (cleanupError) {
+    try {
+      await this.broker.dispose()
+    } catch (cleanupError) {
       this.cleanupFailed = true
       throw cleanupError
     }
@@ -248,16 +260,177 @@ export class SrtTerminalSandbox implements TerminalSandboxRunner {
   }
 }
 
+interface TerminalSandboxBrokerPrepareInput {
+  runtimeConfig: SandboxRuntimeConfig
+  allowNetwork: boolean
+  command: string
+  commandId: string
+  cwd: string
+}
+
+interface PendingBrokerRequest {
+  resolve: (response: TerminalSandboxWorkerResponse) => void
+  reject: (error: Error) => void
+  timer: NodeJS.Timeout
+}
+
+const SANDBOX_BROKER_TIMEOUT_MS = 120_000
+
+class TerminalSandboxBroker {
+  private child?: UtilityProcess
+  private childReady?: Promise<UtilityProcess>
+  private readonly pending = new Map<string, PendingBrokerRequest>()
+  private failure?: Error
+  private disposed = false
+
+  constructor(private readonly logger?: Logger) {}
+
+  async prepare(input: TerminalSandboxBrokerPrepareInput): Promise<TerminalSandboxLaunch> {
+    const response = await this.send({
+      id: crypto.randomUUID(),
+      type: 'prepare',
+      ...input,
+    })
+    if (!response.launch) {
+      throw new Error('Terminal sandbox worker returned no launch configuration.')
+    }
+    return response.launch
+  }
+
+  async cleanup(): Promise<void> {
+    if (!this.child && !this.childReady) return
+    await this.send({ id: crypto.randomUUID(), type: 'cleanup' })
+  }
+
+  async dispose(): Promise<void> {
+    if (this.disposed) return
+    try {
+      if (this.child || this.childReady) {
+        await this.send({ id: crypto.randomUUID(), type: 'dispose' })
+      }
+    } finally {
+      this.disposed = true
+      this.child?.kill()
+      this.child = undefined
+      this.childReady = undefined
+    }
+  }
+
+  private async send(
+    request: TerminalSandboxWorkerRequest
+  ): Promise<TerminalSandboxWorkerResponse & { ok: true }> {
+    if (this.disposed) throw new Error('Terminal sandbox worker is disposed.')
+    if (this.failure) throw this.failure
+    const child = await this.ensureProcess()
+
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => {
+        const error = new Error(
+          `Terminal sandbox worker timed out during ${request.type} after ${SANDBOX_BROKER_TIMEOUT_MS}ms.`
+        )
+        this.fail(error)
+      }, SANDBOX_BROKER_TIMEOUT_MS)
+      this.pending.set(request.id, {
+        timer,
+        resolve: (response) => {
+          if (response.ok) resolve(response)
+          else reject(new Error(response.error))
+        },
+        reject,
+      })
+      try {
+        child.postMessage(request)
+      } catch (error) {
+        this.pending.delete(request.id)
+        clearTimeout(timer)
+        reject(error instanceof Error ? error : new Error(String(error)))
+      }
+    })
+  }
+
+  private ensureProcess(): Promise<UtilityProcess> {
+    if (this.child) return Promise.resolve(this.child)
+    if (this.childReady) return this.childReady
+    if (this.failure) return Promise.reject(this.failure)
+
+    this.childReady = this.startProcess().catch((error) => {
+      this.childReady = undefined
+      throw error
+    })
+    return this.childReady
+  }
+
+  private async startProcess(): Promise<UtilityProcess> {
+    const { utilityProcess } = await import('electron')
+    const scriptPath = join(__dirname, 'workers/terminal-sandbox.cjs')
+    return new Promise<UtilityProcess>((resolve, reject) => {
+      let child: UtilityProcess
+      try {
+        child = utilityProcess.fork(scriptPath, [], {
+          serviceName: 'omnipaw-terminal-sandbox',
+        })
+      } catch (error) {
+        reject(error instanceof Error ? error : new Error(String(error)))
+        return
+      }
+
+      let spawned = false
+      child.once('spawn', () => {
+        spawned = true
+        this.child = child
+        this.logger?.info('Terminal sandbox worker started.', { pid: child.pid })
+        resolve(child)
+      })
+      child.on('message', (message: TerminalSandboxWorkerResponse) => {
+        const pending = this.pending.get(message.id)
+        if (!pending) return
+        this.pending.delete(message.id)
+        clearTimeout(pending.timer)
+        pending.resolve(message)
+      })
+      child.on('exit', (code) => {
+        this.child = undefined
+        this.childReady = undefined
+        if (this.disposed) return
+        const error = new Error(`Terminal sandbox worker exited with code ${code}.`)
+        if (!spawned) reject(error)
+        this.fail(error, false)
+      })
+    })
+  }
+
+  private fail(error: Error, terminate = true): void {
+    this.failure ??= error
+    if (terminate) this.child?.kill()
+    for (const pending of this.pending.values()) {
+      clearTimeout(pending.timer)
+      pending.reject(this.failure)
+    }
+    this.pending.clear()
+    this.logger?.error('Terminal sandbox worker failed.', {
+      errorCode: sandboxErrorCode(error),
+    })
+  }
+}
+
 function buildRuntimeConfig(input: TerminalSandboxExecutionInput): SandboxRuntimeConfig {
   const home = homedir()
   const sensitivePaths = input.denyPatterns.map((pattern) =>
     isAbsolute(pattern) ? normalize(pattern) : join(input.workspaceFiles, normalizePattern(pattern))
   )
+  const executableDirectories = pathDirectories(input.env.PATH)
   const allowRead = uniqueExistingDirectories([
     input.workspaceRoot,
-    ...pathDirectories(input.env.PATH),
+    ...(process.platform === 'win32'
+      ? executableDirectories.filter((entry) => isWithinDirectory(home, entry))
+      : executableDirectories),
   ])
-  const denyRead = uniquePaths([home, ...sensitivePaths])
+  // The Windows sandbox account has no inherited access to the real user's profile.
+  // Stamping the whole profile again can make srt-win traverse it for minutes, so
+  // Windows only stamps the workspace-specific sensitive entries.
+  const denyRead = uniquePaths(
+    process.platform === 'win32' ? sensitivePaths : [home, ...sensitivePaths]
+  )
   const denyWrite = uniquePaths(sensitivePaths)
 
   return {
@@ -317,14 +490,13 @@ function uniquePaths(paths: Array<string | undefined>): string[] {
   return [...new Set(values)]
 }
 
-function normalizePattern(pattern: string): string {
-  return pattern.replaceAll('/', sep).replaceAll('\\', sep)
+function isWithinDirectory(parent: string, candidate: string): boolean {
+  const child = relative(parent, candidate)
+  return child === '' || (!child.startsWith(`..${sep}`) && child !== '..' && !isAbsolute(child))
 }
 
-function normalizeEnvironment(env: NodeJS.ProcessEnv): Record<string, string> {
-  return Object.fromEntries(
-    Object.entries(env).filter((entry): entry is [string, string] => typeof entry[1] === 'string')
-  )
+function normalizePattern(pattern: string): string {
+  return pattern.replaceAll('/', sep).replaceAll('\\', sep)
 }
 
 function sandboxPlatform(): TerminalSandboxPlatform {
@@ -341,21 +513,6 @@ function sandboxImplementation(
   if (platform === 'macos') return 'seatbelt'
   if (platform === 'linux') return 'bubblewrap'
   return 'none'
-}
-
-async function cleanupSandboxRuntime(): Promise<unknown | undefined> {
-  let cleanupError: unknown
-  try {
-    SandboxManager.cleanupAfterCommand()
-  } catch (error) {
-    cleanupError = error
-  }
-  try {
-    await SandboxManager.reset()
-  } catch (error) {
-    cleanupError ??= error
-  }
-  return cleanupError
 }
 
 function status(input: {
