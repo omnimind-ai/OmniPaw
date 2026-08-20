@@ -76,6 +76,8 @@ const skillMentionSource = readFileSync(
   'utf8'
 )
 assert.match(composerSource, /if \(selectedSkillMentions\.value\.length\) return ''/)
-assert.match(skillMentionSource, /font-semibold text-prompt-blue/)
+assert.match(skillMentionSource, /font-semibold.*text-prompt-blue/)
+assert.match(skillMentionSource, /h-6.*leading-6.*md:h-5.*md:text-sm.*md:leading-5/)
+assert.match(skillMentionSource, /translate-y-0\.5/)
 
 process.stdout.write('chat slash menu smoke passed\n')

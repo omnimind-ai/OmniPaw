@@ -175,7 +175,7 @@ const formClass = computed(() =>
 )
 const textareaClass = computed(() =>
   cn(
-    'max-h-48 w-auto min-w-40 flex-1 overflow-y-auto overscroll-contain px-0 pt-1',
+    'max-h-48 w-auto min-w-40 flex-1 overflow-y-auto overscroll-contain px-0 pt-0 text-base leading-6 md:text-sm md:leading-5',
     props.compactAttachments ? 'min-h-16' : 'min-h-24'
   )
 )

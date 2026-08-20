@@ -18,7 +18,7 @@ const { t } = useI18n()
 
 <template>
   <div
-    class="flex max-w-full flex-wrap items-center gap-1"
+    class="flex max-w-full translate-y-0.5 flex-wrap items-center gap-1"
     role="list"
     :aria-label="t('chat.composer.skillMentionsAria')"
   >
@@ -28,7 +28,7 @@ const { t } = useI18n()
       type="button"
       variant="ghost"
       size="sm"
-      class="h-7 max-w-64 shrink-0 gap-1 px-1 font-semibold text-prompt-blue hover:text-prompt-blue"
+      class="h-6 max-w-64 shrink-0 gap-1 px-1 text-base font-semibold leading-6 text-prompt-blue hover:bg-transparent hover:text-prompt-blue md:h-5 md:text-sm md:leading-5"
       role="listitem"
       :disabled="disabled"
       :aria-label="t('chat.composer.removeSkillMentionAria', { skill: skill.name || skill.id })"
