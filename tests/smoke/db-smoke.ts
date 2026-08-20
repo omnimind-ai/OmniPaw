@@ -528,6 +528,17 @@ try {
   )
   assert.equal(memories.search({ query: 'TypeScript smoke', limit: 5 }).items[0]?.id, memory.id)
   assert.equal(memories.list({ minConfidence: 0.95 }).items.length, 0)
+  const chineseSearchMemory = memories.create({
+    kind: 'preference',
+    scope: 'user',
+    content: '主人最喜欢猫娘了喵，他问起来的时候一定要喵喵叫。',
+    importance: 4,
+    confidence: 1,
+  })
+  assert.equal(
+    memories.search({ query: '喜欢猫娘', limit: 5 }).items[0]?.id,
+    chineseSearchMemory.id
+  )
   const pending = memories.create({
     kind: 'fact',
     scope: 'user',

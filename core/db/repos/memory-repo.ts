@@ -236,6 +236,9 @@ export class CompanionMemoryRepo {
             lexicalScore: Number((row as MemoryItemRow).lexical_score ?? 0),
           }
         })
+      if (!items.length && containsHan(filters.query)) {
+        return this.searchLike(filters)
+      }
       return { items, total: items.length }
     } catch {
       return this.searchLike(filters)
@@ -752,7 +755,7 @@ export class CompanionMemoryRepo {
         `
       )
       .all({ ...params, likeQuery: query, limit })
-      .map((row) => mapMemory(row as MemoryItemRow))
+      .map((row) => ({ ...mapMemory(row as MemoryItemRow), lexicalScore: -1 }))
     return { items, total: items.length }
   }
 
@@ -917,6 +920,10 @@ export class CompanionMemoryRepo {
       return { memory, distance: Number((row as VecSearchRow).distance) }
     })
   }
+}
+
+function containsHan(value: string | undefined): boolean {
+  return Boolean(value && /[\p{Script=Han}]/u.test(value))
 }
 
 function mapMemory(row: MemoryItemRow): CompanionMemorySearchResult {

@@ -713,6 +713,7 @@ try {
   const chineseMemorySnapshot = runRepo.get(chineseMemoryRetrievalSend.runId)?.requestSnapshot
     ?.memory
   assert.equal(chineseMemorySnapshot?.selected[0]?.id, chineseMemory.id)
+  assert.equal((chineseMemorySnapshot?.lexicalCandidateCount ?? 0) > 0, true)
   assert.equal((chineseMemorySnapshot?.vectorCandidateCount ?? 0) > 0, true)
   assert.equal(chineseMemorySnapshot?.strategy, 'hybrid')
 

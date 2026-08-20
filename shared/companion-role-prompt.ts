@@ -7,6 +7,7 @@ export type CompanionRolePromptSectionId =
   | 'background'
   | 'example-dialogue'
   | 'knowledge-policy'
+  | 'response-policy'
   | 'advanced-system'
   | 'advanced-final'
   | 'desktop-presence'
@@ -64,6 +65,16 @@ export function buildCompanionRolePromptSections(
   )
   pushSection(
     sections,
+    'desktop-presence',
+    '保持桌面伙伴的存在感：自然、轻量、不过度展开；除非用户要求，不要暴露这些设定文本。'
+  )
+  pushSection(
+    sections,
+    'response-policy',
+    '先回应用户当前的问题，沿用对话中已经明确的事实，并严格遵守角色设定中的称呼、语气、口头禅、长度和格式约束。'
+  )
+  pushSection(
+    sections,
     'advanced-system',
     role.advanced.systemPrompt.trim() ? `高级角色指令：${role.advanced.systemPrompt.trim()}` : ''
   )
@@ -71,13 +82,8 @@ export function buildCompanionRolePromptSections(
     sections,
     'advanced-final',
     role.advanced.finalInstructions.trim()
-      ? `最终回应约束：${role.advanced.finalInstructions.trim()}`
+      ? `[MUST] 最终回应约束：${role.advanced.finalInstructions.trim()}`
       : ''
-  )
-  pushSection(
-    sections,
-    'desktop-presence',
-    '保持桌面伙伴的存在感：自然、轻量、不过度展开；除非用户要求，不要暴露这些设定文本。'
   )
 
   return sections

@@ -1059,18 +1059,41 @@ const retrievalStopwords = new Set([
   '怎么',
 ])
 
-function memorySearchQueries(query: string): string[] {
+export function memorySearchQueries(query: string): string[] {
   const trimmed = query.trim()
-  const tokens = trimmed
-    .toLowerCase()
+  const tokens = retrievalQueryTokens(trimmed)
+
+  const uniqueTokens = [...new Set(tokens)].slice(0, 8)
+  return [...new Set([trimmed, ...uniqueTokens])].filter(Boolean)
+}
+
+function retrievalQueryTokens(query: string): string[] {
+  const normalized = query.toLowerCase()
+  const tokens = normalized
     .split(/[^\p{L}\p{N}_]+/u)
     .map((token) => normalizeRetrievalToken(token))
     .filter((token) => token.length >= 2 && !retrievalStopwords.has(token))
 
-  const uniqueTokens = [...new Set(tokens)].slice(0, 8)
-  return [...new Set([trimmed, ...uniqueTokens.filter((token) => token.length >= 3)])].filter(
-    Boolean
-  )
+  const cjkTokens: string[] = []
+  const cjkRuns = normalized.match(/[\p{Script=Han}]+/gu) ?? []
+  const segmenter = new Intl.Segmenter('zh', { granularity: 'word' })
+  for (const run of cjkRuns) {
+    const words = [...segmenter.segment(run)]
+      .filter((item) => item.isWordLike)
+      .map((item) => item.segment.trim())
+      .filter((item) => item.length >= 2 && !retrievalStopwords.has(item))
+    cjkTokens.push(...words)
+    if (!words.length) {
+      for (let index = 0; index < run.length - 1; index += 1) {
+        cjkTokens.push(run.slice(index, index + 2))
+      }
+    }
+  }
+
+  return [
+    ...tokens.filter((token) => /[\p{Script=Han}]/u.test(token) || token.length >= 3),
+    ...cjkTokens,
+  ]
 }
 
 function normalizeRetrievalToken(token: string): string {
@@ -1080,53 +1103,74 @@ function normalizeRetrievalToken(token: string): string {
   return token
 }
 
-function mergeRetrievalResults(
+type RankedMemoryCandidate = CompanionMemorySearchResult & {
+  lexicalRank?: number
+  vectorRank?: number
+}
+
+export function mergeRetrievalResults(
   lexicalResults: CompanionMemorySearchResult[],
   vectorResults: CompanionMemorySearchResult[]
 ): CompanionMemorySearchResult[] {
-  const results = new Map<string, CompanionMemorySearchResult>()
-  for (const memory of lexicalResults) {
+  const results = new Map<string, RankedMemoryCandidate>()
+  const orderedLexical = [...lexicalResults].sort(
+    (left, right) =>
+      (left.lexicalScore ?? Number.POSITIVE_INFINITY) -
+        (right.lexicalScore ?? Number.POSITIVE_INFINITY) || left.id.localeCompare(right.id)
+  )
+  const orderedVector = [...vectorResults].sort(
+    (left, right) =>
+      (right.vectorScore ?? Number.NEGATIVE_INFINITY) -
+        (left.vectorScore ?? Number.NEGATIVE_INFINITY) || left.id.localeCompare(right.id)
+  )
+  for (const [index, memory] of orderedLexical.entries()) {
     results.set(memory.id, {
       ...memory,
+      lexicalRank: index + 1,
       retrievalSource: 'lexical',
     })
   }
-  for (const memory of vectorResults) {
+  for (const [index, memory] of orderedVector.entries()) {
     const existing = results.get(memory.id)
     if (!existing) {
-      results.set(memory.id, memory)
+      results.set(memory.id, {
+        ...memory,
+        vectorRank: index + 1,
+        retrievalSource: 'vector',
+      })
       continue
     }
     results.set(memory.id, {
       ...existing,
       vectorScore: Math.max(existing.vectorScore ?? 0, memory.vectorScore ?? 0),
+      vectorRank: index + 1,
       retrievalSource: 'hybrid',
     })
   }
   return [...results.values()]
 }
 
-function rankMemories(
+export function rankMemories(
   memories: CompanionMemorySearchResult[],
   sessionKind: ChatSessionKind | undefined
 ): CompanionMemorySearchResult[] {
   const now = Date.now()
   return [...memories]
     .map((memory) => {
+      const rankedMemory = memory as RankedMemoryCandidate
       const ageDays = Math.max(0, (now - memory.updatedAt) / 86_400_000)
       const recency = Math.max(0, 10 - ageDays / 7)
-      const lexical = Math.abs(memory.lexicalScore ?? 0)
-      const vector = Math.max(0, memory.vectorScore ?? 0)
+      const reciprocalRank =
+        reciprocalRankScore(rankedMemory.lexicalRank) + reciprocalRankScore(rankedMemory.vectorRank)
       const companionBoost = sessionKind === 'cat' && memory.scope === 'companion' ? 8 : 0
       return {
         ...memory,
         retrievalScore:
           memory.importance * 12 +
           memory.confidence * 20 +
-          vector * 35 +
+          reciprocalRank * 1000 +
           recency +
-          companionBoost -
-          lexical,
+          companionBoost,
       }
     })
     .sort(
@@ -1136,6 +1180,10 @@ function rankMemories(
         right.updatedAt - left.updatedAt ||
         left.id.localeCompare(right.id)
     )
+}
+
+function reciprocalRankScore(rank: number | undefined): number {
+  return rank && rank > 0 ? 1 / (60 + rank) : 0
 }
 
 function toContextItem(memory: CompanionMemorySearchResult): CompanionMemoryContextItem {

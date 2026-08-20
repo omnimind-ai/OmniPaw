@@ -6,7 +6,10 @@ import { ContextBuilder } from '../../core/chat/context-manager'
 import type { ChatMessageRepo } from '../../core/db/repos'
 import { compileCompanionRoleInstruction, OMNIPAW_INTERNAL_SYSTEM_PROMPT } from '../../core/prompts'
 import { createXiaowanCompanionRolePreset } from '../../core/role/presets'
-import { compileCompanionRolePrompt } from '../../shared/companion-role-prompt'
+import {
+  buildCompanionRolePromptSections,
+  compileCompanionRolePrompt,
+} from '../../shared/companion-role-prompt'
 import type {
   ChatMessage,
   InternalAttachmentRecord,
@@ -32,6 +35,13 @@ assert.doesNotMatch(displayOnlyRoleInstruction.text, /RElTUExBWV9PTkxZX0FWQVRBUg
 assert.doesNotMatch(displayOnlyRoleInstruction.text, /LEGACY_SPEECH_STYLE/)
 assert.doesNotMatch(displayOnlyRoleInstruction.text, /LEGACY_RELATIONSHIP/)
 assert.doesNotMatch(displayOnlyRoleInstruction.text, /LEGACY_PROACTIVE_STYLE/)
+
+const constrainedRole = createXiaowanCompanionRolePreset()
+constrainedRole.advanced.finalInstructions = '每次回复不超过十五个字。'
+const constrainedSections = buildCompanionRolePromptSections(constrainedRole)
+assert.equal(constrainedSections.at(-1)?.id, 'advanced-final')
+assert.match(constrainedSections.at(-1)?.text ?? '', /^\[MUST\] 最终回应约束：/)
+assert.match(compileCompanionRolePrompt(constrainedRole), /先回应用户当前的问题/)
 
 const attachment: InternalAttachmentRecord = {
   id: 'att-1',
