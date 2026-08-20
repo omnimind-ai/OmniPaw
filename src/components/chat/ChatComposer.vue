@@ -175,12 +175,13 @@ const formClass = computed(() =>
 )
 const textareaClass = computed(() =>
   cn(
-    'max-h-48 overflow-y-auto overscroll-contain',
+    'max-h-48 w-auto min-w-40 flex-1 overflow-y-auto overscroll-contain px-0 pt-1',
     props.compactAttachments ? 'min-h-16' : 'min-h-24'
   )
 )
 const composerPlaceholder = computed(() => {
   if (dragging.value) return t('chat.composer.uploadDragPlaceholder')
+  if (selectedSkillMentions.value.length) return ''
   if (showAttachmentPresetPanel.value) return ''
   return 'Ask OmniPaw...'
 })
@@ -226,6 +227,7 @@ const showAttachmentPresetPanel = computed(
     !dragging.value &&
     !props.running &&
     !props.attachmentWarning &&
+    selectedSkillMentions.value.length === 0 &&
     !textareaValue.value.trim() &&
     attachmentPresets.value.length > 0
 )
@@ -718,7 +720,7 @@ function handleDrop(event: DragEvent) {
             </div>
           </InputGroupAddon>
 
-          <div class="relative w-full min-w-0">
+          <div class="relative flex w-full min-w-0 flex-wrap items-start gap-1.5 px-2.5 pt-2">
             <ComposerSkillMentionList
               v-if="selectedSkillMentions.length"
               :skills="selectedSkillMentions"

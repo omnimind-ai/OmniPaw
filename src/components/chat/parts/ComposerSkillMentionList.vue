@@ -1,9 +1,8 @@
 <script setup lang="ts">
-import { BoxIcon, XIcon } from '@lucide/vue'
+import { BoxIcon } from '@lucide/vue'
 import type { LocalSkillSummary } from '@shared/types/skill'
 import { useI18n } from 'vue-i18n'
-import { Badge } from '@/components/ui/badge'
-import { InputGroupButton } from '@/components/ui/input-group'
+import { Button } from '@/components/ui/button'
 
 defineProps<{
   skills: LocalSkillSummary[]
@@ -19,28 +18,25 @@ const { t } = useI18n()
 
 <template>
   <div
-    class="flex w-full flex-wrap items-center gap-1.5 px-2.5 pt-2"
+    class="flex max-w-full flex-wrap items-center gap-1"
     role="list"
     :aria-label="t('chat.composer.skillMentionsAria')"
   >
-    <Badge
+    <Button
       v-for="skill in skills"
       :key="skill.id"
-      variant="secondary"
-      class="h-7 gap-1.5 rounded-md py-1 pl-2 pr-0.5 text-sm shadow-xs"
+      type="button"
+      variant="ghost"
+      size="sm"
+      class="h-7 max-w-64 shrink-0 gap-1 px-1 font-semibold text-prompt-blue hover:text-prompt-blue"
       role="listitem"
+      :disabled="disabled"
+      :aria-label="t('chat.composer.removeSkillMentionAria', { skill: skill.name || skill.id })"
+      @mousedown.prevent
+      @click="emit('remove', skill.id)"
     >
       <BoxIcon data-icon="inline-start" />
-      <span class="max-w-56 truncate">{{ skill.name || skill.id }}</span>
-      <InputGroupButton
-        size="icon-xs"
-        :disabled="disabled"
-        :aria-label="t('chat.composer.removeSkillMentionAria', { skill: skill.name || skill.id })"
-        @mousedown.prevent
-        @click="emit('remove', skill.id)"
-      >
-        <XIcon data-icon="inline-start" />
-      </InputGroupButton>
-    </Badge>
+      <span class="truncate">{{ skill.name || skill.id }}</span>
+    </Button>
   </div>
 </template>

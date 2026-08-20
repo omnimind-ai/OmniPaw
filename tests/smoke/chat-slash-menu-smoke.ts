@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 import {
   chatSlashItemMatches,
   findChatSlashQuery,
@@ -45,6 +46,13 @@ assert.deepEqual(replaceChatSlashQuery('请使用 /w 完成任务', replaceQuery
   cursorPosition: 12,
 })
 
+const removeQuery = findChatSlashQuery('请使用 /writer 完成任务', 11)
+assert.ok(removeQuery)
+assert.deepEqual(replaceChatSlashQuery('请使用 /writer 完成任务', removeQuery, ''), {
+  value: '请使用 完成任务',
+  cursorPosition: 4,
+})
+
 assert.deepEqual(
   parseChatSkillMentions('/writer /frontend-design 撰写页面', ['writer', 'frontend-design']),
   {
@@ -61,5 +69,13 @@ assert.equal(
   '/writer /frontend-design 撰写页面'
 )
 assert.equal(serializeChatSkillMentions(['writer'], ''), '/writer ')
+
+const composerSource = readFileSync('src/components/chat/ChatComposer.vue', 'utf8')
+const skillMentionSource = readFileSync(
+  'src/components/chat/parts/ComposerSkillMentionList.vue',
+  'utf8'
+)
+assert.match(composerSource, /if \(selectedSkillMentions\.value\.length\) return ''/)
+assert.match(skillMentionSource, /font-semibold text-prompt-blue/)
 
 process.stdout.write('chat slash menu smoke passed\n')
