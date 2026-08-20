@@ -17,6 +17,8 @@ const props = defineProps<{
   activeItemId?: string
   skillsLoading?: boolean
   skillsUnavailable?: boolean
+  mcpLoading?: boolean
+  mcpUnavailable?: boolean
   maxHeight?: number
 }>()
 
@@ -26,7 +28,7 @@ const emit = defineEmits<{
 
 const { t } = useI18n()
 const menuRef = ref<HTMLElement | null>(null)
-const groupOrder: ChatSlashMenuItemKind[] = ['command', 'skill']
+const groupOrder: ChatSlashMenuItemKind[] = ['skill', 'mcp']
 const sections = computed(() =>
   groupOrder
     .map((kind) => ({
@@ -38,7 +40,10 @@ const sections = computed(() =>
 )
 const menuViewportHeight = computed(() => {
   const itemRows = Math.max(props.items.length, 1)
-  const statusRows = props.skillsLoading || props.skillsUnavailable ? 1 : 0
+  const statusRows = [
+    props.skillsLoading || props.skillsUnavailable,
+    props.mcpLoading || props.mcpUnavailable,
+  ].filter(Boolean).length
   const contentHeight = itemRows * 56 + sections.value.length * 34 + statusRows * 44 + 12
   const availableHeight = Math.max(96, (props.maxHeight ?? 440) - 41)
   return Math.min(400, contentHeight, availableHeight)
@@ -61,17 +66,17 @@ watch(
   <section
     ref="menuRef"
     id="chat-slash-menu"
-    class="absolute inset-x-0 bottom-[calc(100%+0.5rem)] z-20 overflow-hidden rounded-xl border bg-popover text-popover-foreground shadow-xl"
+    class="absolute inset-x-0 bottom-[calc(100%-1px)] z-20 overflow-hidden border bg-background text-foreground"
     role="listbox"
     :aria-label="t('chat.composer.slashMenu.ariaLabel')"
   >
     <ScrollArea :style="{ height: `${menuViewportHeight}px` }">
-      <div class="flex flex-col gap-1 p-1.5">
+      <div class="flex flex-col py-1">
         <template
           v-for="section in sections"
           :key="section.kind"
         >
-          <div class="px-2 pb-1 pt-2 text-xs font-medium text-muted-foreground">
+          <div class="px-4 pb-1 pt-2.5 text-xs font-medium text-muted-foreground">
             {{ section.label }}
           </div>
 
@@ -81,7 +86,7 @@ watch(
             :key="item.id"
             type="button"
             variant="ghost"
-            class="h-auto w-full justify-start gap-3 rounded-lg px-2.5 py-2 text-left [&[aria-selected=true]]:bg-muted"
+            class="h-auto w-full justify-start gap-3 rounded-none px-4 py-2.5 text-left [&[aria-selected=true]]:bg-muted"
             role="option"
             :aria-selected="item.id === activeItemId"
             :data-slash-item-id="item.id"
@@ -106,19 +111,37 @@ watch(
 
         <div
           v-if="skillsLoading"
-          class="px-3 py-2 text-sm text-muted-foreground"
+          class="px-4 py-2 text-sm text-muted-foreground"
         >
           {{ t('chat.composer.slashMenu.skillsLoading') }}
         </div>
         <div
           v-else-if="skillsUnavailable"
-          class="px-3 py-2 text-sm text-muted-foreground"
+          class="px-4 py-2 text-sm text-muted-foreground"
         >
           {{ t('chat.composer.slashMenu.skillsUnavailable') }}
         </div>
         <div
-          v-else-if="!items.length"
-          class="px-3 py-6 text-center text-sm text-muted-foreground"
+          v-if="mcpLoading"
+          class="px-4 py-2 text-sm text-muted-foreground"
+        >
+          {{ t('chat.composer.slashMenu.mcpLoading') }}
+        </div>
+        <div
+          v-else-if="mcpUnavailable"
+          class="px-4 py-2 text-sm text-muted-foreground"
+        >
+          {{ t('chat.composer.slashMenu.mcpUnavailable') }}
+        </div>
+        <div
+          v-if="
+            !items.length &&
+            !skillsLoading &&
+            !skillsUnavailable &&
+            !mcpLoading &&
+            !mcpUnavailable
+          "
+          class="px-4 py-6 text-center text-sm text-muted-foreground"
         >
           {{ t('chat.composer.slashMenu.empty') }}
         </div>

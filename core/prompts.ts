@@ -369,6 +369,7 @@ export const TOOL_INVENTORY_PROMPTS = {
     return [
       'Available tools for this chat run are listed below. Tool parameter schemas are provided separately through the tool API.',
       'If the user asks which MCP tools are available, answer from entries marked with [mcp] and use the exact tool names shown here.',
+      'A user reference written as /<exact-mcp-tool-name> is an explicit request to use that available MCP tool when it is relevant to the message.',
       'If no entries are marked [mcp], say that no MCP tools are currently available in this run.',
       ...lines,
     ].join('\n')

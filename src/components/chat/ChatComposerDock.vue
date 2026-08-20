@@ -2,9 +2,12 @@
 import type { LocalSkillSummary, SkillChangedEvent } from '@shared/types/skill'
 import { onBeforeUnmount, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { appBridge } from '@/bridge/app'
+import {
+  appBridge,
+  type BridgeMcpChangedEvent,
+  type BridgeMcpDiscoveredToolSummary,
+} from '@/bridge/app'
 import ChatComposer from '@/components/chat/ChatComposer.vue'
-import type { ChatSlashCommand } from '@/components/chat/chat-slash-menu'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { useChatWorkspaceContext } from './chat-workspace-context'
@@ -26,9 +29,7 @@ const {
   welcomeTitle,
   selectedModel,
   providersLoading,
-  handleNewChat,
   openSettings,
-  openSkillSettings,
   draft,
   stagedFiles,
   stagedUploadItems,
@@ -63,19 +64,30 @@ const {
 const availableSkills = ref<LocalSkillSummary[]>([])
 const skillsLoading = ref(true)
 const skillsUnavailable = ref(false)
+const availableMcpTools = ref<BridgeMcpDiscoveredToolSummary[]>([])
+const mcpLoading = ref(true)
+const mcpUnavailable = ref(false)
 let unsubscribeSkills: (() => void) | undefined
+let unsubscribeMcp: (() => void) | undefined
 
 onMounted(() => {
   unsubscribeSkills = appBridge.skill.onChanged?.((event: SkillChangedEvent) => {
     availableSkills.value = event.skills
     skillsUnavailable.value = false
   })
+  unsubscribeMcp = appBridge.mcp.onChanged?.((event: BridgeMcpChangedEvent) => {
+    availableMcpTools.value = event.servers.flatMap((server) => server.tools)
+    mcpUnavailable.value = Boolean(event.status.error)
+  })
   void loadSkills()
+  void loadMcpTools()
 })
 
 onBeforeUnmount(() => {
   unsubscribeSkills?.()
   unsubscribeSkills = undefined
+  unsubscribeMcp?.()
+  unsubscribeMcp = undefined
 })
 
 async function loadSkills() {
@@ -93,22 +105,17 @@ async function loadSkills() {
   }
 }
 
-function handleSlashCommand(command: ChatSlashCommand) {
-  switch (command) {
-    case 'new-chat':
-      void handleNewChat()
-      break
-    case 'add-attachment':
-      openFilePicker()
-      break
-    case 'manage-skills':
-      void openSkillSettings()
-      break
-    case 'open-settings':
-      void openSettings()
-      break
-    case 'clear-input':
-      break
+async function loadMcpTools() {
+  mcpLoading.value = true
+  mcpUnavailable.value = false
+  try {
+    const response = await appBridge.mcp.listTools()
+    availableMcpTools.value = response.tools
+  } catch {
+    availableMcpTools.value = []
+    mcpUnavailable.value = true
+  } finally {
+    mcpLoading.value = false
   }
 }
 </script>
@@ -148,6 +155,9 @@ function handleSlashCommand(command: ChatSlashCommand) {
         :skills="availableSkills"
         :skills-loading="skillsLoading"
         :skills-unavailable="skillsUnavailable"
+        :mcp-tools="availableMcpTools"
+        :mcp-loading="mcpLoading"
+        :mcp-unavailable="mcpUnavailable"
         :staged-files="stagedFiles"
         :staged-upload-items="stagedUploadItems"
         :model-options="enabledModelOptions"
@@ -176,7 +186,6 @@ function handleSlashCommand(command: ChatSlashCommand) {
         @paste="handlePaste"
         @submit="handleSubmit"
         @stop="handleStop"
-        @slash-command="handleSlashCommand"
       />
     </div>
 

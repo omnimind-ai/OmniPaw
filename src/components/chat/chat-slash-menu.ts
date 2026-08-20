@@ -1,13 +1,16 @@
 import type { Component } from 'vue'
 
-export type ChatSlashMenuItemKind = 'command' | 'skill'
+export type ChatSlashMenuItemKind = 'skill' | 'mcp'
 
-export type ChatSlashCommand =
-  | 'new-chat'
-  | 'add-attachment'
-  | 'manage-skills'
-  | 'open-settings'
-  | 'clear-input'
+export interface ChatCapabilityReference {
+  kind: ChatSlashMenuItemKind
+  id: string
+}
+
+export interface ChatCapabilityMention extends ChatCapabilityReference {
+  key: string
+  label: string
+}
 
 export interface ChatSlashMenuItem {
   id: string
@@ -17,8 +20,7 @@ export interface ChatSlashMenuItem {
   token: string
   keywords: string
   icon: Component
-  command?: ChatSlashCommand
-  skillId?: string
+  reference: ChatCapabilityReference
 }
 
 export interface ChatSlashQuery {
@@ -28,8 +30,8 @@ export interface ChatSlashQuery {
   signature: string
 }
 
-export interface ParsedChatSkillMentions {
-  skillIds: string[]
+export interface ParsedChatCapabilityMentions {
+  references: ChatCapabilityReference[]
   text: string
 }
 
@@ -65,31 +67,54 @@ export function replaceChatSlashQuery(
   }
 }
 
-export function parseChatSkillMentions(
+export function parseChatCapabilityMentions(
   value: string,
-  availableSkillIds: Iterable<string>
-): ParsedChatSkillMentions {
-  const availableIds = new Set(availableSkillIds)
-  const skillIds: string[] = []
+  availableSkillIds: Iterable<string>,
+  availableMcpToolIds: Iterable<string>
+): ParsedChatCapabilityMentions {
+  const skillIds = new Set(availableSkillIds)
+  const mcpToolIds = new Set(availableMcpToolIds)
+  const references: ChatCapabilityReference[] = []
   let text = value
 
   while (text.startsWith('/')) {
     const match = text.match(/^\/([a-z0-9][a-z0-9_-]*)(?:[ \t]+|$)/iu)
-    const skillId = match?.[1]
-    if (!match || !skillId || !availableIds.has(skillId)) break
+    const referenceId = match?.[1]
+    if (!match || !referenceId) break
 
-    if (!skillIds.includes(skillId)) skillIds.push(skillId)
+    const kind = skillIds.has(referenceId)
+      ? 'skill'
+      : mcpToolIds.has(referenceId)
+        ? 'mcp'
+        : undefined
+    if (!kind) break
+
+    if (!references.some((reference) => reference.kind === kind && reference.id === referenceId)) {
+      references.push({ kind, id: referenceId })
+    }
     text = text.slice(match[0].length)
   }
 
-  return { skillIds, text }
+  return { references, text }
 }
 
-export function serializeChatSkillMentions(skillIds: Iterable<string>, text: string): string {
-  const uniqueIds = Array.from(new Set(skillIds))
-  if (!uniqueIds.length) return text
+export function serializeChatCapabilityMentions(
+  references: Iterable<ChatCapabilityReference>,
+  text: string
+): string {
+  const uniqueReferences: ChatCapabilityReference[] = []
+  const seen = new Set<string>()
 
-  const prefix = uniqueIds.map((skillId) => `/${skillId}`).join(' ')
+  for (const reference of references) {
+    const key = `${reference.kind}:${reference.id}`
+    if (seen.has(key)) continue
+    seen.add(key)
+    uniqueReferences.push(reference)
+  }
+
+  if (!uniqueReferences.length) return text
+
+  const prefix = uniqueReferences.map((reference) => `/${reference.id}`).join(' ')
   return text ? `${prefix} ${text}` : `${prefix} `
 }
 

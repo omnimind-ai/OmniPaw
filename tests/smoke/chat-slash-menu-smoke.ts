@@ -3,9 +3,9 @@ import { readFileSync } from 'node:fs'
 import {
   chatSlashItemMatches,
   findChatSlashQuery,
-  parseChatSkillMentions,
+  parseChatCapabilityMentions,
   replaceChatSlashQuery,
-  serializeChatSkillMentions,
+  serializeChatCapabilityMentions,
 } from '../../src/components/chat/chat-slash-menu'
 
 const rootQuery = findChatSlashQuery('/ski', 4)
@@ -33,6 +33,7 @@ assert.equal(
       token: '/frontend-design',
       keywords: 'frontend design',
       icon: {} as never,
+      reference: { kind: 'skill', id: 'frontend-design' },
     },
     'front'
   ),
@@ -54,30 +55,56 @@ assert.deepEqual(replaceChatSlashQuery('请使用 /writer 完成任务', removeQ
 })
 
 assert.deepEqual(
-  parseChatSkillMentions('/writer /frontend-design 撰写页面', ['writer', 'frontend-design']),
+  parseChatCapabilityMentions(
+    '/writer /mcp_browser_open 撰写页面',
+    ['writer'],
+    ['mcp_browser_open']
+  ),
   {
-    skillIds: ['writer', 'frontend-design'],
+    references: [
+      { kind: 'skill', id: 'writer' },
+      { kind: 'mcp', id: 'mcp_browser_open' },
+    ],
     text: '撰写页面',
   }
 )
-assert.deepEqual(parseChatSkillMentions('/unknown 保留原文', ['writer']), {
-  skillIds: [],
+assert.deepEqual(parseChatCapabilityMentions('/unknown 保留原文', ['writer'], []), {
+  references: [],
   text: '/unknown 保留原文',
 })
+assert.deepEqual(parseChatCapabilityMentions('/mcp_browser_open 保留原文', ['writer'], []), {
+  references: [],
+  text: '/mcp_browser_open 保留原文',
+})
 assert.equal(
-  serializeChatSkillMentions(['writer', 'writer', 'frontend-design'], '撰写页面'),
-  '/writer /frontend-design 撰写页面'
+  serializeChatCapabilityMentions(
+    [
+      { kind: 'skill', id: 'writer' },
+      { kind: 'mcp', id: 'mcp_browser_open' },
+      { kind: 'skill', id: 'writer' },
+    ],
+    '撰写页面'
+  ),
+  '/writer /mcp_browser_open 撰写页面'
 )
-assert.equal(serializeChatSkillMentions(['writer'], ''), '/writer ')
+assert.equal(serializeChatCapabilityMentions([{ kind: 'skill', id: 'writer' }], ''), '/writer ')
 
 const composerSource = readFileSync('src/components/chat/ChatComposer.vue', 'utf8')
-const skillMentionSource = readFileSync(
-  'src/components/chat/parts/ComposerSkillMentionList.vue',
+const mentionSource = readFileSync(
+  'src/components/chat/parts/ComposerCapabilityMentionList.vue',
   'utf8'
 )
-assert.match(composerSource, /if \(selectedSkillMentions\.value\.length\) return ''/)
-assert.match(skillMentionSource, /font-semibold.*text-prompt-blue/)
-assert.match(skillMentionSource, /h-6.*leading-6.*md:h-5.*md:text-sm.*md:leading-5/)
-assert.match(skillMentionSource, /translate-y-0\.5/)
+const menuSource = readFileSync('src/components/chat/ChatSlashMenu.vue', 'utf8')
+const dockSource = readFileSync('src/components/chat/ChatComposerDock.vue', 'utf8')
+assert.match(composerSource, /if \(selectedCapabilityMentions\.value\.length\) return ''/)
+assert.doesNotMatch(composerSource, /slashCommandItems/)
+assert.match(composerSource, /slashMcpItems/)
+assert.match(mentionSource, /font-semibold.*text-prompt-blue/)
+assert.match(mentionSource, /h-6.*leading-6.*md:h-5.*md:text-sm.*md:leading-5/)
+assert.match(mentionSource, /translate-y-0\.5/)
+assert.match(menuSource, /bottom-\[calc\(100%-1px\)\]/)
+assert.doesNotMatch(menuSource, /shadow-xl/)
+assert.match(menuSource, /\['skill', 'mcp'\]/)
+assert.match(dockSource, /appBridge\.mcp\.listTools\(\)/)
 
 process.stdout.write('chat slash menu smoke passed\n')

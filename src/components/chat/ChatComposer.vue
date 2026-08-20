@@ -2,21 +2,18 @@
 import {
   ArrowUpIcon,
   BookOpenIcon,
-  MessageSquarePlusIcon,
-  PaperclipIcon,
+  PlugIcon,
   PlusIcon,
   ReplyIcon,
-  SettingsIcon,
   ShieldCheckIcon,
-  SparklesIcon,
   SquareIcon,
-  Trash2Icon,
   XIcon,
 } from '@lucide/vue'
 import type { ToolProfile } from '@shared/types/chat'
 import type { LocalSkillSummary } from '@shared/types/skill'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import type { BridgeMcpDiscoveredToolSummary } from '@/bridge/app'
 import ChatContextUsageIndicator from '@/components/chat/ChatContextUsageIndicator.vue'
 import ChatSlashMenu from '@/components/chat/ChatSlashMenu.vue'
 import ProviderBrandIcon from '@/components/settings/provider-settings/ProviderBrandIcon.vue'
@@ -48,17 +45,18 @@ import type { SessionContextUsage } from '@/stores/chat'
 import type { ProviderModelOption } from '@/stores/provider'
 import { presetsForAttachment } from './attachment-presets'
 import {
-  type ChatSlashCommand,
+  type ChatCapabilityMention,
+  type ChatCapabilityReference,
   type ChatSlashMenuItem,
   chatSlashItemDomId,
   chatSlashItemMatches,
   findChatSlashQuery,
-  parseChatSkillMentions,
+  parseChatCapabilityMentions,
   replaceChatSlashQuery,
-  serializeChatSkillMentions,
+  serializeChatCapabilityMentions,
 } from './chat-slash-menu'
 import ComposerAttachmentPreviewList from './parts/ComposerAttachmentPreviewList.vue'
-import ComposerSkillMentionList from './parts/ComposerSkillMentionList.vue'
+import ComposerCapabilityMentionList from './parts/ComposerCapabilityMentionList.vue'
 
 const { t } = useI18n()
 
@@ -67,6 +65,9 @@ const props = defineProps<{
   skills?: LocalSkillSummary[]
   skillsLoading?: boolean
   skillsUnavailable?: boolean
+  mcpTools?: BridgeMcpDiscoveredToolSummary[]
+  mcpLoading?: boolean
+  mcpUnavailable?: boolean
   stagedFiles: StagedFileInfo[]
   stagedUploadItems?: StagedUploadItem[]
   modelOptions: ProviderModelOption[]
@@ -106,7 +107,6 @@ const emit = defineEmits<{
   paste: [event: ClipboardEvent]
   submit: []
   stop: []
-  slashCommand: [command: ChatSlashCommand]
 }>()
 
 const compositionActive = ref(false)
@@ -121,22 +121,38 @@ const slashMenuMaxHeight = ref(440)
 const availableSkills = computed(() =>
   (props.skills ?? []).filter((skill) => skill.enabled && skill.status === 'available')
 )
-const parsedSkillDraft = computed(() =>
-  parseChatSkillMentions(
+const availableMcpTools = computed(() =>
+  (props.mcpTools ?? []).filter((tool) => tool.enabled && tool.profiles.includes(props.toolProfile))
+)
+const parsedCapabilityDraft = computed(() =>
+  parseChatCapabilityMentions(
     props.modelValue,
-    availableSkills.value.map((skill) => skill.id)
+    availableSkills.value.map((skill) => skill.id),
+    availableMcpTools.value.map((tool) => tool.name)
   )
 )
-const selectedSkillMentions = computed(() => {
+const selectedCapabilityMentions = computed<ChatCapabilityMention[]>(() => {
   const skillsById = new Map(availableSkills.value.map((skill) => [skill.id, skill]))
-  return parsedSkillDraft.value.skillIds.flatMap((skillId) => {
-    const skill = skillsById.get(skillId)
-    return skill ? [skill] : []
+  const mcpToolsByName = new Map(availableMcpTools.value.map((tool) => [tool.name, tool]))
+
+  return parsedCapabilityDraft.value.references.flatMap((reference) => {
+    if (reference.kind === 'skill') {
+      const skill = skillsById.get(reference.id)
+      return skill
+        ? [{ ...reference, key: `skill:${reference.id}`, label: skill.name || skill.id }]
+        : []
+    }
+
+    const tool = mcpToolsByName.get(reference.id)
+    return tool
+      ? [{ ...reference, key: `mcp:${reference.id}`, label: tool.label || tool.name }]
+      : []
   })
 })
 const textareaValue = computed({
-  get: () => parsedSkillDraft.value.text,
-  set: (value) => updateDraftWithSkillMentions(parsedSkillDraft.value.skillIds, String(value)),
+  get: () => parsedCapabilityDraft.value.text,
+  set: (value) =>
+    updateDraftWithCapabilityMentions(parsedCapabilityDraft.value.references, String(value)),
 })
 const uploadItems = computed(() => props.stagedUploadItems || [])
 const attachmentCount = computed(
@@ -181,7 +197,7 @@ const textareaClass = computed(() =>
 )
 const composerPlaceholder = computed(() => {
   if (dragging.value) return t('chat.composer.uploadDragPlaceholder')
-  if (selectedSkillMentions.value.length) return ''
+  if (selectedCapabilityMentions.value.length) return ''
   if (showAttachmentPresetPanel.value) return ''
   return 'Ask OmniPaw...'
 })
@@ -227,7 +243,7 @@ const showAttachmentPresetPanel = computed(
     !dragging.value &&
     !props.running &&
     !props.attachmentWarning &&
-    selectedSkillMentions.value.length === 0 &&
+    selectedCapabilityMentions.value.length === 0 &&
     !textareaValue.value.trim() &&
     attachmentPresets.value.length > 0
 )
@@ -240,61 +256,8 @@ const canUseAttachmentPreset = computed(
 )
 const attachmentStatusClass = computed(() => cn(props.attachmentWarning && 'text-destructive'))
 const slashQuery = computed(() => findChatSlashQuery(textareaValue.value, cursorPosition.value))
-const slashCommandItems = computed<ChatSlashMenuItem[]>(() => [
-  {
-    id: 'command:new-chat',
-    kind: 'command',
-    label: t('chat.composer.slashMenu.commands.newChat.label'),
-    description: t('chat.composer.slashMenu.commands.newChat.description'),
-    token: '/new',
-    keywords: 'new chat conversation 新建 对话 会话',
-    icon: MessageSquarePlusIcon,
-    command: 'new-chat',
-  },
-  {
-    id: 'command:add-attachment',
-    kind: 'command',
-    label: t('chat.composer.slashMenu.commands.addAttachment.label'),
-    description: t('chat.composer.slashMenu.commands.addAttachment.description'),
-    token: '/attach',
-    keywords: 'attachment upload file 添加 附件 上传 文件',
-    icon: PaperclipIcon,
-    command: 'add-attachment',
-  },
-  {
-    id: 'command:manage-skills',
-    kind: 'command',
-    label: t('chat.composer.slashMenu.commands.manageSkills.label'),
-    description: t('chat.composer.slashMenu.commands.manageSkills.description'),
-    token: '/skills',
-    keywords: 'skill manage 技能 管理',
-    icon: SparklesIcon,
-    command: 'manage-skills',
-  },
-  {
-    id: 'command:open-settings',
-    kind: 'command',
-    label: t('chat.composer.slashMenu.commands.openSettings.label'),
-    description: t('chat.composer.slashMenu.commands.openSettings.description'),
-    token: '/settings',
-    keywords: 'settings preferences 设置 偏好',
-    icon: SettingsIcon,
-    command: 'open-settings',
-  },
-  {
-    id: 'command:clear-input',
-    kind: 'command',
-    label: t('chat.composer.slashMenu.commands.clearInput.label'),
-    description: t('chat.composer.slashMenu.commands.clearInput.description'),
-    token: '/clear',
-    keywords: 'clear input draft 清空 输入 草稿',
-    icon: Trash2Icon,
-    command: 'clear-input',
-  },
-])
 const slashSkillItems = computed<ChatSlashMenuItem[]>(() =>
-  (props.skills ?? [])
-    .filter((skill) => skill.enabled && skill.status === 'available')
+  availableSkills.value
     .map((skill) => ({
       id: `skill:${skill.id}`,
       kind: 'skill',
@@ -303,13 +266,27 @@ const slashSkillItems = computed<ChatSlashMenuItem[]>(() =>
       token: `/${skill.id}`,
       keywords: `${skill.id} ${skill.name} ${skill.description}`,
       icon: BookOpenIcon,
-      skillId: skill.id,
+      reference: { kind: 'skill', id: skill.id },
+    }))
+    .sort((left, right) => left.label.localeCompare(right.label))
+)
+const slashMcpItems = computed<ChatSlashMenuItem[]>(() =>
+  availableMcpTools.value
+    .map((tool) => ({
+      id: `mcp:${tool.name}`,
+      kind: 'mcp',
+      label: tool.label || tool.name,
+      description: tool.description || t('chat.composer.slashMenu.mcpDescriptionFallback'),
+      token: `/${tool.name}`,
+      keywords: `${tool.name} ${tool.label ?? ''} ${tool.description} ${tool.serverName}`,
+      icon: PlugIcon,
+      reference: { kind: 'mcp', id: tool.name },
     }))
     .sort((left, right) => left.label.localeCompare(right.label))
 )
 const filteredSlashItems = computed(() => {
   const query = slashQuery.value?.query ?? ''
-  return [...slashCommandItems.value, ...slashSkillItems.value].filter((item) =>
+  return [...slashSkillItems.value, ...slashMcpItems.value].filter((item) =>
     chatSlashItemMatches(item, query)
   )
 })
@@ -417,7 +394,7 @@ function handleCompositionEnd(event: CompositionEvent) {
 
 function handleKeydown(event: KeyboardEvent) {
   if (handleSlashMenuKeydown(event)) return
-  if (handleSkillMentionBackspace(event)) return
+  if (handleCapabilityMentionBackspace(event)) return
   if (handleAttachmentPresetShortcut(event)) return
   if (event.key !== 'Enter' || event.shiftKey) return
 
@@ -439,7 +416,7 @@ function handleKeydown(event: KeyboardEvent) {
   emit('submit')
 }
 
-function handleSkillMentionBackspace(event: KeyboardEvent): boolean {
+function handleCapabilityMentionBackspace(event: KeyboardEvent): boolean {
   if (
     event.key !== 'Backspace' ||
     event.altKey ||
@@ -447,14 +424,14 @@ function handleSkillMentionBackspace(event: KeyboardEvent): boolean {
     event.metaKey ||
     event.shiftKey ||
     cursorPosition.value !== 0 ||
-    !selectedSkillMentions.value.length
+    !selectedCapabilityMentions.value.length
   ) {
     return false
   }
 
   event.preventDefault()
-  const lastSkill = selectedSkillMentions.value.at(-1)
-  if (lastSkill) removeSkillMention(lastSkill.id)
+  const lastMention = selectedCapabilityMentions.value.at(-1)
+  if (lastMention) removeCapabilityMention(lastMention)
   return true
 }
 
@@ -517,38 +494,27 @@ function selectSlashItem(item: ChatSlashMenuItem) {
   const query = slashQuery.value
   if (!query) return
 
-  if (item.kind === 'skill' && item.skillId) {
-    const replacement = replaceChatSlashQuery(textareaValue.value, query, '')
-    updateDraftWithSkillMentions(
-      [...parsedSkillDraft.value.skillIds, item.skillId],
-      replacement.value
-    )
-    dismissedSlashSignature.value = ''
-    focusAt(replacement.cursorPosition)
-    return
-  }
-
-  if (!item.command) return
-  if (item.command === 'clear-input') {
-    emit('update:modelValue', '')
-    dismissedSlashSignature.value = ''
-    focusAt(0)
-  } else {
-    const replacement = replaceChatSlashQuery(textareaValue.value, query, '')
-    textareaValue.value = replacement.value
-    dismissedSlashSignature.value = ''
-    focusAt(replacement.cursorPosition)
-  }
-  emit('slashCommand', item.command)
+  const replacement = replaceChatSlashQuery(textareaValue.value, query, '')
+  updateDraftWithCapabilityMentions(
+    [...parsedCapabilityDraft.value.references, item.reference],
+    replacement.value
+  )
+  dismissedSlashSignature.value = ''
+  focusAt(replacement.cursorPosition)
 }
 
-function updateDraftWithSkillMentions(skillIds: Iterable<string>, text: string) {
-  emit('update:modelValue', serializeChatSkillMentions(skillIds, text))
+function updateDraftWithCapabilityMentions(
+  references: Iterable<ChatCapabilityReference>,
+  text: string
+) {
+  emit('update:modelValue', serializeChatCapabilityMentions(references, text))
 }
 
-function removeSkillMention(skillId: string) {
-  updateDraftWithSkillMentions(
-    parsedSkillDraft.value.skillIds.filter((id) => id !== skillId),
+function removeCapabilityMention(mention: ChatCapabilityMention) {
+  updateDraftWithCapabilityMentions(
+    parsedCapabilityDraft.value.references.filter(
+      (reference) => reference.kind !== mention.kind || reference.id !== mention.id
+    ),
     textareaValue.value
   )
   focusAt(Math.min(cursorPosition.value, textareaValue.value.length))
@@ -691,6 +657,8 @@ function handleDrop(event: DragEvent) {
           :active-item-id="activeSlashItem?.id"
           :skills-loading="skillsLoading"
           :skills-unavailable="skillsUnavailable"
+          :mcp-loading="mcpLoading"
+          :mcp-unavailable="mcpUnavailable"
           :max-height="slashMenuMaxHeight"
           @select="selectSlashItem"
         />
@@ -721,11 +689,11 @@ function handleDrop(event: DragEvent) {
           </InputGroupAddon>
 
           <div class="relative flex w-full min-w-0 flex-wrap items-start gap-1.5 px-2.5 pt-2">
-            <ComposerSkillMentionList
-              v-if="selectedSkillMentions.length"
-              :skills="selectedSkillMentions"
+            <ComposerCapabilityMentionList
+              v-if="selectedCapabilityMentions.length"
+              :mentions="selectedCapabilityMentions"
               :disabled="disabled && !running"
-              @remove="removeSkillMention"
+              @remove="removeCapabilityMention"
             />
 
             <InputGroupTextarea
