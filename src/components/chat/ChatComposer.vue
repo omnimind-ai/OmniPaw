@@ -1,9 +1,24 @@
 <script setup lang="ts">
-import { ArrowUpIcon, PlusIcon, ReplyIcon, ShieldCheckIcon, SquareIcon, XIcon } from '@lucide/vue'
+import {
+  ArrowUpIcon,
+  BookOpenIcon,
+  MessageSquarePlusIcon,
+  PaperclipIcon,
+  PlusIcon,
+  ReplyIcon,
+  SettingsIcon,
+  ShieldCheckIcon,
+  SparklesIcon,
+  SquareIcon,
+  Trash2Icon,
+  XIcon,
+} from '@lucide/vue'
 import type { ToolProfile } from '@shared/types/chat'
-import { computed, nextTick, onMounted, ref, watch } from 'vue'
+import type { LocalSkillSummary } from '@shared/types/skill'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import ChatContextUsageIndicator from '@/components/chat/ChatContextUsageIndicator.vue'
+import ChatSlashMenu from '@/components/chat/ChatSlashMenu.vue'
 import ProviderBrandIcon from '@/components/settings/provider-settings/ProviderBrandIcon.vue'
 import {
   DropdownMenu,
@@ -32,12 +47,23 @@ import { cn } from '@/lib/utils'
 import type { SessionContextUsage } from '@/stores/chat'
 import type { ProviderModelOption } from '@/stores/provider'
 import { presetsForAttachment } from './attachment-presets'
+import {
+  type ChatSlashCommand,
+  type ChatSlashMenuItem,
+  chatSlashItemDomId,
+  chatSlashItemMatches,
+  findChatSlashQuery,
+  replaceChatSlashQuery,
+} from './chat-slash-menu'
 import ComposerAttachmentPreviewList from './parts/ComposerAttachmentPreviewList.vue'
 
 const { t } = useI18n()
 
 const props = defineProps<{
   modelValue: string
+  skills?: LocalSkillSummary[]
+  skillsLoading?: boolean
+  skillsUnavailable?: boolean
   stagedFiles: StagedFileInfo[]
   stagedUploadItems?: StagedUploadItem[]
   modelOptions: ProviderModelOption[]
@@ -77,12 +103,18 @@ const emit = defineEmits<{
   paste: [event: ClipboardEvent]
   submit: []
   stop: []
+  slashCommand: [command: ChatSlashCommand]
 }>()
 
 const compositionActive = ref(false)
 const lastCompositionEndAt = ref<number | null>(null)
 const dragging = ref(false)
 const formRef = ref<HTMLFormElement | null>(null)
+const inputFocused = ref(false)
+const cursorPosition = ref(0)
+const activeSlashItemIndex = ref(0)
+const dismissedSlashSignature = ref('')
+const slashMenuMaxHeight = ref(440)
 const textareaValue = computed({
   get: () => props.modelValue,
   set: (value) => emit('update:modelValue', String(value)),
@@ -118,7 +150,7 @@ const inputGroupClass = computed(() =>
 )
 const formClass = computed(() =>
   cn(
-    '@container/chat-composer w-full rounded-xl transition-colors',
+    '@container/chat-composer relative w-full rounded-xl transition-colors',
     dragging.value && 'bg-accent/40'
   )
 )
@@ -186,15 +218,138 @@ const canUseAttachmentPreset = computed(
     !(props.disabled && !props.running)
 )
 const attachmentStatusClass = computed(() => cn(props.attachmentWarning && 'text-destructive'))
+const slashQuery = computed(() => findChatSlashQuery(textareaValue.value, cursorPosition.value))
+const slashCommandItems = computed<ChatSlashMenuItem[]>(() => [
+  {
+    id: 'command:new-chat',
+    kind: 'command',
+    label: t('chat.composer.slashMenu.commands.newChat.label'),
+    description: t('chat.composer.slashMenu.commands.newChat.description'),
+    token: '/new',
+    keywords: 'new chat conversation 新建 对话 会话',
+    icon: MessageSquarePlusIcon,
+    command: 'new-chat',
+  },
+  {
+    id: 'command:add-attachment',
+    kind: 'command',
+    label: t('chat.composer.slashMenu.commands.addAttachment.label'),
+    description: t('chat.composer.slashMenu.commands.addAttachment.description'),
+    token: '/attach',
+    keywords: 'attachment upload file 添加 附件 上传 文件',
+    icon: PaperclipIcon,
+    command: 'add-attachment',
+  },
+  {
+    id: 'command:manage-skills',
+    kind: 'command',
+    label: t('chat.composer.slashMenu.commands.manageSkills.label'),
+    description: t('chat.composer.slashMenu.commands.manageSkills.description'),
+    token: '/skills',
+    keywords: 'skill manage 技能 管理',
+    icon: SparklesIcon,
+    command: 'manage-skills',
+  },
+  {
+    id: 'command:open-settings',
+    kind: 'command',
+    label: t('chat.composer.slashMenu.commands.openSettings.label'),
+    description: t('chat.composer.slashMenu.commands.openSettings.description'),
+    token: '/settings',
+    keywords: 'settings preferences 设置 偏好',
+    icon: SettingsIcon,
+    command: 'open-settings',
+  },
+  {
+    id: 'command:clear-input',
+    kind: 'command',
+    label: t('chat.composer.slashMenu.commands.clearInput.label'),
+    description: t('chat.composer.slashMenu.commands.clearInput.description'),
+    token: '/clear',
+    keywords: 'clear input draft 清空 输入 草稿',
+    icon: Trash2Icon,
+    command: 'clear-input',
+  },
+])
+const slashSkillItems = computed<ChatSlashMenuItem[]>(() =>
+  (props.skills ?? [])
+    .filter((skill) => skill.enabled && skill.status === 'available')
+    .map((skill) => ({
+      id: `skill:${skill.id}`,
+      kind: 'skill',
+      label: skill.name || skill.id,
+      description: skill.description || t('chat.composer.slashMenu.skillDescriptionFallback'),
+      token: `/${skill.id}`,
+      keywords: `${skill.id} ${skill.name} ${skill.description}`,
+      icon: BookOpenIcon,
+    }))
+    .sort((left, right) => left.label.localeCompare(right.label))
+)
+const filteredSlashItems = computed(() => {
+  const query = slashQuery.value?.query ?? ''
+  return [...slashCommandItems.value, ...slashSkillItems.value].filter((item) =>
+    chatSlashItemMatches(item, query)
+  )
+})
+const slashMenuOpen = computed(
+  () =>
+    Boolean(slashQuery.value) &&
+    inputFocused.value &&
+    !compositionActive.value &&
+    !dragging.value &&
+    !(props.disabled && !props.running) &&
+    slashQuery.value?.signature !== dismissedSlashSignature.value
+)
+const activeSlashItem = computed(
+  () => filteredSlashItems.value[activeSlashItemIndex.value] ?? filteredSlashItems.value[0]
+)
+const activeSlashItemDomId = computed(() =>
+  slashMenuOpen.value && activeSlashItem.value
+    ? chatSlashItemDomId(activeSlashItem.value.id)
+    : undefined
+)
+
+watch(
+  () =>
+    `${slashQuery.value?.signature ?? ''}:${filteredSlashItems.value.map((item) => item.id).join('|')}`,
+  () => {
+    activeSlashItemIndex.value = 0
+  }
+)
+
+watch(slashMenuOpen, (open) => {
+  if (open) void nextTick(updateSlashMenuMaxHeight)
+})
 
 function focus(options: FocusOptions = { preventScroll: true }) {
-  const textarea = formRef.value?.querySelector<HTMLTextAreaElement>('textarea')
+  const textarea = getTextarea()
   if (!textarea || textarea.disabled) {
     return
   }
 
   textarea.focus(options)
   textarea.setSelectionRange(textarea.value.length, textarea.value.length)
+  cursorPosition.value = textarea.value.length
+}
+
+function getTextarea(): HTMLTextAreaElement | null {
+  return formRef.value?.querySelector<HTMLTextAreaElement>('textarea') ?? null
+}
+
+function focusAt(position: number) {
+  void nextTick(() => {
+    const textarea = getTextarea()
+    if (!textarea || textarea.disabled) return
+    textarea.focus({ preventScroll: true })
+    textarea.setSelectionRange(position, position)
+    cursorPosition.value = position
+  })
+}
+
+function updateSlashMenuMaxHeight() {
+  const formTop = formRef.value?.getBoundingClientRect().top
+  if (typeof formTop !== 'number') return
+  slashMenuMaxHeight.value = Math.max(160, Math.min(440, formTop - 56))
 }
 
 function scheduleFocus() {
@@ -207,7 +362,14 @@ function scheduleFocus() {
   })
 }
 
-onMounted(scheduleFocus)
+onMounted(() => {
+  scheduleFocus()
+  window.addEventListener('resize', updateSlashMenuMaxHeight)
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('resize', updateSlashMenuMaxHeight)
+})
 
 watch(
   () => props.disabled,
@@ -232,6 +394,7 @@ function handleCompositionEnd(event: CompositionEvent) {
 }
 
 function handleKeydown(event: KeyboardEvent) {
+  if (handleSlashMenuKeydown(event)) return
   if (handleAttachmentPresetShortcut(event)) return
   if (event.key !== 'Enter' || event.shiftKey) return
 
@@ -251,6 +414,87 @@ function handleKeydown(event: KeyboardEvent) {
 
   event.preventDefault()
   emit('submit')
+}
+
+function handleSlashMenuKeydown(event: KeyboardEvent): boolean {
+  if (!slashMenuOpen.value || isCompositionKeyboardEvent(event)) return false
+
+  if (event.key === 'Escape') {
+    event.preventDefault()
+    dismissedSlashSignature.value = slashQuery.value?.signature ?? ''
+    return true
+  }
+
+  if (!filteredSlashItems.value.length) return false
+
+  if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+    event.preventDefault()
+    const direction = event.key === 'ArrowDown' ? 1 : -1
+    activeSlashItemIndex.value =
+      (activeSlashItemIndex.value + direction + filteredSlashItems.value.length) %
+      filteredSlashItems.value.length
+    return true
+  }
+
+  if (event.key === 'Enter' || event.key === 'Tab') {
+    event.preventDefault()
+    const item = activeSlashItem.value
+    if (item) selectSlashItem(item)
+    return true
+  }
+
+  return false
+}
+
+function isCompositionKeyboardEvent(event: KeyboardEvent): boolean {
+  const recentCompositionEnd =
+    typeof lastCompositionEndAt.value === 'number' &&
+    event.timeStamp >= lastCompositionEndAt.value &&
+    event.timeStamp - lastCompositionEndAt.value < 100
+  return (
+    compositionActive.value || event.isComposing || event.keyCode === 229 || recentCompositionEnd
+  )
+}
+
+function handleTextareaSelection(event: Event) {
+  const textarea = event.target as HTMLTextAreaElement | null
+  if (!textarea) return
+  cursorPosition.value = textarea.selectionStart ?? textarea.value.length
+}
+
+function handleTextareaFocus(event: FocusEvent) {
+  inputFocused.value = true
+  handleTextareaSelection(event)
+}
+
+function handleTextareaBlur() {
+  inputFocused.value = false
+}
+
+function selectSlashItem(item: ChatSlashMenuItem) {
+  const query = slashQuery.value
+  if (!query) return
+
+  if (item.kind === 'skill') {
+    const replacement = replaceChatSlashQuery(textareaValue.value, query, `${item.token} `)
+    textareaValue.value = replacement.value
+    dismissedSlashSignature.value = ''
+    focusAt(replacement.cursorPosition)
+    return
+  }
+
+  if (!item.command) return
+  if (item.command === 'clear-input') {
+    textareaValue.value = ''
+    dismissedSlashSignature.value = ''
+    focusAt(0)
+  } else {
+    const replacement = replaceChatSlashQuery(textareaValue.value, query, '')
+    textareaValue.value = replacement.value
+    dismissedSlashSignature.value = ''
+    focusAt(replacement.cursorPosition)
+  }
+  emit('slashCommand', item.command)
 }
 
 function handleAttachmentPresetShortcut(event: KeyboardEvent) {
@@ -384,6 +628,16 @@ function handleDrop(event: DragEvent) {
           {{ t('chat.composer.inputLabel') }}
         </FieldLabel>
 
+        <ChatSlashMenu
+          v-if="slashMenuOpen"
+          :items="filteredSlashItems"
+          :active-item-id="activeSlashItem?.id"
+          :skills-loading="skillsLoading"
+          :skills-unavailable="skillsUnavailable"
+          :max-height="slashMenuMaxHeight"
+          @select="selectSlashItem"
+        />
+
         <InputGroup :class="inputGroupClass">
           <InputGroupAddon
             v-if="uploadItems.length || stagedFiles.length || attachmentWarning || uploadPending || attachmentCount"
@@ -417,7 +671,17 @@ function handleDrop(event: DragEvent) {
               :placeholder="composerPlaceholder"
               :class="textareaClass"
               :disabled="disabled && !running"
+              role="combobox"
+              aria-autocomplete="list"
+              aria-controls="chat-slash-menu"
+              :aria-expanded="slashMenuOpen"
+              :aria-activedescendant="activeSlashItemDomId"
               @keydown="handleKeydown"
+              @input="handleTextareaSelection"
+              @click="handleTextareaSelection"
+              @select="handleTextareaSelection"
+              @focus="handleTextareaFocus"
+              @blur="handleTextareaBlur"
               @paste="emit('paste', $event)"
               @compositionstart="handleCompositionStart"
               @compositionend="handleCompositionEnd"

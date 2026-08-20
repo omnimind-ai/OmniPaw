@@ -352,6 +352,7 @@ export const SKILL_PROMPTS = {
     return [
       'Available local skills are listed below.',
       'Use the skill_read tool with a skillId before following a skill. Skills are instructions only and do not grant new tools or permissions.',
+      'A user reference written as /skill-id is an explicit request to read and follow that enabled skill.',
       ...lines,
     ].join('\n')
   },

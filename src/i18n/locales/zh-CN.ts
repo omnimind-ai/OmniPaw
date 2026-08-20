@@ -1913,6 +1913,42 @@ export default {
       switchModel: '切换模型',
       agentPermissionAria: 'Agent 权限：{description}',
       agentPermission: 'Agent 权限',
+      slashMenu: {
+        ariaLabel: '斜杠命令菜单',
+        groups: {
+          command: '命令',
+          skill: '技能',
+        },
+        navigate: '浏览',
+        choose: '选择',
+        close: '关闭',
+        empty: '没有匹配项',
+        skillsLoading: '正在读取技能…',
+        skillsUnavailable: '技能列表暂时无法读取',
+        skillDescriptionFallback: '调用此技能处理消息',
+        commands: {
+          newChat: {
+            label: '新建对话',
+            description: '回到空白对话并清除草稿',
+          },
+          addAttachment: {
+            label: '添加附件',
+            description: '从本地选择图片或文件',
+          },
+          manageSkills: {
+            label: '管理技能',
+            description: '查看、导入或启用本地技能',
+          },
+          openSettings: {
+            label: '打开设置',
+            description: '调整模型、权限和应用偏好',
+          },
+          clearInput: {
+            label: '清空输入',
+            description: '移除当前输入框中的草稿',
+          },
+        },
+      },
       attachmentPresets: {
         image: {
           describe: {

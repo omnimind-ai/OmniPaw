@@ -1,6 +1,10 @@
 <script setup lang="ts">
+import type { LocalSkillSummary, SkillChangedEvent } from '@shared/types/skill'
+import { onBeforeUnmount, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { appBridge } from '@/bridge/app'
 import ChatComposer from '@/components/chat/ChatComposer.vue'
+import type { ChatSlashCommand } from '@/components/chat/chat-slash-menu'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { useChatWorkspaceContext } from './chat-workspace-context'
@@ -22,7 +26,9 @@ const {
   welcomeTitle,
   selectedModel,
   providersLoading,
+  handleNewChat,
   openSettings,
+  openSkillSettings,
   draft,
   stagedFiles,
   stagedUploadItems,
@@ -53,6 +59,58 @@ const {
   fileInput,
   handleFileInputChange,
 } = useChatWorkspaceContext()
+
+const availableSkills = ref<LocalSkillSummary[]>([])
+const skillsLoading = ref(true)
+const skillsUnavailable = ref(false)
+let unsubscribeSkills: (() => void) | undefined
+
+onMounted(() => {
+  unsubscribeSkills = appBridge.skill.onChanged?.((event: SkillChangedEvent) => {
+    availableSkills.value = event.skills
+    skillsUnavailable.value = false
+  })
+  void loadSkills()
+})
+
+onBeforeUnmount(() => {
+  unsubscribeSkills?.()
+  unsubscribeSkills = undefined
+})
+
+async function loadSkills() {
+  skillsLoading.value = true
+  skillsUnavailable.value = false
+  try {
+    const response = await appBridge.skill.list()
+    availableSkills.value = response.skills
+    skillsUnavailable.value = Boolean(response.status.error)
+  } catch {
+    availableSkills.value = []
+    skillsUnavailable.value = true
+  } finally {
+    skillsLoading.value = false
+  }
+}
+
+function handleSlashCommand(command: ChatSlashCommand) {
+  switch (command) {
+    case 'new-chat':
+      void handleNewChat()
+      break
+    case 'add-attachment':
+      openFilePicker()
+      break
+    case 'manage-skills':
+      void openSkillSettings()
+      break
+    case 'open-settings':
+      void openSettings()
+      break
+    case 'clear-input':
+      break
+  }
+}
 </script>
 
 <template>
@@ -87,6 +145,9 @@ const {
 
       <ChatComposer
         v-model="draft"
+        :skills="availableSkills"
+        :skills-loading="skillsLoading"
+        :skills-unavailable="skillsUnavailable"
         :staged-files="stagedFiles"
         :staged-upload-items="stagedUploadItems"
         :model-options="enabledModelOptions"
@@ -115,6 +176,7 @@ const {
         @paste="handlePaste"
         @submit="handleSubmit"
         @stop="handleStop"
+        @slash-command="handleSlashCommand"
       />
     </div>
 

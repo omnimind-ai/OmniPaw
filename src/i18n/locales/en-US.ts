@@ -2009,6 +2009,42 @@ export default {
       switchModel: 'Switch model',
       agentPermissionAria: 'Agent permission: {description}',
       agentPermission: 'Agent permission',
+      slashMenu: {
+        ariaLabel: 'Slash command menu',
+        groups: {
+          command: 'Commands',
+          skill: 'Skills',
+        },
+        navigate: 'Navigate',
+        choose: 'Choose',
+        close: 'Close',
+        empty: 'No matching items',
+        skillsLoading: 'Loading skills…',
+        skillsUnavailable: 'The skill list is temporarily unavailable',
+        skillDescriptionFallback: 'Use this skill for the message',
+        commands: {
+          newChat: {
+            label: 'New chat',
+            description: 'Return to a blank chat and clear the draft',
+          },
+          addAttachment: {
+            label: 'Add attachment',
+            description: 'Choose an image or file from this device',
+          },
+          manageSkills: {
+            label: 'Manage skills',
+            description: 'View, import, or enable local skills',
+          },
+          openSettings: {
+            label: 'Open settings',
+            description: 'Adjust models, permissions, and app preferences',
+          },
+          clearInput: {
+            label: 'Clear input',
+            description: 'Remove the current composer draft',
+          },
+        },
+      },
       attachmentPresets: {
         image: {
           describe: {

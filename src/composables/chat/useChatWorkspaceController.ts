@@ -244,7 +244,9 @@ export function useChatWorkspaceController() {
     fileInput,
     setMessagesScrollArea: scroll.setMessagesScrollArea,
     scrollToLatestMessage: scroll.scrollToLatestMessage,
+    handleNewChat,
     openSettings,
+    openSkillSettings,
     openFilePicker,
     handleFileInputChange,
     handleFilesDropped,
@@ -489,6 +491,10 @@ export function useChatWorkspaceController() {
 
   async function openSettings() {
     await router.push('/settings')
+  }
+
+  async function openSkillSettings() {
+    await router.push({ name: 'settings', query: { tab: 'skills' } })
   }
 
   async function openRoleSettings() {

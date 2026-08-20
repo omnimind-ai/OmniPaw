@@ -74,6 +74,7 @@ try {
   assert.equal(prompt.injected, true)
   assert.deepEqual(prompt.enabledSkillIds, ['writer'])
   assert.match(prompt.content ?? '', /skill_read/)
+  assert.match(prompt.content ?? '', /\/skill-id/)
   assert.match(prompt.content ?? '', /writer/)
 
   const read = manager.readEnabledSkillContent('writer')

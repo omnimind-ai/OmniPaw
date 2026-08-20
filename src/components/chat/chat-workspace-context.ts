@@ -57,7 +57,9 @@ export interface ChatWorkspaceContext {
   fileInput: Ref<HTMLInputElement | null>
   setMessagesScrollArea: (value: MessageScrollAreaRef) => void
   scrollToLatestMessage: (behavior?: ScrollBehavior, force?: boolean) => void
+  handleNewChat: () => Promise<void>
   openSettings: () => Promise<void>
+  openSkillSettings: () => Promise<void>
   openFilePicker: () => void
   handleFileInputChange: (event: Event) => Promise<void>
   handleFilesDropped: (files: File[]) => Promise<void>
