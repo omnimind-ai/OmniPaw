@@ -53,9 +53,12 @@ import {
   chatSlashItemDomId,
   chatSlashItemMatches,
   findChatSlashQuery,
+  parseChatSkillMentions,
   replaceChatSlashQuery,
+  serializeChatSkillMentions,
 } from './chat-slash-menu'
 import ComposerAttachmentPreviewList from './parts/ComposerAttachmentPreviewList.vue'
+import ComposerSkillMentionList from './parts/ComposerSkillMentionList.vue'
 
 const { t } = useI18n()
 
@@ -115,9 +118,25 @@ const cursorPosition = ref(0)
 const activeSlashItemIndex = ref(0)
 const dismissedSlashSignature = ref('')
 const slashMenuMaxHeight = ref(440)
+const availableSkills = computed(() =>
+  (props.skills ?? []).filter((skill) => skill.enabled && skill.status === 'available')
+)
+const parsedSkillDraft = computed(() =>
+  parseChatSkillMentions(
+    props.modelValue,
+    availableSkills.value.map((skill) => skill.id)
+  )
+)
+const selectedSkillMentions = computed(() => {
+  const skillsById = new Map(availableSkills.value.map((skill) => [skill.id, skill]))
+  return parsedSkillDraft.value.skillIds.flatMap((skillId) => {
+    const skill = skillsById.get(skillId)
+    return skill ? [skill] : []
+  })
+})
 const textareaValue = computed({
-  get: () => props.modelValue,
-  set: (value) => emit('update:modelValue', String(value)),
+  get: () => parsedSkillDraft.value.text,
+  set: (value) => updateDraftWithSkillMentions(parsedSkillDraft.value.skillIds, String(value)),
 })
 const uploadItems = computed(() => props.stagedUploadItems || [])
 const attachmentCount = computed(
@@ -282,6 +301,7 @@ const slashSkillItems = computed<ChatSlashMenuItem[]>(() =>
       token: `/${skill.id}`,
       keywords: `${skill.id} ${skill.name} ${skill.description}`,
       icon: BookOpenIcon,
+      skillId: skill.id,
     }))
     .sort((left, right) => left.label.localeCompare(right.label))
 )
@@ -395,6 +415,7 @@ function handleCompositionEnd(event: CompositionEvent) {
 
 function handleKeydown(event: KeyboardEvent) {
   if (handleSlashMenuKeydown(event)) return
+  if (handleSkillMentionBackspace(event)) return
   if (handleAttachmentPresetShortcut(event)) return
   if (event.key !== 'Enter' || event.shiftKey) return
 
@@ -414,6 +435,25 @@ function handleKeydown(event: KeyboardEvent) {
 
   event.preventDefault()
   emit('submit')
+}
+
+function handleSkillMentionBackspace(event: KeyboardEvent): boolean {
+  if (
+    event.key !== 'Backspace' ||
+    event.altKey ||
+    event.ctrlKey ||
+    event.metaKey ||
+    event.shiftKey ||
+    cursorPosition.value !== 0 ||
+    !selectedSkillMentions.value.length
+  ) {
+    return false
+  }
+
+  event.preventDefault()
+  const lastSkill = selectedSkillMentions.value.at(-1)
+  if (lastSkill) removeSkillMention(lastSkill.id)
+  return true
 }
 
 function handleSlashMenuKeydown(event: KeyboardEvent): boolean {
@@ -475,9 +515,12 @@ function selectSlashItem(item: ChatSlashMenuItem) {
   const query = slashQuery.value
   if (!query) return
 
-  if (item.kind === 'skill') {
-    const replacement = replaceChatSlashQuery(textareaValue.value, query, `${item.token} `)
-    textareaValue.value = replacement.value
+  if (item.kind === 'skill' && item.skillId) {
+    const replacement = replaceChatSlashQuery(textareaValue.value, query, '')
+    updateDraftWithSkillMentions(
+      [...parsedSkillDraft.value.skillIds, item.skillId],
+      replacement.value
+    )
     dismissedSlashSignature.value = ''
     focusAt(replacement.cursorPosition)
     return
@@ -485,7 +528,7 @@ function selectSlashItem(item: ChatSlashMenuItem) {
 
   if (!item.command) return
   if (item.command === 'clear-input') {
-    textareaValue.value = ''
+    emit('update:modelValue', '')
     dismissedSlashSignature.value = ''
     focusAt(0)
   } else {
@@ -495,6 +538,18 @@ function selectSlashItem(item: ChatSlashMenuItem) {
     focusAt(replacement.cursorPosition)
   }
   emit('slashCommand', item.command)
+}
+
+function updateDraftWithSkillMentions(skillIds: Iterable<string>, text: string) {
+  emit('update:modelValue', serializeChatSkillMentions(skillIds, text))
+}
+
+function removeSkillMention(skillId: string) {
+  updateDraftWithSkillMentions(
+    parsedSkillDraft.value.skillIds.filter((id) => id !== skillId),
+    textareaValue.value
+  )
+  focusAt(Math.min(cursorPosition.value, textareaValue.value.length))
 }
 
 function handleAttachmentPresetShortcut(event: KeyboardEvent) {
@@ -664,6 +719,13 @@ function handleDrop(event: DragEvent) {
           </InputGroupAddon>
 
           <div class="relative w-full min-w-0">
+            <ComposerSkillMentionList
+              v-if="selectedSkillMentions.length"
+              :skills="selectedSkillMentions"
+              :disabled="disabled && !running"
+              @remove="removeSkillMention"
+            />
+
             <InputGroupTextarea
               id="chat-composer"
               v-model="textareaValue"

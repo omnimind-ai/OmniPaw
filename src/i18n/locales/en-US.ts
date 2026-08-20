@@ -2005,6 +2005,8 @@ export default {
       attachmentPresetsAria: 'Attachment quick presets',
       clearReplyAria: 'Clear reply',
       addAttachmentAria: 'Add attachment',
+      skillMentionsAria: 'Referenced skills',
+      removeSkillMentionAria: 'Remove skill reference: {skill}',
       switchModelAria: 'Switch model: {model}',
       switchModel: 'Switch model',
       agentPermissionAria: 'Agent permission: {description}',

@@ -2,7 +2,9 @@ import assert from 'node:assert/strict'
 import {
   chatSlashItemMatches,
   findChatSlashQuery,
+  parseChatSkillMentions,
   replaceChatSlashQuery,
+  serializeChatSkillMentions,
 } from '../../src/components/chat/chat-slash-menu'
 
 const rootQuery = findChatSlashQuery('/ski', 4)
@@ -42,5 +44,22 @@ assert.deepEqual(replaceChatSlashQuery('请使用 /w 完成任务', replaceQuery
   value: '请使用 /writer 完成任务',
   cursorPosition: 12,
 })
+
+assert.deepEqual(
+  parseChatSkillMentions('/writer /frontend-design 撰写页面', ['writer', 'frontend-design']),
+  {
+    skillIds: ['writer', 'frontend-design'],
+    text: '撰写页面',
+  }
+)
+assert.deepEqual(parseChatSkillMentions('/unknown 保留原文', ['writer']), {
+  skillIds: [],
+  text: '/unknown 保留原文',
+})
+assert.equal(
+  serializeChatSkillMentions(['writer', 'writer', 'frontend-design'], '撰写页面'),
+  '/writer /frontend-design 撰写页面'
+)
+assert.equal(serializeChatSkillMentions(['writer'], ''), '/writer ')
 
 process.stdout.write('chat slash menu smoke passed\n')

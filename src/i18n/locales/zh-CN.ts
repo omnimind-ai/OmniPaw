@@ -1909,6 +1909,8 @@ export default {
       attachmentPresetsAria: '附件快捷预设',
       clearReplyAria: '取消引用',
       addAttachmentAria: '添加附件',
+      skillMentionsAria: '引用的技能',
+      removeSkillMentionAria: '移除技能引用：{skill}',
       switchModelAria: '切换模型：{model}',
       switchModel: '切换模型',
       agentPermissionAria: 'Agent 权限：{description}',
